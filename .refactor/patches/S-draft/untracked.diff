@@ -4655,7 +4655,7 @@ index 0000000..9354c55
 +}
 diff --git a/src/utils/hello-features.test.ts b/src/utils/hello-features.test.ts
 new file mode 100644
-index 0000000..7839b7a
+index 0000000..0675829
 --- /dev/null
 +++ b/src/utils/hello-features.test.ts
 @@ -0,0 +1,79 @@
@@ -4683,7 +4683,7 @@ index 0000000..7839b7a
 +
 +  it('keeps the roll flags a hello says in the stored order, whatever order it says them in', () => {
 +    const rolls = Object.fromEntries(
-+      [...HELLO_ROLL_FLAGS].reverse().map(flag => [flag, true]),
++      HELLO_ROLL_FLAGS.toReversed().map(flag => [flag, true]),
 +    )
 +    const { rollFeatures } = helloCampaignData({
 +      rolls: { enabled: true, kinds: [], reason: null, ...rolls },
@@ -4694,8 +4694,8 @@ index 0000000..7839b7a
 +  it('clears everything a hello from a module that says nothing of its features leaves out', () => {
 +    expect(
 +      JSON.stringify({
-+        ...helloCampaignData(undefined),
-+        ...helloCompanionData(undefined),
++        ...helloCampaignData(null),
++        ...helloCompanionData(null),
 +      }),
 +    ).toBe(
 +      JSON.stringify({

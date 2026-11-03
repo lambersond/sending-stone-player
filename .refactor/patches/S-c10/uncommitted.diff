@@ -78,13 +78,11 @@ index b69e9cb..96f6e38 100644
    }
  
 diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts
-index d2a47ea..d7e16fc 100644
+index d2a47ea..69d562d 100644
 --- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts
 +++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts
-@@ -1,10 +1,9 @@
--import { gmCompanionRollSeat } from '@/lib/routes/companion-routes'
-+import { getGmSeat } from '@/db/seats'
-+import { companionRollAt } from '@/lib/routes/companion-routes'
+@@ -1,10 +1,8 @@
+ import { gmCompanionRollSeat } from '@/lib/routes/companion-routes'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
  import { rollGetResponse } from '@/lib/routes/seat-routes'
 -import { getCurrentUser } from '@/lib/session'
@@ -95,7 +93,7 @@ index d2a47ea..d7e16fc 100644
  /**
   * Where a roll the Gamemaster sent as one of their campaign's characters' companions stands
   * (module 0.36.0): only their own as this companion from this character, never its player's, nor
-@@ -16,12 +15,10 @@ export async function GET(
+@@ -16,12 +14,10 @@ export async function GET(
    _request: NextRequest,
    context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]'>,
  ) {
@@ -109,19 +107,17 @@ index d2a47ea..d7e16fc 100644
 -  return rollGetResponse(seat, roll)
 +  return seatAnswer(
 +    context.params,
-+    async (userId, { id, actor, companion }) =>
-+      companionRollAt(await getGmSeat(userId, id, actor), companion),
++    (userId, { id, actor, companion }) =>
++      gmCompanionRollSeat(userId, id, actor, companion),
 +    (seat, { roll }) => rollGetResponse(seat, roll),
 +  )
  }
 diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts
-index bd39912..402fed9 100644
+index bd39912..c7997da 100644
 --- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts
 +++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts
-@@ -1,10 +1,9 @@
--import { gmCompanionSeat } from '@/lib/routes/companion-routes'
-+import { getGmSeat } from '@/db/seats'
-+import { companionAt } from '@/lib/routes/companion-routes'
+@@ -1,10 +1,8 @@
+ import { gmCompanionSeat } from '@/lib/routes/companion-routes'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
  import { rollPostResponse } from '@/lib/routes/seat-routes'
 -import { getCurrentUser } from '@/lib/session'
@@ -132,7 +128,7 @@ index bd39912..402fed9 100644
  /**
   * Have a roll the Gamemaster made here as one of their campaign's characters' companions made in
   * their game, as the companion, marked as theirs (module 0.36.0): only the campaign's owner, for a
-@@ -15,12 +14,10 @@ export async function POST(
+@@ -15,12 +13,10 @@ export async function POST(
    request: NextRequest,
    context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls'>,
  ) {
@@ -146,21 +142,20 @@ index bd39912..402fed9 100644
 -  return rollPostResponse(request, seat)
 +  return seatAnswer(
 +    context.params,
-+    async (userId, { id, actor, companion }) =>
-+      companionAt(await getGmSeat(userId, id, actor), companion),
++    (userId, { id, actor, companion }) =>
++      gmCompanionSeat(userId, id, actor, companion),
 +    seat => rollPostResponse(request, seat),
 +  )
  }
 diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts
-index ab85de1..22df4cd 100644
+index ab85de1..e1b5049 100644
 --- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts
 +++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts
-@@ -1,12 +1,11 @@
-+import { getGmSeat } from '@/db/seats'
+@@ -1,12 +1,10 @@
  import {
-+  companionAt,
-   companionTableResponse,
--  gmCompanionSeat,
+-  companionTableResponse,
+   gmCompanionSeat,
++  companionTableResponse,
  } from '@/lib/routes/companion-routes'
 -import { getCurrentUser } from '@/lib/session'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
@@ -171,7 +166,7 @@ index ab85de1..22df4cd 100644
  /**
   * The Gamemaster's view of one of their campaign's characters' companions (module 0.36.0), as its
   * character's player sees it, for their page to poll, with where their rolls go as `&gm=` too:
-@@ -17,12 +16,10 @@ export async function GET(
+@@ -17,12 +15,10 @@ export async function GET(
    request: NextRequest,
    context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/table'>,
  ) {
@@ -185,21 +180,20 @@ index ab85de1..22df4cd 100644
 -  return companionTableResponse(request, seat)
 +  return seatAnswer(
 +    context.params,
-+    async (userId, { id, actor, companion }) =>
-+      companionAt(await getGmSeat(userId, id, actor), companion),
++    (userId, { id, actor, companion }) =>
++      gmCompanionSeat(userId, id, actor, companion),
 +    seat => companionTableResponse(request, seat),
 +  )
  }
 diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts
-index bc1cfe7..b8828a6 100644
+index bc1cfe7..a07c65f 100644
 --- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts
 +++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts
-@@ -1,13 +1,12 @@
-+import { getGmSeat } from '@/db/seats'
+@@ -1,13 +1,11 @@
  import {
-+  companionAt,
-   companionTextResponse,
--  gmCompanionSeat,
+-  companionTextResponse,
+   gmCompanionSeat,
++  companionTextResponse,
  } from '@/lib/routes/companion-routes'
 -import { getCurrentUser } from '@/lib/session'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
@@ -211,7 +205,7 @@ index bc1cfe7..b8828a6 100644
  /**
   * A description on one of the Gamemaster's campaign's characters' companions' sheets (module
   * 0.36.0), as its character's player is served it: only that sheet's own descriptions.
-@@ -16,15 +15,12 @@ export async function GET(
+@@ -16,15 +14,12 @@ export async function GET(
    _request: NextRequest,
    context: RouteContext<'/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]'>,
  ) {
@@ -230,7 +224,7 @@ index bc1cfe7..b8828a6 100644
 +    context.params,
 +    async (userId, { id, actor, companion, hash }) =>
 +      TEXT_HASH.test(hash)
-+        ? companionAt(await getGmSeat(userId, id, actor), companion)
++        ? gmCompanionSeat(userId, id, actor, companion)
 +        : undefined,
 +    (seat, { hash }) => companionTextResponse(seat, hash),
 +  )
@@ -451,13 +445,11 @@ index 0a12daf..89113c8 100644
    )
  }
 diff --git a/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts b/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts
-index ab72e9d..bb96338 100644
+index ab72e9d..7f18cef 100644
 --- a/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts
 +++ b/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts
-@@ -1,10 +1,9 @@
--import { playerCompanionRollSeat } from '@/lib/routes/companion-routes'
-+import { getPlayerSeat } from '@/db/seats'
-+import { companionRollAt } from '@/lib/routes/companion-routes'
+@@ -1,10 +1,8 @@
+ import { playerCompanionRollSeat } from '@/lib/routes/companion-routes'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
  import { rollGetResponse } from '@/lib/routes/seat-routes'
 -import { getCurrentUser } from '@/lib/session'
@@ -468,7 +460,7 @@ index ab72e9d..bb96338 100644
  /**
   * Where a roll the player sent for their character's companion stands, and what the game made of
   * it (module 0.36.0): only its character's player, and only their own rolls for it from that
-@@ -16,12 +15,10 @@ export async function GET(
+@@ -16,12 +14,10 @@ export async function GET(
    _request: NextRequest,
    context: RouteContext<'/api/characters/[id]/companions/[companion]/rolls/[roll]'>,
  ) {
@@ -482,19 +474,17 @@ index ab72e9d..bb96338 100644
 -  return rollGetResponse(seat, roll)
 +  return seatAnswer(
 +    context.params,
-+    async (userId, { id, companion }) =>
-+      companionRollAt(await getPlayerSeat(userId, id), companion),
++    (userId, { id, companion }) =>
++      playerCompanionRollSeat(userId, id, companion),
 +    (seat, { roll }) => rollGetResponse(seat, roll),
 +  )
  }
 diff --git a/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts b/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts
-index ff8251b..848ebaf 100644
+index ff8251b..b8d3573 100644
 --- a/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts
 +++ b/src/app/api/characters/[id]/companions/[companion]/rolls/route.ts
-@@ -1,10 +1,9 @@
--import { playerCompanionSeat } from '@/lib/routes/companion-routes'
-+import { getPlayerSeat } from '@/db/seats'
-+import { companionAt } from '@/lib/routes/companion-routes'
+@@ -1,10 +1,8 @@
+ import { playerCompanionSeat } from '@/lib/routes/companion-routes'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
  import { rollPostResponse } from '@/lib/routes/seat-routes'
 -import { getCurrentUser } from '@/lib/session'
@@ -505,7 +495,7 @@ index ff8251b..848ebaf 100644
  /**
   * Have a roll the player made here for their character's companion made in the Gamemaster's game,
   * as the companion, with the same dice (module 0.36.0): only its character's player, while the
-@@ -15,12 +14,10 @@ export async function POST(
+@@ -15,12 +13,9 @@ export async function POST(
    request: NextRequest,
    context: RouteContext<'/api/characters/[id]/companions/[companion]/rolls'>,
  ) {
@@ -519,21 +509,19 @@ index ff8251b..848ebaf 100644
 -  return rollPostResponse(request, seat)
 +  return seatAnswer(
 +    context.params,
-+    async (userId, { id, companion }) =>
-+      companionAt(await getPlayerSeat(userId, id), companion),
++    (userId, { id, companion }) => playerCompanionSeat(userId, id, companion),
 +    seat => rollPostResponse(request, seat),
 +  )
  }
 diff --git a/src/app/api/characters/[id]/companions/[companion]/table/route.ts b/src/app/api/characters/[id]/companions/[companion]/table/route.ts
-index df3d69c..be00b82 100644
+index df3d69c..3f16b0c 100644
 --- a/src/app/api/characters/[id]/companions/[companion]/table/route.ts
 +++ b/src/app/api/characters/[id]/companions/[companion]/table/route.ts
-@@ -1,12 +1,11 @@
-+import { getPlayerSeat } from '@/db/seats'
+@@ -1,12 +1,10 @@
  import {
-+  companionAt,
-   companionTableResponse,
--  playerCompanionSeat,
+-  companionTableResponse,
+   playerCompanionSeat,
++  companionTableResponse,
  } from '@/lib/routes/companion-routes'
 -import { getCurrentUser } from '@/lib/session'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
@@ -544,7 +532,7 @@ index df3d69c..be00b82 100644
  /**
   * A character's companion's view of its campaign, for its pane to poll (module 0.36.0): only its
   * character's player, while the module lists it as that character's; 404 for anyone else, saying
-@@ -17,12 +16,10 @@ export async function GET(
+@@ -17,12 +15,9 @@ export async function GET(
    request: NextRequest,
    context: RouteContext<'/api/characters/[id]/companions/[companion]/table'>,
  ) {
@@ -558,21 +546,19 @@ index df3d69c..be00b82 100644
 -  return companionTableResponse(request, seat)
 +  return seatAnswer(
 +    context.params,
-+    async (userId, { id, companion }) =>
-+      companionAt(await getPlayerSeat(userId, id), companion),
++    (userId, { id, companion }) => playerCompanionSeat(userId, id, companion),
 +    seat => companionTableResponse(request, seat),
 +  )
  }
 diff --git a/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts b/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts
-index e9db014..33af2fb 100644
+index e9db014..ba8fd3e 100644
 --- a/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts
 +++ b/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts
-@@ -1,13 +1,12 @@
-+import { getPlayerSeat } from '@/db/seats'
+@@ -1,13 +1,11 @@
  import {
-+  companionAt,
-   companionTextResponse,
--  playerCompanionSeat,
+-  companionTextResponse,
+   playerCompanionSeat,
++  companionTextResponse,
  } from '@/lib/routes/companion-routes'
 -import { getCurrentUser } from '@/lib/session'
 +import { seatAnswer } from '@/lib/routes/seat-resolver'
@@ -584,7 +570,7 @@ index e9db014..33af2fb 100644
  /**
   * A description on a character's companion's sheet (module 0.36.0), for its character's player:
   * `{ html }`, already sanitised. Only the companion's own sheet's descriptions are served, while
-@@ -18,15 +17,12 @@ export async function GET(
+@@ -18,15 +16,12 @@ export async function GET(
    _request: NextRequest,
    context: RouteContext<'/api/characters/[id]/companions/[companion]/texts/[hash]'>,
  ) {
@@ -603,7 +589,7 @@ index e9db014..33af2fb 100644
 +    context.params,
 +    async (userId, { id, companion, hash }) =>
 +      TEXT_HASH.test(hash)
-+        ? companionAt(await getPlayerSeat(userId, id), companion)
++        ? playerCompanionSeat(userId, id, companion)
 +        : undefined,
 +    (seat, { hash }) => companionTextResponse(seat, hash),
 +  )
@@ -2930,7 +2916,7 @@ index d1a892a..91fea6a 100644
   * Refuse a request from the module, keeping the status, which alone decides whether it retries,
   * and saying why in JSON, CORS headers and all.
 diff --git a/src/lib/routes/companion-routes.ts b/src/lib/routes/companion-routes.ts
-index b4639ad..3b60282 100644
+index b4639ad..10788b7 100644
 --- a/src/lib/routes/companion-routes.ts
 +++ b/src/lib/routes/companion-routes.ts
 @@ -1,4 +1,3 @@
@@ -2938,13 +2924,14 @@ index b4639ad..3b60282 100644
  import {
    companionRollSeat,
    companionSeat,
-@@ -6,11 +5,12 @@ import {
+@@ -6,11 +5,13 @@ import {
    getCompanionText,
    getCompanionView,
  } from '@/db/companions'
 -import { notePlayersSeen, type RollSeat } from '@/db/roll-requests'
 -import { getGmSeat, playerSeat } from '@/db/seats'
 +import { notePlayersSeen } from '@/db/roll-requests'
++import { getGmSeat, getPlayerSeat } from '@/db/seats'
 +import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
  import { noting } from '@/lib/routes/seat-routes'
  import { TEXT_HASH } from '@/schemas/sending-stone'
@@ -2953,88 +2940,42 @@ index b4639ad..3b60282 100644
  import type { SheetSeat } from '@/types/character'
  import type { NextRequest } from 'next/server'
  
-@@ -23,70 +23,28 @@ import type { NextRequest } from 'next/server'
+@@ -23,8 +24,6 @@ import type { NextRequest } from 'next/server'
  // or not it's listed now, of the seat's own rolls for it alone, so that one sent a moment before
  // the module stopped listing it is still followed to what the game made of it.
  
 -const headers = { 'Cache-Control': 'no-store' }
 -
--/**
-- * The seat at a character's companion, for the character's player: their own Character, then the
-- * companion, while it's that character's.
-- * @returns Undefined for a character that isn't the user's, or a companion that isn't its.
-- */
--export async function playerCompanionSeat(
--  userId: string,
--  characterId: string,
--  key: string,
--): Promise<SheetSeat | undefined> {
+ /**
+  * The seat at a character's companion, for the character's player: their own Character, then the
+  * companion, while it's that character's.
+@@ -35,10 +34,8 @@ export async function playerCompanionSeat(
+   characterId: string,
+   key: string,
+ ): Promise<SheetSeat | undefined> {
 -  const character = await getCharacter(userId, characterId)
 -  return character
 -    ? companionSeat(playerSeat(character, userId), key)
 -    : undefined
--}
--
- /**
-- * The seat at a character's companion, for the campaign's Gamemaster: the campaign's owner at one
-- * of its characters, then the companion, while it's that character's.
-- * @returns Undefined for anyone else, a character not in the roster, or a companion not its.
-+ * The seat at a character's companion, from the character's seat: its player's, or the campaign's
-+ * Gamemaster's; then the companion, while it's that character's.
-+ * @returns Undefined for no seat at the character, or a companion that isn't its.
-  */
--export async function gmCompanionSeat(
--  userId: string,
--  campaignId: string,
--  actorId: string,
-+export async function companionAt(
-+  seat: SheetSeat | undefined,
-   key: string,
- ): Promise<SheetSeat | undefined> {
--  const seat = await getGmSeat(userId, campaignId, actorId)
-   return seat ? companionSeat(seat, key) : undefined
++  const seat = await getPlayerSeat(userId, characterId)
++  return seat ? companionSeat(seat, key) : undefined
  }
  
  /**
-- * The seat the character's player asks after a roll they sent for its companion from: their own
-- * Character, then the companion's key, listed now or not; only their own rolls for it from that
-+ * The seat a roll sent for a character's companion is asked after from: the character's seat,
-+ * then the companion's key, listed now or not; only the seat's own rolls for it from that
-  * character are served at it.
-- * @returns Undefined for a character that isn't the user's, or a key that can't be a companion's.
-+ * @returns Undefined for no seat at the character, or a key that can't be a companion's.
-  */
--export async function playerCompanionRollSeat(
--  userId: string,
--  characterId: string,
-+export async function companionRollAt(
-+  seat: SheetSeat | undefined,
+@@ -67,10 +64,8 @@ export async function playerCompanionRollSeat(
+   characterId: string,
    key: string,
  ): Promise<RollSeat | undefined> {
 -  const character = await getCharacter(userId, characterId)
 -  return character
 -    ? companionRollSeat(playerSeat(character, userId), key)
 -    : undefined
--}
--
--/**
-- * The seat the campaign's Gamemaster asks after a roll they sent as one of its characters'
-- * companions from: the campaign's owner at the character, then the companion's key, listed now or
-- * not; only their own rolls as it from that character are served at it.
-- * @returns Undefined for anyone else, a character not in the roster, or a key that can't be a
-- * companion's.
-- */
--export async function gmCompanionRollSeat(
--  userId: string,
--  campaignId: string,
--  actorId: string,
--  key: string,
--): Promise<RollSeat | undefined> {
--  const seat = await getGmSeat(userId, campaignId, actorId)
-   return seat ? companionRollSeat(seat, key) : undefined
++  const seat = await getPlayerSeat(userId, characterId)
++  return seat ? companionRollSeat(seat, key) : undefined
  }
  
-@@ -116,20 +74,16 @@ export async function companionTableResponse(
+ /**
+@@ -116,20 +111,16 @@ export async function companionTableResponse(
    if (known.has('version')) {
      const { version, live, rollsToTable, rollFeatures, gm, gmRollsKey, typed } =
        await getCompanionStatus(seat)
@@ -3062,7 +3003,7 @@ index b4639ad..3b60282 100644
    })
  }
  
-@@ -142,14 +96,7 @@ export async function companionTextResponse(
+@@ -142,14 +133,7 @@ export async function companionTextResponse(
    seat: SheetSeat,
    hash: string,
  ): Promise<Response> {
@@ -3080,7 +3021,7 @@ index b4639ad..3b60282 100644
    )
  }
 diff --git a/src/lib/routes/cookbook-routes.ts b/src/lib/routes/cookbook-routes.ts
-index 7fc9c27..762ae15 100644
+index 7fc9c27..7595b53 100644
 --- a/src/lib/routes/cookbook-routes.ts
 +++ b/src/lib/routes/cookbook-routes.ts
 @@ -13,7 +13,9 @@ import {
@@ -3128,7 +3069,7 @@ index 7fc9c27..762ae15 100644
  }
  
  /**
-@@ -152,22 +158,14 @@ export async function dishPostResponse(request: Request): Promise<Response> {
+@@ -152,22 +158,17 @@ export async function dishPostResponse(request: Request): Promise<Response> {
      return cookbookRefusal(401, MOVED)
    }
  
@@ -3147,19 +3088,21 @@ index 7fc9c27..762ae15 100644
 -    body = JSON.parse(text, cleanText)
 -  } catch {
 -    return cookbookRefusal(400, NOT_READ)
--  }
 +  const read = await readBody(request, {
 +    limit: MAX_DISH_BYTES,
 +    type: 'lower',
 +    declared: true,
 +    reviver: cleanText,
 +  })
-+  if (!read.ok) return cookbookRefusal(...DISH_REFUSED[read.why])
++  if (!read.ok) {
++    const [status, refusal] = DISH_REFUSED[read.why]
++    return cookbookRefusal(status, refusal)
+   }
 +  const body = read.value
    const version = (body as { version?: unknown } | null)?.version
    if (
      typeof version === 'number' &&
-@@ -225,10 +223,6 @@ function cleanText(key: string, value: unknown): unknown {
+@@ -225,10 +226,6 @@ function cleanText(key: string, value: unknown): unknown {
      : value
  }
  
@@ -3170,7 +3113,7 @@ index 7fc9c27..762ae15 100644
  /**
   * A player's Magical Recipe Book card, for their page to poll. Pass its version as last seen, as
   * `?version=9f2c41d0aa1e`, to get 204 No Content while nothing has changed. Only for a character
-@@ -247,6 +241,6 @@ export async function cookbookViewResponse(
+@@ -247,6 +244,6 @@ export async function cookbookViewResponse(
      .update(JSON.stringify(view))
      .digest('hex')
      .slice(0, 12)
