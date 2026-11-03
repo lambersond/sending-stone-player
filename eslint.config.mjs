@@ -280,6 +280,13 @@ export default [
       ],
     },
   },
+  // The node test kit is held unchanged through the v0.43 refactor, its one unicorn/no-null
+  // line directive included, so the rule stays on for that file alone (else the directive
+  // would be reported as unused):
+  {
+    files: ['src/utils/test-utils-node.ts'],
+    rules: { 'unicorn/no-null': 'error' },
+  },
   globalIgnores([
     // Default ignores of eslint-config-next:
     '.next/**',
