@@ -1,0 +1,232 @@
+
+## src/components/character-sheet/d20-rolls.tsx
+  prod src/components/character-sheet/action-entry.tsx: useD20Rolls,type RollActions
+  prod src/components/character-sheet/character-sheet.tsx: useD20Rolls,type RollActions
+  prod src/components/character-sheet/favorites.tsx: RollActions
+  prod src/components/character-sheet/prompt-banner.tsx: useD20Rolls,type RollActions
+  prod src/components/character-sheet/sheet-tiles.tsx: RollActions
+  prod src/components/companions/creature-header.tsx: RollActions
+
+## src/components/character-sheet/damage-menu.tsx
+  prod src/components/character-sheet/action-entry.tsx: useDamageMenu
+  prod src/components/character-sheet/description-link.tsx: formulaOf,useDamageMenu,type DamageChoice,type DamageSubject
+
+## src/components/character-sheet/modify-roll.tsx
+  prod src/components/character-sheet/description-link.tsx: ModifyRoll
+
+## src/components/character-sheet/roll-button.tsx
+  prod src/components/character-sheet/action-entry.tsx: RollButton
+  prod src/components/character-sheet/character-sheet.tsx: RollButton
+  prod src/components/character-sheet/description-link.tsx: RollButton,type RollTarget
+  prod src/components/character-sheet/favorites.tsx: RollButton
+  prod src/components/character-sheet/hit-dice.tsx: RollButton
+  prod src/components/character-sheet/press-menu.ts: LONG_PRESS,pointWithin
+  prod src/components/character-sheet/prompt-banner.tsx: RollButton,type RollTarget
+  prod src/components/character-sheet/sheet-tiles.tsx: RollButton
+  test src/components/character-sheet/actions-tab.test.tsx: LONG_PRESS
+  test src/components/character-sheet/description-link.test.tsx: LONG_PRESS
+  test src/components/character-sheet/features-tab.test.tsx: LONG_PRESS
+  test src/components/character-sheet/hit-dice.test.tsx: LONG_PRESS
+  test src/components/character-sheet/item-menu.test.tsx: LONG_PRESS
+  test src/components/character-sheet/press-menu.test.tsx: LONG_PRESS
+
+## src/components/character-sheet/roll-menu.tsx
+  prod src/components/character-sheet/action-entry.tsx: MenuPoint,RollChoice
+  prod src/components/character-sheet/concentration.tsx: ChoiceMenu
+  prod src/components/character-sheet/description-link.tsx: choiceItem,ChoiceMenu,D20_CHOICES,type MenuItem,type MenuPoint,type RollChoice
+  prod src/components/character-sheet/hit-dice-menu.tsx: placing,pointOn,type MenuPoint
+  prod src/components/character-sheet/hit-dice.tsx: MenuPoint
+  prod src/components/character-sheet/item-menu.tsx: ChoiceMenu,type MenuItem,type MenuPoint
+  prod src/components/character-sheet/press-menu.ts: MenuPoint
+  prod src/components/character-sheet/sheet-entry.tsx: MenuPoint
+  prod src/components/character-sheet/uses-menu.tsx: placing
+  test src/components/character-sheet/press-menu.test.tsx: MenuPoint
+
+## src/components/character-sheet/roll-toasts.tsx
+  prod src/components/character-sheet/character-pane.tsx: RollToasts
+  test src/components/character-sheet/needs-player.test.tsx: RollToasts
+  test src/components/character-sheet/seat-words.test.tsx: RollToasts
+
+## src/components/character-sheet/roll-tray.tsx
+  prod src/components/character-sheet/action-entry.tsx: REASONS
+  prod src/components/character-sheet/character-pane.tsx: reasons,RollTray,type TableRolls
+  prod src/components/character-sheet/index.ts: re:RollTray
+  prod src/components/character-sheet/use-picker.tsx: listed
+  prod src/components/character-sheet/wild-shape.tsx: reasons
+  prod src/components/game-table/turn-toast.tsx: reasons
+  prod src/components/transfers/move-status.tsx: reasons
+  test src/components/character-sheet/charges.test.tsx: briefOf,RollTray,type TableRolls
+  test src/components/character-sheet/needs-player.test.tsx: RollTray
+  test src/components/character-sheet/seat-words.test.tsx: briefOf,reasons,REASONS,RollTray,type TableRolls
+
+## src/components/character-sheet/rolls-button.tsx
+  prod src/components/character-sheet/character-pane.tsx: RollsButton
+  test src/components/companions/companion-pane.test.tsx: jest.mock
+
+## src/components/dice-entry/dice-entry-dialog.tsx
+  test src/components/character-sheet/character-pane.test.tsx: jest.mock
+
+## src/components/dice-entry/index.ts
+  prod src/components/character-sheet/character-pane.tsx: useDiceEntry
+
+## src/hooks/use-hold.ts
+  prod src/components/game-table/game-table.tsx: useHold
+
+## src/hooks/use-roll-toasts.ts
+  prod src/components/character-sheet/character-pane.tsx: useToastSetting
+  prod src/components/game-table/turn-toast.tsx: useToastTop
+
+## src/hooks/use-rolls-locked.ts
+  prod src/components/character-sheet/action-entry.tsx: useRollsLocked
+  prod src/components/character-sheet/character-pane.tsx: RollsLocked
+  prod src/components/character-sheet/description-link.tsx: useRollsLocked
+  prod src/components/character-sheet/recharge-chip.tsx: useRollsLocked
+  test src/components/character-sheet/action-entry.test.tsx: RollsLocked
+  test src/components/character-sheet/description-link.test.tsx: RollsLocked
+  test src/components/character-sheet/recharge-chip.test.tsx: RollsLocked
+
+## src/hooks/use-sheet-roller.ts
+  prod src/components/character-sheet/action-entry.tsx: SheetDamageRoll,SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/actions-tab.tsx: SheetDamageRoll,SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/character-pane.tsx: useSheetRoller,type LocalFormula,type SheetDamageRoll,type SheetFormulaRoll,type SheetRoll,type TypedRolls
+  prod src/components/character-sheet/character-sheet.tsx: SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/description-actions.tsx: SheetDamageRoll,SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/favorites.tsx: SheetDamageRoll,SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/features-tab.tsx: SheetDamageRoll,SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/hit-dice.tsx: SheetFormulaRoll
+  prod src/components/character-sheet/inventory-tab.tsx: SheetDamageRoll,SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/prompt-banner.tsx: SheetRoll
+  prod src/components/character-sheet/recharge-chip.tsx: SheetFormulaRoll
+  prod src/components/character-sheet/spells-tab.tsx: SheetDamageRoll,SheetFormulaRoll,SheetRoll
+  prod src/components/character-sheet/use-picker.tsx: SheetRoll
+  prod src/components/transfers/distribute-dialog.tsx: LocalMove
+  prod src/components/transfers/give-controls.tsx: LocalMove,LocalUse
+  prod src/components/transfers/move-dialog.tsx: LocalMove
+  prod src/components/transfers/move-status.tsx: LocalMove
+  prod src/components/transfers/party-controls.tsx: LocalMove
+  prod src/components/transfers/remove-controls.tsx: LocalMove,LocalUse
+  prod src/components/transfers/remove-dialog.tsx: LocalMove
+  prod src/components/transfers/take-controls.tsx: LocalMove
+  prod src/hooks/use-spent-offers.ts: LocalRoll
+  prod src/hooks/use-transfers.ts: LocalMove
+  test src/components/character-sheet/charges.test.tsx: LocalGmRoll,LocalUse
+  test src/components/character-sheet/needs-player.test.tsx: LocalCheck,LocalDamage,LocalRoll,LocalUse
+  test src/components/character-sheet/seat-words.test.tsx: LocalCheck
+  test src/components/transfers/move-status.test.tsx: LocalMove
+  test src/components/transfers/remove-controls.test.tsx: LocalMove,LocalUse
+  test src/hooks/use-spent-offers.test.tsx: LocalCheck,LocalRoll
+  test src/hooks/use-transfers.test.tsx: LocalMove
+
+## src/hooks/use-table-rolls.ts
+  prod src/components/character-sheet/action-entry.tsx: choicesOf,damageRollOf,type DueDamage
+  prod src/components/character-sheet/character-pane.tsx: choicesOf,damageRollOf,needsPlayer,SETTLED,useGmRolls,useTableRolls,withGmRolls,type DueDamage,type TableRollState
+  prod src/components/character-sheet/effect-controls.tsx: TableRollState
+  prod src/components/character-sheet/enchantments.tsx: AttackSource,TableRollState
+  prod src/components/character-sheet/favoriting.tsx: TableRollState
+  prod src/components/character-sheet/preparing.tsx: TableRollState
+  prod src/components/character-sheet/wild-shape.tsx: WildShapeForms,TableRollState
+  prod src/components/game-table/end-turn-button.tsx: TableRollState
+  prod src/components/game-table/turn-toast.tsx: TableRollState
+  prod src/components/transfers/give-controls.tsx: useTableRolls
+  prod src/components/transfers/move-status.tsx: TableRollState
+  prod src/components/transfers/remove-controls.tsx: useTableRolls
+  prod src/hooks/use-end-turn.ts: follow,GM_SEND_KEY,SEND_CHOICES,SEND_KEY,type TableRollState
+  prod src/hooks/use-spent-offers.ts: TableRollState
+  prod src/hooks/use-transfers.ts: follow,labelled,SETTLED,type TableRollState
+  prod src/hooks/use-turn-undo.ts: follow,GM_SEND_KEY,SEND_CHOICES,SEND_KEY,type TableRollState
+  prod src/utils/end-turn.ts: TableRollState
+  test src/components/character-sheet/action-entry.alone.test.tsx: ALONE_KEY
+  test src/components/character-sheet/character-pane.test.tsx: ALONE_KEY,SEND_KEY
+  test src/components/character-sheet/charges.test.tsx: SEND_KEY,type TableRollState
+  test src/components/character-sheet/effect-controls.test.tsx: TableRollState
+  test src/components/character-sheet/favoriting.test.tsx: TableRollState
+  test src/components/character-sheet/needs-player.test.tsx: damageDue,needsPlayer,type TableRollState,jest.mock,jest.requireActual
+  test src/components/character-sheet/preparing.test.tsx: TableRollState
+  test src/components/character-sheet/seat-words.test.tsx: TableRollState
+  test src/components/character-sheet/spells-tab.test.tsx: TableRollState
+  test src/components/character-sheet/wild-shape.test.tsx: TableRollState,WildShapeForms
+  test src/components/game-table/combat-tracker.test.tsx: TableRollState
+  test src/components/game-table/end-turn-button.test.tsx: TableRollState
+  test src/components/game-table/turn-toast.test.tsx: TableRollState
+  test src/components/transfers/give-controls.test.tsx: CHECK_EVERY
+  test src/components/transfers/move-status.test.tsx: TableRollState
+  test src/components/transfers/party-controls.test.tsx: CHECK_EVERY
+  test src/components/transfers/remove-controls.test.tsx: TableRollState
+  test src/components/transfers/take-controls.test.tsx: CHECK_EVERY
+  test src/hooks/use-end-turn.test.tsx: CHECK_EVERY,GM_SEND_KEY,SEND_KEY
+  test src/hooks/use-spent-offers.test.tsx: TableRollState
+  test src/hooks/use-transfers.test.tsx: CHECK_EVERY
+  test src/hooks/use-turn-undo.test.tsx: CHECK_EVERY,GM_SEND_KEY,SEND_KEY,type TableRollState
+
+## src/utils/damage-alone.ts
+  prod src/components/character-sheet/action-entry.tsx: alonePicks,alonePlan,aloneRollOf,aloneSelection,type AloneChoice,type AloneRow
+  prod src/components/character-sheet/use-picker.tsx: aloneSelection,type AloneChoice,type AloneSelection
+
+## src/utils/damage-modifiers.ts
+  prod src/components/character-sheet/action-entry.tsx: changes,damageChanges,diceTakenAway,unmaximizable,type DamageModifiers
+  prod src/components/character-sheet/actions-tab.tsx: DamageModifiers
+  prod src/components/character-sheet/character-pane.tsx: DamageModifiers
+  prod src/components/character-sheet/description-link.tsx: changes,criticalOffered,criticalParts,damageChanges,EVERY_DIE_TWICE,sameFirstDie,withModifiers,type CriticalAdds
+  prod src/components/character-sheet/favorites.tsx: DamageModifiers
+  prod src/components/character-sheet/features-tab.tsx: DamageModifiers
+  prod src/components/character-sheet/inventory-tab.tsx: DamageModifiers
+  prod src/components/character-sheet/spells-tab.tsx: DamageModifiers
+  prod src/components/character-sheet/use-picker.tsx: DamageModifiers
+  prod src/db/roll-requests.ts: changes
+  prod src/schemas/roll-request.ts: DIE_SIZES,MOST_DICE
+  prod src/types/roll.ts: DamageModifiers
+  prod src/utils/roll-requests.ts: changes,criticalOffered,diceTakenAway,linkDamage,modifiedDice,unmaximizable
+
+## src/utils/effect-dice.ts
+  prod src/components/character-sheet/character-pane.tsx: effectDiceFor,offersFor
+  prod src/hooks/use-spent-offers.ts: OfferSpend
+
+## src/utils/formulas.ts
+  prod src/components/character-sheet/action-entry.tsx: formulaTerms
+  prod src/components/character-sheet/character-sheet.tsx: hitDicePools
+  prod src/components/character-sheet/description-link.tsx: formulaTerms
+  prod src/components/character-sheet/favorites.tsx: spendable
+  prod src/components/character-sheet/hit-dice-menu.tsx: HitDiceCount,HitDicePool
+  prod src/components/character-sheet/hit-dice.tsx: atFullHitPoints,hitDiceFormula,hitDicePools,hitDiceRoll,hitDieRoll,type HitDiceCount,type HitDicePool
+  prod src/utils/description-links.ts: formulaTerms
+  prod src/utils/roll-requests.ts: formulaDice
+  test src/components/character-sheet/hit-dice.test.tsx: HitDicePool
+
+## src/utils/move-words.ts
+  prod src/components/transfers/distribute-dialog.tsx: namesWords,thingsWords
+  prod src/components/transfers/move-dialog.tsx: thingsWords
+  prod src/components/transfers/move-status.tsx: moveWords
+  prod src/components/transfers/remove-dialog.tsx: thingsWords
+  prod src/hooks/use-transfers.ts: moveLabel
+
+## src/utils/roll-mode.ts
+  prod src/components/character-sheet/description-link.tsx: toAdvantage
+
+## src/utils/roll-modifiers.ts
+  prod src/components/character-sheet/description-link.tsx: ExtraTerm
+  prod src/schemas/roll-request.ts: MAX_DICE,MAX_FLAT,type ExtraTerm
+  prod src/schemas/sending-stone.ts: MAX_DICE
+  prod src/types/roll.ts: ExtraTerm
+  prod src/utils/roll-requests.ts: ExtraDice
+
+## src/utils/roll-toasts.ts
+  test src/components/character-sheet/action-entry.alone.test.tsx: TOASTS_KEY
+  test src/components/character-sheet/character-pane.creature.test.tsx: TOASTS_KEY
+  test src/components/character-sheet/character-pane.notes.test.tsx: TOASTS_KEY
+  test src/components/character-sheet/character-pane.test.tsx: TOASTS_KEY
+  test src/components/character-sheet/charges.test.tsx: TOASTS_KEY
+  test src/components/character-sheet/enchantments.test.tsx: TOASTS_KEY
+  test src/components/character-sheet/recharge-chip.test.tsx: TOASTS_KEY
+  test src/components/companions/companion-pane.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.companions.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.cookbook.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.endturn.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.favorites.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.manual-dice.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.notes.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.removals.test.tsx: TOASTS_KEY
+  test src/components/game-table/game-table.test.tsx: TOASTS_KEY
+  test src/components/transfers/give-controls.test.tsx: TOASTS_KEY
+
+## src/utils/typed-dice.ts
+  test src/components/character-sheet/character-pane.test.tsx: ELVEN_LINE
