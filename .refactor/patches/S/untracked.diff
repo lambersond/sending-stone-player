@@ -1,9 +1,31 @@
+diff --git a/src/constants/features.ts b/src/constants/features.ts
+new file mode 100644
+index 0000000..bcb3a36
+--- /dev/null
++++ b/src/constants/features.ts
+@@ -0,0 +1,16 @@
++/**
++ * The campaign's switches the module's fetches are answered by, in the order they're read: its
++ * players' rolls; from module 0.31.0 moves of items and coins; 0.33.0 removals; 0.34.0 journal
++ * notes; 0.37.0 favorites; 0.38.0 dishes from the Magical Recipe Book; 0.39.0 effects changed; and
++ * 0.40.0 Wild Shape. While any is on, the module's fetches are taken.
++ */
++export const BRIDGE_SWITCHES = [
++  'rollsEnabled',
++  'transfersEnabled',
++  'removalsEnabled',
++  'notesEnabled',
++  'favoritesEnabled',
++  'dishesEnabled',
++  'effectsEnabled',
++  'wildShapeEnabled',
++] as const
 diff --git a/src/db/commands.ts b/src/db/commands.ts
 new file mode 100644
-index 0000000..355d4bf
+index 0000000..fbfa8e4
 --- /dev/null
 +++ b/src/db/commands.ts
-@@ -0,0 +1,217 @@
+@@ -0,0 +1,233 @@
 +import prisma from '@/clients/prisma'
 +import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
 +import {
@@ -84,7 +106,10 @@ index 0000000..355d4bf
 +}
 +
 +/** Whether a character is in the campaign's roster, as its module last listed it. */
-+export function inRoster(characters: Prisma.JsonValue, actorId: string): boolean {
++export function inRoster(
++  characters: Prisma.JsonValue,
++  actorId: string,
++): boolean {
 +  const roster = Array.isArray(characters)
 +    ? (characters as unknown as { id: string }[])
 +    : []
@@ -95,9 +120,7 @@ index 0000000..355d4bf
 + * What the module is sent of a command: what it's called is the app's alone, as for a roll; and
 + * nothing is typed in for one, so nothing says so, nor that its rerolls were kept (module 0.42.0).
 + */
-+export function commandPayload(
-+  input: RollRequestInput,
-+): Prisma.InputJsonValue {
++export function commandPayload(input: RollRequestInput): Prisma.InputJsonValue {
 +  const command = { ...input }
 +  delete command.label
 +  delete command.typed
@@ -221,6 +244,29 @@ index 0000000..355d4bf
 +    now,
 +  )
 +}
++
++/**
++ * Whether it's time to note something again that this server notes at most once every so often,
++ * by a key, such as a campaign's; and if it is, that it's noted now. Each server keeps its own.
++ */
++export function due(
++  noted: Map<string, number>,
++  key: string,
++  every: number,
++  now: number,
++): boolean {
++  if (now - (noted.get(key) ?? 0) < every) return false
++  noted.set(key, now)
++  return true
++}
+diff --git a/src/db/constants.ts b/src/db/constants.ts
+new file mode 100644
+index 0000000..13ba25f
+--- /dev/null
++++ b/src/db/constants.ts
+@@ -0,0 +1,2 @@
++/** A Foundry document's id as the module sends it, such as an actor's or a group's. */
++export const FOUNDRY_ID = /^[\dA-Za-z]{1,64}$/
 diff --git a/src/utils/features.ts b/src/utils/features.ts
 new file mode 100644
 index 0000000..9354c55

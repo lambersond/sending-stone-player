@@ -1,3 +1,106 @@
+diff --git a/src/app/campaigns/[id]/characters/[actor]/page.tsx b/src/app/campaigns/[id]/characters/[actor]/page.tsx
+index ba6bcd0..25d696e 100644
+--- a/src/app/campaigns/[id]/characters/[actor]/page.tsx
++++ b/src/app/campaigns/[id]/characters/[actor]/page.tsx
+@@ -4,22 +4,23 @@ import { getGmSeat } from '@/db/seats'
+ import { getTableView } from '@/db/table'
+ import { GameTable } from '@/features/table/components/game-table/game-table'
+ import { requireUser } from '@/lib/session'
++import { gmCharacterApi, gmCharacterPath } from '@/utils/seat-urls'
+ import type { Metadata } from 'next'
+ 
+-type Props = PageProps<'/campaigns/[id]/characters/[actor]'>
+-
+ /**
+  * The Gamemaster's seat at one of their campaign's characters' sheets (#156), once per request:
+  * only the campaign's owner, and only for a character in its roster. Signed out, to the login
+  * page and back here.
+  */
+ const findSeat = cache(async (campaignId: string, actorId: string) => {
+-  const path = `/campaigns/${encodeURIComponent(campaignId)}/characters/${encodeURIComponent(actorId)}`
++  const path = gmCharacterPath(campaignId, actorId)
+   const user = await requireUser(path)
+   return getGmSeat(user.id, campaignId, actorId)
+ })
+ 
+-export async function generateMetadata({ params }: Props): Promise<Metadata> {
++export async function generateMetadata({
++  params,
++}: PageProps<'/campaigns/[id]/characters/[actor]'>): Promise<Metadata> {
+   const { id, actor } = await params
+   const seat = await findSeat(id, actor)
+   return { title: seat?.name ?? 'Character' }
+@@ -31,7 +32,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  * campaign of another's, or a character not in its roster is told only that the sheet isn't open
+  * here.
+  */
+-export default async function GmCharacterPage({ params }: Props) {
++export default async function GmCharacterPage({
++  params,
++}: PageProps<'/campaigns/[id]/characters/[actor]'>) {
+   const { id, actor } = await params
+   const seat = await findSeat(id, actor)
+   if (!seat) notFound()
+@@ -50,7 +53,7 @@ export default async function GmCharacterPage({ params }: Props) {
+       }}
+       seat={{
+         role: 'gm',
+-        api: `/api/campaigns/${encodeURIComponent(id)}/characters/${encodeURIComponent(actor)}`,
++        api: gmCharacterApi(id, actor),
+         key,
+       }}
+       initialView={view}
+diff --git a/src/app/campaigns/[id]/party/[group]/page.tsx b/src/app/campaigns/[id]/party/[group]/page.tsx
+index 97ced42..98bde36 100644
+--- a/src/app/campaigns/[id]/party/[group]/page.tsx
++++ b/src/app/campaigns/[id]/party/[group]/page.tsx
+@@ -3,22 +3,23 @@ import { notFound } from 'next/navigation'
+ import { getGroupView } from '@/db/party'
+ import { PartyPage } from '@/features/party/components/party-page/party-page'
+ import { requireUser } from '@/lib/session'
++import { gmPartyApi, gmPartyPath } from '@/utils/seat-urls'
+ import type { Metadata } from 'next'
+ 
+-type Props = PageProps<'/campaigns/[id]/party/[group]'>
+-
+ /**
+  * A party sheet of the Gamemaster's campaign, once per request: only the campaign's owner, whoever
+  * may see it in Foundry. Signed out, to the login page and back here.
+  */
+ const findParty = cache(async (campaignId: string, groupId: string) => {
+-  const path = `/campaigns/${encodeURIComponent(campaignId)}/party/${encodeURIComponent(groupId)}`
++  const path = gmPartyPath(campaignId, groupId)
+   const user = await requireUser(path)
+   // Only the campaign's owner is let see it, which the view checks.
+   return getGroupView({ role: 'gm', campaignId, userId: user.id }, groupId)
+ })
+ 
+-export async function generateMetadata({ params }: Props): Promise<Metadata> {
++export async function generateMetadata({
++  params,
++}: PageProps<'/campaigns/[id]/party/[group]'>): Promise<Metadata> {
+   const { id, group } = await params
+   const view = await findParty(id, group)
+   return { title: view?.group.name ?? 'Party' }
+@@ -29,14 +30,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  * where none may see it in Foundry, saying so. Anyone else, a campaign of another's, or a group no
+  * longer in it is told only that it isn't open here.
+  */
+-export default async function GmPartyPage({ params }: Props) {
++export default async function GmPartyPage({
++  params,
++}: PageProps<'/campaigns/[id]/party/[group]'>) {
+   const { id, group } = await params
+   const view = await findParty(id, group)
+   if (!view) notFound()
+ 
+   return (
+     <PartyPage
+-      api={`/api/campaigns/${encodeURIComponent(id)}/party/${encodeURIComponent(group)}`}
++      api={gmPartyApi(id, group)}
+       role='gm'
+       initialView={view}
+       // Back to its campaign, chosen on the campaigns page (round 0.39.0).
 diff --git a/src/app/campaigns/page.tsx b/src/app/campaigns/page.tsx
 index e284186..a436fdd 100644
 --- a/src/app/campaigns/page.tsx
@@ -49,18 +152,57 @@ index e284186..a436fdd 100644
  
    // Every campaign's page, drawn here, for the index to show the one chosen by its id, which it
    // keys it by.
+diff --git a/src/app/characters/[id]/page.tsx b/src/app/characters/[id]/page.tsx
+index d2f6b2d..6b5e4e2 100644
+--- a/src/app/characters/[id]/page.tsx
++++ b/src/app/characters/[id]/page.tsx
+@@ -16,20 +16,22 @@ import { GameTable } from '@/features/table/components/game-table/game-table'
+ import { requireUser } from '@/lib/session'
+ import type { Metadata } from 'next'
+ 
+-type Props = PageProps<'/characters/[id]'>
+-
+ const findCharacter = cache(async (characterId: string) => {
+   const user = await requireUser()
+   return getCharacter(user.id, characterId)
+ })
+ 
+-export async function generateMetadata({ params }: Props): Promise<Metadata> {
++export async function generateMetadata({
++  params,
++}: PageProps<'/characters/[id]'>): Promise<Metadata> {
+   const { id } = await params
+   const character = await findCharacter(id)
+   return { title: character?.name ?? 'Character' }
+ }
+ 
+-export default async function CharacterPage({ params }: Props) {
++export default async function CharacterPage({
++  params,
++}: PageProps<'/characters/[id]'>) {
+   const { id } = await params
+   const character = await findCharacter(id)
+   if (!character) notFound()
 diff --git a/src/app/characters/[id]/party/[group]/page.tsx b/src/app/characters/[id]/party/[group]/page.tsx
-index 00d14ca..ce5104a 100644
+index 00d14ca..6ab6c94 100644
 --- a/src/app/characters/[id]/party/[group]/page.tsx
 +++ b/src/app/characters/[id]/party/[group]/page.tsx
-@@ -1,5 +1,6 @@
+@@ -1,23 +1,20 @@
  import { cache } from 'react'
  import { notFound } from 'next/navigation'
 +import { NO_DICE } from '@/constants/roll-kinds'
  import { getCharacter } from '@/db/characters'
  import { getGroupView, partySeat } from '@/db/party'
  import { playerSeat } from '@/db/seats'
-@@ -14,10 +15,7 @@ type Props = PageProps<'/characters/[id]/party/[group]'>
+ import { shapedRefusal } from '@/db/wild-shape'
+ import { PartyPage } from '@/features/party/components/party-page/party-page'
+ import { requireUser } from '@/lib/session'
++import { characterPath, partyApi, partyPath } from '@/utils/seat-urls'
+ import type { RollRequestInput } from '@/types/roll'
+ import type { Metadata } from 'next'
+ 
+-type Props = PageProps<'/characters/[id]/party/[group]'>
+-
  /** A Take from the group into the character, as the move would be sent: no dice, its two ends. */
  const takeFrom = (groupId: string, actorId: string): RollRequestInput => ({
    kind: 'transfer',
@@ -72,6 +214,48 @@ index 00d14ca..ce5104a 100644
    transfer: { from: groupId, to: actorId },
  })
  
+@@ -28,7 +25,7 @@ const takeFrom = (groupId: string, actorId: string): RollRequestInput => ({
+  * 0.40.0, as the move itself would be asked, by its sheet as last sent.
+  */
+ const findParty = cache(async (characterId: string, groupId: string) => {
+-  const path = `/characters/${encodeURIComponent(characterId)}/party/${encodeURIComponent(groupId)}`
++  const path = partyPath(characterId, groupId)
+   const user = await requireUser(path)
+   const character = await getCharacter(user.id, characterId)
+   if (!character) return
+@@ -42,7 +39,9 @@ const findParty = cache(async (characterId: string, groupId: string) => {
+   return view && { character, view, shaped: shaped !== undefined }
+ })
+ 
+-export async function generateMetadata({ params }: Props): Promise<Metadata> {
++export async function generateMetadata({
++  params,
++}: PageProps<'/characters/[id]/party/[group]'>): Promise<Metadata> {
+   const { id, group } = await params
+   const found = await findParty(id, group)
+   return { title: found?.view.group.name ?? 'Party' }
+@@ -53,16 +52,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  * its members, stash and description, as the side panel over their character's sheet shows it.
+  * Anyone else, or a group not there, is told only that it isn't open here.
+  */
+-export default async function CharacterPartyPage({ params }: Props) {
++export default async function CharacterPartyPage({
++  params,
++}: PageProps<'/characters/[id]/party/[group]'>) {
+   const { id, group } = await params
+   const found = await findParty(id, group)
+   if (!found) notFound()
+ 
+   const { character, view, shaped } = found
+-  const sheet = `/characters/${encodeURIComponent(character.id)}`
++  const sheet = characterPath(character.id)
+   return (
+     <PartyPage
+-      api={`/api${sheet}/party/${encodeURIComponent(group)}`}
++      api={partyApi(character.id, group)}
+       role='player'
+       initialView={view}
+       back={{ href: sheet, label: `Back to ${character.name}` }}
 diff --git a/src/components/avatar/avatar.tsx b/src/components/avatar/avatar.tsx
 index a519866..a70c616 100644
 --- a/src/components/avatar/avatar.tsx
@@ -130,6 +314,19 @@ index 206b2f8..f47ad1b 100644
    // Which value was copied, not only that one was: a new value in its place, such as an invite
    // link once reset, isn't on the clipboard, so its button offers Copy again.
    const [copiedValue, setCopiedValue] = useState<string>()
+diff --git a/src/components/logo/logo.tsx b/src/components/logo/logo.tsx
+index 899a403..6a06e6f 100644
+--- a/src/components/logo/logo.tsx
++++ b/src/components/logo/logo.tsx
+@@ -19,7 +19,7 @@ export function Logo({
+   return (
+     // A fixed image already at each size it's shown at, which Next's image optimizer would only
+     // compress again. It says nothing the words beside it don't.
+-    // eslint-disable-next-line @next/next/no-img-element
++    // eslint-disable-next-line @next/next/no-img-element -- already sized, as said above
+     <img
+       src={path(1)}
+       srcSet={`${path(1)} 1x, ${path(2)} 2x, ${path(3)} 3x`}
 diff --git a/src/components/modal/confirm-dialog.tsx b/src/components/modal/confirm-dialog.tsx
 index e9a055c..f1ebf3a 100644
 --- a/src/components/modal/confirm-dialog.tsx
@@ -1729,7 +1926,7 @@ index 8a4a4c1..6e78cbe 100644
    if (!creature) return
    const { legendary, resistance, hitDice, lair } = creature
 diff --git a/src/features/companions/components/creature-switcher/creature-switcher.tsx b/src/features/companions/components/creature-switcher/creature-switcher.tsx
-index d32b19c..0fff45f 100644
+index d32b19c..981250e 100644
 --- a/src/features/companions/components/creature-switcher/creature-switcher.tsx
 +++ b/src/features/companions/components/creature-switcher/creature-switcher.tsx
 @@ -1,24 +1,16 @@
@@ -1911,6 +2108,15 @@ index d32b19c..0fff45f 100644
    name,
    portrait,
    self,
+@@ -416,7 +291,7 @@ export function CreatureAvatar({
+   if (shown) {
+     return (
+       // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
+-      // eslint-disable-next-line @next/next/no-img-element
++      // eslint-disable-next-line @next/next/no-img-element -- the game's portrait, as said above
+       <img
+         ref={ref}
+         src={portrait}
 diff --git a/src/features/companions/hooks/use-companion-view.ts b/src/features/companions/hooks/use-companion-view.ts
 index 36f126f..c86fbfd 100644
 --- a/src/features/companions/hooks/use-companion-view.ts
@@ -1965,28 +2171,278 @@ index 9944a96..db69aca 100644
 +  /** What it's asked for, such as "Dexterity saving throw". */
 +  label: string
 +}
+diff --git a/src/features/cookbook/components/cookbook-card/cookbook-card.tsx b/src/features/cookbook/components/cookbook-card/cookbook-card.tsx
+index eee9722..af61e42 100644
+--- a/src/features/cookbook/components/cookbook-card/cookbook-card.tsx
++++ b/src/features/cookbook/components/cookbook-card/cookbook-card.tsx
+@@ -6,7 +6,7 @@ import { CookbookDishList } from '../cookbook-dish-list/cookbook-dish-list'
+ import { CopyField } from '@/components/copy-button/copy-button'
+ import { ConfirmDialog } from '@/components/modal/confirm-dialog'
+ import { NoteTime } from '@/features/notes/components/note-time/note-time'
+-import type { useCookbookView } from '@/features/cookbook/hooks/use-cookbook-view'
++import type { CookbookRead } from './types'
+ import type { CookbookPlace } from '@/types/cookbook'
+ 
+ const PRIMARY_BUTTON =
+@@ -16,9 +16,6 @@ const QUIET_BUTTON =
+ const DANGER_BUTTON =
+   'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-danger/50 hover:bg-danger/5 hover:text-danger'
+ 
+-/** What the panel shows of the player's book, as its owner reads it. */
+-type Read = ReturnType<typeof useCookbookView>
+-
+ /**
+  * A player's Magical Recipe Book, from module 0.38.0: the link code their character's book in the
+  * cookbook sends its dishes with, made, shown once, replaced or revoked here, and what became of
+@@ -34,7 +31,7 @@ export function CookbookPanel({
+   setFresh,
+   make,
+   revoke,
+-}: Readonly<Read & Omit<CookbookPlace, 'characterId'>>) {
++}: Readonly<CookbookRead & Omit<CookbookPlace, 'characterId'>>) {
+   const [refused, setRefused] = useState<string>()
+   const [making, startMaking] = useTransition()
+   // Where focus goes once the control is there: Copy link code once Make a link code has made one,
+diff --git a/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.tsx b/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.tsx
+index 461b269..14078ee 100644
+--- a/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.tsx
++++ b/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.tsx
+@@ -1,6 +1,5 @@
+ import clsx from 'clsx'
+-import { DISH_ATTEMPTS } from '@/constants/cookbook'
+-import { formatModifier } from '@/utils/format-modifier'
++import { dishState } from './utils'
+ import type { CookbookDishView } from '@/types/cookbook'
+ 
+ const OUTCOMES: Record<CookbookDishView['outcome'], string> = {
+@@ -56,58 +55,3 @@ export function CookbookDishList({
+     </ul>
+   )
+ }
+-
+-/** What became of a dish, in its player's words. */
+-function dishState(dish: CookbookDishView, live: boolean): string {
+-  switch (dish.state) {
+-    case 'queued':
+-    case 'claimed': {
+-      return live
+-        ? 'Waiting for Foundry'
+-        : 'Waiting for Foundry · your Gamemaster’s game isn’t open'
+-    }
+-    case 'delivered': {
+-      return 'With your Gamemaster'
+-    }
+-    case 'applied': {
+-      // Served before the Gamemaster's choice of who ate it is heard of, the names come later.
+-      const who =
+-        dish.eatenBy.length > 0
+-          ? `Eaten by ${namesOf(dish.eatenBy)}`
+-          : 'Served in Foundry'
+-      return [who, ...dish.rolled.map(rolled => rolledWords(rolled))].join(
+-        ' · ',
+-      )
+-    }
+-    case 'dismissed': {
+-      return dish.reason === 'deleted'
+-        ? 'Removed in Foundry'
+-        : 'Set aside by your Gamemaster'
+-    }
+-    case 'failed': {
+-      if (dish.reason === 'undeliverable') {
+-        return `Couldn’t reach the game: Foundry didn’t answer after ${DISH_ATTEMPTS} tries.`
+-      }
+-      if (dish.reason === 'invalid') {
+-        return 'Couldn’t reach the game: your Gamemaster’s Foundry couldn’t read this dish.'
+-      }
+-      return `Couldn’t reach the game: Foundry refused it (${dish.reason}).`
+-    }
+-  }
+-}
+-
+-/** Names as a sentence lists them: "Thorin", "Thorin and Vex", "Thorin, Vex and Rook". */
+-function namesOf(names: string[]): string {
+-  if (names.length <= 2) return names.join(' and ')
+-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+-}
+-
+-/** A value its dice rolled once in the cookbook: "Max HP +7 (3+1d6)". */
+-function rolledWords({
+-  type,
+-  value,
+-  formula,
+-}: CookbookDishView['rolled'][number]): string {
+-  const kind = type === 'maxHitPoints' ? 'Max HP' : type
+-  return `${kind} ${formatModifier(value)}${formula ? ` (${formula})` : ''}`
+-}
+diff --git a/src/features/cookbook/hooks/use-cookbook-entry.tsx b/src/features/cookbook/hooks/use-cookbook-entry.ts
+similarity index 87%
+rename from src/features/cookbook/hooks/use-cookbook-entry.tsx
+rename to src/features/cookbook/hooks/use-cookbook-entry.ts
+index 33dce5d..a9b064b 100644
+--- a/src/features/cookbook/hooks/use-cookbook-entry.tsx
++++ b/src/features/cookbook/hooks/use-cookbook-entry.ts
+@@ -1,6 +1,12 @@
+-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+-import { CookbookPanel } from '../components/cookbook-card/cookbook-card'
+-import { Modal } from '@/components/modal/modal'
++import {
++  createElement,
++  useState,
++  useRef,
++  useEffect,
++  useCallback,
++  type ReactNode,
++} from 'react'
++import { CookbookEntryDialogs } from '../components/cookbook-entry/cookbook-entry-dialogs'
+ import { useCookbookView } from '@/features/cookbook/hooks/use-cookbook-view'
+ import type { CookbookPlace } from '@/types/cookbook'
+ 
+@@ -70,16 +76,8 @@ export function useCookbookEntry(place?: CookbookPlace): {
+     }
+   }, [isOpen])
+ 
+-  const modal = place && (
+-    <Modal
+-      open={isOpen}
+-      onClose={close}
+-      title='Magical Recipe Book'
+-      fullOnPhone
+-    >
+-      <CookbookPanel {...read} make={place.make} revoke={place.revoke} />
+-    </Modal>
+-  )
++  const modal =
++    place && createElement(CookbookEntryDialogs, { isOpen, close, read, place })
+   return {
+     shown: !!view && (view.enabled || !!view.link),
+     onCogOpenChange,
 diff --git a/src/features/cookbook/hooks/use-cookbook-view.ts b/src/features/cookbook/hooks/use-cookbook-view.ts
-index c7f6f6c..b34d173 100644
+index c7f6f6c..357f71f 100644
 --- a/src/features/cookbook/hooks/use-cookbook-view.ts
 +++ b/src/features/cookbook/hooks/use-cookbook-view.ts
-@@ -1,5 +1,7 @@
+@@ -1,112 +1,24 @@
  import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
++import {
++  cards,
++  onServer,
++  put,
++  putFresh,
++  readCard,
++  subscribe,
++} from './cookbook-store'
  import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
 +import { retryDelay } from '@/utils/polling'
-+import { seenQuery } from '@/utils/seen-query'
  import type { CookbookView } from '@/types/cookbook'
  
  /** The longest wait between reads while the server can't be reached. */
-@@ -87,7 +89,7 @@ async function readCard(
-   begun += 1
-   const read = begun
-   const version = cards.get(characterId)?.view?.version
+ const MOST_DELAY = 120_000
+ 
+-/** What a page holds of one character's Magical Recipe Book card. */
+-type Card = {
+-  /** What it last read of the card. */
+-  view?: CookbookView
+-  /** The link code just made, shown until its player is done with it. */
+-  fresh?: string
+-  /**
+-   * The read the code just made is checked after: the next begun once it was made, its card's own
+-   * read for the link the make wrote, so the read that comes with showing the code never takes it
+-   * back.
+-   */
+-  checkAfter?: number
+-}
+-
+-/** Reads begun on this page, numbered, so a code just made is checked only by those after it. */
+-let begun = 0
+-
+-/*
+- * The page's store of cards, by character, for as long as the page is loaded: in memory only,
+- * never in the browser's storage, as a link code is shown once and never kept. The Biography tab
+- * unmounts whenever another of the sheet's tabs is chosen, and the card with it: the store is what
+- * keeps a code just made on screen until its player says they're done with it. A character is one
+- * user's, as its route answers only them. It's written only on the client, in effects and event
+- * handlers, so a server render, which shares the module with every request, never holds a card.
+- */
+-const cards = new Map<string, Card>()
+-const listeners = new Map<string, Set<() => void>>()
+-
+-function subscribe(characterId: string, listener: () => void): () => void {
+-  const held = listeners.get(characterId) ?? new Set()
+-  held.add(listener)
+-  listeners.set(characterId, held)
+-  return () => {
+-    held.delete(listener)
+-    if (held.size === 0) listeners.delete(characterId)
+-  }
+-}
+-
+-/** Keeps what a page holds of a card, or forgets it, and tells each card showing it. */
+-function put(characterId: string, card: Card): void {
+-  if (card.view === undefined && card.fresh === undefined) {
+-    cards.delete(characterId)
+-  } else {
+-    cards.set(characterId, card)
+-  }
+-  for (const listener of listeners.get(characterId) ?? []) listener()
+-}
+-
+-/** What a server render holds of a card: nothing, ever. */
+-function onServer(): Card | undefined {
+-  return
+-}
+-
+ /** Forgets every card the page holds, as a reload does. */
+ export function forgetCookbook(): void {
+   for (const characterId of cards.keys()) put(characterId, {})
+ }
+ 
+-/**
+- * Forgets the code just made once a read begun after its card's own finds the character's link
+- * gone, or made with another code: revoked by the Gamemaster, or replaced from the player's other
+- * device. The card then offers a code again, rather than one that no longer works. A link's hint
+- * is its code's last four characters.
+- */
+-function forgetGoneCode(characterId: string, read: number): void {
+-  const held = cards.get(characterId)
+-  if (!held?.fresh || !held.view || read <= (held.checkAfter ?? 0)) return
+-  if (held.view.link?.hint === held.fresh.slice(-4)) return
+-  put(characterId, { ...held, fresh: undefined, checkAfter: undefined })
+-}
+-
+-/**
+- * Reads a character's card, from the version it holds for 204 while nothing has changed: whether
+- * the read was answered. A failure keeps what's shown.
+- */
+-async function readCard(
+-  characterId: string,
+-  signal?: AbortSignal,
+-): Promise<boolean> {
+-  begun += 1
+-  const read = begun
+-  const version = cards.get(characterId)?.view?.version
 -  const query = version ? `?${new URLSearchParams({ version })}` : ''
-+  const query = version ? `?${seenQuery({ version })}` : ''
-   try {
-     const response = await fetch(
-       `/api/characters/${encodeURIComponent(characterId)}/cookbook${query}`,
-@@ -171,10 +173,10 @@ export function useCookbookView(
+-  try {
+-    const response = await fetch(
+-      `/api/characters/${encodeURIComponent(characterId)}/cookbook${query}`,
+-      { cache: 'no-store', signal },
+-    )
+-    if (response.status === 200) {
+-      const view = (await response.json()) as CookbookView
+-      if (signal?.aborted) return false
+-      put(characterId, { ...cards.get(characterId), view })
+-    } else if (response.status !== 204) {
+-      return false
+-    }
+-    if (!signal?.aborted) forgetGoneCode(characterId, read)
+-    return true
+-  } catch {
+-    return false
+-  }
+-}
+-
+ /**
+  * A player's Magical Recipe Book card for their character, from module 0.38.0
+  * (`GET /api/characters/[id]/cookbook`): read at once, then every COOKBOOK_POLL_EVERY while
+@@ -171,10 +83,10 @@ export function useCookbookView(
      const schedule = () => {
        clearTimeout(timer)
        if (controller.signal.aborted) return
@@ -2001,25 +2457,181 @@ index c7f6f6c..b34d173 100644
      }
  
      const tick = async () => {
+@@ -213,16 +125,7 @@ export function useCookbookView(
+   }, [characterId])
+ 
+   const setFresh = useCallback(
+-    (code: string | undefined) => {
+-      const held = cards.get(characterId)
+-      if (held?.fresh === code) return
+-      // Its card reads at once for the link the code was made with: the next read begun.
+-      put(characterId, {
+-        ...held,
+-        fresh: code,
+-        checkAfter: code === undefined ? undefined : begun + 1,
+-      })
+-    },
++    (code: string | undefined) => putFresh(characterId, code),
+     [characterId],
+   )
+ 
+diff --git a/src/features/notes/components/chapter-form/chapter-form.test.tsx b/src/features/notes/components/chapter-form/chapter-form.test.tsx
+index 2cd78d6..7433f2b 100644
+--- a/src/features/notes/components/chapter-form/chapter-form.test.tsx
++++ b/src/features/notes/components/chapter-form/chapter-form.test.tsx
+@@ -3,12 +3,9 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { JournalCard } from '../journal-card/journal-card'
+ import { ChapterForm } from './chapter-form'
+-import {
+-  forgetNotes,
+-  type DraftChange,
+-  type NoteDraft,
+-} from '@/features/notes/hooks/use-notes'
++import { forgetNotes } from '@/features/notes/hooks/use-notes'
+ import { emptyBook, noteChapter, serveNotes } from '@/mocks/notes-server'
++import type { DraftChange, NoteDraft } from '@/features/notes/types'
+ import type { NoteWriteAnswer } from '@/types/notes'
+ 
+ const API = '/api/characters/char-1'
+diff --git a/src/features/notes/components/chapter-form/chapter-form.tsx b/src/features/notes/components/chapter-form/chapter-form.tsx
+index ca5ce0d..68cdfbe 100644
+--- a/src/features/notes/components/chapter-form/chapter-form.tsx
++++ b/src/features/notes/components/chapter-form/chapter-form.tsx
+@@ -2,21 +2,16 @@
+ 
+ import { useId, useRef, useState } from 'react'
+ import clsx from 'clsx'
+-import {
+-  DiscardModal,
+-  EditorFooter,
+-  EditorHeading,
+-  FIELD,
+-  useDraftFocus,
+-  useDraftSave,
+-} from '../note-editor/note-editor'
+ import { Pane } from '../pane/pane'
+ import { MOST_NOTE_TITLE } from '@/constants/notes'
+-import {
+-  draftChanged,
+-  type DraftChange,
+-  type NoteDraft,
+-} from '@/features/notes/hooks/use-notes'
++import { DiscardModal } from '@/features/notes/components/note-editor/discard-modal'
++import { EditorFooter } from '@/features/notes/components/note-editor/editor-footer'
++import { EditorHeading } from '@/features/notes/components/note-editor/editor-heading'
++import { FIELD } from '@/features/notes/constants'
++import { useDraftFocus } from '@/features/notes/hooks/use-draft-focus'
++import { useDraftSave } from '@/features/notes/hooks/use-draft-save'
++import { draftChanged } from '@/features/notes/hooks/use-notes'
++import type { DraftChange, NoteDraft } from '@/features/notes/types'
+ import type { NoteWriteAnswer } from '@/types/notes'
+ 
+ /**
+diff --git a/src/features/notes/components/chapter-pane/chapter-pane.test.tsx b/src/features/notes/components/chapter-pane/chapter-pane.test.tsx
+index 48388c0..ca5e3ac 100644
+--- a/src/features/notes/components/chapter-pane/chapter-pane.test.tsx
++++ b/src/features/notes/components/chapter-pane/chapter-pane.test.tsx
+@@ -1,7 +1,7 @@
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+-import { groupsOf } from '../contents/contents'
+ import { ChapterPane } from './chapter-pane'
++import { groupsOf } from '@/features/notes/utils/groups'
+ import { emptyBook, noteChapter, noteEntry } from '@/mocks/notes-server'
+ import { minutesAgo as ago } from '@/utils/test-utils'
+ import type { NoteEntryView, NotesView } from '@/types/notes'
 diff --git a/src/features/notes/components/chapter-pane/chapter-pane.tsx b/src/features/notes/components/chapter-pane/chapter-pane.tsx
-index d6c3096..5f1083c 100644
+index d6c3096..ebdc2c1 100644
 --- a/src/features/notes/components/chapter-pane/chapter-pane.tsx
 +++ b/src/features/notes/components/chapter-pane/chapter-pane.tsx
-@@ -13,12 +13,11 @@ import {
- import { hasProblem, NoteChip, NoteProblem } from '../note-problem/note-problem'
- import { OrderChip, OrderProblem } from '../order-state/order-state'
+@@ -1,64 +1,26 @@
+ 'use client'
+ 
+-import { useId, type ReactNode } from 'react'
++import { useId } from 'react'
+ import { ArrowDownUp, FileText, NotebookPen, Pencil, Plus } from 'lucide-react'
+-import { LOOSE_TITLE, type JournalGroup } from '../contents/contents'
+ import { NoteCard } from '../note-card/note-card'
+-import {
+-  ChapterLine,
+-  mayMove,
+-  mayRename,
+-  NoteText,
+-} from '../note-lines/note-lines'
+-import { hasProblem, NoteChip, NoteProblem } from '../note-problem/note-problem'
+-import { OrderChip, OrderProblem } from '../order-state/order-state'
++import { NoteProblem } from '../note-problem/note-problem'
++import { OrderProblem } from '../order-state/order-state'
  import { Pane } from '../pane/pane'
-+import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
- import type { NotePick } from '@/features/notes/hooks/use-notes'
- import type { NoteChapterView, NoteEntryView } from '@/types/notes'
- import type { SeatRole } from '@/types/seats'
+-import type { NotePick } from '@/features/notes/hooks/use-notes'
+-import type { NoteChapterView, NoteEntryView } from '@/types/notes'
+-import type { SeatRole } from '@/types/seats'
++import { ChapterLine } from '@/features/notes/components/note-lines/chapter-line'
++import { NoteText } from '@/features/notes/components/note-lines/note-text'
++import { NoteChip } from '@/features/notes/components/note-problem/note-chip'
++import { hasProblem } from '@/features/notes/components/note-problem/utils'
++import { OrderChip } from '@/features/notes/components/order-state/order-chip'
++import { LOOSE_TITLE, JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
++import { mayMove, mayRename } from '@/features/notes/utils/permissions'
++import type { ChapterPaneProps } from './types'
++import type { NoteEntryView } from '@/types/notes'
  
 -const ICON_BUTTON =
 -  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
  const OUTLINE =
    'inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
  const DASHED =
-@@ -120,7 +119,7 @@ export function ChapterPane({
+   'flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 text-sm font-medium text-text-secondary transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-text-primary'
+ 
+-type Props = {
+-  group: JournalGroup
+-  /** What's searched, if anything: its notes shown are then only the hits. */
+-  query: string
+-  /** Its notes the search finds, in its order; all of them while nothing is searched. */
+-  shown: NoteEntryView[]
+-  /** The book's chapters, oldest first. */
+-  chapters: NoteChapterView[]
+-  role: SeatRole
+-  /** The book takes changes: else nothing here offers one. */
+-  canAdd: boolean
+-  /** The seat may put the notes of a group in order. */
+-  canReorder: boolean
+-  /** Something is being written in the book, which is saved or cancelled first. */
+-  drafting: boolean
+-  /** Foundry holds the journal back as too large. */
+-  tooLarge: boolean
+-  /** The reader's Contents button, below 640 px of the modal. */
+-  contents: ReactNode
+-  onPick: (pick: NotePick) => void
+-  onRename: (opener: 'rename' | 'problem-edit') => void
+-  onNewIn: () => void
+-  onReorder: () => void
+-  /** The chapter's own choice, where the game didn't take its rename. */
+-  onResolve: (choice: 'mine' | 'theirs') => void
+-  onResolveOrder: (choice: 'mine' | 'theirs') => void
+-  onMove: (entry: NoteEntryView, chapterId: string | null) => void
+-  /** The note whose move is on its way. */
+-  moving?: string
+-  /** A choice for the chapter is on its way. */
+-  busy: boolean
+-  /** A choice for its order is on its way. */
+-  orderBusy: boolean
+-}
+-
+ /**
+  * A group's page (round 0.35.0 §8.9): a chapter's, or the notes' in no chapter. In its bar,
+  * Reorder and Rename where the seat may; then which chapter it is, who added or renamed it, how
+@@ -86,7 +48,7 @@ export function ChapterPane({
+   moving,
+   busy,
+   orderBusy,
+-}: Readonly<Props>) {
++}: Readonly<ChapterPaneProps>) {
+   const titleId = useId()
+   const { chapter, entries, order } = group
+   const searching = query.trim() !== ''
+@@ -120,7 +82,7 @@ export function ChapterPane({
            data-note-opener='rename'
            data-chapter={chapter.id}
            onClick={() => onRename('rename')}
@@ -2028,28 +2640,176 @@ index d6c3096..5f1083c 100644
          >
            <Pencil aria-hidden className='size-5' />
          </button>
+diff --git a/src/features/notes/components/contents/contents.test.tsx b/src/features/notes/components/contents/contents.test.tsx
+index a7795e6..0352d97 100644
+--- a/src/features/notes/components/contents/contents.test.tsx
++++ b/src/features/notes/components/contents/contents.test.tsx
+@@ -1,8 +1,10 @@
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { JournalCard } from '../journal-card/journal-card'
+-import { Contents, ContentsButton, groupsOf } from './contents'
++import { Contents } from './contents'
++import { ContentsButton } from './contents-button'
+ import { forgetNotes } from '@/features/notes/hooks/use-notes'
++import { groupsOf } from '@/features/notes/utils/groups'
+ import {
+   emptyBook,
+   noteChapter,
 diff --git a/src/features/notes/components/contents/contents.tsx b/src/features/notes/components/contents/contents.tsx
-index 5c0f8a5..49d97d1 100644
+index 5c0f8a5..a13943c 100644
 --- a/src/features/notes/components/contents/contents.tsx
 +++ b/src/features/notes/components/contents/contents.tsx
-@@ -14,6 +14,7 @@ import {
- import { StateMark } from '../note-lines/note-lines'
- import { OrderMark } from '../order-state/order-state'
+@@ -5,133 +5,23 @@ import clsx from 'clsx'
+ import {
+   ChevronDown,
+   NotebookPen,
+-  PanelLeft,
+   PenLine,
+   Plus,
+   TriangleAlert,
+   X,
+ } from 'lucide-react'
+-import { StateMark } from '../note-lines/note-lines'
+-import { OrderMark } from '../order-state/order-state'
  import { SearchField } from '@/components/search-field/search-field'
+-import type { NotePick } from '@/features/notes/hooks/use-notes'
+-import type {
+-  NoteChapterView,
+-  NoteEntryView,
+-  NoteGroupView,
+-  NoteState,
+-  NotesView,
+-} from '@/types/notes'
+-
+-/**
+- * One group of the journal's notes, as its contents and reader show it (round 0.35.0 §8.6): a
+- * chapter's, or those in no chapter, with its notes in their order and where that order stands.
+- */
+-export type JournalGroup = {
+-  /** The chapter; null for the notes in no chapter. */
+-  chapterId: string | null
+-  chapter?: NoteChapterView
+-  /** The chapter's place among the chapters, oldest first, from 1. */
+-  n?: number
+-  title: string
+-  /** Its notes, in its order. */
+-  entries: NoteEntryView[]
+-  /** Where its order stands. */
+-  order: NoteGroupView
+-}
+-
+-/** The loose group's title, in the contents and over its page. */
+-export const LOOSE_TITLE = 'Not in a chapter'
+-
+-/**
+- * A book's groups: the notes in no chapter first, then each chapter as `chapters` lists them,
+- * oldest first, each holding its notes in `entries`' order, which is the server's, never sorted
+- * here. A note whose chapter the seat doesn't see is in no chapter.
+- */
+-export function groupsOf(view: NotesView): JournalGroup[] {
+-  const known = new Set(view.chapters.map(({ id }) => id))
+-  const orderOf = (chapterId: string | null): NoteGroupView =>
+-    view.groups.find(group => group.chapterId === chapterId) ?? {
+-      chapterId,
+-      state: 'synced',
+-      stamp: '',
+-    }
+-  const loose: JournalGroup = {
+-    chapterId: null,
+-    title: LOOSE_TITLE,
+-    entries: view.entries.filter(
+-      ({ chapterId }) => chapterId === null || !known.has(chapterId),
+-    ),
+-    order: orderOf(null),
+-  }
+-  return [
+-    loose,
+-    ...view.chapters.map((chapter, index) => ({
+-      chapterId: chapter.id,
+-      chapter,
+-      n: index + 1,
+-      title: chapter.title,
+-      entries: view.entries.filter(({ chapterId }) => chapterId === chapter.id),
+-      order: orderOf(chapter.id),
+-    })),
+-  ]
+-}
+-
+-/** The states the contents' warning mark, and the card's count, take as a choice to make. */
+-const CHOICES = new Set<NoteState>(['conflict', 'gone', 'failed'])
+-
+-/** Does a note or chapter in this state wait on the seat's choice? A delete waiting doesn't. */
+-export function needsChoice(state: NoteState): boolean {
+-  return CHOICES.has(state)
+-}
+-
+-/** Does a group wait on the seat's choice: its chapter, a note in it, or its order? */
+-export function groupNeedsChoice(group: JournalGroup): boolean {
+-  return (
+-    (group.chapter !== undefined && needsChoice(group.chapter.state)) ||
+-    group.entries.some(({ state }) => needsChoice(state)) ||
+-    group.order.state === 'conflict' ||
+-    group.order.state === 'failed'
+-  )
+-}
+-
+-/** A group's key among its siblings: its chapter's id, or '' for the notes in no chapter. */
+-export const keyOf = (chapterId: string | null) => chapterId ?? ''
++import { StateMark } from '@/features/notes/components/note-lines/state-mark'
++import { OrderMark } from '@/features/notes/components/order-state/order-mark'
 +import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
- import type { NotePick } from '@/features/notes/hooks/use-notes'
- import type {
-   NoteChapterView,
-@@ -102,8 +103,6 @@ const PRIMARY =
++import { groupNeedsChoice, keyOf } from '@/features/notes/utils/groups'
++import type { ContentsProps } from './types'
++import type { NoteEntryView } from '@/types/notes'
+ 
+ const PRIMARY =
    'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover'
  const OUTLINE =
    'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5'
 -const ICON_BUTTON =
 -  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+-
+-type Props = {
+-  /** Its element's id, for the reader's Contents button to name what it opens. */
+-  id: string
+-  /** Every group, the loose one too, with its notes; none while the book loads. */
+-  groups?: JournalGroup[]
+-  query: string
+-  onQuery: (query: string) => void
+-  /** The notes the search finds; none while nothing is searched. */
+-  hits?: Set<string>
+-  /** What the reader shows. */
+-  shown?: NotePick
+-  /** The note the book's draft is a change to, marked as not saved yet. */
+-  draftNote?: string
+-  /** The editor or a Reorder fills the reader: nothing else is read till it's saved or dropped. */
+-  locked?: 'editing' | 'ordering'
+-  /** The seat may add notes and chapters. */
+-  canAdd: boolean
+-  /** The modal is under 640 px wide: the contents are a drawer. */
+-  narrow: boolean
+-  /** The drawer is open. */
+-  drawer: boolean
+-  onCloseDrawer: () => void
+-  onPick: (pick: NotePick) => void
+-  /** A new note, in the chapter given, or none. */
+-  onNewNote: (chapterId: string | null) => void
+-  onNewChapter: () => void
+-}
  
- type Props = {
-   /** Its element's id, for the reader's Contents button to name what it opens. */
-@@ -228,7 +227,7 @@ export function Contents({
+ /**
+  * The journal's contents (round 0.35.0 §8.6): a search, then the notes in no chapter and every
+@@ -156,7 +46,7 @@ export function Contents({
+   onPick,
+   onNewNote,
+   onNewChapter,
+-}: Readonly<Props>) {
++}: Readonly<ContentsProps>) {
+   const ids = useId()
+   const close = useRef<HTMLButtonElement>(null)
+   // Groups shut by hand, by their key; they stay shut while the modal is open.
+@@ -228,7 +118,7 @@ export function Contents({
              type='button'
              aria-label='Close contents'
              onClick={onCloseDrawer}
@@ -2058,7 +2818,7 @@ index 5c0f8a5..49d97d1 100644
            >
              <X aria-hidden className='size-5' />
            </button>
-@@ -266,7 +265,7 @@ export function Contents({
+@@ -266,7 +156,7 @@ export function Contents({
                        onClick={() =>
                          setShut(held => ({ ...held, [key]: !isShut }))
                        }
@@ -2067,21 +2827,470 @@ index 5c0f8a5..49d97d1 100644
                      >
                        <ChevronDown
                          aria-hidden
+@@ -428,29 +318,3 @@ function NoteRow({
+     </button>
+   )
+ }
+-
+-/**
+- * The reader's Contents button, below 640 px of the modal, first in the bar of a note's, a group's
+- * and the loading page: it opens the contents' drawer. Below 560 px, only its icon shows: its word
+- * comes once a note's bar has room for it beside its chapter's number, its tools, its place among
+- * the notes and the arrows.
+- */
+-export function ContentsButton({
+-  controls,
+-  open,
+-  onOpen,
+-}: Readonly<{ controls: string; open: boolean; onOpen: () => void }>) {
+-  return (
+-    <button
+-      type='button'
+-      aria-expanded={open}
+-      aria-controls={controls}
+-      data-contents-button
+-      onClick={onOpen}
+-      className='inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm font-medium transition-colors hover:bg-primary/5 @min-[640px]:hidden'
+-    >
+-      <PanelLeft aria-hidden className='size-5' />
+-      <span className='@max-[560px]:sr-only'>Contents</span>
+-    </button>
+-  )
+-}
+diff --git a/src/features/notes/components/journal-card/journal-card.tsx b/src/features/notes/components/journal-card/journal-card.tsx
+index 91374a2..71d26c6 100644
+--- a/src/features/notes/components/journal-card/journal-card.tsx
++++ b/src/features/notes/components/journal-card/journal-card.tsx
+@@ -2,31 +2,17 @@
+ 
+ import { useEffect, useId, useRef, type ReactNode } from 'react'
+ import { BookOpen, PenLine, TriangleAlert } from 'lucide-react'
+-import { needsChoice } from '../contents/contents'
+ import { JournalModal } from '../journal-modal/journal-modal'
+ import { NoteTime } from '../note-time/note-time'
+ import { journalOpen, useNotes } from '@/features/notes/hooks/use-notes'
++import { needsChoice } from '@/features/notes/utils/groups'
+ import {
+   choicesWords,
+   journalCounts,
+   journalTitle,
+   whoSeesNotes,
+ } from '@/features/notes/utils/note-words'
+-import type { NoteBookKind } from '@/types/notes'
+-import type { SeatRole } from '@/types/seats'
+-
+-type Props = {
+-  /** The seat's API base, such as `/api/characters/<id>`: its book is under it, at `/notes`. */
+-  api: string
+-  role: SeatRole
+-  kind: NoteBookKind
+-  /** The book's character or party, as its words name it. */
+-  name: string
+-  /** Whether it's in view, and so polled. */
+-  active: boolean
+-  /** Its heading as the tab it's in draws one: the sheet's, or the party sheet's. */
+-  look: 'sheet' | 'party'
+-}
++import type { JournalCardProps } from './types'
+ 
+ /**
+  * Where a character's or a party's journal opens (round 0.35.0 §8.3): a card the same size
+@@ -43,7 +29,7 @@ export function JournalCard({
+   name,
+   active,
+   look,
+-}: Readonly<Props>) {
++}: Readonly<JournalCardProps>) {
+   const notes = useNotes(api, { active: active || journalOpen(api) })
+   const { view, state, draft, open, setDraft, setOpen } = notes
+   const headingId = useId()
 diff --git a/src/features/notes/components/journal-modal/journal-modal.tsx b/src/features/notes/components/journal-modal/journal-modal.tsx
-index c2f4aa7..d58f9f7 100644
+index c2f4aa7..82e8901 100644
 --- a/src/features/notes/components/journal-modal/journal-modal.tsx
 +++ b/src/features/notes/components/journal-modal/journal-modal.tsx
-@@ -43,7 +43,8 @@ import { ReorderPane } from '../reorder-pane/reorder-pane'
- import { readDescription } from '@/components/description/read-description'
+@@ -27,24 +27,26 @@ import {
+ } from 'lucide-react'
+ import { ChapterForm } from '../chapter-form/chapter-form'
+ import { ChapterPane } from '../chapter-pane/chapter-pane'
+-import {
+-  Contents,
+-  ContentsButton,
+-  groupsOf,
+-  keyOf,
+-  type JournalGroup,
+-} from '../contents/contents'
++import { Contents } from '../contents/contents'
+ import { EmptyJournal } from '../empty-journal/empty-journal'
+ import { NoteEditor } from '../note-editor/note-editor'
+ import { NotePane } from '../note-pane/note-pane'
+ import { NoteTime } from '../note-time/note-time'
+ import { Pane } from '../pane/pane'
+ import { ReorderPane } from '../reorder-pane/reorder-pane'
+-import { readDescription } from '@/components/description/read-description'
  import { ConfirmModal } from '@/components/modal/confirm-modal'
  import { InPortalRoot } from '@/components/modal/in-portal-root'
 -import { useDialogRoot } from '@/components/modal/portal-root'
 +import { useDialogRoot } from '@/components/modal/use-dialog-root'
++import { ContentsButton } from '@/features/notes/components/contents/contents-button'
 +import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
++import { useFocusTo } from '@/features/notes/hooks/use-focus-to'
++import { useJournalLayout } from '@/features/notes/hooks/use-journal-layout'
  import { useKeyboardInset } from '@/features/notes/hooks/use-keyboard-inset'
++import { useOrdering } from '@/features/notes/hooks/use-ordering'
++import { useReaderPick } from '@/features/notes/hooks/use-reader-pick'
++import { useSaid } from '@/features/notes/hooks/use-said'
++import { changeOf, inputOf } from '@/features/notes/utils/editor'
++import { groupsOf, keyOf } from '@/features/notes/utils/groups'
  import {
    journalTitle,
-@@ -903,7 +904,7 @@ function Header({
+   noteChoiceRefusalWords,
+@@ -54,16 +56,27 @@ import {
+   whoSeesShort,
+ } from '@/features/notes/utils/note-words'
+ import { movedWords, orderSavedWords } from '@/features/notes/utils/order-words'
++import {
++  hitsOf,
++  groupOfNote,
++  isNew,
++  isSent,
++  searchText,
++  afterDelete,
++  draftNoteOf,
++  hitEntries,
++  lockedBy,
++} from '@/features/notes/utils/reader'
+ import { useModalDialog } from '@/hooks/use-modal-dialog'
+-import { matchesSearch } from '@/utils/search'
+ import { seatWords } from '@/utils/seat-words'
++import type { JournalModalProps, JournalNotes } from './types'
+ import type {
++  JournalGroup,
+   NoteDraft,
+   NotePick,
+-  useNotes,
+-} from '@/features/notes/hooks/use-notes'
++  Said,
++} from '@/features/notes/types'
+ import type {
+-  NoteBookKind,
+   NoteChapterView,
+   NoteEntryView,
+   NoteResolve,
+@@ -72,39 +85,6 @@ import type {
+ } from '@/types/notes'
+ import type { SeatRole } from '@/types/seats'
+ 
+-/** How long the header says what was done, in milliseconds, before it clears itself. */
+-const SAID_FOR = 6000
+-
+-/**
+- * What the header says last: what was done, or why it wasn't, which is drawn as a warning, not
+- * with a success's check. `n` counts what's said, so the same words said again are new.
+- */
+-type Said = { words: string; refused: boolean; n: number }
+-
+-/** Below this width of the modal, the contents are a drawer. */
+-const NARROW = 640
+-
+-/**
+- * Below this height of the modal, its header, a pane's bar and its footer leave the fields between
+- * too little room, as above a phone's keyboard turned sideways: it scrolls as a whole instead,
+- * the reader as tall as this, its footer kept in view.
+- */
+-const SHORT = 320
+-
+-type Notes = ReturnType<typeof useNotes>
+-
+-type Props = {
+-  /** The book, as the card reads it. */
+-  notes: Notes
+-  role: SeatRole
+-  kind: NoteBookKind
+-  /** The book's character or party, as its words name it. */
+-  name: string
+-  open: boolean
+-  /** Closes it, the draft kept. */
+-  onClose: () => void
+-}
+-
+ /**
+  * A journal, opened from its card (round 0.35.0 §8.4): a modal dialog, the browser's own, which
+  * keeps focus inside it and makes the page behind it inert; full screen below 640 px of screen,
+@@ -120,7 +100,7 @@ export function JournalModal({
+   name,
+   open,
+   onClose,
+-}: Readonly<Props>) {
++}: Readonly<JournalModalProps>) {
+   const ref = useModalDialog(open)
+   const { root, attach } = useDialogRoot(ref)
+   const titleId = useId()
+@@ -161,17 +141,6 @@ export function JournalModal({
+   )
+ }
+ 
+-/** Where focus goes once what it goes to is drawn. */
+-type FocusTo =
+-  | { heading: true }
+-  | { contents: true }
+-  | { reorder: true }
+-  | { arrow: 'previous' | 'next' }
+-  | { opener: NoteDraft['opener']; key: string; chapterId: string | null }
+-
+-/** A Reorder open: its group, and the group's stamp as it opened, which the new order is from. */
+-type Ordering = { chapterId: string | null; stamp: string }
+-
+ /**
+  * The journal's content: its header and banner, and its body, the contents and the reader, or the
+  * empty journal. What the reader shows is kept in the store with `open`, so a card mounted again
+@@ -184,7 +153,7 @@ function Journal({
+   name,
+   titleId,
+   onClose,
+-}: Readonly<Omit<Props, 'open'> & { titleId: string }>) {
++}: Readonly<Omit<JournalModalProps, 'open'> & { titleId: string }>) {
+   const { view, state, draft, setDraft, setPick } = notes
+   const pick = notes.open?.pick
+   const ids = useId()
+@@ -192,12 +161,6 @@ function Journal({
+   const container = useRef<HTMLDivElement>(null)
+   const heading = useRef<HTMLHeadingElement>(null)
+   const [query, setQuery] = useState('')
+-  const [drawer, setDrawer] = useState(false)
+-  const [narrow, setNarrow] = useState(false)
+-  const [short, setShort] = useState(false)
+-  const [ordering, setOrdering] = useState<Ordering>()
+-  const [focusTo, setFocusTo] = useState<FocusTo>()
+-  const [said, setSaid] = useState<Said>()
+   const [sending, setSending] = useState(0)
+   const [deleting, setDeleting] = useState<NoteEntryView>()
+   // The note, chapter or order (`order:<key>`) a choice is on its way for, and the note moving.
+@@ -215,56 +178,9 @@ function Journal({
+       heading.current?.focus()
+     }
+   }, [])
+-
+-  // The modal's own size, not the screen's: below 640 px wide the contents are a drawer, inert
+-  // while it's closed; below 320 px tall it scrolls as a whole. Measured as it's drawn, and as it
+-  // changes, as a phone turns or a keyboard comes up.
+-  useLayoutEffect(() => {
+-    const element = container.current
+-    if (!element) return
+-    const measure = ({ width, height }: { width: number; height: number }) => {
+-      // Not laid out yet: nothing to go by.
+-      if (width > 0) setNarrow(width < NARROW)
+-      if (height > 0) setShort(height < SHORT)
+-    }
+-    measure(element.getBoundingClientRect())
+-    const observer = new ResizeObserver(([entry]) => {
+-      if (entry) measure(entry.contentRect)
+-    })
+-    observer.observe(element)
+-    return () => observer.disconnect()
+-  }, [])
+-  // Grown past it, the contents are a pane again, and no drawer is open.
+-  useEffect(() => {
+-    if (!narrow) setDrawer(false)
+-  }, [narrow])
+-  // Turned short, as a keyboard comes up under the field being typed in, the journal scrolls from
+-  // its top: the field is brought back into view, above the footer.
+-  useLayoutEffect(() => {
+-    const focused = document.activeElement
+-    if (short && focused && container.current?.contains(focused)) {
+-      focused.scrollIntoView?.({ block: 'nearest' })
+-    }
+-  }, [short])
+-
+-  // What the header says clears itself a while after.
+-  useEffect(() => {
+-    if (!said) return
+-    const timer = setTimeout(() => setSaid(undefined), SAID_FOR)
+-    return () => clearTimeout(timer)
+-  }, [said])
+-
+-  // Focus moves once what it goes to is drawn: the editor's opener is drawn again as it closes,
+-  // and a pane replaced by another takes its controls with it. It waits for Delete's confirm to
+-  // close, as the page behind a modal dialog takes no focus; a passive effect, so the confirm,
+-  // closing in the same commit, has given focus back first.
+-  useEffect(() => {
+-    if (!focusTo || draft || deleting) return
+-    const root = container.current
+-    const target = root ? findFocus(root, focusTo) : undefined
+-    target?.focus()
+-    setFocusTo(undefined)
+-  }, [focusTo, draft, deleting])
++  const { drawer, setDrawer, narrow, short } = useJournalLayout(container)
++  const { said, say, refuse } = useSaid()
++  const setFocusTo = useFocusTo(container, draft, deleting)
+ 
+   const groups = useMemo(() => (view ? groupsOf(view) : undefined), [view])
+   // Reading order: every group's notes, loose first, as the contents list them.
+@@ -276,49 +192,19 @@ function Journal({
+     () => new Map(order.map(entry => [entry.id, searchText(entry)])),
+     [order],
+   )
+-  const searching = query.trim() !== ''
+-  const hits = searching
+-    ? new Set(
+-        order
+-          .filter(entry =>
+-            matchesSearch([entry.title, texts.get(entry.id) ?? ''], query),
+-          )
+-          .map(({ id }) => id),
+-      )
+-    : undefined
+-
+-  // The reading order as last drawn, to find what follows a note that has left the view.
+-  const drawn = useRef<NoteEntryView[]>([])
+-  const shownNow = groups
+-    ? showing({ pick, groups, order, before: drawn.current, draft })
+-    : undefined
+-  const note = shownNow?.note
+-  const group = shownNow?.group
+-  useEffect(() => {
+-    if (groups) drawn.current = order
++  const hits = hitsOf(order, texts, query)
++  const { shownNow, note, group } = useReaderPick({
++    pick,
++    groups,
++    order,
++    draft,
++    setPick,
+   })
+-  // What the reader settled on is kept, so a card mounted again shows the same: the most
+-  // recently changed note it opened on, or what follows a note gone since.
+-  const keep = shownNow?.keep ? shownNow.pick : undefined
+-  useEffect(() => {
+-    if (keep) setPick(keep)
+-  }, [keep, setPick])
+ 
+   const chapters = view?.chapters ?? []
+   const canAdd = view?.canAdd === true
+   const tooLarge = view?.withheld?.reason === 'tooLarge'
+-  const ordered =
+-    ordering &&
+-    groups?.find(({ chapterId }) => chapterId === ordering.chapterId)
+-  // A group gone meanwhile, as a chapter deleted in Foundry, takes its Reorder with it.
+-  useEffect(() => {
+-    if (ordering && groups && !ordered) setOrdering(undefined)
+-  }, [ordering, groups, ordered])
+-
+-  const say = (words: string, refused = false) =>
+-    setSaid(held => ({ words, refused, n: (held?.n ?? 0) + 1 }))
+-  // Why a change wasn't made: said as a warning.
+-  const refuse = (words: string) => say(words, true)
++  const { ordering, setOrdering, ordered } = useOrdering(groups)
+   const send = async (work: () => Promise<NoteWriteAnswer>) => {
+     setSending(held => held + 1)
+     try {
+@@ -388,27 +274,11 @@ function Journal({
+       opener,
+     })
+   const save = async (made: NoteDraft): Promise<NoteWriteAnswer> => {
+-    const title = made.title.trim()
+     const entry = made.role === 'entry'
+-    const stamp = made.stamp ?? ''
+     const answer = await send(() =>
+       isNew(made)
+-        ? notes.create(
+-            entry
+-              ? {
+-                  role: 'entry',
+-                  title,
+-                  body: made.body,
+-                  chapterId: made.chapterId,
+-                }
+-              : { role: 'chapter', title },
+-          )
+-        : notes.change(
+-            made.key,
+-            entry
+-              ? { title, body: made.body, chapterId: made.chapterId, stamp }
+-              : { title, stamp },
+-          ),
++        ? notes.create(inputOf(made))
++        : notes.change(made.key, changeOf(made)),
+     )
+     if (!answer.ok) return answer
+     const id = answer.id ?? made.key
+@@ -473,13 +343,6 @@ function Journal({
+     // Its button was off while it moved, and is gone where it left the page shown.
+     setFocusTo({ heading: true })
+   }
+-  // After a delete, the next note in reading order, else the one before, else its group's page.
+-  const afterDelete = (entry: NoteEntryView): NotePick => {
+-    const at = order.findIndex(({ id }) => id === entry.id)
+-    const near = order[at + 1] ?? order[at - 1]
+-    if (near && near.id !== entry.id) return { note: near.id }
+-    return { group: groupOfNote(groups, entry)?.chapterId ?? null }
+-  }
+   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+     // Escape that nothing inside took, from this dialog's own content, closes an open drawer
+     // first: the key is prevented, so the browser makes no request to close the dialog.
+@@ -589,9 +452,7 @@ function Journal({
+         key={keyOf(group.chapterId)}
+         group={group}
+         query={query}
+-        shown={
+-          hits ? group.entries.filter(({ id }) => hits.has(id)) : group.entries
+-        }
++        shown={hitEntries(group, hits)}
+         chapters={chapters}
+         role={role}
+         canAdd={canAdd}
+@@ -606,7 +467,10 @@ function Journal({
+         onRename={opener => group.chapter && rename(group.chapter, opener)}
+         onNewIn={() => newNote(group.chapterId, 'new-in')}
+         onReorder={() =>
+-          setOrdering({ chapterId: group.chapterId, stamp: group.order.stamp })
++          setOrdering({
++            chapterId: group.chapterId,
++            stamp: group.order.stamp,
++          })
+         }
+         onResolve={choice => {
+           if (group.chapter) void resolve(group.chapter, choice)
+@@ -620,9 +484,7 @@ function Journal({
+     )
+   }
+ 
+-  let locked: 'editing' | 'ordering' | undefined
+-  if (draft) locked = 'editing'
+-  else if (ordering) locked = 'ordering'
++  const locked = lockedBy(draft, ordering)
+   const banner = view && notesBanner(view, { role, name })
+   const { game } = seatWords(role)
+ 
+@@ -682,9 +544,7 @@ function Journal({
+               onQuery={setQuery}
+               hits={hits}
+               shown={shownNow?.pick}
+-              draftNote={
+-                draft?.role === 'entry' && !isNew(draft) ? draft.key : undefined
+-              }
++              draftNote={draftNoteOf(draft)}
+               locked={locked}
+               canAdd={canAdd}
+               narrow={narrow}
+@@ -706,7 +566,7 @@ function Journal({
+         danger
+         onConfirm={async () => {
+           if (!deleting) return
+-          const next = afterDelete(deleting)
++          const next = afterDelete(order, groups, deleting)
+           const answer = await send(() =>
+             notes.remove(deleting.id, deleting.stamp),
+           )
+@@ -738,7 +598,7 @@ function Editor({
+   onCancel,
+ }: Readonly<{
+   draft: NoteDraft
+-  notes: Notes
++  notes: JournalNotes
+   chapters: NoteChapterView[]
+   name: string
+   onSave: (draft: NoteDraft) => Promise<NoteWriteAnswer>
+@@ -903,7 +763,7 @@ function Header({
            type='button'
            aria-label='Close'
            onClick={onClose}
@@ -2090,19 +3299,225 @@ index c2f4aa7..d58f9f7 100644
          >
            <X aria-hidden className='size-5' />
          </button>
+@@ -998,183 +858,3 @@ function SkeletonPage() {
+     </div>
+   )
+ }
+-
+-/**
+- * What the reader shows (round 0.35.0 §8.7): the note or group picked; for a note picked that has
+- * left the view, the next in reading order as it was, else the one before, else its group's page;
+- * with nothing picked, the draft's note where the draft is a change to one, else the most recently
+- * changed note, else the last group listed. `keep` where that's to be kept as the pick.
+- */
+-function showing({
+-  pick,
+-  groups,
+-  order,
+-  before,
+-  draft,
+-}: {
+-  pick?: NotePick
+-  groups: JournalGroup[]
+-  order: NoteEntryView[]
+-  before: NoteEntryView[]
+-  draft?: NoteDraft
+-}):
+-  | {
+-      pick: NotePick
+-      note?: NoteEntryView
+-      group?: JournalGroup
+-      keep: boolean
+-    }
+-  | undefined {
+-  const at = (next: NotePick, keep: boolean) => {
+-    if ('note' in next) {
+-      const note = order.find(({ id }) => id === next.note)
+-      return note && { pick: next, note, keep }
+-    }
+-    const group = groups.find(({ chapterId }) => chapterId === next.group)
+-    return group && { pick: next, group, keep }
+-  }
+-  if (pick) {
+-    const picked = at(pick, false)
+-    if (picked) return picked
+-    // A note picked that has left the view gives way to what was near it.
+-    if ('note' in pick) {
+-      const instead = near(pick.note, order, before, groups)
+-      if (instead) return at(instead, true)
+-      // Never drawn, as a note saved here whose read hasn't come: it's shown once it comes.
+-      const first = fallback(groups, order, draft)
+-      return first && at(first, false)
+-    }
+-  }
+-  const first = fallback(groups, order, draft)
+-  return first && at(first, true)
+-}
+-
+-/** With nothing picked: the draft's note, the most recently changed note, or the last group. */
+-function fallback(
+-  groups: JournalGroup[],
+-  order: NoteEntryView[],
+-  draft?: NoteDraft,
+-): NotePick | undefined {
+-  if (draft?.role === 'entry' && order.some(({ id }) => id === draft.key)) {
+-    return { note: draft.key }
+-  }
+-  let latest: NoteEntryView | undefined
+-  for (const entry of order) {
+-    if (
+-      !latest ||
+-      Date.parse(entry.modifiedAt) > Date.parse(latest.modifiedAt)
+-    ) {
+-      latest = entry
+-    }
+-  }
+-  if (latest) return { note: latest.id }
+-  const listed = groups.filter(
+-    ({ chapterId, entries }) => chapterId !== null || entries.length > 0,
+-  )
+-  const last = listed.at(-1)
+-  return last && { group: last.chapterId }
+-}
+-
+-/** What follows a note gone from the view: the next as it was, the one before, or its group. */
+-function near(
+-  id: string,
+-  order: NoteEntryView[],
+-  before: NoteEntryView[],
+-  groups: JournalGroup[],
+-): NotePick | undefined {
+-  const at = before.findIndex(entry => entry.id === id)
+-  if (at === -1) return
+-  const here = new Set(order.map(entry => entry.id))
+-  const next = before.slice(at + 1).find(entry => here.has(entry.id))
+-  if (next) return { note: next.id }
+-  const previous = before.slice(0, at).findLast(entry => here.has(entry.id))
+-  if (previous) return { note: previous.id }
+-  const { chapterId } = before[at]
+-  return {
+-    group: groups.some(group => group.chapterId === chapterId)
+-      ? chapterId
+-      : null,
+-  }
+-}
+-
+-/** The group a note is in. */
+-function groupOfNote(
+-  groups: JournalGroup[] | undefined,
+-  entry: NoteEntryView,
+-): JournalGroup | undefined {
+-  return groups?.find(({ entries }) => entries.includes(entry))
+-}
+-
+-/** Is the draft held now the one on its way, just as it was sent? */
+-function isSent(held: NoteDraft | undefined, made: NoteDraft): boolean {
+-  return (
+-    held?.saving === true &&
+-    held.key === made.key &&
+-    held.title === made.title &&
+-    held.body === made.body &&
+-    held.chapterId === made.chapterId
+-  )
+-}
+-
+-/** Is the draft a note or chapter not yet made? */
+-function isNew(made: NoteDraft): boolean {
+-  return made.key === 'new' || made.key === 'new-chapter'
+-}
+-
+-/** A note's text as it's searched: its Markdown where the seat has it, else what it draws. */
+-function searchText(entry: NoteEntryView): string {
+-  if (entry.body !== undefined) return entry.body
+-  return readDescription(entry.html)?.textContent ?? ''
+-}
+-
+-/**
+- * What focus goes to, as it's drawn in the journal now: where it's gone, or inside the closed
+- * drawer, which is inert, the reader's heading, else the journal's.
+- */
+-function findFocus(root: HTMLElement, to: FocusTo): HTMLElement | undefined {
+-  const all = (selector: string) => [
+-    ...root.querySelectorAll<HTMLElement>(selector),
+-  ]
+-  let target: HTMLElement | undefined
+-  if ('heading' in to) target = undefined
+-  else if ('contents' in to) target = all('[data-contents-button]')[0]
+-  else if ('reorder' in to) target = all('[data-reorder]')[0]
+-  else if ('arrow' in to) {
+-    target = all(
+-      `[aria-label="${to.arrow === 'next' ? 'Next note' : 'Previous note'}"]:not(:disabled)`,
+-    )[0]
+-  } else {
+-    const openers = all(`[data-note-opener="${to.opener}"]`)
+-    switch (to.opener) {
+-      case 'new':
+-      case 'new-chapter': {
+-        target = openers[0]
+-        break
+-      }
+-      case 'new-in': {
+-        target = openers.find(
+-          ({ dataset }) => dataset.chapter === (to.chapterId ?? ''),
+-        )
+-        break
+-      }
+-      case 'rename': {
+-        target = openers.find(({ dataset }) => dataset.chapter === to.key)
+-        break
+-      }
+-      default: {
+-        target = openers.find(
+-          ({ dataset }) =>
+-            dataset.note === to.key || dataset.chapter === to.key,
+-        )
+-      }
+-    }
+-  }
+-  // A closed drawer's controls are inert: its Contents button stands for them.
+-  if (target?.closest('[inert]')) target = all('[data-contents-button]')[0]
+-  return (
+-    target ??
+-    all('[data-reader-heading]')[0] ??
+-    root.querySelector<HTMLElement>('h2') ??
+-    undefined
+-  )
+-}
 diff --git a/src/features/notes/components/move-menu/move-menu.tsx b/src/features/notes/components/move-menu/move-menu.tsx
-index 6d1bc7f..b581dfc 100644
+index 6d1bc7f..c630c77 100644
 --- a/src/features/notes/components/move-menu/move-menu.tsx
 +++ b/src/features/notes/components/move-menu/move-menu.tsx
-@@ -19,6 +19,7 @@ import clsx from 'clsx'
+@@ -19,18 +19,8 @@ import clsx from 'clsx'
  import { Check, ChevronDown, FolderInput, LoaderCircle } from 'lucide-react'
  import { usePortalRoot } from '@/components/modal/use-portal-root'
  import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
+-import type { NoteChapterView, NoteEntryView } from '@/types/notes'
+-
+-type Props = {
+-  entry: NoteEntryView
+-  /** The book's chapters, oldest first. */
+-  chapters: NoteChapterView[]
+-  /** The move is on its way: its button is off, with a spinner. */
+-  busy: boolean
+-  /** The card's labelled button, "Move to chapter"; else the note bar's icon button. */
+-  labelled?: boolean
+-  onMove: (chapterId: string | null) => void
+-}
 +import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
- import type { NoteChapterView, NoteEntryView } from '@/types/notes'
++import type { MoveMenuProps } from './types'
  
- type Props = {
-@@ -125,7 +126,7 @@ export function MoveMenu({
+ /**
+  * Move to a chapter (round 0.35.0 §9.3): a menu of the book's chapters, oldest first, and No
+@@ -45,7 +35,7 @@ export function MoveMenu({
+   busy,
+   labelled = false,
+   onMove,
+-}: Readonly<Props>) {
++}: Readonly<MoveMenuProps>) {
+   const [open, setOpen] = useState(false)
+   const [active, setActive] = useState<number | null>(null)
+   const list = useRef<(HTMLElement | null)[]>([])
+@@ -125,7 +115,7 @@ export function MoveMenu({
            {...button}
            aria-label={`Move ${entry.title} to a chapter`}
            title='Move to a chapter'
@@ -2111,18 +3526,673 @@ index 6d1bc7f..b581dfc 100644
          >
            {icon}
          </button>
+diff --git a/src/features/notes/components/note-card/note-card.tsx b/src/features/notes/components/note-card/note-card.tsx
+index 2acb520..dde488e 100644
+--- a/src/features/notes/components/note-card/note-card.tsx
++++ b/src/features/notes/components/note-card/note-card.tsx
+@@ -2,12 +2,10 @@
+ 
+ import { useLayoutEffect, useRef, useState } from 'react'
+ import { MoveMenu } from '../move-menu/move-menu'
+-import {
+-  LastChanged,
+-  NoteText,
+-  StateMark,
+-  Written,
+-} from '../note-lines/note-lines'
++import { LastChanged } from '@/features/notes/components/note-lines/last-changed'
++import { NoteText } from '@/features/notes/components/note-lines/note-text'
++import { StateMark } from '@/features/notes/components/note-lines/state-mark'
++import { Written } from '@/features/notes/components/note-lines/written'
+ import type { NoteChapterView, NoteEntryView } from '@/types/notes'
+ 
+ /** How far past the clip a note's text must reach to be cut short, rather than a rounding pixel. */
+diff --git a/src/features/notes/components/note-editor/note-editor.test.tsx b/src/features/notes/components/note-editor/note-editor.test.tsx
+index 01ec40e..42a080b 100644
+--- a/src/features/notes/components/note-editor/note-editor.test.tsx
++++ b/src/features/notes/components/note-editor/note-editor.test.tsx
+@@ -9,14 +9,10 @@ import {
+ } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { JournalCard } from '../journal-card/journal-card'
+-import { headingHint, NoteEditor } from './note-editor'
++import { NoteEditor } from './note-editor'
+ import { POLL_INTERVAL } from '@/constants/polling'
+-import {
+-  forgetNotes,
+-  hasDraft,
+-  type DraftChange,
+-  type NoteDraft,
+-} from '@/features/notes/hooks/use-notes'
++import { forgetNotes, hasDraft } from '@/features/notes/hooks/use-notes'
++import { headingHint } from '@/features/notes/utils/editor'
+ import {
+   emptyBook,
+   noteChapter,
+@@ -24,6 +20,7 @@ import {
+   serveNotes,
+ } from '@/mocks/notes-server'
+ import { bigHeadings } from '@/utils/note-headings'
++import type { DraftChange, NoteDraft } from '@/features/notes/types'
+ import type { NoteChapterView, NoteWriteAnswer } from '@/types/notes'
+ 
+ const API = '/api/characters/char-1'
+diff --git a/src/features/notes/components/note-editor/note-editor.tsx b/src/features/notes/components/note-editor/note-editor.tsx
+index 7b3f9fe..28fb204 100644
+--- a/src/features/notes/components/note-editor/note-editor.tsx
++++ b/src/features/notes/components/note-editor/note-editor.tsx
+@@ -3,7 +3,6 @@
+ import {
+   useEffect,
+   useId,
+-  useLayoutEffect,
+   useMemo,
+   useRef,
+   useState,
+@@ -12,43 +11,25 @@ import {
+   type RefObject,
+ } from 'react'
+ import clsx from 'clsx'
+-import { LoaderCircle } from 'lucide-react'
+ import { flushSync } from 'react-dom'
+-import { NoteText } from '../note-lines/note-lines'
+ import { Pane } from '../pane/pane'
+-import { ConfirmModal } from '@/components/modal/confirm-modal'
++import { DiscardModal } from './discard-modal'
++import { EditorFooter } from './editor-footer'
++import { EditorHeading } from './editor-heading'
+ import { MOST_NOTE_BODY, MOST_NOTE_TITLE } from '@/constants/notes'
+-import {
+-  draftChanged,
+-  type DraftChange,
+-  type NoteDraft,
+-} from '@/features/notes/hooks/use-notes'
+-import { noteRefusalWords } from '@/features/notes/utils/note-words'
++import { NoteText } from '@/features/notes/components/note-lines/note-text'
++import { FIELD } from '@/features/notes/constants'
++import { useDraftFocus } from '@/features/notes/hooks/use-draft-focus'
++import { useDraftSave } from '@/features/notes/hooks/use-draft-save'
++import { draftChanged } from '@/features/notes/hooks/use-notes'
++import { headingHint } from '@/features/notes/utils/editor'
+ import { bigHeadings } from '@/utils/note-headings'
+-import type { NoteChapterView, NoteWriteAnswer } from '@/types/notes'
++import type { NoteEditorProps, Shown } from './types'
++import type { NoteDraft } from '@/features/notes/types'
+ 
+ /** From how many characters a note's count shows under it, as it nears the most it may hold. */
+ const COUNT_FROM = 18_000
+ 
+-/** The most heading hints listed one by one, before the rest are counted. */
+-const MOST_HINTS = 3
+-
+-type Props = {
+-  draft: NoteDraft
+-  setDraft: (change: DraftChange) => void
+-  /** The book's chapters, oldest first, for the note to be put in one. */
+-  chapters: NoteChapterView[]
+-  /** The book's character or party, as a refusal names it. */
+-  name: string
+-  preview: (
+-    body: string,
+-  ) => Promise<{ html: string; headings: number[] } | undefined>
+-  /** Sends the note; the journal clears the draft once it's answered ok. */
+-  onSave: (draft: NoteDraft) => Promise<NoteWriteAnswer>
+-  /** Closes it, its changes discarded. */
+-  onCancel: () => void
+-}
+-
+ /**
+  * A note written or changed, in Foundry's Markdown, filling the journal's reader (round 0.35.0
+  * §8.10): its heading in the bar; the chapter, the title, and the note, written or previewed as the
+@@ -65,7 +46,7 @@ export function NoteEditor({
+   preview,
+   onSave,
+   onCancel,
+-}: Readonly<Props>) {
++}: Readonly<NoteEditorProps>) {
+   const ids = useId()
+   const headingId = `${ids}-heading`
+   const helpId = `${ids}-help`
+@@ -331,210 +312,6 @@ export function NoteEditor({
+   )
+ }
+ 
+-/** A field's look: 16px text, so iOS doesn't zoom into it as it takes focus. */
+-export const FIELD =
+-  'rounded-xl border border-border bg-page px-3 text-base font-normal outline-none focus:ring-2 focus:ring-primary/40'
+-
+-/** An editor's heading, in its pane's bar: cut short to one line, the whole of it its title. */
+-export function EditorHeading({
+-  id,
+-  heading,
+-}: Readonly<{ id: string; heading: string }>) {
+-  return (
+-    <h3
+-      id={id}
+-      title={heading}
+-      className='min-w-0 flex-1 truncate px-2 font-semibold'
+-    >
+-      {heading}
+-    </h3>
+-  )
+-}
+-
+-/**
+- * An editor's footer, below its fields and pinned to the modal's bottom (round 0.35.0 §8.10): why
+- * Save was refused, over the keys that save, from 640 px of the modal, then Cancel and Save, after
+- * the fields in Tab order.
+- */
+-export function EditorFooter({
+-  error,
+-  hint,
+-  saving,
+-  canSave,
+-  onCancel,
+-}: Readonly<{
+-  error?: string
+-  /** The keys that save, as the editor takes them. */
+-  hint: string
+-  saving: boolean
+-  canSave: boolean
+-  onCancel: () => void
+-}>) {
+-  return (
+-    <div className='flex flex-col gap-2'>
+-      {error && (
+-        <p role='alert' className='text-sm text-danger'>
+-          {error}
+-        </p>
+-      )}
+-      <div className='flex items-center justify-end gap-2'>
+-        <p className='hidden min-w-0 flex-1 text-xs text-text-secondary @min-[640px]:block'>
+-          {hint}
+-        </p>
+-        {/* Off while it's saving: what's sent is kept or refused, and only then can it be left. */}
+-        <button
+-          type='button'
+-          disabled={saving}
+-          onClick={onCancel}
+-          className='min-h-11 shrink-0 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-60'
+-        >
+-          Cancel
+-        </button>
+-        <button
+-          type='submit'
+-          disabled={!canSave}
+-          className='inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60'
+-        >
+-          {saving && (
+-            <LoaderCircle
+-              aria-hidden
+-              className='size-4 motion-safe:animate-spin'
+-            />
+-          )}
+-          Save
+-        </button>
+-      </div>
+-    </div>
+-  )
+-}
+-
+-/** Asks before what was written is thrown away. */
+-export function DiscardModal({
+-  open,
+-  onClose,
+-  onDiscard,
+-}: Readonly<{ open: boolean; onClose: () => void; onDiscard: () => void }>) {
+-  return (
+-    <ConfirmModal
+-      open={open}
+-      onClose={onClose}
+-      title='Discard your changes?'
+-      confirmLabel='Discard'
+-      cancelLabel='Keep editing'
+-      onConfirm={async () => onDiscard()}
+-      danger
+-    >
+-      <p>What you wrote here isn’t saved.</p>
+-    </ConfirmModal>
+-  )
+-}
+-
+-/**
+- * Save, for the editor and the chapter form: the draft is marked in the store as it's sent, so
+- * its fields hold still and Cancel waits till it's answered, in an editor mounted again meanwhile
+- * too, as one there could otherwise send it again; once answered, the mark goes from a draft still
+- * held, and a refusal says why.
+- */
+-export function useDraftSave({
+-  draft,
+-  setDraft,
+-  onSave,
+-  name,
+-}: {
+-  draft: NoteDraft
+-  setDraft: (change: DraftChange) => void
+-  onSave: (draft: NoteDraft) => Promise<NoteWriteAnswer>
+-  /** The book's character or party, as a refusal names it. */
+-  name: string
+-}): { saving: boolean; error?: string; send: () => Promise<void> } {
+-  const [error, setError] = useState<string>()
+-  const { key } = draft
+-  const send = async () => {
+-    setError(undefined)
+-    setDraft(held => (held?.key === key ? { ...held, saving: true } : held))
+-    const answer = await onSave(draft)
+-    // Kept, the section has let the draft go; refused, it's open again with the text as typed.
+-    setDraft(held =>
+-      held?.key === key && held.saving ? { ...held, saving: undefined } : held,
+-    )
+-    if (!answer.ok) setError(noteRefusalWords(answer.reason, name))
+-  }
+-  return { saving: draft.saving === true, error, send }
+-}
+-
+-/**
+- * Where focus goes as an editor mounts, and what's noted as it unmounts (§9.6): opened by a
+- * button, its title takes focus, as the draft it opens with says; mounted again where focus was
+- * inside it, as when the sheet arrives while the player types, focus and the caret go back. Its
+- * cleanup runs while its fields are still in the page, so it can read where focus is; it changes
+- * the draft only where it's still this editor's, never bringing back one just saved or discarded.
+- */
+-export function useDraftFocus({
+-  draft,
+-  setDraft,
+-  form,
+-  fields,
+-}: {
+-  draft: NoteDraft
+-  setDraft: (change: DraftChange) => void
+-  /** Inside the editor's form, which focus is looked for in as it unmounts. */
+-  form: RefObject<HTMLElement | null>
+-  fields: {
+-    chapter?: RefObject<HTMLSelectElement | null>
+-    title: RefObject<HTMLInputElement | null>
+-    body?: RefObject<HTMLTextAreaElement | null>
+-  }
+-}): void {
+-  // As the editor mounts, from the draft it mounts with: the effect runs only then.
+-  const mounted = useRef(draft)
+-  useLayoutEffect(() => {
+-    const { key } = mounted.current
+-    // Where focus was is read from the draft as it's held now, not as this editor was rendered
+-    // with it: where the editor it replaces unmounted in the same commit, as when the sheet
+-    // arrives, that one noted it after this one was rendered.
+-    let focus: NoteDraft['focus']
+-    setDraft(held => {
+-      if (held?.key !== key || !held.focus) return held
+-      focus = held.focus
+-      return { ...held, focus: undefined }
+-    })
+-    if (focus) {
+-      const field =
+-        (focus.field === 'chapter' && fields.chapter?.current) ||
+-        (focus.field === 'body' && fields.body?.current) ||
+-        fields.title.current
+-      field?.focus()
+-      if (
+-        field &&
+-        !(field instanceof HTMLSelectElement) &&
+-        focus.start !== undefined
+-      ) {
+-        field.setSelectionRange(focus.start, focus.end ?? focus.start)
+-      }
+-    }
+-    // The whole form, its footer's Cancel and Save too.
+-    const shown = form.current?.closest('form') ?? form.current
+-    const { chapter, title, body } = fields
+-    return () => {
+-      const active = document.activeElement
+-      if (!shown || !active || !shown.contains(active)) return
+-      let noted: NoteDraft['focus'] = { field: 'title' }
+-      if (active === body?.current || active === title.current) {
+-        const typed = active as HTMLInputElement | HTMLTextAreaElement
+-        noted = {
+-          field: active === title.current ? 'title' : 'body',
+-          start: typed.selectionStart ?? undefined,
+-          end: typed.selectionEnd ?? undefined,
+-        }
+-      } else if (active === chapter?.current) {
+-        noted = { field: 'chapter' }
+-      }
+-      setDraft(held => (held?.key === key ? { ...held, focus: noted } : held))
+-    }
+-    // Only as it mounts and unmounts: what it notes is where focus is then.
+-  }, [])
+-}
+-
+ /** One of the note's two tabs, Write and Preview: the one chosen is in the Tab order. */
+ function TabButton({
+   ref,
+@@ -576,9 +353,6 @@ function TabButton({
+   )
+ }
+ 
+-/** What's previewed: the text asked about, and the server's render of it once it comes. */
+-type Shown = { body: string; html?: string; failed?: true }
+-
+ /** The note as the reader will draw it, from the server's render of it. */
+ function Preview({ shown }: Readonly<{ shown?: Shown }>) {
+   if (!shown) return
+@@ -601,25 +375,3 @@ function Preview({ shown }: Readonly<{ shown?: Shown }>) {
+   }
+   return <NoteText html={shown.html} lifted />
+ }
+-
+-/**
+- * The editor's hint for the lines that would be the journal's own headings, one sentence a line,
+- * at most three, then how many more: the scanner's lines, from 1, as showdown makes them h1 or h2,
+- * and as a refusal's lines number them. A line it found under-ruled is the text above the rule,
+- * which the hint names, as the rule makes it the heading.
+- */
+-export function headingHint(markdown: string, lines: number[]): string {
+-  if (lines.length === 0) return ''
+-  const rows = markdown.split(/\r\n|\r|\n/)
+-  const said = lines.slice(0, MOST_HINTS).map(line => {
+-    const text = (rows[line - 1] ?? '')
+-      .replace(/^(?:[ \t]*>)+/, '')
+-      .replace(/^(?:[ \t]*(?:[*+-]|\d+\.)[ \t]+)+/, '')
+-      .trimStart()
+-    return text.startsWith('#')
+-      ? String.raw`Line ${line} is a # or ## heading. Use ### or more, or put a \ before the #.`
+-      : `Line ${line} has = or - on the line below it, which makes it a heading. Leave a blank line between them.`
+-  })
+-  const more = lines.length - said.length
+-  return more > 0 ? `${said.join(' ')} …and ${more} more` : said.join(' ')
+-}
+diff --git a/src/features/notes/components/note-lines/note-lines.test.tsx b/src/features/notes/components/note-lines/note-lines.test.tsx
+index 5f888b1..2b84dd6 100644
+--- a/src/features/notes/components/note-lines/note-lines.test.tsx
++++ b/src/features/notes/components/note-lines/note-lines.test.tsx
+@@ -1,16 +1,16 @@
+ import { render, screen } from '@testing-library/react'
++import { ChapterLine } from './chapter-line'
++import { LastChanged } from './last-changed'
++import { NoteText } from './note-text'
++import { StateMark } from './state-mark'
++import { lift } from './utils'
++import { Written } from './written'
+ import {
+-  ChapterLine,
+-  LastChanged,
+-  lift,
+   mayDelete,
+   mayEdit,
+   mayMove,
+   mayRename,
+-  NoteText,
+-  StateMark,
+-  Written,
+-} from './note-lines'
++} from '@/features/notes/utils/permissions'
+ import { noteChapter, noteEntry } from '@/mocks/notes-server'
+ import { minutesAgo as ago } from '@/utils/test-utils'
+ import type { NoteState } from '@/types/notes'
+diff --git a/src/features/notes/components/note-lines/note-lines.tsx b/src/features/notes/components/note-lines/note-lines.tsx
+deleted file mode 100644
+index 3c3be4d..0000000
+--- a/src/features/notes/components/note-lines/note-lines.tsx
++++ /dev/null
+@@ -1,200 +0,0 @@
+-'use client'
+-
+-import { useMemo } from 'react'
+-import clsx from 'clsx'
+-import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
+-import { NoteTime } from '../note-time/note-time'
+-import { drawDescription } from '@/components/description/draw-description'
+-import { readDescription } from '@/components/description/read-description'
+-import { noteStateWords } from '@/features/notes/utils/note-words'
+-import type { NoteChapterView, NoteEntryView, NoteState } from '@/types/notes'
+-
+-/*
+- * What the journal says of a note or chapter in a line (round 0.35.0 §8.8-§8.9): who wrote it and
+- * who changed it last, where it stands as a mark, and its text as the book draws it.
+- */
+-
+-/** Why a note is changed only in Foundry, said where its Edit would be. */
+-export const FOUNDRY_ONLY: Record<
+-  NonNullable<NoteEntryView['foundryOnly']>,
+-  string
+-> = {
+-  html: 'Written in Foundry’s own editor: change it there.',
+-  long: 'Too long to change here: change it in Foundry.',
+-  secret: 'It holds a Gamemaster’s secret: change it in Foundry.',
+-}
+-
+-/** Who wrote a note and when, or that it was written in Foundry: said whoever changed it last. */
+-export function Written({ entry }: Readonly<{ entry: NoteEntryView }>) {
+-  const { author, createdAt } = entry
+-  return (
+-    <>
+-      {author ? `Written by ${author.name}` : 'Written in Foundry'},{' '}
+-      <NoteTime value={createdAt} />
+-    </>
+-  )
+-}
+-
+-/** Who changed a note last and when, here or in Foundry: "Last changed by Vex in Foundry, …". */
+-export function LastChanged({ entry }: Readonly<{ entry: NoteEntryView }>) {
+-  const { modifiedBy, modifiedIn, modifiedAt } = entry
+-  return (
+-    <>
+-      Last changed by {modifiedBy}
+-      {modifiedIn === 'foundry' && ' in Foundry'},{' '}
+-      <NoteTime value={modifiedAt} />
+-    </>
+-  )
+-}
+-
+-/**
+- * Who added a chapter, or renamed it last, and when, here or in Foundry: a chapter made here is
+- * changed only by a rename, and is as it was made while it was last changed when made.
+- */
+-export function ChapterLine({
+-  chapter,
+-}: Readonly<{ chapter: NoteChapterView }>) {
+-  const { modifiedIn, modifiedAt, createdAt, modifiedBy } = chapter
+-  let what = 'Renamed by'
+-  if (modifiedIn === 'foundry') what = 'Changed in Foundry by'
+-  else if (modifiedAt === createdAt) what = 'Added by'
+-  return (
+-    <>
+-      {what} {modifiedBy}, <NoteTime value={modifiedAt} />
+-    </>
+-  )
+-}
+-
+-/** The states a note's mark warns of: its change didn't reach Foundry, and it waits on a choice. */
+-const WARNS = new Set<NoteState>(['conflict', 'gone', 'failed'])
+-
+-/**
+- * Where a note stands, as an icon alone, in the contents and on a card: its chip's words are its
+- * title and what a screen reader says. A delete waiting is waiting, not a choice. Nothing for a
+- * note the same here and in Foundry.
+- */
+-export function StateMark({ state }: Readonly<{ state: NoteState }>) {
+-  const words = noteStateWords(state)
+-  if (!words) return
+-  const warns = WARNS.has(state)
+-  let icon = <Clock aria-hidden className='size-3.5' />
+-  if (state === 'saving') {
+-    icon = (
+-      <LoaderCircle aria-hidden className='size-3.5 motion-safe:animate-spin' />
+-    )
+-  } else if (warns) {
+-    icon = <TriangleAlert aria-hidden className='size-3.5' />
+-  }
+-  return (
+-    <span
+-      title={words}
+-      className={clsx(
+-        'inline-flex shrink-0',
+-        warns ? 'text-warning' : 'text-text-secondary',
+-      )}
+-    >
+-      {icon}
+-      <span className='sr-only'>{words}</span>
+-    </span>
+-  )
+-}
+-
+-/**
+- * A note's text, or a chapter's, as the book draws it, at the reader's size, its tables scrolling
+- * inside it. Lifted, its own headings come a level up, so under a note's h3 a ### is an h4 and
+- * nothing skips a level; on a card, under its h4, they stay as the server drew them.
+- */
+-export function NoteText({
+-  html,
+-  lifted = false,
+-}: Readonly<{ html: string; lifted?: boolean }>) {
+-  const body = useMemo(() => {
+-    const read = html ? readDescription(html) : undefined
+-    return read && lifted ? lift(read) : read
+-  }, [html, lifted])
+-  if (!body) return
+-  return (
+-    <div className='overflow-x-auto'>
+-      <div className={clsx('sheet-text note-text reading', lifted && 'lifted')}>
+-        {drawDescription(body)}
+-      </div>
+-    </div>
+-  )
+-}
+-
+-/**
+- * A note's headings a level up: the server draws a note's own headings two levels down, h1-h3 as
+- * h5 and h4-h6 as h6, under the h4 a note had in v0.34; under the reader's h3 they're one level
+- * down, so each h5 becomes an h4 and each h6 an h5, their content and attributes kept.
+- */
+-export function lift(body: HTMLElement): HTMLElement {
+-  const lifted = body.cloneNode(true) as HTMLElement
+-  const document = lifted.ownerDocument
+-  for (const heading of lifted.querySelectorAll('h5, h6')) {
+-    const raised = document.createElement(
+-      heading.localName === 'h5' ? 'h4' : 'h5',
+-    )
+-    for (const { name, value } of heading.attributes) {
+-      raised.setAttribute(name, value)
+-    }
+-    raised.append(...heading.childNodes)
+-    heading.replaceWith(raised)
+-  }
+-  return lifted
+-}
+-
+-/*
+- * What the seat may do to a note or chapter, offered only where the server would take it (round
+- * 0.35.0 §8.13): nothing in a book that takes no change (`canAdd` false), and nothing that would
+- * be refused while a change refused by the game waits on a choice.
+- */
+-
+-/** Edit: the seat may change it, here, and no choice waits on it. */
+-export function mayEdit(entry: NoteEntryView, canAdd: boolean): boolean {
+-  return (
+-    canAdd &&
+-    entry.canEdit &&
+-    !entry.foundryOnly &&
+-    entry.state !== 'conflict' &&
+-    entry.state !== 'gone'
+-  )
+-}
+-
+-/** Delete: the seat may delete it, it isn't being deleted, and no choice waits on it. */
+-export function mayDelete(entry: NoteEntryView, canAdd: boolean): boolean {
+-  return (
+-    canAdd &&
+-    entry.canDelete &&
+-    entry.state !== 'deleting' &&
+-    entry.state !== 'conflict' &&
+-    entry.state !== 'gone'
+-  )
+-}
+-
+-/** Rename: the seat may rename the chapter, and no choice waits on it. */
+-export function mayRename(chapter: NoteChapterView, canAdd: boolean): boolean {
+-  return (
+-    canAdd &&
+-    chapter.canRename &&
+-    chapter.state !== 'conflict' &&
+-    chapter.state !== 'gone'
+-  )
+-}
+-
+-/** The states a note may be moved in: as the game has it, or its change waiting or on its way. */
+-const SETTLED = new Set<NoteState>(['synced', 'waiting', 'saving'])
+-
+-/**
+- * Move to a chapter: Edit's rights, for it's the change Edit's Chapter field makes; a note settled
+- * with the game or on its way to it, as a move folded into a refused change would send that
+- * change's title; and a chapter to go to.
+- */
+-export function mayMove(
+-  entry: NoteEntryView,
+-  canAdd: boolean,
+-  chapters: readonly NoteChapterView[],
+-): boolean {
+-  return (
+-    mayEdit(entry, canAdd) && SETTLED.has(entry.state) && chapters.length > 0
+-  )
+-}
+diff --git a/src/features/notes/components/note-pane/note-pane.test.tsx b/src/features/notes/components/note-pane/note-pane.test.tsx
+index 46fbbdd..dce1d22 100644
+--- a/src/features/notes/components/note-pane/note-pane.test.tsx
++++ b/src/features/notes/components/note-pane/note-pane.test.tsx
+@@ -1,9 +1,9 @@
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+-import { groupsOf } from '../contents/contents'
+ import { JournalCard } from '../journal-card/journal-card'
+ import { NotePane } from './note-pane'
+ import { forgetNotes } from '@/features/notes/hooks/use-notes'
++import { groupsOf } from '@/features/notes/utils/groups'
+ import {
+   emptyBook,
+   noteChapter,
 diff --git a/src/features/notes/components/note-pane/note-pane.tsx b/src/features/notes/components/note-pane/note-pane.tsx
-index eafa23f..38714dd 100644
+index eafa23f..690fa30 100644
 --- a/src/features/notes/components/note-pane/note-pane.tsx
 +++ b/src/features/notes/components/note-pane/note-pane.tsx
-@@ -24,12 +24,12 @@ import {
- } from '../note-lines/note-lines'
- import { hasProblem, NoteChip, NoteProblem } from '../note-problem/note-problem'
- import { Pane } from '../pane/pane'
-+import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
- import type { NotePick } from '@/features/notes/hooks/use-notes'
- import type { NoteChapterView, NoteEntryView } from '@/types/notes'
- import type { SeatRole } from '@/types/seats'
+@@ -1,6 +1,6 @@
+ 'use client'
+ 
+-import { useId, type ReactNode } from 'react'
++import { useId } from 'react'
+ import clsx from 'clsx'
+ import {
+   ChevronLeft,
+@@ -11,55 +11,26 @@ import {
+   Trash2,
+   User,
+ } from 'lucide-react'
+-import { LOOSE_TITLE, type JournalGroup } from '../contents/contents'
+ import { MoveMenu } from '../move-menu/move-menu'
++import { NoteProblem } from '../note-problem/note-problem'
++import { Pane } from '../pane/pane'
++import { LastChanged } from '@/features/notes/components/note-lines/last-changed'
++import { NoteText } from '@/features/notes/components/note-lines/note-text'
++import { Written } from '@/features/notes/components/note-lines/written'
++import { NoteChip } from '@/features/notes/components/note-problem/note-chip'
++import { hasProblem } from '@/features/notes/components/note-problem/utils'
+ import {
+   FOUNDRY_ONLY,
+-  LastChanged,
+-  mayDelete,
+-  mayEdit,
+-  mayMove,
+-  NoteText,
+-  Written,
+-} from '../note-lines/note-lines'
+-import { hasProblem, NoteChip, NoteProblem } from '../note-problem/note-problem'
+-import { Pane } from '../pane/pane'
+-import type { NotePick } from '@/features/notes/hooks/use-notes'
+-import type { NoteChapterView, NoteEntryView } from '@/types/notes'
+-import type { SeatRole } from '@/types/seats'
++  LOOSE_TITLE,
++  JOURNAL_ICON_BUTTON,
++} from '@/features/notes/constants'
++import { mayDelete, mayEdit, mayMove } from '@/features/notes/utils/permissions'
++import type { NotePaneProps } from './types'
  
 -const ICON_BUTTON =
 -  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:pointer-events-none disabled:opacity-40'
@@ -2130,19 +4200,328 @@ index eafa23f..38714dd 100644
  const NAV_CARD =
    'flex min-w-0 flex-col gap-0.5 rounded-xl border border-border px-3 py-2 transition-colors hover:border-primary/50 hover:bg-primary/5'
  
+-type Props = {
+-  entry: NoteEntryView
+-  /** The group it's in. */
+-  group: JournalGroup
+-  /** Every note of the book in reading order, whatever is searched. */
+-  order: NoteEntryView[]
+-  /** The book's chapters, oldest first, to move it to one. */
+-  chapters: NoteChapterView[]
+-  role: SeatRole
+-  /** The book takes changes: else nothing here offers one. */
+-  canAdd: boolean
+-  /** Foundry holds the journal back as too large. */
+-  tooLarge: boolean
+-  /** The reader's Contents button, below 640 px of the modal. */
+-  contents: ReactNode
+-  /** Shows another note or its group; from an arrow, focus stays on that arrow. */
+-  onPick: (pick: NotePick, from?: 'previous' | 'next') => void
+-  onEdit: (opener: 'edit' | 'problem-edit') => void
+-  onDelete: () => void
+-  onMove: (chapterId: string | null) => void
+-  onResolve: (choice: 'mine' | 'theirs') => void
+-  /** Its move is on its way. */
+-  moving: boolean
+-  /** A choice for it is on its way. */
+-  busy: boolean
+-}
+-
+ /**
+  * One note, read (round 0.35.0 §8.8): its chapter's number and its tools in the bar, Move, Edit
+  * and Delete where the seat may, then where it is among the book's notes and the arrows to the
+@@ -82,7 +53,7 @@ export function NotePane({
+   onResolve,
+   moving,
+   busy,
+-}: Readonly<Props>) {
++}: Readonly<NotePaneProps>) {
+   const titleId = useId()
+   const at = order.findIndex(({ id }) => id === entry.id)
+   const previous = at > 0 ? order[at - 1] : undefined
+diff --git a/src/features/notes/components/note-problem/note-problem.test.tsx b/src/features/notes/components/note-problem/note-problem.test.tsx
+index 491390a..5c24353 100644
+--- a/src/features/notes/components/note-problem/note-problem.test.tsx
++++ b/src/features/notes/components/note-problem/note-problem.test.tsx
+@@ -1,6 +1,7 @@
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+-import { NoteChip, NoteProblem } from './note-problem'
++import { NoteChip } from './note-chip'
++import { NoteProblem } from './note-problem'
+ import type { NoteState } from '@/types/notes'
+ 
+ type Props = Parameters<typeof NoteProblem>[0]
+diff --git a/src/features/notes/components/note-problem/note-problem.tsx b/src/features/notes/components/note-problem/note-problem.tsx
+index 071e203..52a95f8 100644
+--- a/src/features/notes/components/note-problem/note-problem.tsx
++++ b/src/features/notes/components/note-problem/note-problem.tsx
+@@ -1,8 +1,7 @@
+ 'use client'
+ 
+ import { useMemo, useState } from 'react'
+-import clsx from 'clsx'
+-import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
++import { hasProblem } from './utils'
+ import { drawDescription } from '@/components/description/draw-description'
+ import { readDescription } from '@/components/description/read-description'
+ import {
+@@ -10,77 +9,7 @@ import {
+   noteStateWords,
+ } from '@/features/notes/utils/note-words'
+ import { seatWords } from '@/utils/seat-words'
+-import type { NoteReason, NoteState } from '@/types/notes'
+-import type { SeatRole } from '@/types/seats'
+-
+-/** The states a change didn't reach Foundry in, which the chip warns of. */
+-const WARNS = new Set<NoteState>(['conflict', 'gone', 'failed'])
+-
+-/** Where a note stands, as a chip of an icon and its words, never colour alone (§9.7). */
+-export function NoteChip({ state }: Readonly<{ state: NoteState }>) {
+-  const words = noteStateWords(state)
+-  if (!words) return
+-  const warns = WARNS.has(state)
+-  let icon = <Clock aria-hidden className='size-3.5 shrink-0' />
+-  if (state === 'saving') {
+-    icon = (
+-      <LoaderCircle
+-        aria-hidden
+-        className='size-3.5 shrink-0 motion-safe:animate-spin'
+-      />
+-    )
+-  } else if (warns) {
+-    icon = <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
+-  }
+-  return (
+-    <span
+-      className={clsx(
+-        'inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
+-        warns
+-          ? 'border-warning/40 bg-warning/10 text-warning'
+-          : 'border-border text-text-secondary',
+-      )}
+-    >
+-      {icon}
+-      {words}
+-    </span>
+-  )
+-}
+-
+-/** The states a note has a problem to show in, and choices to make. */
+-const PROBLEMS = new Set<NoteState>(['conflict', 'gone', 'failed', 'deleting'])
+-
+-/** Has a note in this state a problem to show, and choices to make? */
+-export function hasProblem(state: NoteState): boolean {
+-  return PROBLEMS.has(state)
+-}
+-
+-/** The change the game didn't take, as the view gives it. */
+-export type Mine = {
+-  title: string
+-  html?: string
+-  deleting?: true
+-  /** Whose it is, for the Gamemaster's view of another seat's; left out for the viewer's own. */
+-  by?: string
+-}
+-
+-type Props = {
+-  state: NoteState
+-  reason?: NoteReason
+-  /** Who changed it in Foundry, as its line says. */
+-  modifiedBy: string
+-  mine?: Mine
+-  role: SeatRole
+-  /** Foundry holds the journal back as too large, so its version isn't here to show. */
+-  tooLarge: boolean
+-  /** Offers Edit, for a failed change the seat may still make. */
+-  onEdit?: () => void
+-  /** The note or chapter Edit is for, by which focus finds it again after the editor closes. */
+-  editFor: { note?: string; chapter?: string }
+-  onResolve: (choice: 'mine' | 'theirs') => void
+-  /** A choice is on its way. */
+-  busy?: boolean
+-}
++import type { Mine, NoteProblemProps } from './types'
+ 
+ /**
+  * What became of a change the game didn't take, or of a delete waiting for it, and the choices
+@@ -98,7 +27,7 @@ export function NoteProblem({
+   editFor,
+   onResolve,
+   busy = false,
+-}: Readonly<Props>) {
++}: Readonly<NoteProblemProps>) {
+   const [showing, setShowing] = useState(false)
+   const label = noteStateWords(state)
+   if (!hasProblem(state) || !label) return
+diff --git a/src/features/notes/components/order-state/order-state.test.tsx b/src/features/notes/components/order-state/order-state.test.tsx
+index 4bf2572..666aa65 100644
+--- a/src/features/notes/components/order-state/order-state.test.tsx
++++ b/src/features/notes/components/order-state/order-state.test.tsx
+@@ -1,6 +1,8 @@
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+-import { OrderChip, OrderMark, OrderProblem } from './order-state'
++import { OrderChip } from './order-chip'
++import { OrderMark } from './order-mark'
++import { OrderProblem } from './order-state'
+ import type {
+   NoteEntryView,
+   NoteGroupView,
+diff --git a/src/features/notes/components/order-state/order-state.tsx b/src/features/notes/components/order-state/order-state.tsx
+index 105b06c..64f3034 100644
+--- a/src/features/notes/components/order-state/order-state.tsx
++++ b/src/features/notes/components/order-state/order-state.tsx
+@@ -1,84 +1,12 @@
+ 'use client'
+ 
+ import { useState } from 'react'
+-import clsx from 'clsx'
+-import { Clock, LoaderCircle, TriangleAlert } from 'lucide-react'
++import { WARNS } from './constants'
+ import { noteReasonWords } from '@/features/notes/utils/note-words'
+ import { orderStateWords } from '@/features/notes/utils/order-words'
+ import { seatWords } from '@/utils/seat-words'
+-import type {
+-  NoteEntryView,
+-  NoteGroupView,
+-  NoteOrderState,
+-} from '@/types/notes'
+-import type { SeatRole } from '@/types/seats'
+-
+-/** The states an order didn't reach Foundry in, which its chip warns of. */
+-const WARNS = new Set<NoteOrderState>(['conflict', 'failed'])
+-
+-/** The icon of an order's state, beside its words: a spinner while it's on its way. */
+-function OrderIcon({ state }: Readonly<{ state: NoteOrderState }>) {
+-  if (state === 'saving') {
+-    return (
+-      <LoaderCircle
+-        aria-hidden
+-        className='size-3.5 shrink-0 motion-safe:animate-spin'
+-      />
+-    )
+-  }
+-  if (WARNS.has(state)) {
+-    return <TriangleAlert aria-hidden className='size-3.5 shrink-0' />
+-  }
+-  return <Clock aria-hidden className='size-3.5 shrink-0' />
+-}
+-
+-/**
+- * Where a group's order stands, as a chip of an icon and its words, never colour alone (round
+- * 0.35.0 §9.5), as a note's `NoteChip` says a note's. Nothing where it's the same in Foundry.
+- */
+-export function OrderChip({ state }: Readonly<{ state: NoteOrderState }>) {
+-  const words = orderStateWords(state)
+-  if (!words) return
+-  return (
+-    <span
+-      className={clsx(
+-        'inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
+-        WARNS.has(state)
+-          ? 'border-warning/40 bg-warning/10 text-warning'
+-          : 'border-border text-text-secondary',
+-      )}
+-    >
+-      <OrderIcon state={state} />
+-      {words}
+-    </span>
+-  )
+-}
+-
+-/**
+- * An order on its way, as the contents' mark beside its group: the chip's icon alone, its words
+- * as its title and for a screen reader. Nothing otherwise: a refused order shows as the group's
+- * warning, which the contents draw themselves.
+- */
+-export function OrderMark({ state }: Readonly<{ state: NoteOrderState }>) {
+-  if (state !== 'waiting' && state !== 'saving') return
+-  const words = orderStateWords(state)
+-  return (
+-    <span title={words} className='inline-flex text-text-secondary'>
+-      <OrderIcon state={state} />
+-      <span className='sr-only'>{words}</span>
+-    </span>
+-  )
+-}
+-
+-type Props = {
+-  group: NoteGroupView
+-  /** The group's notes as the seat sees them, to name an order's notes by their titles. */
+-  entries: NoteEntryView[]
+-  role: SeatRole
+-  /** A choice is on its way. */
+-  busy: boolean
+-  onResolve: (choice: 'mine' | 'theirs') => void
+-}
++import type { OrderProblemProps } from './types'
++import type { NoteEntryView } from '@/types/notes'
+ 
+ /**
+  * What became of an order the game didn't take, and the choices left (round 0.35.0 §9.5): Foundry's
+@@ -92,7 +20,7 @@ export function OrderProblem({
+   role,
+   busy,
+   onResolve,
+-}: Readonly<Props>) {
++}: Readonly<OrderProblemProps>) {
+   const [showing, setShowing] = useState(false)
+   const { state, mine } = group
+   const label = orderStateWords(state)
 diff --git a/src/features/notes/components/reorder-pane/reorder-pane.tsx b/src/features/notes/components/reorder-pane/reorder-pane.tsx
-index 8a8dea5..951d6ae 100644
+index 8a8dea5..7e60f7d 100644
 --- a/src/features/notes/components/reorder-pane/reorder-pane.tsx
 +++ b/src/features/notes/components/reorder-pane/reorder-pane.tsx
-@@ -5,6 +5,7 @@ import clsx from 'clsx'
+@@ -4,33 +4,15 @@ import { useEffect, useRef, useState } from 'react'
+ import clsx from 'clsx'
  import { ArrowDown, ArrowUp, GripVertical, LoaderCircle } from 'lucide-react'
  import { Pane } from '../pane/pane'
- import { Sortable, type SortableHandles } from '../sortable/sortable'
+-import { Sortable, type SortableHandles } from '../sortable/sortable'
++import { Sortable } from '../sortable/sortable'
 +import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
  import {
    orderRefusalWords,
    reorderLine,
-@@ -150,8 +151,7 @@ export function ReorderPane({
+ } from '@/features/notes/utils/order-words'
+-import type {
+-  NoteBookKind,
+-  NoteEntryView,
+-  NoteWriteAnswer,
+-} from '@/types/notes'
+-
+-type Props = {
+-  /** The group's title: its chapter's, or "Not in a chapter". */
+-  title: string
+-  /**
+-   * The group's notes in their order as Reorder opened: the pane keeps its own list from them,
+-   * which a later poll changes only by dropping a note gone from the view (as ART:1128-1129
+-   * filters); a note added meanwhile isn't in it.
+-   */
+-  entries: NoteEntryView[]
+-  kind: NoteBookKind
+-  /** The book's character or party. */
+-  name: string
+-  /** Sends the new order; answers as the write did. */
+-  onSave(ids: string[]): Promise<NoteWriteAnswer>
+-  onCancel(): void
+-}
++import type { ReorderPaneProps } from './types'
++import type { SortableHandles } from '@/features/notes/components/sortable/types'
++import type { NoteEntryView } from '@/types/notes'
+ 
+ /**
+  * A group's notes put in order (round 0.35.0 §9.4), in the reader's place: dragged by their grips,
+@@ -45,7 +27,7 @@ export function ReorderPane({
+   name,
+   onSave,
+   onCancel,
+-}: Readonly<Props>) {
++}: Readonly<ReorderPaneProps>) {
+   const [opened] = useState(() => entries.map(entry => entry.id))
+   const [order, setOrder] = useState(opened)
+   const [saving, setSaving] = useState(false)
+@@ -150,8 +132,7 @@ export function ReorderPane({
    )
  }
  
@@ -2152,32 +4531,587 @@ index 8a8dea5..951d6ae 100644
  
  /** A note in the list: its grip, its place from 1, its title and author, and its arrows. */
  function Row({
+diff --git a/src/features/notes/components/sortable/sortable.test.tsx b/src/features/notes/components/sortable/sortable.test.tsx
+index c2ccb26..07f4153 100644
+--- a/src/features/notes/components/sortable/sortable.test.tsx
++++ b/src/features/notes/components/sortable/sortable.test.tsx
+@@ -1,7 +1,8 @@
+ import { useState, type ReactNode } from 'react'
+ import { act, fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+-import { Sortable, type SortableHandles } from './sortable'
++import { Sortable } from './sortable'
++import type { SortableHandles } from './types'
+ 
+ /** Twenty notes, A to T. */
+ const TITLES = Object.fromEntries(
+diff --git a/src/features/notes/components/sortable/sortable.tsx b/src/features/notes/components/sortable/sortable.tsx
+index 85ba2a5..4136431 100644
+--- a/src/features/notes/components/sortable/sortable.tsx
++++ b/src/features/notes/components/sortable/sortable.tsx
+@@ -1,76 +1,8 @@
+ 'use client'
+ 
+-import {
+-  useEffect,
+-  useLayoutEffect,
+-  useRef,
+-  useState,
+-  type KeyboardEvent,
+-  type PointerEvent,
+-  type ReactNode,
+-} from 'react'
+ import clsx from 'clsx'
+-import { movedTo } from '@/features/notes/utils/order-words'
+-import { useMediaQuery } from '@/hooks/use-media-query'
+-
+-/** What a row is given to be moved by: its grip, its arrows, and where it is. */
+-export type SortableHandles = {
+-  dragging: boolean
+-  /** Spread on the row's grip button: `data-grip`, and its pointer and key handlers. */
+-  grip: {
+-    'data-grip': string
+-    onPointerDown(event: PointerEvent<HTMLButtonElement>): void
+-    onKeyDown(event: KeyboardEvent<HTMLButtonElement>): void
+-  }
+-  up(): void
+-  down(): void
+-  first: boolean
+-  last: boolean
+-}
+-
+-type Props = {
+-  ids: string[]
+-  onChange(ids: string[]): void
+-  /** A note's title, for what's announced as it moves. */
+-  titleOf(id: string): string
+-  row(id: string, index: number, handles: SortableHandles): ReactNode
+-  /**
+-   * Nothing moves while it's on, as while the order made is being saved: what's sent is what's
+-   * shown. A drag in progress as it goes on is put back.
+-   */
+-  disabled?: boolean
+-}
+-
+-/** A row dragged: from where, to where it would drop now, how far, and how far it moves others. */
+-type Drag = {
+-  from: number
+-  to: number
+-  /** How far it's been dragged, in pixels, against the list. */
+-  dy: number
+-  /** Its height and the gap after it: how far each row it passes shifts to make room. */
+-  size: number
+-}
+-
+-/** Within this many pixels of the top or bottom of the pane the list is in, a drag scrolls it. */
+-const EDGE = 48
+-/** The most a drag scrolls that pane in a frame, at its very edge. */
+-const MOST_SCROLL = 12
+-
+-/** The list with one of its items moved. */
+-const moveItem = (ids: string[], from: number, to: number) => {
+-  const next = [...ids]
+-  next.splice(to, 0, ...next.splice(from, 1))
+-  return next
+-}
+-
+-/** The nearest box around the list that scrolls it: the reader pane's content. */
+-function scrollerOf(element: HTMLElement): HTMLElement | undefined {
+-  for (let node = element.parentElement; node; node = node.parentElement) {
+-    const { overflowY } = getComputedStyle(node)
+-    if (overflowY === 'auto' || overflowY === 'scroll') return node
+-  }
+-  return undefined
+-}
++import { useSortableDrag } from '@/features/notes/hooks/use-sortable-drag'
++import type { SortableProps } from './types'
+ 
+ /**
+  * A list put in order (round 0.35.0 §9.4): by dragging a row's grip with a mouse, a finger or a
+@@ -85,208 +17,9 @@ export function Sortable({
+   titleOf,
+   row,
+   disabled = false,
+-}: Readonly<Props>) {
+-  const list = useRef<HTMLUListElement>(null)
+-  const [drag, setDrag] = useState<Drag>()
+-  const [said, setSaid] = useState<{ words: string; n: number }>()
+-  const reduced = useMediaQuery('(prefers-reduced-motion: reduce)')
+-  // The row just moved, by its id, whose grip takes focus once the list is drawn in its new order:
+-  // moving the focused element in the page loses its focus.
+-  const focusOn = useRef<string>(undefined)
+-  // Ends the drag in progress, putting the row back: as the list changes under it, or goes.
+-  const cancel = useRef<() => void>(undefined)
+-  const latest = useRef({ ids, onChange, titleOf, disabled })
+-  useLayoutEffect(() => {
+-    latest.current = { ids, onChange, titleOf, disabled }
+-  })
+-
+-  useLayoutEffect(() => {
+-    const id = focusOn.current
+-    if (id === undefined) return
+-    focusOn.current = undefined
+-    const grips = list.current?.querySelectorAll<HTMLElement>('[data-grip]')
+-    ;[...(grips ?? [])].find(grip => grip.dataset.grip === id)?.focus()
+-  }, [ids])
+-
+-  // A note gone from the list, or one added, mid-drag: the places measured are wrong now.
+-  const key = ids.join(',')
+-  useEffect(() => {
+-    cancel.current?.()
+-  }, [key])
+-  useEffect(() => {
+-    if (disabled) cancel.current?.()
+-  }, [disabled])
+-  useEffect(() => () => cancel.current?.(), [])
+-
+-  /** Moves a row, saying where it is now. Nothing past either end, to where it is, or while off. */
+-  const move = (from: number, to: number) => {
+-    const {
+-      ids: now,
+-      onChange: change,
+-      titleOf: title,
+-      disabled: off,
+-    } = latest.current
+-    if (off || to === from || to < 0 || to >= now.length) return
+-    const id = now[from]
+-    focusOn.current = id
+-    change(moveItem(now, from, to))
+-    setSaid(was => ({
+-      words: movedTo(title(id), to + 1, now.length),
+-      n: (was?.n ?? 0) + 1,
+-    }))
+-  }
+-
+-  const onKey =
+-    (index: number) => (event: KeyboardEvent<HTMLButtonElement>) => {
+-      if (
+-        disabled ||
+-        cancel.current ||
+-        event.altKey ||
+-        event.ctrlKey ||
+-        event.metaKey
+-      )
+-        return
+-      const places: Partial<Record<string, number>> = {
+-        ArrowUp: index - 1,
+-        ArrowDown: index + 1,
+-        Home: 0,
+-        End: ids.length - 1,
+-      }
+-      const to = places[event.key]
+-      if (to === undefined) return
+-      event.preventDefault()
+-      move(index, to)
+-    }
+-
+-  const begin = (index: number) => (event: PointerEvent<HTMLButtonElement>) => {
+-    // A mouse's other buttons open menus; a second finger mid-drag does nothing.
+-    if (event.pointerType === 'mouse' && event.button !== 0) return
+-    const ul = list.current
+-    if (!ul || cancel.current || disabled) return
+-    event.preventDefault()
+-    const handle = event.currentTarget
+-    const { pointerId } = event
+-    // Where each row is, against the list, as the drag starts: the list moves on the screen as
+-    // the pane scrolls, but nothing in it does.
+-    const top = ul.getBoundingClientRect().top
+-    const rows = [...ul.children].map(item => {
+-      const rect = item.getBoundingClientRect()
+-      const at = rect.top - top
+-      return { top: at, height: rect.height, middle: at + rect.height / 2 }
+-    })
+-    const gap =
+-      rows.length > 1 ? rows[1].top - (rows[0].top + rows[0].height) : 0
+-    // How far the row may be drawn up and down: to the list's own ends, no further. A row drawn
+-    // past them would make the pane taller to scroll into (a moved box counts in what a pane
+-    // scrolls), and held at its bottom the pane would scroll on into nothing. The pointer past
+-    // them still drops it first or last.
+-    const lastRow = rows.at(-1) ?? rows[index]
+-    const highest = -rows[index].top
+-    const lowest =
+-      lastRow.top + lastRow.height - (rows[index].top + rows[index].height)
+-    // The pointer, read against the list as it is now, so that a scroll moves the drop place.
+-    const at = (clientY: number) => clientY - ul.getBoundingClientRect().top
+-    const start = at(event.clientY)
+-    let clientY = event.clientY
+-    let now: Drag = {
+-      from: index,
+-      to: index,
+-      dy: 0,
+-      size: rows[index].height + gap,
+-    }
+-    setDrag(now)
+-    handle.setPointerCapture?.(pointerId)
+-    const scroller = scrollerOf(ul)
+-    // How far the pane scrolls, measured once, before any row is moved: its end, where a held
+-    // drag stops scrolling it.
+-    const most = scroller ? scroller.scrollHeight - scroller.clientHeight : 0
+-    let frame: number | undefined
+-
+-    const place = () => {
+-      // Where it drops follows the pointer, past either end of the list too; it's drawn within it.
+-      const reach = at(clientY) - start
+-      const dy = Math.min(Math.max(reach, highest), lowest)
+-      const middle = rows[index].middle + reach
+-      let to = index
+-      for (const [other, { middle: theirs }] of rows.entries()) {
+-        if (other < index && middle < theirs && other < to) to = other
+-        if (other > index && middle > theirs && other > to) to = other
+-      }
+-      if (dy === now.dy && to === now.to) return
+-      now = { ...now, dy, to }
+-      setDrag(now)
+-    }
+-    /** How far to scroll the pane a frame: toward the edge the pointer is near, faster nearer. */
+-    const speed = () => {
+-      if (!scroller) return 0
+-      const box = scroller.getBoundingClientRect()
+-      const near = (by: number) =>
+-        Math.ceil(MOST_SCROLL * Math.min(1, (EDGE - by) / EDGE))
+-      if (clientY < box.top + EDGE) return -near(clientY - box.top)
+-      if (clientY > box.bottom - EDGE) return near(box.bottom - clientY)
+-      return 0
+-    }
+-    const scroll = () => {
+-      frame = undefined
+-      const by = speed()
+-      if (!scroller || by === 0) return
+-      const was = scroller.scrollTop
+-      scroller.scrollTop = Math.min(most, Math.max(0, was + by))
+-      // At its end, it stops there, till the pointer moves again.
+-      if (scroller.scrollTop === was) return
+-      place()
+-      frame = requestAnimationFrame(scroll)
+-    }
+-
+-    const onMove = (moved: globalThis.PointerEvent) => {
+-      if (moved.pointerId !== pointerId) return
+-      clientY = moved.clientY
+-      place()
+-      if (frame === undefined && speed() !== 0)
+-        frame = requestAnimationFrame(scroll)
+-    }
+-    const end = (drop: boolean) => {
+-      globalThis.removeEventListener('pointermove', onMove)
+-      globalThis.removeEventListener('pointerup', onUp)
+-      globalThis.removeEventListener('pointercancel', onUp)
+-      document.removeEventListener('keydown', onEscape, true)
+-      scroller?.removeEventListener('scroll', place)
+-      if (frame !== undefined) cancelAnimationFrame(frame)
+-      if (handle.hasPointerCapture?.(pointerId))
+-        handle.releasePointerCapture(pointerId)
+-      cancel.current = undefined
+-      setDrag(undefined)
+-      if (drop) move(now.from, now.to)
+-    }
+-    // Let go, or taken by the browser (a cancel), it's dropped where it is.
+-    const onUp = (up: globalThis.PointerEvent) => {
+-      if (up.pointerId === pointerId) end(true)
+-    }
+-    // First, before the dialog it's in takes the key as a request to close: the key is kept from
+-    // it, as a menu's is (useTopmostEscape), and the row goes back where it was.
+-    const onEscape = (key: globalThis.KeyboardEvent) => {
+-      if (key.key !== 'Escape' || key.isComposing) return
+-      key.preventDefault()
+-      end(false)
+-    }
+-    globalThis.addEventListener('pointermove', onMove)
+-    globalThis.addEventListener('pointerup', onUp)
+-    globalThis.addEventListener('pointercancel', onUp)
+-    document.addEventListener('keydown', onEscape, true)
+-    scroller?.addEventListener('scroll', place)
+-    cancel.current = () => end(false)
+-  }
+-
+-  /** How far a row is moved while another is dragged: the dragged one with the pointer. */
+-  const shift = (index: number) => {
+-    if (!drag) return 0
+-    if (index === drag.from) return drag.dy
+-    if (drag.from < drag.to && index > drag.from && index <= drag.to)
+-      return -drag.size
+-    if (drag.to < drag.from && index >= drag.to && index < drag.from)
+-      return drag.size
+-    return 0
+-  }
++}: Readonly<SortableProps>) {
++  const { list, drag, said, reduced, move, onKey, begin, shift } =
++    useSortableDrag({ ids, onChange, titleOf, disabled })
+ 
+   return (
+     <>
+diff --git a/src/features/notes/hooks/use-notes.test.ts b/src/features/notes/hooks/use-notes.test.ts
+index fe41bb6..b3a34f5 100644
+--- a/src/features/notes/hooks/use-notes.test.ts
++++ b/src/features/notes/hooks/use-notes.test.ts
+@@ -2,15 +2,10 @@ import { createElement } from 'react'
+ import { act, renderHook, waitFor } from '@testing-library/react'
+ import { renderToString } from 'react-dom/server'
+ import { POLL_INTERVAL } from '../../../constants/polling'
+-import {
+-  forgetNotes,
+-  hasDraft,
+-  journalOpen,
+-  useNotes,
+-  type NoteDraft,
+-} from './use-notes'
++import { forgetNotes, hasDraft, journalOpen, useNotes } from './use-notes'
+ import { JournalCard } from '@/features/notes/components/journal-card/journal-card'
+ import { mockNotesView } from '@/mocks/sending-stone'
++import type { NoteDraft } from '@/features/notes/types'
+ import type { NotesView } from '@/types/notes'
+ 
+ const API = '/api/characters/char-1'
 diff --git a/src/features/notes/hooks/use-notes.ts b/src/features/notes/hooks/use-notes.ts
-index 57b6103..38000c4 100644
+index 57b6103..3014c27 100644
 --- a/src/features/notes/hooks/use-notes.ts
 +++ b/src/features/notes/hooks/use-notes.ts
-@@ -5,7 +5,9 @@ import {
+@@ -4,74 +4,34 @@ import {
+   useRef,
    useState,
    useSyncExternalStore,
++  type RefObject,
  } from 'react'
 -import { POLL_INTERVAL } from '@/constants/polling'
 +import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
++import {
++  answerOf,
++  bodyOf,
++  idsOf,
++  madeFrom,
++} from '@/features/notes/utils/answers'
 +import { retryDelay } from '@/utils/polling'
 +import { seenQuery } from '@/utils/seen-query'
++import type {
++  Book,
++  DraftChange,
++  NoteDraft,
++  NotePick,
++  NotesState,
++} from '@/features/notes/types'
  import type {
    NoteChange,
    NoteInput,
-@@ -18,9 +20,6 @@ import type {
+   NoteOrder,
+   NoteOrderResolve,
+-  NoteRefusal,
+   NoteResolve,
+-  NoteRole,
+   NotesView,
    NoteWriteAnswer,
  } from '@/types/notes'
  
 -/** The longest wait between attempts while the server cannot be reached. */
 -const MAX_DELAY = 30_000
 -
+-/**
+- * What's being written: a new note ('new'), a new chapter ('new-chapter'), or a change to the note
+- * or chapter of that id, from the stamp it started at (§8.8); what it started as, so that a
+- * change can be told from none; what opened it; and where focus was in it as it last unmounted.
+- */
+-export type NoteDraft = {
+-  key: string
+-  role: NoteRole
+-  title: string
+-  body: string
+-  chapterId: string | null
+-  stamp?: string
+-  started: { title: string; body: string; chapterId: string | null }
+-  /** The control that opened it, found again to give focus back to (§9.6). */
+-  opener: 'new' | 'new-in' | 'new-chapter' | 'edit' | 'problem-edit' | 'rename'
+-  /**
+-   * Where focus was, inside the editor, as it unmounted: put back once it's mounted again (§9.6).
+-   */
+-  focus?: { field: 'chapter' | 'title' | 'body'; start?: number; end?: number }
+-  /**
+-   * Sent, and not yet answered: its fields hold still and Cancel waits till then, so what's kept is
+-   * what was typed. Kept here rather than in the editor, so an editor mounted again meanwhile, as
+-   * when another tab is chosen and this one again, can't send it a second time.
+-   */
+-  saving?: true
+-}
+-
+-/**
+- * A draft as it's set: the draft itself, none, or what it becomes from the one held now, which
+- * the change is given at once, as the store holds it then.
+- */
+-export type DraftChange =
+-  | NoteDraft
+-  | undefined
+-  | ((held: NoteDraft | undefined) => NoteDraft | undefined)
+-
+-export type NotesState = 'loading' | 'ready' | 'gone' | 'failed'
+-
+-/** What the journal's reader shows: a note, or a group's page, the loose group's as null. */
+-export type NotePick = { note: string } | { group: string | null }
+-
+-/**
+- * What a page holds of one book: what it last saw of it, what's being written in it, and whether
+- * its journal is open, with what its reader shows (round 0.35.0 §8.2).
+- */
+-type Book = {
+-  view?: NotesView
+-  draft?: NoteDraft
+-  open?: { pick?: NotePick }
+-}
+-
+ /*
+  * The page's store of books, by the seat's API base, for as long as the page is loaded: in memory
+  * only, never in the browser's storage, as a note's text never goes there. An API base is one
+@@ -168,142 +128,21 @@ export function forgetNotes(): void {
+   for (const api of books.keys()) put(api)
+ }
+ 
+-/** The app's own refusals, as a write's answer names them. */
+-const REFUSALS = new Set<string>([
+-  'invalid',
+-  'not-yours',
+-  'changed',
+-  'saving',
+-  'conflict',
+-  'chapter',
+-  'foundry-only',
+-  'private',
+-  'unknown',
+-  'headings',
+-  'gone',
+-  'full',
+-  'busy',
+-] satisfies NoteRefusal[])
+-
+-/** A response's JSON, or nothing where it has none. */
+-async function bodyOf(response: Response): Promise<Record<string, unknown>> {
+-  try {
+-    const body: unknown = await response.json()
+-    return body && typeof body === 'object'
+-      ? (body as Record<string, unknown>)
+-      : {}
+-  } catch {
+-    return {}
+-  }
+-}
+-
+-/** What a write answered, from its response. */
+-async function answerOf(response: Response): Promise<NoteWriteAnswer> {
+-  const body = await bodyOf(response)
+-  if (response.ok) {
+-    return {
+-      ok: true,
+-      ...(typeof body.id === 'string' && { id: body.id }),
+-      ...(typeof body.stamp === 'string' && { stamp: body.stamp }),
+-    }
+-  }
+-  // Not there: the note was deleted meanwhile, or the book is no longer the seat's, which the
+-  // read that follows says.
+-  if (response.status === 404) return { ok: false, reason: 'changed' }
+-  // Signed out, or the server failing: nothing was wrong with the note, which is still there.
+-  if (response.status === 401 || response.status >= 500) {
+-    return { ok: false, reason: 'network' }
+-  }
+-  const reason =
+-    typeof body.reason === 'string' && REFUSALS.has(body.reason)
+-      ? (body.reason as NoteRefusal)
+-      : 'invalid'
+-  const lines = Array.isArray(body.lines)
+-    ? body.lines.filter((line): line is number => Number.isInteger(line))
+-    : undefined
+-  return {
+-    ok: false,
+-    reason,
+-    ...(typeof body.field === 'string' && { field: body.field }),
+-    ...(lines && { lines }),
+-  }
+-}
+-
+-/** The ids of a book's notes and chapters, as a view holds them. */
+-function idsOf(view: NotesView | undefined): Set<string> {
+-  return new Set([
+-    ...(view?.chapters ?? []).map(({ id }) => id),
+-    ...(view?.entries ?? []).map(({ id }) => id),
+-  ])
+-}
+-
+-/**
+- * The note or chapter a create made, where its answer was lost: one in the book now that wasn't
+- * as it was sent, that the seat may change, holding just what was sent.
+- */
+-function madeFrom(
+-  view: NotesView | undefined,
+-  input: NoteInput,
+-  before: Set<string>,
+-): { id: string; stamp: string } | undefined {
+-  const title = input.title.trim()
+-  if (input.role === 'chapter') {
+-    return view?.chapters.find(
+-      chapter =>
+-        !before.has(chapter.id) && chapter.canRename && chapter.title === title,
+-    )
+-  }
+-  return view?.entries.find(
+-    entry =>
+-      !before.has(entry.id) &&
+-      entry.canEdit &&
+-      entry.title === title &&
+-      entry.body === (input.body ?? '') &&
+-      (entry.chapterId ?? undefined) === (input.chapterId ?? undefined),
+-  )
+-}
+-
  /**
-  * What's being written: a new note ('new'), a new chapter ('new-chapter'), or a change to the note
-  * or chapter of that id, from the stamp it started at (§8.8); what it started as, so that a
-@@ -323,10 +322,7 @@ export function useNotes(
+- * A book of notes through a seat's API (its base + '/notes'): fetched when first active, then
+- * polled every POLL_INTERVAL while active and the page is visible, with ?version=&live= for 204
+- * while nothing changed; at once after each change sent. 404 is 'gone'. Backs off on failures as
+- * useTableView does. What it last held of the book, and what's being written in it, are kept in
+- * the page's store by book, so a card mounted again starts from them; and so is whether its journal
+- * is open, with what its reader shows, so a card mounted again, as when the sheet arrives, shows it
+- * open again where it was.
++ * Reads a book while it's active: at once without a view kept, else after POLL_INTERVAL, then
++ * every POLL_INTERVAL while the page is visible, backing off on failures; one read at a time, and
++ * one asked for meanwhile once it's done. 404 is gone, and nothing of it stays on the page.
++ * @returns whether the seat may no longer see the book, whether reading it failed since it was
++ * mounted, and `refresh`, which reads it at once while it's polled.
+  */
+-export function useNotes(
++function useBookReads(
+   api: string,
+-  { active }: { active: boolean },
++  active: boolean,
+ ): {
+-  view?: NotesView
+-  state: NotesState
+-  create(input: NoteInput): Promise<NoteWriteAnswer>
+-  change(id: string, change: NoteChange): Promise<NoteWriteAnswer>
+-  remove(id: string, stamp: string): Promise<NoteWriteAnswer>
+-  resolve(id: string, choice: NoteResolve): Promise<NoteWriteAnswer>
+-  /** Sends a new order of a group's notes (module 0.35.0). */
+-  reorder(order: NoteOrder): Promise<NoteWriteAnswer>
+-  /** Sends the seat's choice where the game didn't take a group's order (module 0.35.0). */
+-  resolveOrder(choice: NoteOrderResolve): Promise<NoteWriteAnswer>
+-  preview(
+-    body: string,
+-  ): Promise<{ html: string; headings: number[] } | undefined>
+-  /** What's being written in this book, if anything: one thing at a time. */
+-  draft?: NoteDraft
+-  setDraft(draft: DraftChange): void
+-  /** The journal open, and what its reader shows; none while it's closed. */
+-  open?: { pick?: NotePick }
+-  /** Opens the journal afresh, its reader on nothing picked yet, or closes it. */
+-  setOpen(open: boolean): void
+-  /** What the reader shows, kept while the journal is open, so a card mounted again shows it. */
+-  setPick(pick: NotePick): void
++  gone: boolean
++  failing: boolean
++  refresh: RefObject<(() => Promise<void>) | undefined>
+ } {
+-  const book = useSyncExternalStore(
+-    useCallback(listener => subscribe(api, listener), [api]),
+-    () => books.get(api),
+-    onServer,
+-  )
+   // The book the seat may no longer see, and whether reading it failed since it was mounted.
+   const [goneFrom, setGoneFrom] = useState<string>()
+   const [failing, setFailing] = useState(false)
+@@ -323,10 +162,7 @@ export function useNotes(
      const poll = async () => {
        const held = books.get(api)?.view
        const query = held
@@ -2189,7 +5123,7 @@ index 57b6103..38000c4 100644
          : ''
        try {
          const response = await fetch(`${api}/notes${query}`, {
-@@ -380,10 +376,10 @@ export function useNotes(
+@@ -380,10 +216,10 @@ export function useNotes(
      const schedule = () => {
        clearTimeout(timer)
        if (stopped || controller.signal.aborted) return
@@ -2204,6 +5138,172 @@ index 57b6103..38000c4 100644
      }
  
      const tick = async () => {
+@@ -418,6 +254,52 @@ export function useNotes(
+     }
+   }, [api, active, gone])
+ 
++  return { gone, failing, refresh }
++}
++
++/**
++ * A book of notes through a seat's API (its base + '/notes'): fetched when first active, then
++ * polled every POLL_INTERVAL while active and the page is visible, with ?version=&live= for 204
++ * while nothing changed; at once after each change sent. 404 is 'gone'. Backs off on failures as
++ * useTableView does. What it last held of the book, and what's being written in it, are kept in
++ * the page's store by book, so a card mounted again starts from them; and so is whether its journal
++ * is open, with what its reader shows, so a card mounted again, as when the sheet arrives, shows it
++ * open again where it was.
++ */
++export function useNotes(
++  api: string,
++  { active }: { active: boolean },
++): {
++  view?: NotesView
++  state: NotesState
++  create(input: NoteInput): Promise<NoteWriteAnswer>
++  change(id: string, change: NoteChange): Promise<NoteWriteAnswer>
++  remove(id: string, stamp: string): Promise<NoteWriteAnswer>
++  resolve(id: string, choice: NoteResolve): Promise<NoteWriteAnswer>
++  /** Sends a new order of a group's notes (module 0.35.0). */
++  reorder(order: NoteOrder): Promise<NoteWriteAnswer>
++  /** Sends the seat's choice where the game didn't take a group's order (module 0.35.0). */
++  resolveOrder(choice: NoteOrderResolve): Promise<NoteWriteAnswer>
++  preview(
++    body: string,
++  ): Promise<{ html: string; headings: number[] } | undefined>
++  /** What's being written in this book, if anything: one thing at a time. */
++  draft?: NoteDraft
++  setDraft(draft: DraftChange): void
++  /** The journal open, and what its reader shows; none while it's closed. */
++  open?: { pick?: NotePick }
++  /** Opens the journal afresh, its reader on nothing picked yet, or closes it. */
++  setOpen(open: boolean): void
++  /** What the reader shows, kept while the journal is open, so a card mounted again shows it. */
++  setPick(pick: NotePick): void
++} {
++  const book = useSyncExternalStore(
++    useCallback(listener => subscribe(api, listener), [api]),
++    () => books.get(api),
++    onServer,
++  )
++  const { gone, failing, refresh } = useBookReads(api, active)
++
+   const write = useCallback(
+     async (
+       path: string,
+@@ -445,7 +327,7 @@ export function useNotes(
+       await refresh.current?.()
+       return answer
+     },
+-    [api],
++    [api, refresh],
+   )
+ 
+   const create = useCallback(
+diff --git a/src/features/notes/types.ts b/src/features/notes/types.ts
+index 0a8d548..7d0099c 100644
+--- a/src/features/notes/types.ts
++++ b/src/features/notes/types.ts
+@@ -1,3 +1,10 @@
++import type {
++  NoteRole,
++  NotesView,
++  NoteChapterView,
++  NoteEntryView,
++  NoteGroupView,
++} from '@/types/notes'
+ import type { SeatRole } from '@/types/seats'
+ /**
+  * Where a character's own notes are shown, as the table hands them to its sheet (round 0.34.0
+@@ -10,3 +17,88 @@ export type NotesPlace = {
+   name: string
+   active: boolean
+ }
++
++/**
++ * What's being written: a new note ('new'), a new chapter ('new-chapter'), or a change to the note
++ * or chapter of that id, from the stamp it started at (§8.8); what it started as, so that a
++ * change can be told from none; what opened it; and where focus was in it as it last unmounted.
++ */
++export type NoteDraft = {
++  key: string
++  role: NoteRole
++  title: string
++  body: string
++  chapterId: string | null
++  stamp?: string
++  started: { title: string; body: string; chapterId: string | null }
++  /** The control that opened it, found again to give focus back to (§9.6). */
++  opener: 'new' | 'new-in' | 'new-chapter' | 'edit' | 'problem-edit' | 'rename'
++  /**
++   * Where focus was, inside the editor, as it unmounted: put back once it's mounted again (§9.6).
++   */
++  focus?: { field: 'chapter' | 'title' | 'body'; start?: number; end?: number }
++  /**
++   * Sent, and not yet answered: its fields hold still and Cancel waits till then, so what's kept is
++   * what was typed. Kept here rather than in the editor, so an editor mounted again meanwhile, as
++   * when another tab is chosen and this one again, can't send it a second time.
++   */
++  saving?: true
++}
++
++/**
++ * A draft as it's set: the draft itself, none, or what it becomes from the one held now, which
++ * the change is given at once, as the store holds it then.
++ */
++export type DraftChange =
++  | NoteDraft
++  | undefined
++  | ((held: NoteDraft | undefined) => NoteDraft | undefined)
++
++export type NotesState = 'loading' | 'ready' | 'gone' | 'failed'
++
++/** What the journal's reader shows: a note, or a group's page, the loose group's as null. */
++export type NotePick = { note: string } | { group: string | null }
++
++/**
++ * What a page holds of one book: what it last saw of it, what's being written in it, and whether
++ * its journal is open, with what its reader shows (round 0.35.0 §8.2).
++ */
++export type Book = {
++  view?: NotesView
++  draft?: NoteDraft
++  open?: { pick?: NotePick }
++}
++
++/**
++ * One group of the journal's notes, as its contents and reader show it (round 0.35.0 §8.6): a
++ * chapter's, or those in no chapter, with its notes in their order and where that order stands.
++ */
++export type JournalGroup = {
++  /** The chapter; null for the notes in no chapter. */
++  chapterId: string | null
++  chapter?: NoteChapterView
++  /** The chapter's place among the chapters, oldest first, from 1. */
++  n?: number
++  title: string
++  /** Its notes, in its order. */
++  entries: NoteEntryView[]
++  /** Where its order stands. */
++  order: NoteGroupView
++}
++
++/**
++ * What the header says last: what was done, or why it wasn't, which is drawn as a warning, not
++ * with a success's check. `n` counts what's said, so the same words said again are new.
++ */
++export type Said = { words: string; refused: boolean; n: number }
++
++/** Where focus goes once what it goes to is drawn. */
++export type FocusTo =
++  | { heading: true }
++  | { contents: true }
++  | { reorder: true }
++  | { arrow: 'previous' | 'next' }
++  | { opener: NoteDraft['opener']; key: string; chapterId: string | null }
++
++/** A Reorder open: its group, and the group's stamp as it opened, which the new order is from. */
++export type Ordering = { chapterId: string | null; stamp: string }
 diff --git a/src/features/party/__tests__/party-sheet.integration.test.tsx b/src/features/party/__tests__/party-sheet.integration.test.tsx
 index c3ee0d8..ed10ae0 100644
 --- a/src/features/party/__tests__/party-sheet.integration.test.tsx
@@ -2515,11 +5615,18 @@ index 10944bd..481d353 100644
  
      const onVisibilityChange = () => {
 diff --git a/src/features/transfers/__tests__/take-controls.integration.test.tsx b/src/features/transfers/__tests__/take-controls.integration.test.tsx
-index 21d9782..a3a59c0 100644
+index 21d9782..8676acb 100644
 --- a/src/features/transfers/__tests__/take-controls.integration.test.tsx
 +++ b/src/features/transfers/__tests__/take-controls.integration.test.tsx
-@@ -7,7 +7,7 @@ import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
+@@ -1,13 +1,13 @@
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+-import { chosenApi } from '../components/take-controls/take-controls'
+ import { Transferring } from '../components/transferring/transferring'
+ import { CHECK_EVERY } from '@/constants/lifecycle'
+ import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
  import { movingPartyView, partyStash } from '@/mocks/sending-stone'
++import { gmCharacterApi as chosenApi } from '@/utils/seat-urls'
  import { advance, respond } from '@/utils/test-utils'
  import type { TakeInto, TransferControls } from '../types'
 -import type { MoveDialogProps } from '@/features/transfers/components/move-dialog/move-dialog'
@@ -2736,12 +5843,13 @@ index d9643b9..7dfff07 100644
  
  const party = { id: 'groupIronCo01', name: 'The Iron Company', primary: true }
 diff --git a/src/features/transfers/components/move-dialog/move-dialog.tsx b/src/features/transfers/components/move-dialog/move-dialog.tsx
-index 68984bf..0f65d05 100644
+index 68984bf..376f979 100644
 --- a/src/features/transfers/components/move-dialog/move-dialog.tsx
 +++ b/src/features/transfers/components/move-dialog/move-dialog.tsx
-@@ -2,23 +2,22 @@
+@@ -1,24 +1,14 @@
+ 'use client'
  
- import { useState, type FormEvent } from 'react'
+-import { useState, type FormEvent } from 'react'
  import clsx from 'clsx'
 -import { AmountField, amountOf } from '../amount-field/amount-field'
 -import {
@@ -2752,28 +5860,24 @@ index 68984bf..0f65d05 100644
 +import { AmountField } from '../amount-field/amount-field'
 +import { CoinFields } from '../coin-fields/coin-fields'
  import { RecipientList } from '../recipient-list/recipient-list'
++import { useMoveForm } from './use-move-form'
++import { headingOf, worn } from './utils'
  import { Modal } from '@/components/modal/modal'
- import { MOST_MOVED } from '@/constants/sending-stone'
-+import { amountOf } from '@/features/transfers/components/amount-field/utils'
-+import {
-+  coinsMoved,
-+  movableCoins,
-+} from '@/features/transfers/components/coin-fields/utils'
-+import { mayHold } from '@/features/transfers/utils'
- import { useTableRole } from '@/hooks/use-table-api'
- import { thingsWords } from '@/utils/move-words'
-+import type { MoveDialogProps } from './types'
- import type { LocalMove } from '@/types/roll'
+-import { MOST_MOVED } from '@/constants/sending-stone'
+-import { useTableRole } from '@/hooks/use-table-api'
+-import { thingsWords } from '@/utils/move-words'
+-import type { LocalMove } from '@/types/roll'
 -import type {
 -  SheetContainer,
 -  SheetCurrency,
 -  SheetItem,
 -} from '@/types/sending-stone'
++import type { MoveDialogProps } from './types'
 +import type { SheetContainer, SheetItem } from '@/types/sending-stone'
  
  /*
   * One move of items or coins (module 0.31.0), asked in a dialog of its own: an item, or coins,
-@@ -28,37 +27,6 @@ import type {
+@@ -28,73 +18,6 @@ import type {
   * at once, the dialog closing as it is, as where it stands is told where the sheet tells it.
   */
  
@@ -2808,13 +5912,29 @@ index 68984bf..0f65d05 100644
 -  }) => void
 -}
 -
- /** What each kind of move is called, as its title and button say it. */
- const VERBS: Record<MoveDialogProps['mode'], string> = {
-   take: 'Take',
-@@ -82,13 +50,6 @@ function headingOf({
-     : { title }
- }
- 
+-/** What each kind of move is called, as its title and button say it. */
+-const VERBS: Record<MoveDialogProps['mode'], string> = {
+-  take: 'Take',
+-  give: 'Give',
+-  send: 'Send',
+-}
+-
+-/** What the dialog is titled, and under that, where it's from, if it's taken or sent. */
+-function headingOf({
+-  mode,
+-  what,
+-  from,
+-}: Pick<MoveDialogProps, 'mode' | 'what' | 'from'>): {
+-  title: string
+-  subtitle?: string
+-} {
+-  const verb = VERBS[mode]
+-  const title = 'item' in what ? `${verb} ${what.item.name}` : `${verb} coins`
+-  return mode !== 'give' && from
+-    ? { title, subtitle: `From ${from.name}` }
+-    : { title }
+-}
+-
 -/** Whether an item may hold anything: a container, unless it's known to hold nothing. */
 -function mayHold(item: SheetItem | SheetContainer): boolean {
 -  return (
@@ -2822,9 +5942,143 @@ index 68984bf..0f65d05 100644
 -  )
 -}
 -
- /** Whether it, or anything in it, at any depth, is equipped or attuned now. */
- function worn(item: SheetItem | SheetContainer): boolean {
-   if (item.equipped === true || item.attuned) return true
+-/** Whether it, or anything in it, at any depth, is equipped or attuned now. */
+-function worn(item: SheetItem | SheetContainer): boolean {
+-  if (item.equipped === true || item.attuned) return true
+-  return 'contents' in item && (item.contents ?? []).some(inner => worn(inner))
+-}
+-
+ /**
+  * The dialog a move is made in: its title, who it goes to where that's to choose, how many where
+  * there's a choice of, what's worth knowing of it, what it'll do, and Cancel or the move. The move
+@@ -118,107 +41,26 @@ export function MoveDialog(props: Readonly<MoveDialogProps>) {
+   )
+ }
+ 
+-function MoveForm({
+-  onClose,
+-  mode,
+-  mover,
+-  what,
+-  from,
+-  into,
+-  receivers,
+-  recipients,
+-  onMove,
+-}: Readonly<MoveDialogProps>) {
+-  const gm = useTableRole() === 'gm'
+-  const item = 'item' in what ? what.item : undefined
+-  const currency = 'coins' in what ? what.coins : undefined
+-  const take = mode === 'take'
+-  const send = mode === 'send'
+-  // Who it may go to, where that's chosen here: a give's or a send's parties and characters, or on
+-  // the Gamemaster's party page, the characters it may be taken into.
+-  const choices = take
+-    ? receivers
+-    : recipients && [...recipients.parties, ...recipients.characters]
+-  // A give goes to the primary party unless said; a send, from a party, to no one until chosen.
+-  const [chosen, setChosen] = useState<string | undefined>(() =>
+-    mode === 'give'
+-      ? recipients?.parties.find(({ primary }) => primary)?.id
+-      : undefined,
+-  )
+-  const [count, setCount] = useState('1')
+-  const [coins, setCoins] = useState<Record<string, string>>({})
+-
+-  const max = item ? Math.min(item.quantity, MOST_MOVED) : 0
+-  // A stack of what holds nothing is split as the player says; anything else moves whole.
+-  const counted = !!item && item.quantity > 1 && !mayHold(item)
+-  // A stack that moves whole, of more than the game moves at once, can't be moved from here at
+-  // all: what may hold anything is never split.
+-  const tooMany = !!item && !counted && item.quantity > MOST_MOVED
+-  const recipient = choices ? choices.find(({ id }) => id === chosen) : into
+-  let quantity: number | undefined
+-  if (item && !tooMany) {
+-    quantity = counted ? amountOf(count, max) : item.quantity
+-  }
+-  const moved = currency ? coinsMoved(currency, coins) : undefined
+-  const things =
+-    item && quantity !== undefined
+-      ? thingsWords([{ quantity, name: item.name }])
+-      : moved &&
+-        thingsWords(
+-          movableCoins(currency ?? [])
+-            .filter(({ id }) => moved[id] !== undefined)
+-            .map(({ id, abbreviation }) => ({
+-              coins: moved[id],
+-              abbreviation,
+-            })),
+-        )
+-  // On the Gamemaster's party page, who takes it is who it's taken into, once they're chosen.
+-  const speaker = take && receivers ? recipient?.name : mover
+-  const ready = !!recipient && !!speaker && things !== undefined
+-
+-  let summary: string
+-  if (tooMany) {
+-    summary = `More than ${MOST_MOVED.toLocaleString('en')} can’t be moved from here.`
+-  } else if (!recipient || !speaker) summary = 'Choose who gets it.'
+-  else if (things === undefined) summary = 'Choose how many.'
+-  else {
+-    const you = speaker === 'You'
+-    if (take) {
+-      summary = `${speaker} ${you ? 'take' : 'takes'} ${things} from ${from?.name ?? ''}.`
+-    } else if (send) {
+-      summary = `${speaker} ${you ? 'send' : 'sends'} ${things} from ${from?.name ?? ''} to ${recipient.name}.`
+-    } else {
+-      summary = `${speaker} ${you ? 'give' : 'gives'} ${things} to ${recipient.name}.`
+-    }
+-  }
+-
+-  let label = VERBS[mode]
+-  if (currency) label = `${label} coins`
+-  else if (quantity !== undefined && quantity > 1) {
+-    label = `${label} ${quantity.toLocaleString('en')}`
+-  }
+-
+-  const submit = (event: FormEvent) => {
+-    event.preventDefault()
+-    if (!ready || !recipient || things === undefined) return
+-    const words: LocalMove = {
+-      verb: mode,
+-      things,
+-      other: take ? (from?.name ?? '') : recipient.name,
+-      ...(send && { source: from?.name ?? '' }),
+-      ...(item && { item: item.id }),
+-      ...(gm && speaker && { mover: speaker }),
+-    }
+-    onMove({
+-      to: recipient.id,
+-      ...(item && quantity !== undefined
+-        ? { items: [{ id: item.id, quantity }] }
+-        : {}),
+-      ...(moved && { currency: moved }),
+-      words,
+-    })
+-    onClose()
+-  }
++function MoveForm(props: Readonly<MoveDialogProps>) {
++  const { onClose, recipients } = props
++  const {
++    choices,
++    take,
++    chosen,
++    setChosen,
++    counted,
++    max,
++    count,
++    setCount,
++    currency,
++    coins,
++    setCoins,
++    item,
++    summary,
++    ready,
++    label,
++    submit,
++  } = useMoveForm(props)
+ 
+   return (
+     <form onSubmit={submit} noValidate className='grid gap-5'>
 diff --git a/src/features/transfers/components/move-status/move-status.test.tsx b/src/features/transfers/components/move-status/move-status.test.tsx
 index 18888e7..de78830 100644
 --- a/src/features/transfers/components/move-status/move-status.test.tsx
@@ -3165,10 +6419,10 @@ index f9803d2..79734d8 100644
   * The dialog an item is removed in: its title, how many of a stack, what goes with it, what it'll
   * do, and Cancel or Remove, which does nothing until how many is a number it may be.
 diff --git a/src/features/transfers/components/take-controls/take-controls.tsx b/src/features/transfers/components/take-controls/take-controls.tsx
-index 386858e..cebfe63 100644
+index 386858e..ce584bc 100644
 --- a/src/features/transfers/components/take-controls/take-controls.tsx
 +++ b/src/features/transfers/components/take-controls/take-controls.tsx
-@@ -1,20 +1,10 @@
+@@ -1,20 +1,11 @@
  'use client'
  
 -import {
@@ -3178,6 +6432,7 @@ index 386858e..cebfe63 100644
 -import { ROW_BUTTON } from '@/features/transfers/components/transferring/transferring'
 -import type { TakeInto, TransferControls } from '@/features/transfers/types'
 +import { MoveDialog } from '@/features/transfers/components/move-dialog/move-dialog'
++import { gmCharacterApi } from '@/utils/seat-urls'
 +import type { TakeInto, Taking } from '@/features/transfers/types'
  import type { TableGroup } from '@/types/party'
  import type { TransferInput, LocalMove } from '@/types/roll'
@@ -3191,7 +6446,7 @@ index 386858e..cebfe63 100644
  
  /*
   * Take, on a party's sheet (module 0.31.0): beside each item in its stash, and its coin, for a
-@@ -23,85 +13,11 @@ import type { ReactNode } from 'react'
+@@ -23,85 +14,6 @@ import type { ReactNode } from 'react'
   * picked as it's taken. Each opens the move's dialog, which says what's taken and asks how many.
   */
  
@@ -3202,11 +6457,11 @@ index 386858e..cebfe63 100644
 -  receivers?: MoveEnd[]
 -}
 -
- /** The Gamemaster's seat at a campaign's character, which a pick is taken through. */
- export function chosenApi(campaignId: string, actorId: string): string {
-   return `/api/campaigns/${encodeURIComponent(campaignId)}/characters/${encodeURIComponent(actorId)}`
- }
- 
+-/** The Gamemaster's seat at a campaign's character, which a pick is taken through. */
+-export function chosenApi(campaignId: string, actorId: string): string {
+-  return `/api/campaigns/${encodeURIComponent(campaignId)}/characters/${encodeURIComponent(actorId)}`
+-}
+-
 -/** Any whole coin to take: dnd5e 6 may hold part of one, which can't be moved. */
 -function anyCoins(currency: SheetCurrency[]): boolean {
 -  return currency.some(coin => Math.floor(coin.value) >= 1)
@@ -3277,6 +6532,15 @@ index 386858e..cebfe63 100644
  /**
   * The dialog that takes from a party: into the seat's own character, or the one picked from the
   * campaign's characters. It's sent through the character's API, as a move of theirs, and closes at
+@@ -154,7 +66,7 @@ export function TakeDialog({
+         const api =
+           takeInto.kind === 'own'
+             ? takeInto.api
+-            : chosenApi(takeInto.campaignId, to)
++            : gmCharacterApi(takeInto.campaignId, to)
+         // Who took it, as the Gamemaster's words say: the character it's taken into.
+         const mover = role === 'gm' ? (own?.name ?? chosen?.name) : undefined
+         const move: LocalMove = {
 diff --git a/src/features/transfers/components/transferring/transferring.tsx b/src/features/transfers/components/transferring/transferring.tsx
 index 79e960b..74be985 100644
 --- a/src/features/transfers/components/transferring/transferring.tsx
@@ -3667,3 +6931,133 @@ index e0efc26..07a9c42 100644
 +  from: string
 +  recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
 +}
+diff --git a/src/utils/companion-row.ts b/src/utils/companion-row.ts
+index 9613769..4f0a5c1 100644
+--- a/src/utils/companion-row.ts
++++ b/src/utils/companion-row.ts
+@@ -39,6 +39,32 @@ export function companionRow(
+   return row
+ }
+ 
++/**
++ * Numbers the creatures of one name held more than once, into `numbers`: each keeps the number it
++ * was given before, and one with none takes the lowest from 1 that no other of that name holds.
++ */
++function numberKeys(
++  keys: readonly string[],
++  kept: ReadonlyMap<string, number>,
++  numbers: Map<string, number>,
++): void {
++  const taken = new Set<number>()
++  // Those numbered before keep their numbers, each once, should two have been given the same.
++  for (const key of keys) {
++    const number = kept.get(key)
++    if (number === undefined || taken.has(number)) continue
++    taken.add(number)
++    numbers.set(key, number)
++  }
++  for (const key of keys) {
++    if (numbers.has(key)) continue
++    let number = 1
++    while (taken.has(number)) number++
++    taken.add(number)
++    numbers.set(key, number)
++  }
++}
++
+ /**
+  * Each creature's name as the row says it, and the numbers kept for the next time. A name the row
+  * holds once is itself. Where it holds one more than once, each creature keeps the number it was
+@@ -59,21 +85,7 @@ export function numberedNames(
+   const numbers = new Map<string, number>()
+   for (const keys of byName.values()) {
+     if (keys.length < 2) continue
+-    const taken = new Set<number>()
+-    // Those numbered before keep their numbers, each once, should two have been given the same.
+-    for (const key of keys) {
+-      const number = kept.get(key)
+-      if (number === undefined || taken.has(number)) continue
+-      taken.add(number)
+-      numbers.set(key, number)
+-    }
+-    for (const key of keys) {
+-      if (numbers.has(key)) continue
+-      let number = 1
+-      while (taken.has(number)) number++
+-      taken.add(number)
+-      numbers.set(key, number)
+-    }
++    numberKeys(keys, kept, numbers)
+   }
+   const names = new Map(
+     row.map(({ key, name }) => {
+@@ -100,7 +112,7 @@ export function tintOf(name: string): (typeof TINTS)[number] {
+   let sum = 0
+   for (let index = 0; index < name.length; index++) {
+     // Its UTF-16 code units, as the prototype sums them, not its code points.
+-    // eslint-disable-next-line unicorn/prefer-code-point
++    // eslint-disable-next-line unicorn/prefer-code-point -- code units, as said above
+     sum += name.charCodeAt(index)
+   }
+   return TINTS[sum % TINTS.length]
+diff --git a/src/utils/note-headings.ts b/src/utils/note-headings.ts
+index 592dbd6..0fbe0cb 100644
+--- a/src/utils/note-headings.ts
++++ b/src/utils/note-headings.ts
+@@ -348,28 +348,38 @@ function lists(rows: Row[], found: Set<number>): void {
+       continue
+     }
+     const end = listEnd(rows, index)
+-    const indent = marker[1]
+-    let item = index
+-    let blanksBefore = 0
+-    while (item < end) {
+-      let next = item + 1
+-      while (next < end && !startsItem(rows[next].text, indent)) next++
+-      // The blank lines just before the next item are this item's, as showdown takes one.
+-      let last = next
+-      while (last > item + 1 && rows[last - 1].text === '') last--
+-      const trailing = next - last
+-      const content = itemRows(rows.slice(item, next < end ? next : last))
+-      const inner = rows.slice(item + 1, last).some(({ text }) => text === '')
+-      const block = inner || (next < end && trailing > 0) || blanksBefore >= 2
+-      if (block) blockGamut(fences(content), found)
+-      else lists(content, found)
+-      blanksBefore = trailing
+-      item = next
+-    }
++    listItems(rows, index, end, marker[1], found)
+     index = end
+   }
+ }
+ 
++/** A list's items, from its first to its end, each read as blocks or only for lists inside it. */
++function listItems(
++  rows: Row[],
++  first: number,
++  end: number,
++  indent: string,
++  found: Set<number>,
++): void {
++  let item = first
++  let blanksBefore = 0
++  while (item < end) {
++    let next = item + 1
++    while (next < end && !startsItem(rows[next].text, indent)) next++
++    // The blank lines just before the next item are this item's, as showdown takes one.
++    let last = next
++    while (last > item + 1 && rows[last - 1].text === '') last--
++    const trailing = next - last
++    const content = itemRows(rows.slice(item, next < end ? next : last))
++    const inner = rows.slice(item + 1, last).some(({ text }) => text === '')
++    const block = inner || (next < end && trailing > 0) || blanksBefore >= 2
++    if (block) blockGamut(fences(content), found)
++    else lists(content, found)
++    blanksBefore = trailing
++    item = next
++  }
++}
++
+ /**
+  * Where a list ends: at blank lines followed by a line that starts with neither a space nor an
+  * item's marker, or at the block's end.

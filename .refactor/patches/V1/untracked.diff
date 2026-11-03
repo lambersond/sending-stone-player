@@ -59,10 +59,10 @@ index 0000000..181d585
 +export type LocalTimeProps = { value: string; className?: string }
 diff --git a/src/features/table/components/aside-column/aside-column.tsx b/src/features/table/components/aside-column/aside-column.tsx
 new file mode 100644
-index 0000000..af84a08
+index 0000000..43e9890
 --- /dev/null
 +++ b/src/features/table/components/aside-column/aside-column.tsx
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,141 @@
 +'use client'
 +
 +import clsx from 'clsx'
@@ -124,6 +124,9 @@ index 0000000..af84a08
 +    onScroll: () => void
 +  }
 +}>) {
++  // The chat's ref taken out first: read off the props in place, the compiler takes it for a ref
++  // read during render.
++  const { scroller, onScroll } = chat
 +  return (
 +    <div
 +      className={clsx(
@@ -194,12 +197,907 @@ index 0000000..af84a08
 +        label='Chat'
 +        className={aside === 'chat' ? 'flex' : 'hidden'}
 +      >
-+        <Scroller ref={chat.scroller} onScroll={chat.onScroll}>
++        <Scroller ref={scroller} onScroll={onScroll}>
 +          <ChatLog messages={messages} />
 +        </Scroller>
 +      </Pane>
 +    </div>
 +  )
++}
+diff --git a/src/features/table/components/chat-log/action-chip.tsx b/src/features/table/components/chat-log/action-chip.tsx
+new file mode 100644
+index 0000000..ffa6763
+--- /dev/null
++++ b/src/features/table/components/chat-log/action-chip.tsx
+@@ -0,0 +1,19 @@
++import clsx from 'clsx'
++import { ACTIONS } from './constants'
++import type { TableAction } from '@/types/table'
++
++/** A chip naming a kind of combat roll, in its colour. */
++export function ActionChip({ action }: Readonly<{ action: TableAction }>) {
++  const { label, icon: Icon, chip } = ACTIONS[action]
++  return (
++    <span
++      className={clsx(
++        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase',
++        chip,
++      )}
++    >
++      <Icon aria-hidden className='size-3' />
++      {label}
++    </span>
++  )
++}
+diff --git a/src/features/table/components/chat-log/ask-bubble.tsx b/src/features/table/components/chat-log/ask-bubble.tsx
+new file mode 100644
+index 0000000..a6ac73a
+--- /dev/null
++++ b/src/features/table/components/chat-log/ask-bubble.tsx
+@@ -0,0 +1,50 @@
++import clsx from 'clsx'
++import { BellRing } from 'lucide-react'
++import { article, bubble } from './utils'
++import { ASK_CHIPS, askTitle } from '@/utils/ask-words'
++import type { TableAsk } from '@/types/table'
++
++/**
++ * A roll request card: who asks the table for which saving throw or check, with its DC where
++ * players may see it, and what asks for it, such as the asker's item. It's for the Gamemaster, who
++ * rolls it for the creatures it names.
++ */
++export function AskBubble({
++  ask,
++  speaker,
++  whisper,
++  mine,
++}: Readonly<{
++  ask: TableAsk
++  speaker: string
++  whisper: boolean
++  mine: boolean
++}>) {
++  const title = askTitle(ask)
++  return (
++    <div
++      className={clsx(
++        bubble(whisper, mine),
++        'flex flex-col gap-1.5 border-l-4 border-l-primary',
++      )}
++    >
++      {/* The sentence below says what it is; the chip only marks it, for the eye. */}
++      <span
++        aria-hidden
++        className='inline-flex w-fit items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-primary-text uppercase'
++      >
++        <BellRing className='size-3' />
++        {ASK_CHIPS[ask.type]}
++      </span>
++      <p className='font-semibold break-words'>
++        {speaker} asks for {article(title)} {title}
++      </p>
++      {ask.label && (
++        <p className='text-xs break-words text-text-secondary'>
++          <span className='sr-only'>From </span>
++          {ask.label}
++        </p>
++      )}
++    </div>
++  )
++}
+diff --git a/src/features/table/components/chat-log/badge.tsx b/src/features/table/components/chat-log/badge.tsx
+new file mode 100644
+index 0000000..19b6621
+--- /dev/null
++++ b/src/features/table/components/chat-log/badge.tsx
+@@ -0,0 +1,18 @@
++import clsx from 'clsx'
++
++/** A card's badge, such as "Critical" or "Advantage". */
++export function Badge({
++  className,
++  children,
++}: Readonly<{ className: string; children: string }>) {
++  return (
++    <span
++      className={clsx(
++        'rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase',
++        className,
++      )}
++    >
++      {children}
++    </span>
++  )
++}
+diff --git a/src/features/table/components/chat-log/chat-message.tsx b/src/features/table/components/chat-log/chat-message.tsx
+new file mode 100644
+index 0000000..84b95e7
+--- /dev/null
++++ b/src/features/table/components/chat-log/chat-message.tsx
+@@ -0,0 +1,143 @@
++import clsx from 'clsx'
++import { Lock } from 'lucide-react'
++import { AskBubble } from './ask-bubble'
++import { RollBody } from './roll-body'
++import { Targets } from './targets'
++import { TextBody } from './text-body'
++import { UsedBody } from './used-body'
++import { LocalTime } from '@/components/local-time/local-time'
++import { useImageFallback } from '@/hooks/use-image-fallback'
++import { useTableRole } from '@/hooks/use-table-api'
++import { initials } from '@/utils/initials'
++import type { Side, TableMessage } from '@/types/table'
++
++const AVATAR: Record<Side, string> = {
++  me: 'bg-primary text-on-primary',
++  party: 'bg-party/15 text-party',
++  other: 'bg-whisper/15 text-whisper',
++}
++
++/** Each kind of message's body: text, a card of an item or ability used, or rolls. */
++const BODIES = {
++  text: TextBody,
++  card: UsedBody,
++  roll: RollBody,
++} satisfies Record<TableMessage['kind'], unknown>
++
++/**
++ * One message in the chat: who said it, as their portrait or initials, with its time, the GM's
++ * mark and a whisper's; a roll request card's ask; its body by its kind; a note under damage made
++ * on its own; and who a text was aimed at.
++ */
++export function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
++  const { speaker, side, whisper, kind, targets, summary } = message
++  // The player's own messages sit on the other side, as in a messaging app.
++  const mine = side === 'me'
++  const gm = useTableRole() === 'gm'
++  const Body = BODIES[kind]
++  return (
++    <article
++      data-side={side}
++      className={clsx('flex items-start gap-2.5', mine && 'flex-row-reverse')}
++    >
++      <SpeakerAvatar
++        name={speaker}
++        src={message.avatar}
++        className={AVATAR[side]}
++      />
++      <div
++        className={clsx(
++          'flex max-w-[85%] min-w-0 flex-1 flex-col gap-1.5',
++          mine ? 'items-end' : 'items-start',
++        )}
++      >
++        <header
++          className={clsx(
++            'flex flex-wrap items-baseline gap-x-2 gap-y-0.5',
++            mine && 'flex-row-reverse',
++          )}
++        >
++          <span className='font-semibold'>{speaker}</span>
++          {/* Made for the Gamemaster's roll as the character (#156), as this app knows it. */}
++          {message.byGm && (
++            <span
++              title='Rolled by the Gamemaster'
++              className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary-text'
++            >
++              GM<span className='sr-only'>, rolled by the Gamemaster</span>
++            </span>
++          )}
++          {whisper && (
++            <span className='inline-flex items-center gap-1 text-[11px] font-semibold text-whisper'>
++              <Lock aria-hidden className='size-3' />
++              Whisper
++            </span>
++          )}
++          <LocalTime
++            value={message.sentAt}
++            className='text-xs text-text-secondary'
++          />
++        </header>
++        {message.ask && (
++          <AskBubble
++            ask={message.ask}
++            speaker={speaker}
++            whisper={whisper}
++            mine={mine}
++          />
++        )}
++        <Body message={message} mine={mine} />
++        {/* Damage or healing made on its own, from module 0.36.0, which applies nothing by itself.
++            Only under a damage card, as anyone in Foundry may mark a message of theirs so. */}
++        {message.alone && (message.damage?.length ?? 0) > 0 && (
++          <p
++            className={clsx('text-xs text-text-secondary', mine && 'self-end')}
++          >
++            {gm
++              ? 'On its own, for you to apply'
++              : 'On its own, for the Gamemaster to apply'}
++          </p>
++        )}
++        {kind === 'text' && targets.length > 0 && (
++          <div className={clsx(mine && 'self-end')}>
++            <Targets targets={targets} summary={summary} />
++          </div>
++        )}
++      </div>
++    </article>
++  )
++}
++
++/** The speaker's portrait, or their initials when they have none or it won't load. */
++function SpeakerAvatar({
++  name,
++  src,
++  className,
++}: Readonly<{ name: string; src?: string; className: string }>) {
++  const { shown, ref, onError } = useImageFallback(src)
++  const box = 'size-9 shrink-0 rounded-[10px]'
++  if (shown) {
++    return (
++      // eslint-disable-next-line @next/next/no-img-element -- a portrait from the Gamemaster's game, which Next's image optimizer doesn't know
++      <img
++        ref={ref}
++        src={src}
++        alt=''
++        className={clsx(box, 'border border-border object-cover object-top')}
++        onError={onError}
++      />
++    )
++  }
++  return (
++    <span
++      aria-hidden
++      className={clsx(
++        box,
++        'flex items-center justify-center text-xs font-bold',
++        className,
++      )}
++    >
++      {initials(name)}
++    </span>
++  )
++}
+diff --git a/src/features/table/components/chat-log/constants.ts b/src/features/table/components/chat-log/constants.ts
+new file mode 100644
+index 0000000..679124d
+--- /dev/null
++++ b/src/features/table/components/chat-log/constants.ts
+@@ -0,0 +1,48 @@
++import { Droplet, HeartPulse, Sparkles, Swords } from 'lucide-react'
++import type { TableAction } from '@/types/table'
++import type { LucideIcon } from 'lucide-react'
++
++/**
++ * How each kind of combat roll is marked: a chip naming it, and an accent down the card's edge.
++ * Each chip's text is its colour's text token, deep enough to read at WCAG AA on its tint over
++ * every bubble, the player's own and a whisper's too.
++ */
++export const ACTIONS: Record<
++  TableAction,
++  { label: string; icon: LucideIcon; chip: string; accent: string }
++> = {
++  attack: {
++    label: 'Attack',
++    icon: Swords,
++    chip: 'bg-attack/15 text-attack-text',
++    accent: 'border-l-attack',
++  },
++  'spell-attack': {
++    label: 'Spell attack',
++    icon: Sparkles,
++    chip: 'bg-spell/15 text-spell-text',
++    accent: 'border-l-spell',
++  },
++  damage: {
++    label: 'Damage',
++    icon: Droplet,
++    chip: 'bg-damage/15 text-damage-text',
++    accent: 'border-l-damage',
++  },
++  healing: {
++    label: 'Healing',
++    icon: HeartPulse,
++    chip: 'bg-primary/10 text-primary-text',
++    accent: 'border-l-primary',
++  },
++  spell: {
++    label: 'Spell',
++    icon: Sparkles,
++    chip: 'bg-spell/15 text-spell-text',
++    accent: 'border-l-spell',
++  },
++}
++
++/** The caption style of a card's small heading, such as "Used". */
++export const CAPTION =
++  'text-[11px] font-semibold tracking-wider text-text-secondary uppercase'
+diff --git a/src/features/table/components/chat-log/damage-card.tsx b/src/features/table/components/chat-log/damage-card.tsx
+new file mode 100644
+index 0000000..ceb2bca
+--- /dev/null
++++ b/src/features/table/components/chat-log/damage-card.tsx
+@@ -0,0 +1,215 @@
++import { Fragment, useState } from 'react'
++import clsx from 'clsx'
++import { ActionChip } from './action-chip'
++import { Badge } from './badge'
++import { ACTIONS, CAPTION } from './constants'
++import { DiceList } from './dice-list'
++import { Targets } from './targets'
++import { bubble } from './utils'
++import { Chevron } from '@/components/chevron/chevron'
++import type {
++  DamagePool,
++  TableDamage,
++  TableDamageKind,
++  TableTarget,
++} from '@/types/table'
++
++/** What a creature that saves takes, as dnd5e's damage card says beneath its total. */
++const ON_SAVE: Record<NonNullable<TableDamage['onSave']>, string> = {
++  half: 'Half damage on a save',
++  none: 'No damage on a save',
++  full: 'Full damage on a save',
++}
++
++/** A chip of a kind of healing: each of its pools is the accent's. */
++const HEALS = {
++  chip: 'border-transparent bg-primary/10',
++  word: 'text-primary-text',
++}
++
++/**
++ * How each kind of damage's chip is coloured: its tint and edge, and its word's colour. Each has an
++ * edge, if only a clear one, so that every chip is as tall as damage's.
++ */
++const KIND_TONES: Record<DamagePool, { chip: string; word: string }> = {
++  harm: { chip: 'border-damage/30 bg-damage/10', word: 'text-damage-text' },
++  healing: HEALS,
++  temphp: HEALS,
++  maximum: HEALS,
++  none: {
++    chip: 'border-transparent bg-text-secondary/10',
++    word: 'text-text-secondary',
++  },
++}
++
++/**
++ * A message's damage rolls in one card, as dnd5e's damage card adds them up: its formula, a chip
++ * for each kind of damage with what it came to, and their total where they fill one pool. Its
++ * rolls' dice open beneath it, or show inline where it has only the one roll.
++ */
++export function DamageCard({
++  damage,
++  label,
++  targets,
++  summary,
++  whisper,
++  mine,
++}: Readonly<{
++  damage: TableDamage
++  label?: string
++  targets: TableTarget[]
++  summary?: string
++  whisper: boolean
++  mine: boolean
++}>) {
++  const [open, setOpen] = useState(false)
++  const { action, critical, rolls } = damage
++  const formula = damage.formula && (
++    <span className='font-mono text-xs break-words text-text-secondary'>
++      {damage.formula}
++    </span>
++  )
++  return (
++    <div
++      className={clsx(
++        bubble(whisper, mine, critical),
++        'flex w-full max-w-sm flex-col gap-2 p-3',
++        'border-l-4',
++        ACTIONS[action].accent,
++      )}
++    >
++      <div className='flex items-start justify-between gap-2'>
++        <span className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
++          <ActionChip action={action} />
++          {damage.section === 'other' && (
++            <span className={CAPTION}>Other damage</span>
++          )}
++          {label && <span className='text-sm font-semibold'>{label}</span>}
++        </span>
++        {critical && (
++          <div className='flex shrink-0 flex-wrap justify-end gap-1'>
++            <Badge className='bg-gold text-on-gold'>Critical</Badge>
++          </div>
++        )}
++      </div>
++      <Targets targets={targets} summary={summary} />
++      {rolls.length > 1 ? (
++        <details onToggle={event => setOpen(event.currentTarget.open)}>
++          {/* A hover rings it rather than tinting it: a tint under its chips and total would take
++              them below WCAG AA on the player's own bubble, in the light theme. */}
++          <summary className='-mx-1 flex min-h-11 cursor-pointer list-none items-end gap-2 rounded-lg px-1 hover:ring-1 hover:ring-primary/30 [&::-webkit-details-marker]:hidden'>
++            <span className='flex min-w-0 flex-1 flex-col gap-1.5'>
++              {formula}
++              {/* So its name reads "1d4 + 4 + 2d6, 5 Piercing + 7 Poison = 12". */}
++              {formula && <span className='sr-only'>, </span>}
++              <KindChips kinds={damage.kinds} />
++            </span>
++            <DamageTotal damage={damage} />
++            <span className='mb-1 flex shrink-0'>
++              <Chevron open={open} />
++            </span>
++          </summary>
++          {open && (
++            <ul
++              aria-label='Rolls'
++              className='mt-2 flex flex-col gap-1.5 border-t border-border pt-2'
++            >
++              {rolls.map((roll, index) => (
++                <li
++                  key={index}
++                  className='flex items-end justify-between gap-3'
++                >
++                  <span className='flex min-w-0 flex-wrap items-center gap-1'>
++                    {roll.tag && (
++                      <>
++                        <span className='text-[11px] font-semibold text-text-secondary'>
++                          {roll.tag}
++                        </span>{' '}
++                      </>
++                    )}
++                    <span className='pr-1 font-mono text-xs break-words text-text-secondary'>
++                      {roll.formula}
++                    </span>{' '}
++                    <DiceList dice={roll.dice} />
++                  </span>
++                  <span className='shrink-0 text-sm'>
++                    <span className='font-semibold tabular-nums'>
++                      {roll.total ?? '–'}
++                    </span>
++                    {roll.label && (
++                      <>
++                        {' '}
++                        <span className='text-text-secondary'>
++                          {roll.label}
++                        </span>
++                      </>
++                    )}
++                  </span>
++                </li>
++              ))}
++            </ul>
++          )}
++        </details>
++      ) : (
++        <div className='flex items-end gap-2'>
++          <span className='flex min-w-0 flex-1 flex-col gap-1.5'>
++            {formula}
++            <DiceList dice={rolls[0]?.dice ?? []} />
++            <KindChips kinds={damage.kinds} />
++          </span>
++          <DamageTotal damage={damage} />
++        </div>
++      )}
++      {damage.onSave && (
++        <p className='text-xs text-text-secondary'>{ON_SAVE[damage.onSave]}</p>
++      )}
++    </div>
++  )
++}
++
++/** A chip for each kind of damage, "5 Piercing", read as "5 Piercing + 7 Poison". */
++function KindChips({ kinds }: Readonly<{ kinds: TableDamageKind[] }>) {
++  return (
++    <span className='flex flex-wrap gap-1'>
++      {kinds.map((kind, index) => (
++        <Fragment key={index}>
++          {index > 0 && <span className='sr-only'> + </span>}
++          <span
++            className={clsx(
++              'inline-flex items-baseline gap-1 rounded-full border px-2 py-0.5 text-xs',
++              KIND_TONES[kind.pool].chip,
++            )}
++          >
++            {/* Midi-QOL's damage of none is said in words, as it isn't counted. */}
++            {kind.pool !== 'none' && (
++              <span className='font-bold text-text-primary tabular-nums'>
++                {kind.total ?? '–'}
++              </span>
++            )}
++            {/* A space of its own, as the chip's gap isn't one to a screen reader. */}
++            {kind.pool !== 'none' && kind.label && ' '}
++            {kind.label && (
++              <span className={KIND_TONES[kind.pool].word}>{kind.label}</span>
++            )}
++          </span>
++        </Fragment>
++      ))}
++    </span>
++  )
++}
++
++/** A damage card's total, where it has one: "–" while any of it is unknown. */
++function DamageTotal({ damage }: Readonly<{ damage: TableDamage }>) {
++  if (damage.total === undefined) return
++  return (
++    <span
++      className={clsx(
++        'text-3xl leading-none font-semibold tabular-nums',
++        damage.critical && 'text-gold-text',
++      )}
++    >
++      <span className='sr-only'>{' = '}</span>
++      {damage.total ?? '–'}
++    </span>
++  )
++}
+diff --git a/src/features/table/components/chat-log/dice-list.tsx b/src/features/table/components/chat-log/dice-list.tsx
+new file mode 100644
+index 0000000..b95769b
+--- /dev/null
++++ b/src/features/table/components/chat-log/dice-list.tsx
+@@ -0,0 +1,23 @@
++import clsx from 'clsx'
++import type { TableRoll } from '@/types/roll'
++
++/** A roll's dice, each as it came up, those it dropped struck through. */
++export function DiceList({ dice }: Readonly<{ dice: TableRoll['dice'] }>) {
++  if (dice.length === 0) return
++  return (
++    <ul aria-label='Dice' className='flex flex-wrap gap-1'>
++      {dice.map((die, index) => (
++        <li
++          key={index}
++          className={clsx(
++            'inline-flex h-6.5 min-w-6.5 items-center justify-center rounded-md border border-border bg-card px-1 font-mono text-xs',
++            !die.active && 'text-text-secondary line-through',
++          )}
++        >
++          {die.value}
++          {!die.active && <span className='sr-only'> (dropped)</span>}
++        </li>
++      ))}
++    </ul>
++  )
++}
+diff --git a/src/features/table/components/chat-log/roll-body.tsx b/src/features/table/components/chat-log/roll-body.tsx
+new file mode 100644
+index 0000000..67cb823
+--- /dev/null
++++ b/src/features/table/components/chat-log/roll-body.tsx
+@@ -0,0 +1,42 @@
++import { DamageCard } from './damage-card'
++import { RollCard } from './roll-card'
++import type { TableMessage } from '@/types/table'
++
++/** A roll message's body: a card for each roll, then its damage rolls, a card for each section. */
++export function RollBody({
++  message,
++  mine,
++}: Readonly<{ message: TableMessage; mine: boolean }>) {
++  const { whisper, label, rolls, attackRoll, targets, summary } = message
++  return (
++    <>
++      {rolls.map((roll, index) => (
++        <RollCard
++          key={index}
++          roll={roll}
++          label={label}
++          // Only its attack is marked: its damage cards carry their own marks.
++          action={attackRoll?.index === index ? attackRoll.action : undefined}
++          // Who it was aimed at, called out once, on the first card.
++          targets={index === 0 ? targets : []}
++          summary={index === 0 ? summary : undefined}
++          whisper={whisper}
++          mine={mine}
++        />
++      ))}
++      {/* By its section, so an open card stays open as Midi-QOL adds the other. */}
++      {message.damage?.map((damage, index) => (
++        <DamageCard
++          key={damage.section}
++          damage={damage}
++          // Under its attack's card, the item's name isn't said again.
++          label={attackRoll ? undefined : label}
++          targets={rolls.length === 0 && index === 0 ? targets : []}
++          summary={rolls.length === 0 && index === 0 ? summary : undefined}
++          whisper={whisper}
++          mine={mine}
++        />
++      ))}
++    </>
++  )
++}
+diff --git a/src/features/table/components/chat-log/roll-card.tsx b/src/features/table/components/chat-log/roll-card.tsx
+new file mode 100644
+index 0000000..a79d0f3
+--- /dev/null
++++ b/src/features/table/components/chat-log/roll-card.tsx
+@@ -0,0 +1,80 @@
++import clsx from 'clsx'
++import { ActionChip } from './action-chip'
++import { Badge } from './badge'
++import { ACTIONS } from './constants'
++import { DiceList } from './dice-list'
++import { Targets } from './targets'
++import { bubble } from './utils'
++import type { TableRoll } from '@/types/roll'
++import type { TableAction, TableTarget } from '@/types/table'
++
++/** A roll's card: what it was for, its marks, who it was aimed at, its formula, dice and total. */
++export function RollCard({
++  roll,
++  label,
++  action,
++  targets,
++  summary,
++  whisper,
++  mine,
++}: Readonly<{
++  roll: TableRoll
++  label?: string
++  action?: TableAction
++  targets: TableTarget[]
++  summary?: string
++  whisper: boolean
++  mine: boolean
++}>) {
++  return (
++    <div
++      className={clsx(
++        bubble(whisper, mine, roll.critical),
++        'flex w-full max-w-sm flex-col gap-2 p-3',
++        action && ['border-l-4', ACTIONS[action].accent],
++      )}
++    >
++      <div className='flex items-start justify-between gap-2'>
++        <span className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
++          {action && <ActionChip action={action} />}
++          {(label ?? !action) && (
++            <span className='text-sm font-semibold'>{label ?? 'Roll'}</span>
++          )}
++        </span>
++        <div className='flex shrink-0 flex-wrap justify-end gap-1'>
++          {roll.critical && (
++            <Badge className='bg-gold text-on-gold'>Critical</Badge>
++          )}
++          {roll.fumble && (
++            <Badge className='bg-danger/15 text-danger'>Nat 1</Badge>
++          )}
++          {roll.advantage && (
++            <Badge className='bg-primary text-on-primary'>Advantage</Badge>
++          )}
++          {roll.disadvantage && (
++            <Badge className='bg-ruby text-on-ruby'>Disadvantage</Badge>
++          )}
++        </div>
++      </div>
++      <Targets targets={targets} summary={summary} />
++      <div className='flex items-end justify-between gap-3'>
++        <div className='flex min-w-0 flex-col gap-1.5'>
++          <span className='font-mono text-sm break-all text-text-secondary'>
++            {roll.formula}
++          </span>
++          <DiceList dice={roll.dice} />
++        </div>
++        <span
++          className={clsx(
++            'text-3xl leading-none font-semibold tabular-nums',
++            roll.critical && 'text-gold-text',
++            roll.fumble && 'text-danger',
++          )}
++        >
++          <span className='sr-only'>Total </span>
++          {roll.total ?? '–'}
++        </span>
++      </div>
++    </div>
++  )
++}
+diff --git a/src/features/table/components/chat-log/targets.tsx b/src/features/table/components/chat-log/targets.tsx
+new file mode 100644
+index 0000000..9b67b09
+--- /dev/null
++++ b/src/features/table/components/chat-log/targets.tsx
+@@ -0,0 +1,88 @@
++import clsx from 'clsx'
++import { Crosshair, X } from 'lucide-react'
++import type { TableTarget } from '@/types/table'
++
++/**
++ * Who a roll or card was aimed at, and what came of it for each, where players may know: whether
++ * an attack hit them, whether they saved, and whether their own check succeeded. Hit, Failed and
++ * Success, where it landed, in the accent's look; Miss, Saved and Failure, where it didn't, muted,
++ * with a cross. Over more than one, how it went in all, as `summary` says.
++ */
++export function Targets({
++  targets,
++  summary,
++}: Readonly<{ targets: TableTarget[]; summary?: string }>) {
++  if (targets.length === 0) return
++  return (
++    <>
++      {summary && (
++        <p className='text-xs font-semibold text-text-secondary'>{summary}</p>
++      )}
++      <p className='flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
++        <Crosshair
++          aria-hidden
++          className='size-4 shrink-0 text-text-secondary'
++        />
++        <span className='sr-only'>
++          {targets.length === 1 ? 'Target: ' : 'Targets: '}
++        </span>
++        {targets.map((target, index) => (
++          <span key={index} className='inline-flex items-center gap-1.5'>
++            <span className='font-semibold'>{target.name}</span>
++            {target.ac !== undefined && (
++              <span className='text-xs text-text-secondary'>
++                AC {target.ac}
++              </span>
++            )}
++            {target.outcome && (
++              <Pill landed={target.outcome === 'hit'}>
++                {target.outcome === 'hit' ? 'Hit' : 'Miss'}
++              </Pill>
++            )}
++            {target.save && (
++              <Pill landed={target.save === 'failed'}>
++                {target.save === 'failed' ? 'Failed' : 'Saved'}
++              </Pill>
++            )}
++            {target.check && (
++              <Pill landed={target.check === 'success'}>
++                {target.check === 'success' ? 'Success' : 'Failure'}
++              </Pill>
++            )}
++            {index < targets.length - 1 && (
++              <span aria-hidden className='text-text-secondary'>
++                ,
++              </span>
++            )}
++          </span>
++        ))}
++      </p>
++    </>
++  )
++}
++
++/**
++ * What came of a roll for a target: where it landed, as a hit or a failed save, in the accent's
++ * look; where it didn't, muted, after a cross. Read after the name as ", Hit".
++ */
++function Pill({
++  landed,
++  children,
++}: Readonly<{ landed: boolean; children: string }>) {
++  return (
++    <>
++      <span className='sr-only'>, </span>
++      <span
++        className={clsx(
++          'inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-bold uppercase',
++          landed
++            ? 'bg-primary/10 text-primary-text'
++            : 'bg-text-secondary/10 text-text-secondary',
++        )}
++      >
++        {!landed && <X aria-hidden className='size-3' />}
++        {children}
++      </span>
++    </>
++  )
++}
+diff --git a/src/features/table/components/chat-log/text-body.tsx b/src/features/table/components/chat-log/text-body.tsx
+new file mode 100644
+index 0000000..06b1f59
+--- /dev/null
++++ b/src/features/table/components/chat-log/text-body.tsx
+@@ -0,0 +1,34 @@
++import clsx from 'clsx'
++import { bubble } from './utils'
++import type { TableMessage } from '@/types/table'
++
++/**
++ * A text message's body: its label over its text, where it has both, in a bubble; nothing of its
++ * own for a roll request card, whose ask says what it is.
++ */
++export function TextBody({
++  message,
++  mine,
++}: Readonly<{ message: TableMessage; mine: boolean }>) {
++  const { label, text, whisper } = message
++  if (message.ask) return
++  return (
++    <>
++      {label && text && (
++        <span className='text-xs font-semibold text-text-secondary'>
++          {label}
++        </span>
++      )}
++      {(text ?? label) && (
++        <p
++          className={clsx(
++            bubble(whisper, mine),
++            'break-words whitespace-pre-wrap',
++          )}
++        >
++          {text ?? label}
++        </p>
++      )}
++    </>
++  )
++}
+diff --git a/src/features/table/components/chat-log/used-body.tsx b/src/features/table/components/chat-log/used-body.tsx
+new file mode 100644
+index 0000000..5a1c42d
+--- /dev/null
++++ b/src/features/table/components/chat-log/used-body.tsx
+@@ -0,0 +1,31 @@
++import clsx from 'clsx'
++import { ActionChip } from './action-chip'
++import { ACTIONS, CAPTION } from './constants'
++import { Targets } from './targets'
++import { bubble } from './utils'
++import type { TableMessage } from '@/types/table'
++
++/** A card's body: an item or ability used, marked as the combat roll it is, and who at. */
++export function UsedBody({
++  message,
++  mine,
++}: Readonly<{ message: TableMessage; mine: boolean }>) {
++  const { whisper, label, action, targets, summary } = message
++  return (
++    <div
++      className={clsx(
++        bubble(whisper, mine),
++        'flex flex-col gap-1.5',
++        action && ['border-l-4', ACTIONS[action].accent],
++      )}
++    >
++      {action ? (
++        <ActionChip action={action} />
++      ) : (
++        <span className={CAPTION}>Used</span>
++      )}
++      <span className='font-semibold'>{label ?? 'An item or ability'}</span>
++      <Targets targets={targets} summary={summary} />
++    </div>
++  )
++}
+diff --git a/src/features/table/components/chat-log/utils.ts b/src/features/table/components/chat-log/utils.ts
+new file mode 100644
+index 0000000..4626366
+--- /dev/null
++++ b/src/features/table/components/chat-log/utils.ts
+@@ -0,0 +1,26 @@
++import clsx from 'clsx'
++
++/**
++ * A message's bubble, its pointed corner toward the speaker's avatar; gold all round for a
++ * critical. It sets one border colour only: of two, the one the stylesheet sets later wins,
++ * whatever their order here, and gold comes before the player's own and a whisper's.
++ */
++export const bubble = (whisper: boolean, mine: boolean, critical = false) =>
++  clsx(
++    'max-w-full border px-3 py-2.5',
++    mine ? 'rounded-[14px_4px_14px_14px]' : 'rounded-[4px_14px_14px_14px]',
++    critical ? 'border-gold' : edgeOf(whisper, mine),
++    whisper && 'border-dashed bg-whisper/5',
++    !whisper && (mine ? 'bg-primary/10' : 'bg-card'),
++  )
++
++/** A bubble's border colour, for a whisper, the player's own message or anyone else's. */
++export function edgeOf(whisper: boolean, mine: boolean): string {
++  if (whisper) return 'border-whisper/60'
++  return mine ? 'border-primary/30' : 'border-border'
++}
++
++/** The article before what a roll request card asks for: "an" before a vowel, else "a". */
++export function article(title: string): string {
++  return /^[AEIOU]/.test(title) ? 'an' : 'a'
 +}
 diff --git a/src/features/table/components/choose-actor/choose-actor.tsx b/src/features/table/components/choose-actor/choose-actor.tsx
 new file mode 100644
@@ -234,12 +1132,403 @@ index 0000000..8b1e503
 +    </div>
 +  )
 +}
+diff --git a/src/features/table/components/combat-tracker/combatant-row.tsx b/src/features/table/components/combat-tracker/combatant-row.tsx
+new file mode 100644
+index 0000000..16f0d92
+--- /dev/null
++++ b/src/features/table/components/combat-tracker/combatant-row.tsx
+@@ -0,0 +1,97 @@
++'use client'
++
++import clsx from 'clsx'
++import { HitPoints } from './hit-points'
++import { formatInitiative } from './utils'
++import type { Side, TableCombatant } from '@/types/table'
++
++const INITIATIVE: Record<Side, string> = {
++  me: 'bg-primary text-on-primary',
++  party: 'bg-party/15 text-party',
++  other: 'bg-foe/15 text-foe',
++}
++
++const ROLE: Record<Side, string | undefined> = {
++  me: 'You',
++  party: 'Ally',
++  other: undefined,
++}
++
++/**
++ * How one not of the party is drawn where the game has its token disposed, from module 0.29.0:
++ * one marked Friendly as the party's allies are, and a neutral one in grey, not as a foe.
++ */
++const STANCES: Record<
++  NonNullable<TableCombatant['stance']>,
++  { initiative: string; role: string }
++> = {
++  ally: { initiative: INITIATIVE.party, role: 'Ally' },
++  neutral: {
++    initiative: 'bg-text-secondary/15 text-text-secondary',
++    role: 'Neutral',
++  },
++}
++
++/**
++ * One combatant in the initiative order: its initiative, name and role, its hit points where
++ * players may see them, and whether it acts now or is defeated.
++ */
++export function CombatantRow({
++  combatant,
++  current,
++}: Readonly<{ combatant: TableCombatant; current: boolean }>) {
++  const { name, initiative, defeated, side, hp } = combatant
++  const stance = combatant.stance && STANCES[combatant.stance]
++  // One of the player's own creatures, as a companion of their character's (module 0.36.0).
++  let role = ROLE[side]
++  if (stance) role = stance.role
++  else if (combatant.yours) role = 'Yours'
++  return (
++    <li
++      aria-current={current ? 'step' : undefined}
++      className={clsx(
++        'flex items-center gap-3 rounded-2xl border p-3',
++        current ? 'border-primary bg-primary/5' : 'border-border bg-card',
++        defeated && 'opacity-60',
++      )}
++    >
++      <span
++        className={clsx(
++          // Wide enough for a tiebreaker such as 18.25, so every row's box lines up.
++          'flex h-10 w-15 shrink-0 items-center justify-center rounded-[10px] font-bold tabular-nums',
++          stance ? stance.initiative : INITIATIVE[side],
++        )}
++      >
++        <span className='sr-only'>Initiative </span>
++        {formatInitiative(initiative)}
++      </span>
++      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
++        <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
++          <span
++            className={clsx(
++              'truncate font-semibold',
++              side === 'me' && 'text-primary-text',
++              defeated && 'line-through',
++            )}
++          >
++            {name}
++          </span>
++          {current && (
++            <span className='rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide text-on-primary'>
++              NOW
++            </span>
++          )}
++        </div>
++        {role && <span className='text-xs text-text-secondary'>{role}</span>}
++      </div>
++      <div className='flex shrink-0 flex-col items-end gap-1.5'>
++        {hp && <HitPoints hp={hp} />}
++        {defeated && (
++          <span className='text-xs font-semibold text-text-secondary'>
++            Defeated
++          </span>
++        )}
++      </div>
++    </li>
++  )
++}
+diff --git a/src/features/table/components/combat-tracker/hit-points.tsx b/src/features/table/components/combat-tracker/hit-points.tsx
+new file mode 100644
+index 0000000..e649fd8
+--- /dev/null
++++ b/src/features/table/components/combat-tracker/hit-points.tsx
+@@ -0,0 +1,37 @@
++'use client'
++
++import { hpBar } from '@/features/table/utils/combat'
++import type { TableCombatant } from '@/types/table'
++
++/**
++ * A combatant's hit points, where players may see them: how many, of how many, with any temporary
++ * ones; and a bar where it has a maximum.
++ */
++export function HitPoints({
++  hp,
++}: Readonly<{ hp: NonNullable<TableCombatant['hp']> }>) {
++  const { percent, bar } = hpBar(hp)
++  return (
++    <>
++      <span className='text-sm font-semibold tabular-nums'>
++        <span className='sr-only'>Hit points </span>
++        {hp.value}
++        {hp.max !== null && (
++          <span className='font-normal text-text-secondary'> / {hp.max}</span>
++        )}
++        {hp.temp > 0 && <span className='text-party'> +{hp.temp} temp</span>}
++      </span>
++      {percent !== undefined && (
++        <span
++          aria-hidden
++          className='block h-1.5 w-24 overflow-hidden rounded-full bg-border'
++        >
++          <span
++            className={clsx('block h-full rounded-full', bar)}
++            style={{ width: `${percent}%` }}
++          />
++        </span>
++      )}
++    </>
++  )
++}
+diff --git a/src/features/table/components/combat-tracker/turn-panel.tsx b/src/features/table/components/combat-tracker/turn-panel.tsx
+new file mode 100644
+index 0000000..5531809
+--- /dev/null
++++ b/src/features/table/components/combat-tracker/turn-panel.tsx
+@@ -0,0 +1,167 @@
++'use client'
++
++import clsx from 'clsx'
++import { TriangleAlert } from 'lucide-react'
++import { EndTurnButton } from '../end-turn-button/end-turn-button'
++import { useTurnFocus } from './use-turn-focus'
++import { refusalLine, turnHeading } from './utils'
++import { currentCombatant, nextUp } from '@/features/table/utils/combat'
++import { END_TURN_HINT, turnKey } from '@/features/table/utils/end-turn'
++import { useTableRole } from '@/hooks/use-table-api'
++import { seatWords } from '@/utils/seat-words'
++import type { PanelEnding } from '@/features/table/types'
++import type { TableCombat, TableCombatant } from '@/types/table'
++
++/**
++ * Whose turn it is, above the initiative order: the round and who's next; the heading; on the
++ * seat's turn, End Turn, and why the last one wasn't made; and on a companion's turn, a way to its
++ * tab, which it's rolled for on.
++ * @param onOpen - Shows a companion's tab, by its key.
++ * @param keys - The companions whose tabs the page shows.
++ */
++export function TurnPanel({
++  combat,
++  onOpen,
++  keys,
++  ending,
++  via,
++  refused,
++  onEnd,
++  focusTurn,
++}: Readonly<
++  {
++    combat: TableCombat
++    onOpen?: (key: string) => void
++    keys?: ReadonlySet<string>
++  } & PanelEnding
++>) {
++  const role = useTableRole()
++  const { settingUp } = seatWords(role)
++  const current = currentCombatant(combat)
++  const next = nextUp(combat)
++  // The turn of one of the player's own creatures: their character's, or from module 0.36.0 one of
++  // its companions', which is rolled for on its own tab.
++  const companion = current?.yours ? current.companion : undefined
++  const mine =
++    combat.started && (current?.side === 'me' || companion !== undefined)
++  const heading = turnHeading(combat, current, companion)
++
++  // End Turn, on the seat's turn as the panel shows it (module 0.36.0).
++  const turn =
++    ending?.turn && ending.turn.combatantId === current?.id
++      ? ending.turn
++      : undefined
++  const shown = turn && turnKey(turn)
++  // Why the last End Turn wasn't made, while the panel still shows its turn.
++  const line = refusalLine(refused, shown, role)
++  const { titled, button, handOn } = useTurnFocus({
++    combat,
++    current,
++    via,
++    sent: ending?.sent,
++    focusTurn,
++  })
++
++  return (
++    <section
++      aria-labelledby='turn-heading'
++      className={clsx(
++        'flex flex-col gap-2 rounded-2xl border bg-card p-4',
++        mine ? 'border-primary' : 'border-border',
++      )}
++    >
++      <RoundLine combat={combat} next={next} />
++      <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-2'>
++        <h2
++          ref={titled}
++          id='turn-heading'
++          tabIndex={-1}
++          aria-live='polite'
++          className={clsx(
++            'text-2xl font-semibold tracking-tight outline-none',
++            mine && 'text-primary',
++          )}
++        >
++          {heading}
++        </h2>
++        {turn && ending && (
++          <EndTurnButton
++            ref={button}
++            turn={turn}
++            offered={ending.offered}
++            way={ending.way}
++            onEnd={given => onEnd?.(given)}
++            onGone={handOn}
++          />
++        )}
++      </div>
++      {line && (
++        <p
++          role='alert'
++          className='flex items-start gap-1.5 text-[13px] text-warning'
++        >
++          <TriangleAlert aria-hidden className='mt-0.5 size-4 shrink-0' />
++          <span>{line}</span>
++        </p>
++      )}
++      {turn && <p className='text-xs text-text-secondary'>{END_TURN_HINT}</p>}
++      {!combat.started && (
++        <p className='text-sm text-text-secondary'>{settingUp}</p>
++      )}
++      {mine && companion && (
++        <CompanionTurn companion={companion} onOpen={onOpen} keys={keys} />
++      )}
++      {!mine && next?.side === 'me' && (
++        <p className='text-sm text-text-secondary'>You are up next.</p>
++      )}
++    </section>
++  )
++}
++
++/** The round, or that the combat hasn't started, and who acts next. */
++function RoundLine({
++  combat,
++  next,
++}: Readonly<{ combat: TableCombat; next?: TableCombatant }>) {
++  return (
++    <div className='flex items-baseline justify-between gap-2 text-xs text-text-secondary'>
++      <span className='font-semibold tracking-wider uppercase'>
++        {combat.started ? `Round ${combat.round}` : 'Not started'}
++      </span>
++      {next && (
++        <span className='truncate'>
++          Next: {next.side === 'me' ? 'you' : next.name}
++        </span>
++      )}
++    </div>
++  )
++}
++
++/** On a companion's turn (module 0.36.0): it's rolled for on its own tab, which this opens. */
++function CompanionTurn({
++  companion,
++  onOpen,
++  keys,
++}: Readonly<{
++  companion: string
++  onOpen?: (key: string) => void
++  keys?: ReadonlySet<string>
++}>) {
++  return (
++    <p className='text-sm text-text-secondary'>
++      Roll for it on{' '}
++      {onOpen && keys?.has(companion) ? (
++        <button
++          type='button'
++          onClick={() => onOpen(companion)}
++          className='inline-flex min-h-11 min-w-11 items-center justify-center font-semibold text-primary-text underline underline-offset-2'
++        >
++          its tab
++        </button>
++      ) : (
++        'its tab'
++      )}
++      .
++    </p>
++  )
++}
+diff --git a/src/features/table/components/combat-tracker/use-turn-focus.ts b/src/features/table/components/combat-tracker/use-turn-focus.ts
+new file mode 100644
+index 0000000..d313d3b
+--- /dev/null
++++ b/src/features/table/components/combat-tracker/use-turn-focus.ts
+@@ -0,0 +1,56 @@
++import { useLayoutEffect, useRef } from 'react'
++import { turnKey } from '@/features/table/utils/end-turn'
++import type { PanelEnding } from '@/features/table/types'
++import type { TableCombat, TableCombatant } from '@/types/table'
++
++/**
++ * Focus on the turn panel. The button's End Turn made, and the panel showing the turn moved on:
++ * focus on the button, or lost to the page, goes to the heading, whoever acts now, never resting
++ * on an End Turn for the next turn. And the button gone from under focus: to the heading where the
++ * panel stays, else, as the encounter ends and the panel goes with it, to the page's own place for
++ * the turn, never the page's body.
++ * @param current - Who acts now, as the panel shows the combat.
++ * @param sent - The last End Turn sent, with its way.
++ * @returns The heading and End Turn's button, and `handOn`, for when the button goes.
++ */
++export function useTurnFocus({
++  combat,
++  current,
++  via,
++  sent,
++  focusTurn,
++}: {
++  combat: TableCombat
++  current?: TableCombatant
++  via?: PanelEnding['via']
++  sent?: NonNullable<PanelEnding['ending']>['sent']
++  focusTurn?: () => void
++}) {
++  const titled = useRef<HTMLHeadingElement>(null)
++  const button = useRef<HTMLButtonElement>(null)
++  const now =
++    combat.started && current
++      ? `${combat.id}:${combat.round}:${current.id}`
++      : ''
++  const moved =
++    via === 'button' &&
++    sent?.way.status === 'done' &&
++    now !== turnKey(sent.turn)
++      ? sent.way.requestId
++      : undefined
++  const handed = useRef<string>(undefined)
++  useLayoutEffect(() => {
++    if (moved === undefined || handed.current === moved) return
++    handed.current = moved
++    const active = document.activeElement
++    if (!active || active === document.body || active === button.current) {
++      titled.current?.focus({ preventScroll: true })
++    }
++  }, [moved])
++  const handOn = () => {
++    const heading = titled.current
++    if (heading?.isConnected) heading.focus({ preventScroll: true })
++    else focusTurn?.()
++  }
++  return { titled, button, handOn }
++}
 diff --git a/src/features/table/components/combat-tracker/utils.ts b/src/features/table/components/combat-tracker/utils.ts
 new file mode 100644
-index 0000000..dc840ab
+index 0000000..7e9eec0
 --- /dev/null
 +++ b/src/features/table/components/combat-tracker/utils.ts
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,49 @@
++import {
++  TURN_OVER,
++  turnFragment,
++  turnKey,
++  turnRefusedLine,
++} from '@/features/table/utils/end-turn'
++import type { PanelEnding } from '@/features/table/types'
++import type { SeatRole } from '@/types/seats'
++import type { TableCombat, TableCombatant } from '@/types/table'
++
 +/**
 + * An initiative as Foundry shows it. Systems break ties with decimals, such as D&D's dexterity
 + * tiebreaker giving 18.14, which are rounded to two places to hide floating-point noise.
@@ -248,9 +1537,40 @@ index 0000000..dc840ab
 +  if (initiative === null) return '–'
 +  return String(Math.round(initiative * 100) / 100)
 +}
++
++/** The turn panel's heading: whose turn it is, as the seat reads it. */
++export function turnHeading(
++  combat: TableCombat,
++  current: TableCombatant | undefined,
++  companion: string | undefined,
++): string {
++  if (!combat.started) return 'Getting ready'
++  if (current?.side === 'me') return 'Your turn'
++  if (current && companion) return `${current.name}’s turn`
++  if (current) return `${current.name} is acting`
++  return 'Waiting for the next turn'
++}
++
++/**
++ * Why the last End Turn wasn't made, while the panel still shows its turn; none otherwise.
++ * @param shown - The turn the panel offers End Turn for, by its key.
++ */
++export function refusalLine(
++  refused: PanelEnding['refused'],
++  shown: string | undefined,
++  role: SeatRole,
++): string | undefined {
++  if (!refused || shown !== turnKey(refused.turn)) return undefined
++  const { key } = refused
++  return turnRefusedLine(
++    refused.turn,
++    turnFragment(key, role),
++    !TURN_OVER.has(key),
++  )
++}
 diff --git a/src/features/table/components/creature-sheets/creature-sheets.tsx b/src/features/table/components/creature-sheets/creature-sheets.tsx
 new file mode 100644
-index 0000000..5ec69a8
+index 0000000..3b8491d
 --- /dev/null
 +++ b/src/features/table/components/creature-sheets/creature-sheets.tsx
 @@ -0,0 +1,231 @@
@@ -263,8 +1583,8 @@ index 0000000..5ec69a8
 +import { CreatureSwitcher } from '@/features/companions/components/creature-switcher/creature-switcher'
 +import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 +import { switcherCreatures } from '@/features/table/utils/creatures'
-+import type { useCompanionRow } from '@/features/table/hooks/use-companion-row'
 +import type { NotesPlace } from '@/features/notes/types'
++import type { useCompanionRow } from '@/features/table/hooks/use-companion-row'
 +import type { DiceSwitch } from '@/features/table/types'
 +import type { Character, TableSeat } from '@/types/character'
 +import type { CookbookPlace } from '@/types/cookbook'
@@ -541,10 +1861,10 @@ index 0000000..ff49b0e
 +}
 diff --git a/src/features/table/components/hold-tab/hold-fill.tsx b/src/features/table/components/hold-tab/hold-fill.tsx
 new file mode 100644
-index 0000000..e5fda21
+index 0000000..d2edc83
 --- /dev/null
 +++ b/src/features/table/components/hold-tab/hold-fill.tsx
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,22 @@
 +'use client'
 +
 +import type { TabHold } from '@/features/table/types'
@@ -555,9 +1875,12 @@ index 0000000..e5fda21
 + */
 +export function HoldFill({ hold }: Readonly<{ hold?: TabHold }>) {
 +  if (!hold?.offer) return
++  // The ref taken out first: read off the props in place, the compiler takes it for a ref read
++  // during render.
++  const { fill } = hold.offer
 +  return (
 +    <span
-+      ref={hold.offer.fill}
++      ref={fill}
 +      aria-hidden
 +      className='pointer-events-none absolute inset-0 origin-left rounded-[inherit] bg-primary/22'
 +      style={{ transform: 'scaleX(0)' }}
@@ -1163,10 +2486,10 @@ index 0000000..28c0323
 +}
 diff --git a/src/features/table/components/table-notices/table-notices.tsx b/src/features/table/components/table-notices/table-notices.tsx
 new file mode 100644
-index 0000000..ddd2e3d
+index 0000000..6651295
 --- /dev/null
 +++ b/src/features/table/components/table-notices/table-notices.tsx
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,52 @@
 +'use client'
 +
 +import { GmNote } from '../gm-note/gm-note'
@@ -1210,7 +2533,11 @@ index 0000000..ddd2e3d
 +      )}
 +      {/* The game ended a Wild Shape (module 0.40.0): why, until dismissed. */}
 +      {playing && (
-+        <WildShapeEnded sheet={view.sheet} name={character.name} seat={seatKey} />
++        <WildShapeEnded
++          sheet={view.sheet}
++          name={character.name}
++          seat={seatKey}
++        />
 +      )}
 +    </>
 +  )
@@ -1274,23 +2601,321 @@ index 0000000..605d0ff
 +    />
 +  )
 +}
+diff --git a/src/features/table/components/turn-toast/undo-button.tsx b/src/features/table/components/turn-toast/undo-button.tsx
+new file mode 100644
+index 0000000..38f8fd5
+--- /dev/null
++++ b/src/features/table/components/turn-toast/undo-button.tsx
+@@ -0,0 +1,34 @@
++'use client'
++
++import { useLayoutEffect, useRef } from 'react'
++
++/**
++ * The toast's Undo: it takes the turn back. As it goes, taken or withdrawn, focus on it is handed
++ * on, never left to the page's body.
++ */
++export function UndoButton({
++  onUndo,
++  onGone,
++}: Readonly<{ onUndo: () => void; onGone: () => void }>) {
++  const button = useRef<HTMLButtonElement>(null)
++  const gone = useRef(onGone)
++  useLayoutEffect(() => {
++    gone.current = onGone
++  })
++  useLayoutEffect(() => {
++    const own = button.current
++    return () => {
++      if (own && document.activeElement === own) gone.current()
++    }
++  }, [])
++  return (
++    <button
++      ref={button}
++      type='button'
++      onClick={onUndo}
++      className='min-h-11 min-w-11 rounded-[10px] border border-border bg-transparent px-3 font-semibold'
++    >
++      Undo
++    </button>
++  )
++}
+diff --git a/src/features/table/components/turn-toast/use-toast-foot.ts b/src/features/table/components/turn-toast/use-toast-foot.ts
+new file mode 100644
+index 0000000..d793145
+--- /dev/null
++++ b/src/features/table/components/turn-toast/use-toast-foot.ts
+@@ -0,0 +1,47 @@
++import { useLayoutEffect, useRef, useState } from 'react'
++
++/**
++ * Where the turn's toast's card ends, for the roll toasts to start below it, as it shows, moves,
++ * changes or goes.
++ * @param onFoot - Told where the card ends, in pixels from the top, or that none shows.
++ * @param top - Where the toast starts, which moves the card with it.
++ * @returns The card's ref, which measures it.
++ */
++export function useToastFoot(
++  onFoot: ((foot: number | undefined) => void) | undefined,
++  top: number | undefined,
++) {
++  const [element, setElement] = useState<HTMLDivElement | null>(null)
++  const foot = useRef<number | undefined>(undefined)
++  const footing = useRef(onFoot)
++  useLayoutEffect(() => {
++    footing.current = onFoot
++  })
++  useLayoutEffect(() => {
++    // Where the card comes to rest, not where its entry has it now: its box as laid out in its
++    // region, which a transform doesn't move, as the card's first frame already has it 8 pixels
++    // higher and no resize follows to say otherwise.
++    const measure = () => {
++      const at = element
++        ? Math.ceil(
++            (element.parentElement?.getBoundingClientRect().top ?? 0) +
++              element.offsetTop +
++              element.offsetHeight,
++          )
++        : undefined
++      if (at === foot.current) return
++      foot.current = at
++      footing.current?.(at)
++    }
++    measure()
++    if (!element) return
++    const observer = new ResizeObserver(measure)
++    observer.observe(element)
++    globalThis.addEventListener('resize', measure)
++    return () => {
++      observer.disconnect()
++      globalThis.removeEventListener('resize', measure)
++    }
++  }, [element, top])
++  return setElement
++}
+diff --git a/src/features/table/components/turn-toast/use-turn-toast-card.ts b/src/features/table/components/turn-toast/use-turn-toast-card.ts
+new file mode 100644
+index 0000000..48bcf3b
+--- /dev/null
++++ b/src/features/table/components/turn-toast/use-turn-toast-card.ts
+@@ -0,0 +1,187 @@
++import { useEffect, useRef, useState } from 'react'
++import { lastsOf, nextCard, showsTurn } from './utils'
++import { POLL_INTERVAL } from '@/constants/polling'
++import type {
++  Card,
++  CardBody,
++  CardNext,
++  EndTurnState,
++  ToastSeen,
++  UndoState,
++} from '@/features/table/types'
++import type { TableCombat } from '@/types/table'
++
++/**
++ * How long a turn the game has ended, or taken back, may still be shown as it was before the page
++ * is taken to be showing the turn now, in milliseconds: two of the table's polls.
++ */
++const SETTLE_FOR = 2 * POLL_INTERVAL
++
++/**
++ * The turn's toast's card (module 0.36.0): one card at a time, each replacing the last, each
++ * numbered, so that the next is announced, and animates in, as a new one. What happened since the
++ * last render makes the card, in the order it did; an End Turn the game made but the page still
++ * shows as it was two polls on is told with no line and no Undo; an Undo made with the turn still
++ * not shown back two polls on goes all the same; and each card that lasts goes in its time, paused
++ * while the pointer is over it or focus is in it.
++ * @returns The card; `rest`, which pauses or resumes its time; and `takeBack`, Undo's own: its card,
++ *   and the Undo sent.
++ */
++export function useTurnToastCard({
++  ending,
++  undoing,
++  via,
++  held,
++  combatShown,
++  combat,
++}: {
++  ending: EndTurnState
++  undoing: UndoState
++  via?: 'button' | 'hold'
++  held: boolean
++  combatShown: boolean
++  combat?: TableCombat
++}) {
++  const [card, setCard] = useState<Card>()
++  const serials = useRef(0)
++  const make = (body: CardBody): Card => ({
++    ...body,
++    serial: (serials.current += 1),
++  })
++  // The End Turns whose ending has been told, by their ids: each is told once.
++  const told = useRef(new Set<string>())
++  // What was last seen of the hold, the End Turn sent last and its Undo's way.
++  const seen = useRef<ToastSeen>({ held: false })
++  // The card a hold's took the place of, which comes back if the hold is let go early.
++  const covered = useRef<Card>(undefined)
++  // What's left of the time of the card that lasts, by its number.
++  const remaining = useRef<{ serial: number; ms: number }>(undefined)
++  // The card next, numbered where it's new, with what was left of its time where it comes back.
++  const numbered = (next: CardNext): Card | undefined => {
++    if (!next) return undefined
++    if ('card' in next) return next.card
++    const made = make(next.make)
++    if (next.ms !== undefined) {
++      remaining.current = { serial: made.serial, ms: next.ms }
++    }
++    return made
++  }
++
++  const { sent } = ending
++  const { offer, way: undone } = undoing
++  // What happened since the last render, in the order it did; the last card made shows.
++  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render on purpose: it steps the card from what changed since the last one, and sets it only where it changed
++  useEffect(() => {
++    const was = seen.current
++    seen.current = { held, sent }
++    const step = nextCard(
++      card,
++      was,
++      {
++        held,
++        sent,
++        via,
++        combatShown,
++        combat,
++        turn: ending.turn,
++        offer,
++        undone,
++      },
++      {
++        told: told.current,
++        covered: covered.current,
++        remaining: remaining.current,
++      },
++    )
++    if (step.cover) covered.current = card
++    if (step.uncover) covered.current = undefined
++    if (step.tell) told.current.add(step.tell)
++    const next = numbered(step.next)
++    if (next !== card) setCard(next)
++  })
++
++  // An End Turn the game made, still shown as it was two polls on, as when the turn came back
++  // before the page saw it move: told with no line and no Undo.
++  const doneId = sent?.way.status === 'done' ? sent.way.requestId : undefined
++  const settling =
++    sent && doneId && showsTurn(combat, sent.turn) ? doneId : undefined
++  // Its turn, the same object for as long as it's the same End Turn.
++  const settlingTurn = settling === undefined ? undefined : sent?.turn
++  useEffect(() => {
++    if (settling === undefined || !settlingTurn) return
++    const timer = setTimeout(() => {
++      if (told.current.has(settling)) return
++      told.current.add(settling)
++      setCard(
++        make({ kind: 'ended', id: settling, turn: settlingTurn, undo: false }),
++      )
++    }, SETTLE_FOR)
++    return () => clearTimeout(timer)
++    // From when it was first seen so, however many polls show it.
++  }, [settling, settlingTurn])
++
++  // An Undo the game made, the turn still not shown back two polls on: it goes all the same.
++  const back =
++    card?.kind === 'taking' &&
++    undone?.for === card.id &&
++    undone.status === 'done'
++      ? card.serial
++      : undefined
++  useEffect(() => {
++    if (back === undefined) return
++    const timer = setTimeout(
++      () => setCard(shown => (shown?.serial === back ? undefined : shown)),
++      SETTLE_FOR,
++    )
++    return () => clearTimeout(timer)
++  }, [back])
++
++  // Its time, paused while the pointer is over it or focus is in it.
++  const [pause, setPause] = useState<{
++    serial: number
++    pointer: boolean
++    focus: boolean
++  }>()
++  const resting =
++    pause !== undefined &&
++    pause.serial === card?.serial &&
++    (pause.pointer || pause.focus)
++  const rest = (change: { pointer?: boolean; focus?: boolean }) => {
++    if (!card) return
++    setPause(was => ({
++      serial: card.serial,
++      pointer: false,
++      focus: false,
++      ...(was?.serial === card.serial && was),
++      ...change,
++    }))
++  }
++  useEffect(() => {
++    const lasts = card && lastsOf(card)
++    if (!card || lasts === undefined) return
++    if (remaining.current?.serial !== card.serial) {
++      remaining.current = { serial: card.serial, ms: lasts }
++    }
++    if (resting) return
++    const begun = Date.now()
++    const timer = setTimeout(
++      () =>
++        setCard(shown => (shown?.serial === card.serial ? undefined : shown)),
++      remaining.current.ms,
++    )
++    return () => {
++      clearTimeout(timer)
++      if (remaining.current?.serial === card.serial) {
++        remaining.current.ms -= Date.now() - begun
++      }
++    }
++  }, [card, resting])
++
++  // Undo, from its card: it says so until the page shows the turn back.
++  const takeBack = () => {
++    if (!offer) return
++    setCard(make({ kind: 'taking', id: offer.requestId, turn: offer.turn }))
++    undoing.undo()
++  }
++  return { card, rest, takeBack }
++}
 diff --git a/src/features/table/components/turn-toast/utils.ts b/src/features/table/components/turn-toast/utils.ts
 new file mode 100644
-index 0000000..cbad409
+index 0000000..dea79df
 --- /dev/null
 +++ b/src/features/table/components/turn-toast/utils.ts
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,240 @@
++import { NOT_MADE } from '@/constants/lifecycle'
 +import { currentCombatant } from '@/features/table/utils/combat'
 +import {
++  actingLine,
 +  endTurnWords,
 +  HOLD_HINT,
++  newlyNotMade,
 +  reasonSentence,
++  refusalKey,
 +  TURN_TOAST_FOR,
 +  TURN_UNDO_FOR,
 +  turnFragment,
 +  turnSendingLine,
 +} from '@/features/table/utils/end-turn'
-+import type { Card, Sent } from '@/features/table/types'
++import type {
++  Card,
++  CardBody,
++  CardNext,
++  CardStep,
++  Sent,
++  ToastInputs,
++  ToastSeen,
++} from '@/features/table/types'
 +import type { EndedTurn } from '@/types/roll'
 +import type { SeatRole } from '@/types/seats'
 +import type { TableCombat } from '@/types/table'
@@ -1315,7 +2940,7 @@ index 0000000..cbad409
 + * check before Undo's way says it's made: the card goes with the panel, never a check later.
 + */
 +export function takenBack(
-+  card: Card,
++  card: CardBody,
 +  combat: TableCombat | undefined,
 +): boolean {
 +  return card.kind === 'taking' && showsTurn(combat, card.turn)
@@ -1376,6 +3001,137 @@ index 0000000..cbad409
 +      }
 +    }
 +  }
++}
++
++/**
++ * The card a hold's took the place of, shown again as a new one for what was left of its time, as
++ * the hold sent nothing; none where its time was up.
++ * @param remaining - What's left of the time of the card that lasts, by its number.
++ */
++function uncovered(
++  back: Card | undefined,
++  remaining: { serial: number; ms: number } | undefined,
++): CardNext {
++  if (!back) return undefined
++  const lasts = lastsOf(back)
++  if (lasts === undefined) return { make: back }
++  const left = remaining?.serial === back.serial ? remaining.ms : lasts
++  if (left <= 0) return undefined
++  return { make: back, ms: left }
++}
++
++/**
++ * A hold past half a second says it's ending the turn, taking the place of the card shown. Let go
++ * early, drifted or stopped, it goes at once, silently, and the card it took the place of, such as
++ * the last End Turn's with Undo, comes back where it's still to be shown.
++ */
++function holdStep(
++  card: Card | undefined,
++  was: ToastSeen,
++  now: ToastInputs,
++  covered: Card | undefined,
++  remaining: { serial: number; ms: number } | undefined,
++): Omit<CardStep, 'tell'> {
++  if (now.held && !was.held && now.turn) {
++    return {
++      next: { make: { kind: 'holding', turn: now.turn } },
++      cover: true,
++      uncover: false,
++    }
++  }
++  if (!now.held && was.held && card?.kind === 'holding') {
++    return { next: uncovered(covered, remaining), cover: false, uncover: true }
++  }
++  return { next: card && { card }, cover: false, uncover: false }
++}
++
++/**
++ * What the End Turn sent last says: a hold's on its way; the game made it, with who acts now, or
++ * with Undo while that's offered, told once, as the page shows the combat moved on; or it wasn't
++ * made, which the toast says for a hold's, or for the button's where the combat isn't shown.
++ * @param told - The End Turns whose ending has been told, by their ids.
++ */
++function wayStep(
++  next: CardNext,
++  was: ToastSeen,
++  now: ToastInputs,
++  told: ReadonlySet<string>,
++): { next: CardNext; tell?: string } {
++  const { sent, via, combat, offer } = now
++  let step: { next: CardNext; tell?: string } = { next }
++  if (sent && sent.turn !== was.sent?.turn && via === 'hold') {
++    step = { next: { make: { kind: 'sending', turn: sent.turn } } }
++  }
++  const id = sent?.way.status === 'done' ? sent.way.requestId : undefined
++  if (sent && id && !told.has(id) && !showsTurn(combat, sent.turn)) {
++    const undo = offer?.requestId === id
++    const left = undo ? offer.left : actingOf(combat)
++    step = {
++      next: {
++        make: {
++          kind: 'ended',
++          id,
++          turn: sent.turn,
++          line: left && actingLine(left),
++          undo,
++        },
++      },
++      tell: id,
++    }
++  }
++  if (newlyNotMade(was.sent, sent) && (via === 'hold' || !now.combatShown)) {
++    step = {
++      ...step,
++      next: {
++        make: { kind: 'refused', turn: sent.turn, key: refusalKey(sent.way) },
++      },
++    }
++  }
++  return step
++}
++
++/**
++ * What Undo's way says: the card goes as the page shows the turn taken back, or says Undo wasn't
++ * made; and once Undo is no longer offered, as the page shows another turn, the card offering it
++ * goes, silently.
++ */
++function undoStep(next: CardNext, now: ToastInputs): CardNext {
++  const body = next && ('card' in next ? next.card : next.make)
++  if (body?.kind === 'taking') {
++    if (takenBack(body, now.combat)) return undefined
++    const { undone } = now
++    if (undone?.for === body.id && NOT_MADE.has(undone.status)) {
++      return {
++        make: { kind: 'kept', turn: body.turn, key: refusalKey(undone) },
++      }
++    }
++  }
++  if (body?.kind === 'ended' && body.undo && now.offer?.requestId !== body.id) {
++    return undefined
++  }
++  return next
++}
++
++/**
++ * The toast's card from one render to the next: what happened since the last render, in the order
++ * it did; the last card made shows.
++ * @param was - What was last seen of the hold and the End Turn sent last.
++ * @param kept - The End Turns told, the card a hold's took the place of, and what's left of the
++ *   time of the card that lasts.
++ */
++export function nextCard(
++  card: Card | undefined,
++  was: ToastSeen,
++  now: ToastInputs,
++  kept: {
++    told: ReadonlySet<string>
++    covered?: Card
++    remaining?: { serial: number; ms: number }
++  },
++): CardStep {
++  const hold = holdStep(card, was, now, kept.covered, kept.remaining)
++  const way = wayStep(hold.next, was, now, kept.told)
++  return { ...hold, next: undoStep(way.next, now), tell: way.tell }
 +}
 diff --git a/src/features/table/constants.ts b/src/features/table/constants.ts
 new file mode 100644
@@ -1875,10 +3631,10 @@ index 0000000..fe815ed
 +}
 diff --git a/src/features/table/hooks/use-typed-dice.ts b/src/features/table/hooks/use-typed-dice.ts
 new file mode 100644
-index 0000000..789f409
+index 0000000..ce8bf7f
 --- /dev/null
 +++ b/src/features/table/hooks/use-typed-dice.ts
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,51 @@
 +import { useEffect, useState } from 'react'
 +import { POLL_INTERVAL } from '@/constants/polling'
 +import type { DiceSwitch } from '@/features/table/types'
@@ -1904,6 +3660,7 @@ index 0000000..789f409
 +  const typing = diceChoice?.on ?? stored
 +  useEffect(() => {
 +    const told = view.manualDice?.on === true
++    // eslint-disable-next-line react-hooks/set-state-in-effect -- a view that disagrees is told apart by the time since the save settled, read after commit as before; in render it would read the clock there
 +    setDiceChoice(held => {
 +      if (!held || held.on === told) return
 +      // A view polled before the save settled may still say what was stored before it.
@@ -1931,11 +3688,10 @@ index 0000000..789f409
 +}
 diff --git a/src/features/table/types.ts b/src/features/table/types.ts
 new file mode 100644
-index 0000000..d86c8ee
+index 0000000..bbd150b
 --- /dev/null
 +++ b/src/features/table/types.ts
-@@ -0,0 +1,203 @@
-+import type { MouseEventHandler, PointerEventHandler, RefObject } from 'react'
+@@ -0,0 +1,239 @@
 +import type { CampaignChoice, ChooseCharacterFormState } from '@/types/campaign'
 +import type { Character, TableSeat } from '@/types/character'
 +import type { CookbookCodeAnswer } from '@/types/cookbook'
@@ -1948,6 +3704,7 @@ index 0000000..d86c8ee
 +  TableView,
 +  TurnUndo,
 +} from '@/types/table'
++import type { MouseEventHandler, PointerEventHandler, RefObject } from 'react'
 +
 +export type Tab = 'character' | 'combat' | 'chat'
 +
@@ -2138,6 +3895,42 @@ index 0000000..d86c8ee
 +  | { kind: 'kept'; turn: EndableTurn; key: string }
 +
 +export type Card = CardBody & { serial: number }
++
++/**
++ * What was last seen of the hold, and of the End Turn sent last, as the toast steps its card from
++ * one render to the next.
++ */
++export type ToastSeen = { held: boolean; sent?: Sent }
++
++/** What the toast's card answers, as the latest render has it. */
++export type ToastInputs = ToastSeen & {
++  via?: 'button' | 'hold'
++  combatShown: boolean
++  combat?: TableCombat
++  /** The turn End Turn may end now, which a hold is for. */
++  turn?: EndableTurn
++  offer?: TurnUndo
++  undone?: TableRollState & { for: string }
++}
++
++/**
++ * The card the toast shows next: one to number and show anew, with what's left of its time where
++ * it comes back; the one shown; or none.
++ */
++export type CardNext =
++  { make: CardBody; ms?: number } | { card: Card } | undefined
++
++/**
++ * A step of the toast's card: the card next; whether a hold's card took the place of the one
++ * shown, which comes back if the hold is let go early, or that one came back; and the End Turn
++ * whose ending is told now, by its id, which is told once.
++ */
++export type CardStep = {
++  next: CardNext
++  cover: boolean
++  uncover: boolean
++  tell?: string
++}
 diff --git a/src/features/table/utils/combat.ts b/src/features/table/utils/combat.ts
 new file mode 100644
 index 0000000..1c1751c
@@ -2557,12 +4350,13 @@ index 0000000..8f6791d
 +}
 diff --git a/src/features/table/utils/places.ts b/src/features/table/utils/places.ts
 new file mode 100644
-index 0000000..0cf7874
+index 0000000..57a60e0
 --- /dev/null
 +++ b/src/features/table/utils/places.ts
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,61 @@
 +import type { Character, TableSeat } from '@/types/character'
 +import type { CookbookPlace } from '@/types/cookbook'
++import type { TableView } from '@/types/table'
 +
 +/**
 + * Who is at the sheet (#156): its player, by default, through the character's own API; or its
@@ -2596,6 +4390,99 @@ index 0000000..0cf7874
 +  return seat.role === 'player' && playing && make && revoke
 +    ? { characterId: character.id, make, revoke }
 +    : undefined
++}
++
++/**
++ * The Character pane: the party sheets it may open, from the sheet's Inventory tab, or, with no
++ * sheet, from under why there's none: either way the Character pane shows on a wide screen too.
++ * So it does at a character, with no sheet, for its notes there, and with companions to switch
++ * between (module 0.36.0). With a sheet or companions, every creature's pane throws its dice on
++ * one renderer.
++ * @param playing - Whether the character plays one of its campaign's characters.
++ * @param switching - Whether the character has companions, each with a tab above the sheet.
++ */
++export function sheetPane(
++  view: TableView,
++  playing: boolean,
++  switching: boolean,
++) {
++  const hasSheet = view.sheet !== undefined
++  const parties =
++    view.groups && view.groups.length > 0 ? view.groups : undefined
++  return {
++    parties,
++    paneShown: hasSheet || parties !== undefined || playing || switching,
++    sharedDice: hasSheet || switching,
++  }
++}
+diff --git a/src/features/table/utils/table-query.ts b/src/features/table/utils/table-query.ts
+new file mode 100644
+index 0000000..8ef5876
+--- /dev/null
++++ b/src/features/table/utils/table-query.ts
+@@ -0,0 +1,63 @@
++import { rollsKey } from '@/utils/requests/availability'
++import type { TableView } from '@/types/table'
++
++/** What the viewer has of a view, which the server compares to say nothing is new. */
++export function seenOf(view: TableView) {
++  return {
++    version: view.version,
++    live: view.live,
++    sheetVersion: view.sheetVersion,
++    rolls: rollsKey(view.rollsToTable, view.rollFeatures),
++    // For the Gamemaster's seat (#156): where their rolls go.
++    gm: view.gm?.rolls,
++    // For the player's: where the Gamemaster's rolls as their character stand.
++    gmRolls: view.gmRollsKey,
++    // From module 0.31.0: whether the seat may move its character's items and coins.
++    moves: view.moves !== undefined,
++    // From module 0.32.0: whether the player types in their own dice, which another of their
++    // devices may change.
++    typed: view.manualDice?.on === true,
++    // From module 0.33.0: whether the seat may remove its character's items.
++    removes: view.removes === true,
++    // From module 0.37.0: whether the player may change its character's favorites.
++    favorites: view.favorites === true,
++    // From module 0.39.0: whether the player may change its character's own effects.
++    effects: view.effects === true,
++    // From module 0.40.0: whether the player may use Wild Shape.
++    wildShape: view.wildShape === true,
++  }
++}
++
++/**
++ * The table's poll's query, from what the viewer has of its view: each key in this order, which is
++ * the wire's, and those it has none of left out.
++ */
++export function tableQuery({
++  version,
++  live,
++  sheetVersion,
++  rolls,
++  gm,
++  gmRolls,
++  moves,
++  typed,
++  removes,
++  favorites,
++  effects,
++  wildShape,
++}: ReturnType<typeof seenOf>): URLSearchParams {
++  return new URLSearchParams({
++    version: String(version),
++    live: live ? '1' : '0',
++    ...(rolls && { rolls }),
++    ...(gm && { gm }),
++    ...(gmRolls && { gmrolls: gmRolls }),
++    ...(moves && { moves: '1' }),
++    ...(typed && { typed: '1' }),
++    ...(removes && { removes: '1' }),
++    ...(favorites && { favorites: '1' }),
++    ...(effects && { effects: '1' }),
++    ...(wildShape && { wildshape: '1' }),
++    ...(sheetVersion && { sheet: sheetVersion }),
++  })
 +}
 diff --git a/src/features/table/utils/unread.ts b/src/features/table/utils/unread.ts
 new file mode 100644

@@ -87,6 +87,781 @@ index b0b42a6..a4c03c3 100644
    const hydrated = useHydrated()
    return (
      <time dateTime={value} className={className}>
+diff --git a/src/features/table/components/chat-log/chat-log.tsx b/src/features/table/components/chat-log/chat-log.tsx
+index 4ca7c0c..f0ca1be 100644
+--- a/src/features/table/components/chat-log/chat-log.tsx
++++ b/src/features/table/components/chat-log/chat-log.tsx
+@@ -1,106 +1,7 @@
+-import { Fragment, useState } from 'react'
+-import clsx from 'clsx'
+-import {
+-  BellRing,
+-  Crosshair,
+-  Droplet,
+-  HeartPulse,
+-  Lock,
+-  MessageSquare,
+-  Sparkles,
+-  Swords,
+-  X,
+-  type LucideIcon,
+-} from 'lucide-react'
+-import { EmptyState } from '../../../../components/empty-state/empty-state'
+-import { LocalTime } from '../../../../components/local-time/local-time'
+-import { Chevron } from '@/components/chevron/chevron'
+-import { useImageFallback } from '@/hooks/use-image-fallback'
+-import { useTableRole } from '@/hooks/use-table-api'
+-import { askTitle } from '@/utils/ask-words'
+-import { initials } from '@/utils/initials'
+-import type { TableRoll } from '@/types/roll'
+-import type {
+-  DamagePool,
+-  Side,
+-  TableAction,
+-  TableAsk,
+-  TableDamage,
+-  TableDamageKind,
+-  TableMessage,
+-  TableTarget,
+-} from '@/types/table'
+-
+-const AVATAR: Record<Side, string> = {
+-  me: 'bg-primary text-on-primary',
+-  party: 'bg-party/15 text-party',
+-  other: 'bg-whisper/15 text-whisper',
+-}
+-
+-/**
+- * How each kind of combat roll is marked: a chip naming it, and an accent down the card's edge.
+- * Each chip's text is its colour's text token, deep enough to read at WCAG AA on its tint over
+- * every bubble, the player's own and a whisper's too.
+- */
+-const ACTIONS: Record<
+-  TableAction,
+-  { label: string; icon: LucideIcon; chip: string; accent: string }
+-> = {
+-  attack: {
+-    label: 'Attack',
+-    icon: Swords,
+-    chip: 'bg-attack/15 text-attack-text',
+-    accent: 'border-l-attack',
+-  },
+-  'spell-attack': {
+-    label: 'Spell attack',
+-    icon: Sparkles,
+-    chip: 'bg-spell/15 text-spell-text',
+-    accent: 'border-l-spell',
+-  },
+-  damage: {
+-    label: 'Damage',
+-    icon: Droplet,
+-    chip: 'bg-damage/15 text-damage-text',
+-    accent: 'border-l-damage',
+-  },
+-  healing: {
+-    label: 'Healing',
+-    icon: HeartPulse,
+-    chip: 'bg-primary/10 text-primary-text',
+-    accent: 'border-l-primary',
+-  },
+-  spell: {
+-    label: 'Spell',
+-    icon: Sparkles,
+-    chip: 'bg-spell/15 text-spell-text',
+-    accent: 'border-l-spell',
+-  },
+-}
+-
+-/**
+- * A message's bubble, its pointed corner toward the speaker's avatar; gold all round for a
+- * critical. It sets one border colour only: of two, the one the stylesheet sets later wins,
+- * whatever their order here, and gold comes before the player's own and a whisper's.
+- */
+-const bubble = (whisper: boolean, mine: boolean, critical = false) =>
+-  clsx(
+-    'max-w-full border px-3 py-2.5',
+-    mine ? 'rounded-[14px_4px_14px_14px]' : 'rounded-[4px_14px_14px_14px]',
+-    critical ? 'border-gold' : edgeOf(whisper, mine),
+-    whisper && 'border-dashed bg-whisper/5',
+-    !whisper && (mine ? 'bg-primary/10' : 'bg-card'),
+-  )
+-
+-/** A bubble's border colour, for a whisper, the player's own message or anyone else's. */
+-function edgeOf(whisper: boolean, mine: boolean): string {
+-  if (whisper) return 'border-whisper/60'
+-  return mine ? 'border-primary/30' : 'border-border'
+-}
+-
+-/** The caption style of a card's small heading, such as "Used". */
+-const CAPTION =
+-  'text-[11px] font-semibold tracking-wider text-text-secondary uppercase'
++import { MessageSquare } from 'lucide-react'
++import { ChatMessage } from './chat-message'
++import { EmptyState } from '@/components/empty-state/empty-state'
++import type { TableMessage } from '@/types/table'
+ 
+ export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
+   if (messages.length === 0) {
+@@ -123,659 +24,3 @@ export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
+     </ol>
+   )
+ }
+-
+-function ChatMessage({ message }: Readonly<{ message: TableMessage }>) {
+-  const {
+-    speaker,
+-    side,
+-    whisper,
+-    kind,
+-    label,
+-    action,
+-    text,
+-    rolls,
+-    attackRoll,
+-    targets,
+-    summary,
+-  } = message
+-  // The player's own messages sit on the other side, as in a messaging app.
+-  const mine = side === 'me'
+-  const gm = useTableRole() === 'gm'
+-  return (
+-    <article
+-      data-side={side}
+-      className={clsx('flex items-start gap-2.5', mine && 'flex-row-reverse')}
+-    >
+-      <SpeakerAvatar
+-        name={speaker}
+-        src={message.avatar}
+-        className={AVATAR[side]}
+-      />
+-      <div
+-        className={clsx(
+-          'flex max-w-[85%] min-w-0 flex-1 flex-col gap-1.5',
+-          mine ? 'items-end' : 'items-start',
+-        )}
+-      >
+-        <header
+-          className={clsx(
+-            'flex flex-wrap items-baseline gap-x-2 gap-y-0.5',
+-            mine && 'flex-row-reverse',
+-          )}
+-        >
+-          <span className='font-semibold'>{speaker}</span>
+-          {/* Made for the Gamemaster's roll as the character (#156), as this app knows it. */}
+-          {message.byGm && (
+-            <span
+-              title='Rolled by the Gamemaster'
+-              className='shrink-0 rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary-text'
+-            >
+-              GM<span className='sr-only'>, rolled by the Gamemaster</span>
+-            </span>
+-          )}
+-          {whisper && (
+-            <span className='inline-flex items-center gap-1 text-[11px] font-semibold text-whisper'>
+-              <Lock aria-hidden className='size-3' />
+-              Whisper
+-            </span>
+-          )}
+-          <LocalTime
+-            value={message.sentAt}
+-            className='text-xs text-text-secondary'
+-          />
+-        </header>
+-        {message.ask && (
+-          <AskBubble
+-            ask={message.ask}
+-            speaker={speaker}
+-            whisper={whisper}
+-            mine={mine}
+-          />
+-        )}
+-        {kind === 'text' && !message.ask && (
+-          <>
+-            {label && text && (
+-              <span className='text-xs font-semibold text-text-secondary'>
+-                {label}
+-              </span>
+-            )}
+-            {(text ?? label) && (
+-              <p
+-                className={clsx(
+-                  bubble(whisper, mine),
+-                  'break-words whitespace-pre-wrap',
+-                )}
+-              >
+-                {text ?? label}
+-              </p>
+-            )}
+-          </>
+-        )}
+-        {kind === 'card' && (
+-          <div
+-            className={clsx(
+-              bubble(whisper, mine),
+-              'flex flex-col gap-1.5',
+-              action && ['border-l-4', ACTIONS[action].accent],
+-            )}
+-          >
+-            {action ? (
+-              <ActionChip action={action} />
+-            ) : (
+-              <span className={CAPTION}>Used</span>
+-            )}
+-            <span className='font-semibold'>
+-              {label ?? 'An item or ability'}
+-            </span>
+-            <Targets targets={targets} summary={summary} />
+-          </div>
+-        )}
+-        {kind === 'roll' && (
+-          <>
+-            {rolls.map((roll, index) => (
+-              <RollCard
+-                key={index}
+-                roll={roll}
+-                label={label}
+-                // Only its attack is marked: its damage cards carry their own marks.
+-                action={
+-                  attackRoll?.index === index ? attackRoll.action : undefined
+-                }
+-                // Who it was aimed at, called out once, on the first card.
+-                targets={index === 0 ? targets : []}
+-                summary={index === 0 ? summary : undefined}
+-                whisper={whisper}
+-                mine={mine}
+-              />
+-            ))}
+-            {/* By its section, so an open card stays open as Midi-QOL adds the other. */}
+-            {message.damage?.map((damage, index) => (
+-              <DamageCard
+-                key={damage.section}
+-                damage={damage}
+-                // Under its attack's card, the item's name isn't said again.
+-                label={attackRoll ? undefined : label}
+-                targets={rolls.length === 0 && index === 0 ? targets : []}
+-                summary={
+-                  rolls.length === 0 && index === 0 ? summary : undefined
+-                }
+-                whisper={whisper}
+-                mine={mine}
+-              />
+-            ))}
+-          </>
+-        )}
+-        {/* Damage or healing made on its own, from module 0.36.0, which applies nothing by itself.
+-            Only under a damage card, as anyone in Foundry may mark a message of theirs so. */}
+-        {message.alone && (message.damage?.length ?? 0) > 0 && (
+-          <p
+-            className={clsx('text-xs text-text-secondary', mine && 'self-end')}
+-          >
+-            {gm
+-              ? 'On its own, for you to apply'
+-              : 'On its own, for the Gamemaster to apply'}
+-          </p>
+-        )}
+-        {kind === 'text' && targets.length > 0 && (
+-          <div className={clsx(mine && 'self-end')}>
+-            <Targets targets={targets} summary={summary} />
+-          </div>
+-        )}
+-      </div>
+-    </article>
+-  )
+-}
+-
+-/** What a roll request card's chip calls what it asks for. */
+-const CHIPS: Record<TableAsk['type'], string> = {
+-  save: 'Saving throw',
+-  concentration: 'Concentration',
+-  check: 'Check',
+-}
+-
+-/**
+- * A roll request card: who asks the table for which saving throw or check, with its DC where
+- * players may see it, and what asks for it, such as the asker's item. It's for the Gamemaster, who
+- * rolls it for the creatures it names.
+- */
+-function AskBubble({
+-  ask,
+-  speaker,
+-  whisper,
+-  mine,
+-}: Readonly<{
+-  ask: TableAsk
+-  speaker: string
+-  whisper: boolean
+-  mine: boolean
+-}>) {
+-  const title = askTitle(ask)
+-  return (
+-    <div
+-      className={clsx(
+-        bubble(whisper, mine),
+-        'flex flex-col gap-1.5 border-l-4 border-l-primary',
+-      )}
+-    >
+-      {/* The sentence below says what it is; the chip only marks it, for the eye. */}
+-      <span
+-        aria-hidden
+-        className='inline-flex w-fit items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-primary-text uppercase'
+-      >
+-        <BellRing className='size-3' />
+-        {CHIPS[ask.type]}
+-      </span>
+-      <p className='font-semibold break-words'>
+-        {speaker} asks for {/^[AEIOU]/.test(title) ? 'an' : 'a'} {title}
+-      </p>
+-      {ask.label && (
+-        <p className='text-xs break-words text-text-secondary'>
+-          <span className='sr-only'>From </span>
+-          {ask.label}
+-        </p>
+-      )}
+-    </div>
+-  )
+-}
+-
+-function RollCard({
+-  roll,
+-  label,
+-  action,
+-  targets,
+-  summary,
+-  whisper,
+-  mine,
+-}: Readonly<{
+-  roll: TableRoll
+-  label?: string
+-  action?: TableAction
+-  targets: TableTarget[]
+-  summary?: string
+-  whisper: boolean
+-  mine: boolean
+-}>) {
+-  return (
+-    <div
+-      className={clsx(
+-        bubble(whisper, mine, roll.critical),
+-        'flex w-full max-w-sm flex-col gap-2 p-3',
+-        action && ['border-l-4', ACTIONS[action].accent],
+-      )}
+-    >
+-      <div className='flex items-start justify-between gap-2'>
+-        <span className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+-          {action && <ActionChip action={action} />}
+-          {(label ?? !action) && (
+-            <span className='text-sm font-semibold'>{label ?? 'Roll'}</span>
+-          )}
+-        </span>
+-        <div className='flex shrink-0 flex-wrap justify-end gap-1'>
+-          {roll.critical && (
+-            <Badge className='bg-gold text-on-gold'>Critical</Badge>
+-          )}
+-          {roll.fumble && (
+-            <Badge className='bg-danger/15 text-danger'>Nat 1</Badge>
+-          )}
+-          {roll.advantage && (
+-            <Badge className='bg-primary text-on-primary'>Advantage</Badge>
+-          )}
+-          {roll.disadvantage && (
+-            <Badge className='bg-ruby text-on-ruby'>Disadvantage</Badge>
+-          )}
+-        </div>
+-      </div>
+-      <Targets targets={targets} summary={summary} />
+-      <div className='flex items-end justify-between gap-3'>
+-        <div className='flex min-w-0 flex-col gap-1.5'>
+-          <span className='font-mono text-sm break-all text-text-secondary'>
+-            {roll.formula}
+-          </span>
+-          <DiceList dice={roll.dice} />
+-        </div>
+-        <span
+-          className={clsx(
+-            'text-3xl leading-none font-semibold tabular-nums',
+-            roll.critical && 'text-gold-text',
+-            roll.fumble && 'text-danger',
+-          )}
+-        >
+-          <span className='sr-only'>Total </span>
+-          {roll.total ?? '–'}
+-        </span>
+-      </div>
+-    </div>
+-  )
+-}
+-
+-/** A roll's dice, each as it came up, those it dropped struck through. */
+-function DiceList({ dice }: Readonly<{ dice: TableRoll['dice'] }>) {
+-  if (dice.length === 0) return
+-  return (
+-    <ul aria-label='Dice' className='flex flex-wrap gap-1'>
+-      {dice.map((die, index) => (
+-        <li
+-          key={index}
+-          className={clsx(
+-            'inline-flex h-6.5 min-w-6.5 items-center justify-center rounded-md border border-border bg-card px-1 font-mono text-xs',
+-            !die.active && 'text-text-secondary line-through',
+-          )}
+-        >
+-          {die.value}
+-          {!die.active && <span className='sr-only'> (dropped)</span>}
+-        </li>
+-      ))}
+-    </ul>
+-  )
+-}
+-
+-/** What a creature that saves takes, as dnd5e's damage card says beneath its total. */
+-const ON_SAVE: Record<NonNullable<TableDamage['onSave']>, string> = {
+-  half: 'Half damage on a save',
+-  none: 'No damage on a save',
+-  full: 'Full damage on a save',
+-}
+-
+-/**
+- * A message's damage rolls in one card, as dnd5e's damage card adds them up: its formula, a chip
+- * for each kind of damage with what it came to, and their total where they fill one pool. Its
+- * rolls' dice open beneath it, or show inline where it has only the one roll.
+- */
+-function DamageCard({
+-  damage,
+-  label,
+-  targets,
+-  summary,
+-  whisper,
+-  mine,
+-}: Readonly<{
+-  damage: TableDamage
+-  label?: string
+-  targets: TableTarget[]
+-  summary?: string
+-  whisper: boolean
+-  mine: boolean
+-}>) {
+-  const [open, setOpen] = useState(false)
+-  const { action, critical, rolls } = damage
+-  const formula = damage.formula && (
+-    <span className='font-mono text-xs break-words text-text-secondary'>
+-      {damage.formula}
+-    </span>
+-  )
+-  return (
+-    <div
+-      className={clsx(
+-        bubble(whisper, mine, critical),
+-        'flex w-full max-w-sm flex-col gap-2 p-3',
+-        'border-l-4',
+-        ACTIONS[action].accent,
+-      )}
+-    >
+-      <div className='flex items-start justify-between gap-2'>
+-        <span className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+-          <ActionChip action={action} />
+-          {damage.section === 'other' && (
+-            <span className={CAPTION}>Other damage</span>
+-          )}
+-          {label && <span className='text-sm font-semibold'>{label}</span>}
+-        </span>
+-        {critical && (
+-          <div className='flex shrink-0 flex-wrap justify-end gap-1'>
+-            <Badge className='bg-gold text-on-gold'>Critical</Badge>
+-          </div>
+-        )}
+-      </div>
+-      <Targets targets={targets} summary={summary} />
+-      {rolls.length > 1 ? (
+-        <details onToggle={event => setOpen(event.currentTarget.open)}>
+-          {/* A hover rings it rather than tinting it: a tint under its chips and total would take
+-              them below WCAG AA on the player's own bubble, in the light theme. */}
+-          <summary className='-mx-1 flex min-h-11 cursor-pointer list-none items-end gap-2 rounded-lg px-1 hover:ring-1 hover:ring-primary/30 [&::-webkit-details-marker]:hidden'>
+-            <span className='flex min-w-0 flex-1 flex-col gap-1.5'>
+-              {formula}
+-              {/* So its name reads "1d4 + 4 + 2d6, 5 Piercing + 7 Poison = 12". */}
+-              {formula && <span className='sr-only'>, </span>}
+-              <KindChips kinds={damage.kinds} />
+-            </span>
+-            <DamageTotal damage={damage} />
+-            <span className='mb-1 flex shrink-0'>
+-              <Chevron open={open} />
+-            </span>
+-          </summary>
+-          {open && (
+-            <ul
+-              aria-label='Rolls'
+-              className='mt-2 flex flex-col gap-1.5 border-t border-border pt-2'
+-            >
+-              {rolls.map((roll, index) => (
+-                <li
+-                  key={index}
+-                  className='flex items-end justify-between gap-3'
+-                >
+-                  <span className='flex min-w-0 flex-wrap items-center gap-1'>
+-                    {roll.tag && (
+-                      <>
+-                        <span className='text-[11px] font-semibold text-text-secondary'>
+-                          {roll.tag}
+-                        </span>{' '}
+-                      </>
+-                    )}
+-                    <span className='pr-1 font-mono text-xs break-words text-text-secondary'>
+-                      {roll.formula}
+-                    </span>{' '}
+-                    <DiceList dice={roll.dice} />
+-                  </span>
+-                  <span className='shrink-0 text-sm'>
+-                    <span className='font-semibold tabular-nums'>
+-                      {roll.total ?? '–'}
+-                    </span>
+-                    {roll.label && (
+-                      <>
+-                        {' '}
+-                        <span className='text-text-secondary'>
+-                          {roll.label}
+-                        </span>
+-                      </>
+-                    )}
+-                  </span>
+-                </li>
+-              ))}
+-            </ul>
+-          )}
+-        </details>
+-      ) : (
+-        <div className='flex items-end gap-2'>
+-          <span className='flex min-w-0 flex-1 flex-col gap-1.5'>
+-            {formula}
+-            <DiceList dice={rolls[0]?.dice ?? []} />
+-            <KindChips kinds={damage.kinds} />
+-          </span>
+-          <DamageTotal damage={damage} />
+-        </div>
+-      )}
+-      {damage.onSave && (
+-        <p className='text-xs text-text-secondary'>{ON_SAVE[damage.onSave]}</p>
+-      )}
+-    </div>
+-  )
+-}
+-
+-/** A chip of a kind of healing: each of its pools is the accent's. */
+-const HEALS = {
+-  chip: 'border-transparent bg-primary/10',
+-  word: 'text-primary-text',
+-}
+-
+-/**
+- * How each kind of damage's chip is coloured: its tint and edge, and its word's colour. Each has an
+- * edge, if only a clear one, so that every chip is as tall as damage's.
+- */
+-const KIND_TONES: Record<DamagePool, { chip: string; word: string }> = {
+-  harm: { chip: 'border-damage/30 bg-damage/10', word: 'text-damage-text' },
+-  healing: HEALS,
+-  temphp: HEALS,
+-  maximum: HEALS,
+-  none: {
+-    chip: 'border-transparent bg-text-secondary/10',
+-    word: 'text-text-secondary',
+-  },
+-}
+-
+-/** A chip for each kind of damage, "5 Piercing", read as "5 Piercing + 7 Poison". */
+-function KindChips({ kinds }: Readonly<{ kinds: TableDamageKind[] }>) {
+-  return (
+-    <span className='flex flex-wrap gap-1'>
+-      {kinds.map((kind, index) => (
+-        <Fragment key={index}>
+-          {index > 0 && <span className='sr-only'> + </span>}
+-          <span
+-            className={clsx(
+-              'inline-flex items-baseline gap-1 rounded-full border px-2 py-0.5 text-xs',
+-              KIND_TONES[kind.pool].chip,
+-            )}
+-          >
+-            {/* Midi-QOL's damage of none is said in words, as it isn't counted. */}
+-            {kind.pool !== 'none' && (
+-              <span className='font-bold text-text-primary tabular-nums'>
+-                {kind.total ?? '–'}
+-              </span>
+-            )}
+-            {/* A space of its own, as the chip's gap isn't one to a screen reader. */}
+-            {kind.pool !== 'none' && kind.label && ' '}
+-            {kind.label && (
+-              <span className={KIND_TONES[kind.pool].word}>{kind.label}</span>
+-            )}
+-          </span>
+-        </Fragment>
+-      ))}
+-    </span>
+-  )
+-}
+-
+-/** A damage card's total, where it has one: "–" while any of it is unknown. */
+-function DamageTotal({ damage }: Readonly<{ damage: TableDamage }>) {
+-  if (damage.total === undefined) return
+-  return (
+-    <span
+-      className={clsx(
+-        'text-3xl leading-none font-semibold tabular-nums',
+-        damage.critical && 'text-gold-text',
+-      )}
+-    >
+-      <span className='sr-only'>{' = '}</span>
+-      {damage.total ?? '–'}
+-    </span>
+-  )
+-}
+-
+-function ActionChip({ action }: Readonly<{ action: TableAction }>) {
+-  const { label, icon: Icon, chip } = ACTIONS[action]
+-  return (
+-    <span
+-      className={clsx(
+-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase',
+-        chip,
+-      )}
+-    >
+-      <Icon aria-hidden className='size-3' />
+-      {label}
+-    </span>
+-  )
+-}
+-
+-/**
+- * Who a roll or card was aimed at, and what came of it for each, where players may know: whether
+- * an attack hit them, whether they saved, and whether their own check succeeded. Hit, Failed and
+- * Success, where it landed, in the accent's look; Miss, Saved and Failure, where it didn't, muted,
+- * with a cross. Over more than one, how it went in all, as `summary` says.
+- */
+-function Targets({
+-  targets,
+-  summary,
+-}: Readonly<{ targets: TableTarget[]; summary?: string }>) {
+-  if (targets.length === 0) return
+-  return (
+-    <>
+-      {summary && (
+-        <p className='text-xs font-semibold text-text-secondary'>{summary}</p>
+-      )}
+-      <p className='flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
+-        <Crosshair
+-          aria-hidden
+-          className='size-4 shrink-0 text-text-secondary'
+-        />
+-        <span className='sr-only'>
+-          {targets.length === 1 ? 'Target: ' : 'Targets: '}
+-        </span>
+-        {targets.map((target, index) => (
+-          <span key={index} className='inline-flex items-center gap-1.5'>
+-            <span className='font-semibold'>{target.name}</span>
+-            {target.ac !== undefined && (
+-              <span className='text-xs text-text-secondary'>
+-                AC {target.ac}
+-              </span>
+-            )}
+-            {target.outcome && (
+-              <Pill landed={target.outcome === 'hit'}>
+-                {target.outcome === 'hit' ? 'Hit' : 'Miss'}
+-              </Pill>
+-            )}
+-            {target.save && (
+-              <Pill landed={target.save === 'failed'}>
+-                {target.save === 'failed' ? 'Failed' : 'Saved'}
+-              </Pill>
+-            )}
+-            {target.check && (
+-              <Pill landed={target.check === 'success'}>
+-                {target.check === 'success' ? 'Success' : 'Failure'}
+-              </Pill>
+-            )}
+-            {index < targets.length - 1 && (
+-              <span aria-hidden className='text-text-secondary'>
+-                ,
+-              </span>
+-            )}
+-          </span>
+-        ))}
+-      </p>
+-    </>
+-  )
+-}
+-
+-/**
+- * What came of a roll for a target: where it landed, as a hit or a failed save, in the accent's
+- * look; where it didn't, muted, after a cross. Read after the name as ", Hit".
+- */
+-function Pill({
+-  landed,
+-  children,
+-}: Readonly<{ landed: boolean; children: string }>) {
+-  return (
+-    <>
+-      <span className='sr-only'>, </span>
+-      <span
+-        className={clsx(
+-          'inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11px] font-bold uppercase',
+-          landed
+-            ? 'bg-primary/10 text-primary-text'
+-            : 'bg-text-secondary/10 text-text-secondary',
+-        )}
+-      >
+-        {!landed && <X aria-hidden className='size-3' />}
+-        {children}
+-      </span>
+-    </>
+-  )
+-}
+-
+-function Badge({
+-  className,
+-  children,
+-}: Readonly<{ className: string; children: string }>) {
+-  return (
+-    <span
+-      className={clsx(
+-        'rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase',
+-        className,
+-      )}
+-    >
+-      {children}
+-    </span>
+-  )
+-}
+-
+-/** The speaker's portrait, or their initials when they have none or it won't load. */
+-function SpeakerAvatar({
+-  name,
+-  src,
+-  className,
+-}: Readonly<{ name: string; src?: string; className: string }>) {
+-  const { shown, ref, onError } = useImageFallback(src)
+-  const box = 'size-9 shrink-0 rounded-[10px]'
+-  if (shown) {
+-    return (
+-      // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
+-      // eslint-disable-next-line @next/next/no-img-element
+-      <img
+-        ref={ref}
+-        src={src}
+-        alt=''
+-        className={clsx(box, 'border border-border object-cover object-top')}
+-        onError={onError}
+-      />
+-    )
+-  }
+-  return (
+-    <span
+-      aria-hidden
+-      className={clsx(
+-        box,
+-        'flex items-center justify-center text-xs font-bold',
+-        className,
+-      )}
+-    >
+-      {initials(name)}
+-    </span>
+-  )
+-}
 diff --git a/src/features/table/components/combat-tracker/combat-tracker.test.tsx b/src/features/table/components/combat-tracker/combat-tracker.test.tsx
 index 896abd5..7816356 100644
 --- a/src/features/table/components/combat-tracker/combat-tracker.test.tsx
@@ -101,23 +876,28 @@ index 896abd5..7816356 100644
  import { TableApiContext } from '@/hooks/use-table-api'
  import type { TableRollState } from '@/types/roll'
 diff --git a/src/features/table/components/combat-tracker/combat-tracker.tsx b/src/features/table/components/combat-tracker/combat-tracker.tsx
-index 5879e0e..38ff896 100644
+index 5879e0e..18ec253 100644
 --- a/src/features/table/components/combat-tracker/combat-tracker.tsx
 +++ b/src/features/table/components/combat-tracker/combat-tracker.tsx
-@@ -5,22 +5,19 @@ import clsx from 'clsx'
- import { Swords, TriangleAlert } from 'lucide-react'
- import { EmptyState } from '../../../../components/empty-state/empty-state'
- import { EndTurnButton } from '../end-turn-button/end-turn-button'
+@@ -1,67 +1,13 @@
+ 'use client'
+ 
+-import { useLayoutEffect, useRef } from 'react'
+-import clsx from 'clsx'
+-import { Swords, TriangleAlert } from 'lucide-react'
+-import { EmptyState } from '../../../../components/empty-state/empty-state'
+-import { EndTurnButton } from '../end-turn-button/end-turn-button'
 -import { turnFragment } from '../turn-toast/turn-toast'
-+import { formatInitiative } from './utils'
-+import { currentCombatant, hpBar, nextUp } from '@/features/table/utils/combat'
- import {
-   END_TURN_HINT,
-   TURN_OVER,
-+  turnFragment,
-   turnKey,
-   turnRefusedLine,
- } from '@/features/table/utils/end-turn'
+-import {
+-  END_TURN_HINT,
+-  TURN_OVER,
+-  turnKey,
+-  turnRefusedLine,
+-} from '@/features/table/utils/end-turn'
++import { Swords } from 'lucide-react'
++import { CombatantRow } from './combatant-row'
++import { TurnPanel } from './turn-panel'
++import { EmptyState } from '@/components/empty-state/empty-state'
  import { useTableRole } from '@/hooks/use-table-api'
  import { seatWords } from '@/utils/seat-words'
 -import type { useEndTurn } from '@/features/table/hooks/use-end-turn'
@@ -127,15 +907,34 @@ index 5879e0e..38ff896 100644
 -  TableCombat,
 -  TableCombatant,
 -} from '@/types/table'
-+import type { PanelEnding } from '@/features/table/types'
-+import type { Side, TableCombat, TableCombatant } from '@/types/table'
- 
- const INITIATIVE: Record<Side, string> = {
-   me: 'bg-primary text-on-primary',
-@@ -49,20 +46,6 @@ const STANCES: Record<
-   },
- }
- 
+-
+-const INITIATIVE: Record<Side, string> = {
+-  me: 'bg-primary text-on-primary',
+-  party: 'bg-party/15 text-party',
+-  other: 'bg-foe/15 text-foe',
+-}
+-
+-const ROLE: Record<Side, string | undefined> = {
+-  me: 'You',
+-  party: 'Ally',
+-  other: undefined,
+-}
+-
+-/**
+- * How one not of the party is drawn where the game has its token disposed, from module 0.29.0:
+- * one marked Friendly as the party's allies are, and a neutral one in grey, not as a foe.
+- */
+-const STANCES: Record<
+-  NonNullable<TableCombatant['stance']>,
+-  { initiative: string; role: string }
+-> = {
+-  ally: { initiative: INITIATIVE.party, role: 'Ally' },
+-  neutral: {
+-    initiative: 'bg-text-secondary/15 text-text-secondary',
+-    role: 'Neutral',
+-  },
+-}
+-
 -/**
 - * End Turn, as the turn panel offers it (module 0.36.0): the turn the seat may end and its way, as
 - * `useEndTurn` has them; how the last End Turn was sent; why the last one wasn't made, by the turn
@@ -149,37 +948,269 @@ index 5879e0e..38ff896 100644
 -  onEnd?: (turn: EndableTurn) => void
 -  focusTurn?: () => void
 -}
--
++import type { PanelEnding } from '@/features/table/types'
++import type { TableCombat } from '@/types/table'
+ 
  /**
   * The encounter as the character's player sees it: whose turn it is, above the initiative order.
-  * From module 0.36.0, the character's companions are the player's own, and on a companion's turn
-@@ -200,12 +183,7 @@ function CombatantRow({
- function HitPoints({
-   hp,
- }: Readonly<{ hp: NonNullable<TableCombatant['hp']> }>) {
+@@ -136,278 +82,3 @@ export function CombatTracker({
+     </div>
+   )
+ }
+-
+-function CombatantRow({
+-  combatant,
+-  current,
+-}: Readonly<{ combatant: TableCombatant; current: boolean }>) {
+-  const { name, initiative, defeated, side, hp } = combatant
+-  const stance = combatant.stance && STANCES[combatant.stance]
+-  // One of the player's own creatures, as a companion of their character's (module 0.36.0).
+-  let role = ROLE[side]
+-  if (stance) role = stance.role
+-  else if (combatant.yours) role = 'Yours'
+-  return (
+-    <li
+-      aria-current={current ? 'step' : undefined}
+-      className={clsx(
+-        'flex items-center gap-3 rounded-2xl border p-3',
+-        current ? 'border-primary bg-primary/5' : 'border-border bg-card',
+-        defeated && 'opacity-60',
+-      )}
+-    >
+-      <span
+-        className={clsx(
+-          // Wide enough for a tiebreaker such as 18.25, so every row's box lines up.
+-          'flex h-10 w-15 shrink-0 items-center justify-center rounded-[10px] font-bold tabular-nums',
+-          stance ? stance.initiative : INITIATIVE[side],
+-        )}
+-      >
+-        <span className='sr-only'>Initiative </span>
+-        {formatInitiative(initiative)}
+-      </span>
+-      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
+-        <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+-          <span
+-            className={clsx(
+-              'truncate font-semibold',
+-              side === 'me' && 'text-primary-text',
+-              defeated && 'line-through',
+-            )}
+-          >
+-            {name}
+-          </span>
+-          {current && (
+-            <span className='rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide text-on-primary'>
+-              NOW
+-            </span>
+-          )}
+-        </div>
+-        {role && <span className='text-xs text-text-secondary'>{role}</span>}
+-      </div>
+-      <div className='flex shrink-0 flex-col items-end gap-1.5'>
+-        {hp && <HitPoints hp={hp} />}
+-        {defeated && (
+-          <span className='text-xs font-semibold text-text-secondary'>
+-            Defeated
+-          </span>
+-        )}
+-      </div>
+-    </li>
+-  )
+-}
+-
+-function HitPoints({
+-  hp,
+-}: Readonly<{ hp: NonNullable<TableCombatant['hp']> }>) {
 -  const percent = hp.max
 -    ? Math.min(100, Math.max(0, Math.round((hp.value / hp.max) * 100)))
 -    : undefined
 -  let bar = 'bg-primary'
 -  if (percent !== undefined && percent <= 50) bar = 'bg-warning'
 -  if (percent === 0) bar = 'bg-danger'
-+  const { percent, bar } = hpBar(hp)
-   return (
-     <>
-       <span className='text-sm font-semibold tabular-nums'>
-@@ -249,7 +227,7 @@ function TurnPanel({
- >) {
-   const role = useTableRole()
-   const { settingUp } = seatWords(role)
+-  return (
+-    <>
+-      <span className='text-sm font-semibold tabular-nums'>
+-        <span className='sr-only'>Hit points </span>
+-        {hp.value}
+-        {hp.max !== null && (
+-          <span className='font-normal text-text-secondary'> / {hp.max}</span>
+-        )}
+-        {hp.temp > 0 && <span className='text-party'> +{hp.temp} temp</span>}
+-      </span>
+-      {percent !== undefined && (
+-        <span
+-          aria-hidden
+-          className='block h-1.5 w-24 overflow-hidden rounded-full bg-border'
+-        >
+-          <span
+-            className={clsx('block h-full rounded-full', bar)}
+-            style={{ width: `${percent}%` }}
+-          />
+-        </span>
+-      )}
+-    </>
+-  )
+-}
+-
+-function TurnPanel({
+-  combat,
+-  onOpen,
+-  keys,
+-  ending,
+-  via,
+-  refused,
+-  onEnd,
+-  focusTurn,
+-}: Readonly<
+-  {
+-    combat: TableCombat
+-    onOpen?: (key: string) => void
+-    keys?: ReadonlySet<string>
+-  } & PanelEnding
+->) {
+-  const role = useTableRole()
+-  const { settingUp } = seatWords(role)
 -  const current = combat.combatants.find(({ id }) => id === combat.currentId)
-+  const current = currentCombatant(combat)
-   const next = nextUp(combat)
-   // The turn of one of the player's own creatures: their character's, or from module 0.36.0 one of
-   // its companions', which is rolled for on its own tab.
-@@ -390,24 +368,3 @@ function TurnPanel({
-     </section>
-   )
- }
+-  const next = nextUp(combat)
+-  // The turn of one of the player's own creatures: their character's, or from module 0.36.0 one of
+-  // its companions', which is rolled for on its own tab.
+-  const companion = current?.yours ? current.companion : undefined
+-  const mine =
+-    combat.started && (current?.side === 'me' || companion !== undefined)
+-
+-  let heading = 'Waiting for the next turn'
+-  if (!combat.started) heading = 'Getting ready'
+-  else if (current?.side === 'me') heading = 'Your turn'
+-  else if (current && companion) heading = `${current.name}’s turn`
+-  else if (current) heading = `${current.name} is acting`
+-
+-  // End Turn, on the seat's turn as the panel shows it (module 0.36.0).
+-  const turn =
+-    ending?.turn && ending.turn.combatantId === current?.id
+-      ? ending.turn
+-      : undefined
+-  const shown = turn && turnKey(turn)
+-  // Why the last End Turn wasn't made, while the panel still shows its turn.
+-  let line: string | undefined
+-  if (refused && shown === turnKey(refused.turn)) {
+-    const { key } = refused
+-    line = turnRefusedLine(
+-      refused.turn,
+-      turnFragment(key, role),
+-      !TURN_OVER.has(key),
+-    )
+-  }
+-  // The button's End Turn made, and the panel showing the turn moved on: focus on the button, or
+-  // lost to the page, goes to the heading, whoever acts now, never resting on an End Turn for the
+-  // next turn.
+-  const titled = useRef<HTMLHeadingElement>(null)
+-  const button = useRef<HTMLButtonElement>(null)
+-  const sent = ending?.sent
+-  const now =
+-    combat.started && current
+-      ? `${combat.id}:${combat.round}:${current.id}`
+-      : ''
+-  const moved =
+-    via === 'button' &&
+-    sent?.way.status === 'done' &&
+-    now !== turnKey(sent.turn)
+-      ? sent.way.requestId
+-      : undefined
+-  const handed = useRef<string>(undefined)
+-  useLayoutEffect(() => {
+-    if (moved === undefined || handed.current === moved) return
+-    handed.current = moved
+-    const active = document.activeElement
+-    if (!active || active === document.body || active === button.current) {
+-      titled.current?.focus({ preventScroll: true })
+-    }
+-  }, [moved])
+-  // The button gone from under focus: to the heading where the panel stays, else, as the encounter
+-  // ends and the panel goes with it, to the page's own place for the turn, never the page's body.
+-  const handOn = () => {
+-    const heading = titled.current
+-    if (heading?.isConnected) heading.focus({ preventScroll: true })
+-    else focusTurn?.()
+-  }
+-
+-  return (
+-    <section
+-      aria-labelledby='turn-heading'
+-      className={clsx(
+-        'flex flex-col gap-2 rounded-2xl border bg-card p-4',
+-        mine ? 'border-primary' : 'border-border',
+-      )}
+-    >
+-      <div className='flex items-baseline justify-between gap-2 text-xs text-text-secondary'>
+-        <span className='font-semibold tracking-wider uppercase'>
+-          {combat.started ? `Round ${combat.round}` : 'Not started'}
+-        </span>
+-        {next && (
+-          <span className='truncate'>
+-            Next: {next.side === 'me' ? 'you' : next.name}
+-          </span>
+-        )}
+-      </div>
+-      <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-2'>
+-        <h2
+-          ref={titled}
+-          id='turn-heading'
+-          tabIndex={-1}
+-          aria-live='polite'
+-          className={clsx(
+-            'text-2xl font-semibold tracking-tight outline-none',
+-            mine && 'text-primary',
+-          )}
+-        >
+-          {heading}
+-        </h2>
+-        {turn && ending && (
+-          <EndTurnButton
+-            ref={button}
+-            turn={turn}
+-            offered={ending.offered}
+-            way={ending.way}
+-            onEnd={given => onEnd?.(given)}
+-            onGone={handOn}
+-          />
+-        )}
+-      </div>
+-      {line && (
+-        <p
+-          role='alert'
+-          className='flex items-start gap-1.5 text-[13px] text-warning'
+-        >
+-          <TriangleAlert aria-hidden className='mt-0.5 size-4 shrink-0' />
+-          <span>{line}</span>
+-        </p>
+-      )}
+-      {turn && <p className='text-xs text-text-secondary'>{END_TURN_HINT}</p>}
+-      {!combat.started && (
+-        <p className='text-sm text-text-secondary'>{settingUp}</p>
+-      )}
+-      {mine && companion && (
+-        <p className='text-sm text-text-secondary'>
+-          Roll for it on{' '}
+-          {onOpen && keys?.has(companion) ? (
+-            <button
+-              type='button'
+-              onClick={() => onOpen(companion)}
+-              className='inline-flex min-h-11 min-w-11 items-center justify-center font-semibold text-primary-text underline underline-offset-2'
+-            >
+-              its tab
+-            </button>
+-          ) : (
+-            'its tab'
+-          )}
+-          .
+-        </p>
+-      )}
+-      {!mine && next?.side === 'me' && (
+-        <p className='text-sm text-text-secondary'>You are up next.</p>
+-      )}
+-    </section>
+-  )
+-}
 -
 -/**
 - * An initiative as Foundry shows it. Systems break ties with decimals, such as D&D's dexterity
@@ -202,7 +1233,7 @@ index 5879e0e..38ff896 100644
 -  return undefined
 -}
 diff --git a/src/features/table/components/game-table/game-table.tsx b/src/features/table/components/game-table/game-table.tsx
-index 8c1cb31..277312a 100644
+index 8c1cb31..ae50757 100644
 --- a/src/features/table/components/game-table/game-table.tsx
 +++ b/src/features/table/components/game-table/game-table.tsx
 @@ -1,147 +1,38 @@
@@ -283,7 +1314,7 @@ index 8c1cb31..277312a 100644
 +import { useTurnEnding } from '@/features/table/hooks/use-turn-ending'
 +import { useTypedDice } from '@/features/table/hooks/use-typed-dice'
 +import { isMyTurn } from '@/features/table/utils/combat'
-+import { cookbookPlace, seatOf } from '@/features/table/utils/places'
++import { cookbookPlace, seatOf, sheetPane } from '@/features/table/utils/places'
  import { TableApiContext } from '@/hooks/use-table-api'
 -import {
 -  useWaitingCompanions,
@@ -738,13 +1769,25 @@ index 8c1cb31..277312a 100644
    // With no sheet yet, and so no cog, a button in its place under why there's none opens it.
    const noSheetCookbook = useCookbookEntry(view.sheet ? undefined : cookbook)
    let table: ReactNode
-@@ -512,178 +138,29 @@ export function GameTable({
-     const parties =
-       view.groups && view.groups.length > 0 ? view.groups : undefined
+@@ -505,185 +131,34 @@ export function GameTable({
+       </Scroller>
+     )
+   } else {
+-    const hasSheet = view.sheet !== undefined
+-    // The party sheets open from the sheet's Inventory tab, or, with no sheet, from under why
+-    // there's none: either way the Character pane shows on a wide screen too. So it does at a
+-    // character, with no sheet, for its notes there.
+-    const parties =
+-      view.groups && view.groups.length > 0 ? view.groups : undefined
      // From module 0.36.0, the character's companions, each with a tab above the sheet.
 -    const switching = row.length > 0
+-    const paneShown = hasSheet || parties !== undefined || playing || switching
 +    const switching = companions.row.length > 0
-     const paneShown = hasSheet || parties !== undefined || playing || switching
++    const { parties, paneShown, sharedDice } = sheetPane(
++      view,
++      playing,
++      switching,
++    )
      beside = paneShown
 -    // Whether its player types in their own dice, where the game lets them (module 0.32.0): never
 -    // on the Gamemaster's page, which has nowhere to remember it. Their companions' are the same.
@@ -934,7 +1977,7 @@ index 8c1cb31..277312a 100644
      )
      table = (
        <div className='flex min-h-0 flex-1'>
-@@ -692,7 +169,7 @@ export function GameTable({
+@@ -692,102 +167,43 @@ export function GameTable({
            id='character-pane'
            label='Character'
            className={clsx(
@@ -943,7 +1986,11 @@ index 8c1cb31..277312a 100644
              paneShown ? 'lg:flex' : 'lg:hidden',
            )}
          >
-@@ -703,91 +180,32 @@ export function GameTable({
+           {/* The sheet's renderer, which every creature's pane throws its dice on. */}
+-          {hasSheet || switching ? (
++          {sharedDice ? (
+             <DiceRendererProvider>{sheets}</DiceRendererProvider>
+           ) : (
              sheets
            )}
          </Pane>
@@ -1061,7 +2108,7 @@ index 8c1cb31..277312a 100644
        </div>
      )
    }
-@@ -798,190 +216,56 @@ export function GameTable({
+@@ -798,190 +214,56 @@ export function GameTable({
      <TableApiContext value={seat}>
        <div className='flex h-dvh flex-col md:flex-row'>
          <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
@@ -1293,7 +2340,7 @@ index 8c1cb31..277312a 100644
            combat={view.combat}
            header={header}
            beside={beside}
-@@ -991,510 +275,3 @@ export function GameTable({
+@@ -991,510 +273,3 @@ export function GameTable({
      </TableApiContext>
    )
  }
@@ -1805,19 +2852,24 @@ index 8c1cb31..277312a 100644
 -  return count > 99 ? '99+' : String(count)
 -}
 diff --git a/src/features/table/components/turn-toast/turn-toast.tsx b/src/features/table/components/turn-toast/turn-toast.tsx
-index b98273f..ecf4fac 100644
+index b98273f..d966106 100644
 --- a/src/features/table/components/turn-toast/turn-toast.tsx
 +++ b/src/features/table/components/turn-toast/turn-toast.tsx
-@@ -3,32 +3,25 @@
- import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+@@ -1,165 +1,16 @@
+ 'use client'
+ 
+-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
  import clsx from 'clsx'
  import { createPortal } from 'react-dom'
-+import { actingOf, lastsOf, showsTurn, takenBack, wordsOf } from './utils'
- import { NOT_MADE } from '@/constants/lifecycle'
- import { POLL_INTERVAL } from '@/constants/polling'
+-import { NOT_MADE } from '@/constants/lifecycle'
+-import { POLL_INTERVAL } from '@/constants/polling'
++import { UndoButton } from './undo-button'
++import { useToastFoot } from './use-toast-foot'
++import { useTurnToastCard } from './use-turn-toast-card'
++import { takenBack, wordsOf } from './utils'
  import { useToastTop } from '@/features/rolling/hooks/use-roll-toasts'
- import {
-   actingLine,
+-import {
+-  actingLine,
 -  endTurnWords,
 -  HOLD_HINT,
 -  reasonSentence,
@@ -1825,9 +2877,7 @@ index b98273f..ecf4fac 100644
 -  TURN_TOAST_FOR,
 -  TURN_UNDO_FOR,
 -  turnSendingLine,
-+  newlyNotMade,
-+  refusalKey,
- } from '@/features/table/utils/end-turn'
+-} from '@/features/table/utils/end-turn'
  import { useHydrated } from '@/hooks/use-hydrated'
  import { useTableRole } from '@/hooks/use-table-api'
 -import { reasons } from '@/utils/roll-reasons'
@@ -1841,21 +2891,13 @@ index b98273f..ecf4fac 100644
 -type Undoing = ReturnType<typeof useTurnUndo>
 -/** The last End Turn sent, and its way. */
 -type Sent = NonNullable<Ending['sent']>
-+import type {
-+  Card,
-+  CardBody,
-+  EndTurnState,
-+  Sent,
-+  UndoState,
-+} from '@/features/table/types'
-+import type { TableCombat } from '@/types/table'
- 
- /**
-  * How long a turn the game has ended, or taken back, may still be shown as it was before the page
-@@ -36,131 +29,6 @@ type Sent = NonNullable<Ending['sent']>
-  */
- const SETTLE_FOR = 2 * POLL_INTERVAL
- 
+-
+-/**
+- * How long a turn the game has ended, or taken back, may still be shown as it was before the page
+- * is taken to be showing the turn now, in milliseconds: two of the table's polls.
+- */
+-const SETTLE_FOR = 2 * POLL_INTERVAL
+-
 -/**
 - * Why an End Turn, or an Undo, wasn't made, as a fragment, by its way's reason, else its status:
 - * End Turn's own words, else a roll's as the tray words it for the seat.
@@ -1980,11 +3022,12 @@ index b98273f..ecf4fac 100644
 -    }
 -  }
 -}
--
++import type { EndTurnState, UndoState } from '@/features/table/types'
++import type { TableCombat } from '@/types/table'
+ 
  /**
   * The turn's toast (module 0.36.0), as the user's End Turn prototype draws it: one card at a time,
-  * at the top of the screen below the page's header, each replacing the last. A hold of the Combat
-@@ -201,8 +69,8 @@ export function TurnToast({
+@@ -201,8 +52,8 @@ export function TurnToast({
    beside = false,
    onFoot,
  }: Readonly<{
@@ -1995,19 +3038,299 @@ index b98273f..ecf4fac 100644
    via?: 'button' | 'hold'
    held: boolean
    combatShown: boolean
+@@ -215,195 +66,18 @@ export function TurnToast({
+   const role = useTableRole()
+   const hydrated = useHydrated()
+   const top = useToastTop(true, undefined, header)
+-  const [card, setCard] = useState<Card>()
+-  const serials = useRef(0)
+-  const make = (body: CardBody): Card => ({
+-    ...body,
+-    serial: (serials.current += 1),
++  const { card, rest, takeBack } = useTurnToastCard({
++    ending,
++    undoing,
++    via,
++    held,
++    combatShown,
++    combat,
+   })
+-  // The End Turns whose ending has been told, by their ids: each is told once.
+-  const told = useRef(new Set<string>())
+-  // What was last seen of the hold, the End Turn sent last and its Undo's way.
+-  const seen = useRef<{ held: boolean; sent?: Sent }>({ held: false })
+-  // The card a hold's took the place of, which comes back if the hold is let go early.
+-  const covered = useRef<Card>(undefined)
+-  // What's left of the time of the card that lasts, by its number.
+-  const remaining = useRef<{ serial: number; ms: number }>(undefined)
+-  // The card a hold's took the place of, shown again as a new one for what was left of its time,
+-  // as the hold sent nothing; none where its time was up.
+-  const uncover = (): Card | undefined => {
+-    const back = covered.current
+-    covered.current = undefined
+-    if (!back) return undefined
+-    const lasts = lastsOf(back)
+-    if (lasts === undefined) return make(back)
+-    const left =
+-      remaining.current?.serial === back.serial ? remaining.current.ms : lasts
+-    if (left <= 0) return undefined
+-    const again = make(back)
+-    remaining.current = { serial: again.serial, ms: left }
+-    return again
+-  }
+-
+   const { sent } = ending
+-  const { offer, way: undone } = undoing
+-  // What happened since the last render, in the order it did; the last card made shows.
+-  useEffect(() => {
+-    const was = seen.current
+-    seen.current = { held, sent }
+-    let next = card
+-    if (held && !was.held && ending.turn) {
+-      covered.current = card
+-      next = make({ kind: 'holding', turn: ending.turn })
+-    } else if (!held && was.held && next?.kind === 'holding') {
+-      // Let go early, drifted or stopped: it goes at once, silently, and the card it took the
+-      // place of, such as the last End Turn's with Undo, comes back where it's still to be shown.
+-      next = uncover()
+-    }
+-    if (sent && sent.turn !== was.sent?.turn && via === 'hold') {
+-      next = make({ kind: 'sending', turn: sent.turn })
+-    }
+-    const id = sent?.way.status === 'done' ? sent.way.requestId : undefined
+-    if (sent && id && !told.current.has(id) && !showsTurn(combat, sent.turn)) {
+-      told.current.add(id)
+-      const undo = offer?.requestId === id
+-      const left = undo ? offer.left : actingOf(combat)
+-      next = make({
+-        kind: 'ended',
+-        id,
+-        turn: sent.turn,
+-        line: left && actingLine(left),
+-        undo,
+-      })
+-    }
+-    if (newlyNotMade(was.sent, sent) && (via === 'hold' || !combatShown)) {
+-      next = make({
+-        kind: 'refused',
+-        turn: sent.turn,
+-        key: refusalKey(sent.way),
+-      })
+-    }
+-    if (next?.kind === 'taking') {
+-      if (takenBack(next, combat)) {
+-        next = undefined
+-      } else if (undone?.for === next.id && NOT_MADE.has(undone.status)) {
+-        next = make({ kind: 'kept', turn: next.turn, key: refusalKey(undone) })
+-      }
+-    }
+-    // Undo is no longer offered, as the page shows another turn: the card goes, silently.
+-    if (next?.kind === 'ended' && next.undo && offer?.requestId !== next.id) {
+-      next = undefined
+-    }
+-    if (next !== card) setCard(next)
+-  })
+-
+-  // An End Turn the game made, still shown as it was two polls on, as when the turn came back
+-  // before the page saw it move: told with no line and no Undo.
+-  const doneId = sent?.way.status === 'done' ? sent.way.requestId : undefined
+-  const settling =
+-    sent && doneId && showsTurn(combat, sent.turn) ? doneId : undefined
+-  useEffect(() => {
+-    if (settling === undefined || !sent) return
+-    const turn = sent.turn
+-    const timer = setTimeout(() => {
+-      if (told.current.has(settling)) return
+-      told.current.add(settling)
+-      setCard(make({ kind: 'ended', id: settling, turn, undo: false }))
+-    }, SETTLE_FOR)
+-    return () => clearTimeout(timer)
+-    // From when it was first seen so, however many polls show it.
+-  }, [settling])
+-
+-  // An Undo the game made, the turn still not shown back two polls on: it goes all the same.
+-  const back =
+-    card?.kind === 'taking' &&
+-    undone?.for === card.id &&
+-    undone.status === 'done'
+-      ? card.serial
+-      : undefined
+-  useEffect(() => {
+-    if (back === undefined) return
+-    const timer = setTimeout(
+-      () => setCard(shown => (shown?.serial === back ? undefined : shown)),
+-      SETTLE_FOR,
+-    )
+-    return () => clearTimeout(timer)
+-  }, [back])
+-
+-  // Its time, paused while the pointer is over it or focus is in it.
+-  const [pause, setPause] = useState<{
+-    serial: number
+-    pointer: boolean
+-    focus: boolean
+-  }>()
+-  const resting =
+-    pause !== undefined &&
+-    pause.serial === card?.serial &&
+-    (pause.pointer || pause.focus)
+-  const rest = (change: { pointer?: boolean; focus?: boolean }) => {
+-    if (!card) return
+-    setPause(was => ({
+-      serial: card.serial,
+-      pointer: false,
+-      focus: false,
+-      ...(was?.serial === card.serial && was),
+-      ...change,
+-    }))
+-  }
+-  useEffect(() => {
+-    const lasts = card && lastsOf(card)
+-    if (!card || lasts === undefined) return
+-    if (remaining.current?.serial !== card.serial) {
+-      remaining.current = { serial: card.serial, ms: lasts }
+-    }
+-    if (resting) return
+-    const begun = Date.now()
+-    const timer = setTimeout(
+-      () =>
+-        setCard(shown => (shown?.serial === card.serial ? undefined : shown)),
+-      remaining.current.ms,
+-    )
+-    return () => {
+-      clearTimeout(timer)
+-      if (remaining.current?.serial === card.serial) {
+-        remaining.current.ms -= Date.now() - begun
+-      }
+-    }
+-  }, [card, resting])
+-
++  const { offer } = undoing
+   // Where it ends, for the roll toasts to start below it, as it shows, moves, changes or goes.
+-  const [element, setElement] = useState<HTMLDivElement | null>(null)
+-  const foot = useRef<number | undefined>(undefined)
+-  const footing = useRef(onFoot)
+-  useLayoutEffect(() => {
+-    footing.current = onFoot
+-  })
+-  useLayoutEffect(() => {
+-    // Where the card comes to rest, not where its entry has it now: its box as laid out in its
+-    // region, which a transform doesn't move, as the card's first frame already has it 8 pixels
+-    // higher and no resize follows to say otherwise.
+-    const measure = () => {
+-      const at = element
+-        ? Math.ceil(
+-            (element.parentElement?.getBoundingClientRect().top ?? 0) +
+-              element.offsetTop +
+-              element.offsetHeight,
+-          )
+-        : undefined
+-      if (at === foot.current) return
+-      foot.current = at
+-      footing.current?.(at)
+-    }
+-    measure()
+-    if (!element) return
+-    const observer = new ResizeObserver(measure)
+-    observer.observe(element)
+-    globalThis.addEventListener('resize', measure)
+-    return () => {
+-      observer.disconnect()
+-      globalThis.removeEventListener('resize', measure)
+-    }
+-  }, [element, top])
++  const setElement = useToastFoot(onFoot, top)
+ 
+   if (!hydrated) return
+   // Undo's card goes in the very render in which the panel shows the turn back, not one after it.
+@@ -447,56 +121,10 @@ export function TurnToast({
+               </small>
+             )}
+           </p>
+-          {undoable && (
+-            <UndoButton
+-              onUndo={() => {
+-                if (!offer) return
+-                setCard(
+-                  make({
+-                    kind: 'taking',
+-                    id: offer.requestId,
+-                    turn: offer.turn,
+-                  }),
+-                )
+-                undoing.undo()
+-              }}
+-              onGone={focusTurn}
+-            />
+-          )}
++          {undoable && <UndoButton onUndo={takeBack} onGone={focusTurn} />}
+         </div>
+       )}
+     </div>,
+     document.body,
+   )
+ }
+-
+-/**
+- * The toast's Undo: it takes the turn back. As it goes, taken or withdrawn, focus on it is handed
+- * on, never left to the page's body.
+- */
+-function UndoButton({
+-  onUndo,
+-  onGone,
+-}: Readonly<{ onUndo: () => void; onGone: () => void }>) {
+-  const button = useRef<HTMLButtonElement>(null)
+-  const gone = useRef(onGone)
+-  useLayoutEffect(() => {
+-    gone.current = onGone
+-  })
+-  useLayoutEffect(() => {
+-    const own = button.current
+-    return () => {
+-      if (own && document.activeElement === own) gone.current()
+-    }
+-  }, [])
+-  return (
+-    <button
+-      ref={button}
+-      type='button'
+-      onClick={onUndo}
+-      className='min-h-11 min-w-11 rounded-[10px] border border-border bg-transparent px-3 font-semibold'
+-    >
+-      Undo
+-    </button>
+-  )
+-}
 diff --git a/src/features/table/hooks/use-end-turn.ts b/src/features/table/hooks/use-end-turn.ts
-index 9635b29..c06df15 100644
+index 9635b29..84abfed 100644
 --- a/src/features/table/hooks/use-end-turn.ts
 +++ b/src/features/table/hooks/use-end-turn.ts
-@@ -15,6 +15,7 @@ import {
+@@ -2,19 +2,17 @@
+ 
+ import { useCallback, useEffect, useRef, useState } from 'react'
+ import { POLL_INTERVAL } from '@/constants/polling'
+-import {
+-  GM_SEND_KEY,
+-  SEND_CHOICES,
+-  SEND_KEY,
+-} from '@/features/rolling/constants'
++import { NO_DICE } from '@/constants/roll-kinds'
++import { useSendChoice } from '@/features/rolling/hooks/use-send-choice'
+ import {
+   END_TURN_ARMS_AFTER,
+   endableTurn,
+   TURN_OVER,
+   turnKey,
  } from '@/features/table/utils/end-turn'
- import { useStoredChoice } from '@/hooks/use-stored'
- import { follow, onItsWay } from '@/utils/lifecycle'
+-import { useStoredChoice } from '@/hooks/use-stored'
+-import { follow, onItsWay } from '@/utils/lifecycle'
++import { useFollow } from '@/hooks/use-follow'
++import { onItsWay } from '@/utils/lifecycle'
 +import type { EndTurnState, Shown } from '@/features/table/types'
  import type { RollKind, RollRequestInput, TableRollState } from '@/types/roll'
  import type { EndableTurn, TableCombat } from '@/types/table'
  
-@@ -26,25 +27,6 @@ import type { EndableTurn, TableCombat } from '@/types/table'
+@@ -26,25 +24,6 @@ import type { EndableTurn, TableCombat } from '@/types/table'
   */
  const OVER_FOR = 2 * POLL_INTERVAL
  
@@ -2033,7 +3356,7 @@ index 9635b29..c06df15 100644
  /**
   * Whether an End Turn's way says its turn is over: the game ended it, or it was refused as a turn
   * that's over, or never the seat's.
-@@ -95,13 +77,7 @@ export function useEndTurn({
+@@ -95,19 +74,9 @@ export function useEndTurn({
    gm: boolean
    combat?: TableCombat
    kinds: readonly RollKind[]
@@ -2046,13 +3369,115 @@ index 9635b29..c06df15 100644
 -} {
 +}): EndTurnState {
    // As every hook on the page reads it, so that turning it off stops End Turn too.
-   const [choice] = useStoredChoice(
-     gm ? GM_SEND_KEY : SEND_KEY,
+-  const [choice] = useStoredChoice(
+-    gm ? GM_SEND_KEY : SEND_KEY,
+-    SEND_CHOICES,
+-    'on',
+-  )
++  const [choice] = useSendChoice(gm)
+   const turn = choice === 'on' ? endableTurn(combat, kinds) : undefined
+   const key = turn ? turnKey(turn) : undefined
+ 
+@@ -159,56 +128,45 @@ export function useEndTurn({
+   // The turn shown an End Turn is on its way for, by its serial, so that two calls at once, as a
+   // tap and a hold together, send one.
+   const sending = useRef<number | undefined>(undefined)
+-  const running = useRef(new Set<AbortController>())
+-  useEffect(() => {
+-    const controllers = running.current
+-    return () => {
+-      for (const controller of controllers) controller.abort()
+-    }
+-  }, [])
++  const follow = useFollow()
+ 
+   // The last End Turn sent and its way, and how many have been, so that only the last is told.
+   const [sent, setSent] = useState<{ turn: EndableTurn; way: TableRollState }>()
+   const sends = useRef(0)
+ 
+-  const end = useCallback((given: EndableTurn) => {
+-    const { api, shown, offered } = latest.current
+-    // Only the turn the tap or the hold was made on, while it's still the one shown.
+-    if (!offered || turnKey(given) !== shown.key) return
+-    const at = shown.serial
+-    if (sending.current === at) return
+-    sending.current = at
+-    const which = (sends.current += 1)
+-    const controller = new AbortController()
+-    running.current.add(controller)
+-    const update = (way: TableRollState) => {
+-      if (controller.signal.aborted) return
+-      if (!holds(way) && sending.current === at) sending.current = undefined
+-      // Its way is its turn's while that's the one shown; once it says the turn is over, with the
+-      // view the page showed then.
+-      const overIn = isOver(way) ? latest.current.combat : undefined
+-      setShown(held => (held.serial === at ? { ...held, way, overIn } : held))
+-      // And the toast's while it's the last sent, whichever turn is shown now.
+-      if (sends.current === which) setSent({ turn: given, way })
+-    }
+-    // Its words are the page's: only which turn is sent, by its combat, round and combatant.
+-    const input: RollRequestInput = {
+-      kind: 'endTurn',
+-      turn: {
+-        combatId: given.combatId,
+-        round: given.round,
+-        combatantId: given.combatantId,
+-      },
+-      mode: 0,
+-      explicit: false,
+-      extras: [],
+-      dice: [],
+-    }
+-    update({ status: 'sending' })
+-    void follow(api, input, controller.signal, update, () => {}).finally(() =>
+-      running.current.delete(controller),
+-    )
+-  }, [])
++  const end = useCallback(
++    (given: EndableTurn) => {
++      const { api, shown, offered } = latest.current
++      // Only the turn the tap or the hold was made on, while it's still the one shown.
++      if (!offered || turnKey(given) !== shown.key) return
++      const at = shown.serial
++      if (sending.current === at) return
++      sending.current = at
++      const which = (sends.current += 1)
++      const update = (way: TableRollState) => {
++        if (!holds(way) && sending.current === at) sending.current = undefined
++        // Its way is its turn's while that's the one shown; once it says the turn is over, with the
++        // view the page showed then.
++        const overIn = isOver(way) ? latest.current.combat : undefined
++        setShown(held => (held.serial === at ? { ...held, way, overIn } : held))
++        // And the toast's while it's the last sent, whichever turn is shown now.
++        if (sends.current === which) setSent({ turn: given, way })
++      }
++      // Its words are the page's: only which turn is sent, by its combat, round and combatant.
++      const input: RollRequestInput = {
++        kind: 'endTurn',
++        turn: {
++          combatId: given.combatId,
++          round: given.round,
++          combatantId: given.combatantId,
++        },
++        ...NO_DICE,
++      }
++      update({ status: 'sending' })
++      follow(api, input, update)
++    },
++    [follow],
++  )
+ 
+   return { turn, offered, way: now.way, sent, end }
+ }
 diff --git a/src/features/table/hooks/use-hold.ts b/src/features/table/hooks/use-hold.ts
-index eff7fbe..bc24f8e 100644
+index eff7fbe..bfce56c 100644
 --- a/src/features/table/hooks/use-hold.ts
 +++ b/src/features/table/hooks/use-hold.ts
-@@ -5,8 +5,6 @@ import {
+@@ -2,11 +2,10 @@
+ 
+ import {
+   useEffect,
++  useEffectEvent,
    useLayoutEffect,
    useRef,
    useState,
@@ -2061,7 +3486,7 @@ index eff7fbe..bc24f8e 100644
    type RefObject,
  } from 'react'
  import {
-@@ -17,6 +15,7 @@ import {
+@@ -17,6 +16,7 @@ import {
    END_TURN_TAP_WITHIN,
    END_TURN_TOAST_AT,
  } from '@/features/table/utils/end-turn'
@@ -2069,7 +3494,7 @@ index eff7fbe..bc24f8e 100644
  
  /** A press being held: its pointer, the turn it began on, when and where, and what it waits on. */
  type Press = {
-@@ -57,14 +56,7 @@ export function useHold(options: {
+@@ -57,14 +57,7 @@ export function useHold(options: {
     */
    onCancel: () => void
  }): {
@@ -2085,23 +3510,157 @@ index eff7fbe..bc24f8e 100644
    /** Whether a press is held now, for the label's colour. */
    holding: boolean
    /**
+@@ -151,11 +144,14 @@ export function useHold(options: {
+     if (press.current && press.current.key !== key) cancel()
+   })
+   // A page hidden mid-press, as a phone's screen locked, loses it.
++  const onHidden = useEffectEvent(() => {
++    cancel()
++    lifted()
++  })
+   useEffect(() => {
+     const hidden = () => {
+       if (document.visibilityState !== 'hidden') return
+-      cancel()
+-      lifted()
++      onHidden()
+     }
+     document.addEventListener('visibilitychange', hidden)
+     return () => {
+@@ -167,7 +163,7 @@ export function useHold(options: {
+       clearTimeout(held?.toast)
+       clearTimeout(held?.end)
+     }
+-    // Once: what it reads, it reads through refs.
++    // Once: what else it reads, it reads through refs.
+   }, [])
+ 
+   return {
+diff --git a/src/features/table/hooks/use-table-view.ts b/src/features/table/hooks/use-table-view.ts
+index 384041a..ec80dfe 100644
+--- a/src/features/table/hooks/use-table-view.ts
++++ b/src/features/table/hooks/use-table-view.ts
+@@ -1,39 +1,10 @@
+ import { useEffect, useRef, useState } from 'react'
+ import { useRouter } from 'next/navigation'
+-import { POLL_INTERVAL } from '@/constants/polling'
+-import { rollsKey } from '@/utils/requests/availability'
++import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
++import { seenOf, tableQuery } from '@/features/table/utils/table-query'
++import { retryDelay } from '@/utils/polling'
+ import type { TableView, Connection } from '@/types/table'
+ 
+-/** The longest wait between attempts while the server cannot be reached. */
+-const MAX_DELAY = 30_000
+-
+-/** What the viewer has of a view, which the server compares to say nothing is new. */
+-function seenOf(view: TableView) {
+-  return {
+-    version: view.version,
+-    live: view.live,
+-    sheetVersion: view.sheetVersion,
+-    rolls: rollsKey(view.rollsToTable, view.rollFeatures),
+-    // For the Gamemaster's seat (#156): where their rolls go.
+-    gm: view.gm?.rolls,
+-    // For the player's: where the Gamemaster's rolls as their character stand.
+-    gmRolls: view.gmRollsKey,
+-    // From module 0.31.0: whether the seat may move its character's items and coins.
+-    moves: view.moves !== undefined,
+-    // From module 0.32.0: whether the player types in their own dice, which another of their
+-    // devices may change.
+-    typed: view.manualDice?.on === true,
+-    // From module 0.33.0: whether the seat may remove its character's items.
+-    removes: view.removes === true,
+-    // From module 0.37.0: whether the player may change its character's favorites.
+-    favorites: view.favorites === true,
+-    // From module 0.39.0: whether the player may change its character's own effects.
+-    effects: view.effects === true,
+-    // From module 0.40.0: whether the player may use Wild Shape.
+-    wildShape: view.wildShape === true,
+-  }
+-}
+-
+ /**
+  * Keep a character's view of its campaign current by polling for changes, including the
+  * Gamemaster's game going offline or coming back. Polling pauses while the
+@@ -56,34 +27,7 @@ export function useTableView(api: string, initial: TableView) {
+ 
+     const poll = async () => {
+       try {
+-        const {
+-          version,
+-          live,
+-          sheetVersion,
+-          rolls,
+-          gm,
+-          gmRolls,
+-          moves,
+-          typed,
+-          removes,
+-          favorites,
+-          effects,
+-          wildShape,
+-        } = seen.current
+-        const query = new URLSearchParams({
+-          version: String(version),
+-          live: live ? '1' : '0',
+-          ...(rolls && { rolls }),
+-          ...(gm && { gm }),
+-          ...(gmRolls && { gmrolls: gmRolls }),
+-          ...(moves && { moves: '1' }),
+-          ...(typed && { typed: '1' }),
+-          ...(removes && { removes: '1' }),
+-          ...(favorites && { favorites: '1' }),
+-          ...(effects && { effects: '1' }),
+-          ...(wildShape && { wildshape: '1' }),
+-          ...(sheetVersion && { sheet: sheetVersion }),
+-        })
++        const query = tableQuery(seen.current)
+         const response = await fetch(`${api}/table?${query}`, {
+           cache: 'no-store',
+           signal: controller.signal,
+@@ -119,10 +63,10 @@ export function useTableView(api: string, initial: TableView) {
+       timer = undefined
+       if (document.visibilityState !== 'hidden') await poll()
+       if (stopped || controller.signal.aborted) return
+-      const delay = failures
+-        ? Math.min(POLL_INTERVAL * 2 ** failures, MAX_DELAY)
+-        : POLL_INTERVAL
+-      timer = setTimeout(tick, delay)
++      timer = setTimeout(
++        tick,
++        retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY),
++      )
+     }
+ 
+     const onVisibilityChange = () => {
 diff --git a/src/features/table/hooks/use-turn-undo.ts b/src/features/table/hooks/use-turn-undo.ts
-index 5b3cbdd..91371ef 100644
+index 5b3cbdd..eb1e0d2 100644
 --- a/src/features/table/hooks/use-turn-undo.ts
 +++ b/src/features/table/hooks/use-turn-undo.ts
-@@ -6,6 +6,7 @@ import {
-   SEND_CHOICES,
-   SEND_KEY,
- } from '@/features/rolling/constants'
-+import { sameTurn, shownTurn } from '@/features/table/utils/end-turn'
- import { useStoredChoice } from '@/hooks/use-stored'
- import { follow } from '@/utils/lifecycle'
- import type {
-@@ -14,48 +15,9 @@ import type {
-   RollRequestInput,
-   TableRollState,
- } from '@/types/roll'
+@@ -1,61 +1,14 @@
+ 'use client'
+ 
+ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+-import {
+-  GM_SEND_KEY,
+-  SEND_CHOICES,
+-  SEND_KEY,
+-} from '@/features/rolling/constants'
+-import { useStoredChoice } from '@/hooks/use-stored'
+-import { follow } from '@/utils/lifecycle'
+-import type {
+-  EndedTurn,
+-  RollKind,
+-  RollRequestInput,
+-  TableRollState,
+-} from '@/types/roll'
++import { NO_DICE } from '@/constants/roll-kinds'
++import { useSendChoice } from '@/features/rolling/hooks/use-send-choice'
++import { nextFollowed } from '@/features/table/utils/end-turn'
++import { useFollow } from '@/hooks/use-follow'
 +import type { Followed, UndoState } from '@/features/table/types'
++import type { RollKind, RollRequestInput, TableRollState } from '@/types/roll'
  import type { EndableTurn, TableCombat, TurnUndo } from '@/types/table'
  
 -/**
@@ -2147,7 +3706,7 @@ index 5b3cbdd..91371ef 100644
  /**
   * Undo, for a character's page (module 0.36.0): the End Turn this page sent last, once the game
   * says it ended the turn, offered to take back while the page shows the turn it left the combat
-@@ -86,11 +48,7 @@ export function useTurnUndo({
+@@ -86,41 +39,15 @@ export function useTurnUndo({
    combat?: TableCombat
    kinds: readonly RollKind[]
    sent?: { turn: EndableTurn; way: TableRollState }
@@ -2158,10 +3717,89 @@ index 5b3cbdd..91371ef 100644
 -} {
 +}): UndoState {
    // As every hook on the page reads it, so that turning it off stops Undo too.
-   const [choice] = useStoredChoice(
-     gm ? GM_SEND_KEY : SEND_KEY,
+-  const [choice] = useStoredChoice(
+-    gm ? GM_SEND_KEY : SEND_KEY,
+-    SEND_CHOICES,
+-    'on',
+-  )
++  const [choice] = useSendChoice(gm)
+ 
+   // The End Turn the game said it made, by its id: only that may be taken back.
+   const done = sent?.way.status === 'done' ? sent.way.requestId : undefined
+   const [followed, setFollowed] = useState<Followed>({ over: false })
+-  let now = followed
+-  if (sent && done !== undefined) {
+-    if (now.id !== done) now = { id: done, over: false }
+-    if (!now.over) {
+-      const shown = shownTurn(combat)
+-      if (now.left === undefined) {
+-        // Still on the turn it ended, as in a view from before the game moved it: the next turn
+-        // shown is the one it left. Another combat, or none, and there's nothing to take back to.
+-        if (!shown || shown.combatId !== sent.turn.combatId) {
+-          now = { ...now, over: true }
+-        } else if (!sameTurn(shown, sent.turn)) {
+-          now = { ...now, left: shown }
+-        }
+-      } else if (!shown || !sameTurn(shown, now.left)) {
+-        // The combat has moved on from where it left it, or back: it's gone for good.
+-        now = { ...now, over: true }
+-      }
+-    }
+-    if (now !== followed) setFollowed(now)
+-  }
++  const now = nextFollowed(followed, sent, done, combat)
++  if (now !== followed) setFollowed(now)
+ 
+   const taking = kinds.includes('undoEndTurn') && choice === 'on'
+   const left = now.id === done && !now.over ? now.left : undefined
+@@ -141,13 +68,7 @@ export function useTurnUndo({
+   })
+   // The End Turns an Undo was sent for, so that two calls at once send one.
+   const undone = useRef(new Set<string>())
+-  const running = useRef(new Set<AbortController>())
+-  useEffect(() => {
+-    const controllers = running.current
+-    return () => {
+-      for (const controller of controllers) controller.abort()
+-    }
+-  }, [])
++  const follow = useFollow()
+ 
+   // The last Undo sent and its way, and how many have been, so that only the last is told.
+   const [way, setWay] = useState<TableRollState & { for: string }>()
+@@ -161,10 +82,7 @@ export function useTurnUndo({
+     // Sent once: it's offered no more.
+     setFollowed(held => (held.id === of ? { ...held, over: true } : held))
+     const which = (sends.current += 1)
+-    const controller = new AbortController()
+-    running.current.add(controller)
+     const update = (state: TableRollState) => {
+-      if (controller.signal.aborted) return
+       if (sends.current === which) setWay({ ...state, for: of })
+     }
+     // Its words are the page's: only which End Turn, and the turn it left, by its combat, round
+@@ -177,16 +95,11 @@ export function useTurnUndo({
+         round: offer.left.round,
+         combatantId: offer.left.combatantId,
+       },
+-      mode: 0,
+-      explicit: false,
+-      extras: [],
+-      dice: [],
++      ...NO_DICE,
+     }
+     update({ status: 'sending' })
+-    void follow(api, input, controller.signal, update, () => {}).finally(() =>
+-      running.current.delete(controller),
+-    )
+-  }, [])
++    follow(api, input, update)
++  }, [follow])
+ 
+   return { offer, way, undo }
+ }
 diff --git a/src/features/table/utils/end-turn.ts b/src/features/table/utils/end-turn.ts
-index 32be5cf..f80e455 100644
+index 32be5cf..db74328 100644
 --- a/src/features/table/utils/end-turn.ts
 +++ b/src/features/table/utils/end-turn.ts
 @@ -1,7 +1,11 @@
@@ -2169,7 +3807,7 @@ index 32be5cf..f80e455 100644
 +import { currentCombatant } from '@/features/table/utils/combat'
 +import { reasons } from '@/utils/roll-reasons'
  import { seatWords } from '@/utils/seat-words'
-+import type { Sent } from '@/features/table/types'
++import type { Followed, Sent } from '@/features/table/types'
  import type { EndedTurn, RollKind, TableRollState } from '@/types/roll'
  import type { SeatRole } from '@/types/seats'
 -import type { EndableTurn, TableCombat } from '@/types/table'
@@ -2186,7 +3824,7 @@ index 32be5cf..f80e455 100644
    if (!current) return undefined
    const turn = {
      combatId: combat.id,
-@@ -90,6 +94,34 @@ export function turnKey(turn: EndedTurn): string {
+@@ -90,6 +94,63 @@ export function turnKey(turn: EndedTurn): string {
    return `${turn.combatId}:${turn.round}:${turn.combatantId}`
  }
  
@@ -2218,10 +3856,39 @@ index 32be5cf..f80e455 100644
 +  )
 +}
 +
++/**
++ * The End Turn Undo follows, as the page shows its combat now: once the game says it was made, by
++ * its id, the turn it left the combat on, once the page has shown one; and whether it can no
++ * longer be taken back from here. Still on the turn it ended, as in a view from before the game
++ * moved it, the next turn shown is the one it left; another combat, or none, and there's nothing
++ * to take back to. Once the combat has moved on from where it left it, or back, it's gone for
++ * good. The same object where nothing changed.
++ * @param done - The id of the End Turn the game said it made, if it has.
++ */
++export function nextFollowed(
++  followed: Followed,
++  sent: Sent | undefined,
++  done: string | undefined,
++  combat: TableCombat | undefined,
++): Followed {
++  if (!sent || done === undefined) return followed
++  const now: Followed =
++    followed.id === done ? followed : { id: done, over: false }
++  if (now.over) return now
++  const shown = shownTurn(combat)
++  if (now.left !== undefined) {
++    return !shown || !sameTurn(shown, now.left) ? { ...now, over: true } : now
++  }
++  if (!shown || shown.combatId !== sent.turn.combatId) {
++    return { ...now, over: true }
++  }
++  return sameTurn(shown, sent.turn) ? now : { ...now, left: shown }
++}
++
  /**
   * Why a turn wasn't ended, in words, for End Turn's own refusals: the fragment after "Your turn
   * wasn’t ended:". The rest are a roll's, as the tray words them, but too many at once, whose
-@@ -194,3 +226,30 @@ export function holdDescription(turn: EndableTurn): string {
+@@ -194,3 +255,30 @@ export function holdDescription(turn: EndableTurn): string {
      ? 'Press and hold to end your turn'
      : `Press and hold to end ${name}’s turn`
  }
@@ -2252,3 +3919,33 @@ index 32be5cf..f80e455 100644
 +  if (!now || !NOT_MADE.has(now.way.status)) return false
 +  return was?.turn !== now.turn || !NOT_MADE.has(was.way.status)
 +}
+diff --git a/src/hooks/use-waiting-prompts.ts b/src/hooks/use-waiting-prompts.ts
+index a8ab73d..3d1bf5e 100644
+--- a/src/hooks/use-waiting-prompts.ts
++++ b/src/hooks/use-waiting-prompts.ts
+@@ -60,6 +60,7 @@ export function useShownPrompts(
+     const fresh = prompts.filter(({ id, closed }) => closed && !notices.has(id))
+     if (fresh.length === 0) return
+     const at = Date.now()
++    // eslint-disable-next-line react-hooks/set-state-in-effect -- when the page first saw a notice is the time of the commit that showed it; in render it would read the clock there
+     setNotices(held => {
+       const next = new Map(held)
+       for (const prompt of fresh) {
+diff --git a/src/utils/ask-words.ts b/src/utils/ask-words.ts
+index 09fe68a..6c892ad 100644
+--- a/src/utils/ask-words.ts
++++ b/src/utils/ask-words.ts
+@@ -3,6 +3,13 @@ import { checkName, checkTitle } from '@/utils/description-links'
+ import type { AskedCheck, CheckOption } from '@/types/sending-stone'
+ import type { TableAsk } from '@/types/table'
+ 
++/** What a roll request card's chip calls what it asks for. */
++export const ASK_CHIPS: Record<TableAsk['type'], string> = {
++  save: 'Saving throw',
++  concentration: 'Concentration',
++  check: 'Check',
++}
++
+ /** Is this one of dnd5e's abilities' ids, and not a name any object answers to? */
+ export function isAbility(id: unknown): id is string {
+   return typeof id === 'string' && Object.hasOwn(ABILITIES, id)

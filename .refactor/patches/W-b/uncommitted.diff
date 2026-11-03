@@ -1,13 +1,567 @@
+diff --git a/src/mocks/notes-server.ts b/src/mocks/notes-server.ts
+index 4cdb399..1c2ed5e 100644
+--- a/src/mocks/notes-server.ts
++++ b/src/mocks/notes-server.ts
+@@ -1,3 +1,4 @@
++import type { Answer, Sent } from '@/mocks/types'
+ import type { NoteChapterView, NoteEntryView, NotesView } from '@/types/notes'
+ 
+ /*
+@@ -7,9 +8,6 @@ import type { NoteChapterView, NoteEntryView, NotesView } from '@/types/notes'
+  * itself, as a refusal, or another address, as the sheet's own.
+  */
+ 
+-type Sent = { url: string; method: string; body?: unknown }
+-type Answer = { status: number; body?: unknown }
+-
+ const respond = ({ status, body }: Answer) =>
+   Promise.resolve({
+     status,
+@@ -96,9 +94,6 @@ export function serveNotes(
+     /** Answers a write in place of the server's own, where it returns an answer. */
+     answer: undefined as ((sent: Sent) => Answer | undefined) | undefined,
+   }
+-  const bump = (book: NotesView) => {
+-    book.version += 1
+-  }
+   globalThis.fetch = jest.fn((async (url: string, init: RequestInit = {}) => {
+     const at = url.indexOf('/notes')
+     const book = at === -1 ? undefined : server.books[url.slice(0, at)]
+@@ -108,18 +103,7 @@ export function serveNotes(
+     const parsed = new URL(url, 'http://app')
+     const method = init.method ?? 'GET'
+     const rest = parsed.pathname.slice(parsed.pathname.indexOf('/notes') + 6)
+-    if (method === 'GET') {
+-      const asked = parsed.searchParams
+-      if (
+-        asked.get('version') === String(book.version) &&
+-        asked.get('live') === (book.live ? '1' : '0')
+-      ) {
+-        return respond({ status: 204 })
+-      }
+-      // A copy, as a response is: jsdom has no structuredClone.
+-      // eslint-disable-next-line unicorn/prefer-structured-clone
+-      return respond({ status: 200, body: JSON.parse(JSON.stringify(book)) })
+-    }
++    if (method === 'GET') return respond(read(book, parsed.searchParams))
+     const body =
+       typeof init.body === 'string' ? JSON.parse(init.body) : undefined
+     const sent = { url, method, body }
+@@ -132,83 +116,132 @@ export function serveNotes(
+         body: { html: `<p>${String(body.body)}</p>`, headings: [] },
+       })
+     }
+-    if (rest === '/order') {
+-      // A new order of a group's notes (round 0.35.0 §7.6): the book's notes as asked, the group's
+-      // in its order, after the others, as each group is read in its notes' order.
+-      if (method === 'PUT') {
+-        const moved = new Set<string>(body.ids)
+-        const ordered = body.ids
+-          .map((id: string) => book.entries.find(note => note.id === id))
+-          .filter(Boolean)
+-        book.entries = [
+-          ...book.entries.filter(note => !moved.has(note.id)),
+-          ...ordered,
+-        ]
+-      }
+-      bump(book)
+-      return respond({ status: 200, body: { stamp: `g:${book.version}` } })
+-    }
++    if (rest === '/order') return respond(order(book, method, body))
+     const id = decodeURIComponent(rest.slice(1))
+     if (method === 'POST') {
+       made += 1
+-      const made16 = `madeHere${String(made).padStart(8, '0')}`
+-      if (body.role === 'chapter') {
+-        book.chapters.push(
+-          noteChapter({
+-            id: made16,
+-            title: body.title,
+-            stamp: `w:${made16}.0`,
+-          }),
+-        )
+-      } else {
+-        book.entries.push(
+-          noteEntry({
+-            id: made16,
+-            title: body.title,
+-            body: body.body ?? '',
+-            html: `<p>${String(body.body ?? '')}</p>`,
+-            chapterId: body.chapterId ?? null,
+-            stamp: `w:${made16}.0`,
+-          }),
+-        )
+-      }
+-      bump(book)
+-      return respond({
+-        status: 201,
+-        body: { id: made16, stamp: `w:${made16}.0` },
+-      })
++      return respond(add(book, body, `madeHere${String(made).padStart(8, '0')}`))
+     }
+-    const entry = book.entries.find(note => note.id === id)
+-    const chapter = book.chapters.find(note => note.id === id)
+-    if (method === 'PATCH' && body && !('resolve' in body)) {
+-      if (entry) {
+-        const from = entry.chapterId
+-        Object.assign(entry, {
+-          title: body.title,
+-          body: body.body ?? entry.body,
+-          html: `<p>${String(body.body ?? entry.body)}</p>`,
+-          chapterId: body.chapterId ?? null,
+-        })
+-        // Moved to another chapter, it's last in it (round 0.35.0 §2.3).
+-        if (entry.chapterId !== from) {
+-          book.entries = [...book.entries.filter(note => note !== entry), entry]
+-        }
+-      } else if (chapter) {
+-        chapter.title = body.title
+-      } else {
+-        return respond({ status: 404 })
++    return respond(change(book, method, id, body))
++  }) as typeof fetch)
++  return server
++}
++
++/** A book read: 204 while it's the version and liveness asked about, else a copy of it. */
++function read(book: NotesView, asked: URLSearchParams): Answer {
++  if (
++    asked.get('version') === String(book.version) &&
++    asked.get('live') === (book.live ? '1' : '0')
++  ) {
++    return { status: 204 }
++  }
++  // A copy, as a response is.
++  // eslint-disable-next-line unicorn/prefer-structured-clone -- jsdom has no structuredClone
++  return { status: 200, body: JSON.parse(JSON.stringify(book)) }
++}
++
++/**
++ * A new order of a group's notes (round 0.35.0 §7.6): the book's notes as asked, the group's in its
++ * order, after the others, as each group is read in its notes' order.
++ */
++function order(
++  book: NotesView,
++  method: string,
++  body: { ids: string[] },
++): Answer {
++  if (method === 'PUT') {
++    const moved = new Set<string>(body.ids)
++    const ordered = body.ids
++      .map((id: string) => book.entries.find(note => note.id === id))
++      .filter((note): note is NoteEntryView => Boolean(note))
++    book.entries = [
++      ...book.entries.filter(note => !moved.has(note.id)),
++      ...ordered,
++    ]
++  }
++  bump(book)
++  return { status: 200, body: { stamp: `g:${book.version}` } }
++}
++
++/** A chapter or an entry added to a book, by the id the server made for it. */
++function add(
++  book: NotesView,
++  body: {
++    role?: string
++    title: string
++    body?: string
++    chapterId?: string | null
++  },
++  made16: string,
++): Answer {
++  if (body.role === 'chapter') {
++    book.chapters.push(
++      noteChapter({
++        id: made16,
++        title: body.title,
++        stamp: `w:${made16}.0`,
++      }),
++    )
++  } else {
++    book.entries.push(
++      noteEntry({
++        id: made16,
++        title: body.title,
++        body: body.body ?? '',
++        html: `<p>${String(body.body ?? '')}</p>`,
++        chapterId: body.chapterId ?? null,
++        stamp: `w:${made16}.0`,
++      }),
++    )
++  }
++  bump(book)
++  return {
++    status: 201,
++    body: { id: made16, stamp: `w:${made16}.0` },
++  }
++}
++
++/** A note of a book changed, deleted, or otherwise written. */
++function change(
++  book: NotesView,
++  method: string,
++  id: string,
++  body: { title: string; body?: string; chapterId?: string | null } | undefined,
++): Answer {
++  const entry = book.entries.find(note => note.id === id)
++  const chapter = book.chapters.find(note => note.id === id)
++  if (method === 'PATCH' && body && !('resolve' in body)) {
++    if (entry) {
++      const from = entry.chapterId
++      Object.assign(entry, {
++        title: body.title,
++        body: body.body ?? entry.body,
++        html: `<p>${String(body.body ?? entry.body)}</p>`,
++        chapterId: body.chapterId ?? null,
++      })
++      // Moved to another chapter, it's last in it (round 0.35.0 §2.3).
++      if (entry.chapterId !== from) {
++        book.entries = [...book.entries.filter(note => note !== entry), entry]
+       }
+-      bump(book)
+-      return respond({ status: 200, body: { stamp: `w:${id}.1` } })
+-    }
+-    if (method === 'DELETE') {
+-      if (!entry) return respond({ status: 404 })
+-      book.entries = book.entries.filter(note => note.id !== id)
+-      bump(book)
+-      return respond({ status: 200, body: {} })
++    } else if (chapter) {
++      chapter.title = body.title
++    } else {
++      return { status: 404 }
+     }
+     bump(book)
+-    return respond({ status: 200, body: { stamp: `w:${id}.2` } })
+-  }) as typeof fetch)
+-  return server
++    return { status: 200, body: { stamp: `w:${id}.1` } }
++  }
++  if (method === 'DELETE') {
++    if (!entry) return { status: 404 }
++    book.entries = book.entries.filter(note => note.id !== id)
++    bump(book)
++    return { status: 200, body: {} }
++  }
++  bump(book)
++  return { status: 200, body: { stamp: `w:${id}.2` } }
++}
++
++/** A book's version, one on for each change. */
++function bump(book: NotesView) {
++  book.version += 1
+ }
 diff --git a/src/mocks/sending-stone.ts b/src/mocks/sending-stone.ts
-index c08b29a..6b4f6f6 100644
+index c08b29a..767539a 100644
 --- a/src/mocks/sending-stone.ts
 +++ b/src/mocks/sending-stone.ts
-@@ -1,3 +1,4 @@
+@@ -1,4 +1,13 @@
 +import { NO_DICE } from '@/constants/roll-kinds'
++import { DONE_HEAD } from '@/mocks/results'
++import {
++  OTHER_SYSTEM,
++  SWITCHED_OFF,
++  switchedOn,
++  tableViewOf,
++} from '@/mocks/switches'
  import type { NotePageCommand } from '@/db/types'
++import type { ChosenFavorite } from '@/mocks/types'
  import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
  import type { NotesView } from '@/types/notes'
-@@ -4020,10 +4021,7 @@ export function mockNoteCommand(
+ import type { PartyView, TableMoves } from '@/types/party'
+@@ -2219,9 +2228,7 @@ export function movedResult(
+ ): CommandResult {
+   return {
+     id: 'req-move',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: 'm-line',
+     visible: true,
+     rolls: [],
+@@ -2249,17 +2256,12 @@ export function manualDiceView(
+   manualDice: NonNullable<TableView['manualDice']>,
+   fields: Partial<TableView> = {},
+ ): TableView {
+-  return {
+-    version: 7,
+-    live: true,
+-    campaign: { title: 'The Lonely Mountain' },
+-    connected: true,
+-    messages: [],
++  return tableViewOf({
+     rollsToTable: ['skill', 'attack', 'damage'],
+     rollFeatures: ['manualDice'],
+     manualDice,
+     ...fields,
+-  }
++  })
+ }
+ 
+ /** The game lets Thorin's player type in their own dice, which they haven't chosen to. */
+@@ -2307,13 +2309,10 @@ export function typingRosterEntry(
+ // Module 0.32.0: a party's things sent elsewhere by its Owner, and its coin distributed.
+ 
+ /** What a hello from module 0.32.0 says of moves, on, under dnd5e. */
+-export const SENDING_TRANSFERS = {
+-  enabled: true,
+-  kinds: ['transfer'],
+-  reason: null,
++export const SENDING_TRANSFERS = switchedOn('transfer', {
+   partySends: true,
+   distribute: true,
+-} as const
++})
+ 
+ /** The Iron Company's members that are the campaign's characters, in its sheet's order. */
+ export const COMPANY_CHARACTERS = [
+@@ -2357,9 +2356,7 @@ export function distributedResult(
+ ): CommandResult {
+   return {
+     id: 'req-move',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: 'm-line',
+     visible: true,
+     rolls: [],
+@@ -2377,18 +2374,10 @@ export function distributedResult(
+ // Module 0.33.0: an item removed from a character.
+ 
+ /** What a hello from module 0.33.0 says of removals under dnd5e, with no switch: on. */
+-export const REMOVING = {
+-  enabled: true,
+-  kinds: ['remove'],
+-  reason: null,
+-} as const
++export const REMOVING = switchedOn('remove')
+ 
+ /** What a hello from module 0.33.0 says of removals under another system: off, and why. */
+-export const NOT_REMOVING = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'system',
+-} as const
++export const NOT_REMOVING = { ...OTHER_SYSTEM }
+ 
+ /** Two of Thorin's three Potions of Healing removed. */
+ export function removedResult(
+@@ -2396,9 +2385,7 @@ export function removedResult(
+ ): CommandResult {
+   return {
+     id: 'req-remove',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: 'm-line',
+     visible: true,
+     rolls: [],
+@@ -2409,53 +2396,22 @@ export function removedResult(
+ 
+ /** Thorin's table view as his player has it while the game removes his items, moves off. */
+ export function removingTableView(fields: Partial<TableView> = {}): TableView {
+-  return {
+-    version: 7,
+-    live: true,
+-    campaign: { title: 'The Lonely Mountain' },
+-    connected: true,
+-    messages: [],
+-    removes: true,
+-    ...fields,
+-  }
++  return tableViewOf({ removes: true, ...fields })
+ }
+ 
+ // Module 0.37.0: a character's favorites added and removed from the app.
+ 
+ /** What a hello from module 0.37.0 says of favorites under dnd5e, with no switch: on. */
+-export const FAVORITING = {
+-  enabled: true,
+-  kinds: ['favorite'],
+-  reason: null,
+-} as const
++export const FAVORITING = switchedOn('favorite')
+ 
+ /** What a hello from module 0.37.0 says of favorites under another system: off, and why. */
+-export const NOT_FAVORITING = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'system',
+-} as const
++export const NOT_FAVORITING = { ...OTHER_SYSTEM }
+ 
+ /** Thorin's table view as his player has it while the game takes his favorites, rolls off. */
+ export function favoritingTableView(
+   fields: Partial<TableView> = {},
+ ): TableView {
+-  return {
+-    version: 7,
+-    live: true,
+-    campaign: { title: 'The Lonely Mountain' },
+-    connected: true,
+-    messages: [],
+-    favorites: true,
+-    ...fields,
+-  }
+-}
+-
+-/** What a row's favorites entry was chosen for, as `offeringFavorites` notes it. */
+-export type ChosenFavorite = {
+-  target: FavoriteTarget
+-  name: string
+-  op: 'add' | 'remove'
++  return tableViewOf({ favorites: true, ...fields })
+ }
+ 
+ /** A favorite's key, as `targetKey` makes it: "activity:<itemId>.<id>" or "<type>:<id>". */
+@@ -2505,9 +2461,7 @@ export function favoritedResult(
+ ): CommandResult {
+   return {
+     id: 'req-favorite',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: null,
+     visible: true,
+     rolls: [],
+@@ -2519,36 +2473,19 @@ export function favoritedResult(
+ // Module 0.38.0: dishes from the Magical Recipe Book.
+ 
+ /** What a hello from module 0.38.0 says of dishes with the campaign's switch on, under dnd5e 5. */
+-export const TAKING_DISHES = {
+-  enabled: true,
+-  kinds: ['dish'],
+-  reason: null,
+-  versions: [1],
+-} as const
++export const TAKING_DISHES = switchedOn('dish', { versions: [1] })
+ 
+ /** What it says with the campaign's switch off, the default. */
+-export const DISHES_SWITCHED_OFF = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'off',
+-  versions: [],
+-} as const
++export const DISHES_SWITCHED_OFF = { ...SWITCHED_OFF, versions: [] }
+ 
+ /** What it says with the switch on under another system, or under dnd5e 6. */
+-export const DISHES_OTHER_SYSTEM = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'system',
+-  versions: [],
+-} as const
++export const DISHES_OTHER_SYSTEM = { ...OTHER_SYSTEM, versions: [] }
+ 
+ /** A dish's card posted in Foundry, waiting for the Gamemaster. */
+ export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
+   return {
+     id: 'dish-cmh9q2x7k0003ssdish0001',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: 'Xy12ChatCardId00',
+     visible: false,
+     rolls: [],
+@@ -2560,25 +2497,13 @@ export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
+ // Module 0.39.0: a player's own effects.
+ 
+ /** What a hello from module 0.39.0 says of effects with the campaign's switch on, under dnd5e. */
+-export const TAKING_EFFECTS = {
+-  enabled: true,
+-  kinds: ['effect'],
+-  reason: null,
+-} as const
++export const TAKING_EFFECTS = switchedOn('effect')
+ 
+ /** What it says with the campaign's switch off, the default. */
+-export const EFFECTS_SWITCHED_OFF = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'off',
+-} as const
++export const EFFECTS_SWITCHED_OFF = { ...SWITCHED_OFF }
+ 
+ /** What it says with the switch on under another system. */
+-export const EFFECTS_OTHER_SYSTEM = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'system',
+-} as const
++export const EFFECTS_OTHER_SYSTEM = { ...OTHER_SYSTEM }
+ 
+ /** Bless turned off from the app: off now, its sheet sent first, nothing posted. */
+ export function effectResult(
+@@ -2586,9 +2511,7 @@ export function effectResult(
+ ): CommandResult {
+   return {
+     id: 'req-effect',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: null,
+     visible: true,
+     rolls: [],
+@@ -2600,25 +2523,13 @@ export function effectResult(
+ // Module 0.40.0: Wild Shape.
+ 
+ /** What a hello from module 0.40.0 says of Wild Shape, its campaign's switch on, under dnd5e. */
+-export const TAKING_WILD_SHAPE = {
+-  enabled: true,
+-  kinds: ['wildShape'],
+-  reason: null,
+-} as const
++export const TAKING_WILD_SHAPE = switchedOn('wildShape')
+ 
+ /** What it says with the campaign's switch off, the default. */
+-export const WILD_SHAPE_SWITCHED_OFF = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'off',
+-} as const
++export const WILD_SHAPE_SWITCHED_OFF = { ...SWITCHED_OFF }
+ 
+ /** What it says with the switch on under another system. */
+-export const WILD_SHAPE_OTHER_SYSTEM = {
+-  enabled: false,
+-  kinds: [],
+-  reason: 'system',
+-} as const
++export const WILD_SHAPE_OTHER_SYSTEM = { ...OTHER_SYSTEM }
+ 
+ /**
+  * Elowen's Wild Shape feature's id, its row's on her sheet and on her form's, which dnd5e copies
+@@ -3117,9 +3028,7 @@ export function wildShapeResult(
+ ): CommandResult {
+   return {
+     id: 'req-wildshape',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: null,
+     visible: true,
+     rolls: [],
+@@ -3505,9 +3414,7 @@ export function aloneResult(
+ ): CommandResult {
+   return {
+     id: 'req-alone',
+-    status: 'done',
+-    reason: null,
+-    error: null,
++    ...DONE_HEAD,
+     messageId: 'msg-alone',
+     visible: true,
+     rolls: [{ formula: '4d6', total: 14, dice: [], damageType: 'fire' }],
+@@ -4020,10 +3927,7 @@ export function mockNoteCommand(
        createdAt: written(1),
        ...fields,
      },
@@ -19,6 +573,41 @@ index c08b29a..6b4f6f6 100644
    }
  }
  
+@@ -4211,14 +4115,7 @@ export function mockCompanionSheet(
+ 
+ /** A table view of Thorin's, as the app serves it, with no sheet unless given. */
+ export function mockTableView(fields: Partial<TableView> = {}): TableView {
+-  return {
+-    version: 7,
+-    live: true,
+-    campaign: { title: 'The Frost Road' },
+-    connected: true,
+-    messages: [],
+-    ...fields,
+-  }
++  return tableViewOf({ campaign: { title: 'The Frost Road' }, ...fields })
+ }
+ 
+ /** The wolf's own view, for its pane, each its own roll unless given. */
+diff --git a/src/mocks/slim-sheet.ts b/src/mocks/slim-sheet.ts
+index 785d215..0576cb5 100644
+--- a/src/mocks/slim-sheet.ts
++++ b/src/mocks/slim-sheet.ts
+@@ -1,4 +1,5 @@
+ import { characterSheet, TEXTS } from '@/mocks/sending-stone'
++import type { Json } from '@/mocks/types'
+ import type { CharacterSheet } from '@/types/sending-stone'
+ 
+ // A sheet in full, as module 0.22.0 builds it, and the same sheet in slim format 1, written out by
+@@ -6,8 +7,6 @@ import type { CharacterSheet } from '@/types/sending-stone'
+ // activities, another staff unequipped, an item not identified yet, nested containers, and
+ // features that roll and don't. Synthetic: nothing in it comes from a real game.
+ 
+-type Json = Record<string, unknown>
+-
+ const NO_ROLLS = {
+   toHit: null,
+   attackId: null,
 diff --git a/src/utils/requests/check-linked.ts b/src/utils/requests/check-linked.ts
 index 2439d47..a7aa316 100644
 --- a/src/utils/requests/check-linked.ts

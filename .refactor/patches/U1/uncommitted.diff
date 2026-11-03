@@ -4122,7 +4122,7 @@ index 97442de..76c332e 100644
  import { WildShaping } from './wild-shaping'
  import {
 diff --git a/src/features/sheet/components/wild-shape/wild-shape.tsx b/src/features/sheet/components/wild-shape/wild-shape.tsx
-index 100c38f..fc2a429 100644
+index 100c38f..5360e30 100644
 --- a/src/features/sheet/components/wild-shape/wild-shape.tsx
 +++ b/src/features/sheet/components/wild-shape/wild-shape.tsx
 @@ -1,31 +1,15 @@
@@ -4141,7 +4141,7 @@ index 100c38f..fc2a429 100644
 -  useInteractions,
 -  useRole,
 -} from '@floating-ui/react'
-+import { use, useLayoutEffect, useRef } from 'react'
++import { use, useLayoutEffect, useRef, type RefObject } from 'react'
  import { Clock, PawPrint } from 'lucide-react'
 -import { WildShapeContext } from './use-wild-shape-row'
 -import { ReturnButton, PLAIN, SOLID } from './wild-shape-row-controls'
@@ -4160,7 +4160,7 @@ index 100c38f..fc2a429 100644
  import type { SheetForm } from '@/types/sending-stone'
  
  // Wild Shape from the app, from module 0.40.0 (round 0.40.0 §5): the ribbon above a shaped sheet's
-@@ -36,26 +20,20 @@ import type { SheetForm } from '@/types/sending-stone'
+@@ -36,26 +20,27 @@ import type { SheetForm } from '@/types/sending-stone'
  // `form`, `known`), for up to `WILD_SHAPE_SETTLE`, as an effect's change does; focus then goes
  // where the change is, only where it was on what was pressed, in the dialog, or lost.
  
@@ -4178,20 +4178,28 @@ index 100c38f..fc2a429 100644
 -  const ws = use(WildShapeContext)
 -  if (!ws.form || !ws.pane) return
 -  return <Ribbon form={ws.form} />
-+  const { form, pane } = use(WildShapeContext)
++  const { form, pane, heading } = use(WildShapeContext)
 +  if (!form || !pane) return
-+  return <Ribbon form={form} />
++  return <Ribbon form={form} heading={heading} />
  }
  
- function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
+-function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
 -  const ws = use(WildShapeContext)
-+  const { panel, on, role, sheet, name, heading } = use(WildShapeContext)
++function Ribbon({
++  form,
++  heading,
++}: Readonly<{
++  form: SheetForm
++  /** The ribbon's heading, which takes focus once a change is made. */
++  heading: RefObject<HTMLHeadingElement | null>
++}>) {
++  const { panel, on, role, sheet, name } = use(WildShapeContext)
    const section = useRef<HTMLElement>(null)
 -  const { panel } = ws
    // The game ending it while focus is in the ribbon: focus to the tab's panel, as it goes.
    useLayoutEffect(() => {
      const element = section.current
-@@ -64,15 +42,12 @@ function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
+@@ -64,15 +49,12 @@ function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
        if (element && active && element.contains(active)) panel()?.focus()
      }
    }, [panel])
@@ -4210,7 +4218,7 @@ index 100c38f..fc2a429 100644
    return (
      <section
        ref={section}
-@@ -82,11 +57,11 @@ function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
+@@ -82,11 +64,11 @@ function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
        <PawPrint aria-hidden className='size-5 shrink-0 text-wild' />
        <div className='min-w-0 flex-1'>
          <h2
@@ -4224,7 +4232,7 @@ index 100c38f..fc2a429 100644
          </h2>
          {time && (
            <p className='flex items-center gap-1 text-xs text-text-secondary'>
-@@ -96,93 +71,11 @@ function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
+@@ -96,93 +78,11 @@ function Ribbon({ form }: Readonly<{ form: SheetForm }>) {
          )}
          {!returnable && (
            <p className='text-xs text-text-secondary'>
@@ -4321,7 +4329,7 @@ index 100c38f..fc2a429 100644
 -/** How long an ending is told of on a page opened since, in milliseconds: twelve hours. */
 -export const ENDED_FOR = 12 * 60 * 60 * 1000
 diff --git a/src/features/sheet/components/wild-shape/wild-shaping.tsx b/src/features/sheet/components/wild-shape/wild-shaping.tsx
-index 8b9b4ab..a175945 100644
+index 8b9b4ab..d99534f 100644
 --- a/src/features/sheet/components/wild-shape/wild-shaping.tsx
 +++ b/src/features/sheet/components/wild-shape/wild-shaping.tsx
 @@ -1,46 +1,10 @@
@@ -4376,7 +4384,15 @@ index 8b9b4ab..a175945 100644
  
  /**
   * What the rows, tabs and ribbon inside know of the character's Wild Shape; and the pane's one
-@@ -61,582 +25,3 @@ export function WildShaping({
+@@ -54,589 +18,10 @@ export function WildShaping({
+   return (
+     <WildShapeContext value={value}>
+       {children}
+-      {value.block && <WildShapeDialog />}
++      {value.block && <WildShapeDialog body={value.body} />}
+       {value.returnAnchor && value.form && (
+         <ReturnPopover anchor={value.returnAnchor} />
+       )}
      </WildShapeContext>
    )
  }

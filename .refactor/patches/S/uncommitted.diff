@@ -1,3 +1,54 @@
+diff --git a/src/app/api/bridge/commands/route.ts b/src/app/api/bridge/commands/route.ts
+index b69e9cb..8f2720c 100644
+--- a/src/app/api/bridge/commands/route.ts
++++ b/src/app/api/bridge/commands/route.ts
+@@ -1,3 +1,4 @@
++import { BRIDGE_SWITCHES } from '@/constants/features'
+ import {
+   COMMANDS_CHECK_EVERY,
+   COMMANDS_COLD_WAIT,
+@@ -170,16 +171,7 @@ export async function POST(request: Request) {
+   // 0.33.0, journal notes, from module 0.34.0, favorites, from module 0.37.0, dishes from the
+   // Magical Recipe Book, from module 0.38.0, effects, from module 0.39.0, and Wild Shape, from
+   // module 0.40.0, are fetched with rolls off too.
+-  if (
+-    !polled.rollsEnabled &&
+-    !polled.transfersEnabled &&
+-    !polled.removalsEnabled &&
+-    !polled.notesEnabled &&
+-    !polled.favoritesEnabled &&
+-    !polled.dishesEnabled &&
+-    !polled.effectsEnabled &&
+-    !polled.wildShapeEnabled
+-  ) {
++  if (!BRIDGE_SWITCHES.some(field => polled[field])) {
+     return answer([], began, COMMANDS_OFF_WAIT)
+   }
+ 
+diff --git a/src/db/campaign-events.ts b/src/db/campaign-events.ts
+index 41bc765..cac309b 100644
+--- a/src/db/campaign-events.ts
++++ b/src/db/campaign-events.ts
+@@ -1,5 +1,6 @@
+ import prisma from '@/clients/prisma'
+ import { COOKBOOK_VERSIONS } from '@/constants/cookbook'
++import { OWN_KINDS } from '@/constants/roll-kinds'
+ import {
+   COMPANION_UNTAKEN,
+   MIDI_PROMPT_WAIT,
+@@ -155,11 +156,7 @@ async function apply(
+           rollKinds: (features?.rolls?.kinds ?? []).filter(
+             kind =>
+               (ROLL_KINDS as readonly string[]).includes(kind) &&
+-              kind !== 'transfer' &&
+-              kind !== 'remove' &&
+-              kind !== 'favorite' &&
+-              kind !== 'effect' &&
+-              kind !== 'wildShape',
++              !(OWN_KINDS as readonly string[]).includes(kind),
+           ),
+           // What else it can do with them: from module 0.13.0, take damage a player changed, and
+           // ask players for the saves their game asks of them; from module 0.16.0, make area
 diff --git a/src/db/companions.ts b/src/db/companions.ts
 index 3bc7a8c..4fd300a 100644
 --- a/src/db/companions.ts
@@ -11,6 +62,43 @@ index 3bc7a8c..4fd300a 100644
  import type { SheetSeat } from '@/types/character'
  import type { RollFeature, RollKind } from '@/types/roll'
  import type {
+diff --git a/src/db/cookbook.ts b/src/db/cookbook.ts
+index e758c80..9886d46 100644
+--- a/src/db/cookbook.ts
++++ b/src/db/cookbook.ts
+@@ -11,8 +11,10 @@ import {
+   DISHES_SHOWN,
+   MOST_DISHES_WAITING,
+ } from '@/constants/cookbook'
++import { NO_DICE } from '@/constants/roll-kinds'
+ import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+ import { isLive } from '@/db/campaigns'
++import { due } from '@/db/commands'
+ import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
+ import type {
+   CookbookDishBody,
+@@ -235,8 +237,7 @@ export async function claimDishes(
+   session: string,
+ ): Promise<DishCommand[]> {
+   const now = Date.now()
+-  if (now - (pruned.get(campaignId) ?? 0) >= DISHES_PRUNE_EVERY) {
+-    pruned.set(campaignId, now)
++  if (due(pruned, campaignId, DISHES_PRUNE_EVERY, now)) {
+     await pruneDishes(campaignId, now)
+   }
+   const campaign = await prisma.campaign.findUnique({
+@@ -301,10 +302,7 @@ export async function claimDishes(
+       queuedAt: dish.queuedAt.getTime(),
+       body: dish.payload as unknown as CookbookDishBody,
+     },
+-    mode: 0,
+-    explicit: false,
+-    extras: [],
+-    dice: [],
++    ...NO_DICE,
+   }))
+ }
+ 
 diff --git a/src/db/effects.ts b/src/db/effects.ts
 index 5f2deda..018de77 100644
 --- a/src/db/effects.ts
@@ -286,6 +374,73 @@ index 5b52d4a..28681e6 100644
 -  return { id }
 +  return createCommand(seat, input, FAVORITE_COMMAND)
  }
+diff --git a/src/db/note-sync.ts b/src/db/note-sync.ts
+index a003076..a175f22 100644
+--- a/src/db/note-sync.ts
++++ b/src/db/note-sync.ts
+@@ -7,6 +7,7 @@ import {
+ } from '@prisma/client'
+ import prisma from '@/clients/prisma'
+ import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
++import { NO_DICE } from '@/constants/roll-kinds'
+ import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+ import { noteHtml } from '@/lib/note-html'
+ import type { NotePageCommand } from './types'
+@@ -578,10 +579,7 @@ function pageCommand(
+         createdAt: write.noteCreatedAt.getTime(),
+       }),
+     },
+-    mode: 0,
+-    explicit: false,
+-    extras: [],
+-    dice: [],
++    ...NO_DICE,
+   }
+ }
+ 
+@@ -607,10 +605,7 @@ function orderCommand(
+       writer: gm ? null : order.writerActorId,
+       at: order.modifiedAt.getTime(),
+     },
+-    mode: 0,
+-    explicit: false,
+-    extras: [],
+-    dice: [],
++    ...NO_DICE,
+   }
+ }
+ 
+diff --git a/src/db/party.ts b/src/db/party.ts
+index 7c3d374..7363d14 100644
+--- a/src/db/party.ts
++++ b/src/db/party.ts
+@@ -1,6 +1,7 @@
+ import prisma from '@/clients/prisma'
+ import { MOST_AMONG } from '@/constants/sending-stone'
+ import { isLive } from '@/db/campaigns'
++import { FOUNDRY_ID } from '@/db/constants'
+ import { inventoryView, portraitUrl } from '@/utils/table-view'
+ import { transfersAvailable } from '@/utils/transfers'
+ import type { SheetSeat } from '@/types/character'
+@@ -23,9 +24,6 @@ import type {
+ // that a player whose access is taken away in Foundry loses it here at once. Anyone else is told
+ // nothing: a group that isn't there, a campaign that isn't theirs and no access all look the same.
+ 
+-/** A Foundry document's id, as the module sends a group's. */
+-const GROUP_ID = /^[\dA-Za-z]{1,64}$/
+-
+ /** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
+ export type PartySeat =
+   | {
+@@ -189,7 +187,7 @@ function takes(
+ 
+ /** The campaign and the group's entry, where the seat may see the group; else undefined. */
+ async function access(seat: PartySeat, groupId: string) {
+-  if (!GROUP_ID.test(groupId) || !seat.campaignId) return
++  if (!FOUNDRY_ID.test(groupId) || !seat.campaignId) return
+   const campaign = await prisma.campaign.findUnique({
+     where: { id: seat.campaignId },
+     select: campaignSelect,
 diff --git a/src/db/removals.ts b/src/db/removals.ts
 index 086febb..1acea61 100644
 --- a/src/db/removals.ts
@@ -448,26 +603,65 @@ index 086febb..1acea61 100644
 +  return createCommand(seat, input, REMOVE_COMMAND)
  }
 diff --git a/src/db/roll-requests.ts b/src/db/roll-requests.ts
-index 42ea08c..ba940b5 100644
+index 42ea08c..e98a310 100644
 --- a/src/db/roll-requests.ts
 +++ b/src/db/roll-requests.ts
-@@ -14,6 +14,7 @@ import {
+@@ -1,5 +1,7 @@
+ import { randomUUID } from 'node:crypto'
+ import prisma from '@/clients/prisma'
++import { BRIDGE_SWITCHES } from '@/constants/features'
++import { ANSWER_KINDS, OWN_KINDS, ROLL_KIND_INFO } from '@/constants/roll-kinds'
+ import {
+   ASKS_PER_MINUTE,
+   MOST_OPEN,
+@@ -14,6 +16,8 @@ import {
    TABLE_SEEN_EVERY,
  } from '@/constants/sending-stone'
  import { closePrompt } from '@/db/campaign-events'
-+import { ago, madeBy } from '@/db/commands'
++import { ago, due, madeBy } from '@/db/commands'
++import { FOUNDRY_ID } from '@/db/constants'
  import { recordDishResult } from '@/db/cookbook'
  import { createEffectRequest } from '@/db/effects'
  import { createFavoriteRequest } from '@/db/favorites'
-@@ -31,6 +32,7 @@ import { checkEndTurn, checkUndoTurn } from '@/utils/requests/check-turns'
+@@ -31,8 +35,20 @@ import { checkEndTurn, checkUndoTurn } from '@/utils/requests/check-turns'
  import { checkRoll } from '@/utils/requests/checks'
  import { GM_UNSENT, toCommand } from '@/utils/requests/commands'
  import { toRollRequestView } from '@/utils/requests/views'
-+import type { RollRejection, RollSeat } from '@/db/types'
++import type {
++  BridgePolled,
++  BridgeSwitch,
++  CommandCreator,
++  RollRejection,
++  RollSeat,
++} from '@/db/types'
  import type { SheetSeat } from '@/types/character'
- import type { RollRequestInput, RollRequestView } from '@/types/roll'
+-import type { RollRequestInput, RollRequestView } from '@/types/roll'
++import type {
++  RollKind,
++  RollKindInfo,
++  RollRequestInput,
++  RollRequestView,
++} from '@/types/roll'
  import type {
-@@ -66,47 +68,6 @@ const heldSelect = {
+   CharacterSheet,
+   CombatSnapshot,
+@@ -53,6 +69,15 @@ import type { Prisma } from '@prisma/client'
+ /** The most rolls one fetch takes. */
+ const CLAIM_LIMIT = 10
+ 
++/** What isn't a roll, each kind with a switch of its own, taken by its own creator. */
++const OWN_CREATORS: Partial<Record<RollKind, CommandCreator>> = {
++  transfer: createTransferRequest,
++  remove: createRemoveRequest,
++  favorite: createFavoriteRequest,
++  effect: createEffectRequest,
++  wildShape: createWildShapeRequest,
++}
++
+ const heldSelect = {
+   id: true,
+   actorId: true,
+@@ -66,47 +91,6 @@ const heldSelect = {
    claimedAt: true,
  } as const
  
@@ -515,7 +709,174 @@ index 42ea08c..ba940b5 100644
  /**
   * Take a roll for a character to make in the Gamemaster's game, from its player or from the
   * campaign's Gamemaster as it (#156): if the game takes this kind of roll now, and the Gamemaster's
-@@ -815,8 +776,3 @@ export async function openActorIds(campaignId: string): Promise<string[]> {
+@@ -146,24 +130,16 @@ export async function createRollRequest(
+   // has no Wild Shape of a character's, and the schema takes the kinds, so they're refused here
+   // first, before any is looked at.
+   const { companion } = seat
+-  if (
+-    companion &&
+-    (
+-      ['transfer', 'remove', 'favorite', 'effect', 'wildShape'] as string[]
+-    ).includes(input.kind)
+-  ) {
++  if (companion && OWN_KINDS.includes(input.kind)) {
+     return { status: 422, reason: 'unknown' }
+   }
+   // While the character is transformed, what would change its own actor's things waits.
+-  if (['transfer', 'remove', 'favorite', 'effect'].includes(input.kind)) {
++  if ('shaped' in ROLL_KIND_INFO[input.kind]) {
+     const shaped = await shapedRefusal(seat, input)
+     if (shaped) return shaped
+   }
+-  if (input.kind === 'transfer') return createTransferRequest(seat, input)
+-  if (input.kind === 'remove') return createRemoveRequest(seat, input)
+-  if (input.kind === 'favorite') return createFavoriteRequest(seat, input)
+-  if (input.kind === 'effect') return createEffectRequest(seat, input)
+-  if (input.kind === 'wildShape') return createWildShapeRequest(seat, input)
++  const own = OWN_CREATORS[input.kind]
++  if (own) return own(seat, input)
+   const { campaignId, actorId } = seat
+   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
+   const campaign = await prisma.campaign.findUnique({
+@@ -220,7 +196,7 @@ export async function createRollRequest(
+     (input.kind === 'attack' &&
+       input.targets !== undefined &&
+       !campaign.rollFeatures.includes('areaAttacks')) ||
+-    (['skill', 'tool', 'ability'].includes(input.kind) &&
++    ('check' in ROLL_KIND_INFO[input.kind] &&
+       input.item !== undefined &&
+       !campaign.rollFeatures.includes('activityChecks'))
+   ) {
+@@ -318,7 +294,7 @@ export async function createRollRequest(
+           where: {
+             campaignId,
+             actorId,
+-            kind: { in: ['save', 'ability', 'skill'] },
++            kind: { in: [...ANSWER_KINDS] },
+             payload: { path: ['prompt'], equals: prompt },
+           },
+           select: { status: true, createdAt: true, claimedAt: true },
+@@ -561,23 +537,16 @@ export async function claimRollRequests(
+   // ever taken, so none is handed over. A character's own effects changed, from module 0.39.0, as
+   // favorites, by the campaign's own switch; and Wild Shape, from module 0.40.0, likewise, so a
+   // module before it, which says nothing of it, is never handed one.
+-  const transfers = current && campaign?.transfersEnabled === true
+-  const removals = current && campaign?.removalsEnabled === true
+-  const favorites = current && campaign?.favoritesEnabled === true
+-  const effects = current && campaign?.effectsEnabled === true
+-  const wildShape = current && campaign?.wildShapeEnabled === true
++  const takes = (kind: RollKind) => {
++    const field = (ROLL_KIND_INFO[kind] as RollKindInfo).own
++    return current && !!field && campaign?.[field] === true
++  }
++  const transfers = takes('transfer')
++  const removals = takes('remove')
+   // A row of a kind the session doesn't take now waits, and runs out.
+-  const withheld = [
+-    ...(transfers ? [] : ['transfer']),
+-    ...(removals ? [] : ['remove']),
+-    ...(favorites ? [] : ['favorite']),
+-    ...(effects ? [] : ['effect']),
+-    ...(wildShape ? [] : ['wildShape']),
+-  ]
++  const withheld = OWN_KINDS.filter(kind => !takes(kind))
+   const notWithheld = withheld.length > 0 ? { kind: { notIn: withheld } } : {}
+-  const notOwn = {
+-    kind: { notIn: ['transfer', 'remove', 'favorite', 'effect', 'wildShape'] },
+-  }
++  const notOwn = { kind: { notIn: [...OWN_KINDS] } }
+   const waiting = await prisma.rollRequest.findMany({
+     where: {
+       campaignId,
+@@ -701,43 +670,25 @@ export async function recordCommandResult(
+  * module 0.40.0 Wild Shape, and whether any of its players have their table open, so that one may
+  * be coming.
+  */
+-export async function markBridgePolled(campaignId: string): Promise<{
+-  rollsEnabled: boolean
+-  transfersEnabled: boolean
+-  removalsEnabled: boolean
+-  notesEnabled: boolean
+-  favoritesEnabled: boolean
+-  dishesEnabled: boolean
+-  effectsEnabled: boolean
+-  wildShapeEnabled: boolean
+-  playersPresent: boolean
+-}> {
++export async function markBridgePolled(
++  campaignId: string,
++): Promise<BridgePolled> {
+   const now = new Date()
+   const campaign = await prisma.campaign.update({
+     where: { id: campaignId },
+     data: { bridgePolledAt: now, lastSeenAt: now },
+     select: {
+-      rollsEnabled: true,
+-      transfersEnabled: true,
+-      removalsEnabled: true,
+-      notesEnabled: true,
+-      favoritesEnabled: true,
+-      dishesEnabled: true,
+-      effectsEnabled: true,
+-      wildShapeEnabled: true,
++      ...(Object.fromEntries(
++        BRIDGE_SWITCHES.map(field => [field, true]),
++      ) as Record<BridgeSwitch, true>),
+       playersSeenAt: true,
+     },
+   })
+   const seen = campaign.playersSeenAt?.getTime()
+   return {
+-    rollsEnabled: campaign.rollsEnabled,
+-    transfersEnabled: campaign.transfersEnabled,
+-    removalsEnabled: campaign.removalsEnabled,
+-    notesEnabled: campaign.notesEnabled,
+-    favoritesEnabled: campaign.favoritesEnabled,
+-    dishesEnabled: campaign.dishesEnabled,
+-    effectsEnabled: campaign.effectsEnabled,
+-    wildShapeEnabled: campaign.wildShapeEnabled,
++    ...(Object.fromEntries(
++      BRIDGE_SWITCHES.map(field => [field, campaign[field]]),
++    ) as Record<BridgeSwitch, boolean>),
+     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
+   }
+ }
+@@ -751,8 +702,7 @@ const noted = new Map<string, number>()
+  */
+ export async function notePlayersSeen(campaignId: string): Promise<void> {
+   const now = Date.now()
+-  if (now - (noted.get(campaignId) ?? 0) < PLAYERS_SEEN_EVERY) return
+-  noted.set(campaignId, now)
++  if (!due(noted, campaignId, PLAYERS_SEEN_EVERY, now)) return
+   await prisma.campaign.updateMany({
+     where: {
+       id: campaignId,
+@@ -777,8 +727,7 @@ const tablesNoted = new Map<string, number>()
+  */
+ export async function noteTableOpen(characterId: string): Promise<void> {
+   const now = Date.now()
+-  if (now - (tablesNoted.get(characterId) ?? 0) < TABLE_SEEN_EVERY) return
+-  tablesNoted.set(characterId, now)
++  if (!due(tablesNoted, characterId, TABLE_SEEN_EVERY, now)) return
+   await prisma.character.updateMany({
+     where: {
+       id: characterId,
+@@ -792,9 +741,6 @@ export async function noteTableOpen(characterId: string): Promise<void> {
+   })
+ }
+ 
+-/** An actor's id as the module sends it, and reads it back. */
+-const ACTOR_ID = /^[A-Za-z0-9]{1,64}$/
+-
+ /**
+  * The campaign's characters open in the app now, by their actors' ids, sorted: those whose
+  * player's page asked for their table lately. The module waits only for their answers.
+@@ -811,12 +757,7 @@ export async function openActorIds(campaignId: string): Promise<string[]> {
+     select: { actorId: true },
+   })
+   const ids = characters.flatMap(({ actorId }) =>
+-    actorId && ACTOR_ID.test(actorId) ? [actorId] : [],
++    actorId && FOUNDRY_ID.test(actorId) ? [actorId] : [],
    )
    return [...new Set(ids)]
  }
@@ -524,6 +885,35 @@ index 42ea08c..ba940b5 100644
 -export function ago(now: number, ms: number): Date {
 -  return new Date(now - ms)
 -}
+diff --git a/src/db/seats.ts b/src/db/seats.ts
+index f3c222a..568fd81 100644
+--- a/src/db/seats.ts
++++ b/src/db/seats.ts
+@@ -1,4 +1,5 @@
+ import prisma from '@/clients/prisma'
++import { FOUNDRY_ID } from '@/db/constants'
+ import type { Character, SheetSeat } from '@/types/character'
+ import type { ConnectedCharacter } from '@/types/sending-stone'
+ 
+@@ -8,9 +9,6 @@ import type { ConnectedCharacter } from '@/types/sending-stone'
+ // its descriptions, rolls, prompts or chat resolves a seat one of these two ways and scopes all it
+ // does by it, never by ids in a request's body.
+ 
+-/** An actor's id as the module sends it. */
+-const ACTOR_ID = /^[\dA-Za-z]{1,64}$/
+-
+ /** A player at their own character's sheet. */
+ export function playerSeat(character: Character, userId: string): SheetSeat {
+   return {
+@@ -37,7 +35,7 @@ export async function getGmSeat(
+   campaignId: string,
+   actorId: string,
+ ): Promise<SheetSeat | undefined> {
+-  if (!userId || !ACTOR_ID.test(actorId)) return undefined
++  if (!userId || !FOUNDRY_ID.test(actorId)) return undefined
+   const campaign = await prisma.campaign.findFirst({
+     where: { id: campaignId, ownerId: userId },
+     select: { id: true, title: true, origin: true, characters: true },
 diff --git a/src/db/transfers.ts b/src/db/transfers.ts
 index 250d4fb..c51e6a4 100644
 --- a/src/db/transfers.ts
@@ -628,10 +1018,11 @@ index 250d4fb..c51e6a4 100644
  
  /**
 diff --git a/src/db/types.ts b/src/db/types.ts
-index 92ef4a6..6941ad1 100644
+index 92ef4a6..5b33a6a 100644
 --- a/src/db/types.ts
 +++ b/src/db/types.ts
-@@ -1,4 +1,9 @@
+@@ -1,4 +1,10 @@
++import type { BRIDGE_SWITCHES } from '@/constants/features'
 +import type { SheetSeat } from '@/types/character'
  import type { NoteBookKind, NoteRole } from '@/types/notes'
 +import type { RollKindInfo, RollRequestInput } from '@/types/roll'
@@ -641,7 +1032,7 @@ index 92ef4a6..6941ad1 100644
  
  /** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
  export type NotePageCommand = {
-@@ -24,3 +29,81 @@ export type NotePageCommand = {
+@@ -24,3 +30,98 @@ export type NotePageCommand = {
    extras: []
    dice: []
  }
@@ -723,6 +1114,23 @@ index 92ef4a6..6941ad1 100644
 +  Prisma.RollRequestUncheckedCreateInput,
 +  'characterId' | 'role' | 'requestedById' | 'createdAt'
 +>
++
++/** One of the campaign's switches the module's fetches are answered by (`BRIDGE_SWITCHES`). */
++export type BridgeSwitch = (typeof BRIDGE_SWITCHES)[number]
++
++/**
++ * What a fetch of the module's says of its campaign: each of its switches, and whether any of its
++ * players have their table open, so that a roll may be coming.
++ */
++export type BridgePolled = Record<BridgeSwitch, boolean> & {
++  playersPresent: boolean
++}
++
++/** A creator of a kind of command, past every roll's gates. */
++export type CommandCreator = (
++  seat: SheetSeat,
++  input: RollRequestInput,
++) => Promise<{ id: string } | RollRejection>
 diff --git a/src/db/wild-shape.ts b/src/db/wild-shape.ts
 index 99ec765..5d7095d 100644
 --- a/src/db/wild-shape.ts
@@ -910,3 +1318,128 @@ index cc47db8..7158005 100644
  import type { SheetSeat } from '@/types/character'
  import type { NextRequest } from 'next/server'
  
+diff --git a/src/utils/effect-commands.ts b/src/utils/effect-commands.ts
+index 9751b6a..eb10cc0 100644
+--- a/src/utils/effect-commands.ts
++++ b/src/utils/effect-commands.ts
+@@ -1,4 +1,4 @@
+-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
++import { switchOn } from '@/utils/features'
+ import type { EffectInput } from '@/types/roll'
+ import type { CharacterSheet } from '@/types/sending-stone'
+ 
+@@ -17,12 +17,7 @@ export function effectsAvailable(
+   campaign: { effectsEnabled: boolean; bridgePolledAt: Date | null },
+   now = Date.now(),
+ ): boolean {
+-  const polled = campaign.bridgePolledAt?.getTime()
+-  return (
+-    campaign.effectsEnabled === true &&
+-    !!polled &&
+-    now - polled < BRIDGE_POLLED_WITHIN
+-  )
++  return switchOn(campaign, 'effectsEnabled', now)
+ }
+ 
+ /**
+diff --git a/src/utils/favorite-commands.ts b/src/utils/favorite-commands.ts
+index cf82c23..0b0faff 100644
+--- a/src/utils/favorite-commands.ts
++++ b/src/utils/favorite-commands.ts
+@@ -1,5 +1,5 @@
+-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
+ import { favoriteIndex } from '@/utils/favorites'
++import { switchOn } from '@/utils/features'
+ import type { FavoriteInput, FavoriteTarget } from '@/types/roll'
+ import type { CharacterSheet, SheetFavorite } from '@/types/sending-stone'
+ 
+@@ -17,12 +17,7 @@ export function favoritesAvailable(
+   campaign: { favoritesEnabled: boolean; bridgePolledAt: Date | null },
+   now = Date.now(),
+ ): boolean {
+-  const polled = campaign.bridgePolledAt?.getTime()
+-  return (
+-    campaign.favoritesEnabled === true &&
+-    !!polled &&
+-    now - polled < BRIDGE_POLLED_WITHIN
+-  )
++  return switchOn(campaign, 'favoritesEnabled', now)
+ }
+ 
+ /**
+diff --git a/src/utils/removals.ts b/src/utils/removals.ts
+index 1afa145..348ad70 100644
+--- a/src/utils/removals.ts
++++ b/src/utils/removals.ts
+@@ -1,4 +1,4 @@
+-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
++import { switchOn } from '@/utils/features'
+ import { allItems } from '@/utils/sheet-texts'
+ import type { RemoveInput } from '@/types/roll'
+ import type {
+@@ -27,12 +27,7 @@ export function removalsAvailable(
+   campaign: { removalsEnabled: boolean; bridgePolledAt: Date | null },
+   now = Date.now(),
+ ): boolean {
+-  const polled = campaign.bridgePolledAt?.getTime()
+-  return (
+-    campaign.removalsEnabled === true &&
+-    !!polled &&
+-    now - polled < BRIDGE_POLLED_WITHIN
+-  )
++  return switchOn(campaign, 'removalsEnabled', now)
+ }
+ 
+ /**
+diff --git a/src/utils/transfers.ts b/src/utils/transfers.ts
+index 5304fbd..104c800 100644
+--- a/src/utils/transfers.ts
++++ b/src/utils/transfers.ts
+@@ -1,4 +1,4 @@
+-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
++import { switchOn } from '@/utils/features'
+ import { allItems } from '@/utils/sheet-texts'
+ import type { TransferInput } from '@/types/roll'
+ import type {
+@@ -36,12 +36,7 @@ export function transfersAvailable(
+   campaign: { transfersEnabled: boolean; bridgePolledAt: Date | null },
+   now = Date.now(),
+ ): boolean {
+-  const polled = campaign.bridgePolledAt?.getTime()
+-  return (
+-    campaign.transfersEnabled === true &&
+-    !!polled &&
+-    now - polled < BRIDGE_POLLED_WITHIN
+-  )
++  return switchOn(campaign, 'transfersEnabled', now)
+ }
+ 
+ /**
+diff --git a/src/utils/wild-shape.ts b/src/utils/wild-shape.ts
+index b366b4b..7756a48 100644
+--- a/src/utils/wild-shape.ts
++++ b/src/utils/wild-shape.ts
+@@ -1,7 +1,5 @@
+-import {
+-  BRIDGE_POLLED_WITHIN,
+-  ENDING_STATUSES,
+-} from '@/constants/sending-stone'
++import { ENDING_STATUSES } from '@/constants/sending-stone'
++import { switchOn } from '@/utils/features'
+ import type { WildShapeInput } from '@/types/roll'
+ import type { CharacterSheet, KnownForm } from '@/types/sending-stone'
+ 
+@@ -37,12 +35,7 @@ export function wildShapeAvailable(
+   campaign: { wildShapeEnabled: boolean; bridgePolledAt: Date | null },
+   now = Date.now(),
+ ): boolean {
+-  const polled = campaign.bridgePolledAt?.getTime()
+-  return (
+-    campaign.wildShapeEnabled === true &&
+-    !!polled &&
+-    now - polled < BRIDGE_POLLED_WITHIN
+-  )
++  return switchOn(campaign, 'wildShapeEnabled', now)
+ }
+ 
+ /** Whether the character is transformed now, as its sheet says: its numbers are the form's. */

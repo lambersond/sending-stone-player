@@ -526,10 +526,10 @@ index 0000000..d00afd8
 +}
 diff --git a/src/features/rolling/utils/request-bodies.ts b/src/features/rolling/utils/request-bodies.ts
 new file mode 100644
-index 0000000..f1577a7
+index 0000000..4fabbca
 --- /dev/null
 +++ b/src/features/rolling/utils/request-bodies.ts
-@@ -0,0 +1,332 @@
+@@ -0,0 +1,333 @@
 +import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
 +import { changes } from '@/utils/damage-modifiers'
 +import type { RechargeRoll } from '@/features/rolling/types'
@@ -549,8 +549,9 @@ index 0000000..f1577a7
 +} from '@/types/roll'
 +
 +/*
-+ * The rolls the sheet sends to the Gamemaster's game (`useTableRolls`), as the game is asked to make
-+ * them: what each is, how it was rolled, and every die thrown, in the order the game reads them.
++ * The rolls the sheet sends to the Gamemaster's game (`useTableRolls`), as the game is asked to
++ * make them: what each is, how it was rolled, and every die thrown, in the order the game reads
++ * them.
 + */
 +
 +/**

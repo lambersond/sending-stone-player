@@ -45,6 +45,88 @@ index 0000000..305dece
 +src/utils/roll-requests.test.ts	utils/roll-requests, a spell prepared or unprepared, from module 0.42.1 is sent to the game as it came	src/utils/requests/commands.test.ts
 +src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 takes the seat’s own combatant as its character’s, or the companion’s by its key	src/utils/roll-requests.test.ts
 +src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 damage on its own checks its dice as an attack’s due damage is checked	src/utils/roll-requests.test.ts
+diff --git a/src/mocks/results.ts b/src/mocks/results.ts
+new file mode 100644
+index 0000000..31bec68
+--- /dev/null
++++ b/src/mocks/results.ts
+@@ -0,0 +1,9 @@
++/**
++ * What a command's result says first, after its id, where the game made it: done, for no reason,
++ * with no error.
++ */
++export const DONE_HEAD = {
++  status: 'done',
++  reason: null,
++  error: null,
++} as const
+diff --git a/src/mocks/switches.ts b/src/mocks/switches.ts
+new file mode 100644
+index 0000000..30f0c0d
+--- /dev/null
++++ b/src/mocks/switches.ts
+@@ -0,0 +1,38 @@
++import type { TableView } from '@/types/table'
++
++/**
++ * What a hello says of a kind of command the game takes: on, for no reason, and what else it says
++ * of it, such as the versions it takes.
++ */
++export function switchedOn<
++  const Kind extends string,
++  const More extends object = object,
++>(kind: Kind, more?: More) {
++  return { enabled: true, kinds: [kind], reason: null, ...more } as const
++}
++
++/** What a hello says of a kind of command with the campaign's switch off, the default. */
++export const SWITCHED_OFF = {
++  enabled: false,
++  kinds: [],
++  reason: 'off',
++} as const
++
++/** What a hello says of a kind of command under another system: off, and why. */
++export const OTHER_SYSTEM = {
++  enabled: false,
++  kinds: [],
++  reason: 'system',
++} as const
++
++/** A table view of Thorin's in The Lonely Mountain, as his player has it, live and connected. */
++export function tableViewOf(fields: Partial<TableView> = {}): TableView {
++  return {
++    version: 7,
++    live: true,
++    campaign: { title: 'The Lonely Mountain' },
++    connected: true,
++    messages: [],
++    ...fields,
++  }
++}
+diff --git a/src/mocks/types.ts b/src/mocks/types.ts
+new file mode 100644
+index 0000000..a87309d
+--- /dev/null
++++ b/src/mocks/types.ts
+@@ -0,0 +1,17 @@
++import type { FavoriteTarget } from '@/types/roll'
++
++/** What a row's favorites entry was chosen for, as `offeringFavorites` notes it. */
++export type ChosenFavorite = {
++  target: FavoriteTarget
++  name: string
++  op: 'add' | 'remove'
++}
++
++/** A write the journal notes' routes were sent, as `serveNotes` notes it. */
++export type Sent = { url: string; method: string; body?: unknown }
++
++/** An answer of the journal notes' routes: its status, and its body, where it has one. */
++export type Answer = { status: number; body?: unknown }
++
++/** A sheet's part, written out by hand as JSON is. */
++export type Json = Record<string, unknown>
 diff --git a/src/utils/requests/availability.test.ts b/src/utils/requests/availability.test.ts
 new file mode 100644
 index 0000000..b5a29b5

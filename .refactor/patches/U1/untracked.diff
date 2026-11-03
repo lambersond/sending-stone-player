@@ -4374,13 +4374,13 @@ index 0000000..5a5aa97
 +}
 diff --git a/src/features/sheet/components/wild-shape/wild-shape-dialog.tsx b/src/features/sheet/components/wild-shape/wild-shape-dialog.tsx
 new file mode 100644
-index 0000000..1eab194
+index 0000000..3fc2e69
 --- /dev/null
 +++ b/src/features/sheet/components/wild-shape/wild-shape-dialog.tsx
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,55 @@
 +'use client'
 +
-+import { use, useRef, type ReactNode } from 'react'
++import { use, useRef, type ReactNode, type RefObject } from 'react'
 +import { BeastList } from './beast-list'
 +import { WildShapeContext } from './context'
 +import { FormPicker } from './form-picker'
@@ -4395,15 +4395,13 @@ index 0000000..1eab194
 + * screen, a dialog on a wide one, its views the form picker, the Known forms manager and a Beast
 + * to learn, Back between them; its note and its button kept in view under what scrolls.
 + */
-+export function WildShapeDialog() {
-+  const {
-+    view,
-+    back: goBack,
-+    fromPicker,
-+    close,
-+    block,
-+    body,
-+  } = use(WildShapeContext)
++export function WildShapeDialog({
++  body,
++}: Readonly<{
++  /** What's inside the dialog, for focus to be found in it. */
++  body: RefObject<HTMLDivElement | null>
++}>) {
++  const { view, back: goBack, fromPicker, close, block } = use(WildShapeContext)
 +  const first = useRef<HTMLElement>(null)
 +  let back: { label: string; onClick: () => void } | undefined
 +  if (view?.kind === 'learn') {

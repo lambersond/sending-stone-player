@@ -1,3 +1,17 @@
+diff --git a/src/schemas/types.ts b/src/schemas/types.ts
+new file mode 100644
+index 0000000..9ebe4ac
+--- /dev/null
++++ b/src/schemas/types.ts
+@@ -0,0 +1,8 @@
++/**
++ * A container as the sheet's schema reads it: one of the character's items, `Item` as the schema
++ * reads those, with its capacity and what it holds, items and containers of their own.
++ */
++export type ParsedContainer<Item> = Item & {
++  capacity: { value: number; max: number; units: string } | null
++  contents: (Item | ParsedContainer<Item>)[] | null
++}
 diff --git a/src/schemas/utils.test.ts b/src/schemas/utils.test.ts
 new file mode 100644
 index 0000000..94be59d
