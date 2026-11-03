@@ -21,6 +21,20 @@ package-lock.json (commit 1) and .refactor/ changed since). Every file the plan 
 is a row of R/owners.tsv (path at base, path after, Phase 3 lane, phases, items, what it breaks, its
 disables or a note); a glob row covers the new files a split makes in one folder.
 
+## Amendments by the orchestrator (binding; newest last)
+
+1. **2026-11-03 ~5:00 AM EST, M's Phase 1 report (450e7ea).** (a) AttackSource, OfferSpend, SheetOffer and
+   EffectAsk move in 2b to src/types/roll.ts (not FR/types.ts), SocialProviderId stays in
+   auth-providers.ts (no src/types/auth.ts), LINK_CLASSES moves to src/constants/sending-stone.ts:
+   owners.tsv carries it; otherwise commit 7 forms new cycles. (b) gate-lib honours moves.tsv's
+   `delete` rows. (c) **After commit 7, cycle group 1 is down to four src/types files (party, roll,
+   sending-stone, table) importing each other.** Gate 12 passes (fewer groups than the base), but §0.4's
+   target is zero cycles: **W-a breaks it in Phase 3** (a new item, R1.4.9b, in commit 12: move the
+   types that close the loop to the file that every one of the four already imports, or split a
+   shared src/types/base.ts; type-only, no behaviour), and G checks zero cycle groups in commit 23.
+   (d) Two gate 1b rows for commit 5 (prompt-banner.test.tsx:151 and end-turn.test.ts:255 read their
+   unit's source by a repo path that follows the move) are a planned exception the lander adds.
+
 ## §0 Summary, principles, metrics
 
 ### §0.1 What v0.43 is
