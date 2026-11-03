@@ -1,0 +1,41 @@
+src/utils/roll-requests.test.ts	utils/roll-requests availableRollKinds	src/utils/requests/availability.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests availableRollFeatures	src/utils/requests/availability.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell slot spent or restored, from module 0.42.1 keeps it among the rolls a game takes, where it lists it, and not where it doesn’t	src/utils/requests/availability.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell prepared or unprepared, from module 0.42.1 keeps it among the rolls a game takes, where it lists it, and not where it doesn’t	src/utils/requests/availability.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests checkRoll	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for enchant activities, from module 0.21.0 checkRoll	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for a sheet sent slim, from module 0.22.0	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for dice Foundry works out once thrown, from module 0.22.0 checkRoll	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for a use at its user, from module 0.22.0	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for concentration, charges and Heroic Inspiration, from module 0.29.0 checkRoll	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, an attack with Elven Accuracy, from module 0.32.0	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, damage on its own's choices, from module 0.41.0	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell slot spent or restored, from module 0.42.1 checkRoll	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell prepared or unprepared, from module 0.42.1 checkRoll	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests checkDamage	src/utils/requests/check-damage.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for dice Foundry works out once thrown, from module 0.22.0 checkDamage	src/utils/requests/check-damage.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a turn ended, from module 0.36.0	src/utils/requests/check-turns.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a turn taken back, from module 0.36.0	src/utils/requests/check-turns.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests isDying	src/utils/requests/status.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests rollStatus	src/utils/requests/status.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for concentration, charges and Heroic Inspiration, from module 0.29.0 takes	src/utils/requests/status.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests toRollRequestView	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for enchant activities, from module 0.21.0 toRollRequestView	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	toRollRequestView for a distribution, from module 0.32.0	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	toRollRequestView for an item removed, from module 0.33.0	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for concentration, charges and Heroic Inspiration, from module 0.29.0 calls the Gamemaster's	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 names, totals and tells healing of damage on its own as damage, and a recharge as one	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, damage on its own's choices, from module 0.41.0 passes on what damage on its own spent, and whether concentration began, as the game says	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell slot spent or restored, from module 0.42.1 toGmRollView	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell prepared or unprepared, from module 0.42.1 is never sent by the Gamemaster, as it posts nothing, and is called so on the player’s page all the same	src/utils/requests/views.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests GM_UNSENT	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests toCommand	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a turn ended, from module 0.36.0 sends the module a turn ended as it is, the character’s, with no companion named	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a turn taken back, from module 0.36.0 sends the module a turn taken back as it is, the character’s, with no companion named	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, damage on its own's choices, from module 0.41.0 sends the module the choices as they were asked for	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell slot spent or restored, from module 0.42.1 is no roll the Gamemaster never sends: their page spends and restores one, marked theirs	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell slot spent or restored, from module 0.42.1 is sent to the game as it came, the Gamemaster’s marked theirs	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests, a spell prepared or unprepared, from module 0.42.1 is sent to the game as it came	src/utils/requests/commands.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 takes the seat’s own combatant as its character’s, or the companion’s by its key	src/utils/roll-requests.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 damage on its own checks its dice as an attack’s due damage is checked	src/utils/roll-requests.test.ts
