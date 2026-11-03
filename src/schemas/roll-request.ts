@@ -4,7 +4,6 @@ import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import {
   ATTACK_MODE,
   DAMAGE_TYPE,
-  EFFECT_DICE_KINDS,
   EFFECT_DIE_FACES,
   EFFECT_ID,
   EFFECT_OPS,
@@ -570,9 +569,7 @@ function inFaces(results: number[], faces: number): boolean {
  */
 function typedRules(request: RollRequestInput, issue: Issue) {
   if (request.effectDice !== undefined) {
-    const effects = (EFFECT_DICE_KINDS as readonly string[]).includes(
-      request.kind,
-    )
+    const effects = infoOf(request.kind).dice === 'd20'
     if (!effects || request.typed !== true) {
       issue(
         'effectDice',

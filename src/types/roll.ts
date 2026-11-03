@@ -22,8 +22,8 @@ import type {
   WildShapeOp,
   TransferMoved,
   RemovedItem,
+  FavoriteEntry,
 } from '@/types/sending-stone'
-import type { TableAsk } from '@/types/table'
 import type { DieSides, Advantage } from '@lambersond/3d-dice-core'
 
 /**
@@ -174,11 +174,11 @@ export type RemoveInput = {
 /**
  * What a favorite is, as the sheet names it, from module 0.37.0: an item by its id, one of an
  * item's activities by its own id and its item's, an effect by the sheet's id ("<id>", or
- * "<itemId>.<id>" for an item's), and a skill, tool or pool of spell slots by its key.
+ * "<itemId>.<id>" for an item's), and a skill, tool or pool of spell slots by its key. Written out
+ * in FavoriteEntry's `target` and read from there, so src/types/sending-stone.ts needs nothing from
+ * this file (no import cycle).
  */
-export type FavoriteTarget =
-  | { type: 'item' | 'effect' | 'skill' | 'tool' | 'slots'; id: string }
-  | { type: 'activity'; id: string; item: string }
+export type FavoriteTarget = NonNullable<FavoriteEntry['target']>
 
 /** A favorite added to or removed from the character's, from module 0.37.0. */
 export type FavoriteInput = FavoriteTarget & { op: 'add' | 'remove' }
@@ -1212,8 +1212,12 @@ export type TableRollState = Omit<
   wildShaped?: WildShapeOutcome
 }
 
-/** What a description's link a saving throw is made from asks: a save, or a concentration check. */
-export type EffectAsk = Pick<TableAsk, 'type'>
+/**
+ * What a description's link a saving throw is made from asks: a save, or a concentration check, by
+ * the types a table's ask (src/types/table.ts's TableAsk) has, written out so that this file needs
+ * nothing from that one (no import cycle).
+ */
+export type EffectAsk = { type: 'save' | 'concentration' | 'check' }
 
 /**
  * What adding a die the sheet offers spends: the effect it uses up, by the sheet's id for it; that

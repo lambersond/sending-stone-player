@@ -11,7 +11,6 @@ import type {
 } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
 import type { NoteBookKind, NoteRole } from '@/types/notes'
-import type { FavoriteTarget } from '@/types/roll'
 import type { DieSides } from '@lambersond/3d-dice-core'
 
 /**
@@ -2101,7 +2100,11 @@ export type FavoriteView =
  */
 export type FavoriteEntry = FavoriteView & {
   key: string
-  target: FavoriteTarget | null
+  /** What it is as the app adds and removes it; src/types/roll.ts's FavoriteTarget reads it. */
+  target:
+    | { type: 'item' | 'effect' | 'skill' | 'tool' | 'slots'; id: string }
+    | { type: 'activity'; id: string; item: string }
+    | null
 }
 
 /** The sheet's lists, by id, to find what a favorite refers to. */
