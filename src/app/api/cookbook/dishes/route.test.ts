@@ -2,15 +2,11 @@
  * @jest-environment node
  */
 import * as route from './route'
-import {
-  acceptDish,
-  deleteCookbookLink,
-  findCookbookLink,
-  type CookbookLinkFound,
-} from '@/db/cookbook'
+import { acceptDish, deleteCookbookLink, findCookbookLink } from '@/db/cookbook'
 import { hashCookbookCode } from '@/lib/cookbook-code'
 import { fireberryBoon } from '@/mocks/cookbook'
 import { guardNoDb } from '@/utils/test-utils-node'
+import type { CookbookLinkFound } from '@/db/types'
 
 guardNoDb()
 

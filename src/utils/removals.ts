@@ -14,7 +14,7 @@ import type { RollRefusal } from '@/utils/requests/types'
 // game; these checks only spare a player a removal the game would refuse.
 
 /** Why a removal can't go to the game, as these checks say. */
-export type RemovalRefusal = Extract<
+type RemovalRefusal = Extract<
   RollRefusal,
   'unknown' | 'gone' | 'short' | 'changed'
 >

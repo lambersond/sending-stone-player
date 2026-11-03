@@ -8,16 +8,18 @@ import {
 } from '@/constants/sending-stone'
 import { findEventCampaign } from '@/db/campaigns'
 import { claimDishes } from '@/db/cookbook'
-import { claimNoteWrites, type NoteCommand } from '@/db/note-sync'
+import { claimNoteWrites } from '@/db/note-sync'
 import {
   claimRollRequests,
   markBridgePolled,
   openActorIds,
 } from '@/db/roll-requests'
 import { bearerSecret } from '@/lib/campaign-secret'
+import { readBody } from '@/lib/routes/body'
 import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
+import type { NoteCommand } from '@/db/types'
 import type { DishCommand } from '@/types/cookbook'
 import type { RollCommand } from '@/utils/requests/types'
 
@@ -111,15 +113,14 @@ export async function POST(request: Request) {
     )
   }
 
-  const declared = Number(request.headers.get('content-length'))
-  if (declared > MAX_POLL_BYTES) return tooLarge()
-  const body = await request.text()
-  if (Buffer.byteLength(body) > MAX_POLL_BYTES) return tooLarge()
+  const body = await readBody(request, {
+    limit: MAX_POLL_BYTES,
+    declared: true,
+  })
+  if (!body.ok && body.why === 'size') return tooLarge()
 
-  let poll
-  try {
-    poll = commandsPollSchema.parse(JSON.parse(body))
-  } catch {
+  const parsed = body.ok ? commandsPollSchema.safeParse(body.value) : undefined
+  if (!parsed?.success) {
     return refuse(
       request,
       400,
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
       headers,
     )
   }
-  const { campaign, session } = poll
+  const { campaign, session } = parsed.data
 
   const found = await attempt(
     () => findEventCampaign(origin, campaign, secret),

@@ -1,10 +1,20 @@
 import type { BRIDGE_SWITCHES } from '@/constants/features'
 import type { SheetSeat } from '@/types/character'
-import type { NoteBookKind, NoteRole } from '@/types/notes'
-import type { RollKindInfo, RollRequestInput } from '@/types/roll'
-import type { CharacterSheet } from '@/types/sending-stone'
+import type { NoteBookKind, NoteRole, NoteRefusal } from '@/types/notes'
+import type {
+  RollKindInfo,
+  RollRequestInput,
+  RollKind,
+  RollFeature,
+} from '@/types/roll'
+import type {
+  CharacterSheet,
+  DishApplied,
+  DishDismissed,
+} from '@/types/sending-stone'
+import type { GmRolls } from '@/types/table'
 import type { RollRefusal } from '@/utils/requests/types'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, CookbookDishStatus } from '@prisma/client'
 
 /** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
 export type NotePageCommand = {
@@ -125,3 +135,161 @@ export type CommandCreator = (
   seat: SheetSeat,
   input: RollRequestInput,
 ) => Promise<{ id: string } | RollRejection>
+
+/**
+ * Who is at a book of notes, as its route resolved them from the session and the address alone:
+ * the character's player, as their character, or the campaign's Gamemaster, as no character.
+ */
+export type NotesSeat = {
+  role: 'player' | 'gm'
+  userId: string
+  /** The player's character's actor, which they write as; null for the Gamemaster. */
+  actorId: string | null
+  /** The character's name, as their seat knows it; the Gamemaster's is "Gamemaster". */
+  name: string
+}
+
+/** The book a seat is at: a character's or a party's, in one campaign. */
+export type NotesBook = {
+  campaignId: string
+  kind: NoteBookKind
+  /** The character's actor, or the party's Group actor. */
+  actorId: string
+  /** A party no campaign character may see in Foundry, which only its Gamemaster reaches. */
+  private: boolean
+}
+
+/** What a change answered: done, with the note's id and stamp now, or why not, with a status. */
+export type NoteAnswer =
+  | { ok: true; id?: string; stamp: string }
+  | {
+      ok: false
+      status: 400 | 403 | 404 | 409 | 422 | 429
+      reason: NoteRefusal
+      field?: string
+      lines?: number[]
+    }
+
+/** What a seat may do in a book, and with a note in it (§8.5). */
+export type NoteRights = {
+  canAdd: boolean
+  canRename: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canReorder: boolean
+}
+
+/** A link as the cookbook's post is checked against it. */
+export type CookbookLinkFound = {
+  id: string
+  campaignId: string
+  actorId: string
+  characterId: string
+  /** Its seat now: the link holds only while these are still the link's. */
+  character: { campaignId: string | null; actorId: string | null }
+  campaign: { dishesEnabled: boolean; dishVersions: number[] }
+}
+
+/** What became of a dish posted: taken, held already, or why not. */
+export type DishAccepted =
+  | { kind: 'new' | 'repeat'; id: string; status: CookbookDishStatus }
+  | { kind: 'off' | 'update' | 'busy' | 'daily' | 'full' }
+
+/** Why no link code was made. */
+export type CookbookLinkProblem = 'missing' | 'not-playing'
+
+/** A Gamemaster's choice of what became of a dish, as the module's bridge tells of it. */
+export type DishDecision =
+  | { type: 'dish.applied'; data: DishApplied }
+  | { type: 'dish.dismissed'; data: DishDismissed }
+
+/** A player's character playing in a campaign, whose card is drawn. */
+export type CookbookSeat = { id: string; campaignId: string; actorId: string }
+
+/** The campaign an event is for, with the module session whose state it holds, if any. */
+export type EventCampaign =
+  { id: string; helloSession?: string } | 'unknown' | 'refused'
+
+/** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
+export type PartySeat =
+  | {
+      role: 'player'
+      campaignId: string | null
+      actorId: string | null
+      characterId: string
+      name: string
+    }
+  | { role: 'gm'; campaignId: string; userId: string }
+
+/**
+ * What tells a companion's pane whether anything is new: as a character's view, the campaign's
+ * version, whether it's live, the rolls the game takes for it and what else it does with them,
+ * where the Gamemaster's rolls go at their seat, what changes whenever any of the Gamemaster's
+ * rolls as it does, at its player's, and whether its player types in their own dice. A change of
+ * how companions enter initiative comes in a hello, which moves the version.
+ */
+export type CompanionStatus = {
+  version: number
+  live: boolean
+  rollsToTable: RollKind[]
+  rollFeatures: RollFeature[]
+  gm?: { rolls: GmRolls }
+  gmRollsKey?: string
+  typed: boolean
+}
+
+/**
+ * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
+ * which rolls its game takes from players, and what else it does with them; for the Gamemaster at
+ * a character's sheet (#156), where their rolls go; and for its player, what changes whenever any
+ * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`; and
+ * from module 0.31.0, whether the seat may move its character's items and coins, which its game's
+ * taking moves or not changes with no new version; and from module 0.32.0, whether the player
+ * types in their own dice for it, which another of their devices may change; and from module
+ * 0.33.0 whether the seat may remove its character's items, which its module's fetching or not
+ * changes with no new version; and from module 0.37.0 whether the player may change its
+ * character's favorites, which likewise changes with no new version; and from module 0.39.0
+ * whether the player may change its character's own effects, which likewise changes with no new
+ * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
+ * with no new version.
+ */
+export type CampaignStatus = {
+  version: number
+  live: boolean
+  rollsToTable: RollKind[]
+  rollFeatures: RollFeature[]
+  gm?: { rolls: GmRolls }
+  gmRollsKey?: string
+  moves: boolean
+  typed: boolean
+  removes: boolean
+  favorites: boolean
+  effects: boolean
+  wildShape: boolean
+}
+
+/**
+ * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
+ * ids in the new order, and in Foundry's order it was made from.
+ */
+export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
+  note: {
+    book: NoteBookKind
+    op: 'order'
+    /** The group: a chapter's page, or null for the notes in no chapter. */
+    chapter: string | null
+    ids: string[]
+    was: string[]
+    writer: string | null
+    at: number
+  }
+}
+
+/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
+export type NoteCommand = NotePageCommand | NoteOrderCommand
+
+/** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */
+export type JournalDrawings = { origin: string; html: Map<string, string> }
+
+/** A database transaction's client, as the writes made in one take it. */
+export type Tx = Prisma.TransactionClient

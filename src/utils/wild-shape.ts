@@ -16,7 +16,7 @@ type ShapedSheet = Partial<
 >
 
 /** Why the sheet, as last sent, says the game would refuse a Wild Shape command. */
-export type WildShapeRefusal =
+type WildShapeRefusal =
   | 'gone'
   | 'form'
   | 'transformed'

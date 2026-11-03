@@ -631,34 +631,67 @@ export async function recordCommandResult(
   })
   // No roll of that id: from module 0.34.0, a note command's, which is no roll.
   if (count === 0) return recordNoteResult(campaignId, result)
+  await recordRollResult(campaignId, result)
+}
+
+/**
+ * What a roll's result, once recorded, marks: the chat messages the Gamemaster's roll made as
+ * theirs, and what the game asked that a save answered, closed. The campaign's pages are told only
+ * when that changes what they show.
+ */
+async function recordRollResult(
+  campaignId: string,
+  result: CommandResult,
+): Promise<void> {
   const listed = result.messages ?? []
-  const answers = made || result.reason === 'prompt'
+  const answers = result.status === 'done' || result.reason === 'prompt'
   if (!answers && listed.length === 0) return
   const request = await prisma.rollRequest.findFirst({
     where: { id: result.id, campaignId },
     select: { payload: true, role: true },
   })
-  // Only what the module said a roll handed over as the Gamemaster's made, never a player's.
-  const marked =
-    request?.role === 'gm' && listed.length > 0
-      ? await prisma.chatMessage.updateMany({
-          where: { campaignId, messageId: { in: listed }, byGm: false },
-          data: { byGm: true },
-        })
-      : { count: 0 }
-  const prompt = answers
-    ? (request?.payload as RollRequestInput | null)?.prompt
-    : undefined
-  const reason = made ? 'answered' : (result.error ?? 'gone')
+  const marked = await markGmMessages(campaignId, request?.role, listed)
   const closed =
-    !!prompt && (await closePrompt(prisma, campaignId, prompt, reason))
-  // The campaign's pages are told only when that changes what they show.
-  if (marked.count > 0 || closed) {
+    answers && (await closeAnsweredPrompt(campaignId, request?.payload, result))
+  if (marked || closed) {
     await prisma.campaign.update({
       where: { id: campaignId },
       data: { version: { increment: 1 } },
     })
   }
+}
+
+/**
+ * Mark as the Gamemaster's the chat messages the module said a roll handed over as theirs made;
+ * never a player's.
+ * @returns Whether any was marked.
+ */
+async function markGmMessages(
+  campaignId: string,
+  role: string | undefined,
+  listed: string[],
+): Promise<boolean> {
+  if (role !== 'gm' || listed.length === 0) return false
+  const marked = await prisma.chatMessage.updateMany({
+    where: { campaignId, messageId: { in: listed }, byGm: false },
+    data: { byGm: true },
+  })
+  return marked.count > 0
+}
+
+/**
+ * Close what the game asked that a roll answered: made, or found to wait no longer.
+ * @returns Whether it closed.
+ */
+async function closeAnsweredPrompt(
+  campaignId: string,
+  payload: Prisma.JsonValue | undefined,
+  result: CommandResult,
+): Promise<boolean> {
+  const prompt = (payload as RollRequestInput | null | undefined)?.prompt
+  const reason =
+    result.status === 'done' ? 'answered' : (result.error ?? 'gone')
+  return !!prompt && closePrompt(prisma, campaignId, prompt, reason)
 }
 
 /**

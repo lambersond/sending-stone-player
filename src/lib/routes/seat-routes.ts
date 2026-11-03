@@ -6,6 +6,8 @@ import {
 } from '@/db/roll-requests'
 import { getSheetText } from '@/db/sheet-texts'
 import { getCampaignStatus, getTableView } from '@/db/table'
+import { readBody } from '@/lib/routes/body'
+import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
 import { rollRequestSchema } from '@/schemas/roll-request'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import { rollsKey } from '@/utils/requests/availability'
@@ -18,10 +20,11 @@ import type { NextRequest } from 'next/server'
 // route resolves the seat itself, answering 401 signed out and 404 for a sheet that isn't the
 // user's to see, and everything here is scoped by that seat alone, never by ids in a body.
 
-const headers = { 'Cache-Control': 'no-store' }
-
 /** The largest roll read. One with every die it may throw is well under. */
 const MAX_ROLL_BYTES = 16_384
+
+/** A roll's body refused: anything but JSON, too much, or no JSON. */
+const BODY_REFUSED = { type: 415, size: 413, json: 400 } as const
 
 /**
  * A seat's view of its character's campaign, for its page to poll. Pass the version, the liveness
@@ -77,25 +80,26 @@ export async function tableResponse(
       effects,
       wildShape,
     } = await getCampaignStatus(seat)
-    if (
-      Number(known.get('version')) === version &&
-      (known.get('live') === '1') === live &&
-      (known.get('rolls') ?? '') === rollsKey(rollsToTable, rollFeatures) &&
-      (known.get('gm') ?? undefined) === gm?.rolls &&
-      (known.get('gmrolls') ?? undefined) === gmRollsKey &&
-      (known.get('moves') === '1') === moves &&
-      (known.get('typed') === '1') === typed &&
-      (known.get('removes') === '1') === removes &&
-      (known.get('favorites') === '1') === favorites &&
-      (known.get('effects') === '1') === effects &&
-      (known.get('wildshape') === '1') === wildShape
-    ) {
-      return new Response(undefined, { status: 204, headers })
-    }
+    const seen = seenAs(
+      known,
+      {
+        version,
+        live,
+        rolls: rollsKey(rollsToTable, rollFeatures),
+        moves,
+        typed,
+        removes,
+        favorites,
+        effects,
+        wildshape: wildShape,
+      },
+      { gm: gm?.rolls, gmrolls: gmRollsKey },
+    )
+    if (seen) return bare(204)
   }
   const sheetVersion = known.get('sheet') ?? undefined
   return Response.json(await getTableView(seat, { sheetVersion }), {
-    headers,
+    headers: NO_STORE,
   })
 }
 
@@ -119,29 +123,23 @@ export async function rollPostResponse(
   request: NextRequest,
   seat: SheetSeat,
 ): Promise<Response> {
-  // Asked for only as JSON, which a page on another site can't send without asking first.
-  if (!request.headers.get('content-type')?.startsWith('application/json')) {
-    return new Response(undefined, { status: 415, headers })
-  }
-  const body = await request.text()
-  if (Buffer.byteLength(body) > MAX_ROLL_BYTES) {
-    return new Response(undefined, { status: 413, headers })
-  }
+  const body = await readBody(request, { limit: MAX_ROLL_BYTES, type: 'exact' })
+  if (!body.ok) return bare(BODY_REFUSED[body.why])
   let input
   try {
-    input = rollRequestSchema.parse(JSON.parse(body))
+    input = rollRequestSchema.parse(body.value)
   } catch {
-    return new Response(undefined, { status: 400, headers })
+    return bare(400)
   }
 
   const created = await createRollRequest(seat, input)
   if ('reason' in created) {
     return Response.json(
       { reason: created.reason },
-      { status: created.status, headers },
+      { status: created.status, headers: NO_STORE },
     )
   }
-  return Response.json({ id: created.id }, { status: 202, headers })
+  return Response.json({ id: created.id }, { status: 202, headers: NO_STORE })
 }
 
 /**
@@ -153,8 +151,8 @@ export async function rollGetResponse(
   roll: string,
 ): Promise<Response> {
   const view = await getRollRequestView(seat, roll)
-  if (!view) return new Response(undefined, { status: 404, headers })
-  return Response.json(view, { headers })
+  if (!view) return bare(404)
+  return Response.json(view, { headers: NO_STORE })
 }
 
 /**
@@ -166,12 +164,7 @@ export async function textResponse(
   seat: SheetSeat,
   hash: string,
 ): Promise<Response> {
-  const html = TEXT_HASH.test(hash) ? await getSheetText(seat, hash) : undefined
-  if (html === undefined) {
-    return new Response(undefined, { status: 404, headers })
-  }
-  return Response.json(
-    { html },
-    { headers: { 'Cache-Control': 'private, max-age=86400' } },
+  return textAnswer(
+    TEXT_HASH.test(hash) ? await getSheetText(seat, hash) : undefined,
   )
 }

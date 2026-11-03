@@ -1,4 +1,5 @@
 import prisma from '@/clients/prisma'
+import { getCharacter } from '@/db/characters'
 import { FOUNDRY_ID } from '@/db/constants'
 import type { Character, SheetSeat } from '@/types/character'
 import type { ConnectedCharacter } from '@/types/sending-stone'
@@ -23,6 +24,18 @@ export function playerSeat(character: Character, userId: string): SheetSeat {
     userId,
     characterId: character.id,
   }
+}
+
+/**
+ * A player at their own Character's sheet, found by its id.
+ * @returns Undefined for a character that isn't the user's.
+ */
+export async function getPlayerSeat(
+  userId: string,
+  characterId: string,
+): Promise<SheetSeat | undefined> {
+  const character = await getCharacter(userId, characterId)
+  return character ? playerSeat(character, userId) : undefined
 }
 
 /**

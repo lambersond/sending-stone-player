@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { Prisma, type CookbookDishStatus } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import prisma from '@/clients/prisma'
 import {
   DISH_ATTEMPTS,
@@ -17,16 +17,19 @@ import { isLive } from '@/db/campaigns'
 import { due as pruneDue } from '@/db/commands'
 import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
 import type {
+  CookbookLinkFound,
+  DishAccepted,
+  CookbookLinkProblem,
+  DishDecision,
+  CookbookSeat,
+} from './types'
+import type {
   CookbookDishBody,
   CookbookDishView,
   CookbookView,
   DishCommand,
 } from '@/types/cookbook'
-import type {
-  CommandResult,
-  DishApplied,
-  DishDismissed,
-} from '@/types/sending-stone'
+import type { CommandResult } from '@/types/sending-stone'
 
 // Dishes from the Magical Recipe Book, from module 0.38.0: a player's link code names their seat,
 // and each dish the cookbook's server posts with it is kept here for its campaign. A dish rides to
@@ -39,17 +42,6 @@ import type {
 
 const MINUTE = 60_000
 const DAY = 24 * 60 * MINUTE
-
-/** A link as the cookbook's post is checked against it. */
-export type CookbookLinkFound = {
-  id: string
-  campaignId: string
-  actorId: string
-  characterId: string
-  /** Its seat now: the link holds only while these are still the link's. */
-  character: { campaignId: string | null; actorId: string | null }
-  campaign: { dishesEnabled: boolean; dishVersions: number[] }
-}
 
 /** The link a code's hash names, or null where none does. */
 export async function findCookbookLink(
@@ -72,11 +64,6 @@ export async function findCookbookLink(
 export async function deleteCookbookLink(id: string): Promise<void> {
   await prisma.cookbookLink.deleteMany({ where: { id } })
 }
-
-/** What became of a dish posted: taken, held already, or why not. */
-export type DishAccepted =
-  | { kind: 'new' | 'repeat'; id: string; status: CookbookDishStatus }
-  | { kind: 'off' | 'update' | 'busy' | 'daily' | 'full' }
 
 /**
  * Take a dish posted through a link. A dish the campaign holds already is answered as it stands,
@@ -160,9 +147,6 @@ const pruneDishes = (campaignId: string, now: number) =>
 const isTaken = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === 'P2002'
-
-/** Why no link code was made. */
-export type CookbookLinkProblem = 'missing' | 'not-playing'
 
 /**
  * Make a link code for one of the user's characters, while it plays a character of a campaign:
@@ -368,11 +352,6 @@ export async function recordDishResult(
   }
 }
 
-/** A Gamemaster's choice of what became of a dish, as the module's bridge tells of it. */
-export type DishDecision =
-  | { type: 'dish.applied'; data: DishApplied }
-  | { type: 'dish.dismissed'; data: DishDismissed }
-
 /**
  * Record what the Gamemaster did with a dish in Foundry. Served, it names everyone served so far,
  * so each overwrites the last; set aside or deleted never undoes one served, and nothing goes
@@ -406,9 +385,6 @@ export async function recordDishDecision(
     data: { status: 'dismissed', reason: data.reason, decidedAt },
   })
 }
-
-/** A player's character playing in a campaign, whose card is drawn. */
-export type CookbookSeat = { id: string; campaignId: string; actorId: string }
 
 /**
  * A player's Magical Recipe Book card, but its version: whether the campaign takes dishes, whether

@@ -6,7 +6,6 @@ import {
   partyNotesAccess,
   partySeat,
   tableGroups,
-  type PartySeat,
 } from './party'
 import { playerSeat } from './seats'
 import { getTableView } from './table'
@@ -18,6 +17,7 @@ import {
 } from '@/mocks/sending-stone'
 import { inventoryView } from '@/utils/table-view'
 import { prismaMock } from '@/utils/test-utils-node'
+import type { PartySeat } from './types'
 import type { SheetSeat } from '@/types/character'
 
 const ORIGIN = 'https://my-game.forge-vtt.com'

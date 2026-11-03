@@ -1,6 +1,7 @@
 import { getGmSeat } from '@/db/seats'
+import { NO_HEADERS } from '@/lib/routes/http'
+import { seatAnswer } from '@/lib/routes/seat-resolver'
 import { textResponse } from '@/lib/routes/seat-routes'
-import { getCurrentUser } from '@/lib/session'
 import type { NextRequest } from 'next/server'
 
 /**
@@ -11,17 +12,10 @@ export async function GET(
   _request: NextRequest,
   context: RouteContext<'/api/campaigns/[id]/characters/[actor]/texts/[hash]'>,
 ) {
-  const user = await getCurrentUser()
-  if (!user) return new Response(undefined, { status: 401 })
-
-  const { id, actor, hash } = await context.params
-  const seat = await getGmSeat(user.id, id, actor)
-  if (!seat) {
-    return new Response(undefined, {
-      status: 404,
-      headers: { 'Cache-Control': 'no-store' },
-    })
-  }
-
-  return textResponse(seat, hash)
+  return seatAnswer(
+    context.params,
+    (userId, { id, actor }) => getGmSeat(userId, id, actor),
+    (seat, { hash }) => textResponse(seat, hash),
+    { signedOut: NO_HEADERS },
+  )
 }

@@ -4,6 +4,7 @@ import { isLive } from '@/db/campaigns'
 import { FOUNDRY_ID } from '@/db/constants'
 import { inventoryView, portraitUrl } from '@/utils/table-view'
 import { transfersAvailable } from '@/utils/transfers'
+import type { PartySeat } from './types'
 import type { SheetSeat } from '@/types/character'
 import type {
   AllowedGroup,
@@ -23,17 +24,6 @@ import type {
 // campaign's Gamemaster, through the campaign they own. Every read is checked here, each time, so
 // that a player whose access is taken away in Foundry loses it here at once. Anyone else is told
 // nothing: a group that isn't there, a campaign that isn't theirs and no access all look the same.
-
-/** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
-export type PartySeat =
-  | {
-      role: 'player'
-      campaignId: string | null
-      actorId: string | null
-      characterId: string
-      name: string
-    }
-  | { role: 'gm'; campaignId: string; userId: string }
 
 /** A seat at a character's sheet, at its party sheets: the same player, or the same Gamemaster. */
 export function partySeat(seat: SheetSeat): PartySeat {

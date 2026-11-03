@@ -1,5 +1,4 @@
 import { MAX_NOTE_BYTES } from '@/constants/notes'
-import { getCharacter } from '@/db/characters'
 import {
   changeNote,
   createNote,
@@ -10,13 +9,12 @@ import {
   reorderNotes,
   resolveNote,
   resolveOrder,
-  type NoteAnswer,
-  type NotesBook,
-  type NotesSeat,
 } from '@/db/notes'
-import { partyNotesAccess, partySeat, type PartySeat } from '@/db/party'
+import { partyNotesAccess, partySeat } from '@/db/party'
 import { notePlayersSeen } from '@/db/roll-requests'
-import { getGmSeat, playerSeat } from '@/db/seats'
+import { getGmSeat, getPlayerSeat } from '@/db/seats'
+import { readBody } from '@/lib/routes/body'
+import { bare, NO_STORE, seenAs } from '@/lib/routes/http'
 import { noting } from '@/lib/routes/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import {
@@ -28,6 +26,8 @@ import {
   noteResolveSchema,
 } from '@/schemas/notes'
 import { NOTE_ID } from '@/utils/note-id'
+import type { NotesAddress, NotesPlace } from './types'
+import type { NoteAnswer, NotesSeat, PartySeat } from '@/db/types'
 import type { NextRequest } from 'next/server'
 import type { z } from 'zod'
 
@@ -37,18 +37,6 @@ import type { z } from 'zod'
 // party now, checked on every request, the 204 one too. The book is the seat's, from the address
 // alone, never from a request's body: anyone else is answered 404, saying no more. Writes are
 // taken whatever Foundry's state: notes are kept here first, and reach Foundry once it takes them.
-
-const headers = { 'Cache-Control': 'no-store' }
-
-/** Who is at a book, and which book: as resolved from the session and the address. */
-export type NotesPlace = { seat: NotesSeat; book: NotesBook }
-
-/** A book's address, as each route's file names it. */
-export type NotesAddress =
-  | { kind: 'personal'; role: 'player'; character: string }
-  | { kind: 'personal'; role: 'gm'; campaign: string; actor: string }
-  | { kind: 'party'; role: 'player'; character: string; group: string }
-  | { kind: 'party'; role: 'gm'; campaign: string; group: string }
 
 /** The name the Gamemaster writes as. */
 const GAMEMASTER = 'Gamemaster'
@@ -60,9 +48,6 @@ const gmSeat = (userId: string): NotesSeat => ({
   actorId: null,
   name: GAMEMASTER,
 })
-
-/** An answer saying nothing more than its status. */
-const bare = (status: number) => new Response(undefined, { status, headers })
 
 /**
  * Who is at a book at this address, and which book (§8.5): 401 signed out, and 404 where it isn't
@@ -107,29 +92,26 @@ export async function notesSeat(
     }
   }
 
-  const character = await getCharacter(user.id, address.character)
-  if (!character?.campaignId || !character.actorId) return bare(404)
+  const player = await getPlayerSeat(user.id, address.character)
+  if (!player?.campaignId || !player.actorId) return bare(404)
   const seat: NotesSeat = {
     role: 'player',
     userId: user.id,
-    actorId: character.actorId,
-    name: character.name,
+    actorId: player.actorId,
+    name: player.name,
   }
   if (address.kind === 'personal') {
     return {
       seat,
       book: {
-        campaignId: character.campaignId,
+        campaignId: player.campaignId,
         kind: 'personal',
-        actorId: character.actorId,
+        actorId: player.actorId,
         private: false,
       },
     }
   }
-  const access = await partyNotesAccess(
-    partySeat(playerSeat(character, user.id)),
-    address.group,
-  )
+  const access = await partyNotesAccess(partySeat(player), address.group)
   if (!access) return bare(404)
   return {
     seat,
@@ -161,33 +143,20 @@ export async function notesResponse(
   if (known.has('version')) {
     const status = await getNotesStatus(book)
     if (!status) return bare(404)
-    if (
-      Number(known.get('version')) === status.version &&
-      (known.get('live') === '1') === status.live
-    ) {
-      return bare(204)
-    }
+    const { version, live } = status
+    if (seenAs(known, { version, live })) return bare(204)
   }
   const view = await getNotesView(seat, book)
   if (!view) return bare(404)
-  return Response.json(view, { headers })
+  return Response.json(view, { headers: NO_STORE })
 }
 
 /** A request's JSON body, read within the limit; or why it can't be read. */
-async function readBody(request: NextRequest): Promise<unknown> {
-  // Asked for only as JSON, which a page on another site can't send without asking first.
-  if (!request.headers.get('content-type')?.startsWith('application/json')) {
-    throw bare(415)
-  }
-  const body = await request.text()
-  if (Buffer.byteLength(body) > MAX_NOTE_BYTES) {
-    throw refused(413, { reason: 'invalid' })
-  }
-  try {
-    return JSON.parse(body)
-  } catch {
-    throw refused(400, { reason: 'invalid' })
-  }
+async function noteBody(request: NextRequest): Promise<unknown> {
+  const body = await readBody(request, { limit: MAX_NOTE_BYTES, type: 'exact' })
+  if (body.ok) return body.value
+  if (body.why === 'type') throw bare(415)
+  throw refused(body.why === 'size' ? 413 : 400, { reason: 'invalid' })
 }
 
 /** A body checked against a schema, or 400 with the first field it got wrong. */
@@ -203,7 +172,7 @@ function parsed<T extends z.ZodType>(schema: T, body: unknown): z.output<T> {
 
 /** A refusal: its status, and why as `{reason}`, with a field or the lines of headings. */
 function refused(status: number, body: object): Response {
-  return Response.json(body, { status, headers })
+  return Response.json(body, { status, headers: NO_STORE })
 }
 
 /** What a change answered, as its route answers it. */
@@ -218,7 +187,7 @@ function answered(answer: NoteAnswer, status: number): Response {
   }
   return Response.json(
     { ...(answer.id !== undefined && { id: answer.id }), stamp: answer.stamp },
-    { status, headers },
+    { status, headers: NO_STORE },
   )
 }
 
@@ -242,7 +211,7 @@ export async function notesPostResponse(
   { seat, book }: NotesPlace,
 ): Promise<Response> {
   return answering(async () => {
-    const input = parsed(noteInputSchema, await readBody(request))
+    const input = parsed(noteInputSchema, await noteBody(request))
     return answered(await createNote(seat, book, input), 201)
   })
 }
@@ -258,7 +227,7 @@ export async function notePatchResponse(
 ): Promise<Response> {
   return answering(async () => {
     if (!NOTE_ID.test(noteId)) return bare(404)
-    const body = await readBody(request)
+    const body = await noteBody(request)
     if (typeof body === 'object' && body !== null && 'resolve' in body) {
       const choice = parsed(noteResolveSchema, body)
       return answered(await resolveNote(seat, book, noteId, choice), 200)
@@ -292,7 +261,7 @@ export async function noteOrderResponse(
   { seat, book }: NotesPlace,
 ): Promise<Response> {
   return answering(async () => {
-    const order = parsed(noteOrderSchema, await readBody(request))
+    const order = parsed(noteOrderSchema, await noteBody(request))
     return answered(await reorderNotes(seat, book, order), 200)
   })
 }
@@ -306,7 +275,7 @@ export async function noteOrderResolveResponse(
   { seat, book }: NotesPlace,
 ): Promise<Response> {
   return answering(async () => {
-    const choice = parsed(noteOrderResolveSchema, await readBody(request))
+    const choice = parsed(noteOrderResolveSchema, await noteBody(request))
     return answered(await resolveOrder(seat, book, choice), 200)
   })
 }
@@ -320,9 +289,9 @@ export async function notePreviewResponse(
   { book }: NotesPlace,
 ): Promise<Response> {
   return answering(async () => {
-    const { body } = parsed(notePreviewSchema, await readBody(request))
+    const { body } = parsed(notePreviewSchema, await noteBody(request))
     const preview = await previewNote(book, body)
     if (!preview) return bare(404)
-    return Response.json(preview, { headers })
+    return Response.json(preview, { headers: NO_STORE })
   })
 }

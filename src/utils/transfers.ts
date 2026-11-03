@@ -15,7 +15,7 @@ import type { RollRefusal } from '@/utils/requests/types'
 // the game; these checks only spare a player a move the game would refuse.
 
 /** Why a move can't go to the game, as these checks say. */
-export type TransferRefusal = Extract<
+type TransferRefusal = Extract<
   RollRefusal,
   | 'unknown'
   | 'not-yours'

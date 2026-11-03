@@ -1,4 +1,3 @@
-import { getCharacter } from '@/db/characters'
 import {
   companionRollSeat,
   companionSeat,
@@ -7,7 +6,8 @@ import {
   getCompanionView,
 } from '@/db/companions'
 import { notePlayersSeen } from '@/db/roll-requests'
-import { getGmSeat, playerSeat } from '@/db/seats'
+import { getGmSeat, getPlayerSeat } from '@/db/seats'
+import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
 import { noting } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import { rollsKey } from '@/utils/requests/availability'
@@ -24,8 +24,6 @@ import type { NextRequest } from 'next/server'
 // or not it's listed now, of the seat's own rolls for it alone, so that one sent a moment before
 // the module stopped listing it is still followed to what the game made of it.
 
-const headers = { 'Cache-Control': 'no-store' }
-
 /**
  * The seat at a character's companion, for the character's player: their own Character, then the
  * companion, while it's that character's.
@@ -36,10 +34,8 @@ export async function playerCompanionSeat(
   characterId: string,
   key: string,
 ): Promise<SheetSeat | undefined> {
-  const character = await getCharacter(userId, characterId)
-  return character
-    ? companionSeat(playerSeat(character, userId), key)
-    : undefined
+  const seat = await getPlayerSeat(userId, characterId)
+  return seat ? companionSeat(seat, key) : undefined
 }
 
 /**
@@ -68,10 +64,8 @@ export async function playerCompanionRollSeat(
   characterId: string,
   key: string,
 ): Promise<RollSeat | undefined> {
-  const character = await getCharacter(userId, characterId)
-  return character
-    ? companionRollSeat(playerSeat(character, userId), key)
-    : undefined
+  const seat = await getPlayerSeat(userId, characterId)
+  return seat ? companionRollSeat(seat, key) : undefined
 }
 
 /**
@@ -117,20 +111,16 @@ export async function companionTableResponse(
   if (known.has('version')) {
     const { version, live, rollsToTable, rollFeatures, gm, gmRollsKey, typed } =
       await getCompanionStatus(seat)
-    if (
-      Number(known.get('version')) === version &&
-      (known.get('live') === '1') === live &&
-      (known.get('rolls') ?? '') === rollsKey(rollsToTable, rollFeatures) &&
-      (known.get('gm') ?? undefined) === gm?.rolls &&
-      (known.get('gmrolls') ?? undefined) === gmRollsKey &&
-      (known.get('typed') === '1') === typed
-    ) {
-      return new Response(undefined, { status: 204, headers })
-    }
+    const seen = seenAs(
+      known,
+      { version, live, rolls: rollsKey(rollsToTable, rollFeatures), typed },
+      { gm: gm?.rolls, gmrolls: gmRollsKey },
+    )
+    if (seen) return bare(204)
   }
   const sheetVersion = known.get('sheet') ?? undefined
   return Response.json(await getCompanionView(seat, { sheetVersion }), {
-    headers,
+    headers: NO_STORE,
   })
 }
 
@@ -143,14 +133,7 @@ export async function companionTextResponse(
   seat: SheetSeat,
   hash: string,
 ): Promise<Response> {
-  const html = TEXT_HASH.test(hash)
-    ? await getCompanionText(seat, hash)
-    : undefined
-  if (html === undefined) {
-    return new Response(undefined, { status: 404, headers })
-  }
-  return Response.json(
-    { html },
-    { headers: { 'Cache-Control': 'private, max-age=86400' } },
+  return textAnswer(
+    TEXT_HASH.test(hash) ? await getCompanionText(seat, hash) : undefined,
   )
 }

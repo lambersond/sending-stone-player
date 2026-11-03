@@ -2,12 +2,15 @@ import {
   allowedGroup,
   getGroupView,
   getPartyStatus,
-  type PartySeat,
+  partySeat,
 } from '@/db/party'
 import { notePlayersSeen } from '@/db/roll-requests'
+import { getPlayerSeat } from '@/db/seats'
 import { getGroupText } from '@/db/sheet-texts'
+import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
 import { noting } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
+import type { PartySeat } from '@/db/types'
 import type { NextRequest } from 'next/server'
 
 // What a party sheet's routes answer (module 0.30.0), once they know who is at it: a player,
@@ -17,7 +20,17 @@ import type { NextRequest } from 'next/server'
 // its player present, as a character's table does, so the Gamemaster's module waits for their
 // moves.
 
-const headers = { 'Cache-Control': 'no-store' }
+/**
+ * A player at a party sheet of their character's campaign, through their own Character.
+ * @returns Undefined for a character that isn't the user's.
+ */
+export async function partyAt(
+  userId: string,
+  characterId: string,
+): Promise<PartySeat | undefined> {
+  const seat = await getPlayerSeat(userId, characterId)
+  return seat ? partySeat(seat) : undefined
+}
 
 /**
  * A party sheet as the seat may see it, for its page or panel to poll. Pass the version and the
@@ -32,7 +45,7 @@ export async function partyResponse(
   groupId: string,
 ): Promise<Response> {
   const status = await getPartyStatus(seat, groupId)
-  if (!status) return new Response(undefined, { status: 404, headers })
+  if (!status) return bare(404)
   // Whoever is at it may take from it, so the Gamemaster's module waits for their moves. A
   // failure to note it is only logged.
   const { campaignId } = seat
@@ -44,19 +57,15 @@ export async function partyResponse(
   }
 
   const known = request.nextUrl.searchParams
-  if (
-    known.has('version') &&
-    Number(known.get('version')) === status.version &&
-    (known.get('live') === '1') === status.live &&
-    (known.get('moves') === '1') === status.moves
-  ) {
-    return new Response(undefined, { status: 204, headers })
+  const { version, live, moves } = status
+  if (known.has('version') && seenAs(known, { version, live, moves })) {
+    return bare(204)
   }
   const view = await getGroupView(seat, groupId, {
     sheetVersion: known.get('sheet') ?? undefined,
   })
-  if (!view) return new Response(undefined, { status: 404, headers })
-  return Response.json(view, { headers })
+  if (!view) return bare(404)
+  return Response.json(view, { headers: NO_STORE })
 }
 
 /**
@@ -72,12 +81,5 @@ export async function partyTextResponse(
   const group = TEXT_HASH.test(hash)
     ? await allowedGroup(seat, groupId)
     : undefined
-  const html = group ? await getGroupText(group, hash) : undefined
-  if (html === undefined) {
-    return new Response(undefined, { status: 404, headers })
-  }
-  return Response.json(
-    { html },
-    { headers: { 'Cache-Control': 'private, max-age=86400' } },
-  )
+  return textAnswer(group ? await getGroupText(group, hash) : undefined)
 }

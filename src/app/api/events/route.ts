@@ -28,6 +28,7 @@ import {
 import { recordDishDecision } from '@/db/cookbook'
 import { recordCommandResult } from '@/db/roll-requests'
 import { bearerSecret } from '@/lib/campaign-secret'
+import { readBody } from '@/lib/routes/body'
 import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { envelopeSchema, parseGameEvent } from '@/schemas/sending-stone'
@@ -96,20 +97,20 @@ export async function POST(request: Request) {
   }
 
   // Refused before reading when the size is declared; checked again for a body that wasn't.
-  const declared = Number(request.headers.get('content-length'))
-  if (declared > MAX_ENVELOPE_BYTES) return tooLarge()
-  const body = await request.text()
-  if (Buffer.byteLength(body) > MAX_ENVELOPE_BYTES) return tooLarge()
+  const body = await readBody(request, {
+    limit: MAX_ENVELOPE_BYTES,
+    declared: true,
+  })
+  if (!body.ok && body.why === 'size') return tooLarge()
 
-  let envelope
-  try {
-    envelope = envelopeSchema.parse(JSON.parse(body))
-  } catch {
+  const parsed = body.ok ? envelopeSchema.safeParse(body.value) : undefined
+  if (!parsed?.success) {
     return refuse(request, 400, {
       reason: REFUSAL.BAD_ENVELOPE,
       message: 'Not a Sending Stone envelope',
     })
   }
+  const envelope = parsed.data
   if (envelope.protocol !== PROTOCOL_VERSION) {
     return refuse(request, 400, {
       reason: REFUSAL.UNSUPPORTED_PROTOCOL,

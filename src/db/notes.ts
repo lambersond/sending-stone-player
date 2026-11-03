@@ -23,6 +23,7 @@ import { convertNoteMarkdown, hasBigHeading } from '@/lib/note-markdown'
 import { checkChange } from '@/schemas/notes'
 import { bigHeadings } from '@/utils/note-headings'
 import { newNoteId } from '@/utils/note-id'
+import type { NotesBook, NotesSeat, NoteRights, NoteAnswer } from './types'
 import type {
   NoteBookKind,
   NoteChapterView,
@@ -32,7 +33,6 @@ import type {
   NoteOrder,
   NoteOrderResolve,
   NoteReason,
-  NoteRefusal,
   NoteRole,
   NotesView,
   NoteState,
@@ -51,49 +51,6 @@ import type { ConnectedCharacter } from '@/types/sending-stone'
 // here and waiting for it (`JournalOrder`), which anyone who may write the book makes, whoever
 // wrote the notes. And the book keeps its last change that leaves no note to show it: a delete, an
 // order, or a refused change sent again, here or in Foundry.
-
-/**
- * Who is at a book of notes, as its route resolved them from the session and the address alone:
- * the character's player, as their character, or the campaign's Gamemaster, as no character.
- */
-export type NotesSeat = {
-  role: 'player' | 'gm'
-  userId: string
-  /** The player's character's actor, which they write as; null for the Gamemaster. */
-  actorId: string | null
-  /** The character's name, as their seat knows it; the Gamemaster's is "Gamemaster". */
-  name: string
-}
-
-/** The book a seat is at: a character's or a party's, in one campaign. */
-export type NotesBook = {
-  campaignId: string
-  kind: NoteBookKind
-  /** The character's actor, or the party's Group actor. */
-  actorId: string
-  /** A party no campaign character may see in Foundry, which only its Gamemaster reaches. */
-  private: boolean
-}
-
-/** What a change answered: done, with the note's id and stamp now, or why not, with a status. */
-export type NoteAnswer =
-  | { ok: true; id?: string; stamp: string }
-  | {
-      ok: false
-      status: 400 | 403 | 404 | 409 | 422 | 429
-      reason: NoteRefusal
-      field?: string
-      lines?: number[]
-    }
-
-/** What a seat may do in a book, and with a note in it (§8.5). */
-export type NoteRights = {
-  canAdd: boolean
-  canRename: boolean
-  canEdit: boolean
-  canDelete: boolean
-  canReorder: boolean
-}
 
 /** The name the Gamemaster writes as, in both books (Q5). */
 const GAMEMASTER = 'Gamemaster'

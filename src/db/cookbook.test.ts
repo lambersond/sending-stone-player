@@ -13,8 +13,6 @@ import {
   recordDishResult,
   revokeCampaignCookbookLink,
   revokeCookbookLink,
-  type CookbookLinkFound,
-  type DishDecision,
 } from './cookbook'
 import {
   DISH_ATTEMPTS,
@@ -31,6 +29,7 @@ import { hashCookbookCode } from '@/lib/cookbook-code'
 import { fireberryBoon } from '@/mocks/cookbook'
 import { dishResult } from '@/mocks/sending-stone'
 import { prismaMock } from '@/utils/test-utils-node'
+import type { CookbookLinkFound, DishDecision } from './types'
 import type { DishApplied, DishDismissed } from '@/types/sending-stone'
 
 const NOW = Date.parse('2026-10-25T12:00:00Z')

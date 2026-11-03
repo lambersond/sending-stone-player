@@ -11,7 +11,6 @@ import {
   notesPostResponse,
   notesResponse,
   notesSeat,
-  type NotesPlace,
 } from './notes-routes'
 import { getCharacter } from '@/db/characters'
 import {
@@ -30,6 +29,7 @@ import { notePlayersSeen } from '@/db/roll-requests'
 import { getGmSeat } from '@/db/seats'
 import { getCurrentUser } from '@/lib/session'
 import { mockNotesView } from '@/mocks/sending-stone'
+import type { NotesPlace } from './types'
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))

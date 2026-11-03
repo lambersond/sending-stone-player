@@ -13,7 +13,9 @@ import {
 } from '@/db/cookbook'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { hashCookbookCode, isCookbookCode } from '@/lib/cookbook-code'
+import { readBody } from '@/lib/routes/body'
 import { attempt } from '@/lib/routes/bridge-http'
+import { bare, NO_STORE, seenAs } from '@/lib/routes/http'
 import { cookbookDishSchema } from '@/schemas/cookbook'
 import type { Character } from '@/types/character'
 import type { CookbookRefusalReason } from '@/types/cookbook'
@@ -102,6 +104,13 @@ const UNAVAILABLE: CookbookRefusal = {
 
 const FAILED = 'Failed to take a dish from the Magical Recipe Book'
 
+/** A dish's body refused: anything but JSON, too much, or no JSON. */
+const DISH_REFUSED = {
+  type: [415, NOT_JSON],
+  size: [413, TOO_LARGE],
+  json: [400, NOT_READ],
+} as const
+
 /** A refusal to the cookbook's server: JSON, never cached, no CORS. */
 function cookbookRefusal(
   status: number,
@@ -110,7 +119,7 @@ function cookbookRefusal(
 ): Response {
   return Response.json(refusal, {
     status,
-    headers: { 'Cache-Control': 'no-store', ...headers },
+    headers: { ...NO_STORE, ...headers },
   })
 }
 
@@ -119,10 +128,7 @@ function cookbookAnswer(
   status: 200 | 202,
   body: { id: string; status: string },
 ): Response {
-  return Response.json(body, {
-    status,
-    headers: { 'Cache-Control': 'no-store' },
-  })
+  return Response.json(body, { status, headers: NO_STORE })
 }
 
 /**
@@ -152,22 +158,17 @@ export async function dishPostResponse(request: Request): Promise<Response> {
     return cookbookRefusal(401, MOVED)
   }
 
-  const type = request.headers.get('content-type')?.toLowerCase()
-  if (!type?.startsWith('application/json')) {
-    return cookbookRefusal(415, NOT_JSON)
+  const read = await readBody(request, {
+    limit: MAX_DISH_BYTES,
+    type: 'lower',
+    declared: true,
+    reviver: cleanText,
+  })
+  if (!read.ok) {
+    const [status, refusal] = DISH_REFUSED[read.why]
+    return cookbookRefusal(status, refusal)
   }
-  const declared = Number(request.headers.get('content-length'))
-  if (declared > MAX_DISH_BYTES) return cookbookRefusal(413, TOO_LARGE)
-  const text = await request.text()
-  if (Buffer.byteLength(text) > MAX_DISH_BYTES) {
-    return cookbookRefusal(413, TOO_LARGE)
-  }
-  let body: unknown
-  try {
-    body = JSON.parse(text, cleanText)
-  } catch {
-    return cookbookRefusal(400, NOT_READ)
-  }
+  const body = read.value
   const version = (body as { version?: unknown } | null)?.version
   if (
     typeof version === 'number' &&
@@ -225,10 +226,6 @@ function cleanText(key: string, value: unknown): unknown {
     : value
 }
 
-const headers = { 'Cache-Control': 'no-store' }
-
-const bare = (status: number) => new Response(undefined, { status, headers })
-
 /**
  * A player's Magical Recipe Book card, for their page to poll. Pass its version as last seen, as
  * `?version=9f2c41d0aa1e`, to get 204 No Content while nothing has changed. Only for a character
@@ -247,6 +244,6 @@ export async function cookbookViewResponse(
     .update(JSON.stringify(view))
     .digest('hex')
     .slice(0, 12)
-  if (request.nextUrl.searchParams.get('version') === version) return bare(204)
-  return Response.json({ version, ...view }, { headers })
+  if (seenAs(request.nextUrl.searchParams, { version })) return bare(204)
+  return Response.json({ version, ...view }, { headers: NO_STORE })
 }

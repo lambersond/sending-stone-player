@@ -34,9 +34,9 @@ import {
 } from '@/utils/table-view'
 import { transfersAvailable } from '@/utils/transfers'
 import { wildShapeAvailable } from '@/utils/wild-shape'
+import type { CampaignStatus } from './types'
 import type { SheetSeat } from '@/types/character'
 import type { PromptData } from '@/types/prompts'
-import type { RollFeature, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
   CombatSnapshot,
@@ -51,36 +51,6 @@ import type { Prisma } from '@prisma/client'
 
 /** The most recent chat messages shown. */
 export const MESSAGE_LIMIT = 100
-
-/**
- * What tells a viewer whether anything is new: the campaign's version, whether it is live, and
- * which rolls its game takes from players, and what else it does with them; for the Gamemaster at
- * a character's sheet (#156), where their rolls go; and for its player, what changes whenever any
- * of the rolls the Gamemaster made as their character lately does, `TableView`'s `gmRollsKey`; and
- * from module 0.31.0, whether the seat may move its character's items and coins, which its game's
- * taking moves or not changes with no new version; and from module 0.32.0, whether the player
- * types in their own dice for it, which another of their devices may change; and from module
- * 0.33.0 whether the seat may remove its character's items, which its module's fetching or not
- * changes with no new version; and from module 0.37.0 whether the player may change its
- * character's favorites, which likewise changes with no new version; and from module 0.39.0
- * whether the player may change its character's own effects, which likewise changes with no new
- * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
- * with no new version.
- */
-export type CampaignStatus = {
-  version: number
-  live: boolean
-  rollsToTable: RollKind[]
-  rollFeatures: RollFeature[]
-  gm?: { rolls: GmRolls }
-  gmRollsKey?: string
-  moves: boolean
-  typed: boolean
-  removes: boolean
-  favorites: boolean
-  effects: boolean
-  wildShape: boolean
-}
 
 /**
  * The rolls the campaign's Gamemaster made as a player's character (#156) that its player is shown,

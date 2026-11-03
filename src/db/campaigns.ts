@@ -16,6 +16,7 @@ import { companionRoster } from '@/utils/companions'
 import { literalPattern } from '@/utils/literal-pattern'
 import { availableRollKinds } from '@/utils/requests/availability'
 import { transfersAvailable } from '@/utils/transfers'
+import type { EventCampaign } from './types'
 import type {
   CampaignChoice,
   CampaignRefusal,
@@ -334,10 +335,6 @@ export async function removeCampaign(
 /* -------------------------------------------- */
 /*  The module                                  */
 /* -------------------------------------------- */
-
-/** The campaign an event is for, with the module session whose state it holds, if any. */
-export type EventCampaign =
-  { id: string; helloSession?: string } | 'unknown' | 'refused'
 
 /**
  * Find the campaign an event is for, and check that the secret it came with is that campaign's.

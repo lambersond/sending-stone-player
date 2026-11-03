@@ -1,4 +1,4 @@
-import type { RefusalReason } from '@/types/sending-stone'
+import type { Refusal } from './types'
 // What the routes the Gamemaster's module calls share. The module calls them from the Gamemaster's
 // browser, on the game's page, not from the Foundry server, so they answer CORS like any
 // cross-origin API.
@@ -20,23 +20,6 @@ export function cors(request: Request): Headers {
     headers.set('Access-Control-Allow-Private-Network', 'true')
   }
   return headers
-}
-
-/**
- * Why a request from the module is refused, as its JSON body says: a `reason` the module words
- * itself, a `message` for a module that doesn't know the reason, and what more there is to say.
- */
-export type Refusal = {
-  reason: RefusalReason
-  message: string
-  /** The largest body taken, in bytes. */
-  limit?: number
-  /** The protocol taken. */
-  protocol?: number
-  /** The event type refused. */
-  type?: string
-  /** What was wrong with it. */
-  detail?: string
 }
 
 /**

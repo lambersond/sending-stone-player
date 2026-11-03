@@ -11,7 +11,6 @@ import {
   applyJournalUpdated,
   drawJournal,
   reconcileJournals,
-  type JournalDrawings,
 } from '@/db/note-sync'
 import { groupRoster } from '@/db/party'
 import {
@@ -20,6 +19,7 @@ import {
   saveSheetTexts,
 } from '@/db/sheet-texts'
 import { companionRoster } from '@/utils/companions'
+import type { JournalDrawings, Tx } from '@/db/types'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type {
   CampaignRef,
@@ -41,7 +41,6 @@ import type { Prisma } from '@prisma/client'
 // Every handler is idempotent. The module retries a post whose answer was lost with the same
 // envelope, and only ever before sending the next one, so applying a duplicate again is harmless.
 
-type Tx = Prisma.TransactionClient
 type World = { id: string; title: string }
 
 /**

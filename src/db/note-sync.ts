@@ -10,7 +10,13 @@ import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
 import { NO_DICE } from '@/constants/roll-kinds'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { noteHtml } from '@/lib/note-html'
-import type { NotePageCommand } from './types'
+import type {
+  NotePageCommand,
+  JournalDrawings,
+  NoteCommand,
+  NoteOrderCommand,
+  Tx,
+} from './types'
 import type { NoteBookKind, NoteReason } from '@/types/notes'
 import type {
   CommandResult,
@@ -29,30 +35,8 @@ import type {
 // over with the notes' changes, oldest first across both; and the book keeps who last deleted or
 // reordered its pages in Foundry, and when, as the module says.
 
-type Tx = Prisma.TransactionClient
-
 /** How long a made change is kept, so the seat's limit has rows to count while Foundry is live. */
 export const MADE_KEPT_FOR = 3_600_000
-
-/**
- * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
- * ids in the new order, and in Foundry's order it was made from.
- */
-export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
-  note: {
-    book: NoteBookKind
-    op: 'order'
-    /** The group: a chapter's page, or null for the notes in no chapter. */
-    chapter: string | null
-    ids: string[]
-    was: string[]
-    writer: string | null
-    at: number
-  }
-}
-
-/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
-export type NoteCommand = NotePageCommand | NoteOrderCommand
 
 /**
  * On each hello from module 0.34.0 (§4.6): the books whose journal it no longer lists are emptied,
@@ -173,9 +157,6 @@ function redrawn(
     page.format === 1
   )
 }
-
-/** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */
-export type JournalDrawings = { origin: string; html: Map<string, string> }
 
 /**
  * Draw a `journal.updated`'s notes ahead (§8.9), before the transaction that keeps them: a large
