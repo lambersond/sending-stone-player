@@ -18,16 +18,17 @@ export TOOLS OUTDIR CHECKOUT
 flock "$X/l1-wait.lock" flock "$X/checks.lock" bash -c '
   cd "$CHECKOUT" || exit 99
   date -u +%FT%TZ >"$OUTDIR/start"
-  npx jest --ci --json --outputFile="$OUTDIR/jest.json" --maxWorkers=3 >"$OUTDIR/jest.log" 2>&1
-  echo $? >"$OUTDIR/jest.rc"
-  # Each red test once more, alone (round.md §2.3.6).
-  [ -f "$OUTDIR/jest.json" ] && node "$TOOLS/rerun.mjs" "$OUTDIR" "$CHECKOUT" >"$OUTDIR/rerun.log" 2>&1
+  # typegen first (tsc reads its output); then jest (3 workers), eslint and tsc side by side on the
+  # 4 cores (each of eslint and tsc uses one): the same checks, about 40% sooner than one by one.
   npx next typegen >"$OUTDIR/typegen.log" 2>&1
   echo $? >"$OUTDIR/typegen.rc"
-  npx tsc --noEmit >"$OUTDIR/tsc.log" 2>&1
-  echo $? >"$OUTDIR/tsc.rc"
-  npx eslint . -f json -o "$OUTDIR/eslint.json" >"$OUTDIR/eslint.log" 2>&1
-  echo $? >"$OUTDIR/eslint.rc"
+  ( npx eslint . -f json -o "$OUTDIR/eslint.json" >"$OUTDIR/eslint.log" 2>&1; echo $? >"$OUTDIR/eslint.rc" ) &
+  ( npx tsc --noEmit >"$OUTDIR/tsc.log" 2>&1; echo $? >"$OUTDIR/tsc.rc" ) &
+  npx jest --ci --json --outputFile="$OUTDIR/jest.json" --maxWorkers=3 >"$OUTDIR/jest.log" 2>&1
+  echo $? >"$OUTDIR/jest.rc"
+  wait
+  # Each red test once more, alone (round.md §2.3.6), with nothing beside it.
+  [ -f "$OUTDIR/jest.json" ] && node "$TOOLS/rerun.mjs" "$OUTDIR" "$CHECKOUT" >"$OUTDIR/rerun.log" 2>&1
   "$TOOLS/gates.sh" "$OUTDIR" "$CHECKOUT" >"$OUTDIR/gates.log" 2>&1
   echo $? >"$OUTDIR/gates.rc"
   date -u +%FT%TZ >"$OUTDIR/end"
