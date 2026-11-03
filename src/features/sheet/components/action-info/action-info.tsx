@@ -1,30 +1,26 @@
 'use client'
 
-import { useId, useState, type ReactNode } from 'react'
-import clsx from 'clsx'
+import { useId } from 'react'
 import { joinParts } from '../../utils/join-parts'
 import { DescriptionLinks } from '../description-actions/description-links'
-import { useDescriptionActions } from '../description-actions/use-description-actions'
 import { closingAfter, spellOrigin } from '../description-actions/utils'
 import { SheetText } from '../sheet-text/sheet-text'
-import { UsesButton } from '../uses-button/uses-button'
+import { Facts } from './facts'
+import {
+  castAs,
+  ownFacts,
+  spellFacts,
+  spellKind,
+  textOf,
+  whyNot,
+} from './utils'
 import { Modal } from '@/components/modal/modal'
-import { ordinal, poolName } from '@/utils/action-groups'
-import { rechargeWords } from '@/utils/creature-words'
-import { formatModifier } from '@/utils/format-modifier'
-import { itemSpellOf } from '@/utils/sheet-actions'
-import type { DescriptionOrigin } from '../description-actions/types'
+import type { ActivityInfo } from './types'
 import type {
-  SheetAction,
-  SheetActivity,
-  SheetCast,
-  SheetCastFrom,
-  SheetSpell,
-  SheetSpellSection,
-  SheetSpend,
-  SheetUses,
-  SlotPool,
-} from '@/types/sending-stone'
+  DescriptionActions,
+  DescriptionOrigin,
+} from '../description-actions/types'
+import type { SheetSpell } from '@/types/sending-stone'
 
 /*
  * All there is to know of an action: its facts, as it shows them once it's open; and, for one of an
@@ -33,78 +29,41 @@ import type {
  * the spell under the item.
  */
 
-/** One of an item's activities folded beneath it, to be read about. */
-export type ActivityInfo = {
-  activity: SheetActivity
-  /** The activity as an action of its own. */
-  action: SheetAction
-  /** The item it's one of, as an action. */
-  item: SheetAction
-  /** Whether it's used only in Foundry, as the app neither rolls nor uses it. */
-  foundry: boolean
-}
-
 /**
- * What there is to read of one of an item's activities folded beneath it, in a dialog, with no
- * roll buttons of its own, which stay on its row: its spell's, where it casts one the Spells tab
- * lists under the item, or else what its row has. Its description's links act as they do on the
- * sheet, and once one throws dice, or asks the table, the dialog closes, for the dice and the tray
- * behind it to be seen. `show` opens it; the dialog is in `dialog`, to be put on the page.
+ * The dialog `useActionInfo` opens: what there is to read of one of an item's activities folded
+ * beneath it, titled with its spell's name, where it casts one, or its own, and the item it's
+ * from. Its description's links act as they do on the sheet, closing the dialog once one throws
+ * dice or asks the table.
  */
-export function useActionInfo(
-  characterId: string,
-  spellbook: SheetSpellSection[],
-): { show: (info: ActivityInfo) => void; dialog: ReactNode } {
-  const [info, setInfo] = useState<ActivityInfo>()
-  const actions = useDescriptionActions()
-  const spell = info && spellOf(info, spellbook)
-  const close = () => setInfo(undefined)
-  return {
-    show: setInfo,
-    dialog: (
-      <Modal
-        open={!!info}
-        onClose={close}
-        title={spell?.name ?? info?.activity.name ?? ''}
-        subtitle={
-          info && joinParts(spell && spellKind(spell), `From ${info.item.name}`)
-        }
-      >
-        {info && (
-          <DescriptionLinks actions={actions && closingAfter(actions, close)}>
-            <ActivityAbout
-              characterId={characterId}
-              info={info}
-              spell={spell}
-            />
-          </DescriptionLinks>
-        )}
-      </Modal>
-    ),
-  }
-}
-
-/**
- * The spell an activity casts, as the Spells tab lists it under the activity's item: the copy the
- * module names, from 0.17.0; or else where it can be told which.
- */
-function spellOf(
-  { activity, item }: ActivityInfo,
-  spellbook: SheetSpellSection[],
-): SheetSpell | undefined {
-  const named =
-    typeof activity.spellId === 'string'
-      ? spellbook
-          .flatMap(section => section.spells)
-          .find(spell => spell.id === activity.spellId)
-      : undefined
-  if (named) return named
-  return itemSpellOf(spellbook, item.id, {
-    name: activity.name,
-    text: activity.cast?.text,
-    casts: activity.type === 'cast',
-    resolved: !!activity.cast,
-  })
+export function ActionInfo({
+  info,
+  spell,
+  characterId,
+  actions,
+  onClose,
+}: Readonly<{
+  info?: ActivityInfo
+  spell?: SheetSpell
+  characterId: string
+  actions?: DescriptionActions
+  onClose: () => void
+}>) {
+  return (
+    <Modal
+      open={!!info}
+      onClose={onClose}
+      title={spell?.name ?? info?.activity.name ?? ''}
+      subtitle={
+        info && joinParts(spell && spellKind(spell), `From ${info.item.name}`)
+      }
+    >
+      {info && (
+        <DescriptionLinks actions={actions && closingAfter(actions, onClose)}>
+          <ActivityAbout characterId={characterId} info={info} spell={spell} />
+        </DescriptionLinks>
+      )}
+    </Modal>
+  )
 }
 
 /**
@@ -198,233 +157,4 @@ function ActivityAbout({
       )}
     </div>
   )
-}
-
-/**
- * An activity's own facts, from module 0.17.0: what a reaction is taken in answer to, and how long
- * what it does lasts, where its spell doesn't say.
- */
-function ownFacts(
-  activity: SheetActivity,
-  spell: SheetSpell | undefined,
-): { label: string; value: string }[] {
-  const { trigger, duration } = activity
-  return [
-    ...(typeof trigger === 'string' && trigger
-      ? [{ label: 'Trigger', value: trigger }]
-      : []),
-    ...(typeof duration === 'string' && duration && !spell?.duration
-      ? [{ label: 'Duration', value: duration }]
-      : []),
-  ]
-}
-
-/** An activity's own description's hash, which dnd5e 6 gives it; none before. */
-function textOf(activity: SheetActivity): string | undefined {
-  return typeof activity.text === 'string' && activity.text
-    ? activity.text
-    : undefined
-}
-
-/**
- * How the uses an action's row shows are spent from its facts, where its row folds them away in a
- * narrow list: what they're called, and what using it spends, as its count's button has them.
- */
-export type UsesSpending = { name: string; spends?: SheetSpend[] }
-
-/**
- * All there is to know of how an action is used, each with its label, and for a spell cast with
- * slots, the slots it can be cast with. More of its own, such as a spell's duration, follow whom
- * it's used at. Where its row folds its count away, its uses are spent from here in a narrow list,
- * as they are from the count wherever that's shown.
- */
-export function Facts({
-  action,
-  uses = action.uses,
-  pools,
-  more = [],
-  casting = false,
-  spending,
-}: Readonly<{
-  action: SheetAction
-  /** Its uses, where others are shown in place of its own, as `EntryLook`'s. */
-  uses?: SheetUses | null
-  /** For a spell cast with slots, the slots it can be cast with. */
-  pools?: SlotPool[] | null
-  more?: { label: string; value: string }[]
-  /** Whether it's a spell cast from an item, how it's activated being its casting time. */
-  casting?: boolean
-  /** Where its row folds its count away in a narrow list, how its uses are spent from here. */
-  spending?: UsesSpending
-}>) {
-  const { save } = action
-  const healing =
-    action.damage.length > 0 && action.damage.every(part => part.healing)
-  const recovery = uses && recoveryOf(uses)
-  const facts: [string, ReactNode][] = [
-    [
-      casting || action.type === 'spell' ? 'Casting time' : 'Activation',
-      action.activation,
-    ],
-    ['Range', action.range],
-    ['Target', action.target],
-    ...more.map(({ label, value }): [string, ReactNode] => [label, value]),
-    [
-      'To hit',
-      action.toHit === null ? undefined : formatModifier(action.toHit),
-    ],
-    [
-      'Saving throw',
-      save &&
-        `${save.dc === null ? '' : `DC ${save.dc} `}${save.ability.toUpperCase()}`,
-    ],
-    [
-      healing ? 'Healing' : 'Damage',
-      action.damage
-        .map(part =>
-          part.type && !part.healing
-            ? `${part.formula} ${part.type}`
-            : part.formula,
-        )
-        .join(' + '),
-    ],
-    [
-      'Uses',
-      uses && (
-        <>
-          {`${uses.value} of ${uses.max} left${recovery ? `, ${recovery}` : ''}`}
-          {/* Only where the row's count is folded away, which is shown beside it otherwise. */}
-          {spending && (
-            <UsesButton
-              uses={uses}
-              name={spending.name}
-              spends={spending.spends}
-              bare
-              className='ml-2 align-middle @md:hidden'
-            />
-          )}
-        </>
-      ),
-    ],
-    ['Cast at', pools && pools.length > 0 && <CastAt pools={pools} />],
-  ]
-  const shown = facts.filter(([, value]) => Boolean(value))
-  if (shown.length === 0) return
-  return (
-    <dl className='grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-0.5 text-xs'>
-      {shown.map(([label, value]) => (
-        <div key={label} className='contents'>
-          <dt className='font-semibold text-text-secondary'>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-/** The slots a spell can be cast with, each with how many are left, such as "3rd 1/2". */
-function CastAt({ pools }: Readonly<{ pools: SlotPool[] }>) {
-  return (
-    <ul className='flex flex-wrap gap-1'>
-      {pools.map(pool => (
-        <li
-          key={pool.id}
-          className={clsx(
-            'rounded-md border px-1.5 font-semibold tabular-nums',
-            pool.value === 0 ? 'border-ruby/40 text-ruby' : 'border-border',
-          )}
-        >
-          <span aria-hidden>
-            {poolName(pool)}{' '}
-            <span className='font-normal text-text-secondary'>
-              {pool.value}/{pool.max}
-            </span>
-          </span>
-          <span className='sr-only'>
-            {pool.label}, {pool.value} of {pool.max} slots left
-          </span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-/**
- * The facts of a spell an item casts, after whom it's cast at, as the Spells tab has them: its
- * duration and components, the level it's cast at where that's above its own, and how many of the
- * item's charges it costs. Only the cost, where the spell isn't known.
- */
-export function spellFacts(
-  spell: SheetSpell | undefined,
-  cast: SheetCast | null | undefined,
-): { label: string; value: string }[] {
-  const facts: [string, string | false | null | undefined][] = [
-    ['Duration', spell?.duration],
-    ['Components', spell && componentsOf(spell)],
-    [
-      'Cast at',
-      spell &&
-        cast &&
-        cast.level > spell.level &&
-        `${ordinal(cast.level)} level`,
-    ],
-    ['Cost', cast && castCost(cast)],
-  ]
-  return facts.flatMap(([label, value]) => (value ? [{ label, value }] : []))
-}
-
-/**
- * An action that casts a spell, how it's cast, its range and its target falling back to the
- * spell's own where it has none of its own.
- */
-export function castAs(action: SheetAction, spell: SheetSpell): SheetAction {
-  return {
-    ...action,
-    activation: action.activation ?? spell.activation,
-    range: action.range ?? spell.range,
-    target: action.target ?? spell.target,
-  }
-}
-
-/** What a spell is: its level and its school, such as "Cantrip · Evocation". */
-export function spellKind(
-  spell: Pick<SheetSpell, 'level' | 'school'>,
-): string | undefined {
-  return joinParts(
-    spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`,
-    spell.school,
-  )
-}
-
-/** A spell's components, with its materials, such as "V, S, M (a pinch of soot)". */
-export function componentsOf(
-  spell: Pick<SheetSpell, 'components' | 'materials'>,
-): string {
-  return [spell.components, spell.materials && `(${spell.materials})`]
-    .filter(Boolean)
-    .join(' ')
-}
-
-/** How many of an item's charges a spell cast from it costs, such as "1 charge"; none for none. */
-export function castCost(cast: SheetCast): string | undefined {
-  if (!cast.charges) return undefined
-  return chargesOf(cast.charges)
-}
-
-/** So many of an item's charges, such as "1 charge" or "3 charges". */
-export function chargesOf(count: number): string {
-  return count === 1 ? '1 charge' : `${count} charges`
-}
-
-/** Why the item a spell is cast from can't cast it now: it needs attuning, or else it can't. */
-export function whyNot(castFrom: SheetCastFrom): string {
-  return castFrom.attune ? 'Needs attuning' : 'Can’t be cast now'
-}
-
-/**
- * When uses come back, as their facts say it: a recharge as dnd5e's stat block says it, from
- * module 0.36.0, such as "Recharge 5–6", in place of "Recharge [5+]"; else as the sheet has it.
- */
-function recoveryOf(uses: SheetUses): string | null {
-  return uses.recharge ? rechargeWords(uses.recharge) : uses.recovery
 }

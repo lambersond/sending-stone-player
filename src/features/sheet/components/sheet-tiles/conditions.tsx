@@ -2,7 +2,7 @@
 
 import { CircleAlert } from 'lucide-react'
 import { ConcentrationChip } from '../concentration/concentration-chip'
-import { conditionDetail } from '../effects-tab/effects-tab'
+import { conditionDetail } from '../effects-tab/utils'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 import type { TableSheet } from '@/types/table'
 
@@ -83,7 +83,7 @@ function StatusIcon({ src }: Readonly<{ src: string | null }>) {
   }
   return (
     // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
-    // eslint-disable-next-line @next/next/no-img-element
+    // eslint-disable-next-line @next/next/no-img-element -- the game's image, not Next's
     <img
       ref={ref}
       src={src}

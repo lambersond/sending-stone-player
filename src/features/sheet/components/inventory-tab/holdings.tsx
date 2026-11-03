@@ -2,11 +2,6 @@
 
 import { useState, useId } from 'react'
 import {
-  useFloating,
-  autoUpdate,
-  offset,
-  flip,
-  shift,
   useInteractions,
   useClick,
   useDismiss,
@@ -16,10 +11,10 @@ import {
 } from '@floating-ui/react'
 import clsx from 'clsx'
 import { SheetFact } from '../sheet-fact/sheet-fact'
-import { usePortalRoot } from '@/components/modal/use-portal-root'
-import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { useTransferring } from '@/features/transfers/hooks/use-transferring'
+import { usePopover } from '@/hooks/use-popover'
 import { compactAmount } from '@/utils/format-amount'
+import type { Coin } from './types'
 import type { SheetInventory } from '@/types/sending-stone'
 
 /**
@@ -80,8 +75,6 @@ export function Holdings({
   )
 }
 
-type Coin = SheetInventory['currency'][number]
-
 /**
  * How much of a coin the character has, such as "41 GP". From 1,000, it's shortened, as in
  * "12.8k GP", so that every coin fits on a phone, and the exact amount is a click or tap away.
@@ -119,15 +112,8 @@ function ExactAmount({ short, coin }: Readonly<{ short: string; coin: Coin }>) {
   const [open, setOpen] = useState(false)
   const amount = useId()
   const shown = `${short} ${coin.abbreviation}`.trimEnd()
-  const root = usePortalRoot()
-  useTopmostEscape(open)
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: setOpen,
-    placement: 'top',
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
-  })
+  const { setReference, setFloating, floatingStyles, context, root } =
+    usePopover({ open, onOpenChange: setOpen, placement: 'top', gap: 6 })
   const { getReferenceProps, getFloatingProps } = useInteractions([
     useClick(context),
     useDismiss(context),
@@ -136,7 +122,7 @@ function ExactAmount({ short, coin }: Readonly<{ short: string; coin: Coin }>) {
   return (
     <>
       <button
-        ref={refs.setReference}
+        ref={setReference}
         type='button'
         // What it shows, then what it opens to.
         aria-label={`${shown}, exact amount`}
@@ -149,7 +135,7 @@ function ExactAmount({ short, coin }: Readonly<{ short: string; coin: Coin }>) {
         <FloatingPortal root={root}>
           <FloatingFocusManager context={context} modal={false}>
             <div
-              ref={refs.setFloating}
+              ref={setFloating}
               style={floatingStyles}
               aria-labelledby={amount}
               className='z-50 flex max-w-[calc(100vw-1rem)] flex-col gap-0.5 rounded-xl border border-border bg-card px-3 py-2 text-text-primary shadow-xl outline-none'

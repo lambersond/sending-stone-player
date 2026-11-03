@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef, type HTMLAttributes, type SyntheticEvent } from 'react'
+import { useRef, type SyntheticEvent } from 'react'
 import { LONG_PRESS } from '../../../rolling/constants'
 import { pointWithin } from '../../../rolling/utils/menu-points'
+import type { PressProps } from './types'
 import type { MenuPoint } from '../../../rolling/types'
 
 /** How far a touch may move and still count as held, in pixels, as a roll's. */
@@ -10,18 +11,6 @@ const DRIFT = 10
 
 /** What a press on any of these inside the part is: that control's, never the part's. */
 const CONTROLS = 'button, a, input, select, textarea'
-
-/** What spreads on the part: its handlers, none without a menu. */
-type PressProps = Pick<
-  HTMLAttributes<HTMLElement>,
-  | 'onContextMenu'
-  | 'onPointerDown'
-  | 'onPointerMove'
-  | 'onPointerUp'
-  | 'onPointerCancel'
-  | 'onPointerLeave'
-  | 'onClickCapture'
->
 
 /** Whether the press is on a control of its own inside the part, such as a row's Take. */
 function onControl(event: SyntheticEvent<HTMLElement>): boolean {

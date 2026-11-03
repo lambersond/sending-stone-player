@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
-import { type DrawLink, type LinkPart } from './description-html'
 import { drawDescription } from './draw-description'
 import { readDescription } from './read-description'
+import { type DrawLink, type LinkPart } from './types'
 
 /** A description drawn, its links drawn as buttons saying what they are; and those drawn. */
 const draw = (html: string, drawLink?: DrawLink) => {

@@ -9,7 +9,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { LONG_PRESS } from '../../rolling/constants'
 import { CharacterPane } from '../components/character-pane/character-pane'
-import { useItemMenu } from '../components/item-menu/item-menu'
+import { useItemMenu } from '../components/item-menu/use-item-menu'
 import { MOST_MOVED } from '@/constants/sending-stone'
 import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
 import {

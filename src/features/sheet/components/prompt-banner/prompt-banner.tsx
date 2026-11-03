@@ -1,19 +1,27 @@
 'use client'
 
-import { useEffect, useState, type ReactNode, type Ref } from 'react'
+import { type ReactNode, type Ref } from 'react'
 import { BellRing, Check, LoaderCircle, Timer } from 'lucide-react'
 import { useD20Rolls } from '../../../rolling/components/d20-rolls/use-d20-rolls'
 import { RollButton } from '../../../rolling/components/roll-button/roll-button'
+import { useSecondsLeft } from './use-seconds-left'
+import {
+  abilitiesOf,
+  advantageOf,
+  advantageWords,
+  choicesOf,
+  clock,
+  midiTitleOf,
+  titleOf,
+} from './utils'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { useTableRole } from '@/hooks/use-table-api'
 import { formatModifier } from '@/utils/format-modifier'
 import { seatWords } from '@/utils/seat-words'
+import type { Ability, Choice } from './types'
 import type { RollActions, RollTarget } from '../../../rolling/types'
 import type { SheetRoll } from '@/types/roll'
-import type { RollMode } from '@/types/sending-stone'
 import type { TablePrompt, TableSheet } from '@/types/table'
-
-type Ability = TableSheet['abilities'][number]
 
 /**
  * The saving throws the Gamemaster's game asks of the character, at the top of every tab of their
@@ -111,14 +119,6 @@ export function PromptBanner({
   )
 }
 
-/** The abilities on the sheet a prompt may be rolled with, in its order. */
-function abilitiesOf(prompt: TablePrompt, sheet: TableSheet): Ability[] {
-  return prompt.abilities.flatMap(id => {
-    const ability = sheet.abilities.find(each => each.id === id)
-    return ability ? [ability] : []
-  })
-}
-
 /** One save the game asks for: what, its DC and what asks, where shown, and its roll. */
 function PromptRow({
   prompt,
@@ -191,158 +191,6 @@ function PromptRow({
       )}
     </li>
   )
-}
-
-/**
- * What the game asks for, in words: such as "Dexterity saving throw", "Strength or Dexterity
- * saving throw", or "Concentration check", naming its ability where it isn't Constitution.
- */
-export function titleOf(prompt: TablePrompt, abilities: Ability[]): string {
-  if (prompt.type === 'concentration') {
-    const [ability] = abilities
-    return ability && ability.id !== 'con'
-      ? `Concentration check (${ability.label})`
-      : 'Concentration check'
-  }
-  const names = abilities.map(({ label }) => label)
-  const list = new Intl.ListFormat('en', { type: 'disjunction' }).format(names)
-  return `${list || 'A'} saving throw`
-}
-
-/**
- * One way to answer what Midi-QOL asks: its key, its name, such as "Dexterity" or "Athletics",
- * and its abbreviation where it has one; and the roll, with the sheet's modifier and the advantage
- * or disadvantage Midi-QOL gives it, as the game makes it.
- */
-type Choice = {
-  key: string
-  name: string
-  short: string
-  target: RollTarget
-}
-
-/**
- * The ways to answer what Midi-QOL asks that are on the sheet, in its order: a save or
- * concentration check by its abilities' saves, an ability check by their checks, and a skill check
- * by its skills.
- */
-function choicesOf(prompt: TablePrompt, sheet: TableSheet): Choice[] {
-  const prompted = prompt.id
-  const modeOf = (key: string): RollMode => {
-    const given = prompt.advantage?.[key]
-    if (given === 'adv') return 1
-    return given === 'dis' ? -1 : 0
-  }
-  if (prompt.type === 'skill') {
-    return (prompt.skills ?? []).flatMap(key => {
-      const skill = sheet.skills.find(({ id }) => id === key)
-      if (!skill) return []
-      const choice: Choice = {
-        key,
-        name: skill.label,
-        short: skill.label,
-        target: {
-          label: `${skill.label} check`,
-          modifier: skill.total,
-          mode: modeOf(key),
-          source: { kind: 'skill', key, prompt: prompted },
-        },
-      }
-      return [choice]
-    })
-  }
-  return abilitiesOf(prompt, sheet).map(ability => {
-    const check = prompt.type === 'check'
-    let label = `${ability.label} saving throw`
-    if (check) label = `${ability.label} check`
-    else if (prompt.type === 'concentration') label = 'Concentration check'
-    return {
-      key: ability.id,
-      name: ability.label,
-      short: ability.abbreviation,
-      target: {
-        label,
-        modifier: check ? ability.check : ability.save,
-        mode: modeOf(ability.id),
-        source: check
-          ? { kind: 'ability', key: ability.id, prompt: prompted }
-          : { kind: 'save', key: ability.id, prompt: prompted },
-      },
-    }
-  })
-}
-
-/** How Midi-QOL has a choice rolled, in words, where not normally. */
-function advantageWords(mode: RollMode): string | undefined {
-  if (mode > 0) return 'Advantage (Midi)'
-  if (mode < 0) return 'Disadvantage (Midi)'
-  return undefined
-}
-
-/**
- * What Midi-QOL asks, in words, after what asks it: such as "Hold Person: Wisdom save", "Web:
- * Athletics or Acrobatics check" or "Bless: Concentration check".
- */
-function midiTitleOf(prompt: TablePrompt, choices: Choice[]): string {
-  const names = new Intl.ListFormat('en', { type: 'disjunction' }).format(
-    choices.map(({ name }) => name),
-  )
-  let kind = `${names || 'A'} check`
-  if (prompt.type === 'save') kind = `${names || 'A'} save`
-  else if (prompt.type === 'concentration') {
-    const [only] = choices
-    kind =
-      only && only.key !== 'con'
-        ? `Concentration check (${only.name})`
-        : 'Concentration check'
-  }
-  return prompt.label ? `${prompt.label}: ${kind}` : kind
-}
-
-/**
- * Of the advantage Midi-QOL gives, what's said once: the same for every choice, as for the only
- * one, without naming it; else each choice's that isn't normal, by name.
- */
-function advantageOf(choices: Choice[]): string | undefined {
-  const words = choices.map(({ target }) => advantageWords(target.mode))
-  if (words.every(each => each === words[0])) return words[0]
-  return choices
-    .flatMap(({ name }, index) =>
-      words[index] ? [`${name}: ${words[index]}`] : [],
-    )
-    .join(' · ')
-}
-
-/** The whole seconds from one moment until another, none once it's come. */
-function secondsLeft(at: number, now: number): number {
-  return Math.max(0, Math.ceil((at - now) / 1000))
-}
-
-/**
- * The whole seconds left until a moment, by this page's clock, ticking down each second until it
- * comes, at none.
- */
-function useSecondsLeft(until: string): number {
-  const at = Date.parse(until)
-  const [now, setNow] = useState(() => Date.now())
-  const left = secondsLeft(at, now)
-  useEffect(() => {
-    if (left <= 0) return
-    // Checked often, to turn with the clock's seconds, but drawn again only as it does.
-    const timer = setInterval(() => {
-      const moment = Date.now()
-      setNow(seen =>
-        secondsLeft(at, moment) === secondsLeft(at, seen) ? seen : moment,
-      )
-    }, 200)
-    return () => clearInterval(timer)
-  }, [at, left])
-  return left
-}
-
-/** Such as "0:42". */
-function clock(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
 /**

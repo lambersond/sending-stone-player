@@ -1,7 +1,8 @@
 'use client'
 
 import clsx from 'clsx'
-import type { LAYOUTS, Layout } from './constants'
+import type { LAYOUTS } from './constants'
+import type { Layout } from './types'
 
 /** The layouts to choose from, each a button pressed while it's the one chosen. */
 export function LayoutPicker({

@@ -6,44 +6,41 @@ import { ChevronDown, Sparkles } from 'lucide-react'
 import { Chevron } from '../../../../components/chevron/chevron'
 import { EntryIcon } from '../../../../components/entry-icon/entry-icon'
 import { joinParts } from '../../utils/join-parts'
-import { RechargeChip } from '../action-chips/recharge-chip'
+import { ActionChips } from '../action-chips/action-chips'
+import { DamageChip } from '../action-chips/damage-chip'
+import { UsesChips } from '../action-chips/uses-chips'
+import { ActionDetails } from '../action-entry/action-details'
+import { ActionEntry } from '../action-entry/action-entry'
+import { ActivityInfoButton } from '../action-entry/activity-info-button'
+import { FALLBACKS } from '../action-entry/constants'
 import {
-  ActionDetails,
-  ActionEntry,
+  type OtherActivity,
+  ActionRows,
+  TableDamage,
+} from '../action-entry/types'
+import { useActionMenu } from '../action-entry/use-action-menu'
+import { useActionRows } from '../action-entry/use-action-rows'
+import { useActivityMenu } from '../action-entry/use-activity-menu'
+import {
   activityDetail,
-  ActivityInfoButton,
-  AttackChip,
-  attackSource,
   castNote,
-  DamageChip,
-  FormulaChip,
   dimmed,
   firstInFoundry,
   forwardNote,
   moreNote,
   otherActivities,
   ownUses,
-  rechargeOf,
-  SaveChip,
   usesName,
-  useActivityMenu,
-  UsingChip,
   viewOf,
-  type OtherActivity,
-} from '../action-entry/action-entry'
-import { FALLBACKS } from '../action-entry/constants'
-import { useActionRows } from '../action-entry/use-action-rows'
-import { actionTitle, verbOf } from '../action-entry/utils'
+  actionTitle,
+  verbOf,
+} from '../action-entry/utils'
 import { EnchantedMark } from '../enchantments/enchanted-mark'
-import { FavoriteStar } from '../favorite-mark/favorite-star'
 import { useFavorite } from '../favorite-mark/use-favorite'
-import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
-import { useItemMenu } from '../item-menu/item-menu'
-import { usePrepareChoice } from '../preparing/use-prepare-choice'
 import { usePressMenu } from '../press-menu/press-menu'
+import { RowName } from '../row-name/row-name'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { SpellSlots } from '../spell-slots/spell-slots'
-import { UsesButton } from '../uses-button/uses-button'
 import { WildShapeNote } from '../wild-shape/wild-shape-note'
 import { WildShapeRowControls } from '../wild-shape/wild-shape-row-controls'
 import { WildShapeRowLine } from '../wild-shape/wild-shape-row-line'
@@ -51,8 +48,8 @@ import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { useStoredSet } from '@/hooks/use-stored'
 import { groupActions } from '@/utils/action-groups'
 import { castOf } from '@/utils/casts'
-import type { ActionRows, TableDamage } from '../action-entry/types'
-import type { Layout } from '../actions-layout/constants'
+import type { GroupedSection, Groups } from './types'
+import type { Layout } from '../actions-layout/types'
 import type {
   SheetDamageRoll,
   SheetFormulaRoll,
@@ -61,35 +58,11 @@ import type {
 } from '@/types/roll'
 import type {
   SheetAction,
-  SheetActionSection,
   SheetSpend,
   SheetUses,
   ActionGroup,
 } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
-
-type Props = {
-  characterId: string
-  sheet: TableSheet
-  onRoll: (roll: SheetRoll) => void
-  onRollDamage: (roll: SheetDamageRoll) => void
-  /** Rolls an activity's own formula, such as a light's radius. */
-  onRollFormula?: (roll: SheetFormulaRoll) => void
-  /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
-  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
-  /** What the game does with damage, while it takes it. */
-  tableDamage?: TableDamage
-  /** Shown first, such as the character's favorites. */
-  favorites?: ReactNode
-  /** How the actions are laid out, as the sheet's settings say, where it is wide enough. */
-  layout?: Layout
-}
-
-/** A section, with its heading's id and its actions in their groups. */
-type GroupedSection = SheetActionSection & {
-  headingId: string
-  groups: ActionGroup[]
-}
 
 /** Where this browser keeps the groups closed, after which the character's id. */
 const CLOSED_KEY = 'sending-stone:actions-closed'
@@ -119,7 +92,22 @@ export function ActionsTab({
   tableDamage,
   favorites,
   layout = 'list',
-}: Readonly<Props>) {
+}: Readonly<{
+  characterId: string
+  sheet: TableSheet
+  onRoll: (roll: SheetRoll) => void
+  onRollDamage: (roll: SheetDamageRoll) => void
+  /** Rolls an activity's own formula, such as a light's radius. */
+  onRollFormula?: (roll: SheetFormulaRoll) => void
+  /** Uses a spell or feature in the Gamemaster's game, while it takes them. */
+  onUse?: (action: SheetAction, modifiers?: DamageModifiers) => void
+  /** What the game does with damage, while it takes it. */
+  tableDamage?: TableDamage
+  /** Shown first, such as the character's favorites. */
+  favorites?: ReactNode
+  /** How the actions are laid out, as the sheet's settings say, where it is wide enough. */
+  layout?: Layout
+}>) {
   const { rows, dialogs } = useActionRows({
     characterId,
     sheet,
@@ -190,12 +178,6 @@ function Columns({ sections }: Readonly<{ sections: ReactNode[] }>) {
       )}
     </div>
   )
-}
-
-/** Whether each group is open, and what opens or closes it. */
-type Groups = {
-  isOpen: (group: ActionGroup) => boolean
-  toggle: (group: ActionGroup) => void
 }
 
 /**
@@ -471,7 +453,7 @@ function ActionTableRow({
   const favorite = useFavorite(`item:${action.id}`)
   const view = viewOf(action, rows.spellbook, rows.use)
   const cast = castOf(action, rows.casts)
-  const { toHit, save, uses } = action
+  const { uses } = action
   const others = otherActivities(action, rows.spellbook)
   // Its range has a column of its own.
   const detail = joinParts(
@@ -482,11 +464,10 @@ function ActionTableRow({
     firstInFoundry(action) && 'Used in Foundry',
     !open && moreNote(others.length),
   )
-  const name = actionTitle(action)
-  const { onMenu, menu } = useItemMenu(action.name, {
-    favorite: useFavoriteChoice({ type: 'item', id: action.id }, action.name),
-    // A spell listed here can be cast, so it's prepared: Unprepare, or none if always (0.42.1).
-    prepare: usePrepareChoice(action.type === 'spell' ? action.id : undefined),
+  // A spell listed here can be cast, so it's prepared: Unprepare, or none if always (0.42.1).
+  const { onMenu, menu } = useActionMenu(action, {
+    type: 'item',
+    id: action.id,
   })
   const press = usePressMenu(onMenu)
 
@@ -513,19 +494,10 @@ function ActionTableRow({
               src={action.img}
               fallback={FALLBACKS[action.type] ?? Sparkles}
             />
-            <span className='min-w-0 flex-1'>
-              <span className='flex items-center gap-1'>
-                <span className='truncate font-medium'>{action.name}</span>
-                {favorite && <FavoriteStar />}
-                {!!action.enchantments?.length && <EnchantedMark />}
-                <Chevron open={open} />
-              </span>
-              {detail && (
-                <span className='block truncate text-xs text-text-secondary'>
-                  {detail}
-                </span>
-              )}
-            </span>
+            <RowName name={action.name} favorite={favorite} detail={detail}>
+              {!!action.enchantments?.length && <EnchantedMark />}
+              <Chevron open={open} />
+            </RowName>
           </button>
           {/* Wild Shape's row says what it does now (module 0.40.0). */}
           <WildShapeRowLine id={action.id} />
@@ -539,21 +511,13 @@ function ActionTableRow({
         </td>
         <td className='px-2'>
           <span className='flex gap-1'>
-            {toHit !== null && (
-              <AttackChip
-                name={name}
-                toHit={toHit}
-                d20={rows.d20}
-                source={attackSource(action)}
-              />
-            )}
-            {save && (
-              <SaveChip name={name} save={save} onUse={view.uses.save} />
-            )}
-            {action.rollFormula && (
-              <FormulaChip action={action} onRoll={rows.formula} />
-            )}
-            <UsingChip action={action} view={view} rows={rows} uses={uses} />
+            <ActionChips
+              action={action}
+              view={view}
+              rows={rows}
+              uses={uses}
+              damage='none'
+            />
           </span>
         </td>
         {/* In a cell of its own, each chip is laid out as it is in a list's row, not as a
@@ -562,7 +526,7 @@ function ActionTableRow({
           {view.formula && (
             <span className='flex'>
               <DamageChip
-                name={name}
+                name={actionTitle(action)}
                 formula={view.formula}
                 healing={view.healing}
                 target={view.target}
@@ -641,7 +605,7 @@ function ActivityTableRow({
   const { activity, action } = other
   const view = viewOf(action, rows.spellbook, rows.use)
   const cast = castOf(action, rows.casts)
-  const { name, toHit, save } = action
+  const { name } = action
   const uses = ownUses(activity, parent)
   // Its range has a column of its own.
   const detail = joinParts(
@@ -693,19 +657,13 @@ function ActivityTableRow({
       </td>
       <td className='px-2'>
         <span className='flex gap-1'>
-          {toHit !== null && (
-            <AttackChip
-              name={name}
-              toHit={toHit}
-              d20={rows.d20}
-              source={attackSource(action)}
-            />
-          )}
-          {save && <SaveChip name={name} save={save} onUse={view.uses.save} />}
-          {action.rollFormula && (
-            <FormulaChip action={action} onRoll={rows.formula} />
-          )}
-          <UsingChip action={action} view={view} rows={rows} uses={uses} />
+          <ActionChips
+            action={action}
+            view={view}
+            rows={rows}
+            uses={uses}
+            damage='none'
+          />
         </span>
       </td>
       <td className='px-2'>
@@ -753,11 +711,9 @@ function UsesCell({
   rows: ActionRows
   spends?: SheetSpend[]
 }>) {
-  const recharge = rechargeOf(rows, uses)
   return (
     <span data-uses className='flex items-center justify-end gap-1'>
-      {recharge && <RechargeChip name={name} uses={uses} onRoll={recharge} />}
-      <UsesButton uses={uses} name={name} spends={spends} />
+      <UsesChips name={name} uses={uses} rows={rows} spends={spends} />
     </span>
   )
 }

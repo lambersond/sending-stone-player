@@ -1,5 +1,6 @@
-import { LAYOUTS, type Layout } from './constants'
+import { LAYOUTS } from './constants'
 import { useStoredChoice } from '@/hooks/use-stored'
+import type { ActionsLayout, Layout } from './types'
 
 const LAYOUT_IDS = LAYOUTS.map(({ id }) => id)
 
@@ -13,7 +14,7 @@ export const LAYOUT_KEY = 'sending-stone:actions-layout'
  * its table back.
  * @param width - How wide the Actions tab is, in pixels.
  */
-export function useActionsLayout(width: number) {
+export function useActionsLayout(width: number): ActionsLayout {
   const offered = LAYOUTS.filter(({ from }) => width >= from)
   const [chosen, choose] = useStoredChoice(LAYOUT_KEY, LAYOUT_IDS, 'list')
   const layout: Layout = offered.some(({ id }) => id === chosen)

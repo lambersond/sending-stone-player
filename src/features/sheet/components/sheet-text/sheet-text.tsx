@@ -4,25 +4,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { drawDescription } from '../../../../components/description/draw-description'
 import { readDescription } from '../../../../components/description/read-description'
 import { useDescriptionActions } from '../description-actions/use-description-actions'
-import {
-  DescriptionLink,
-  useLinkMenus,
-} from '../description-link/description-link'
+import { DescriptionLink } from '../description-link/description-link'
+import { useLinkMenus } from '../description-link/use-link-menus'
 import { useTableApi } from '@/hooks/use-table-api'
-import type { DescriptionOrigin } from '../description-actions/types'
+import type { SheetTextProps } from './types'
 
 /**
  * Descriptions already loaded on this page, by character and hash. The same hash always names the
  * same description, so opening one again shows it at once.
  */
 const loaded = new Map<string, string>()
-
-type Props = {
-  characterId: string
-  hash: string
-  /** Where it's from, as what's rolled from it is named. */
-  origin: DescriptionOrigin
-}
 
 /**
  * A description from the sheet, such as a feature's, loaded when it is first shown. The server
@@ -31,11 +22,11 @@ type Props = {
  * calls for or the damage it deals, do so, where the sheet says what they do. Another description
  * in its place starts afresh, never showing this one while it loads.
  */
-export function SheetText(props: Readonly<Props>) {
+export function SheetText(props: Readonly<SheetTextProps>) {
   return <LoadedText key={`${props.characterId}/${props.hash}`} {...props} />
 }
 
-function LoadedText({ characterId, hash, origin }: Readonly<Props>) {
+function LoadedText({ characterId, hash, origin }: Readonly<SheetTextProps>) {
   const key = `${characterId}/${hash}`
   const [html, setHtml] = useState(() => loaded.get(key))
   const [failed, setFailed] = useState(false)

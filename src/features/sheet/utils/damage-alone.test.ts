@@ -1,9 +1,4 @@
-import {
-  alonePicks,
-  alonePlan,
-  aloneRollOf,
-  aloneSelection,
-} from './damage-alone'
+import { aloneRollOf } from './damage-alone'
 import {
   aloneSpells,
   battleaxeAction,
@@ -14,6 +9,7 @@ import {
   pactSpells,
   potionAction,
 } from '@/mocks/sending-stone'
+import { alonePicks, alonePlan, aloneSelection } from '@/utils/alone-choices'
 import type { AloneRow } from '../../../types/roll'
 import type { SheetAction, TableDamagePlan } from '@/types/sending-stone'
 

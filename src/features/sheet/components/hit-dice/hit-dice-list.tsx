@@ -2,8 +2,8 @@
 
 import clsx from 'clsx'
 import { HitDieIcon } from './hit-die-icon'
-import { HitDieUse, leftOf } from './hit-die-use'
-import { countOf } from './utils'
+import { HitDieUse } from './hit-die-use'
+import { leftOf, countOf } from './utils'
 import type { HitDieSpending } from './types'
 import type { HitDicePool } from '@/types/roll'
 

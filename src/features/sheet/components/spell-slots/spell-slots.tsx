@@ -3,13 +3,13 @@
 import { useState, type ReactNode, type SyntheticEvent } from 'react'
 import clsx from 'clsx'
 import { useCharging } from '../charging/use-charging'
-import { slotsLive, MAX_PIPS } from './utils'
+import { slotsName, slotsLive, MAX_PIPS } from './utils'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
 import {
   slotWords,
   type SpellSlotPool,
 } from '@/features/sheet/utils/slot-words'
-import { ordinal } from '@/utils/action-groups'
+import type { Asked } from './types'
 import type { ChargeActions } from '../charging/types'
 import type { SpellSlotOp } from '@/types/sending-stone'
 
@@ -57,9 +57,6 @@ function Counted({
     </span>
   )
 }
-
-/** What a dot's confirm was opened to do, as the dots showed the pool when it was tapped. */
-type Asked = { pool: SpellSlotPool; op: SpellSlotOp; from: number; max: number }
 
 /** Stops an event at the confirm, so that it never reaches a row's menu around the dots. */
 const stop = (event: SyntheticEvent) => event.stopPropagation()
@@ -195,24 +192,11 @@ function SlotDots({
 }
 
 /**
- * A pool's slots, as its heading names the pool: "1st-level spell slots", or "Pact Magic slots
- * (3rd level)".
- */
-function slotsName({ id, level }: SpellSlotPool): string {
-  if (id === 'pact') {
-    return level === null
-      ? 'Pact Magic slots'
-      : `Pact Magic slots (${ordinal(level)} level)`
-  }
-  return level === null ? 'Spell slots' : `${ordinal(level)}-level spell slots`
-}
-
-/**
  * A pip for each of a count, such as spell slots or hit dice, filled for each left; none past
  * nine, where the number beside them says it alone. Only to look at, as the words beside them say
  * the same.
  */
-export function Pips({ value, max }: Readonly<{ value: number; max: number }>) {
+function Pips({ value, max }: Readonly<{ value: number; max: number }>) {
   if (max > MAX_PIPS) return
   return (
     <span aria-hidden className='flex gap-1'>

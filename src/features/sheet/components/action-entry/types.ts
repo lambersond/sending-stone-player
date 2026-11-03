@@ -1,7 +1,7 @@
 import type { MenuPoint, DueDamage, RollActions } from '../../../rolling/types'
-import type { ActivityInfo } from '../action-info/action-info'
-import type { LinkMenus } from '../description-link/description-link'
-import type { AloneChoice } from '@/features/sheet/utils/damage-alone'
+import type { ActivityInfo } from '../action-info/types'
+import type { LinkMenus } from '../description-link/types'
+import type { AloneChoice } from '@/features/sheet/utils/types'
 import type {
   SheetDamageRoll,
   AloneRow,
@@ -9,10 +9,13 @@ import type {
   DamageModifiers,
 } from '@/types/roll'
 import type {
+  SheetActivity,
+  SheetUses,
   SheetAction,
   SheetSpellSection,
   CastIndex,
 } from '@/types/sending-stone'
+import type { ReactNode } from 'react'
 
 /**
  * An action's damage or healing, ready to roll, with its formula as dnd5e shows it; and from module
@@ -116,4 +119,58 @@ export type ActionRows = {
    * Recharge chip to show.
    */
   recharges?: boolean
+}
+
+/**
+ * How a tab shows something it lists as an action, where it's shown otherwise than on the Actions
+ * tab: such as a spell on the Spells tab, with its school and components, or an item in the
+ * inventory, with its weight and price.
+ */
+export type EntryLook = {
+  /** Under its name, in place of how it's used; empty for nothing. */
+  detail?: string
+  /** Beside what it rolls, such as a spell's marks or how many there are of an item. */
+  marks?: ReactNode
+  /** Over its facts once it's open, in place of what kind of action it is. */
+  meta?: string
+  /** Its own facts, after how and at whom it's used, such as a spell's duration. */
+  facts?: { label: string; value: string }[]
+  /** Faded, such as a spell not prepared. */
+  muted?: boolean
+  /**
+   * Uses to show in place of its own, such as those of the resource a favorite feature stands
+   * for; null for none. Only shown: what it spends in the game is its own. Given, they're shown
+   * however narrow the list, as they're what it's there for.
+   */
+  uses?: SheetUses | null
+  /** Shown once it's open, after its enchantments, such as Give… */
+  moves?: ReactNode
+  /**
+   * Shown once it's open, before its facts, such as what Wild Shape gives on Features (module
+   * 0.40.0).
+   */
+  lead?: ReactNode
+  /** On Features, Wild Shape's row offers Known forms… too (module 0.40.0). */
+  knownForms?: boolean
+  /**
+   * Opens what else is done with it, such as Send to…: on a right-click, a long-press, or the
+   * keyboard's context menu key.
+   */
+  onMenu?: (anchor: HTMLElement, point?: MenuPoint) => void
+}
+
+/** One of an action's other activities, beneath it. */
+export type OtherActivity = {
+  activity: SheetActivity
+  /** The activity as an action of its own, rolled and used as that activity alone. */
+  action: SheetAction
+  /**
+   * What it's called: its own name, or for one of a spell an item casts, the spell's and its own,
+   * such as "Hex (Bonus Hex Damage)".
+   */
+  name: string
+  /** For one of a spell an item casts, the copy of the spell the Spells tab lists it under. */
+  spellId?: string
+  /** Unique among them: its action's id and its own. */
+  key: string
 }

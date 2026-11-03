@@ -2,16 +2,15 @@
 
 import { useState, type ReactNode } from 'react'
 import { RollButton } from '../../../rolling/components/roll-button/roll-button'
+import { NONE_LEFT } from './constants'
 import { HitDiceMenu } from './hit-dice-menu'
+import { leftOf, withPool } from './utils'
 import type { HitDieSpending } from './types'
 import type { MenuPoint } from '../../../rolling/types'
 import type { HitDicePool } from '@/types/roll'
 
 /** Why no hit die is spent at full hit points, as a Use button's title says. */
-export const FULL_HP = 'At full hit points'
-
-/** Why none of a size is spent with none left, as its Use button's title says. */
-export const NONE_LEFT = 'None left'
+const FULL_HP = 'At full hit points'
 
 /**
  * A button that spends a hit die of one size, a tap a die; a right-click, a long-press, or the
@@ -76,18 +75,4 @@ export function HitDieUse({
       )}
     </>
   )
-}
-
-/** The character's hit dice by size, with a button's own, should they leave its size out. */
-function withPool(pools: HitDicePool[], pool: HitDicePool): HitDicePool[] {
-  if (pools.some(({ die }) => die === pool.die)) return pools
-  return [...pools, pool].toSorted(
-    (a, b) => Number(b.die.slice(1)) - Number(a.die.slice(1)),
-  )
-}
-
-/** How many are left, such as "3 of 5 left", saying a count the sheet doesn't know so. */
-export function leftOf({ value, max }: HitDicePool, unknown: string): string {
-  const left = value ?? unknown
-  return max === null ? `${left} left` : `${left} of ${max} left`
 }

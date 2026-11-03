@@ -1,13 +1,13 @@
 'use client'
 
 import { Backpack, Package } from 'lucide-react'
-import { joinParts } from '../../utils/join-parts'
 import { ActionEntry } from '../action-entry/action-entry'
 import { enchantedEntry } from '../enchantments/enchanted-entry'
 import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
-import { useItemMenu } from '../item-menu/item-menu'
+import { useItemMenu } from '../item-menu/use-item-menu'
 import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { UsesButton } from '../uses-button/uses-button'
+import { itemWords } from './utils'
 import { useTransferring } from '@/features/transfers/hooks/use-transferring'
 import { itemAction } from '@/utils/sheet-actions'
 import type { ActionRows } from '../action-entry/types'
@@ -45,33 +45,8 @@ export function ItemEntry({
   const favorite = useFavoriteChoice(target, item.name)
   const { onMenu, menu } = useItemMenu(item.name, { send, remove, favorite })
   const container = 'contents' in item ? item : undefined
-  const { weight, uses } = item
-  const capacity = container?.capacity
-  const heft =
-    weight && `${weight.value.toLocaleString()} ${weight.units}`.trim()
-  const detail = joinParts(
-    item.equipped && 'Equipped',
-    item.attuned && 'Attuned',
-    heft,
-    item.price,
-  )
-  // In full when open, as the line under its name may be cut short.
-  const facts: { label: string; value: string }[] = []
-  if (capacity) {
-    facts.push({
-      label: 'Capacity',
-      value: `${capacity.value.toLocaleString()} / ${capacity.max.toLocaleString()} ${capacity.units}`,
-    })
-  }
-  if (heft) facts.push({ label: 'Weight', value: heft })
-  if (item.price) facts.push({ label: 'Price', value: item.price })
-  const meta = joinParts(
-    !item.identified && 'Not identified',
-    item.rarity,
-    item.attunement === 'required' && 'Requires attunement',
-    item.attunement === 'optional' && 'Attunement optional',
-    ...item.properties,
-  )
+  const { uses } = item
+  const { detail, facts, meta } = itemWords(item)
   const quantity = item.quantity !== 1 && (
     <span className='text-sm font-semibold text-text-secondary tabular-nums'>
       ×{item.quantity}

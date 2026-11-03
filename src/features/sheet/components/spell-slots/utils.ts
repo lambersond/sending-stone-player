@@ -1,4 +1,5 @@
 import { SPELL_SLOT } from '@/constants/sending-stone'
+import { ordinal } from '@/utils/action-groups'
 import type { ChargeActions } from '../charging/types'
 import type { SpellSlotPool } from '@/features/sheet/utils/slot-words'
 
@@ -22,4 +23,17 @@ export function slotsLive(
     max > 0 &&
     max <= MAX_PIPS
   )
+}
+
+/**
+ * A pool's slots, as its heading names the pool: "1st-level spell slots", or "Pact Magic slots
+ * (3rd level)".
+ */
+export function slotsName({ id, level }: SpellSlotPool): string {
+  if (id === 'pact') {
+    return level === null
+      ? 'Pact Magic slots'
+      : `Pact Magic slots (${ordinal(level)} level)`
+  }
+  return level === null ? 'Spell slots' : `${ordinal(level)}-level spell slots`
 }

@@ -1,9 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  RechargeChip,
-  rechargeable,
-} from '../components/action-chips/recharge-chip'
+import { RechargeChip } from '../components/action-chips/recharge-chip'
+import { rechargeable } from '../components/action-chips/utils'
 import { ActionsTab } from '../components/actions-tab/actions-tab'
 import { CharacterPane } from '../components/character-pane/character-pane'
 import { Charging } from '../components/charging/charging'

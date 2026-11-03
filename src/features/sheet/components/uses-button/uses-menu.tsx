@@ -1,36 +1,17 @@
 'use client'
 
-import { useId, useRef, useState, type FormEvent } from 'react'
+import { useId, useRef } from 'react'
 import {
-  autoUpdate,
-  flip,
   FloatingFocusManager,
   FloatingPortal,
-  offset,
-  shift,
   useDismiss,
-  useFloating,
   useInteractions,
   useRole,
 } from '@floating-ui/react'
 import { Minus, Plus } from 'lucide-react'
 import { placing } from '../../../rolling/utils/menu-points'
-import { usePortalRoot } from '@/components/modal/use-portal-root'
-import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
-
-type Props = {
-  /** The count it opened from. */
-  anchor: HTMLElement
-  /** What the counter is called, such as "Sorcery Points". */
-  name: string
-  /** How many are left: as many as may be spent. */
-  left: number
-  /** Whether using what its row uses spends this counter too. */
-  usedToo: boolean
-  /** Spends this many. */
-  onSpend: (count: number) => void
-  onClose: () => void
-}
+import { useUsesStep } from './use-uses-step'
+import { usePopover } from '@/hooks/use-popover'
 
 /**
  * How many of a counter's charges to spend directly, opened from its count as hit dice's popover
@@ -47,47 +28,38 @@ export function UsesMenu({
   usedToo,
   onSpend,
   onClose,
-}: Readonly<Props>) {
-  const [chosen, setChosen] = useState(1)
-  // No more than are left, should the sheet say fewer are while it's open.
-  const most = Math.max(1, left)
-  if (chosen > most) setChosen(most)
+}: Readonly<{
+  /** The count it opened from. */
+  anchor: HTMLElement
+  /** What the counter is called, such as "Sorcery Points". */
+  name: string
+  /** How many are left: as many as may be spent. */
+  left: number
+  /** Whether using what its row uses spends this counter too. */
+  usedToo: boolean
+  /** Spends this many. */
+  onSpend: (count: number) => void
+  onClose: () => void
+}>) {
+  const { chosen, most, step, submit } = useUsesStep(left, onSpend)
   const more = useRef<HTMLButtonElement>(null)
   const spend = useRef<HTMLButtonElement>(null)
   const title = useId()
-  const root = usePortalRoot()
-  useTopmostEscape(true)
   const { placement, gap, across } = placing()
-  const { refs, floatingStyles, context } = useFloating({
+  const { setFloating, floatingStyles, context, root } = usePopover({
     open: true,
     onOpenChange: open => {
       if (!open) onClose()
     },
-    elements: { reference: anchor },
+    anchor,
     placement,
-    whileElementsMounted: autoUpdate,
-    middleware: [
-      offset(gap),
-      flip({ padding: 8 }),
-      shift({ padding: 8, crossAxis: across }),
-    ],
+    gap,
+    across,
   })
   const { getFloatingProps } = useInteractions([
     useDismiss(context),
     useRole(context, { role: 'dialog' }),
   ])
-  // Kept within 1 and as many as are left; its buttons stay where they can't go further, so that
-  // focus isn't lost from one.
-  const step = (by: number) => {
-    const next = chosen + by
-    if (next < 1 || next > most) return
-    setChosen(next)
-  }
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    onSpend(Math.min(chosen, most))
-  }
-
   return (
     <FloatingPortal root={root}>
       <FloatingFocusManager
@@ -97,7 +69,7 @@ export function UsesMenu({
         modal={false}
       >
         <form
-          ref={refs.setFloating}
+          ref={setFloating}
           style={floatingStyles}
           aria-labelledby={title}
           onSubmit={submit}

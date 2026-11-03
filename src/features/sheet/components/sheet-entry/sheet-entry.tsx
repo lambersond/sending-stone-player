@@ -2,12 +2,12 @@
 
 import { Fragment, useState, type ReactNode, type Ref } from 'react'
 import clsx from 'clsx'
-import { ChevronDown, LoaderCircle, type LucideIcon } from 'lucide-react'
-import { FavoriteStar } from '../favorite-mark/favorite-star'
+import { ChevronDown, type LucideIcon } from 'lucide-react'
 import { useFavorite } from '../favorite-mark/use-favorite'
 import { useFavoriteChoice } from '../favoriting/use-favorite-choice'
-import { useItemMenu } from '../item-menu/item-menu'
+import { useItemMenu } from '../item-menu/use-item-menu'
 import { usePressMenu } from '../press-menu/press-menu'
+import { RowName } from '../row-name/row-name'
 import { SheetText } from '../sheet-text/sheet-text'
 import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import type { MenuPoint } from '../../../rolling/types'
@@ -16,7 +16,48 @@ import type { EffectChoice } from '../effect-controls/types'
 import type { PrepareChoice } from '../preparing/types'
 import type { FavoriteTarget } from '@/types/roll'
 
-type Props = {
+/** What a row's favorites key names, as the app adds and removes it: an item or an effect alone. */
+function keyTarget(key: string | undefined): FavoriteTarget | undefined {
+  const [type, ...rest] = key?.split(':') ?? []
+  const id = rest.join(':')
+  if (!id) return undefined
+  return type === 'item' || type === 'effect' ? { type, id } : undefined
+}
+
+/**
+ * A row on the sheet, such as a feature or an effect, that opens to show its description, loaded
+ * only once it is opened. With nothing to show, it doesn't open. From module 0.37.0, one given no
+ * menu has its own, Add to favorites or Remove from favorites, where the pane offers them.
+ */
+export function SheetEntry({
+  characterId,
+  name,
+  img,
+  fallback,
+  detail,
+  aside,
+  asideBelow = false,
+  meta,
+  facts = [],
+  text,
+  origin,
+  badge,
+  lead,
+  children,
+  muted = false,
+  favoriteKey,
+  onMenu,
+  favorite: target = keyTarget(favoriteKey),
+  busy = false,
+  open: held,
+  onOpenChange,
+  effectChoice,
+  prepareChoice,
+  wraps = false,
+  onDelete,
+  dialog,
+  rowRef,
+}: Readonly<{
   characterId: string
   name: string
   /** Its icon from the game, if it has one. */
@@ -98,50 +139,7 @@ type Props = {
   dialog?: ReactNode
   /** The row itself, which opens it, or takes focus for its menu: for focus to be given back. */
   rowRef?: Ref<HTMLElement>
-}
-
-/** What a row's favorites key names, as the app adds and removes it: an item or an effect alone. */
-function keyTarget(key: string | undefined): FavoriteTarget | undefined {
-  const [type, ...rest] = key?.split(':') ?? []
-  const id = rest.join(':')
-  if (!id) return undefined
-  return type === 'item' || type === 'effect' ? { type, id } : undefined
-}
-
-/**
- * A row on the sheet, such as a feature or an effect, that opens to show its description, loaded
- * only once it is opened. With nothing to show, it doesn't open. From module 0.37.0, one given no
- * menu has its own, Add to favorites or Remove from favorites, where the pane offers them.
- */
-export function SheetEntry({
-  characterId,
-  name,
-  img,
-  fallback,
-  detail,
-  aside,
-  asideBelow = false,
-  meta,
-  facts = [],
-  text,
-  origin,
-  badge,
-  lead,
-  children,
-  muted = false,
-  favoriteKey,
-  onMenu,
-  favorite: target = keyTarget(favoriteKey),
-  busy = false,
-  open: held,
-  onOpenChange,
-  effectChoice,
-  prepareChoice,
-  wraps = false,
-  onDelete,
-  dialog,
-  rowRef,
-}: Readonly<Props>) {
+}>) {
   const [ownOpen, setOwnOpen] = useState(false)
   const open = held ?? ownOpen
   const setOpen = onOpenChange ?? setOwnOpen
@@ -160,24 +158,9 @@ export function SheetEntry({
   const row = (
     <>
       <EntryIcon src={img} fallback={fallback} />
-      <span className='min-w-0 flex-1'>
-        <span className='flex items-center gap-1'>
-          <span className='truncate font-medium'>{name}</span>
-          {busy && (
-            <LoaderCircle
-              aria-hidden
-              className='size-3.5 shrink-0 text-text-secondary motion-safe:animate-spin'
-            />
-          )}
-          {favorite && <FavoriteStar />}
-          {badge}
-        </span>
-        {detail && (
-          <span className='block truncate text-xs text-text-secondary'>
-            {detail}
-          </span>
-        )}
-      </span>
+      <RowName name={name} favorite={favorite} busy={busy} detail={detail}>
+        {badge}
+      </RowName>
       {/* Beneath the name in a narrow list, by the list's width rather than the screen's, lined up
           with it past the icon, so that the name keeps the width it has without the aside; its
           spacer stays beside the name. */}

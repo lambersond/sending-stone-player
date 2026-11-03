@@ -8,8 +8,8 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { WildShapeNote } from '../wild-shape/wild-shape-note'
 import { EffectEntry } from './effect-entry'
+import { conditionDetail } from './utils'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
-import type { SheetCondition } from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 
 /**
@@ -99,10 +99,4 @@ export function EffectsTab({
       {!shared && own.panel}
     </div>
   )
-}
-
-/** What qualifies a condition: Exhaustion's level, or what the character is concentrating on. */
-export function conditionDetail(condition: SheetCondition): string | undefined {
-  if (condition.level !== null) return `Level ${condition.level}`
-  return condition.detail ?? undefined
 }

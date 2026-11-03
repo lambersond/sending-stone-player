@@ -12,18 +12,6 @@ import type { SheetUses } from '@/types/sending-stone'
  */
 
 /**
- * Whether uses can be recharged from here: they recharge, they're an item's own or one of its
- * activities', not a resource's, and something of them is spent, as dnd5e rolls a recharge only
- * then.
- */
-export function rechargeable(uses: SheetUses | null | undefined): boolean {
-  const counter = uses?.counter
-  return (
-    !!uses?.recharge && !!counter && 'item' in counter && uses.value < uses.max
-  )
-}
-
-/**
  * A Recharge chip, first of a row's chips, left of its uses, which rolls a d6 to recharge them,
  * for the game to roll it too. Where it had focus and goes, as the uses come back, focus stays in
  * its row: on its uses, where they're a button still shown, else on its name. Nothing for uses it

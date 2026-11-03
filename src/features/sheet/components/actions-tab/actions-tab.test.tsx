@@ -8,8 +8,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LONG_PRESS } from '../../../rolling/constants'
-import { castNote } from '../action-entry/action-entry'
-import { verbOf } from '../action-entry/utils'
+import { castNote, verbOf } from '../action-entry/utils'
 import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
 import { Preparing } from '../preparing/preparing'
@@ -33,7 +32,7 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { Layout } from '../actions-layout/constants'
+import type { Layout } from '../actions-layout/types'
 import type { SeatRole } from '@/types/seats'
 import type {
   CharacterSheet,

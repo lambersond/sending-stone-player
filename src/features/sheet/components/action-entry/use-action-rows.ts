@@ -1,9 +1,9 @@
-import { useMemo, type ReactNode } from 'react'
+import { createElement, Fragment, useMemo, type ReactNode } from 'react'
 import { useD20Rolls } from '../../../rolling/components/d20-rolls/use-d20-rolls'
-import { useActionInfo } from '../action-info/action-info'
+import { useActionInfo } from '../action-info/use-action-info'
 import { useDescriptionActions } from '../description-actions/use-description-actions'
-import { useLinkMenus } from '../description-link/description-link'
-import { useDamageRolls } from './action-entry'
+import { useLinkMenus } from '../description-link/use-link-menus'
+import { useDamageRolls } from './use-damage-rolls'
 import { castIndex } from '@/utils/casts'
 import type { TableDamage, ActionRows } from './types'
 import type {
@@ -70,13 +70,6 @@ export function useActionRows({
       menus,
       recharges: tableDamage?.recharges === true,
     },
-    dialogs: (
-      <>
-        {dialogs}
-        {damageMenu}
-        {info}
-        {checks}
-      </>
-    ),
+    dialogs: createElement(Fragment, null, dialogs, damageMenu, info, checks),
   }
 }

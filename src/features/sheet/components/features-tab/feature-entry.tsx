@@ -8,15 +8,12 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { UsesButton } from '../uses-button/uses-button'
 import { useWildShapeRow } from '../wild-shape/use-wild-shape-row'
 import { WildShapeAbout } from '../wild-shape/wild-shape-about'
+import { plainAction } from './utils'
 import { rechargeWords } from '@/utils/creature-words'
 import { featureAction } from '@/utils/sheet-actions'
 import type { ActionRows } from '../action-entry/types'
 import type { FavoriteTarget } from '@/types/roll'
-import type {
-  SheetFeature,
-  SheetUses,
-  SheetAction,
-} from '@/types/sending-stone'
+import type { SheetFeature, SheetUses } from '@/types/sending-stone'
 
 /**
  * A feature: how it's used and its uses left, opening to its description. Given the rows actions
@@ -100,30 +97,4 @@ export function FeatureEntry({
       {...enchantedEntry(feature)}
     />
   )
-}
-
-/** A feature as an action's row that rolls nothing, such as Wild Shape, its uses its own. */
-function plainAction(feature: SheetFeature): SheetAction {
-  return {
-    id: feature.id,
-    name: feature.name,
-    img: feature.img,
-    type: 'feat',
-    activation: feature.activation,
-    range: feature.range ?? null,
-    target: feature.target ?? null,
-    toHit: null,
-    attackId: null,
-    activity: null,
-    attackModes: null,
-    ammunition: null,
-    save: null,
-    damage: [],
-    uses: feature.uses,
-    level: null,
-    castFrom: null,
-    concentration: feature.concentration ?? false,
-    identified: true,
-    text: feature.text,
-  }
 }
