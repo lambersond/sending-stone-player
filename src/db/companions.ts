@@ -43,8 +43,6 @@ import type { CompanionView, Viewer } from '@/types/table'
 // where a roll sent for it stands, which answers its seat's own rolls for it, listed or not, so
 // that one sent a moment before it left the list is still followed to what the game made of it.
 
-export { companionRoster } from '@/utils/companions'
-
 /**
  * The seat at one of a character's companions' sheets (module 0.36.0): the character's seat, its
  * player's or the Gamemaster's, already resolved, with the companion in place of its actor, only

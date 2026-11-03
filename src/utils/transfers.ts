@@ -78,6 +78,22 @@ export function checkEnds(
   if (among?.some(id => !character(id))) return 'unknown'
   const { actorId } = seat
   if (!actorId || !character(actorId)) return 'not-yours'
+  return checkMover(seat.role, actorId, transfer, group, features)
+}
+
+/**
+ * Whether the seat's character may make a move whose ends are all known: a distribution only from
+ * a group; a character's things only as one of the move's ends; before module 0.32.0, never two
+ * groups, nor a move the character is no end of; and for a player, from their own character, or
+ * from a party they own, to one they own.
+ */
+function checkMover(
+  role: 'player' | 'gm',
+  actorId: string,
+  { from, to, among }: Pick<TransferInput, 'from' | 'to' | 'among'>,
+  group: (id: string) => GroupEntry | undefined,
+  features: readonly string[],
+): TransferRefusal | undefined {
   const fromGroup = group(from)
   const toGroup = to === undefined ? undefined : group(to)
   if (among && !fromGroup) return 'not-yours'
@@ -91,7 +107,17 @@ export function checkEnds(
   ) {
     return 'not-yours'
   }
-  if (seat.role === 'gm') return undefined
+  if (role === 'gm') return undefined
+  return playerMover(from, actorId, fromGroup, toGroup)
+}
+
+/** Whether a player may make a move: from their own character, or a party they own, to one too. */
+function playerMover(
+  from: string,
+  actorId: string,
+  fromGroup: GroupEntry | undefined,
+  toGroup: GroupEntry | undefined,
+): TransferRefusal | undefined {
   if (!fromGroup && from !== actorId) return 'not-yours'
   if (fromGroup && accessOf(fromGroup, actorId) !== 'owner') return 'not-owner'
   if (toGroup && accessOf(toGroup, actorId) !== 'owner') return 'not-owner'

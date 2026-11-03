@@ -1,6 +1,5 @@
 import {
   companionRollSeat,
-  companionRoster,
   companionSeat,
   getCompanionStatus,
   getCompanionText,
@@ -15,6 +14,7 @@ import {
   mockSummonedEntry,
   PARTY,
 } from '@/mocks/sending-stone'
+import { companionRoster } from '@/utils/companions'
 import { toTableSheet } from '@/utils/table-view'
 import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'

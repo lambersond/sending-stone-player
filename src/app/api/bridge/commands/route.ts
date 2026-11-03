@@ -14,9 +14,10 @@ import {
   markBridgePolled,
   openActorIds,
 } from '@/db/roll-requests'
+import { attempt } from '@/lib/attempt'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { readBody } from '@/lib/routes/body'
-import { attempt, cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
+import { cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
 import type { NoteCommand } from '@/db/types'
@@ -55,40 +56,6 @@ export function OPTIONS(request: Request) {
 export async function POST(request: Request) {
   const headers = cors(request)
   headers.set('Cache-Control', 'no-store')
-  const unavailable = () =>
-    refuse(
-      request,
-      500,
-      {
-        reason: REFUSAL.UNAVAILABLE,
-        message: 'Sending Stone couldn’t take this just now',
-      },
-      headers,
-    )
-  const tooLarge = () =>
-    refuse(
-      request,
-      413,
-      {
-        reason: REFUSAL.TOO_LARGE,
-        message: `Larger than the ${MAX_POLL_BYTES} bytes Sending Stone takes`,
-        limit: MAX_POLL_BYTES,
-      },
-      headers,
-    )
-  /**
-   * The commands fetched, the characters open in the app, and how long to wait before fetching
-   * again; none for at once.
-   */
-  const answer = (
-    commands: (RollCommand | NoteCommand | DishCommand)[],
-    open: string[],
-    wait?: number,
-  ) =>
-    Response.json(
-      wait === undefined ? { commands, open } : { commands, wait, open },
-      { headers },
-    )
 
   const secret = bearerSecret(request.headers.get('authorization'))
   if (!secret) {
@@ -117,7 +84,7 @@ export async function POST(request: Request) {
     limit: MAX_POLL_BYTES,
     declared: true,
   })
-  if (!body.ok && body.why === 'size') return tooLarge()
+  if (!body.ok && body.why === 'size') return tooLarge(request, headers)
 
   const parsed = body.ok ? commandsPollSchema.safeParse(body.value) : undefined
   if (!parsed?.success) {
@@ -134,7 +101,7 @@ export async function POST(request: Request) {
     () => findEventCampaign(origin, campaign, secret),
     CHECK_FAILED,
   )
-  if (!found) return unavailable()
+  if (!found) return unavailable(request, headers)
   if (found === 'unknown') {
     return refuse(
       request,
@@ -157,56 +124,128 @@ export async function POST(request: Request) {
       headers,
     )
   }
+  return commandsFor(request, headers, found.id, session)
+}
 
-  const polled = await attempt(() => markBridgePolled(found.id), CHECK_FAILED)
-  if (!polled) return unavailable()
+const unavailable = (request: Request, headers: Headers) =>
+  refuse(
+    request,
+    500,
+    {
+      reason: REFUSAL.UNAVAILABLE,
+      message: 'Sending Stone couldn’t take this just now',
+    },
+    headers,
+  )
+
+const tooLarge = (request: Request, headers: Headers) =>
+  refuse(
+    request,
+    413,
+    {
+      reason: REFUSAL.TOO_LARGE,
+      message: `Larger than the ${MAX_POLL_BYTES} bytes Sending Stone takes`,
+      limit: MAX_POLL_BYTES,
+    },
+    headers,
+  )
+
+/**
+ * The commands fetched, the characters open in the app, and how long to wait before fetching
+ * again; none for at once.
+ */
+const answer = (
+  headers: Headers,
+  commands: (RollCommand | NoteCommand | DishCommand)[],
+  open: string[],
+  wait?: number,
+) =>
+  Response.json(
+    wait === undefined ? { commands, open } : { commands, wait, open },
+    { headers },
+  )
+
+/**
+ * What a fetch for a campaign found is answered: no commands while it takes none, saying when to
+ * ask again; else its commands, at once where none of its players has their table open, and held
+ * until some come where one has.
+ */
+async function commandsFor(
+  request: Request,
+  headers: Headers,
+  campaignId: string,
+  session: string,
+): Promise<Response> {
+  const polled = await attempt(() => markBridgePolled(campaignId), CHECK_FAILED)
+  if (!polled) return unavailable(request, headers)
   // Read before any rolls are handed over, which a failure after would lose.
   const readOpen = () =>
     attempt(
-      () => openActorIds(found.id),
+      () => openActorIds(campaignId),
       'Failed to read which characters are open',
     )
   const began = await readOpen()
-  if (!began) return unavailable()
+  if (!began) return unavailable(request, headers)
   // Moves of items and coins, from module 0.31.0, removals of characters' items, from module
   // 0.33.0, journal notes, from module 0.34.0, favorites, from module 0.37.0, dishes from the
   // Magical Recipe Book, from module 0.38.0, effects, from module 0.39.0, and Wild Shape, from
   // module 0.40.0, are fetched with rolls off too.
   if (!BRIDGE_SWITCHES.some(field => polled[field])) {
-    return answer([], began, COMMANDS_OFF_WAIT)
+    return answer(headers, [], began, COMMANDS_OFF_WAIT)
   }
 
-  // Notes written here, from module 0.34.0, and dishes from the Magical Recipe Book, from module
-  // 0.38.0, are handed over after the rolls, but claimed first: each handed to an answer that's
-  // lost is handed over again, and a roll never is, so a failure claiming them must come before
-  // any roll is taken.
-  const claim = () =>
-    attempt(async () => {
-      const dishes = polled.dishesEnabled
-        ? await claimDishes(found.id, session)
-        : []
-      const notes = await claimNoteWrites(found.id, session)
-      return [
-        ...(await claimRollRequests(found.id, session)),
-        ...notes,
-        ...dishes,
-      ]
-    }, 'Failed to hand over players’ rolls')
+  const claim = () => claimAll(campaignId, session, polled.dishesEnabled)
   if (!polled.playersPresent) {
     const commands = await claim()
     return commands
-      ? answer(commands, began, COMMANDS_COLD_WAIT)
-      : unavailable()
+      ? answer(headers, commands, began, COMMANDS_COLD_WAIT)
+      : unavailable(request, headers)
   }
+  return holdForCommands(request, headers, claim, readOpen, began)
+}
 
+/**
+ * Hand over what the campaign's game is to make: notes written here, from module 0.34.0, and
+ * dishes from the Magical Recipe Book, from module 0.38.0, are handed over after the rolls, but
+ * claimed first: each handed to an answer that's lost is handed over again, and a roll never is,
+ * so a failure claiming them must come before any roll is taken.
+ */
+function claimAll(
+  campaignId: string,
+  session: string,
+  dishesEnabled: boolean,
+): Promise<(RollCommand | NoteCommand | DishCommand)[] | undefined> {
+  return attempt(async () => {
+    const dishes = dishesEnabled ? await claimDishes(campaignId, session) : []
+    const notes = await claimNoteWrites(campaignId, session)
+    return [
+      ...(await claimRollRequests(campaignId, session)),
+      ...notes,
+      ...dishes,
+    ]
+  }, 'Failed to hand over players’ rolls')
+}
+
+/**
+ * A fetch held open while one of the campaign's players has their table open, until a command
+ * comes, so it reaches the game at once, or until the hold is over; answered early, with none,
+ * where a character opened or closed meanwhile, or the fetch was given up on.
+ */
+async function holdForCommands(
+  request: Request,
+  headers: Headers,
+  claim: () => Promise<(RollCommand | NoteCommand | DishCommand)[] | undefined>,
+  readOpen: () => Promise<string[] | undefined>,
+  began: string[],
+): Promise<Response> {
   const until = Date.now() + COMMANDS_HOLD
   for (;;) {
     // Rolls handed to a fetch that was given up on, as when its page closed, would be lost.
-    if (request.signal.aborted) return answer([], began)
+    if (request.signal.aborted) return answer(headers, [], began)
     const commands = await claim()
-    if (!commands) return unavailable()
+    if (!commands) return unavailable(request, headers)
     if (commands.length > 0 || Date.now() >= until) {
-      return answer(commands, began)
+      return answer(headers, commands, began)
     }
     await pause(
       Math.min(COMMANDS_CHECK_EVERY, until - Date.now()),
@@ -215,8 +254,8 @@ export async function POST(request: Request) {
     if (request.signal.aborted) continue
     // A character opened or closed meanwhile: the module is told at once.
     const open = await readOpen()
-    if (!open) return unavailable()
-    if (!sameIds(open, began)) return answer([], open)
+    if (!open) return unavailable(request, headers)
+    if (!sameIds(open, began)) return answer(headers, [], open)
   }
 }
 

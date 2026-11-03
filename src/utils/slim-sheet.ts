@@ -87,6 +87,8 @@ const DEFAULTS = {
 
 type Kind = keyof typeof DEFAULTS
 type RowKind = 'spell' | 'item' | 'feature'
+/** Count what a slim sheet adds as it's made whole, failing past the most it may. */
+type Grow = (by: number) => void
 
 /** What a row rolls, besides its damage, which is there only in a row that rolls. */
 const ROLLS = [
@@ -223,82 +225,9 @@ function expand(raw: Json): Json {
   delete sheet.slim
 
   let added = 0
-  const grow = (by: number) => {
+  const grow: Grow = (by: number) => {
     added += by
     if (added > MOST_ADDED) throw new Error('A slim sheet grew too large')
-  }
-  /** Add each key a kind leaves out at its default. */
-  const fill = (object: Json, fills: (typeof FILLS)[Kind]) => {
-    for (const [key, value, size] of fills) {
-      if (Object.hasOwn(object, key)) continue
-      object[key] = Array.isArray(value) ? [] : value
-      grow(size)
-    }
-  }
-  /** Whom a row's, an action's or an activity's use is at, and its damage's parts. */
-  const fillUse = (object: Json) => {
-    const use = object.activity
-    if (isObject(use) && isObject(use.targets)) fill(use.targets, FILLS.targets)
-    for (const part of objectsIn(object.damage)) fill(part, FILLS.part)
-  }
-  /** Those, and each of its activities, with theirs. */
-  const fillUses = (object: Json) => {
-    fillUse(object)
-    for (const entry of objectsIn(object.activities)) {
-      fillUse(entry)
-      fill(entry, FILLS.entry)
-    }
-  }
-
-  /** A copy of what a row's own damage on its own holds under a key, counted as added. */
-  const ownCopy = (key: string, value: unknown) => {
-    const json = JSON.stringify(value)
-    grow(JSON.stringify(key).length + json.length + 2)
-    return JSON.parse(json) as unknown
-  }
-  /** An object with each of these keys it lacks copied from its own, in order, then its others. */
-  const withOwn = (object: Json, own: Json, keys: string[]): Json => {
-    const entries: [string, unknown][] = []
-    for (const key of keys) {
-      if (Object.hasOwn(object, key)) entries.push([key, object[key]])
-      else if (Object.hasOwn(own, key))
-        entries.push([key, ownCopy(key, own[key])])
-    }
-    for (const [key, value] of Object.entries(object)) {
-      if (!keys.includes(key)) entries.push([key, value])
-    }
-    return Object.fromEntries(entries)
-  }
-  /**
-   * A choice of damage on its own made whole from its row's `tableDamage`: its picks, then each of
-   * its plans, the row's where it lacks one; and where both are plans, each plan key it lacks, and
-   * in each of its rolls each roll key it lacks, from the row's own roll at the same place.
-   */
-  const choiceBack = (choice: unknown, own: Json): unknown => {
-    if (!isObject(choice)) return choice
-    const entries = Object.entries(choice).filter(
-      ([key]) => !CHOICE_PLANS.has(key),
-    )
-    for (const key of CHOICE_PLANS) {
-      const plan = choice[key]
-      const ownPlan = own[key]
-      if (!Object.hasOwn(choice, key)) {
-        if (Object.hasOwn(own, key)) entries.push([key, ownCopy(key, ownPlan)])
-      } else if (isObject(plan) && isObject(ownPlan)) {
-        const whole = withOwn(plan, ownPlan, PLAN_KEYS)
-        const ownRolls = ownPlan.rolls
-        if (Array.isArray(plan.rolls) && Array.isArray(ownRolls)) {
-          whole.rolls = plan.rolls.map((roll: unknown, index: number) => {
-            const ownRoll: unknown = ownRolls[index]
-            return isObject(roll) && isObject(ownRoll)
-              ? withOwn(roll, ownRoll, ROLL_KEYS)
-              : roll
-          })
-        }
-        entries.push([key, whole])
-      } else entries.push([key, plan])
-    }
-    return Object.fromEntries(entries)
   }
 
   // From module 0.41.0, before the rest, so that an action by reference copies its row's choices
@@ -311,35 +240,157 @@ function expand(raw: Json): Json {
     if (Array.isArray(value)) {
       for (const entry of value) unwalked.push(entry)
     } else if (isObject(value)) {
-      for (const [key, child] of Object.entries(value)) {
-        if (
-          key === 'tableDamage' &&
-          isObject(child) &&
-          Array.isArray(child.choices)
-        ) {
-          child.choices = child.choices.map((choice: unknown) =>
-            choiceBack(choice, child),
-          )
-        } else unwalked.push(child)
-      }
+      for (const child of choicesBack(value, grow)) unwalked.push(child)
     }
   }
 
   // S2: the defaults, first, so that an action by reference copies its row whole.
   const { rows, containers } = rowsOf(sheet)
-  for (const [row, kind] of rows) {
-    fill(row, FILLS[kind])
-    if (Object.hasOwn(row, 'damage')) fill(row, GROUP_FILLS[kind])
-    fillUses(row)
-  }
-  for (const container of containers) fill(container, FILLS.container)
-  for (const action of listedIn(sheet.actions, 'actions')) fillUses(action)
-  for (const favorite of objectsIn(sheet.favorites)) {
-    if (favorite.type === 'activity') fillUses(favorite)
-  }
+  fillDefaults(sheet, rows, containers, grow)
 
   // S1: actions by reference, each the first row of its id, Spells', then Inventory's, then
   // Features'.
+  actionsBack(sheet, rows, grow)
+  return sheet
+}
+
+/**
+ * Of an object's values, make each tableDamage's choices whole (`choiceBack`), and hand back the
+ * others, in order, to be looked in.
+ */
+function choicesBack(value: Json, grow: Grow): unknown[] {
+  const rest: unknown[] = []
+  for (const [key, child] of Object.entries(value)) {
+    if (
+      key === 'tableDamage' &&
+      isObject(child) &&
+      Array.isArray(child.choices)
+    ) {
+      child.choices = child.choices.map((choice: unknown) =>
+        choiceBack(choice, child, grow),
+      )
+    } else rest.push(child)
+  }
+  return rest
+}
+
+/**
+ * Each key a slim sheet leaves out at its default: its rows' (and, where they have damage, their
+ * groups'), their uses', its containers', and its actions' and activity favorites' uses.
+ */
+function fillDefaults(
+  sheet: Json,
+  rows: [Json, RowKind][],
+  containers: Json[],
+  grow: Grow,
+) {
+  for (const [row, kind] of rows) {
+    fill(row, FILLS[kind], grow)
+    if (Object.hasOwn(row, 'damage')) fill(row, GROUP_FILLS[kind], grow)
+    fillUses(row, grow)
+  }
+  for (const container of containers) fill(container, FILLS.container, grow)
+  for (const action of listedIn(sheet.actions, 'actions')) {
+    fillUses(action, grow)
+  }
+  for (const favorite of objectsIn(sheet.favorites)) {
+    if (favorite.type === 'activity') fillUses(favorite, grow)
+  }
+}
+
+/** Add each key a kind leaves out at its default. */
+function fill(object: Json, fills: (typeof FILLS)[Kind], grow: Grow) {
+  for (const [key, value, size] of fills) {
+    if (Object.hasOwn(object, key)) continue
+    object[key] = Array.isArray(value) ? [] : value
+    grow(size)
+  }
+}
+
+/** Whom a row's, an action's or an activity's use is at, and its damage's parts. */
+function fillUse(object: Json, grow: Grow) {
+  const use = object.activity
+  if (isObject(use) && isObject(use.targets)) {
+    fill(use.targets, FILLS.targets, grow)
+  }
+  for (const part of objectsIn(object.damage)) fill(part, FILLS.part, grow)
+}
+
+/** Those, and each of its activities, with theirs. */
+function fillUses(object: Json, grow: Grow) {
+  fillUse(object, grow)
+  for (const entry of objectsIn(object.activities)) {
+    fillUse(entry, grow)
+    fill(entry, FILLS.entry, grow)
+  }
+}
+
+/** A copy of what a row's own damage on its own holds under a key, counted as added. */
+function ownCopy(key: string, value: unknown, grow: Grow) {
+  const json = JSON.stringify(value)
+  grow(JSON.stringify(key).length + json.length + 2)
+  return JSON.parse(json) as unknown
+}
+
+/** An object with each of these keys it lacks copied from its own, in order, then its others. */
+function withOwn(object: Json, own: Json, keys: string[], grow: Grow): Json {
+  const entries: [string, unknown][] = []
+  for (const key of keys) {
+    if (Object.hasOwn(object, key)) entries.push([key, object[key]])
+    else if (Object.hasOwn(own, key)) {
+      entries.push([key, ownCopy(key, own[key], grow)])
+    }
+  }
+  for (const [key, value] of Object.entries(object)) {
+    if (!keys.includes(key)) entries.push([key, value])
+  }
+  return Object.fromEntries(entries)
+}
+
+/**
+ * A choice of damage on its own made whole from its row's `tableDamage`: its picks, then each of
+ * its plans, the row's where it lacks one; and where both are plans, each plan key it lacks, and
+ * in each of its rolls each roll key it lacks, from the row's own roll at the same place.
+ */
+function choiceBack(choice: unknown, own: Json, grow: Grow): unknown {
+  if (!isObject(choice)) return choice
+  const entries = Object.entries(choice).filter(
+    ([key]) => !CHOICE_PLANS.has(key),
+  )
+  for (const key of CHOICE_PLANS) {
+    const plan = choice[key]
+    const ownPlan = own[key]
+    if (!Object.hasOwn(choice, key)) {
+      if (Object.hasOwn(own, key)) {
+        entries.push([key, ownCopy(key, ownPlan, grow)])
+      }
+    } else if (isObject(plan) && isObject(ownPlan)) {
+      entries.push([key, planBack(plan, ownPlan, grow)])
+    } else entries.push([key, plan])
+  }
+  return Object.fromEntries(entries)
+}
+
+/**
+ * A plan made whole from the row's own: each plan key it lacks, and each roll key its rolls
+ * lack.
+ */
+function planBack(plan: Json, ownPlan: Json, grow: Grow): Json {
+  const whole = withOwn(plan, ownPlan, PLAN_KEYS, grow)
+  const ownRolls = ownPlan.rolls
+  if (Array.isArray(plan.rolls) && Array.isArray(ownRolls)) {
+    whole.rolls = plan.rolls.map((roll: unknown, index: number) => {
+      const ownRoll: unknown = ownRolls[index]
+      return isObject(roll) && isObject(ownRoll)
+        ? withOwn(roll, ownRoll, ROLL_KEYS, grow)
+        : roll
+    })
+  }
+  return whole
+}
+
+/** Each action by reference, made whole from the first row of its id. */
+function actionsBack(sheet: Json, rows: [Json, RowKind][], grow: Grow) {
   const byId = new Map<unknown, Json>()
   for (const [row] of rows) if (!byId.has(row.id)) byId.set(row.id, row)
   const copies = new WeakMap<Json, Map<string, string>>()
@@ -354,27 +405,36 @@ function expand(raw: Json): Json {
   }
   for (const section of objectsIn(sheet.actions)) {
     if (!Array.isArray(section.actions)) continue
-    section.actions = section.actions.flatMap((action: unknown) => {
-      if (!isObject(action) || action.ref !== true) return [action]
-      const row =
-        typeof action.id === 'string' ? byId.get(action.id) : undefined
-      // One whose row isn't found can't be made whole, and is left out.
-      if (!row) return []
-      const dropped = new Set(Array.isArray(action.drop) ? action.drop : [])
-      const entries: [string, unknown][] = [['id', action.id]]
-      for (const key of ACTION_KEYS) {
-        if (Object.hasOwn(action, key)) entries.push([key, action[key]])
-        else if (Object.hasOwn(row, key) && !dropped.has(key)) {
-          entries.push([key, copyOf(row, key)])
-        }
-      }
-      for (const [key, value] of Object.entries(action)) {
-        if (!ACTION_KEY_SET.has(key)) entries.push([key, value])
-      }
-      return [Object.fromEntries(entries)]
-    })
+    section.actions = section.actions.flatMap((action: unknown) =>
+      actionBack(action, byId, copyOf),
+    )
   }
-  return sheet
+}
+
+/**
+ * An action by reference made whole from its row: its own keys, else the row's but those it drops,
+ * in order, then its others. One whose row isn't found can't be made whole, and is left out.
+ */
+function actionBack(
+  action: unknown,
+  byId: Map<unknown, Json>,
+  copyOf: (row: Json, key: string) => unknown,
+): unknown[] {
+  if (!isObject(action) || action.ref !== true) return [action]
+  const row = typeof action.id === 'string' ? byId.get(action.id) : undefined
+  if (!row) return []
+  const dropped = new Set(Array.isArray(action.drop) ? action.drop : [])
+  const entries: [string, unknown][] = [['id', action.id]]
+  for (const key of ACTION_KEYS) {
+    if (Object.hasOwn(action, key)) entries.push([key, action[key]])
+    else if (Object.hasOwn(row, key) && !dropped.has(key)) {
+      entries.push([key, copyOf(row, key)])
+    }
+  }
+  for (const [key, value] of Object.entries(action)) {
+    if (!ACTION_KEY_SET.has(key)) entries.push([key, value])
+  }
+  return [Object.fromEntries(entries)]
 }
 
 /**

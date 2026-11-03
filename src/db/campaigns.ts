@@ -6,12 +6,12 @@ import {
   REFUSAL_SHOWN_FOR,
   WAITING_SECRET_CHECKS,
 } from '@/constants/sending-stone'
+import { attempt } from '@/lib/attempt'
 import {
   generateInviteCode,
   hashSecret,
   verifySecret,
 } from '@/lib/campaign-secret'
-import { attempt } from '@/lib/routes/bridge-http'
 import { companionRoster } from '@/utils/companions'
 import { literalPattern } from '@/utils/literal-pattern'
 import { availableRollKinds } from '@/utils/requests/availability'
@@ -392,37 +392,7 @@ export async function findEventCampaign(
     select: { id: true, secretHash: true },
   })
   if (candidates.length === 0) {
-    if (record && secret) {
-      // Anyone can post a title from a game's address, so it's recorded only on the game's
-      // campaigns waiting for Foundry whose secret it came with: the module's, under another title.
-      // Each check is a scrypt hash, so only the newest few are checked, as the one just set up for
-      // the module is likely among them.
-      const waiting = await prisma.campaign.findMany({
-        where: {
-          origin,
-          // Prisma's filters for an unset field, and a set one.
-          foundryId: null,
-          secretHash: { not: null },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: WAITING_SECRET_CHECKS,
-        select: { id: true, secretHash: true },
-      })
-      const ids: string[] = []
-      for (const { id, secretHash } of waiting) {
-        if (await verifySecret(secret, secretHash ?? '')) ids.push(id)
-      }
-      if (ids.length > 0) {
-        await recordRefusal(
-          { ids },
-          {
-            reason: REFUSAL.NOT_SET_UP,
-            status: 404,
-            detail: campaign.title.slice(0, 200),
-          },
-        )
-      }
-    }
+    if (record && secret) await recordNotSetUp(origin, campaign, secret)
     return 'unknown'
   }
   for (const candidate of candidates) {
@@ -432,6 +402,44 @@ export async function findEventCampaign(
     }
   }
   return wrongSecret(candidates.map(({ id }) => id))
+}
+
+/**
+ * Record a post for a title no campaign of the game has, for the cards to explain. Anyone can post
+ * a title from a game's address, so it's recorded only on the game's campaigns waiting for Foundry
+ * whose secret it came with: the module's, under another title. Each check is a scrypt hash, so
+ * only the newest few are checked, as the one just set up for the module is likely among them.
+ */
+async function recordNotSetUp(
+  origin: string,
+  campaign: CampaignRef,
+  secret: string,
+): Promise<void> {
+  const waiting = await prisma.campaign.findMany({
+    where: {
+      origin,
+      // Prisma's filters for an unset field, and a set one.
+      foundryId: null,
+      secretHash: { not: null },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: WAITING_SECRET_CHECKS,
+    select: { id: true, secretHash: true },
+  })
+  const ids: string[] = []
+  for (const { id, secretHash } of waiting) {
+    if (await verifySecret(secret, secretHash ?? '')) ids.push(id)
+  }
+  if (ids.length > 0) {
+    await recordRefusal(
+      { ids },
+      {
+        reason: REFUSAL.NOT_SET_UP,
+        status: 404,
+        detail: campaign.title.slice(0, 200),
+      },
+    )
+  }
 }
 
 /**

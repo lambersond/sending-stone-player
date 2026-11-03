@@ -826,47 +826,8 @@ function messageLabel(
   const activity = textOf(dnd5e?.activity?.name)
   const roll = dnd5e?.roll
 
-  if (roll) {
-    const ability = ABILITIES[String(roll.ability)]
-    switch (roll.type) {
-      case 'skill': {
-        const skill = SKILLS[String(roll.skillId)]
-        if (skill) return `${skill} check`
-        break
-      }
-      case 'ability': {
-        if (ability) return `${ability} check`
-        break
-      }
-      case 'save': {
-        if (ability) return `${ability} save`
-        break
-      }
-      // Whether it was an attack, damage or healing is shown beside the item's name.
-      case 'attack': {
-        if (item) return item
-        break
-      }
-      // Damage from a description, which no activity rolls, is named for where it's from, as its
-      // card's flavor names it: a spell an item casts, by the spell's name and the item's.
-      case 'damage':
-      case 'healing': {
-        const origin = dnd5e?.activity ? undefined : originOf(message.flavor)
-        if (origin) return origin
-        if (item) return item
-        break
-      }
-      case 'death': {
-        return 'Death save'
-      }
-      case 'hitDie': {
-        return 'Hit Die'
-      }
-      case 'concentration': {
-        return 'Concentration'
-      }
-    }
-  }
+  const rolled = roll ? rollLabel(message, roll, item) : undefined
+  if (rolled) return rolled
   if (isUsage(message) && item) {
     // Its rolls are named for its item alone, as dnd5e's own attack and damage messages are, such
     // as Midi-QOL's card holding them.
@@ -877,6 +838,56 @@ function messageLabel(
   const origin = damaged ? originOf(message.flavor) : undefined
   return origin ?? htmlToText(message.flavor) ?? textOf(message.title)
 }
+
+/**
+ * What a message's roll is, by what D&D Fifth Edition recorded of it; none where it says too
+ * little.
+ */
+function rollLabel(
+  message: SerializedMessage,
+  roll: NonNullable<NonNullable<SerializedMessage['dnd5e']>['roll']>,
+  item: string | undefined,
+): string | undefined {
+  const ability = ABILITIES[String(roll.ability)]
+  switch (roll.type) {
+    case 'skill': {
+      return named(SKILLS[String(roll.skillId)], 'check')
+    }
+    case 'ability': {
+      return named(ability, 'check')
+    }
+    case 'save': {
+      return named(ability, 'save')
+    }
+    // Whether it was an attack, damage or healing is shown beside the item's name.
+    case 'attack': {
+      return item
+    }
+    // Damage from a description, which no activity rolls, is named for where it's from, as its
+    // card's flavor names it: a spell an item casts, by the spell's name and the item's.
+    case 'damage':
+    case 'healing': {
+      const origin = message.dnd5e?.activity
+        ? undefined
+        : originOf(message.flavor)
+      return origin ?? item
+    }
+    case 'death': {
+      return 'Death save'
+    }
+    case 'hitDie': {
+      return 'Hit Die'
+    }
+    case 'concentration': {
+      return 'Concentration'
+    }
+  }
+  return undefined
+}
+
+/** A check's or save's name, as "Perception check"; none for no name. */
+const named = (name: string | undefined, roll: 'check' | 'save') =>
+  name ? `${name} ${roll}` : undefined
 
 const textOf = (value: unknown) =>
   typeof value === 'string' ? value.trim() || undefined : undefined

@@ -39,19 +39,6 @@ export function refuse(
   return Response.json(body, { status, headers })
 }
 
-/** Run a database step, logging a failure, for the caller to answer with a retryable 500. */
-export async function attempt<T>(
-  step: () => Promise<T>,
-  failure: string,
-): Promise<T | undefined> {
-  try {
-    return await step()
-  } catch (error) {
-    console.error(failure, error)
-    return undefined
-  }
-}
-
 /** Why a request for a game's campaign is refused: none is set up for it here. */
 export const notSetUp = (origin: string, title?: string) =>
   title

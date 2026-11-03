@@ -11,10 +11,10 @@ import {
   findCookbookLink,
   getCookbookView,
 } from '@/db/cookbook'
+import { attempt } from '@/lib/attempt'
 import { bearerSecret } from '@/lib/campaign-secret'
 import { hashCookbookCode, isCookbookCode } from '@/lib/cookbook-code'
 import { readBody } from '@/lib/routes/body'
-import { attempt } from '@/lib/routes/bridge-http'
 import { bare, NO_STORE, seenAs } from '@/lib/routes/http'
 import { cookbookDishSchema } from '@/schemas/cookbook'
 import type { Character } from '@/types/character'
