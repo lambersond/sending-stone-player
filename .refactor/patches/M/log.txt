@@ -1,0 +1,2 @@
+d57e010 chore(refactor): the lint ratchet re-taken after the moves; commit 5's moves recorded
+35e65ee refactor: features layout, a folder per component, barrels gone (moves only)

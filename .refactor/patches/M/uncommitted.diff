@@ -1,0 +1,2510 @@
+diff --git a/eslint.config.mjs b/eslint.config.mjs
+index 1530ee3..8222e6f 100644
+--- a/eslint.config.mjs
++++ b/eslint.config.mjs
+@@ -162,6 +162,8 @@ export default [
+       'react/prop-types': 0,
+       'react/react-in-jsx-scope': 'off',
+       'unicorn/no-lonely-if': 'error',
++      // The protocol, Prisma and React use null for an absent value (decisions Q2):
++      'unicorn/no-null': 'off',
+       // unicorn 65 checks folder names too, and CLAUDE.md §8 puts integration tests in __tests__/,
+       // whose snapshots Jest keeps in __snapshots__/:
+       'unicorn/filename-case': [
+diff --git a/jest.setup.ts b/jest.setup.ts
+index a8cd870..c10061f 100644
+--- a/jest.setup.ts
++++ b/jest.setup.ts
+@@ -44,7 +44,6 @@ export function mockFetch({ status = 200, responseData = {} } = {}) {
+       type: 'basic',
+       url: '',
+       clone: () => {},
+-      // eslint-disable-next-line unicorn/no-null
+       body: null,
+       bodyUsed: false,
+       arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+diff --git a/src/__tests__/golden/refusals.golden.test.ts b/src/__tests__/golden/refusals.golden.test.ts
+index a1ef21d..2c7e522 100644
+--- a/src/__tests__/golden/refusals.golden.test.ts
++++ b/src/__tests__/golden/refusals.golden.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol and Prisma use null for an absent value */
+ // C6, refusals (round 0.43 §3.2): what each checked body is refused with, as the code says it
+ // today: the issues of every schema a body or event passes (code, path, message, in order), the
+ // text an event's refusal carries, and per route the status and body of each refusal of a body.
+diff --git a/src/__tests__/golden/routes.golden.test.ts b/src/__tests__/golden/routes.golden.test.ts
+index 59b8f1d..f9264cd 100644
+--- a/src/__tests__/golden/routes.golden.test.ts
++++ b/src/__tests__/golden/routes.golden.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol and Prisma use null for an absent value */
+ // C5, routes (round 0.43 §3.2): every route method the app serves, as the code answers it today,
+ // over the real db modules on a small fake database: who may ask (signed out, another's sheet, the
+ // player's seat, the Gamemaster's), what it answers (status, every header, the body as text) and
+diff --git a/src/__tests__/golden/wire.golden.test.tsx b/src/__tests__/golden/wire.golden.test.tsx
+index c336d7b..dc0f8b2 100644
+--- a/src/__tests__/golden/wire.golden.test.tsx
++++ b/src/__tests__/golden/wire.golden.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ // C2, wire (round 0.43 §3.2): every request the app's pages send, whole, as the code sends it
+ // today: its URL, method, headers and raw body (key order and all), and the poll that follows a
+ // roll; and, as JSON strings, what the server makes of a held roll for the module and for the
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts
+index fd99e49..a0a8548 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCurrentUser } from '@/lib/session'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/__tests__/route.integration.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/__tests__/route.integration.test.ts
+index 348b8ae..5e5f1ca 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/__tests__/route.integration.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import { POST } from '../route'
+ import { createRollRequest } from '@/db/roll-requests'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/__tests__/route.integration.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/__tests__/route.integration.test.ts
+index 771c405..d62739c 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/__tests__/route.integration.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCurrentUser } from '@/lib/session'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts
+index 6240dcc..b081579 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCurrentUser } from '@/lib/session'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts
+index 18fddd0..a2fc929 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+ import { NextRequest } from 'next/server'
+ import { DELETE, PATCH } from './route'
+ import { changeNote, deleteNote } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts
+index 76e6a7c..a74d0d6 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+ import { NextRequest } from 'next/server'
+ import { PATCH, PUT } from './route'
+ import { reorderNotes, resolveOrder } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts
+index 8c2fd95..7869cc3 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+ import { NextRequest } from 'next/server'
+ import { POST } from './route'
+ import { previewNote } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts
+index bfd57a3..016e558 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+ import { NextRequest } from 'next/server'
+ import { GET, POST } from './route'
+ import { createNote, getNotesStatus, getNotesView } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts b/src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts
+index 38cba1d..7a7199d 100644
+--- a/src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts
++++ b/src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the Gamemaster's seat has no character, null */
+ import { NextRequest } from 'next/server'
+ import { GET as getRoll } from './rolls/[roll]/route'
+ import { POST as postRoll } from './rolls/route'
+diff --git a/src/app/api/campaigns/[id]/party/[group]/__tests__/route.integration.test.ts b/src/app/api/campaigns/[id]/party/[group]/__tests__/route.integration.test.ts
+index 4106600..9bb074c 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/__tests__/route.integration.test.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCurrentUser } from '@/lib/session'
+diff --git a/src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts b/src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts
+index 55402de..f0eec99 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+ import { NextRequest } from 'next/server'
+ import { DELETE, PATCH } from './route'
+ import { changeNote, deleteNote } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts b/src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts
+index 1d84980..268c875 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+ import { NextRequest } from 'next/server'
+ import { PATCH, PUT } from './route'
+ import { reorderNotes, resolveOrder } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts b/src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts
+index d2c2725..0c32ad0 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+ import { NextRequest } from 'next/server'
+ import { POST } from './route'
+ import { previewNote } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts b/src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts
+index 3c4ca7a..a88f859 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+ import { NextRequest } from 'next/server'
+ import { GET, POST } from './route'
+ import { createNote, getNotesStatus, getNotesView } from '@/db/notes'
+diff --git a/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts b/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts
+index 68c8feb..7b6d8a4 100644
+--- a/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts
++++ b/src/app/api/campaigns/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCurrentUser } from '@/lib/session'
+diff --git a/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts b/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts
+index 6db42eb..1e35dd3 100644
+--- a/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts
++++ b/src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the database uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCharacter } from '@/db/characters'
+diff --git a/src/app/api/characters/[id]/companions/[companion]/table/__tests__/route.integration.test.ts b/src/app/api/characters/[id]/companions/[companion]/table/__tests__/route.integration.test.ts
+index 641137a..037b7b1 100644
+--- a/src/app/api/characters/[id]/companions/[companion]/table/__tests__/route.integration.test.ts
++++ b/src/app/api/characters/[id]/companions/[companion]/table/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCharacter } from '@/db/characters'
+diff --git a/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts b/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts
+index c679bf7..d526d7f 100644
+--- a/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts
++++ b/src/app/api/characters/[id]/companions/[companion]/texts/[hash]/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { getCharacter } from '@/db/characters'
+diff --git a/src/app/api/characters/[id]/cookbook/route.test.ts b/src/app/api/characters/[id]/cookbook/route.test.ts
+index 6955d04..757bb74 100644
+--- a/src/app/api/characters/[id]/cookbook/route.test.ts
++++ b/src/app/api/characters/[id]/cookbook/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
+ import { createHash } from 'node:crypto'
+ import { NextRequest } from 'next/server'
+ import { GET } from './route'
+diff --git a/src/app/api/characters/[id]/notes/order/route.test.ts b/src/app/api/characters/[id]/notes/order/route.test.ts
+index 2df6a74..d9cb48d 100644
+--- a/src/app/api/characters/[id]/notes/order/route.test.ts
++++ b/src/app/api/characters/[id]/notes/order/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+ import { NextRequest } from 'next/server'
+ import { PATCH, PUT } from './route'
+ import { getCharacter } from '@/db/characters'
+diff --git a/src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts b/src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts
+index 57912ae..7bc9ec1 100644
+--- a/src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts
++++ b/src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+ import { NextRequest } from 'next/server'
+ import { PATCH, PUT } from './route'
+ import { getCharacter } from '@/db/characters'
+diff --git a/src/app/api/characters/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts b/src/app/api/characters/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts
+index c6cc50d..42ef140 100644
+--- a/src/app/api/characters/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts
++++ b/src/app/api/characters/[id]/party/[group]/texts/[hash]/__tests__/route.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+ import { NextRequest } from 'next/server'
+ import { GET } from '../route'
+ import { GET as getCharacterText } from '@/app/api/characters/[id]/texts/[hash]/route'
+diff --git a/src/app/api/characters/[id]/table/route.test.ts b/src/app/api/characters/[id]/table/route.test.ts
+index 7137393..ec6a1fe 100644
+--- a/src/app/api/characters/[id]/table/route.test.ts
++++ b/src/app/api/characters/[id]/table/route.test.ts
+@@ -377,7 +377,6 @@ describe('app/api/characters/[id]/table', () => {
+ 
+     jest
+       .mocked(getCharacter)
+-      // eslint-disable-next-line unicorn/no-null -- the character's campaign is unset
+       .mockResolvedValue({ ...character, campaignId: null })
+     jest.mocked(notePlayersSeen).mockClear()
+     await get()
+diff --git a/src/app/api/cookbook/dishes/route.test.ts b/src/app/api/cookbook/dishes/route.test.ts
+index 0f42318..c2ffa22 100644
+--- a/src/app/api/cookbook/dishes/route.test.ts
++++ b/src/app/api/cookbook/dishes/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the link's seat uses null for an absent value */
+ import * as route from './route'
+ import {
+   acceptDish,
+diff --git a/src/app/api/events/route.test.ts b/src/app/api/events/route.test.ts
+index 45e6741..a16c556 100644
+--- a/src/app/api/events/route.test.ts
++++ b/src/app/api/events/route.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { z } from 'zod'
+ import { OPTIONS, POST } from './route'
+ import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
+diff --git a/src/app/campaigns/[id]/characters/[actor]/page.test.tsx b/src/app/campaigns/[id]/characters/[actor]/page.test.tsx
+index 9c2d5ed..115800a 100644
+--- a/src/app/campaigns/[id]/characters/[actor]/page.test.tsx
++++ b/src/app/campaigns/[id]/characters/[actor]/page.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the Gamemaster's seat has no character, null */
+ import { render, screen } from '@testing-library/react'
+ import { notFound } from 'next/navigation'
+ import NotFound from './not-found'
+diff --git a/src/app/characters/[id]/page.test.tsx b/src/app/characters/[id]/page.test.tsx
+index 18a7ded..434b5da 100644
+--- a/src/app/characters/[id]/page.test.tsx
++++ b/src/app/characters/[id]/page.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
+ import { render, screen } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { notFound } from 'next/navigation'
+diff --git a/src/app/characters/[id]/party/[group]/page.test.tsx b/src/app/characters/[id]/party/[group]/page.test.tsx
+index e01e2b4..b4b2265 100644
+--- a/src/app/characters/[id]/party/[group]/page.test.tsx
++++ b/src/app/characters/[id]/party/[group]/page.test.tsx
+@@ -108,7 +108,7 @@ describe('app/characters/[id]/party/[group]/page', () => {
+   it("takes into no one for a character not in the campaign's roster", async () => {
+     jest
+       .mocked(getCharacter)
+-      // eslint-disable-next-line unicorn/no-null -- a character with no actor has null
++      // a character with no actor has null
+       .mockResolvedValue({ ...character, actorId: null })
+ 
+     render(await CharacterPartyPage(props('char-1', 'company')))
+diff --git a/src/components/avatar/avatar.test.tsx b/src/components/avatar/avatar.test.tsx
+index 08d6f6b..ba38e34 100644
+--- a/src/components/avatar/avatar.test.tsx
++++ b/src/components/avatar/avatar.test.tsx
+@@ -14,7 +14,6 @@ describe('components/avatar', () => {
+   })
+ 
+   it('falls back to the first letter of the name', () => {
+-    // eslint-disable-next-line unicorn/no-null -- as stored for a user with no image
+     const { container } = render(<Avatar name=' alice' image={null} />)
+ 
+     expect(container).toHaveTextContent('A')
+diff --git a/src/components/fullscreen-button/fullscreen-button.test.tsx b/src/components/fullscreen-button/fullscreen-button.test.tsx
+index 48cb458..80dfd7d 100644
+--- a/src/components/fullscreen-button/fullscreen-button.test.tsx
++++ b/src/components/fullscreen-button/fullscreen-button.test.tsx
+@@ -63,7 +63,6 @@ describe('components/game-table/fullscreen-button', () => {
+     await userEvent.click(screen.getByRole('button', { name: 'Full screen' }))
+     await screen.findByRole('button', { name: 'Exit full screen' })
+ 
+-    // eslint-disable-next-line unicorn/no-null -- the API's absent element
+     act(() => fullscreen.change(null))
+ 
+     expect(
+diff --git a/src/components/fullscreen-button/use-fullscreen.test.tsx b/src/components/fullscreen-button/use-fullscreen.test.tsx
+index bd472a9..4c88a77 100644
+--- a/src/components/fullscreen-button/use-fullscreen.test.tsx
++++ b/src/components/fullscreen-button/use-fullscreen.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the Fullscreen API's absent element is null */
+ import { act, renderHook } from '@testing-library/react'
+ import { renderToString } from 'react-dom/server'
+ import { useFullscreen } from './use-fullscreen'
+diff --git a/src/components/modal/portal-root.tsx b/src/components/modal/portal-root.tsx
+index 66f3ce1..a21915b 100644
+--- a/src/components/modal/portal-root.tsx
++++ b/src/components/modal/portal-root.tsx
+@@ -41,7 +41,6 @@ export function InPortalRoot({
+ export function useDialogRoot<T extends HTMLElement>(ref: {
+   current: T | null
+ }): { root: T | null; attach: Ref<T> } {
+-  // eslint-disable-next-line unicorn/no-null -- floating-ui waits for a root that's null
+   const [root, setRoot] = useState<T | null>(null)
+   const attach = useCallback(
+     (node: T | null) => {
+diff --git a/src/db/campaign-events.groups.test.ts b/src/db/campaign-events.groups.test.ts
+index f220304..66a7ddb 100644
+--- a/src/db/campaign-events.groups.test.ts
++++ b/src/db/campaign-events.groups.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { applyCampaignEvent } from './campaign-events'
+ import {
+   combat,
+diff --git a/src/db/campaign-events.settings.test.ts b/src/db/campaign-events.settings.test.ts
+index 4dcecfc..3cc9525 100644
+--- a/src/db/campaign-events.settings.test.ts
++++ b/src/db/campaign-events.settings.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { applyCampaignEvent } from './campaign-events'
+ import {
+   combat,
+diff --git a/src/db/campaign-events.test.ts b/src/db/campaign-events.test.ts
+index 53e51c1..146014e 100644
+--- a/src/db/campaign-events.test.ts
++++ b/src/db/campaign-events.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
+ import { recordCommandResult } from './roll-requests'
+ import { noteHtml } from '@/lib/note-html'
+diff --git a/src/db/campaign-events.ts b/src/db/campaign-events.ts
+index e5cfaeb..ffcc61c 100644
+--- a/src/db/campaign-events.ts
++++ b/src/db/campaign-events.ts
+@@ -271,7 +271,6 @@ async function apply(
+       await tx.rollPrompt.updateMany({
+         where: {
+           campaignId,
+-          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+           closedAt: null,
+           promptId: { notIn: prompts.map(({ id }) => id) },
+         },
+@@ -799,7 +798,6 @@ async function savePrompt(
+   // Gone, then listed or opened again: open again. Answered, rolled or expired stays closed.
+   await tx.rollPrompt.updateMany({
+     where: { campaignId, promptId: prompt.id, closedReason: 'gone' },
+-    // eslint-disable-next-line unicorn/no-null -- Prisma's value for an unset field
+     data: { closedAt: null, closedReason: null },
+   })
+   await tx.rollPrompt.upsert({
+@@ -827,7 +825,6 @@ export async function closePrompt(
+   reason: string,
+ ): Promise<boolean> {
+   const { count } = await tx.rollPrompt.updateMany({
+-    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+     where: { campaignId, promptId, closedAt: null },
+     data: { closedAt: new Date(), closedReason: reason },
+   })
+diff --git a/src/db/campaigns.foundry.test.ts b/src/db/campaigns.foundry.test.ts
+index 42d1226..ee583b9 100644
+--- a/src/db/campaigns.foundry.test.ts
++++ b/src/db/campaigns.foundry.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- Prisma's unset columns are null */
+ import { listOwnedCampaigns } from './campaigns'
+ import { getGroupView } from './party'
+ import { playerSeat } from './seats'
+diff --git a/src/db/campaigns.test.ts b/src/db/campaigns.test.ts
+index 569bb84..4c7364a 100644
+--- a/src/db/campaigns.test.ts
++++ b/src/db/campaigns.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+ import {
+   changeCampaignSecret,
+   checkGameSecret,
+diff --git a/src/db/campaigns.ts b/src/db/campaigns.ts
+index a0e4b15..cb64b58 100644
+--- a/src/db/campaigns.ts
++++ b/src/db/campaigns.ts
+@@ -79,12 +79,10 @@ function refusalOf(
+ 
+ /** What clears a campaign's recorded refusal, as binding it or changing its secret does. */
+ const NO_REFUSAL = {
+-  /* eslint-disable unicorn/no-null -- Prisma unsets a column with null */
+   refusedAt: null,
+   refusalReason: null,
+   refusalStatus: null,
+   refusalDetail: null,
+-  /* eslint-enable unicorn/no-null */
+ }
+ 
+ /* -------------------------------------------- */
+@@ -386,9 +384,7 @@ export async function findEventCampaign(
+     where: {
+       origin,
+       // Prisma's filters for an unset field.
+-      // eslint-disable-next-line unicorn/no-null
+       foundryId: null,
+-      // eslint-disable-next-line unicorn/no-null
+       secretHash: { not: null },
+       title: { equals: literalPattern(campaign.title), mode: 'insensitive' },
+     },
+@@ -405,9 +401,7 @@ export async function findEventCampaign(
+         where: {
+           origin,
+           // Prisma's filters for an unset field, and a set one.
+-          // eslint-disable-next-line unicorn/no-null
+           foundryId: null,
+-          // eslint-disable-next-line unicorn/no-null
+           secretHash: { not: null },
+         },
+         orderBy: { createdAt: 'desc' },
+@@ -462,7 +456,6 @@ export async function recordRefusal(
+             { id: { in: ids } },
+             {
+               OR: [
+-                // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+                 { refusedAt: null },
+                 {
+                   refusedAt: {
+@@ -478,7 +471,6 @@ export async function recordRefusal(
+           refusedAt: now,
+           refusalReason: reason,
+           refusalStatus: status,
+-          // eslint-disable-next-line unicorn/no-null -- Prisma unsets a column with null
+           refusalDetail: detail ?? null,
+         },
+       }),
+@@ -533,7 +525,6 @@ export async function checkGameSecret(
+   secret: string,
+ ): Promise<'ok' | 'unknown' | 'refused'> {
+   const campaigns = await prisma.campaign.findMany({
+-    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
+     where: { origin, secretHash: { not: null } },
+     select: { secretHash: true },
+   })
+diff --git a/src/db/characters.test.ts b/src/db/characters.test.ts
+index 45f7e14..2b5de27 100644
+--- a/src/db/characters.test.ts
++++ b/src/db/characters.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
+ import { Prisma } from '@prisma/client'
+ import {
+   chooseCharacter,
+diff --git a/src/db/characters.ts b/src/db/characters.ts
+index 7820dee..3f5133f 100644
+--- a/src/db/characters.ts
++++ b/src/db/characters.ts
+@@ -160,7 +160,6 @@ export async function markChatRead(
+     where: {
+       id: characterId,
+       userId,
+-      // eslint-disable-next-line unicorn/no-null -- Prisma matches an unset column with null
+       OR: [{ chatReadAt: null }, { chatReadAt: { lt: readAt } }],
+     },
+     data: { chatReadAt: readAt },
+diff --git a/src/db/companions.test.ts b/src/db/companions.test.ts
+index 3e9f099..5184631 100644
+--- a/src/db/companions.test.ts
++++ b/src/db/companions.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import {
+   companionRollSeat,
+   companionRoster,
+diff --git a/src/db/cookbook.test.ts b/src/db/cookbook.test.ts
+index 82e43dd..d4f886f 100644
+--- a/src/db/cookbook.test.ts
++++ b/src/db/cookbook.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+ import { Prisma, type CookbookDish } from '@prisma/client'
+ import {
+   acceptDish,
+diff --git a/src/db/cookbook.ts b/src/db/cookbook.ts
+index 1e4fc67..e758c80 100644
+--- a/src/db/cookbook.ts
++++ b/src/db/cookbook.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+ import { randomUUID } from 'node:crypto'
+ import { Prisma, type CookbookDishStatus } from '@prisma/client'
+ import prisma from '@/clients/prisma'
+diff --git a/src/db/effects.test.ts b/src/db/effects.test.ts
+index 15d9548..a4c7521 100644
+--- a/src/db/effects.test.ts
++++ b/src/db/effects.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import { createEffectRequest } from './effects'
+ import { createRollRequest } from './roll-requests'
+ import { playerSeat } from './seats'
+diff --git a/src/db/favorites.test.ts b/src/db/favorites.test.ts
+index 839c88c..26cc0ca 100644
+--- a/src/db/favorites.test.ts
++++ b/src/db/favorites.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import { createFavoriteRequest } from './favorites'
+ import { createRollRequest } from './roll-requests'
+ import { playerSeat } from './seats'
+diff --git a/src/db/note-sync.test.ts b/src/db/note-sync.test.ts
+index cbdc56e..86388e3 100644
+--- a/src/db/note-sync.test.ts
++++ b/src/db/note-sync.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+ import {
+   Prisma,
+   type JournalNote,
+diff --git a/src/db/note-sync.ts b/src/db/note-sync.ts
+index ef7aad7..d101b1f 100644
+--- a/src/db/note-sync.ts
++++ b/src/db/note-sync.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+ import { randomUUID } from 'node:crypto'
+ import {
+   Prisma,
+diff --git a/src/db/notes.test.ts b/src/db/notes.test.ts
+index ec78719..df6b429 100644
+--- a/src/db/notes.test.ts
++++ b/src/db/notes.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import {
+   Prisma,
+   type JournalNote,
+diff --git a/src/db/notes.ts b/src/db/notes.ts
+index 89ca458..803e40d 100644
+--- a/src/db/notes.ts
++++ b/src/db/notes.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- Prisma and the view use null for an absent value */
+ import { createHash, randomUUID } from 'node:crypto'
+ import {
+   Prisma,
+diff --git a/src/db/party.test.ts b/src/db/party.test.ts
+index b5af7a8..f96288c 100644
+--- a/src/db/party.test.ts
++++ b/src/db/party.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import {
+   allowedGroup,
+   getGroupView,
+diff --git a/src/db/party.ts b/src/db/party.ts
+index 01cc729..6a0371b 100644
+--- a/src/db/party.ts
++++ b/src/db/party.ts
+@@ -238,7 +238,6 @@ export async function partyNotesAccess(
+     campaignId: found.campaign.id,
+     groupId: found.entry.id,
+     private: Object.keys(found.entry.access ?? {}).length === 0,
+-    // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
+     writer: seat.role === 'player' ? seat.actorId : null,
+   }
+ }
+@@ -437,7 +436,6 @@ function sheetView(
+     }),
+     inventory: inventoryView(sheet.inventory, origin),
+     // dnd5e shows the full description, else its summary.
+-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+     description: sheet.description?.full ?? sheet.description?.summary ?? null,
+   }
+ }
+diff --git a/src/db/removals.test.ts b/src/db/removals.test.ts
+index bac3c92..04e3c9e 100644
+--- a/src/db/removals.test.ts
++++ b/src/db/removals.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import { createRemoveRequest } from './removals'
+ import { createRollRequest } from './roll-requests'
+ import { playerSeat } from './seats'
+diff --git a/src/db/roll-requests.test.ts b/src/db/roll-requests.test.ts
+index d913e77..f84acf6 100644
+--- a/src/db/roll-requests.test.ts
++++ b/src/db/roll-requests.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import {
+   claimRollRequests,
+   createRollRequest,
+diff --git a/src/db/roll-requests.ts b/src/db/roll-requests.ts
+index ee64349..bbb371e 100644
+--- a/src/db/roll-requests.ts
++++ b/src/db/roll-requests.ts
+@@ -760,7 +760,6 @@ export async function notePlayersSeen(campaignId: string): Promise<void> {
+       id: campaignId,
+       OR: [
+         // Prisma's filter for an unset field.
+-        // eslint-disable-next-line unicorn/no-null
+         { playersSeenAt: null },
+         { playersSeenAt: { lt: ago(now, PLAYERS_SEEN_EVERY) } },
+       ],
+@@ -787,7 +786,6 @@ export async function noteTableOpen(characterId: string): Promise<void> {
+       id: characterId,
+       OR: [
+         // Prisma's filter for an unset field.
+-        // eslint-disable-next-line unicorn/no-null
+         { tableSeenAt: null },
+         { tableSeenAt: { lt: ago(now, TABLE_SEEN_EVERY) } },
+       ],
+@@ -807,7 +805,6 @@ export async function openActorIds(campaignId: string): Promise<string[]> {
+   const characters = await prisma.character.findMany({
+     where: {
+       campaignId,
+-      // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
+       actorId: { not: null },
+       tableSeenAt: { gt: ago(Date.now(), OPEN_WITHIN) },
+     },
+diff --git a/src/db/seats.test.ts b/src/db/seats.test.ts
+index 3b8b068..4a1801b 100644
+--- a/src/db/seats.test.ts
++++ b/src/db/seats.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import { getGmSeat, playerSeat } from './seats'
+ import { prismaMock } from '@/utils/test-utils-node'
+ 
+diff --git a/src/db/seats.ts b/src/db/seats.ts
+index 2553924..f3c222a 100644
+--- a/src/db/seats.ts
++++ b/src/db/seats.ts
+@@ -58,7 +58,6 @@ export async function getGmSeat(
+     userId,
+     // The Gamemaster has no Character of the campaign's for this actor, and never reads its
+     // player's place in the chat.
+-    // eslint-disable-next-line unicorn/no-null -- the seat has no character
+     characterId: null,
+   }
+ }
+diff --git a/src/db/sheet-texts.test.ts b/src/db/sheet-texts.test.ts
+index 3535788..f0beb94 100644
+--- a/src/db/sheet-texts.test.ts
++++ b/src/db/sheet-texts.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+ import {
+   getGroupText,
+   getSheetText,
+diff --git a/src/db/table.test.ts b/src/db/table.test.ts
+index 7b7b56d..1058cda 100644
+--- a/src/db/table.test.ts
++++ b/src/db/table.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { playerSeat } from './seats'
+ import {
+   companionAsks,
+diff --git a/src/db/table.ts b/src/db/table.ts
+index 9b23f31..3ea2ac7 100644
+--- a/src/db/table.ts
++++ b/src/db/table.ts
+@@ -316,7 +316,6 @@ export function heldPrompts(campaignId: string, actorId: string, now: number) {
+       actorId,
+       OR: [
+         {
+-          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+           closedAt: null,
+           expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
+         },
+@@ -518,7 +517,6 @@ export async function getTableView(
+           where: {
+             campaignId: campaign.id,
+             actorId: { in: own.map(({ key }) => key) },
+-            // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+             closedAt: null,
+             expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
+           },
+diff --git a/src/db/transfers.test.ts b/src/db/transfers.test.ts
+index fe26dd5..9b617de 100644
+--- a/src/db/transfers.test.ts
++++ b/src/db/transfers.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import { createRollRequest } from './roll-requests'
+ import { playerSeat } from './seats'
+ import { createTransferRequest } from './transfers'
+diff --git a/src/db/wild-shape.test.ts b/src/db/wild-shape.test.ts
+index e8ea128..c3aa3ea 100644
+--- a/src/db/wild-shape.test.ts
++++ b/src/db/wild-shape.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import { createRollRequest } from './roll-requests'
+ import { playerSeat } from './seats'
+ import { createWildShapeRequest, shapedRefusal } from './wild-shape'
+diff --git a/src/features/campaigns/components/campaign-card/campaign-card.test.tsx b/src/features/campaigns/components/campaign-card/campaign-card.test.tsx
+index 7894ee2..bd7d90c 100644
+--- a/src/features/campaigns/components/campaign-card/campaign-card.test.tsx
++++ b/src/features/campaigns/components/campaign-card/campaign-card.test.tsx
+@@ -553,7 +553,6 @@ describe('components/campaigns/campaign-card', () => {
+     ['0.31.0', 'tick'],
+     ['0.31.2', 'tick'],
+     ['1.0.0', 'tick'],
+-    // eslint-disable-next-line unicorn/no-null -- a hello says a version it doesn't know as null
+     [null, 'tick'],
+     ['dev', 'tick'],
+   ] as const)(
+@@ -646,7 +645,6 @@ describe('components/campaigns/campaign-card', () => {
+         'on, under a module that doesn’t say its version',
+         {
+           dishes: { ...off, enabled: true },
+-          // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+           foundry: foundry(null, dnd5e('5.3.3')),
+         },
+         ON,
+@@ -707,7 +705,6 @@ describe('components/campaigns/campaign-card', () => {
+       ],
+       [
+         'a module that doesn’t say its version',
+-        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+         { dishes: off, foundry: foundry(null, dnd5e('5.3.3')) },
+         TICK,
+       ],
+@@ -1157,7 +1154,6 @@ describe('components/campaigns/campaign-card', () => {
+       ],
+       [
+         'a module that doesn’t say its version',
+-        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+         { foundry: effectsFoundry(null, dnd5e('5.3.3')) },
+         TICK,
+       ],
+@@ -1243,7 +1239,6 @@ describe('components/campaigns/campaign-card', () => {
+       ],
+       [
+         'a module that doesn’t say its version',
+-        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
+         { foundry: effectsFoundry(null, dnd5e('5.3.3')) },
+         TICK,
+       ],
+diff --git a/src/features/campaigns/components/foundry-settings/foundry-settings.test.tsx b/src/features/campaigns/components/foundry-settings/foundry-settings.test.tsx
+index 95e1336..4770258 100644
+--- a/src/features/campaigns/components/foundry-settings/foundry-settings.test.tsx
++++ b/src/features/campaigns/components/foundry-settings/foundry-settings.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { CampaignCard } from '../campaign-card/campaign-card'
+diff --git a/src/features/campaigns/utils/campaign-order.ts b/src/features/campaigns/utils/campaign-order.ts
+index 3f65e1a..3991d5e 100644
+--- a/src/features/campaigns/utils/campaign-order.ts
++++ b/src/features/campaigns/utils/campaign-order.ts
+@@ -21,7 +21,6 @@ export function attentionOf(
+ ): Attention | null {
+   if (campaign.refusal?.current) return 'refused'
+   if (!campaign.connected) return 'waiting'
+-  // eslint-disable-next-line unicorn/no-null -- needs nothing
+   return null
+ }
+ 
+diff --git a/src/features/characters/components/character-list/character-list.test.tsx b/src/features/characters/components/character-list/character-list.test.tsx
+index 06c0d0d..991a9f2 100644
+--- a/src/features/characters/components/character-list/character-list.test.tsx
++++ b/src/features/characters/components/character-list/character-list.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
+ import { render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { CharacterList } from './character-list'
+diff --git a/src/features/companions/__tests__/companion-pane.integration.test.tsx b/src/features/companions/__tests__/companion-pane.integration.test.tsx
+index 70cfef6..51b4d75 100644
+--- a/src/features/companions/__tests__/companion-pane.integration.test.tsx
++++ b/src/features/companions/__tests__/companion-pane.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { act, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { CompanionPane } from '../components/companion-pane/companion-pane'
+diff --git a/src/features/companions/components/creature-header/creature-header.test.tsx b/src/features/companions/components/creature-header/creature-header.test.tsx
+index 54d9aec..b4e5f01 100644
+--- a/src/features/companions/components/creature-header/creature-header.test.tsx
++++ b/src/features/companions/components/creature-header/creature-header.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import { CreatureHeader, otherSpeeds } from './creature-header'
+ import { ActionsTab } from '@/features/sheet/components/actions-tab/actions-tab'
+diff --git a/src/features/cookbook/components/cookbook-card/cookbook-card.test.tsx b/src/features/cookbook/components/cookbook-card/cookbook-card.test.tsx
+index c7b88e4..afbd53e 100644
+--- a/src/features/cookbook/components/cookbook-card/cookbook-card.test.tsx
++++ b/src/features/cookbook/components/cookbook-card/cookbook-card.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.test.tsx b/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.test.tsx
+index 35d0831..ceaa66a 100644
+--- a/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.test.tsx
++++ b/src/features/cookbook/components/cookbook-dish-list/cookbook-dish-list.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import { CookbookDishList } from './cookbook-dish-list'
+ import type { CookbookDishView } from '@/types/cookbook'
+diff --git a/src/features/cookbook/components/cookbook-entry/cookbook-entry.test.tsx b/src/features/cookbook/components/cookbook-entry/cookbook-entry.test.tsx
+index 59fda47..ec78f07 100644
+--- a/src/features/cookbook/components/cookbook-entry/cookbook-entry.test.tsx
++++ b/src/features/cookbook/components/cookbook-entry/cookbook-entry.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
+ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+ import { useCookbookEntry } from './cookbook-entry'
+ import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
+diff --git a/src/features/cookbook/hooks/use-cookbook-view.test.tsx b/src/features/cookbook/hooks/use-cookbook-view.test.tsx
+index 53d1aee..3ad960f 100644
+--- a/src/features/cookbook/hooks/use-cookbook-view.test.tsx
++++ b/src/features/cookbook/hooks/use-cookbook-view.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
+ import { act, renderHook } from '@testing-library/react'
+ import { forgetCookbook, useCookbookView } from './use-cookbook-view'
+ import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
+diff --git a/src/features/notes/__tests__/journal-modal.integration.test.tsx b/src/features/notes/__tests__/journal-modal.integration.test.tsx
+index bed9954..0e89fb0 100644
+--- a/src/features/notes/__tests__/journal-modal.integration.test.tsx
++++ b/src/features/notes/__tests__/journal-modal.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/notes/components/chapter-form/chapter-form.test.tsx b/src/features/notes/components/chapter-form/chapter-form.test.tsx
+index cddc6cf..2cd78d6 100644
+--- a/src/features/notes/components/chapter-form/chapter-form.test.tsx
++++ b/src/features/notes/components/chapter-form/chapter-form.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a chapter is in no chapter, as the API has it */
+ import { useCallback, useReducer, useRef } from 'react'
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+diff --git a/src/features/notes/components/chapter-pane/chapter-pane.test.tsx b/src/features/notes/components/chapter-pane/chapter-pane.test.tsx
+index 30c174a..48388c0 100644
+--- a/src/features/notes/components/chapter-pane/chapter-pane.test.tsx
++++ b/src/features/notes/components/chapter-pane/chapter-pane.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { groupsOf } from '../contents/contents'
+diff --git a/src/features/notes/components/contents/contents.test.tsx b/src/features/notes/components/contents/contents.test.tsx
+index c7b97e5..a7795e6 100644
+--- a/src/features/notes/components/contents/contents.test.tsx
++++ b/src/features/notes/components/contents/contents.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { JournalCard } from '../journal-card/journal-card'
+diff --git a/src/features/notes/components/contents/contents.tsx b/src/features/notes/components/contents/contents.tsx
+index 161c910..5c0f8a5 100644
+--- a/src/features/notes/components/contents/contents.tsx
++++ b/src/features/notes/components/contents/contents.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the notes in no chapter are the group of no chapter, null */
+ 'use client'
+ 
+ import { useEffect, useId, useRef, useState } from 'react'
+diff --git a/src/features/notes/components/journal-card/journal-card.test.tsx b/src/features/notes/components/journal-card/journal-card.test.tsx
+index 51b4879..6a260c9 100644
+--- a/src/features/notes/components/journal-card/journal-card.test.tsx
++++ b/src/features/notes/components/journal-card/journal-card.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import {
+   act,
+   render,
+diff --git a/src/features/notes/components/journal-modal/journal-modal.tsx b/src/features/notes/components/journal-modal/journal-modal.tsx
+index 1f50f01..56e7ebb 100644
+--- a/src/features/notes/components/journal-modal/journal-modal.tsx
++++ b/src/features/notes/components/journal-modal/journal-modal.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ 'use client'
+ 
+ import {
+diff --git a/src/features/notes/components/move-menu/move-menu.test.tsx b/src/features/notes/components/move-menu/move-menu.test.tsx
+index 5f4c847..0535f10 100644
+--- a/src/features/notes/components/move-menu/move-menu.test.tsx
++++ b/src/features/notes/components/move-menu/move-menu.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it */
+ import { render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { MoveMenu } from './move-menu'
+diff --git a/src/features/notes/components/move-menu/move-menu.tsx b/src/features/notes/components/move-menu/move-menu.tsx
+index 1741e31..cbd55d1 100644
+--- a/src/features/notes/components/move-menu/move-menu.tsx
++++ b/src/features/notes/components/move-menu/move-menu.tsx
+@@ -46,7 +46,6 @@ export function MoveMenu({
+   onMove,
+ }: Readonly<Props>) {
+   const [open, setOpen] = useState(false)
+-  // eslint-disable-next-line unicorn/no-null -- floating-ui marks no active item with null
+   const [active, setActive] = useState<number | null>(null)
+   const list = useRef<(HTMLElement | null)[]>([])
+   const menuId = useId()
+@@ -87,7 +86,6 @@ export function MoveMenu({
+ 
+   const choices = [
+     ...chapters.map(chapter => ({ id: chapter.id, title: chapter.title })),
+-    // eslint-disable-next-line unicorn/no-null -- out of its chapter, into none
+     ...(entry.chapterId === null ? [] : [{ id: null, title: 'No chapter' }]),
+   ]
+   // The first that can be chosen takes focus as the menu opens: its own place can't be.
+diff --git a/src/features/notes/components/note-editor/note-editor.test.tsx b/src/features/notes/components/note-editor/note-editor.test.tsx
+index 84ada57..512604c 100644
+--- a/src/features/notes/components/note-editor/note-editor.test.tsx
++++ b/src/features/notes/components/note-editor/note-editor.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import { useCallback, useReducer, useRef } from 'react'
+ import {
+   act,
+diff --git a/src/features/notes/components/note-editor/note-editor.tsx b/src/features/notes/components/note-editor/note-editor.tsx
+index c1ad5bf..04065a2 100644
+--- a/src/features/notes/components/note-editor/note-editor.tsx
++++ b/src/features/notes/components/note-editor/note-editor.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ 'use client'
+ 
+ import {
+diff --git a/src/features/notes/components/note-lines/note-lines.test.tsx b/src/features/notes/components/note-lines/note-lines.test.tsx
+index 5e1c53c..5f888b1 100644
+--- a/src/features/notes/components/note-lines/note-lines.test.tsx
++++ b/src/features/notes/components/note-lines/note-lines.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note written in Foundry has no author */
+ import { render, screen } from '@testing-library/react'
+ import {
+   ChapterLine,
+diff --git a/src/features/notes/components/note-pane/note-pane.test.tsx b/src/features/notes/components/note-pane/note-pane.test.tsx
+index 4345ba3..46fbbdd 100644
+--- a/src/features/notes/components/note-pane/note-pane.test.tsx
++++ b/src/features/notes/components/note-pane/note-pane.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { groupsOf } from '../contents/contents'
+diff --git a/src/features/notes/components/reorder-pane/reorder-pane.test.tsx b/src/features/notes/components/reorder-pane/reorder-pane.test.tsx
+index 71b3e85..d407ca9 100644
+--- a/src/features/notes/components/reorder-pane/reorder-pane.test.tsx
++++ b/src/features/notes/components/reorder-pane/reorder-pane.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note written in Foundry has no author */
+ import { act, fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { ReorderPane } from './reorder-pane'
+diff --git a/src/features/notes/hooks/use-notes.test.ts b/src/features/notes/hooks/use-notes.test.ts
+index b406d97..6567a5f 100644
+--- a/src/features/notes/hooks/use-notes.test.ts
++++ b/src/features/notes/hooks/use-notes.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import { createElement } from 'react'
+ import { act, renderHook, waitFor } from '@testing-library/react'
+ import { renderToString } from 'react-dom/server'
+diff --git a/src/features/notes/utils/note-words.test.ts b/src/features/notes/utils/note-words.test.ts
+index e3d53d0..1423696 100644
+--- a/src/features/notes/utils/note-words.test.ts
++++ b/src/features/notes/utils/note-words.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a book with no journal in Foundry has null for it */
+ import {
+   choicesWords,
+   journalCounts,
+diff --git a/src/features/notes/utils/order-words.test.ts b/src/features/notes/utils/order-words.test.ts
+index bc3a21b..25ead51 100644
+--- a/src/features/notes/utils/order-words.test.ts
++++ b/src/features/notes/utils/order-words.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note moved out of its chapter goes to none */
+ import {
+   movedTo,
+   movedWords,
+diff --git a/src/features/party/__tests__/party-sheet.integration.test.tsx b/src/features/party/__tests__/party-sheet.integration.test.tsx
+index ae35543..2421646 100644
+--- a/src/features/party/__tests__/party-sheet.integration.test.tsx
++++ b/src/features/party/__tests__/party-sheet.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { act, fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { useRouter } from 'next/navigation'
+diff --git a/src/features/party/hooks/use-party-sheet.test.tsx b/src/features/party/hooks/use-party-sheet.test.tsx
+index c5a3562..2609e8d 100644
+--- a/src/features/party/hooks/use-party-sheet.test.tsx
++++ b/src/features/party/hooks/use-party-sheet.test.tsx
+@@ -17,12 +17,9 @@ const sheet: NonNullable<PartyView['sheet']> = {
+     sections: [],
+     containers: [],
+     currency: [],
+-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+     encumbrance: null,
+-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+     attunement: null,
+   },
+-  // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+   description: null,
+ }
+ const initial: PartyView = {
+diff --git a/src/features/rolling/__tests__/needs-player.integration.test.tsx b/src/features/rolling/__tests__/needs-player.integration.test.tsx
+index 849bb11..40005ce 100644
+--- a/src/features/rolling/__tests__/needs-player.integration.test.tsx
++++ b/src/features/rolling/__tests__/needs-player.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import { RollToasts } from '../components/roll-toasts/roll-toasts'
+ import { RollTray } from '../components/roll-tray/roll-tray'
+diff --git a/src/features/rolling/__tests__/use-sheet-roller.integration.test.tsx b/src/features/rolling/__tests__/use-sheet-roller.integration.test.tsx
+index 274400c..f0d56bb 100644
+--- a/src/features/rolling/__tests__/use-sheet-roller.integration.test.tsx
++++ b/src/features/rolling/__tests__/use-sheet-roller.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a damage part without a kind has null */
+ import { useDiceRenderer } from '@lambersond/3d-dice-react'
+ import { act, renderHook } from '@testing-library/react'
+ import {
+diff --git a/src/features/rolling/__tests__/use-sheet-roller.typed.integration.test.tsx b/src/features/rolling/__tests__/use-sheet-roller.typed.integration.test.tsx
+index 2a972aa..e3d3f78 100644
+--- a/src/features/rolling/__tests__/use-sheet-roller.typed.integration.test.tsx
++++ b/src/features/rolling/__tests__/use-sheet-roller.typed.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a damage part without a kind has null */
+ import { useDiceRenderer } from '@lambersond/3d-dice-react'
+ import { act, renderHook } from '@testing-library/react'
+ import {
+diff --git a/src/features/rolling/components/roll-menu/roll-menu.tsx b/src/features/rolling/components/roll-menu/roll-menu.tsx
+index 999264f..56406ed 100644
+--- a/src/features/rolling/components/roll-menu/roll-menu.tsx
++++ b/src/features/rolling/components/roll-menu/roll-menu.tsx
+@@ -154,7 +154,6 @@ export function ChoiceMenu<T extends string>({
+ }: Readonly<
+   MenuPlace & { items: MenuItem<T>[]; onChoose: (choice: T) => void }
+ >) {
+-  // eslint-disable-next-line unicorn/no-null -- floating-ui marks no active item with null
+   const [active, setActive] = useState<number | null>(null)
+   const list = useRef<(HTMLElement | null)[]>([])
+   const reasons = useId()
+diff --git a/src/features/rolling/components/roll-toasts/roll-toasts.test.tsx b/src/features/rolling/components/roll-toasts/roll-toasts.test.tsx
+index 9056a09..56ced94 100644
+--- a/src/features/rolling/components/roll-toasts/roll-toasts.test.tsx
++++ b/src/features/rolling/components/roll-toasts/roll-toasts.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/rolling/components/roll-toasts/roll-toasts.tsx b/src/features/rolling/components/roll-toasts/roll-toasts.tsx
+index c78ac4a..dc31f80 100644
+--- a/src/features/rolling/components/roll-toasts/roll-toasts.tsx
++++ b/src/features/rolling/components/roll-toasts/roll-toasts.tsx
+@@ -170,7 +170,6 @@ function Toast({
+   rollDamage?: RollDue
+   modifies?: boolean
+ }>) {
+-  // eslint-disable-next-line unicorn/no-null -- floating-ui waits for a root that's null
+   const [root, setRoot] = useState<HTMLDivElement | null>(null)
+   return (
+     <div
+diff --git a/src/features/rolling/components/roll-tray/roll-tray.test.tsx b/src/features/rolling/components/roll-tray/roll-tray.test.tsx
+index f3132a6..66accfd 100644
+--- a/src/features/rolling/components/roll-tray/roll-tray.test.tsx
++++ b/src/features/rolling/components/roll-tray/roll-tray.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { act, fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import {
+diff --git a/src/features/rolling/components/rolls-button/rolls-button.test.tsx b/src/features/rolling/components/rolls-button/rolls-button.test.tsx
+index e52a419..85d7b17 100644
+--- a/src/features/rolling/components/rolls-button/rolls-button.test.tsx
++++ b/src/features/rolling/components/rolls-button/rolls-button.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import {
+   fireEvent,
+   render,
+diff --git a/src/features/rolling/components/rolls-button/rolls-button.tsx b/src/features/rolling/components/rolls-button/rolls-button.tsx
+index 6006743..3539646 100644
+--- a/src/features/rolling/components/rolls-button/rolls-button.tsx
++++ b/src/features/rolling/components/rolls-button/rolls-button.tsx
+@@ -50,7 +50,6 @@ export function RollsButton({
+   const root = usePortalRoot()
+   // A creature's own, at its pane (module 0.36.0).
+   const named = rollsName(useCreature())
+-  // eslint-disable-next-line unicorn/no-null -- floating-ui waits for a root that's null
+   const [inside, setInside] = useState<HTMLDivElement | null>(null)
+   const { refs, floatingStyles, context } = useFloating({
+     open,
+diff --git a/src/features/rolling/hooks/use-table-rolls.test.tsx b/src/features/rolling/hooks/use-table-rolls.test.tsx
+index 81db6e5..ef3496e 100644
+--- a/src/features/rolling/hooks/use-table-rolls.test.tsx
++++ b/src/features/rolling/hooks/use-table-rolls.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { act, renderHook } from '@testing-library/react'
+ import {
+   ALONE_KEY,
+diff --git a/src/features/rolling/hooks/use-table-rolls.ts b/src/features/rolling/hooks/use-table-rolls.ts
+index 4107c74..fa0b988 100644
+--- a/src/features/rolling/hooks/use-table-rolls.ts
++++ b/src/features/rolling/hooks/use-table-rolls.ts
+@@ -537,7 +537,6 @@ export function useTableRolls(
+           targets,
+           // At its user too, where the game makes it so.
+           ...(use.self && { self: true as const }),
+-          // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own slot
+           slot: use.slot ?? null,
+           // How an enchant activity enchants, and what.
+           ...(use.enchant && { enchant: use.enchant }),
+@@ -1368,7 +1367,7 @@ export function toRollRequest(
+       activity: source.activity,
+       ...(source.targets
+         ? { targets: source.targets }
+-        : // eslint-disable-next-line unicorn/no-null -- the protocol's for no target
++        : // the protocol's for no target
+           { target: source.target ?? null }),
+       ...(source.slot && { slot: source.slot }),
+       ...(source.ammunition && { ammunition: source.ammunition }),
+@@ -1618,7 +1617,6 @@ export function missed(state?: TableRollState): boolean {
+ /** The kind chosen for each of damage's rolls: this one, for each roll that offers it. */
+ function typesFor(damage: DamagePreview, type: string): (string | null)[] {
+   return damage.rolls.map(roll =>
+-    // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own choice
+     roll.types?.some(({ key }) => key === type) ? type : null,
+   )
+ }
+diff --git a/src/features/rolling/utils/effect-dice.test.ts b/src/features/rolling/utils/effect-dice.test.ts
+index cc9041a..91422f9 100644
+--- a/src/features/rolling/utils/effect-dice.test.ts
++++ b/src/features/rolling/utils/effect-dice.test.ts
+@@ -285,7 +285,6 @@ describe('utils/effect-dice', () => {
+       expect(
+         effectDiceFor(blessedSheet({ effectDice: undefined }), save),
+       ).toEqual([])
+-      // eslint-disable-next-line unicorn/no-null -- a seat with no sheet yet
+       expect(effectDiceFor(null, save)).toEqual([])
+       expect(effectDiceFor(undefined, save)).toEqual([])
+       expect(effectDiceFor(sheet, {})).toEqual([])
+@@ -384,7 +383,6 @@ describe('utils/effect-dice', () => {
+       expect(offersFor(inspiredSheet({ effectDice: undefined }), save)).toEqual(
+         [],
+       )
+-      // eslint-disable-next-line unicorn/no-null -- a seat with no sheet yet
+       expect(offersFor(null, save)).toEqual([])
+       expect(offersFor(undefined, save)).toEqual([])
+       expect(offersFor(blessedSheet(), save)).toEqual([])
+diff --git a/src/features/rolling/utils/roll-toasts.test.ts b/src/features/rolling/utils/roll-toasts.test.ts
+index c061922..ad0e858 100644
+--- a/src/features/rolling/utils/roll-toasts.test.ts
++++ b/src/features/rolling/utils/roll-toasts.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import {
+   dropToast,
+   dueToasts,
+diff --git a/src/features/sheet/__tests__/action-entry.alone.integration.test.tsx b/src/features/sheet/__tests__/action-entry.alone.integration.test.tsx
+index c414ce3..68120e9 100644
+--- a/src/features/sheet/__tests__/action-entry.alone.integration.test.tsx
++++ b/src/features/sheet/__tests__/action-entry.alone.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   act,
+   cleanup,
+diff --git a/src/features/sheet/__tests__/character-pane.creature.integration.test.tsx b/src/features/sheet/__tests__/character-pane.creature.integration.test.tsx
+index 1081c2b..0e81740 100644
+--- a/src/features/sheet/__tests__/character-pane.creature.integration.test.tsx
++++ b/src/features/sheet/__tests__/character-pane.creature.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { DiceRendererProvider } from '@lambersond/3d-dice-react'
+ import {
+   act,
+diff --git a/src/features/sheet/__tests__/character-pane.integration.test.tsx b/src/features/sheet/__tests__/character-pane.integration.test.tsx
+index e76622d..69c8647 100644
+--- a/src/features/sheet/__tests__/character-pane.integration.test.tsx
++++ b/src/features/sheet/__tests__/character-pane.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/sheet/__tests__/character-pane.notes.integration.test.tsx b/src/features/sheet/__tests__/character-pane.notes.integration.test.tsx
+index 3c88173..ab21acb 100644
+--- a/src/features/sheet/__tests__/character-pane.notes.integration.test.tsx
++++ b/src/features/sheet/__tests__/character-pane.notes.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
+ import { act, render, renderHook, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { CharacterPane } from '../components/character-pane/character-pane'
+diff --git a/src/features/sheet/__tests__/charges.integration.test.tsx b/src/features/sheet/__tests__/charges.integration.test.tsx
+index a8efa05..fef3986 100644
+--- a/src/features/sheet/__tests__/charges.integration.test.tsx
++++ b/src/features/sheet/__tests__/charges.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/sheet/__tests__/enchantments.integration.test.tsx b/src/features/sheet/__tests__/enchantments.integration.test.tsx
+index f0cc0e8..395adf1 100644
+--- a/src/features/sheet/__tests__/enchantments.integration.test.tsx
++++ b/src/features/sheet/__tests__/enchantments.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { CharacterPane } from '../components/character-pane/character-pane'
+diff --git a/src/features/sheet/__tests__/favorites.integration.test.tsx b/src/features/sheet/__tests__/favorites.integration.test.tsx
+index 221eac0..6157ddc 100644
+--- a/src/features/sheet/__tests__/favorites.integration.test.tsx
++++ b/src/features/sheet/__tests__/favorites.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   cleanup,
+   fireEvent,
+diff --git a/src/features/sheet/__tests__/item-menu.integration.test.tsx b/src/features/sheet/__tests__/item-menu.integration.test.tsx
+index a8284d1..f394226 100644
+--- a/src/features/sheet/__tests__/item-menu.integration.test.tsx
++++ b/src/features/sheet/__tests__/item-menu.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/sheet/components/action-entry/action-entry.test.tsx b/src/features/sheet/components/action-entry/action-entry.test.tsx
+index bf99b1f..2656564 100644
+--- a/src/features/sheet/components/action-entry/action-entry.test.tsx
++++ b/src/features/sheet/components/action-entry/action-entry.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   cleanup,
+   fireEvent,
+diff --git a/src/features/sheet/components/actions-tab/actions-tab.test.tsx b/src/features/sheet/components/actions-tab/actions-tab.test.tsx
+index aa657e3..25e7ede 100644
+--- a/src/features/sheet/components/actions-tab/actions-tab.test.tsx
++++ b/src/features/sheet/components/actions-tab/actions-tab.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   act,
+   cleanup,
+diff --git a/src/features/sheet/components/biography-tab/biography-tab.test.tsx b/src/features/sheet/components/biography-tab/biography-tab.test.tsx
+index 7af2f28..32a5863 100644
+--- a/src/features/sheet/components/biography-tab/biography-tab.test.tsx
++++ b/src/features/sheet/components/biography-tab/biography-tab.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { act, render, screen, within } from '@testing-library/react'
+ import { BiographyTab } from './biography-tab'
+ import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'
+diff --git a/src/features/sheet/components/character-pane/character-pane.tsx b/src/features/sheet/components/character-pane/character-pane.tsx
+index 3a50b73..ee92fbd 100644
+--- a/src/features/sheet/components/character-pane/character-pane.tsx
++++ b/src/features/sheet/components/character-pane/character-pane.tsx
+@@ -567,9 +567,7 @@ function RollingSheet({
+   const body = useRef<HTMLDivElement>(null)
+   // The row of tabs, and the game's prompts beneath it while it asks any, which the rolls' toasts
+   // start below, so as not to cover the prompts' only buttons.
+-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+   const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null)
+-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+   const [promptBanner, setPromptBanner] = useState<HTMLElement | null>(null)
+   const width = useWidth(body)
+   const show = (next: SheetTab) => {
+diff --git a/src/features/sheet/components/character-sheet/character-sheet.test.tsx b/src/features/sheet/components/character-sheet/character-sheet.test.tsx
+index ee45a91..e66e764 100644
+--- a/src/features/sheet/components/character-sheet/character-sheet.test.tsx
++++ b/src/features/sheet/components/character-sheet/character-sheet.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import {
+   fireEvent,
+   render,
+diff --git a/src/features/sheet/components/conditions/conditions-reference.test.tsx b/src/features/sheet/components/conditions/conditions-reference.test.tsx
+index a5ea68c..edf9c84 100644
+--- a/src/features/sheet/components/conditions/conditions-reference.test.tsx
++++ b/src/features/sheet/components/conditions/conditions-reference.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { ConditionsReference } from './conditions-reference'
+diff --git a/src/features/sheet/components/description-link/description-link.test.tsx b/src/features/sheet/components/description-link/description-link.test.tsx
+index 795757a..0758483 100644
+--- a/src/features/sheet/components/description-link/description-link.test.tsx
++++ b/src/features/sheet/components/description-link/description-link.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { useState } from 'react'
+ import {
+   act,
+diff --git a/src/features/sheet/components/description-link/description-link.tsx b/src/features/sheet/components/description-link/description-link.tsx
+index abbd12c..a721105 100644
+--- a/src/features/sheet/components/description-link/description-link.tsx
++++ b/src/features/sheet/components/description-link/description-link.tsx
+@@ -729,7 +729,7 @@ function DamageButton({
+     const types = link.parts.map(part =>
+       chosen && part.types.includes(chosen)
+         ? chosen
+-        : // eslint-disable-next-line unicorn/no-null -- a part of no kind has none, as the sheet's
++        : // a part of no kind has none, as the sheet's
+           (part.types[0] ?? null),
+     )
+     actions.rollDamage({
+@@ -743,7 +743,6 @@ function DamageButton({
+       // The kind chosen, for each part that offers a choice, for the game to roll it so.
+       ...(choice && {
+         types: link.parts.map((part, index) =>
+-          // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own kind
+           part.types.length > 1 ? types[index] : null,
+         ),
+       }),
+@@ -831,7 +830,6 @@ function DamageButton({
+               const { types } = link.parts[index]
+               return {
+                 terms: part,
+-                // eslint-disable-next-line unicorn/no-null -- none, or one still to choose
+                 type: types.length === 1 ? typeLabel(types[0]) : null,
+               }
+             }),
+@@ -863,7 +861,6 @@ function thrownBy(
+   adds?: CriticalAdds,
+ ): string {
+   const changed = withModifiers(
+-    // eslint-disable-next-line unicorn/no-null -- its kind is still to choose
+     parts.map(terms => ({ terms, type: null })),
+     modifiers,
+     1,
+diff --git a/src/features/sheet/components/effect-controls/effect-controls.test.tsx b/src/features/sheet/components/effect-controls/effect-controls.test.tsx
+index 003ddb1..48926ea 100644
+--- a/src/features/sheet/components/effect-controls/effect-controls.test.tsx
++++ b/src/features/sheet/components/effect-controls/effect-controls.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/sheet/components/effects-tab/effects-tab.test.tsx b/src/features/sheet/components/effects-tab/effects-tab.test.tsx
+index e17fec8..34ab748 100644
+--- a/src/features/sheet/components/effects-tab/effects-tab.test.tsx
++++ b/src/features/sheet/components/effects-tab/effects-tab.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { ConditionsOpener } from '../conditions/conditions-panel'
+diff --git a/src/features/sheet/components/favoriting/favoriting.test.tsx b/src/features/sheet/components/favoriting/favoriting.test.tsx
+index 4774970..afeba45 100644
+--- a/src/features/sheet/components/favoriting/favoriting.test.tsx
++++ b/src/features/sheet/components/favoriting/favoriting.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { act, renderHook } from '@testing-library/react'
+ import {
+   Favoriting,
+diff --git a/src/features/sheet/components/features-tab/features-tab.test.tsx b/src/features/sheet/components/features-tab/features-tab.test.tsx
+index 0753ae7..4c70628 100644
+--- a/src/features/sheet/components/features-tab/features-tab.test.tsx
++++ b/src/features/sheet/components/features-tab/features-tab.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   act,
+   cleanup,
+diff --git a/src/features/sheet/components/features-tab/features-tab.tsx b/src/features/sheet/components/features-tab/features-tab.tsx
+index 7eefa62..5c7da55 100644
+--- a/src/features/sheet/components/features-tab/features-tab.tsx
++++ b/src/features/sheet/components/features-tab/features-tab.tsx
+@@ -217,7 +217,6 @@ export function FeatureEntry({
+ 
+ /** A feature as an action's row that rolls nothing, such as Wild Shape, its uses its own. */
+ function plainAction(feature: SheetFeature): SheetAction {
+-  /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+   return {
+     id: feature.id,
+     name: feature.name,
+@@ -240,7 +239,6 @@ function plainAction(feature: SheetFeature): SheetAction {
+     identified: true,
+     text: feature.text,
+   }
+-  /* eslint-enable unicorn/no-null */
+ }
+ 
+ /**
+diff --git a/src/features/sheet/components/hit-dice/hit-dice.test.tsx b/src/features/sheet/components/hit-dice/hit-dice.test.tsx
+index c5d725c..9352e48 100644
+--- a/src/features/sheet/components/hit-dice/hit-dice.test.tsx
++++ b/src/features/sheet/components/hit-dice/hit-dice.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for a count it doesn't know */
+ import {
+   act,
+   fireEvent,
+diff --git a/src/features/sheet/components/inventory-tab/inventory-tab.test.tsx b/src/features/sheet/components/inventory-tab/inventory-tab.test.tsx
+index 0415169..8f48af8 100644
+--- a/src/features/sheet/components/inventory-tab/inventory-tab.test.tsx
++++ b/src/features/sheet/components/inventory-tab/inventory-tab.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   fireEvent,
+   render,
+diff --git a/src/features/sheet/components/inventory-tab/inventory-tab.tsx b/src/features/sheet/components/inventory-tab/inventory-tab.tsx
+index 0d8ad5f..9c3192c 100644
+--- a/src/features/sheet/components/inventory-tab/inventory-tab.tsx
++++ b/src/features/sheet/components/inventory-tab/inventory-tab.tsx
+@@ -471,7 +471,6 @@ export function ItemEntry({
+         <ActionEntry
+           action={action}
+           rows={rows}
+-          // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
+           favorite={null}
+           look={{
+             // What it is to carry, rather than how it's used, which it opens to; or nothing.
+@@ -508,7 +507,6 @@ export function ItemEntry({
+         fallback={container ? Backpack : Package}
+         favoriteKey={`item:${item.id}`}
+         onMenu={onMenu}
+-        // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
+         favorite={null}
+         busy={waiting}
+         detail={detail}
+diff --git a/src/features/sheet/components/preparing/preparing.test.tsx b/src/features/sheet/components/preparing/preparing.test.tsx
+index 2bf48a0..338cd74 100644
+--- a/src/features/sheet/components/preparing/preparing.test.tsx
++++ b/src/features/sheet/components/preparing/preparing.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { act, renderHook } from '@testing-library/react'
+ import {
+   NO_PREPARING,
+diff --git a/src/features/sheet/components/sheet-entry/sheet-entry.test.tsx b/src/features/sheet/components/sheet-entry/sheet-entry.test.tsx
+index f062c52..e0c93c0 100644
+--- a/src/features/sheet/components/sheet-entry/sheet-entry.test.tsx
++++ b/src/features/sheet/components/sheet-entry/sheet-entry.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+ import { Sparkles } from 'lucide-react'
+ import { Favoriting } from '../favoriting/favoriting'
+diff --git a/src/features/sheet/components/sheet-text/sheet-text.test.tsx b/src/features/sheet/components/sheet-text/sheet-text.test.tsx
+index ca371e5..1628144 100644
+--- a/src/features/sheet/components/sheet-text/sheet-text.test.tsx
++++ b/src/features/sheet/components/sheet-text/sheet-text.test.tsx
+@@ -132,7 +132,6 @@ describe('components/character-sheet/sheet-text', () => {
+       abilities: [],
+       skills: [],
+       tools: [],
+-      // eslint-disable-next-line unicorn/no-null -- the sheet uses null for an absent value
+       proficiency: null,
+       conditions: [],
+       showConditions: jest.fn(),
+diff --git a/src/features/sheet/components/spells-tab/spells-tab.test.tsx b/src/features/sheet/components/spells-tab/spells-tab.test.tsx
+index 12834dd..ea1c14f 100644
+--- a/src/features/sheet/components/spells-tab/spells-tab.test.tsx
++++ b/src/features/sheet/components/spells-tab/spells-tab.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   cleanup,
+   fireEvent,
+diff --git a/src/features/sheet/components/spells-tab/spells-tab.tsx b/src/features/sheet/components/spells-tab/spells-tab.tsx
+index b4449e1..196f975 100644
+--- a/src/features/sheet/components/spells-tab/spells-tab.tsx
++++ b/src/features/sheet/components/spells-tab/spells-tab.tsx
+@@ -147,7 +147,6 @@ export function SpellsTab({
+               <SpellSlots
+                 value={section.slots.value}
+                 max={section.slots.max}
+-                // eslint-disable-next-line unicorn/no-null -- as the sheet says a level unknown
+                 pool={{ id: section.id, level: section.slots.level ?? null }}
+               />
+             )}
+diff --git a/src/features/sheet/components/use-picker/use-picker.alone.test.tsx b/src/features/sheet/components/use-picker/use-picker.alone.test.tsx
+index e53dc88..29d4d47 100644
+--- a/src/features/sheet/components/use-picker/use-picker.alone.test.tsx
++++ b/src/features/sheet/components/use-picker/use-picker.alone.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { act, cleanup, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { ALONE_SPEND_KEY, asks, UsePicker, type Picking } from './use-picker'
+diff --git a/src/features/sheet/components/use-picker/use-picker.test.tsx b/src/features/sheet/components/use-picker/use-picker.test.tsx
+index 1af2fe9..b281d6f 100644
+--- a/src/features/sheet/components/use-picker/use-picker.test.tsx
++++ b/src/features/sheet/components/use-picker/use-picker.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   cleanup,
+   fireEvent,
+diff --git a/src/features/sheet/components/use-picker/use-picker.tsx b/src/features/sheet/components/use-picker/use-picker.tsx
+index 34c18e3..a7a0e63 100644
+--- a/src/features/sheet/components/use-picker/use-picker.tsx
++++ b/src/features/sheet/components/use-picker/use-picker.tsx
+@@ -221,7 +221,6 @@ function shownOf(combatant: TableCombatant): string[] {
+ export const SELF: TableCombatant = {
+   id: '@self',
+   name: 'Self',
+-  // eslint-disable-next-line unicorn/no-null -- the tracker's for no initiative
+   initiative: null,
+   defeated: false,
+   side: 'me',
+diff --git a/src/features/sheet/components/wild-shape/wild-shape-ended.test.tsx b/src/features/sheet/components/wild-shape/wild-shape-ended.test.tsx
+index 8e3b5d9..0ebdd4f 100644
+--- a/src/features/sheet/components/wild-shape/wild-shape-ended.test.tsx
++++ b/src/features/sheet/components/wild-shape/wild-shape-ended.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { render, screen } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { ENDED_KEY, WildShapeEnded } from './wild-shape'
+diff --git a/src/features/sheet/components/wild-shape/wild-shape.test.tsx b/src/features/sheet/components/wild-shape/wild-shape.test.tsx
+index d8391c5..be2f8a1 100644
+--- a/src/features/sheet/components/wild-shape/wild-shape.test.tsx
++++ b/src/features/sheet/components/wild-shape/wild-shape.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { ActionsTab } from '../actions-tab/actions-tab'
+diff --git a/src/features/sheet/components/wild-shape/wild-shape.tsx b/src/features/sheet/components/wild-shape/wild-shape.tsx
+index a8c0556..be36fd4 100644
+--- a/src/features/sheet/components/wild-shape/wild-shape.tsx
++++ b/src/features/sheet/components/wild-shape/wild-shape.tsx
+@@ -210,7 +210,6 @@ const NO_WILD_SHAPE: WildShapeValue = {
+   closeReturn: () => {},
+   heading: createRef(),
+   body: createRef(),
+-  // eslint-disable-next-line unicorn/no-null -- no panel, as the DOM says none
+   panel: () => null,
+ }
+ 
+@@ -405,7 +404,6 @@ export function useWildShape({
+     const input = {
+       op: 'learn',
+       uuid: chosen.uuid,
+-      // eslint-disable-next-line unicorn/no-null -- the protocol's for an empty place
+       replace: replace?.id ?? null,
+     } as const
+     const why = refused(input)
+diff --git a/src/features/sheet/hooks/use-spent-offers.test.tsx b/src/features/sheet/hooks/use-spent-offers.test.tsx
+index cbf454f..d9f5de8 100644
+--- a/src/features/sheet/hooks/use-spent-offers.test.tsx
++++ b/src/features/sheet/hooks/use-spent-offers.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { renderHook } from '@testing-library/react'
+ import { useSpentOffers } from './use-spent-offers'
+ import type { EffectOp } from '@/constants/sending-stone'
+diff --git a/src/features/sheet/utils/damage-alone.test.ts b/src/features/sheet/utils/damage-alone.test.ts
+index 873fa03..c5c81eb 100644
+--- a/src/features/sheet/utils/damage-alone.test.ts
++++ b/src/features/sheet/utils/damage-alone.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import {
+   alonePicks,
+   alonePlan,
+diff --git a/src/features/sheet/utils/enchantments.test.ts b/src/features/sheet/utils/enchantments.test.ts
+index 9d8f1a6..71c45c8 100644
+--- a/src/features/sheet/utils/enchantments.test.ts
++++ b/src/features/sheet/utils/enchantments.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   allApplied,
+   belongingsOf,
+diff --git a/src/features/sheet/utils/slot-words.test.ts b/src/features/sheet/utils/slot-words.test.ts
+index 26ff047..510b361 100644
+--- a/src/features/sheet/utils/slot-words.test.ts
++++ b/src/features/sheet/utils/slot-words.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { createElement } from 'react'
+ import { render, screen, within } from '@testing-library/react'
+ import { slotName, slotWords, type SpellSlotPool } from './slot-words'
+diff --git a/src/features/table/__tests__/chat-results.integration.test.tsx b/src/features/table/__tests__/chat-results.integration.test.tsx
+index 96ea4bc..4f76768 100644
+--- a/src/features/table/__tests__/chat-results.integration.test.tsx
++++ b/src/features/table/__tests__/chat-results.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import { ChatLog } from '../components/chat-log/chat-log'
+ import { chatMessage } from '@/mocks/sending-stone'
+diff --git a/src/features/table/__tests__/game-table.companions.integration.test.tsx b/src/features/table/__tests__/game-table.companions.integration.test.tsx
+index 3df61e0..d0db077 100644
+--- a/src/features/table/__tests__/game-table.companions.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.companions.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { GameTable } from '../components/game-table/game-table'
+diff --git a/src/features/table/__tests__/game-table.cookbook.integration.test.tsx b/src/features/table/__tests__/game-table.cookbook.integration.test.tsx
+index 4b142fd..d1ffac0 100644
+--- a/src/features/table/__tests__/game-table.cookbook.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.cookbook.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { useRouter } from 'next/navigation'
+diff --git a/src/features/table/__tests__/game-table.endturn.integration.test.tsx b/src/features/table/__tests__/game-table.endturn.integration.test.tsx
+index 7158762..e5f0a36 100644
+--- a/src/features/table/__tests__/game-table.endturn.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.endturn.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { act, fireEvent, render, screen, within } from '@testing-library/react'
+ import { GameTable } from '../components/game-table/game-table'
+ import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
+diff --git a/src/features/table/__tests__/game-table.favorites.integration.test.tsx b/src/features/table/__tests__/game-table.favorites.integration.test.tsx
+index 9ea7f28..7ee949c 100644
+--- a/src/features/table/__tests__/game-table.favorites.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.favorites.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { GameTable } from '../components/game-table/game-table'
+diff --git a/src/features/table/__tests__/game-table.integration.test.tsx b/src/features/table/__tests__/game-table.integration.test.tsx
+index 6dfb792..37572b7 100644
+--- a/src/features/table/__tests__/game-table.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { act, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { GameTable } from '../components/game-table/game-table'
+diff --git a/src/features/table/__tests__/game-table.manual-dice.integration.test.tsx b/src/features/table/__tests__/game-table.manual-dice.integration.test.tsx
+index 0140904..c12caa8 100644
+--- a/src/features/table/__tests__/game-table.manual-dice.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.manual-dice.integration.test.tsx
+@@ -198,7 +198,6 @@ describe('components/game-table, typing in their own dice', () => {
+ /** Thorin with Second Wind, a use whose healing the game says is due, after it. */
+ function winded(): CharacterSheet {
+   const sheet = fullerSheet()
+-  /* eslint-disable unicorn/no-null -- the sheet has null for none */
+   const targets = {
+     self: true,
+     area: false,
+@@ -206,7 +205,6 @@ function winded(): CharacterSheet {
+     perLevel: null,
+     affects: 'self',
+   } as const
+-  /* eslint-enable unicorn/no-null */
+   return {
+     ...sheet,
+     actions: sheet.actions.map(section => ({
+diff --git a/src/features/table/__tests__/game-table.notes.integration.test.tsx b/src/features/table/__tests__/game-table.notes.integration.test.tsx
+index 28c78a6..9415f63 100644
+--- a/src/features/table/__tests__/game-table.notes.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.notes.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { act, render, screen, waitFor, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { useRouter } from 'next/navigation'
+diff --git a/src/features/table/__tests__/game-table.party.integration.test.tsx b/src/features/table/__tests__/game-table.party.integration.test.tsx
+index 3625b70..a910ba2 100644
+--- a/src/features/table/__tests__/game-table.party.integration.test.tsx
++++ b/src/features/table/__tests__/game-table.party.integration.test.tsx
+@@ -34,7 +34,6 @@ jest.mock('@/features/notes/hooks/use-notes', () => ({
+     view: {
+       version: 1,
+       kind: api.includes('/party/') ? 'party' : 'personal',
+-      // eslint-disable-next-line unicorn/no-null -- a book with no journal in Foundry yet
+       journal: null,
+       live: true,
+       enabled: true,
+@@ -104,12 +103,9 @@ const party: PartyView = {
+       sections: [],
+       containers: [],
+       currency: [],
+-      // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+       encumbrance: null,
+-      // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+       attunement: null,
+     },
+-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+     description: null,
+   },
+ }
+@@ -400,7 +396,6 @@ describe('components/game-table, taking from a party, from module 0.31.0', () =>
+   })
+ 
+   it("offers a character not in the campaign's roster no party sheet to take from", () => {
+-    // eslint-disable-next-line unicorn/no-null -- a character with no actor has null
+     renderTable(view([company]), undefined, { actorId: null })
+ 
+     // Without a sheet, it has no Inventory tab to open one from.
+diff --git a/src/features/table/components/chat-log/chat-log.test.tsx b/src/features/table/components/chat-log/chat-log.test.tsx
+index 72a73ee..3169066 100644
+--- a/src/features/table/components/chat-log/chat-log.test.tsx
++++ b/src/features/table/components/chat-log/chat-log.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { ChatLog, initials } from './chat-log'
+diff --git a/src/features/table/components/combat-tracker/combat-tracker.test.tsx b/src/features/table/components/combat-tracker/combat-tracker.test.tsx
+index 4439657..4d4b0e3 100644
+--- a/src/features/table/components/combat-tracker/combat-tracker.test.tsx
++++ b/src/features/table/components/combat-tracker/combat-tracker.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { act, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { CombatTracker, formatInitiative } from './combat-tracker'
+diff --git a/src/features/table/components/game-table/game-table.tsx b/src/features/table/components/game-table/game-table.tsx
+index c75b5a3..ec1e290 100644
+--- a/src/features/table/components/game-table/game-table.tsx
++++ b/src/features/table/components/game-table/game-table.tsx
+@@ -412,7 +412,6 @@ export function GameTable({
+   }
+ 
+   // The header, which the sheet's roll toasts start below while its tabs aren't shown.
+-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+   const [header, setHeader] = useState<HTMLElement | null>(null)
+   // Where the turn's toast ends while one shows, which the roll toasts start below.
+   const [toastFoot, setToastFoot] = useState<number>()
+diff --git a/src/features/table/components/turn-toast/turn-toast.tsx b/src/features/table/components/turn-toast/turn-toast.tsx
+index d9ab4ac..1f62ddc 100644
+--- a/src/features/table/components/turn-toast/turn-toast.tsx
++++ b/src/features/table/components/turn-toast/turn-toast.tsx
+@@ -392,7 +392,6 @@ export function TurnToast({
+   }, [card, resting])
+ 
+   // Where it ends, for the roll toasts to start below it, as it shows, moves, changes or goes.
+-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
+   const [element, setElement] = useState<HTMLDivElement | null>(null)
+   const foot = useRef<number | undefined>(undefined)
+   const footing = useRef(onFoot)
+diff --git a/src/features/transfers/__tests__/give-controls.integration.test.tsx b/src/features/transfers/__tests__/give-controls.integration.test.tsx
+index c6f28c1..722e8a5 100644
+--- a/src/features/transfers/__tests__/give-controls.integration.test.tsx
++++ b/src/features/transfers/__tests__/give-controls.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { fireEvent, render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { CHECK_EVERY } from '@/features/rolling/hooks/use-table-rolls'
+diff --git a/src/features/transfers/__tests__/take-controls.integration.test.tsx b/src/features/transfers/__tests__/take-controls.integration.test.tsx
+index ee18cb0..70ff30d 100644
+--- a/src/features/transfers/__tests__/take-controls.integration.test.tsx
++++ b/src/features/transfers/__tests__/take-controls.integration.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import {
+diff --git a/src/features/transfers/components/move-dialog/move-dialog.test.tsx b/src/features/transfers/components/move-dialog/move-dialog.test.tsx
+index 2e4e38b..d9643b9 100644
+--- a/src/features/transfers/components/move-dialog/move-dialog.test.tsx
++++ b/src/features/transfers/components/move-dialog/move-dialog.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { MoveDialog, type MoveDialogProps } from './move-dialog'
+diff --git a/src/features/transfers/components/remove-dialog/remove-dialog.test.tsx b/src/features/transfers/components/remove-dialog/remove-dialog.test.tsx
+index 16d4b9d..e448757 100644
+--- a/src/features/transfers/components/remove-dialog/remove-dialog.test.tsx
++++ b/src/features/transfers/components/remove-dialog/remove-dialog.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { render, screen, within } from '@testing-library/react'
+ import userEvent from '@testing-library/user-event'
+ import { RemoveDialog, type RemoveDialogProps } from './remove-dialog'
+diff --git a/src/hooks/use-image-fallback.test.tsx b/src/hooks/use-image-fallback.test.tsx
+index e32825c..9026cb7 100644
+--- a/src/hooks/use-image-fallback.test.tsx
++++ b/src/hooks/use-image-fallback.test.tsx
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the game's icons use null for none */
+ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+ import { useImageFallback } from './use-image-fallback'
+ 
+diff --git a/src/lib/campaign-secret.test.ts b/src/lib/campaign-secret.test.ts
+index 773e8a6..f223f1a 100644
+--- a/src/lib/campaign-secret.test.ts
++++ b/src/lib/campaign-secret.test.ts
+@@ -46,7 +46,6 @@ describe('lib/campaign-secret', () => {
+     expect(bearerSecret('Bearer hunter2')).toBe('hunter2')
+     expect(bearerSecret('Basic aHVudGVyMg==')).toBeUndefined()
+     expect(bearerSecret('Bearer ')).toBeUndefined()
+-    // eslint-disable-next-line unicorn/no-null -- what Headers.get returns
+     expect(bearerSecret(null)).toBeUndefined()
+   })
+ })
+diff --git a/src/lib/routes/__tests__/companion-routes.integration.test.ts b/src/lib/routes/__tests__/companion-routes.integration.test.ts
+index 4a4fea1..d58ce27 100644
+--- a/src/lib/routes/__tests__/companion-routes.integration.test.ts
++++ b/src/lib/routes/__tests__/companion-routes.integration.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { NextRequest } from 'next/server'
+ import {
+   companionTableResponse,
+diff --git a/src/lib/routes/notes-routes.test.ts b/src/lib/routes/notes-routes.test.ts
+index 6921fb2..4f0ab4c 100644
+--- a/src/lib/routes/notes-routes.test.ts
++++ b/src/lib/routes/notes-routes.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+ import { NextRequest } from 'next/server'
+ import {
+   noteDeleteResponse,
+diff --git a/src/lib/routes/notes-routes.ts b/src/lib/routes/notes-routes.ts
+index 0d0db33..55c839d 100644
+--- a/src/lib/routes/notes-routes.ts
++++ b/src/lib/routes/notes-routes.ts
+@@ -57,7 +57,6 @@ const GAMEMASTER = 'Gamemaster'
+ const gmSeat = (userId: string): NotesSeat => ({
+   role: 'gm',
+   userId,
+-  // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
+   actorId: null,
+   name: GAMEMASTER,
+ })
+diff --git a/src/lib/session.test.ts b/src/lib/session.test.ts
+index b27f08d..afa7fd3 100644
+--- a/src/lib/session.test.ts
++++ b/src/lib/session.test.ts
+@@ -29,7 +29,6 @@ describe('lib/session', () => {
+   })
+ 
+   it('has no user when nobody is signed in', async () => {
+-    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
+     getSession.mockResolvedValue(null)
+ 
+     await expect(getCurrentUser()).resolves.toBeUndefined()
+@@ -43,7 +42,6 @@ describe('lib/session', () => {
+   })
+ 
+   it('requireUser sends anyone not signed in to the login page', async () => {
+-    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
+     getSession.mockResolvedValue(null)
+ 
+     await expect(requireUser()).rejects.toThrow('NEXT_REDIRECT')
+@@ -51,7 +49,6 @@ describe('lib/session', () => {
+   })
+ 
+   it('requireUser can bring them back to the page they were on once signed in', async () => {
+-    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
+     getSession.mockResolvedValue(null)
+ 
+     await expect(requireUser('/join/abc?x=1')).rejects.toThrow('NEXT_REDIRECT')
+diff --git a/src/mocks/alone.ts b/src/mocks/alone.ts
+index 7eb935d..331df60 100644
+--- a/src/mocks/alone.ts
++++ b/src/mocks/alone.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { characterSheet, sheetAction } from '@/mocks/sending-stone'
+ import type {
+   CharacterSheet,
+diff --git a/src/mocks/cookbook.ts b/src/mocks/cookbook.ts
+index 7f0ca7b..009feb9 100644
+--- a/src/mocks/cookbook.ts
++++ b/src/mocks/cookbook.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the cookbook's body uses null for an absent value */
+ import type { CookbookChange, CookbookDishBody } from '@/types/cookbook'
+ 
+ /*
+diff --git a/src/mocks/fullscreen.ts b/src/mocks/fullscreen.ts
+index e7bc088..8f50f5c 100644
+--- a/src/mocks/fullscreen.ts
++++ b/src/mocks/fullscreen.ts
+@@ -1,5 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the Fullscreen API's absent element is null */
+-
+ // jsdom has no Fullscreen API: a stand-in for tests, as a browser that has one behaves. Whatever is
+ // asked to fill the screen does, a moment later, and the document says so; each change is told
+ // with a `fullscreenchange` event, as the browser tells it.
+diff --git a/src/mocks/notes-server.ts b/src/mocks/notes-server.ts
+index 8d79f9f..4cdb399 100644
+--- a/src/mocks/notes-server.ts
++++ b/src/mocks/notes-server.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the API uses null for no chapter, as Foundry does */
+ import type { NoteChapterView, NoteEntryView, NotesView } from '@/types/notes'
+ 
+ /*
+diff --git a/src/mocks/sending-stone.ts b/src/mocks/sending-stone.ts
+index 7b60d22..170f127 100644
+--- a/src/mocks/sending-stone.ts
++++ b/src/mocks/sending-stone.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import type { NotePageCommand } from '@/db/note-sync'
+ import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
+ import type { NotesView } from '@/types/notes'
+diff --git a/src/mocks/slim-sheet.ts b/src/mocks/slim-sheet.ts
+index ee1cd71..785d215 100644
+--- a/src/mocks/slim-sheet.ts
++++ b/src/mocks/slim-sheet.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { characterSheet, TEXTS } from '@/mocks/sending-stone'
+ import type { CharacterSheet } from '@/types/sending-stone'
+ 
+diff --git a/src/schemas/cookbook.test.ts b/src/schemas/cookbook.test.ts
+index 418c01b..7fcb12d 100644
+--- a/src/schemas/cookbook.test.ts
++++ b/src/schemas/cookbook.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- the cookbook's body uses null for an absent value */
+ import { cookbookDishSchema, KNOWN_CHANGES } from './cookbook'
+ import {
+   ashenRootFailure,
+diff --git a/src/schemas/foundry-settings.test.ts b/src/schemas/foundry-settings.test.ts
+index 79b4250..03947e4 100644
+--- a/src/schemas/foundry-settings.test.ts
++++ b/src/schemas/foundry-settings.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { foundrySettingsSchema } from './foundry-settings'
+ import { foundrySettings } from '@/mocks/sending-stone'
+ 
+diff --git a/src/schemas/foundry-settings.ts b/src/schemas/foundry-settings.ts
+index e7fe0ee..329ba73 100644
+--- a/src/schemas/foundry-settings.ts
++++ b/src/schemas/foundry-settings.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { z } from 'zod'
+ import type { FoundrySettings } from '@/types/foundry-settings'
+ 
+diff --git a/src/schemas/notes.test.ts b/src/schemas/notes.test.ts
+index 45b7fad..aec509e 100644
+--- a/src/schemas/notes.test.ts
++++ b/src/schemas/notes.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- an entry in no chapter is null */
+ import {
+   checkChange,
+   noteChangeSchema,
+diff --git a/src/schemas/notes.ts b/src/schemas/notes.ts
+index dc92075..8b88aa4 100644
+--- a/src/schemas/notes.ts
++++ b/src/schemas/notes.ts
+@@ -47,7 +47,6 @@ export const noteInputSchema = z
+       ? {
+           ...input,
+           body: input.body ?? '',
+-          // eslint-disable-next-line unicorn/no-null -- an entry in no chapter
+           chapterId: input.chapterId ?? null,
+         }
+       : { role: input.role, title: input.title },
+diff --git a/src/schemas/roll-request.test.ts b/src/schemas/roll-request.test.ts
+index f2cdb0c..69ed8b7 100644
+--- a/src/schemas/roll-request.test.ts
++++ b/src/schemas/roll-request.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol says no target with null */
+ import { commandsPollSchema, rollRequestSchema } from './roll-request'
+ 
+ /** A Perception check, rolled normally. */
+diff --git a/src/schemas/sending-stone.groups.test.ts b/src/schemas/sending-stone.groups.test.ts
+index f3fb254..f143392 100644
+--- a/src/schemas/sending-stone.groups.test.ts
++++ b/src/schemas/sending-stone.groups.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { parseGameEvent } from './sending-stone'
+ import { groupEntry, groupSheet, roster } from '@/mocks/sending-stone'
+ 
+diff --git a/src/schemas/sending-stone.settings.test.ts b/src/schemas/sending-stone.settings.test.ts
+index 7481e89..58d871c 100644
+--- a/src/schemas/sending-stone.settings.test.ts
++++ b/src/schemas/sending-stone.settings.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { parseGameEvent } from './sending-stone'
+ import { combat, foundrySettings, roster } from '@/mocks/sending-stone'
+ 
+diff --git a/src/schemas/sending-stone.test.ts b/src/schemas/sending-stone.test.ts
+index d3e9682..2fdb058 100644
+--- a/src/schemas/sending-stone.test.ts
++++ b/src/schemas/sending-stone.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { readFileSync } from 'node:fs'
+ import path from 'node:path'
+ import { envelopeSchema, parseGameEvent } from './sending-stone'
+diff --git a/src/schemas/sending-stone.ts b/src/schemas/sending-stone.ts
+index 16cb31f..bb21e87 100644
+--- a/src/schemas/sending-stone.ts
++++ b/src/schemas/sending-stone.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import { z } from 'zod'
+ import { ABILITIES } from '@/constants/dnd5e'
+ import { MOST_NOTE_TEXT, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
+diff --git a/src/utils/action-groups.test.ts b/src/utils/action-groups.test.ts
+index c2f12f8..6e1f27a 100644
+--- a/src/utils/action-groups.test.ts
++++ b/src/utils/action-groups.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   castAtLevel,
+   defaultPool,
+diff --git a/src/utils/action-groups.ts b/src/utils/action-groups.ts
+index 8d0dad7..e39a239 100644
+--- a/src/utils/action-groups.ts
++++ b/src/utils/action-groups.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
+ 
+ /**
+diff --git a/src/utils/casts.test.ts b/src/utils/casts.test.ts
+index 019366c..d015a7d 100644
+--- a/src/utils/casts.test.ts
++++ b/src/utils/casts.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { castAtLevel, castIndex, castOf, isItemCast } from './casts'
+ import {
+   castingSheet,
+diff --git a/src/utils/casts.ts b/src/utils/casts.ts
+index 3085883..416d2e6 100644
+--- a/src/utils/casts.ts
++++ b/src/utils/casts.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { castAtLevel as levelCastAt } from '@/utils/action-groups'
+ import { allItems } from '@/utils/sheet-texts'
+ import type {
+diff --git a/src/utils/creature-words.test.ts b/src/utils/creature-words.test.ts
+index 4d3560b..3f2d783 100644
+--- a/src/utils/creature-words.test.ts
++++ b/src/utils/creature-words.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import {
+   afterWords,
+   creatureLine,
+diff --git a/src/utils/damage-modifiers.test.ts b/src/utils/damage-modifiers.test.ts
+index 902a832..68fefa2 100644
+--- a/src/utils/damage-modifiers.test.ts
++++ b/src/utils/damage-modifiers.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- a preview's roll of no kind of its own has null */
+ import {
+   changedAt,
+   changes,
+diff --git a/src/utils/damage-modifiers.ts b/src/utils/damage-modifiers.ts
+index 2196c73..e8c85e1 100644
+--- a/src/utils/damage-modifiers.ts
++++ b/src/utils/damage-modifiers.ts
+@@ -549,7 +549,6 @@ export function linkDamage(
+   const thrown = critical ? criticalParts(parts, critical, adds) : parts
+   const rolls: DamagePreviewRoll[] = thrown.map(({ formula, terms }) => ({
+     formula,
+-    // eslint-disable-next-line unicorn/no-null -- the preview's for no kind of its own
+     type: null,
+     perDie: critical?.perDie ?? 1,
+     dice: terms.flatMap(term =>
+diff --git a/src/utils/effect-commands.test.ts b/src/utils/effect-commands.test.ts
+index 2590d28..81a4cf0 100644
+--- a/src/utils/effect-commands.test.ts
++++ b/src/utils/effect-commands.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an unset date */
+ import { checkEffect, effectsAvailable } from './effect-commands'
+ import { fullerSheet } from '@/mocks/sending-stone'
+ import type { EffectInput } from '@/types/roll'
+diff --git a/src/utils/favorite-commands.test.ts b/src/utils/favorite-commands.test.ts
+index f949f7d..5c0582f 100644
+--- a/src/utils/favorite-commands.test.ts
++++ b/src/utils/favorite-commands.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   checkFavorite,
+   favoritesAvailable,
+diff --git a/src/utils/favorites.test.ts b/src/utils/favorites.test.ts
+index fd45a6d..1d5e6b7 100644
+--- a/src/utils/favorites.test.ts
++++ b/src/utils/favorites.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   favoriteEntries,
+   favoriteIndex,
+diff --git a/src/utils/favorites.ts b/src/utils/favorites.ts
+index fc260a4..524902e 100644
+--- a/src/utils/favorites.ts
++++ b/src/utils/favorites.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { allItems } from '@/utils/sheet-texts'
+ import type { FavoriteTarget } from '@/types/roll'
+ import type {
+diff --git a/src/utils/formulas.test.ts b/src/utils/formulas.test.ts
+index d738aba..a4f23b2 100644
+--- a/src/utils/formulas.test.ts
++++ b/src/utils/formulas.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for a count it doesn't know */
+ import {
+   atFullHitPoints,
+   formulaDice,
+diff --git a/src/utils/formulas.ts b/src/utils/formulas.ts
+index a987a05..cdfa2a3 100644
+--- a/src/utils/formulas.ts
++++ b/src/utils/formulas.ts
+@@ -231,6 +231,5 @@ function sizeOf(die: string): number {
+ 
+ /** Two counts added, where both are known. */
+ function sum(a: number | null, b: number | null): number | null {
+-  // eslint-disable-next-line unicorn/no-null -- the sheet's for a count it doesn't know
+   return a === null || b === null ? null : a + b
+ }
+diff --git a/src/utils/move-words.test.ts b/src/utils/move-words.test.ts
+index 9355dc9..0e565f2 100644
+--- a/src/utils/move-words.test.ts
++++ b/src/utils/move-words.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+ import {
+   moveLabel,
+   moveReasons,
+diff --git a/src/utils/prompts.test.ts b/src/utils/prompts.test.ts
+index 4d463e6..08e6e2c 100644
+--- a/src/utils/prompts.test.ts
++++ b/src/utils/prompts.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+ import {
+   checkPrompt,
+   offers,
+diff --git a/src/utils/removals.test.ts b/src/utils/removals.test.ts
+index 08bdcc5..8f13f84 100644
+--- a/src/utils/removals.test.ts
++++ b/src/utils/removals.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { checkRemoval, relatedItems, removalsAvailable } from './removals'
+ import { removalInventory } from '@/mocks/sending-stone'
+ 
+diff --git a/src/utils/roll-requests.test.ts b/src/utils/roll-requests.test.ts
+index 6b3a004..47c39b9 100644
+--- a/src/utils/roll-requests.test.ts
++++ b/src/utils/roll-requests.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   availableRollFeatures,
+   availableRollKinds,
+diff --git a/src/utils/sheet-actions.test.ts b/src/utils/sheet-actions.test.ts
+index 82e8c19..a655eb5 100644
+--- a/src/utils/sheet-actions.test.ts
++++ b/src/utils/sheet-actions.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   activityAction,
+   activityActions,
+diff --git a/src/utils/sheet-actions.ts b/src/utils/sheet-actions.ts
+index 4f708f6..bb6b441 100644
+--- a/src/utils/sheet-actions.ts
++++ b/src/utils/sheet-actions.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { favoriteEntries, type FavoriteEntry } from '@/utils/favorites'
+ import { allItems } from '@/utils/sheet-texts'
+ import type {
+diff --git a/src/utils/sheet-texts.test.ts b/src/utils/sheet-texts.test.ts
+index fbb13fc..99621e1 100644
+--- a/src/utils/sheet-texts.test.ts
++++ b/src/utils/sheet-texts.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { groupTextRefs, sheetTextRefs } from './sheet-texts'
+ import {
+   characterSheet,
+diff --git a/src/utils/slim-sheet.test.ts b/src/utils/slim-sheet.test.ts
+index 5ef9181..c29ce9c 100644
+--- a/src/utils/slim-sheet.test.ts
++++ b/src/utils/slim-sheet.test.ts
+@@ -1,7 +1,6 @@
+ /**
+  * @jest-environment node
+  */
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { readFileSync } from 'node:fs'
+ import path from 'node:path'
+ import { expandSheet } from './slim-sheet'
+diff --git a/src/utils/slim-sheet.ts b/src/utils/slim-sheet.ts
+index f891499..4388b2e 100644
+--- a/src/utils/slim-sheet.ts
++++ b/src/utils/slim-sheet.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
+ 
+ /*
+diff --git a/src/utils/table-view.checks.test.ts b/src/utils/table-view.checks.test.ts
+index f4dd2f5..cc35a6e 100644
+--- a/src/utils/table-view.checks.test.ts
++++ b/src/utils/table-view.checks.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import { toTableMessage, toTableMessages, type Viewer } from './table-view'
+ import { chatMessage } from '@/mocks/sending-stone'
+ import type { Dnd5eCheck, SerializedMessage } from '@/types/sending-stone'
+diff --git a/src/utils/table-view.test.ts b/src/utils/table-view.test.ts
+index e2637ec..cf18c48 100644
+--- a/src/utils/table-view.test.ts
++++ b/src/utils/table-view.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import {
+   askTitle,
+   damageKinds,
+diff --git a/src/utils/table-view.ts b/src/utils/table-view.ts
+index 6964974..496eee7 100644
+--- a/src/utils/table-view.ts
++++ b/src/utils/table-view.ts
+@@ -552,7 +552,6 @@ function attackOf(
+ export function damageKinds(
+   rolls: readonly { total: number | null; damageType?: string }[],
+ ): { type: string | undefined; total: number | null }[] {
+-  /* eslint-disable unicorn/no-null -- a total the game didn't say is null, as a roll's is */
+   const kinds = new Map<string | undefined, number | null>()
+   for (const { total, damageType } of rolls) {
+     const sum = kinds.has(damageType) ? (kinds.get(damageType) ?? null) : 0
+@@ -562,7 +561,6 @@ export function damageKinds(
+     type,
+     total: total === null ? null : Math.max(0, total),
+   }))
+-  /* eslint-enable unicorn/no-null */
+ }
+ 
+ /**
+@@ -679,7 +677,6 @@ function damageCard(
+ 
+ /** Kinds of damage that fill one pool, added up: unknown where any of them is, never part of it. */
+ function totalOf(kinds: TableDamageKind[]): number | null {
+-  // eslint-disable-next-line unicorn/no-null -- unknown, as a roll's total is
+   if (kinds.some(kind => kind.total === null)) return null
+   return kinds.reduce((sum, kind) => sum + (kind.total ?? 0), 0)
+ }
+@@ -1159,7 +1156,6 @@ export function toTableSheet(
+   }
+ }
+ 
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ /** A sheet from before module 0.7.0, which sent none of these: as a sheet with none of them. */
+ const BEFORE_0_7_0: Pick<
+   CharacterSheet,
+@@ -1182,7 +1178,6 @@ const BEFORE_0_7_0: Pick<
+     biography: null,
+   },
+ }
+-/* eslint-enable unicorn/no-null */
+ 
+ /**
+  * The inventory, with its items' icons, those in containers too, loading from the game: a
+@@ -1233,7 +1228,6 @@ export function portraitUrl(
+ 
+ /** Where an icon loads from, or null, as the sheet has it, for none. */
+ function iconUrl(img: string | null, origin: string): string | null {
+-  // eslint-disable-next-line unicorn/no-null -- the sheet uses null for no icon
+   return gameAssetUrl(img, origin) ?? null
+ }
+ 
+diff --git a/src/utils/test-utils-node.ts b/src/utils/test-utils-node.ts
+index 0f9cc77..01d7aa0 100644
+--- a/src/utils/test-utils-node.ts
++++ b/src/utils/test-utils-node.ts
+@@ -80,7 +80,6 @@ export const resetPrisma = () => {
+ type Row = Record<string, unknown>
+ 
+ /** Prisma's answer for a query that found no row. */
+-// eslint-disable-next-line unicorn/no-null -- Prisma answers null where no row matches
+ const NO_ROW = null
+ 
+ const FILTERS = new Set([
+diff --git a/src/utils/transfers.test.ts b/src/utils/transfers.test.ts
+index af2d269..3bd8a95 100644
+--- a/src/utils/transfers.test.ts
++++ b/src/utils/transfers.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+ import {
+   checkAmong,
+   checkEnds,
+diff --git a/src/utils/uses.test.ts b/src/utils/uses.test.ts
+index 0e6faf9..8c40dd1 100644
+--- a/src/utils/uses.test.ts
++++ b/src/utils/uses.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   friendly,
+   fromSelf,
+diff --git a/src/utils/wild-shape-words.test.ts b/src/utils/wild-shape-words.test.ts
+index 01ca7ed..c610369 100644
+--- a/src/utils/wild-shape-words.test.ts
++++ b/src/utils/wild-shape-words.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+ import {
+   aboutWords,
+   badgeOf,
+diff --git a/src/utils/wild-shape.test.ts b/src/utils/wild-shape.test.ts
+index 779d154..563380c 100644
+--- a/src/utils/wild-shape.test.ts
++++ b/src/utils/wild-shape.test.ts
+@@ -1,4 +1,3 @@
+-/* eslint-disable unicorn/no-null -- Prisma uses null for an unset date */
+ import {
+   articled,
+   canReturn,
