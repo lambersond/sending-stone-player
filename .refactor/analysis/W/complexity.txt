@@ -1,0 +1,12 @@
+src/db/campaign-events.ts:106	70	sonarjs/cognitive-complexity
+src/db/roll-requests.ts:142	53	sonarjs/cognitive-complexity
+src/db/roll-requests.ts:538	18	sonarjs/cognitive-complexity
+src/mocks/notes-server.ts:103	32	sonarjs/cognitive-complexity
+src/schemas/roll-request.ts:164	17	sonarjs/cognitive-complexity
+src/schemas/roll-request.ts:567	84	sonarjs/cognitive-complexity
+src/utils/roll-requests.ts:305	26	sonarjs/cognitive-complexity
+src/utils/roll-requests.ts:815	18	sonarjs/cognitive-complexity
+src/utils/roll-requests.ts:881	16	sonarjs/cognitive-complexity
+src/utils/roll-requests.ts:1065	49	sonarjs/cognitive-complexity
+src/utils/roll-requests.ts:1347	23	sonarjs/cognitive-complexity
+src/utils/roll-requests.ts:1529	20	sonarjs/cognitive-complexity

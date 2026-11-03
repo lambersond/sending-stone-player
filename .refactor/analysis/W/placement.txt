@@ -1,0 +1,30 @@
+src/constants/campaign.ts	prod 9 tests 0	app:4 components/campaigns:3 components/site-header:1 utils:1
+src/constants/conditions.ts	prod 2 tests 1	components/character-sheet:2
+src/constants/cookbook.ts	prod 6 tests 6	db:2 lib:2 components/cookbook-card:1 hooks:1
+src/constants/dnd5e.ts	prod 4 tests 0	utils:2 components/character-sheet:1 db:1
+src/constants/links.ts	prod 1 tests 2	components/help-links:1
+src/constants/notes.ts	prod 5 tests 0	components/notes:2 db:2 lib:1
+src/constants/sending-stone.ts	prod 47 tests 15	db:14 utils:14 components/character-sheet:10 components/transfers:3 hooks:3 app:2 lib:1
+src/mocks/alone.ts	prod 0 tests 5	
+src/mocks/cookbook.ts	prod 0 tests 3	
+src/mocks/fullscreen.ts	prod 0 tests 5	
+src/mocks/notes-server.ts	prod 0 tests 11	
+src/mocks/sending-stone.ts	prod 0 tests 102	
+src/mocks/slim-sheet.ts	prod 0 tests 1	
+src/schemas/campaign.ts	prod 4 tests 0	app:4
+src/schemas/cookbook.ts	prod 1 tests 0	lib:1
+src/schemas/foundry-settings.ts	prod 0 tests 0	
+src/schemas/notes.ts	prod 2 tests 0	db:1 lib:1
+src/schemas/roll-request.ts	prod 2 tests 1	app:1 lib:1
+src/schemas/sending-stone.ts	prod 7 tests 5	app:4 lib:3
+src/types/campaign.ts	prod 14 tests 7	components/campaigns:7 app:2 components/character-chooser:1 components/game-table:1 db:1 utils:1 components/invite-form:1
+src/types/character.ts	prod 5 tests 12	db:3 components/companions:1 components/character-list:1
+src/types/cookbook.ts	prod 8 tests 7	components/cookbook-card:3 app:2 db:1 components/character-sheet:1 components/game-table:1
+src/types/dice-entry.ts	prod 4 tests 5	components/dice-entry:2 hooks:1 utils:1
+src/types/foundry-settings.ts	prod 3 tests 1	db:2 components/campaigns:1
+src/types/notes.ts	prod 17 tests 13	components/notes:12 db:2 utils:2 hooks:1
+src/types/party.ts	prod 12 tests 5	db:5 components/party-sheet:3 utils:2 components/character-sheet:1 components/game-table:1
+src/types/roll.ts	prod 27 tests 18	components/character-sheet:10 db:6 utils:4 hooks:3 components/transfers:2 app:1 components/game-table:1
+src/types/sending-stone.ts	prod 66 tests 52	components/character-sheet:28 utils:17 db:11 components/transfers:7 hooks:2 components/companions:1
+src/types/table.ts	prod 25 tests 26	components/character-sheet:6 utils:6 components/game-table:4 hooks:3 db:3 components/companions:2 components/transfers:1
+src/utils/roll-requests.ts	prod 14 tests 2	db:4 utils:3 hooks:2 lib:2 components/character-sheet:2 app:1

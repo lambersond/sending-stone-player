@@ -1,0 +1,8 @@
+## cycles (runtime): 1
+6 files: src/db/effects.ts src/db/favorites.ts src/db/removals.ts src/db/roll-requests.ts src/db/transfers.ts src/db/wild-shape.ts
+## cycles (with type-only imports): 4
+[W] 12 files: src/hooks/use-sheet-roller.ts src/types/party.ts src/types/roll.ts src/types/sending-stone.ts src/types/table.ts src/utils/creature-words.ts src/utils/damage-modifiers.ts src/utils/description-links.ts src/utils/effect-dice.ts src/utils/formulas.ts src/utils/wild-shape-words.ts src/utils/wild-shape.ts
+6 files: src/db/effects.ts src/db/favorites.ts src/db/removals.ts src/db/roll-requests.ts src/db/transfers.ts src/db/wild-shape.ts
+2 files: src/hooks/use-table-rolls.ts src/utils/move-words.ts
+2 files: src/components/transfers/move-dialog.tsx src/components/transfers/recipient-list.tsx
+## barrels (index.ts/tsx) in W area

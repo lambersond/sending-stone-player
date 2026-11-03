@@ -1,0 +1,57 @@
+48	false	z.boolean	-
+23	false	z.boolean	optional
+22	[]	z.array	-
+22	''	z.string	-
+15	null	z.looseObject	nullable
+14	null	z.looseObject	nullable.optional
+14	0	z.number	-
+12	null	z.object	nullable
+10	null	z.string	nullable
+10	undefined	z.string	optional
+10	null	z.string	nullable.optional
+10	null	z.object	nullable.optional
+9	undefined	z.looseObject	optional
+9	null	z.int	nullable
+8	undefined	z.literal	optional
+8	undefined	schema	optional
+8	undefined	z.array	optional
+8	undefined	z.object	optional
+5	null	z.number	nullable
+4	undefined	z.boolean	optional
+4	undefined	z.enum	optional
+3	null	z.array	nullable.optional
+3	null	z.int	nullable.optional
+3	undefined	z.int	optional
+3	null	z.enum	nullable
+3	null	z.enum	nullable.optional
+2	undefined	z.object	nullable.optional
+2	true	z.boolean	optional
+2	true	z.boolean	-
+1	null	z.union	-
+1	0	z.union	-
+1	1	z.int	optional
+1	1	z.number	-
+1	null	z.boolean	nullable
+1	null	z.array	nullable
+1	{ sections: [], containers: []…	z.looseObject	-
+1	null	z.union	nullable
+1	undefined	z.string	nullable.optional
+1	'other'	z.enum	-
+1	{ abilities: [], saves: [], sk…	z.object	-
+1	{ value: 0, max: 0 }	z.object	-
+1	null	z.literal	nullable
+1	{ count: 0, cr: 0, fly: false …	schema	-
+1	{ about: [], personality: [], …	z.looseObject	-
+1	{}	z.record	-
+1	{ full: null, summary: null }	z.looseObject	-
+1	null	z.number	nullable.optional
+1	null	z.discriminatedUnion	nullable.optional
+1	'base'	z.string	-
+1	{ alias: null, actorId: null }	z.looseObject	-
+1	'own'	z.enum	-
+1	null	schema	nullable.optional
+1	undefined	z.discriminatedUnion	optional
+1	undefined	z.enum	nullable.optional
+1	null	schema	nullable
+1	'dismissed'	z.enum	-
+1	'gone'	z.string	-
