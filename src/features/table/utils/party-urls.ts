@@ -1,18 +1,4 @@
 import type { Character, TableSeat } from '@/types/character'
-import type { TableGroup } from '@/types/party'
-
-/** Is this the same group, as listed, as the one kept? */
-export function sameGroup(
-  group: TableGroup,
-  kept: TableGroup | undefined,
-): boolean {
-  return (
-    group.id === kept?.id &&
-    group.name === kept.name &&
-    group.primary === kept.primary &&
-    group.portrait === kept.portrait
-  )
-}
 
 /**
  * Where a party sheet open at the table is read: through the player's character, or for the

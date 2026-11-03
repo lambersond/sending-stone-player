@@ -8,8 +8,11 @@ import { CreatureSwitcher } from '@/features/companions/components/creature-swit
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { switcherCreatures } from '@/features/table/utils/creatures'
 import type { NotesPlace } from '@/features/notes/types'
-import type { useCompanionRow } from '@/features/table/hooks/use-companion-row'
-import type { DiceSwitch } from '@/features/table/types'
+import type {
+  CompanionRow,
+  CookbookEntry,
+  DiceSwitch,
+} from '@/features/table/types'
 import type { Character, TableSeat } from '@/types/character'
 import type { CookbookPlace } from '@/types/cookbook'
 import type { TableGroup } from '@/types/party'
@@ -47,14 +50,14 @@ export function CreatureSheets({
   character: Character
   seat: TableSeat
   view: TableView
-  companions: ReturnType<typeof useCompanionRow>
+  companions: CompanionRow
   words: SeatWords
   asking: boolean
   header: HTMLElement | null
   diceSwitch?: DiceSwitch
   notes: NotesPlace
   cookbook?: CookbookPlace
-  entry: { shown: boolean; open: () => void; modal: ReactNode }
+  entry: CookbookEntry
   parties?: TableGroup[]
   onOpenParty: (id: string) => void
   playing: boolean

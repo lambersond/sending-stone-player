@@ -30,7 +30,7 @@ export function campaignAndGame(view: TableView, character: Character): string {
 }
 
 /** Such as "Fighter 5 · Champion", or the campaign's title until the sheet arrives. */
-export function sheetSummary(view: TableView): string {
+function sheetSummary(view: TableView): string {
   if (view.sheet) return headerLine(view.sheet)
   return view.campaign?.title ?? 'No sheet yet'
 }

@@ -15,7 +15,7 @@ export const bubble = (whisper: boolean, mine: boolean, critical = false) =>
   )
 
 /** A bubble's border colour, for a whisper, the player's own message or anyone else's. */
-export function edgeOf(whisper: boolean, mine: boolean): string {
+function edgeOf(whisper: boolean, mine: boolean): string {
   if (whisper) return 'border-whisper/60'
   return mine ? 'border-primary/30' : 'border-border'
 }

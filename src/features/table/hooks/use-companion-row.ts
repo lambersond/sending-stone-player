@@ -9,7 +9,12 @@ import {
   withMark,
 } from '@/features/table/utils/companion-row-state'
 import { useWaitingCompanions } from '@/hooks/use-waiting-prompts'
-import type { PaneMarks, PaneReporters, Tab } from '@/features/table/types'
+import type {
+  CompanionRow,
+  PaneMarks,
+  PaneReporters,
+  Tab,
+} from '@/features/table/types'
 import type { TableView } from '@/types/table'
 
 /**
@@ -92,7 +97,7 @@ export function useCompanionRow({
   view: TableView
   seatKey: string
   show: (tab: Tab) => void
-}) {
+}): CompanionRow {
   // From module 0.41.0, those the game asks of the character's companions, which each one's tab
   // marks.
   const companionsAsked = useWaitingCompanions(

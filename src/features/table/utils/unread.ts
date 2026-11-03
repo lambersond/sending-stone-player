@@ -5,7 +5,7 @@ import type { TableMessage } from '@/types/table'
  * Gamemaster's rolls as their character all the same; for the Gamemaster at the sheet, any but
  * their own rolls there.
  */
-export function countsAsUnread(message: TableMessage, gm: boolean): boolean {
+function countsAsUnread(message: TableMessage, gm: boolean): boolean {
   if (gm) return message.byGm !== true
   return message.side !== 'me' || message.byGm === true
 }

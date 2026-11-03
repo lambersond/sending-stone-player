@@ -4,13 +4,19 @@ import type { CookbookCodeAnswer } from '@/types/cookbook'
 import type { TableRollState } from '@/types/roll'
 import type {
   EndableTurn,
+  GmRolls,
   RowCompanion,
   TableCombat,
   TableCompanion,
   TableView,
   TurnUndo,
 } from '@/types/table'
-import type { MouseEventHandler, PointerEventHandler, RefObject } from 'react'
+import type {
+  MouseEventHandler,
+  PointerEventHandler,
+  ReactNode,
+  RefObject,
+} from 'react'
 
 export type Tab = 'character' | 'combat' | 'chat'
 
@@ -110,6 +116,62 @@ export type PaneReporters = {
   onLost: () => void
 }
 
+/** A companion the game asks a save of (module 0.41.0), as its tab in the row names it. */
+export type WaitingCompanion = { key: string; label: string; name: string }
+
+/**
+ * The row of the character's companions above the sheet, as `useCompanionRow` keeps it (module
+ * 0.36.0): the row, each one's name and number, how many times each has come back, and their keys;
+ * those the game asks a save of, and their keys; the one chosen, and `choose`; what each mounted
+ * pane says of itself, how it says so, and the panes mounted; and `openCompanion`, which chooses
+ * one, shows the Character tab and focuses its tab.
+ */
+export type CompanionRow = {
+  row: RowCompanion[]
+  names: ReadonlyMap<string, string>
+  numbers: ReadonlyMap<string, number>
+  generations: ReadonlyMap<string, number>
+  rowKeys: string[]
+  waiting: WaitingCompanion[]
+  waitingKeys: ReadonlySet<string>
+  chosen: string
+  choose: (next: string) => void
+  paneMarks: ReadonlyMap<string, PaneMarks>
+  reportersOf: (key: string) => PaneReporters
+  panes: string[]
+  openCompanion: (key: string) => void
+}
+
+/**
+ * The Magical Recipe Book's button and dialog under why there's no sheet, as `useCookbookEntry`
+ * has them: whether it's offered, `open`, which opens it, and its modal.
+ */
+export type CookbookEntry = {
+  shown: boolean
+  open: () => void
+  modal: ReactNode
+}
+
+/**
+ * What the viewer has of a view, which the table's poll sends and the server compares to say
+ * nothing is new: its version, whether the game was live, its sheet's version, and the rolls,
+ * Gamemaster's rolls and switches it was built with.
+ */
+export type ViewSeen = {
+  version: number
+  live: boolean
+  sheetVersion?: string
+  rolls: string
+  gm?: GmRolls
+  gmRolls?: string
+  moves: boolean
+  typed: boolean
+  removes: boolean
+  favorites: boolean
+  effects: boolean
+  wildShape: boolean
+}
+
 /**
  * End Turn, for a character's page (module 0.36.0), as `useEndTurn` gives it: the turn it may end;
  * whether it's offered now; the way of the one sent for it; the last one sent, with its way; and
@@ -201,39 +263,3 @@ export type CardBody =
   | { kind: 'kept'; turn: EndableTurn; key: string }
 
 export type Card = CardBody & { serial: number }
-
-/**
- * What was last seen of the hold, and of the End Turn sent last, as the toast steps its card from
- * one render to the next.
- */
-export type ToastSeen = { held: boolean; sent?: Sent }
-
-/** What the toast's card answers, as the latest render has it. */
-export type ToastInputs = ToastSeen & {
-  via?: 'button' | 'hold'
-  combatShown: boolean
-  combat?: TableCombat
-  /** The turn End Turn may end now, which a hold is for. */
-  turn?: EndableTurn
-  offer?: TurnUndo
-  undone?: TableRollState & { for: string }
-}
-
-/**
- * The card the toast shows next: one to number and show anew, with what's left of its time where
- * it comes back; the one shown; or none.
- */
-export type CardNext =
-  { make: CardBody; ms?: number } | { card: Card } | undefined
-
-/**
- * A step of the toast's card: the card next; whether a hold's card took the place of the one
- * shown, which comes back if the hold is let go early, or that one came back; and the End Turn
- * whose ending is told now, by its id, which is told once.
- */
-export type CardStep = {
-  next: CardNext
-  cover: boolean
-  uncover: boolean
-  tell?: string
-}

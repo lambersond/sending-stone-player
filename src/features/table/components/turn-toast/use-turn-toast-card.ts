@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { lastsOf, nextCard, showsTurn } from './utils'
 import { POLL_INTERVAL } from '@/constants/polling'
+import type { CardNext, ToastSeen } from './types'
 import type {
   Card,
   CardBody,
-  CardNext,
   EndTurnState,
-  ToastSeen,
   UndoState,
 } from '@/features/table/types'
 import type { TableCombat } from '@/types/table'

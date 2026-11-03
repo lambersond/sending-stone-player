@@ -12,15 +12,8 @@ import {
   turnFragment,
   turnSendingLine,
 } from '@/features/table/utils/end-turn'
-import type {
-  Card,
-  CardBody,
-  CardNext,
-  CardStep,
-  Sent,
-  ToastInputs,
-  ToastSeen,
-} from '@/features/table/types'
+import type { CardNext, CardStep, ToastInputs, ToastSeen } from './types'
+import type { Card, CardBody, Sent } from '@/features/table/types'
 import type { EndedTurn } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 import type { TableCombat } from '@/types/table'
@@ -52,7 +45,7 @@ export function takenBack(
 }
 
 /** Who acts as the page shows the combat: by name, and whether it's the viewer's own character. */
-export function actingOf(
+function actingOf(
   combat: TableCombat | undefined,
 ): { name: string; mine: boolean } | undefined {
   if (!combat?.started) return undefined

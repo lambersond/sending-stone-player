@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { sameGroup } from '@/features/table/utils/party-urls'
+import { sameGroup } from '@/features/table/utils/party-groups'
 import type { TableGroup } from '@/types/party'
 
 /**

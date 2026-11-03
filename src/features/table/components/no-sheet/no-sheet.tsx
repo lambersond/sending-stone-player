@@ -8,11 +8,11 @@ import { JournalCard } from '@/features/notes/components/journal-card/journal-ca
 import { PartySheetList } from '@/features/sheet/components/party-sheets/party-sheet-list'
 import { tooLargeLine } from '@/features/table/utils/header'
 import type { NotesPlace } from '@/features/notes/types'
+import type { CookbookEntry } from '@/features/table/types'
 import type { CookbookPlace } from '@/types/cookbook'
 import type { TableGroup } from '@/types/party'
 import type { SeatWords } from '@/types/seats'
 import type { TableView } from '@/types/table'
-import type { ReactNode } from 'react'
 
 /**
  * The character's pane while it has no sheet: why, and what needs none, the party sheets it may
@@ -41,7 +41,7 @@ export function NoSheet({
   playing: boolean
   notes: NotesPlace
   cookbook?: CookbookPlace
-  entry: { shown: boolean; open: () => void; modal: ReactNode }
+  entry: CookbookEntry
 }>) {
   return (
     <Scroller>

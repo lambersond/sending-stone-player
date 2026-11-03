@@ -98,7 +98,7 @@ export function turnKey(turn: EndedTurn): string {
  * The turn the page shows: its combat's, while that's started and someone it shows is acting, with
  * who that is. None before the start, or while a combatant hidden from players acts.
  */
-export function shownTurn(
+function shownTurn(
   combat: TableCombat | undefined,
 ): TurnUndo['left'] | undefined {
   if (!combat?.started || combat.currentId === undefined) return undefined
@@ -114,7 +114,7 @@ export function shownTurn(
 }
 
 /** Whether two turns are the same: the same combat, round and current combatant. */
-export function sameTurn(one: EndedTurn, other: EndedTurn): boolean {
+function sameTurn(one: EndedTurn, other: EndedTurn): boolean {
   return (
     one.combatId === other.combatId &&
     one.round === other.round &&

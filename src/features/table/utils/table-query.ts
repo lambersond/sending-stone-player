@@ -1,8 +1,9 @@
 import { rollsKey } from '@/utils/requests/availability'
+import type { ViewSeen } from '@/features/table/types'
 import type { TableView } from '@/types/table'
 
 /** What the viewer has of a view, which the server compares to say nothing is new. */
-export function seenOf(view: TableView) {
+export function seenOf(view: TableView): ViewSeen {
   return {
     version: view.version,
     live: view.live,
@@ -45,7 +46,7 @@ export function tableQuery({
   favorites,
   effects,
   wildShape,
-}: ReturnType<typeof seenOf>): URLSearchParams {
+}: ViewSeen): URLSearchParams {
   return new URLSearchParams({
     version: String(version),
     live: live ? '1' : '0',

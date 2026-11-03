@@ -1,6 +1,10 @@
 import { NO_KEYS } from '@/features/table/constants'
 import { companionRow, numberedNames } from '@/utils/companion-row'
-import type { PaneMarks, RowState } from '@/features/table/types'
+import type {
+  PaneMarks,
+  RowState,
+  WaitingCompanion,
+} from '@/features/table/types'
 import type {
   CompanionAsked,
   RowCompanion,
@@ -75,7 +79,7 @@ export function waitingCompanions(
   asked: readonly CompanionAsked[],
   row: readonly RowCompanion[],
   names: ReadonlyMap<string, string>,
-) {
+): WaitingCompanion[] {
   return asked.flatMap(({ key, label }) => {
     const shown = row.find(companion => companion.key === key)
     return shown && !shown.gone
