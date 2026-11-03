@@ -17,6 +17,13 @@ import type {
   SheetEffectSection,
 } from '@/types/sending-stone'
 
+// What a pane offers of its character's own effects, from module 0.39.0, where the campaign lets
+// its players change them: on each effect whose `ops` say so, Turn off, Turn on and Delete…, inside
+// its opened row and in its menu, the module deciding which and the app checking again. Turned off
+// or on, an effect moves to another of the tab's sections, its row drawn afresh there: so its row's
+// open state is kept here, by where it's drawn and its id, for it to open again there, and focus,
+// lost with the control pressed, follows it once the sheet agrees.
+
 /** The last change of an effect's sent from here: its local id, and what it asked. */
 type Sent = { id: string; op: EffectOp }
 

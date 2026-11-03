@@ -13,6 +13,11 @@ import type {
   SheetContainer,
 } from '@/types/sending-stone'
 
+/*
+ * Remove… (module 0.33.0): what a character's sheet gives its items' own menus to remove them,
+ * apart from its moves, as the game removes items with no switch of its own.
+ */
+
 /**
  * Remove…, on a character's Inventory tab (module 0.33.0), for its player and the Gamemaster at its
  * page, whether or not the game takes moves: the confirmation it opens, held here so that it stays

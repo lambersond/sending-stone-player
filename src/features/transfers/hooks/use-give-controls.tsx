@@ -19,6 +19,15 @@ import type {
   SheetCurrency,
 } from '@/types/sending-stone'
 
+/*
+ * Give, on a character's Inventory tab (module 0.31.0): in each item once it's opened, and on its
+ * Currency row, while the game takes moves, to a party its player owns in Foundry or another of
+ * the campaign's characters; for the Gamemaster, to any of the campaign's parties or characters.
+ * From module 0.32.0's feedback, the Currency row's reads "Send to", and "Send to…" in an item's
+ * own menu gives it too. Each opens the move's dialog, and what's given is followed in the tray
+ * and the toasts, as a use is.
+ */
+
 /** What's pending, for coins rather than an item. */
 const COINS = 'coins'
 

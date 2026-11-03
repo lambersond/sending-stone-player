@@ -3,6 +3,12 @@ import type { Belonging } from '@/features/sheet/types'
 import type { AttackSource, TableRollState } from '@/types/roll'
 import type { SheetEnchantment } from '@/types/sending-stone'
 
+/*
+ * Enchantments on the character's items, as dnd5e's enchant activities apply them, from module
+ * 0.21.0: marked where the sheet lists the items, each said in full once one is open, and ended
+ * from there, as dnd5e's chat card lets its caster end one.
+ */
+
 /** An enchantment ended: on which of the character's items, its effect's id, and its name. */
 export type EndEnchantment = (
   item: string,

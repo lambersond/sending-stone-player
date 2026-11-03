@@ -4,6 +4,11 @@ import clsx from 'clsx'
 import { StatTag } from './stat-tag'
 import type { ReactNode } from 'react'
 
+/*
+ * The tiles and chips at the top of a sheet, a character's and, from module 0.36.0, a creature's:
+ * its portrait, its conditions, and its vital numbers, each in a tile.
+ */
+
 /**
  * One of the sheet's vital numbers. Each box is a container, so a label with a short form, such as
  * Prof for Proficiency, can use it when its box is too narrow for the whole word: the longest,
