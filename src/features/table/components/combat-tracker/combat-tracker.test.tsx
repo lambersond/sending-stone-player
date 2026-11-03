@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CombatTracker, formatInitiative } from './combat-tracker'
+import { CombatTracker } from './combat-tracker'
+import { formatInitiative } from './utils'
 import { endableTurn } from '@/features/table/utils/end-turn'
 import { TableApiContext } from '@/hooks/use-table-api'
 import type { TableRollState } from '@/types/roll'

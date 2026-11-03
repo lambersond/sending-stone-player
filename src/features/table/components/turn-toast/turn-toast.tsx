@@ -1,165 +1,16 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { createPortal } from 'react-dom'
-import { NOT_MADE } from '@/constants/lifecycle'
-import { POLL_INTERVAL } from '@/constants/polling'
+import { UndoButton } from './undo-button'
+import { useToastFoot } from './use-toast-foot'
+import { useTurnToastCard } from './use-turn-toast-card'
+import { takenBack, wordsOf } from './utils'
 import { useToastTop } from '@/features/rolling/hooks/use-roll-toasts'
-import {
-  actingLine,
-  endTurnWords,
-  HOLD_HINT,
-  reasonSentence,
-  TURN_REFUSALS,
-  TURN_TOAST_FOR,
-  TURN_UNDO_FOR,
-  turnSendingLine,
-} from '@/features/table/utils/end-turn'
 import { useHydrated } from '@/hooks/use-hydrated'
 import { useTableRole } from '@/hooks/use-table-api'
-import { reasons } from '@/utils/roll-reasons'
-import type { useEndTurn } from '@/features/table/hooks/use-end-turn'
-import type { useTurnUndo } from '@/features/table/hooks/use-turn-undo'
-import type { EndedTurn, TableRollState } from '@/types/roll'
-import type { SeatRole } from '@/types/seats'
-import type { EndableTurn, TableCombat } from '@/types/table'
-
-type Ending = ReturnType<typeof useEndTurn>
-type Undoing = ReturnType<typeof useTurnUndo>
-/** The last End Turn sent, and its way. */
-type Sent = NonNullable<Ending['sent']>
-
-/**
- * How long a turn the game has ended, or taken back, may still be shown as it was before the page
- * is taken to be showing the turn now, in milliseconds: two of the table's polls.
- */
-const SETTLE_FOR = 2 * POLL_INTERVAL
-
-/**
- * Why an End Turn, or an Undo, wasn't made, as a fragment, by its way's reason, else its status:
- * End Turn's own words, else a roll's as the tray words it for the seat.
- */
-export function turnFragment(key: string, role: SeatRole): string | undefined {
-  return TURN_REFUSALS[key] ?? reasons(role)[key]
-}
-
-/** What a way's refusal is told by: its reason, or where it has none, how it ended. */
-export function refusalKey(way: TableRollState): string {
-  return way.reason ?? way.status
-}
-
-/**
- * Whether the End Turn sent last has just ended without ending its turn: its way refused, failed,
- * expired or lost, as it wasn't when last seen, or it's another End Turn. Each is told once,
- * however many times its way is heard again.
- * @param was - The End Turn sent last as it was seen before.
- */
-export function newlyNotMade(
-  was: Sent | undefined,
-  now: Sent | undefined,
-): now is Sent {
-  if (!now || !NOT_MADE.has(now.way.status)) return false
-  return was?.turn !== now.turn || !NOT_MADE.has(was.way.status)
-}
-
-/** Whether the page shows this turn now: its combat, started, at its round and combatant. */
-function showsTurn(combat: TableCombat | undefined, turn: EndedTurn): boolean {
-  return (
-    combat?.started === true &&
-    combat.id === turn.combatId &&
-    combat.round === turn.round &&
-    combat.currentId === turn.combatantId
-  )
-}
-
-/**
- * Whether Undo's card has done its work: the page shows the turn it takes back, as the panel's
- * heading does, whatever Undo's way says by now. The table's poll and the checks of Undo's way run
- * apart, and the game moves the turn before it answers, so the panel can show the turn back a
- * check before Undo's way says it's made: the card goes with the panel, never a check later.
- */
-function takenBack(card: Card, combat: TableCombat | undefined): boolean {
-  return card.kind === 'taking' && showsTurn(combat, card.turn)
-}
-
-/** Who acts as the page shows the combat: by name, and whether it's the viewer's own character. */
-function actingOf(
-  combat: TableCombat | undefined,
-): { name: string; mine: boolean } | undefined {
-  if (!combat?.started) return undefined
-  const current = combat.combatants.find(({ id }) => id === combat.currentId)
-  return current && { name: current.name, mine: current.side === 'me' }
-}
-
-/**
- * What the toast shows: a hold past half a second; its End Turn on its way; an End Turn the game
- * made, with Undo while that's offered; one that wasn't made; Undo on its way; or Undo not made.
- * Each card shown is numbered, so that the next is announced, and animates in, as a new one.
- */
-type CardBody =
-  | { kind: 'holding'; turn: EndableTurn }
-  | { kind: 'sending'; turn: EndableTurn }
-  | {
-      kind: 'ended'
-      id: string
-      turn: EndableTurn
-      line?: string
-      undo: boolean
-    }
-  | { kind: 'refused'; turn: EndableTurn; key: string }
-  | { kind: 'taking'; id: string; turn: EndableTurn }
-  | { kind: 'kept'; turn: EndableTurn; key: string }
-
-type Card = CardBody & { serial: number }
-
-/** How long a card shows, from when it's shown; none for one that follows a press or a way. */
-function lastsOf(card: Card): number | undefined {
-  if (card.kind === 'ended') return card.undo ? TURN_UNDO_FOR : TURN_TOAST_FOR
-  if (card.kind === 'refused' || card.kind === 'kept') return TURN_TOAST_FOR
-  return undefined
-}
-
-/** A card's words, and the line under them, as the seat reads them. */
-function wordsOf(
-  card: Card,
-  sent: Sent | undefined,
-  role: SeatRole,
-): { words: string; line?: string } {
-  const words = endTurnWords(card.turn)
-  switch (card.kind) {
-    case 'holding': {
-      return { words: words.ending, line: HOLD_HINT }
-    }
-    case 'sending': {
-      const way = sent?.turn === card.turn ? sent.way : undefined
-      return {
-        words: words.ending,
-        line: turnSendingLine(way ?? { status: 'sending' }, role),
-      }
-    }
-    case 'ended': {
-      return { words: words.ended, line: card.line }
-    }
-    case 'refused': {
-      const fragment = turnFragment(card.key, role)
-      return {
-        words: `${words.notEnded}.`,
-        line: fragment && reasonSentence(fragment),
-      }
-    }
-    case 'taking': {
-      return { words: words.takingBack }
-    }
-    case 'kept': {
-      const fragment = turnFragment(card.key, role)
-      return {
-        words: words.notTakenBack,
-        line: fragment && reasonSentence(fragment),
-      }
-    }
-  }
-}
+import type { EndTurnState, UndoState } from '@/features/table/types'
+import type { TableCombat } from '@/types/table'
 
 /**
  * The turn's toast (module 0.36.0), as the user's End Turn prototype draws it: one card at a time,
@@ -201,8 +52,8 @@ export function TurnToast({
   beside = false,
   onFoot,
 }: Readonly<{
-  ending: Ending
-  undoing: Undoing
+  ending: EndTurnState
+  undoing: UndoState
   via?: 'button' | 'hold'
   held: boolean
   combatShown: boolean
@@ -215,195 +66,18 @@ export function TurnToast({
   const role = useTableRole()
   const hydrated = useHydrated()
   const top = useToastTop(true, undefined, header)
-  const [card, setCard] = useState<Card>()
-  const serials = useRef(0)
-  const make = (body: CardBody): Card => ({
-    ...body,
-    serial: (serials.current += 1),
+  const { card, rest, takeBack } = useTurnToastCard({
+    ending,
+    undoing,
+    via,
+    held,
+    combatShown,
+    combat,
   })
-  // The End Turns whose ending has been told, by their ids: each is told once.
-  const told = useRef(new Set<string>())
-  // What was last seen of the hold, the End Turn sent last and its Undo's way.
-  const seen = useRef<{ held: boolean; sent?: Sent }>({ held: false })
-  // The card a hold's took the place of, which comes back if the hold is let go early.
-  const covered = useRef<Card>(undefined)
-  // What's left of the time of the card that lasts, by its number.
-  const remaining = useRef<{ serial: number; ms: number }>(undefined)
-  // The card a hold's took the place of, shown again as a new one for what was left of its time,
-  // as the hold sent nothing; none where its time was up.
-  const uncover = (): Card | undefined => {
-    const back = covered.current
-    covered.current = undefined
-    if (!back) return undefined
-    const lasts = lastsOf(back)
-    if (lasts === undefined) return make(back)
-    const left =
-      remaining.current?.serial === back.serial ? remaining.current.ms : lasts
-    if (left <= 0) return undefined
-    const again = make(back)
-    remaining.current = { serial: again.serial, ms: left }
-    return again
-  }
-
   const { sent } = ending
-  const { offer, way: undone } = undoing
-  // What happened since the last render, in the order it did; the last card made shows.
-  useEffect(() => {
-    const was = seen.current
-    seen.current = { held, sent }
-    let next = card
-    if (held && !was.held && ending.turn) {
-      covered.current = card
-      next = make({ kind: 'holding', turn: ending.turn })
-    } else if (!held && was.held && next?.kind === 'holding') {
-      // Let go early, drifted or stopped: it goes at once, silently, and the card it took the
-      // place of, such as the last End Turn's with Undo, comes back where it's still to be shown.
-      next = uncover()
-    }
-    if (sent && sent.turn !== was.sent?.turn && via === 'hold') {
-      next = make({ kind: 'sending', turn: sent.turn })
-    }
-    const id = sent?.way.status === 'done' ? sent.way.requestId : undefined
-    if (sent && id && !told.current.has(id) && !showsTurn(combat, sent.turn)) {
-      told.current.add(id)
-      const undo = offer?.requestId === id
-      const left = undo ? offer.left : actingOf(combat)
-      next = make({
-        kind: 'ended',
-        id,
-        turn: sent.turn,
-        line: left && actingLine(left),
-        undo,
-      })
-    }
-    if (newlyNotMade(was.sent, sent) && (via === 'hold' || !combatShown)) {
-      next = make({
-        kind: 'refused',
-        turn: sent.turn,
-        key: refusalKey(sent.way),
-      })
-    }
-    if (next?.kind === 'taking') {
-      if (takenBack(next, combat)) {
-        next = undefined
-      } else if (undone?.for === next.id && NOT_MADE.has(undone.status)) {
-        next = make({ kind: 'kept', turn: next.turn, key: refusalKey(undone) })
-      }
-    }
-    // Undo is no longer offered, as the page shows another turn: the card goes, silently.
-    if (next?.kind === 'ended' && next.undo && offer?.requestId !== next.id) {
-      next = undefined
-    }
-    if (next !== card) setCard(next)
-  })
-
-  // An End Turn the game made, still shown as it was two polls on, as when the turn came back
-  // before the page saw it move: told with no line and no Undo.
-  const doneId = sent?.way.status === 'done' ? sent.way.requestId : undefined
-  const settling =
-    sent && doneId && showsTurn(combat, sent.turn) ? doneId : undefined
-  useEffect(() => {
-    if (settling === undefined || !sent) return
-    const turn = sent.turn
-    const timer = setTimeout(() => {
-      if (told.current.has(settling)) return
-      told.current.add(settling)
-      setCard(make({ kind: 'ended', id: settling, turn, undo: false }))
-    }, SETTLE_FOR)
-    return () => clearTimeout(timer)
-    // From when it was first seen so, however many polls show it.
-  }, [settling])
-
-  // An Undo the game made, the turn still not shown back two polls on: it goes all the same.
-  const back =
-    card?.kind === 'taking' &&
-    undone?.for === card.id &&
-    undone.status === 'done'
-      ? card.serial
-      : undefined
-  useEffect(() => {
-    if (back === undefined) return
-    const timer = setTimeout(
-      () => setCard(shown => (shown?.serial === back ? undefined : shown)),
-      SETTLE_FOR,
-    )
-    return () => clearTimeout(timer)
-  }, [back])
-
-  // Its time, paused while the pointer is over it or focus is in it.
-  const [pause, setPause] = useState<{
-    serial: number
-    pointer: boolean
-    focus: boolean
-  }>()
-  const resting =
-    pause !== undefined &&
-    pause.serial === card?.serial &&
-    (pause.pointer || pause.focus)
-  const rest = (change: { pointer?: boolean; focus?: boolean }) => {
-    if (!card) return
-    setPause(was => ({
-      serial: card.serial,
-      pointer: false,
-      focus: false,
-      ...(was?.serial === card.serial && was),
-      ...change,
-    }))
-  }
-  useEffect(() => {
-    const lasts = card && lastsOf(card)
-    if (!card || lasts === undefined) return
-    if (remaining.current?.serial !== card.serial) {
-      remaining.current = { serial: card.serial, ms: lasts }
-    }
-    if (resting) return
-    const begun = Date.now()
-    const timer = setTimeout(
-      () =>
-        setCard(shown => (shown?.serial === card.serial ? undefined : shown)),
-      remaining.current.ms,
-    )
-    return () => {
-      clearTimeout(timer)
-      if (remaining.current?.serial === card.serial) {
-        remaining.current.ms -= Date.now() - begun
-      }
-    }
-  }, [card, resting])
-
+  const { offer } = undoing
   // Where it ends, for the roll toasts to start below it, as it shows, moves, changes or goes.
-  const [element, setElement] = useState<HTMLDivElement | null>(null)
-  const foot = useRef<number | undefined>(undefined)
-  const footing = useRef(onFoot)
-  useLayoutEffect(() => {
-    footing.current = onFoot
-  })
-  useLayoutEffect(() => {
-    // Where the card comes to rest, not where its entry has it now: its box as laid out in its
-    // region, which a transform doesn't move, as the card's first frame already has it 8 pixels
-    // higher and no resize follows to say otherwise.
-    const measure = () => {
-      const at = element
-        ? Math.ceil(
-            (element.parentElement?.getBoundingClientRect().top ?? 0) +
-              element.offsetTop +
-              element.offsetHeight,
-          )
-        : undefined
-      if (at === foot.current) return
-      foot.current = at
-      footing.current?.(at)
-    }
-    measure()
-    if (!element) return
-    const observer = new ResizeObserver(measure)
-    observer.observe(element)
-    globalThis.addEventListener('resize', measure)
-    return () => {
-      observer.disconnect()
-      globalThis.removeEventListener('resize', measure)
-    }
-  }, [element, top])
+  const setElement = useToastFoot(onFoot, top)
 
   if (!hydrated) return
   // Undo's card goes in the very render in which the panel shows the turn back, not one after it.
@@ -447,56 +121,10 @@ export function TurnToast({
               </small>
             )}
           </p>
-          {undoable && (
-            <UndoButton
-              onUndo={() => {
-                if (!offer) return
-                setCard(
-                  make({
-                    kind: 'taking',
-                    id: offer.requestId,
-                    turn: offer.turn,
-                  }),
-                )
-                undoing.undo()
-              }}
-              onGone={focusTurn}
-            />
-          )}
+          {undoable && <UndoButton onUndo={takeBack} onGone={focusTurn} />}
         </div>
       )}
     </div>,
     document.body,
-  )
-}
-
-/**
- * The toast's Undo: it takes the turn back. As it goes, taken or withdrawn, focus on it is handed
- * on, never left to the page's body.
- */
-function UndoButton({
-  onUndo,
-  onGone,
-}: Readonly<{ onUndo: () => void; onGone: () => void }>) {
-  const button = useRef<HTMLButtonElement>(null)
-  const gone = useRef(onGone)
-  useLayoutEffect(() => {
-    gone.current = onGone
-  })
-  useLayoutEffect(() => {
-    const own = button.current
-    return () => {
-      if (own && document.activeElement === own) gone.current()
-    }
-  }, [])
-  return (
-    <button
-      ref={button}
-      type='button'
-      onClick={onUndo}
-      className='min-h-11 min-w-11 rounded-[10px] border border-border bg-transparent px-3 font-semibold'
-    >
-      Undo
-    </button>
   )
 }

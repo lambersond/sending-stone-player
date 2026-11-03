@@ -60,6 +60,9 @@ export function useShownPrompts(
     const fresh = prompts.filter(({ id, closed }) => closed && !notices.has(id))
     if (fresh.length === 0) return
     const at = Date.now()
+    // When the page first saw a notice is the time of the commit that showed it, as it always
+    // was: in render it would read the clock there.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the clock after commit
     setNotices(held => {
       const next = new Map(held)
       for (const prompt of fresh) {

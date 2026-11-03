@@ -1,38 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { POLL_INTERVAL } from '@/constants/polling'
-import { rollsKey } from '@/utils/requests/availability'
+import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
+import { seenOf, tableQuery } from '@/features/table/utils/table-query'
+import { retryDelay } from '@/utils/polling'
 import type { TableView, Connection } from '@/types/table'
-
-/** The longest wait between attempts while the server cannot be reached. */
-const MAX_DELAY = 30_000
-
-/** What the viewer has of a view, which the server compares to say nothing is new. */
-function seenOf(view: TableView) {
-  return {
-    version: view.version,
-    live: view.live,
-    sheetVersion: view.sheetVersion,
-    rolls: rollsKey(view.rollsToTable, view.rollFeatures),
-    // For the Gamemaster's seat (#156): where their rolls go.
-    gm: view.gm?.rolls,
-    // For the player's: where the Gamemaster's rolls as their character stand.
-    gmRolls: view.gmRollsKey,
-    // From module 0.31.0: whether the seat may move its character's items and coins.
-    moves: view.moves !== undefined,
-    // From module 0.32.0: whether the player types in their own dice, which another of their
-    // devices may change.
-    typed: view.manualDice?.on === true,
-    // From module 0.33.0: whether the seat may remove its character's items.
-    removes: view.removes === true,
-    // From module 0.37.0: whether the player may change its character's favorites.
-    favorites: view.favorites === true,
-    // From module 0.39.0: whether the player may change its character's own effects.
-    effects: view.effects === true,
-    // From module 0.40.0: whether the player may use Wild Shape.
-    wildShape: view.wildShape === true,
-  }
-}
 
 /**
  * Keep a character's view of its campaign current by polling for changes, including the
@@ -56,34 +27,7 @@ export function useTableView(api: string, initial: TableView) {
 
     const poll = async () => {
       try {
-        const {
-          version,
-          live,
-          sheetVersion,
-          rolls,
-          gm,
-          gmRolls,
-          moves,
-          typed,
-          removes,
-          favorites,
-          effects,
-          wildShape,
-        } = seen.current
-        const query = new URLSearchParams({
-          version: String(version),
-          live: live ? '1' : '0',
-          ...(rolls && { rolls }),
-          ...(gm && { gm }),
-          ...(gmRolls && { gmrolls: gmRolls }),
-          ...(moves && { moves: '1' }),
-          ...(typed && { typed: '1' }),
-          ...(removes && { removes: '1' }),
-          ...(favorites && { favorites: '1' }),
-          ...(effects && { effects: '1' }),
-          ...(wildShape && { wildshape: '1' }),
-          ...(sheetVersion && { sheet: sheetVersion }),
-        })
+        const query = tableQuery(seen.current)
         const response = await fetch(`${api}/table?${query}`, {
           cache: 'no-store',
           signal: controller.signal,
@@ -119,10 +63,10 @@ export function useTableView(api: string, initial: TableView) {
       timer = undefined
       if (document.visibilityState !== 'hidden') await poll()
       if (stopped || controller.signal.aborted) return
-      const delay = failures
-        ? Math.min(POLL_INTERVAL * 2 ** failures, MAX_DELAY)
-        : POLL_INTERVAL
-      timer = setTimeout(tick, delay)
+      timer = setTimeout(
+        tick,
+        retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY),
+      )
     }
 
     const onVisibilityChange = () => {

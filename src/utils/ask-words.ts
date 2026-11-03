@@ -3,6 +3,13 @@ import { checkName, checkTitle } from '@/utils/description-links'
 import type { AskedCheck, CheckOption } from '@/types/sending-stone'
 import type { TableAsk } from '@/types/table'
 
+/** What a roll request card's chip calls what it asks for. */
+export const ASK_CHIPS: Record<TableAsk['type'], string> = {
+  save: 'Saving throw',
+  concentration: 'Concentration',
+  check: 'Check',
+}
+
 /** Is this one of dnd5e's abilities' ids, and not a name any object answers to? */
 export function isAbility(id: unknown): id is string {
   return typeof id === 'string' && Object.hasOwn(ABILITIES, id)

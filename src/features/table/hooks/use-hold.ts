@@ -2,11 +2,10 @@
 
 import {
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
-  type MouseEventHandler,
-  type PointerEventHandler,
   type RefObject,
 } from 'react'
 import {
@@ -17,6 +16,7 @@ import {
   END_TURN_TAP_WITHIN,
   END_TURN_TOAST_AT,
 } from '@/features/table/utils/end-turn'
+import type { HoldHandlers } from '@/features/table/types'
 
 /** A press being held: its pointer, the turn it began on, when and where, and what it waits on. */
 type Press = {
@@ -57,14 +57,7 @@ export function useHold(options: {
    */
   onCancel: () => void
 }): {
-  handlers: {
-    onPointerDown: PointerEventHandler
-    onPointerMove: PointerEventHandler
-    onPointerUp: PointerEventHandler
-    onPointerCancel: PointerEventHandler
-    onContextMenu: MouseEventHandler
-    onClickCapture: MouseEventHandler
-  }
+  handlers: HoldHandlers
   /** Whether a press is held now, for the label's colour. */
   holding: boolean
   /**
@@ -135,6 +128,7 @@ export function useHold(options: {
   const frame = () => {
     const held = press.current
     if (!held) return
+    // eslint-disable-next-line react-hooks/purity -- runs per animation frame, not in render
     const share = Math.min(1, (performance.now() - held.at) / END_TURN_HOLD)
     draw(
       share < END_TURN_QUIET
@@ -151,11 +145,14 @@ export function useHold(options: {
     if (press.current && press.current.key !== key) cancel()
   })
   // A page hidden mid-press, as a phone's screen locked, loses it.
+  const onHidden = useEffectEvent(() => {
+    cancel()
+    lifted()
+  })
   useEffect(() => {
     const hidden = () => {
       if (document.visibilityState !== 'hidden') return
-      cancel()
-      lifted()
+      onHidden()
     }
     document.addEventListener('visibilitychange', hidden)
     return () => {
@@ -167,7 +164,7 @@ export function useHold(options: {
       clearTimeout(held?.toast)
       clearTimeout(held?.end)
     }
-    // Once: what it reads, it reads through refs.
+    // Once: what else it reads, it reads through refs.
   }, [])
 
   return {

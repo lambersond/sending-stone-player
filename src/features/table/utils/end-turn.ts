@@ -1,7 +1,11 @@
+import { NOT_MADE } from '@/constants/lifecycle'
+import { currentCombatant } from '@/features/table/utils/combat'
+import { reasons } from '@/utils/roll-reasons'
 import { seatWords } from '@/utils/seat-words'
+import type { Followed, Sent } from '@/features/table/types'
 import type { EndedTurn, RollKind, TableRollState } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
-import type { EndableTurn, TableCombat } from '@/types/table'
+import type { EndableTurn, TableCombat, TurnUndo } from '@/types/table'
 
 /*
  * Ending a turn from the table (module 0.36.0): the player's character's, or one of its
@@ -65,7 +69,7 @@ export function endableTurn(
   kinds: readonly RollKind[],
 ): EndableTurn | undefined {
   if (!combat?.started || !kinds.includes('endTurn')) return undefined
-  const current = combat.combatants.find(({ id }) => id === combat.currentId)
+  const current = currentCombatant(combat)
   if (!current) return undefined
   const turn = {
     combatId: combat.id,
@@ -88,6 +92,63 @@ export function endableTurn(
  */
 export function turnKey(turn: EndedTurn): string {
   return `${turn.combatId}:${turn.round}:${turn.combatantId}`
+}
+
+/**
+ * The turn the page shows: its combat's, while that's started and someone it shows is acting, with
+ * who that is. None before the start, or while a combatant hidden from players acts.
+ */
+export function shownTurn(
+  combat: TableCombat | undefined,
+): TurnUndo['left'] | undefined {
+  if (!combat?.started || combat.currentId === undefined) return undefined
+  const current = currentCombatant(combat)
+  if (!current) return undefined
+  return {
+    combatId: combat.id,
+    round: combat.round,
+    combatantId: current.id,
+    name: current.name,
+    mine: current.side === 'me',
+  }
+}
+
+/** Whether two turns are the same: the same combat, round and current combatant. */
+export function sameTurn(one: EndedTurn, other: EndedTurn): boolean {
+  return (
+    one.combatId === other.combatId &&
+    one.round === other.round &&
+    one.combatantId === other.combatantId
+  )
+}
+
+/**
+ * The End Turn Undo follows, as the page shows its combat now: once the game says it was made, by
+ * its id, the turn it left the combat on, once the page has shown one; and whether it can no
+ * longer be taken back from here. Still on the turn it ended, as in a view from before the game
+ * moved it, the next turn shown is the one it left; another combat, or none, and there's nothing
+ * to take back to. Once the combat has moved on from where it left it, or back, it's gone for
+ * good. The same object where nothing changed.
+ * @param done - The id of the End Turn the game said it made, if it has.
+ */
+export function nextFollowed(
+  followed: Followed,
+  sent: Sent | undefined,
+  done: string | undefined,
+  combat: TableCombat | undefined,
+): Followed {
+  if (!sent || done === undefined) return followed
+  const now: Followed =
+    followed.id === done ? followed : { id: done, over: false }
+  if (now.over) return now
+  const shown = shownTurn(combat)
+  if (now.left !== undefined) {
+    return !shown || !sameTurn(shown, now.left) ? { ...now, over: true } : now
+  }
+  if (!shown || shown.combatId !== sent.turn.combatId) {
+    return { ...now, over: true }
+  }
+  return sameTurn(shown, sent.turn) ? now : { ...now, left: shown }
 }
 
 /**
@@ -193,4 +254,31 @@ export function holdDescription(turn: EndableTurn): string {
   return name === undefined
     ? 'Press and hold to end your turn'
     : `Press and hold to end ${name}’s turn`
+}
+
+/**
+ * Why an End Turn, or an Undo, wasn't made, as a fragment, by its way's reason, else its status:
+ * End Turn's own words, else a roll's as the tray words it for the seat.
+ */
+export function turnFragment(key: string, role: SeatRole): string | undefined {
+  return TURN_REFUSALS[key] ?? reasons(role)[key]
+}
+
+/** What a way's refusal is told by: its reason, or where it has none, how it ended. */
+export function refusalKey(way: TableRollState): string {
+  return way.reason ?? way.status
+}
+
+/**
+ * Whether the End Turn sent last has just ended without ending its turn: its way refused, failed,
+ * expired or lost, as it wasn't when last seen, or it's another End Turn. Each is told once,
+ * however many times its way is heard again.
+ * @param was - The End Turn sent last as it was seen before.
+ */
+export function newlyNotMade(
+  was: Sent | undefined,
+  now: Sent | undefined,
+): now is Sent {
+  if (!now || !NOT_MADE.has(now.way.status)) return false
+  return was?.turn !== now.turn || !NOT_MADE.has(was.way.status)
 }

@@ -1,13 +1,10 @@
-import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { EmptyStateProps } from './types'
 
-type Props = {
-  icon: LucideIcon
-  title: string
-  children: ReactNode
-}
-
-export function EmptyState({ icon: Icon, title, children }: Readonly<Props>) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  children,
+}: Readonly<EmptyStateProps>) {
   return (
     <div className='mx-auto flex max-w-md flex-col items-center px-6 py-16 text-center'>
       <Icon aria-hidden className='size-8 text-primary' />

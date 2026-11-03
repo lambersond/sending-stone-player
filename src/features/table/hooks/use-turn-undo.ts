@@ -1,60 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  GM_SEND_KEY,
-  SEND_CHOICES,
-  SEND_KEY,
-} from '@/features/rolling/constants'
-import { useStoredChoice } from '@/hooks/use-stored'
-import { follow } from '@/utils/lifecycle'
-import type {
-  EndedTurn,
-  RollKind,
-  RollRequestInput,
-  TableRollState,
-} from '@/types/roll'
+import { NO_DICE } from '@/constants/roll-kinds'
+import { useSendChoice } from '@/features/rolling/hooks/use-send-choice'
+import { nextFollowed } from '@/features/table/utils/end-turn'
+import { useFollow } from '@/hooks/use-follow'
+import type { Followed, UndoState } from '@/features/table/types'
+import type { RollKind, RollRequestInput, TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat, TurnUndo } from '@/types/table'
-
-/**
- * The End Turn this hook follows, by its id, as the page has shown its combat since the game said
- * it was made: the turn it left the combat on, once the page has shown one; and whether it can no
- * longer be taken back from here, as once the page has shown another turn since, or none, or an
- * Undo was sent for it.
- */
-type Followed = {
-  id?: string
-  left?: TurnUndo['left']
-  over: boolean
-}
-
-/**
- * The turn the page shows: its combat's, while that's started and someone it shows is acting, with
- * who that is. None before the start, or while a combatant hidden from players acts.
- */
-function shownTurn(
-  combat: TableCombat | undefined,
-): TurnUndo['left'] | undefined {
-  if (!combat?.started || combat.currentId === undefined) return undefined
-  const current = combat.combatants.find(({ id }) => id === combat.currentId)
-  if (!current) return undefined
-  return {
-    combatId: combat.id,
-    round: combat.round,
-    combatantId: current.id,
-    name: current.name,
-    mine: current.side === 'me',
-  }
-}
-
-/** Whether two turns are the same: the same combat, round and current combatant. */
-function sameTurn(one: EndedTurn, other: EndedTurn): boolean {
-  return (
-    one.combatId === other.combatId &&
-    one.round === other.round &&
-    one.combatantId === other.combatantId
-  )
-}
 
 /**
  * Undo, for a character's page (module 0.36.0): the End Turn this page sent last, once the game
@@ -86,41 +39,15 @@ export function useTurnUndo({
   combat?: TableCombat
   kinds: readonly RollKind[]
   sent?: { turn: EndableTurn; way: TableRollState }
-}): {
-  offer?: TurnUndo
-  way?: TableRollState & { for: string }
-  undo: () => void
-} {
+}): UndoState {
   // As every hook on the page reads it, so that turning it off stops Undo too.
-  const [choice] = useStoredChoice(
-    gm ? GM_SEND_KEY : SEND_KEY,
-    SEND_CHOICES,
-    'on',
-  )
+  const [choice] = useSendChoice(gm)
 
   // The End Turn the game said it made, by its id: only that may be taken back.
   const done = sent?.way.status === 'done' ? sent.way.requestId : undefined
   const [followed, setFollowed] = useState<Followed>({ over: false })
-  let now = followed
-  if (sent && done !== undefined) {
-    if (now.id !== done) now = { id: done, over: false }
-    if (!now.over) {
-      const shown = shownTurn(combat)
-      if (now.left === undefined) {
-        // Still on the turn it ended, as in a view from before the game moved it: the next turn
-        // shown is the one it left. Another combat, or none, and there's nothing to take back to.
-        if (!shown || shown.combatId !== sent.turn.combatId) {
-          now = { ...now, over: true }
-        } else if (!sameTurn(shown, sent.turn)) {
-          now = { ...now, left: shown }
-        }
-      } else if (!shown || !sameTurn(shown, now.left)) {
-        // The combat has moved on from where it left it, or back: it's gone for good.
-        now = { ...now, over: true }
-      }
-    }
-    if (now !== followed) setFollowed(now)
-  }
+  const now = nextFollowed(followed, sent, done, combat)
+  if (now !== followed) setFollowed(now)
 
   const taking = kinds.includes('undoEndTurn') && choice === 'on'
   const left = now.id === done && !now.over ? now.left : undefined
@@ -141,13 +68,7 @@ export function useTurnUndo({
   })
   // The End Turns an Undo was sent for, so that two calls at once send one.
   const undone = useRef(new Set<string>())
-  const running = useRef(new Set<AbortController>())
-  useEffect(() => {
-    const controllers = running.current
-    return () => {
-      for (const controller of controllers) controller.abort()
-    }
-  }, [])
+  const follow = useFollow()
 
   // The last Undo sent and its way, and how many have been, so that only the last is told.
   const [way, setWay] = useState<TableRollState & { for: string }>()
@@ -161,10 +82,7 @@ export function useTurnUndo({
     // Sent once: it's offered no more.
     setFollowed(held => (held.id === of ? { ...held, over: true } : held))
     const which = (sends.current += 1)
-    const controller = new AbortController()
-    running.current.add(controller)
     const update = (state: TableRollState) => {
-      if (controller.signal.aborted) return
       if (sends.current === which) setWay({ ...state, for: of })
     }
     // Its words are the page's: only which End Turn, and the turn it left, by its combat, round
@@ -177,16 +95,11 @@ export function useTurnUndo({
         round: offer.left.round,
         combatantId: offer.left.combatantId,
       },
-      mode: 0,
-      explicit: false,
-      extras: [],
-      dice: [],
+      ...NO_DICE,
     }
     update({ status: 'sending' })
-    void follow(api, input, controller.signal, update, () => {}).finally(() =>
-      running.current.delete(controller),
-    )
-  }, [])
+    follow(api, input, update)
+  }, [follow])
 
   return { offer, way, undo }
 }

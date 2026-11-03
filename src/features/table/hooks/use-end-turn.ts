@@ -2,19 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { POLL_INTERVAL } from '@/constants/polling'
-import {
-  GM_SEND_KEY,
-  SEND_CHOICES,
-  SEND_KEY,
-} from '@/features/rolling/constants'
+import { NO_DICE } from '@/constants/roll-kinds'
+import { useSendChoice } from '@/features/rolling/hooks/use-send-choice'
 import {
   END_TURN_ARMS_AFTER,
   endableTurn,
   TURN_OVER,
   turnKey,
 } from '@/features/table/utils/end-turn'
-import { useStoredChoice } from '@/hooks/use-stored'
-import { follow, onItsWay } from '@/utils/lifecycle'
+import { useFollow } from '@/hooks/use-follow'
+import { onItsWay } from '@/utils/lifecycle'
+import type { EndTurnState, Shown } from '@/features/table/types'
 import type { RollKind, RollRequestInput, TableRollState } from '@/types/roll'
 import type { EndableTurn, TableCombat } from '@/types/table'
 
@@ -25,25 +23,6 @@ import type { EndableTurn, TableCombat } from '@/types/table'
  * to it before the game's answer did.
  */
 const OVER_FOR = 2 * POLL_INTERVAL
-
-/**
- * The turn the page shows, as this hook has it: which, by its key; how many turns have been shown
- * before it, so that what's heard of an End Turn sent for one of those is never taken for it, even
- * where it's the same turn shown again; whether it has been shown long enough to be offered; and
- * the way of the End Turn sent for it, if one was.
- */
-type Shown = {
-  key?: string
-  serial: number
-  armed: boolean
-  way?: TableRollState
-  /**
-   * Once that way says the turn is over, the view of the combat the page showed then. The game
-   * moves the turn before it answers, so a newer view still showing the turn is the turn shown
-   * again, as after the Gamemaster's Previous Turn, though the page never saw the turn between.
-   */
-  overIn?: TableCombat
-}
 
 /**
  * Whether an End Turn's way says its turn is over: the game ended it, or it was refused as a turn
@@ -95,19 +74,9 @@ export function useEndTurn({
   gm: boolean
   combat?: TableCombat
   kinds: readonly RollKind[]
-}): {
-  turn?: EndableTurn
-  offered: boolean
-  way?: TableRollState
-  sent?: { turn: EndableTurn; way: TableRollState }
-  end: (turn: EndableTurn) => void
-} {
+}): EndTurnState {
   // As every hook on the page reads it, so that turning it off stops End Turn too.
-  const [choice] = useStoredChoice(
-    gm ? GM_SEND_KEY : SEND_KEY,
-    SEND_CHOICES,
-    'on',
-  )
+  const [choice] = useSendChoice(gm)
   const turn = choice === 'on' ? endableTurn(combat, kinds) : undefined
   const key = turn ? turnKey(turn) : undefined
 
@@ -159,56 +128,45 @@ export function useEndTurn({
   // The turn shown an End Turn is on its way for, by its serial, so that two calls at once, as a
   // tap and a hold together, send one.
   const sending = useRef<number | undefined>(undefined)
-  const running = useRef(new Set<AbortController>())
-  useEffect(() => {
-    const controllers = running.current
-    return () => {
-      for (const controller of controllers) controller.abort()
-    }
-  }, [])
+  const follow = useFollow()
 
   // The last End Turn sent and its way, and how many have been, so that only the last is told.
   const [sent, setSent] = useState<{ turn: EndableTurn; way: TableRollState }>()
   const sends = useRef(0)
 
-  const end = useCallback((given: EndableTurn) => {
-    const { api, shown, offered } = latest.current
-    // Only the turn the tap or the hold was made on, while it's still the one shown.
-    if (!offered || turnKey(given) !== shown.key) return
-    const at = shown.serial
-    if (sending.current === at) return
-    sending.current = at
-    const which = (sends.current += 1)
-    const controller = new AbortController()
-    running.current.add(controller)
-    const update = (way: TableRollState) => {
-      if (controller.signal.aborted) return
-      if (!holds(way) && sending.current === at) sending.current = undefined
-      // Its way is its turn's while that's the one shown; once it says the turn is over, with the
-      // view the page showed then.
-      const overIn = isOver(way) ? latest.current.combat : undefined
-      setShown(held => (held.serial === at ? { ...held, way, overIn } : held))
-      // And the toast's while it's the last sent, whichever turn is shown now.
-      if (sends.current === which) setSent({ turn: given, way })
-    }
-    // Its words are the page's: only which turn is sent, by its combat, round and combatant.
-    const input: RollRequestInput = {
-      kind: 'endTurn',
-      turn: {
-        combatId: given.combatId,
-        round: given.round,
-        combatantId: given.combatantId,
-      },
-      mode: 0,
-      explicit: false,
-      extras: [],
-      dice: [],
-    }
-    update({ status: 'sending' })
-    void follow(api, input, controller.signal, update, () => {}).finally(() =>
-      running.current.delete(controller),
-    )
-  }, [])
+  const end = useCallback(
+    (given: EndableTurn) => {
+      const { api, shown, offered } = latest.current
+      // Only the turn the tap or the hold was made on, while it's still the one shown.
+      if (!offered || turnKey(given) !== shown.key) return
+      const at = shown.serial
+      if (sending.current === at) return
+      sending.current = at
+      const which = (sends.current += 1)
+      const update = (way: TableRollState) => {
+        if (!holds(way) && sending.current === at) sending.current = undefined
+        // Its way is its turn's while that's the one shown; once it says the turn is over, with the
+        // view the page showed then.
+        const overIn = isOver(way) ? latest.current.combat : undefined
+        setShown(held => (held.serial === at ? { ...held, way, overIn } : held))
+        // And the toast's while it's the last sent, whichever turn is shown now.
+        if (sends.current === which) setSent({ turn: given, way })
+      }
+      // Its words are the page's: only which turn is sent, by its combat, round and combatant.
+      const input: RollRequestInput = {
+        kind: 'endTurn',
+        turn: {
+          combatId: given.combatId,
+          round: given.round,
+          combatantId: given.combatantId,
+        },
+        ...NO_DICE,
+      }
+      update({ status: 'sending' })
+      follow(api, input, update)
+    },
+    [follow, setShown, setSent],
+  )
 
   return { turn, offered, way: now.way, sent, end }
 }
