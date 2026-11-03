@@ -151,5 +151,7 @@ export default [
     'next-env.d.ts',
     // The end-to-end suites and their scripts (e2e/README.md), written in another style:
     'e2e/**',
+    // The v0.43 refactor's temporary planning folder (deleted in the PR's last commit):
+    '.refactor/**',
   ]),
 ].filter(Boolean)
