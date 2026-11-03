@@ -1,6 +1,7 @@
 /**
  * The Sending Stone protocol, as described in the fvtt-sending-stone module's PROTOCOL.md.
  */
+import { DIE_SIZES } from '@/constants/dice'
 
 /** The protocol version this listener understands. Version 2 sends each event to campaigns. */
 export const PROTOCOL_VERSION = 2
@@ -510,8 +511,8 @@ export const MAX_USE_TARGETS = 20
 /** A kind of damage or healing, as dnd5e keys it, such as "fire" or "temphp". */
 export const DAMAGE_TYPE = /^[A-Za-z][\w-]{0,31}$/
 
-/** A hit die's size, as dnd5e names it, such as "d10". */
-export const HIT_DIE = /^d(4|6|8|10|12)$/
+/** A hit die's size, as dnd5e names it, such as "d10": one of the sizes a die of damage may be. */
+export const HIT_DIE = new RegExp(`^d(${DIE_SIZES.join('|')})$`)
 
 /**
  * The most hit dice spent at once, of every size together: a character's at level 20. One with more

@@ -1,4 +1,3 @@
-import { DIE_SIDES } from '@lambersond/3d-dice-core'
 import { z } from 'zod'
 import { DIE_SIZES } from '@/constants/dice'
 import {
@@ -30,6 +29,7 @@ import {
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import { MOST_DICE } from '@/utils/damage-modifiers'
 import { MAX_LINKS } from '@/utils/description-links'
+import { isDieSides } from '@/utils/dice'
 import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
 import type { RollRequestInput, ExtraTerm } from '@/types/roll'
 
@@ -73,9 +73,7 @@ const extraTermSchema = z.union([
   z.strictObject({
     sign,
     count: z.int().min(1).max(MAX_DICE),
-    sides: z
-      .int()
-      .refine(sides => (DIE_SIDES as readonly number[]).includes(sides)),
+    sides: z.int().refine(sides => isDieSides(sides)),
   }),
   z.strictObject({ sign, flat: z.int().min(0).max(MAX_FLAT) }),
 ])
@@ -113,7 +111,7 @@ const hitDiceSchema = z.strictObject({
 })
 
 /** How many sizes of hit die there are, each of which may be spent at once. */
-const HIT_DIE_SIZES = 5
+const HIT_DIE_SIZES = DIE_SIZES.length
 
 /**
  * A counter charges are spent from directly, from module 0.29.0: an item's own uses, or one of its
@@ -419,9 +417,7 @@ const rolledDiceSchema = z.strictObject({
  * 0.42.0: by its faces and sign, with what each of its dice showed.
  */
 const effectDieSchema = z.strictObject({
-  faces: z
-    .int()
-    .refine(faces => (DIE_SIDES as readonly number[]).includes(faces)),
+  faces: z.int().refine(faces => isDieSides(faces)),
   sign,
   results: z.array(z.int()).min(1).max(MAX_DICE),
 })
@@ -906,7 +902,7 @@ export const rollRequestSchema = z
         (!alone || request.dice.length > 0)
       const dice = request.dice.every(
         ({ faces, results }) =>
-          (DIE_SIDES as readonly number[]).includes(faces) &&
+          isDieSides(faces) &&
           results.every(result => result >= 1 && result <= faces),
       )
       // A hit die throws its one die.
