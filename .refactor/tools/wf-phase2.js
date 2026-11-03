@@ -32,7 +32,18 @@ const buildLand = async (what, tag, phaseName, landWhat) => {
 }
 
 phase('Moves')
-const moves = await buildLand('Your task now: WS3 (round.md §2.4 "WS3"): R1.0.1 with your move codemod → commit 5 (moves only: renames and import and mock-path lines; `git show -M --stat` all renames); the lint ratchet re-taken after the moves exactly as gate 9\'s conditions say (`run.sh moved`, its output under R/analysis in YOUR worktree, committed with commit 5 only if round.md says so, else in a separate chore(refactor) commit); then R1.0.2 → commit 6 (unicorn/no-null off with its reason in eslint.config.mjs and its disable comments gone; `reportUnusedDisableDirectives` proves none served another rule). Stop after commit 6.', 'moves', 'Moves', 'commits 5 and 6 (and any chore(refactor) commit M made with them).')
+const FROM = (args && args.from) || ''
+const landOnly = async (landWhat, tag, phaseName) => {
+  let l = await land(landWhat, phaseName, tag)
+  let b = null
+  for (let i = 1; i <= 2 && l && !l.landed; i++) {
+    b = await MB('THIS IS A FIX ROUND for ' + tag + ': the landing L1 or build at the rebased head was red: ' + l.red + ' Fix it with NEW commits on your branch (never amend; never edit an existing assertion or golden), L1 green, and return. If the cause is in APP\'s planning files (R/tools, R/analysis) rather than your branch, say exactly what the orchestrator must change and return ok false.', tag)
+    if (!b || !b.ok) break
+    l = await land(landWhat + ' (fix round ' + i + ')', phaseName, tag)
+  }
+  return { b, l }
+}
+const moves = FROM === 'land-moves' ? await landOnly('commits 5 and 6 and M\'s chore(refactor) and chore(lint) commits with them (the branch already holds them: 7682f9b commit 5, 718fee6 the ratchet (APP already has its bytes since 492f51b: the rebase drops or empties it, which is fine), 08e5a87 commit 6, 8e12352 the kit directive kept (round.md amendment 2)). M\'s report is ' + X + '/reports/M-moves.md.', 'moves', 'Moves') : await buildLand('Your task now: WS3 (round.md §2.4 "WS3"): R1.0.1 with your move codemod → commit 5 (moves only: renames and import and mock-path lines; `git show -M --stat` all renames); the lint ratchet re-taken after the moves exactly as gate 9\'s conditions say (`run.sh moved`, its output under R/analysis in YOUR worktree, committed with commit 5 only if round.md says so, else in a separate chore(refactor) commit); then R1.0.2 → commit 6 (unicorn/no-null off with its reason in eslint.config.mjs and its disable comments gone; `reportUnusedDisableDirectives` proves none served another rule). Stop after commit 6.', 'moves', 'Moves', 'commits 5 and 6 (and any chore(refactor) commit M made with them).')
 if (!moves.l || !moves.l.landed) return { moves }
 phase('Seams')
 const seams = await buildLand('Your task now: WS4 (round.md §2.4 "WS4"): R1.9.1 + R1.9.5 with your export-move codemod → commit 7 (export moves only), with the cycle report; then R1.9.2 → R1.9.3 → R1.9.4 → commit 8 (the seams; C1-C9 unchanged); `next build` green. Include the names the Phase 1 reports asked for in the export-move list (e.g. C-a: briefOf and reasons from roll-tray.tsx). Stop after commit 8.', 'seams', 'Seams', 'commits 7 and 8 (and any chore(refactor) commit M made with them).')
