@@ -1,5 +1,4 @@
 /* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
-import { prismaMock } from '../../jest.setup'
 import {
   changeCampaignSecret,
   checkGameSecret,
@@ -23,6 +22,7 @@ import {
   mockSummonedEntry,
   roster,
 } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 jest.mock('@/lib/campaign-secret', () => ({
   generateInviteCode: () => 'fresh-invite-code',

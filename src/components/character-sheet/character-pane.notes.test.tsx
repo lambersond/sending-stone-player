@@ -11,11 +11,10 @@ import { toTableSheet } from '@/utils/table-view'
 // The character's own journal on the sheet's Biography tab: its card (module 0.35.0).
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 const API = '/api/characters/char-1'
 const GAME = 'https://my-game.forge-vtt.com'

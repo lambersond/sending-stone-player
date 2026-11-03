@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
 import { usePartySheet } from './use-party-sheet'
 import { POLL_INTERVAL } from './use-table-view'
+import { advance, respond } from '@/utils/test-utils'
 import type { PartyView } from '@/types/party'
 
 jest.mock('next/navigation', () => ({ useRouter: jest.fn() }))
@@ -32,18 +33,6 @@ const initial: PartyView = {
   sheet,
   sheetVersion: '2026-10-19T12:00:00.000Z',
 }
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 let visibility: DocumentVisibilityState = 'visible'
 

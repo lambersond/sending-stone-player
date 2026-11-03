@@ -7,6 +7,9 @@ import { getCharacter } from '@/db/characters'
 import { playerSeat } from '@/db/seats'
 import { getSheetText } from '@/db/sheet-texts'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/sheet-texts', () => ({ getSheetText: jest.fn() }))

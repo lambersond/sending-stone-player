@@ -51,11 +51,10 @@ jest.mock('@/hooks/use-notes', () => ({
   }),
 }))
 // The 3D dice need WebGL; the sheet rolls without them.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 const sheet = toTableSheet(characterSheet(), 'https://my-game.forge-vtt.com')
 

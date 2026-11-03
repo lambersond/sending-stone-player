@@ -11,6 +11,9 @@ import {
 } from '@/db/cookbook'
 import { hashCookbookCode } from '@/lib/cookbook-code'
 import { fireberryBoon } from '@/mocks/cookbook'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 // The waiting cap's words are built from its constant: mocked here to another number, so words
 // written out with 50 fail.

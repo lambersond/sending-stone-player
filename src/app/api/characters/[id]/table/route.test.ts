@@ -8,7 +8,10 @@ import { notePlayersSeen, noteTableOpen } from '@/db/roll-requests'
 import { playerSeat } from '@/db/seats'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
 import type { RollKind } from '@/types/roll'
+
+guardNoDb()
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({

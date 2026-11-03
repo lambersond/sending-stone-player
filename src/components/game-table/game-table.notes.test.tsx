@@ -13,6 +13,7 @@ import { emptyBook, serveNotes } from '@/mocks/notes-server'
 import { characterSheet } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
+import { responding as respond } from '@/utils/test-utils'
 import type { CampaignChoice } from '@/types/campaign'
 import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
@@ -31,11 +32,10 @@ jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }))
 // The 3D dice need WebGL; the sheet rolls without them.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 const API = '/api/characters/char-1'
 const GM_API = '/api/campaigns/c1/characters/thorin'
@@ -96,13 +96,6 @@ const party: PartyView = {
     description: null,
   },
 }
-
-const respond = (status: number, body?: unknown) =>
-  Promise.resolve({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  } as Response)
 
 let current: { view: TableView; connection: Connection }
 const renderTable = (

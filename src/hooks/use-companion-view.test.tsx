@@ -3,20 +3,9 @@ import { useCompanionView } from './use-companion-view'
 import { POLL_INTERVAL } from './use-table-view'
 import { mockCompanionSheet, mockCompanionView } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import { advance, respond } from '@/utils/test-utils'
 
 const API = '/api/characters/char-1/companions/wolfBrakka'
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 let visibility: DocumentVisibilityState = 'visible'
 

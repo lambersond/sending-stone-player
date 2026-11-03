@@ -9,6 +9,7 @@ import {
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
+import { advance } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { RollKind } from '@/types/roll'
 import type { TableCombat, TableCompanion, TableView } from '@/types/table'
@@ -54,11 +55,10 @@ jest.mock('@/hooks/use-notes', () => ({
     setOpen: jest.fn(),
   }),
 }))
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 const API = '/api/characters/char-1'
 
@@ -155,11 +155,6 @@ const renderTable = (initial: TableView = view(), seat?: TableSeat) => {
     },
   }
 }
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 type PointerInit = {
   pointerId?: number

@@ -17,6 +17,9 @@ import { getGmSeat } from '@/db/seats'
 import { getSheetText } from '@/db/sheet-texts'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/db/seats', () => ({ getGmSeat: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({

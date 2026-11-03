@@ -10,6 +10,7 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import { responding as respond } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { PartyView, TableGroup } from '@/types/party'
 import type { TableView } from '@/types/table'
@@ -57,11 +58,10 @@ jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }))
 // The 3D dice need WebGL; the sheet rolls without them.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 const company: TableGroup = {
   id: 'company',
@@ -136,13 +136,6 @@ const renderTable = (
     },
   }
 }
-
-const respond = (status: number, body?: unknown) =>
-  Promise.resolve({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  } as Response)
 
 /** A party's row, by what it shows: its name, then "Primary party" or "Party sheet". */
 const partyRow = (name: string) =>

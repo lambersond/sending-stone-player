@@ -8,7 +8,10 @@ import { GET } from './route'
 import { getCharacter } from '@/db/characters'
 import { getCookbookView } from '@/db/cookbook'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
 import type { CookbookView } from '@/types/cookbook'
+
+guardNoDb()
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/cookbook', () => ({ getCookbookView: jest.fn() }))

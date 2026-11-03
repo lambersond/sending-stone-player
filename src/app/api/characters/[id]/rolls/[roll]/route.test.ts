@@ -7,6 +7,9 @@ import { getCharacter } from '@/db/characters'
 import { getRollRequestView } from '@/db/roll-requests'
 import { playerSeat } from '@/db/seats'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({ getRollRequestView: jest.fn() }))

@@ -25,11 +25,10 @@ jest.mock('@/hooks/use-table-view', () => ({
   ...jest.requireActual('@/hooks/use-table-view'),
   useTableView: jest.fn(),
 }))
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 // The dice entry dialog is APP-B's, tested beside it: here as it is, to see where it opens.
 
 const sheet = toTableSheet(characterSheet(), 'https://my-game.forge-vtt.com')

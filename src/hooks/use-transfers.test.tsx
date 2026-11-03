@@ -1,19 +1,8 @@
 import { act, renderHook } from '@testing-library/react'
 import { useTransfers } from './use-transfers'
 import { CHECK_EVERY } from '@/hooks/use-table-rolls'
+import { advance, respond } from '@/utils/test-utils'
 import type { LocalMove } from '@/hooks/use-sheet-roller'
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 const rope: LocalMove = {
   verb: 'take',

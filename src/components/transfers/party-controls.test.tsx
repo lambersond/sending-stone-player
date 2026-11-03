@@ -8,6 +8,7 @@ import {
   partyStash,
   sendingPartyView,
 } from '@/mocks/sending-stone'
+import { posts, respond } from '@/utils/test-utils'
 import type { TakeInto } from './take-controls'
 import type { PartyView } from '@/types/party'
 import type { SheetCurrency } from '@/types/sending-stone'
@@ -56,13 +57,6 @@ const currencyButtons = () =>
     .getAllByRole('button')
     .map(button => button.getAttribute('aria-label') ?? button.textContent)
 
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
 /** The spinners inside a part of the page. */
 const spinnersIn = (scope: HTMLElement) => [
   ...scope.querySelectorAll(String.raw`svg.motion-safe\:animate-spin`),
@@ -70,13 +64,6 @@ const spinnersIn = (scope: HTMLElement) => [
 /** The Currency fact's label. */
 const currencyTerm = () =>
   screen.getByText('Currency').closest('dt') as HTMLElement
-
-/** What was posted, and where. */
-const posts = () =>
-  jest
-    .mocked(fetch)
-    .mock.calls.filter(([, init]) => init?.method === 'POST')
-    .map(([url, init]) => ({ url, body: JSON.parse(String(init?.body)) }))
 
 describe('components/transfers/party-controls', () => {
   beforeEach(() => {

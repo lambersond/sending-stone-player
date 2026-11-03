@@ -7,6 +7,9 @@ import { PATCH, PUT } from './route'
 import { reorderNotes, resolveOrder } from '@/db/notes'
 import { partyNotesAccess } from '@/db/party'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))

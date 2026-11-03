@@ -23,6 +23,9 @@ import {
   roster,
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({

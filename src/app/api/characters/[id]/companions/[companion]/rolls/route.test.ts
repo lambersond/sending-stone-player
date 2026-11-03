@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 import { NextRequest } from 'next/server'
-import { prismaMock } from '../../../../../../../../jest.setup'
 import { POST } from './route'
 import { getCharacter } from '@/db/characters'
 import { createRollRequest } from '@/db/roll-requests'
@@ -13,6 +12,7 @@ import {
   mockCompanionEntry,
   PARTY,
 } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({

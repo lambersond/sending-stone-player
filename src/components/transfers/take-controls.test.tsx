@@ -1,11 +1,12 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { act, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { chosenApi, type TakeInto } from './take-controls'
 import { Transferring, type TransferControls } from './transferring'
 import { PartySheet } from '@/components/party-sheet/party-sheet'
 import { CHECK_EVERY } from '@/hooks/use-table-rolls'
 import { movingPartyView, partyStash } from '@/mocks/sending-stone'
+import { advance, respond } from '@/utils/test-utils'
 import type { MoveDialogProps } from '@/components/transfers/move-dialog'
 import type { PartyView } from '@/types/party'
 
@@ -50,13 +51,6 @@ const own: TakeInto = {
 }
 const choose: TakeInto = { kind: 'choose', campaignId: 'c1' }
 
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
 const renderSheet = (
   takeInto: TakeInto | 'none' = own,
   partyView: PartyView = movingPartyView(),
@@ -76,11 +70,6 @@ const posted = () => {
   const [url, init] = jest.mocked(fetch).mock.lastCall ?? []
   return { url, body: JSON.parse(String(init?.body)) }
 }
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 /** The spinners inside a part of the page. */
 const spinnersIn = (scope: HTMLElement) => [

@@ -2,9 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NoteCard } from './note-card'
 import { noteChapter, noteEntry } from '@/mocks/notes-server'
-
-const ago = (minutes: number) =>
-  new Date(Date.now() - minutes * 60_000).toISOString()
+import { minutesAgo as ago } from '@/utils/test-utils'
 
 describe('components/notes/note-card', () => {
   const scrollHeight = Object.getOwnPropertyDescriptor(

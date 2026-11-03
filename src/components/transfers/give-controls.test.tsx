@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from '@/components/character-sheet/character-pane'
 import { GameTable } from '@/components/game-table/game-table'
@@ -9,16 +9,16 @@ import { useTableView } from '@/hooks/use-table-view'
 import { fullerSheet, sheetItem, tableMoves } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
+import { advance, respond } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { CharacterSheet, SheetCurrency } from '@/types/sending-stone'
 import type { TableMoves, TableView } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 // The table's view, as a test gives it.
 jest.mock('@/hooks/use-table-view', () => ({
   ...jest.requireActual('@/hooks/use-table-view'),
@@ -119,13 +119,6 @@ const coinsButton = () =>
   })
 const queryCoinsButton = () => screen.queryByRole('button', { name: 'Send to' })
 
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
 /** What was posted, and where, of moves: never a description an opened row loads. */
 const posts = () =>
   jest
@@ -136,11 +129,6 @@ const posted = () => posts()[0]
 
 const giveButton = (name: string) =>
   screen.getByRole('button', { name: `Give ${name}` })
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 /**
  * Has a dialog give focus back as the browser's does, which jsdom's doesn't: to what had it as the

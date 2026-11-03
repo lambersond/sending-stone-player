@@ -1,5 +1,4 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import {
   allowedGroup,
   getGroupView,
@@ -19,6 +18,7 @@ import {
   PARTY,
 } from '@/mocks/sending-stone'
 import { inventoryView } from '@/utils/table-view'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 
 const ORIGIN = 'https://my-game.forge-vtt.com'

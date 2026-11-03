@@ -21,11 +21,10 @@ import type { RowCompanion } from '@/utils/companion-row'
  * stands in for here. The 3D dice need WebGL: a renderer that's never ready, so that rolls
  * resolve at once, each shown in the tray.
  */
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 // The pane's rolls' button, in toasts, reads the creature the pane is for: here it says it.
 jest.mock('@/components/character-sheet/rolls-button', () => ({

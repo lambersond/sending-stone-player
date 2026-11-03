@@ -3,7 +3,6 @@
  */
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { NextRequest } from 'next/server'
-import { prismaMock } from '../../../../../../../../../../jest.setup'
 import { POST } from './route'
 import { createRollRequest } from '@/db/roll-requests'
 import { getCurrentUser } from '@/lib/session'
@@ -12,6 +11,7 @@ import {
   mockCompanionEntry,
   PARTY,
 } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 jest.mock('@/db/roll-requests', () => ({
   createRollRequest: jest.fn(),

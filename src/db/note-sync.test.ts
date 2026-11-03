@@ -8,7 +8,6 @@ import {
   type JournalOrder,
   type JournalWrite,
 } from '@prisma/client'
-import { prismaMock } from '../../jest.setup'
 import {
   applyJournalUpdated,
   claimNoteWrites,
@@ -19,6 +18,7 @@ import {
   recordNoteResult,
 } from './note-sync'
 import { mockJournalUpdated, NOTE_IDS, PARTY } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { CommandResult, JournalPage } from '@/types/sending-stone'
 
 const NOW = Date.parse('2026-10-22T12:00:00Z')

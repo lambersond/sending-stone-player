@@ -61,11 +61,10 @@ import type {
 import type { TableCombat, TablePrompt } from '@/types/table'
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 // The dice entry dialog is APP-B's, tested beside it (module 0.32.0): here, one that says what
 // it asks for and types a 4 for every die, at most its highest face, or is cancelled. While

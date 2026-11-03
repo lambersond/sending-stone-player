@@ -1,5 +1,4 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import { applyCampaignEvent } from './campaign-events'
 import {
   combat,
@@ -11,6 +10,7 @@ import {
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
 import { groupTextRefs, sheetTextRefs } from '@/utils/sheet-texts'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { GameEvent } from '@/types/sending-stone'
 
 // A campaign's Group actors, as module 0.30.0 sends them: listed in its hello, each sheet kept

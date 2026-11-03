@@ -13,10 +13,8 @@ import {
   Written,
 } from './note-lines'
 import { noteChapter, noteEntry } from '@/mocks/notes-server'
+import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NoteState } from '@/types/notes'
-
-const ago = (minutes: number) =>
-  new Date(Date.now() - minutes * 60_000).toISOString()
 
 describe('components/notes/note-lines', () => {
   describe('Written', () => {

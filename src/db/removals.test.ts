@@ -2,11 +2,11 @@
  * @jest-environment node
  */
 /* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import { createRemoveRequest } from './removals'
 import { createRollRequest } from './roll-requests'
 import { playerSeat } from './seats'
 import { characterSheet, removalInventory } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 import type { RemoveInput, RollRequestInput, TransferInput } from '@/types/roll'
 

@@ -4,10 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { ChapterPane } from './chapter-pane'
 import { groupsOf } from './contents'
 import { emptyBook, noteChapter, noteEntry } from '@/mocks/notes-server'
+import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NoteEntryView, NotesView } from '@/types/notes'
-
-const ago = (minutes: number) =>
-  new Date(Date.now() - minutes * 60_000).toISOString()
 
 /** Two chapters, the first with two notes; two notes in none. */
 const book = (fields: Partial<NotesView> = {}) =>

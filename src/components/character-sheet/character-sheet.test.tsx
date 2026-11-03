@@ -16,6 +16,7 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import { brokenImages as brokenBeforeMount } from '@/utils/test-utils'
 import type { CharacterSheet as Sheet } from '@/types/sending-stone'
 import type { TableCombat } from '@/types/table'
 
@@ -74,24 +75,6 @@ const term = (label: string) =>
 
 /** The Hit dice tile's description. */
 const tile = () => term('Hit dice')?.nextSibling as HTMLElement
-
-/**
- * Every image as a page drawn on the server has it: done loading and broken before React
- * hydrates, so its error never reaches `onError`, and it has nothing to decode.
- */
-const brokenBeforeMount = () => {
-  jest
-    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
-    .mockReturnValue(true)
-  jest
-    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
-    .mockReturnValue(0)
-  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
-    configurable: true,
-    writable: true,
-    value: () => Promise.reject(new Error('EncodingError')),
-  })
-}
 
 /** The grid of the sheet's vital numbers, and the columns each of its tiles takes. */
 const grid = () => {

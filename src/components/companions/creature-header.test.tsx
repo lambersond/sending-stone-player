@@ -8,6 +8,7 @@ import {
   sheetAction,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import { brokenImages as brokenBeforeMount } from '@/utils/test-utils'
 import type { CharacterSheet, SheetCreature } from '@/types/sending-stone'
 import type { CreatureFacts, TableSheet } from '@/types/table'
 
@@ -62,24 +63,6 @@ const tiles = () =>
   within(screen.getAllByRole('definition')[0].closest('dl') as HTMLElement)
     .getAllByRole('term')
     .map(term => term.querySelector('span')?.textContent ?? term.textContent)
-
-/**
- * Every image as a page drawn on the server has it: done loading and broken before React
- * hydrates, so its error never reaches `onError`, and it has nothing to decode.
- */
-const brokenBeforeMount = () => {
-  jest
-    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
-    .mockReturnValue(true)
-  jest
-    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
-    .mockReturnValue(0)
-  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
-    configurable: true,
-    writable: true,
-    value: () => Promise.reject(new Error('EncodingError')),
-  })
-}
 
 /** The creature's own stats, each label and value. */
 const stats = () => {

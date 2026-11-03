@@ -11,12 +11,10 @@ import {
   noteEntry,
   serveNotes,
 } from '@/mocks/notes-server'
+import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NoteEntryView, NotesView } from '@/types/notes'
 
 const API = '/api/characters/char-1'
-
-const ago = (minutes: number) =>
-  new Date(Date.now() - minutes * 60_000).toISOString()
 
 /** Two chapters; a note in none, one in each. */
 const book = (fields: Partial<NotesView> = {}) =>

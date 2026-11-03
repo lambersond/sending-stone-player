@@ -7,6 +7,7 @@ import {
 } from './use-table-rolls'
 import { useTurnUndo } from './use-turn-undo'
 import { mockTurnCombat } from '@/mocks/sending-stone'
+import { advance, respond } from '@/utils/test-utils'
 import type { RollKind } from '@/types/roll'
 import type { EndableTurn, TableCombat } from '@/types/table'
 
@@ -55,18 +56,6 @@ const brakkaLeft = {
   name: 'Brakka',
   mine: false,
 }
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 type Props = {
   combat?: TableCombat

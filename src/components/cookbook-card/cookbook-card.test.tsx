@@ -10,6 +10,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { useCookbookEntry } from './cookbook-entry'
 import { forgetCookbook } from '@/hooks/use-cookbook-view'
+import { respond } from '@/utils/test-utils'
 import type {
   CookbookCodeAnswer,
   CookbookDishView,
@@ -20,13 +21,6 @@ import type {
 const CODE = 'sscb_1gT6dhjwOQSMNgkDXiyDOPt2ltW_RKU4XDAdTsRU2d4'
 const OTHER_CODE = 'sscb_9zZ8yyXwVuTsRqPoNmLkJiHgFeDcBa_-0123456789'
 const API = '/api/characters/char-1/cookbook'
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
 
 const LINK = {
   hint: 'U2d4',

@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
 import { POLL_INTERVAL, useTableView } from './use-table-view'
+import { advance, respond } from '@/utils/test-utils'
 import type { TableView } from '@/types/table'
 
 jest.mock('next/navigation', () => ({ useRouter: jest.fn() }))
@@ -18,18 +19,6 @@ const newer: TableView = {
   live: false,
   campaign: { title: 'The Lonely Mountain' },
 }
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 let visibility: DocumentVisibilityState = 'visible'
 

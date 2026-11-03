@@ -4,25 +4,8 @@ import { Sparkles } from 'lucide-react'
 import { Favoriting } from './favoriting'
 import { joinParts, SheetEntry } from './sheet-entry'
 import { offeringFavorites } from '@/mocks/sending-stone'
+import { brokenImages as brokenBeforeMount } from '@/utils/test-utils'
 import type { EffectChoice } from './effect-controls'
-
-/**
- * Every image as a page drawn on the server has it: done loading and broken before React
- * hydrates, so its error never reaches `onError`, and it has nothing to decode.
- */
-const brokenBeforeMount = () => {
-  jest
-    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
-    .mockReturnValue(true)
-  jest
-    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
-    .mockReturnValue(0)
-  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
-    configurable: true,
-    writable: true,
-    value: () => Promise.reject(new Error('EncodingError')),
-  })
-}
 
 describe('components/character-sheet/sheet-entry', () => {
   it("doesn't open without a description or details", () => {

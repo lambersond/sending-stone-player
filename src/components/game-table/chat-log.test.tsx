@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChatLog, initials } from './chat-log'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { brokenImages as brokenBeforeMount } from '@/utils/test-utils'
 import type {
   TableDamage,
   TableDamageKind,
@@ -116,24 +117,6 @@ const ask = (fields: Partial<TableMessage> = {}) =>
     },
     ...fields,
   })
-
-/**
- * Every image as a page drawn on the server has it: done loading and broken before React
- * hydrates, so its error never reaches `onError`, and it has nothing to decode.
- */
-const brokenBeforeMount = () => {
-  jest
-    .spyOn(HTMLImageElement.prototype, 'complete', 'get')
-    .mockReturnValue(true)
-  jest
-    .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
-    .mockReturnValue(0)
-  Object.defineProperty(HTMLImageElement.prototype, 'decode', {
-    configurable: true,
-    writable: true,
-    value: () => Promise.reject(new Error('EncodingError')),
-  })
-}
 
 describe('components/game-table/chat-log', () => {
   it('says when there are no messages', () => {

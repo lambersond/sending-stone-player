@@ -523,3 +523,47 @@ export type GmRollView = Pick<
   /** For a spell slot of the Gamemaster's, from module 0.42.1: spent or restored. */
   slotOp?: SpellSlotOp
 }
+
+/**
+ * What the app knows of a kind of roll request, in one place (src/constants/roll-kinds.ts)
+ * rather than in a list of kinds beside each reader: what a Gamemaster's roll of it is called
+ * where their page didn't say; the dice it throws; whether it's damage or healing, and whether
+ * its rolls add up; the kind of check it makes; whether it names what is rolled by a key, comes
+ * only from a link in a description, or may answer what the game asks; whether the Gamemaster or
+ * a companion may send it; the campaign's switch it has of its own, past the rolls'; and whether
+ * it waits while the character is transformed.
+ */
+export type RollKindInfo = {
+  /** A Gamemaster's roll of it as a character, as its player's page calls it by its kind (#156). */
+  gmLabel: string
+  /**
+   * The dice it throws: a d20 roll's, hit dice spent as they are, a recharge's one d6, a formula's
+   * or damage's own dice (`free`), or none.
+   */
+  dice: 'd20' | 'hitDice' | 'recharge' | 'free' | 'none'
+  /** Damage or healing: from module 0.36.0, an action's on its own too. */
+  damage?: true
+  /** Its total is all of its rolls' added up, as dnd5e's card adds damage up, or hit dice's. */
+  summed?: true
+  /** The kind of option a check a description or an activity calls for has. */
+  check?: 'skill' | 'tool' | 'check'
+  /** It names what is rolled by its key: a skill's, a tool's or an ability's. */
+  keyed?: true
+  /** It is asked for by a link in a description, and only by one. */
+  fromText?: true
+  /** It may answer what the game asks: a saving throw, or where Midi-QOL asks, a check. */
+  answers?: true
+  /** The Gamemaster never sends it: it would leave no mark of theirs. */
+  gm?: false
+  /** A companion's roll is never of it. */
+  companion?: false
+  /** The campaign's switch it has of its own: it is never one of the rolls. */
+  own?:
+    | 'transfersEnabled'
+    | 'removalsEnabled'
+    | 'favoritesEnabled'
+    | 'effectsEnabled'
+    | 'wildShapeEnabled'
+  /** It waits while the character is transformed: it would change its own actor's things. */
+  shaped?: true
+}

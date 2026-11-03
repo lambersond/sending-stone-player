@@ -42,11 +42,10 @@ import type {
  */
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 const GAME = 'https://my-game.forge-vtt.com'
 

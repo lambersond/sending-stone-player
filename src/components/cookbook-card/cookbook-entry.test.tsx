@@ -3,16 +3,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useCookbookEntry } from './cookbook-entry'
 import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
 import { forgetCookbook } from '@/hooks/use-cookbook-view'
+import { respond } from '@/utils/test-utils'
 import type { CookbookPlace, CookbookView } from '@/types/cookbook'
 
 const API = '/api/characters/char-1/cookbook'
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
 
 /* The book's route, as the app answers it: the view it holds now, 204 while unchanged. */
 let shown: CookbookView

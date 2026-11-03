@@ -8,6 +8,9 @@ import { createNote, getNotesStatus, getNotesView } from '@/db/notes'
 import { getGmSeat } from '@/db/seats'
 import { getCurrentUser } from '@/lib/session'
 import { mockNotesView } from '@/mocks/sending-stone'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))

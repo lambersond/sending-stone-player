@@ -1,5 +1,4 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import { playerSeat } from './seats'
 import {
   companionAsks,
@@ -21,6 +20,7 @@ import {
   wildShapeBlock,
   wolfForm,
 } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 /** Thorin's player at his sheet. */
 const character = playerSeat(

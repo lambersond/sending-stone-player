@@ -3,7 +3,6 @@
  */
 /* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
 import { NextRequest } from 'next/server'
-import { prismaMock } from '../../../../../../../../../jest.setup'
 import { GET } from './route'
 import { getCurrentUser } from '@/lib/session'
 import {
@@ -12,6 +11,7 @@ import {
   groupSheet,
   TEXTS,
 } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 

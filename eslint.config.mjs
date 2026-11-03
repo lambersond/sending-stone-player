@@ -162,10 +162,11 @@ export default [
       'react/prop-types': 0,
       'react/react-in-jsx-scope': 'off',
       'unicorn/no-lonely-if': 'error',
-      // unicorn 65 checks folder names too, and CLAUDE.md §8 puts integration tests in __tests__/:
+      // unicorn 65 checks folder names too, and CLAUDE.md §8 puts integration tests in __tests__/,
+      // whose snapshots Jest keeps in __snapshots__/:
       'unicorn/filename-case': [
         'error',
-        { case: 'kebabCase', ignore: ['^__tests__$'] },
+        { case: 'kebabCase', ignore: ['^__tests__$', '^__snapshots__$'] },
       ],
       'unicorn/prevent-abbreviations': 'off',
       'import/no-unresolved': 'off',

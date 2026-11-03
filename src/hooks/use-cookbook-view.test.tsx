@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { forgetCookbook, useCookbookView } from './use-cookbook-view'
 import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
+import { advance, respond } from '@/utils/test-utils'
 import type { CookbookView } from '@/types/cookbook'
 
 const URL_OF = '/api/characters/char-1/cookbook'
@@ -19,18 +20,6 @@ const cardView = (fields: Partial<CookbookView> = {}): CookbookView => ({
   dishes: [],
   ...fields,
 })
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 /** The addresses read, in order. */
 const reads = () => jest.mocked(fetch).mock.calls.map(([url]) => String(url))

@@ -19,6 +19,7 @@ import {
   noteEntry,
   serveNotes,
 } from '@/mocks/notes-server'
+import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NotesView } from '@/types/notes'
 
 jest.mock('@/hooks/use-keyboard-inset', () => ({
@@ -29,10 +30,6 @@ const API = '/api/characters/char-1'
 const PARTY_API = '/api/characters/char-1/party/company'
 
 type Props = Parameters<typeof JournalCard>[0]
-
-/** A time this many minutes ago. */
-const ago = (minutes: number) =>
-  new Date(Date.now() - minutes * 60_000).toISOString()
 
 /**
  * Thorin's book: a note in no chapter, and two in Session 1, the goblin cave the one changed most

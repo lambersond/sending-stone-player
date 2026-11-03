@@ -3,7 +3,6 @@
  */
 /* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { NextRequest } from 'next/server'
-import { prismaMock } from '../../../../../../../../../jest.setup'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
 import { getCurrentUser } from '@/lib/session'
@@ -14,6 +13,7 @@ import {
   mockCompanionSheet,
   PARTY,
 } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))

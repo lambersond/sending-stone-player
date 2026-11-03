@@ -1,5 +1,4 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
 import { recordCommandResult } from './roll-requests'
 import { noteHtml } from '@/lib/note-html'
@@ -38,6 +37,7 @@ import {
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
 import { sheetTextRefs } from '@/utils/sheet-texts'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { CommandResult, GameEvent } from '@/types/sending-stone'
 
 // Drawn as ever, and watched for when: a journal's notes are drawn before its transaction.

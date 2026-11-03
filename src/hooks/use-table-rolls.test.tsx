@@ -42,6 +42,7 @@ import {
   withModifiers,
   type DamageModifiers,
 } from '@/utils/damage-modifiers'
+import { advance, respond } from '@/utils/test-utils'
 import type {
   LocalAsk,
   LocalCheck,
@@ -286,18 +287,6 @@ const lock = (kind: 'skill' | 'tool' | 'ability', key: string): SheetRoll => ({
   source: { kind, key, item: 'tools', activity: 'pick' },
   dc: 15,
 })
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 const render = (
   kinds: RollKind[] = ['skill', 'save'],

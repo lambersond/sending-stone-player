@@ -1,5 +1,4 @@
 /* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import {
   companionRollSeat,
   companionRoster,
@@ -18,6 +17,7 @@ import {
   PARTY,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 import type { CompanionEntry } from '@/types/sending-stone'
 

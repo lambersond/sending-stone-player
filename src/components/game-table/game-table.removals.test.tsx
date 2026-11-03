@@ -9,6 +9,7 @@ import {
 } from '@/mocks/sending-stone'
 import { TOASTS_KEY } from '@/utils/roll-toasts'
 import { toTableSheet } from '@/utils/table-view'
+import { posts, respond } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { CharacterSheet } from '@/types/sending-stone'
 import type { TableView } from '@/types/table'
@@ -21,11 +22,10 @@ jest.mock('@/hooks/use-table-view', () => ({
   useTableView: jest.fn(),
 }))
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
-jest.mock('@lambersond/3d-dice-react', () => ({
-  DiceRendererProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  useDiceRenderer: () => ({ isReady: false, roll: jest.fn() }),
-}))
+jest.mock(
+  '@lambersond/3d-dice-react',
+  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+)
 
 const GAME = 'https://my-game.forge-vtt.com'
 
@@ -92,20 +92,6 @@ const renderTable = async (shown: TableView, seat?: TableSeat) => {
   await user.click(screen.getByRole('tab', { name: /^Inventory/ }))
   return user
 }
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-/** What was posted, and where: never a description an opened row loads. */
-const posts = () =>
-  jest
-    .mocked(fetch)
-    .mock.calls.filter(([, init]) => init?.method === 'POST')
-    .map(([url, init]) => ({ url, body: JSON.parse(String(init?.body)) }))
 
 /** An item's row in a section of the Inventory tab, by its name: its summary, or the row. */
 const rowOf = (section: string, name: string) => {

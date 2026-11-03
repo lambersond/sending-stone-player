@@ -4,6 +4,7 @@ import { CHECK_EVERY, GM_SEND_KEY, SEND_KEY } from './use-table-rolls'
 import { POLL_INTERVAL } from './use-table-view'
 import { mockTurnCombat } from '@/mocks/sending-stone'
 import { END_TURN_ARMS_AFTER } from '@/utils/end-turn'
+import { advance, respond } from '@/utils/test-utils'
 import type { RollKind } from '@/types/roll'
 import type { EndableTurn, TableCombat } from '@/types/table'
 
@@ -21,18 +22,6 @@ const brakkas: EndableTurn = {
   combatantId: 'c-brakka',
   companion: { key: 'wolfBrakka', name: 'Brakka' },
 }
-
-const respond = (status: number, body?: unknown) =>
-  ({
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }) as Response
-
-const advance = (ms: number) =>
-  act(async () => {
-    await jest.advanceTimersByTimeAsync(ms)
-  })
 
 /** A tap or a hold's end, and what the app answers at once. */
 const ending = (end: () => void) =>
