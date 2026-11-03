@@ -248,9 +248,12 @@ export class Checkout {
       const map = new Map()
       for (const row of readMoves()) {
         if (row.kind === 'file' && row.to) map.set(row.base, row.to)
+        // A `delete` record (move.cjs, export-move.cjs) means the base file is gone.
+        if (row.kind === 'delete') map.set(row.base, null)
       }
       return map
     })
+    if (forward.get(basePath) === null) return undefined
     for (const candidate of [forward.get(basePath), this.renames.get(basePath), basePath]) {
       if (candidate && this.has(candidate)) return candidate
     }
