@@ -1,0 +1,4 @@
+# The codemods' record (round.md §3.4; M's format, X/handoff/moves-format.txt): tab-separated
+# kind, from, to, name, base. `file` a whole-file move (git mv), `delete` a barrel gone, `name` an
+# export moved (`Old=New` for a rename). move.cjs and export-move.cjs append rows (commits 5, 7);
+# the gates follow a base path through `file` rows and read `name` rows as the moved names.

@@ -1,0 +1,7 @@
+# Gate 1b's allowlist (round.md §3.4): one row per exception, with its reason; only the orchestrator
+# adds a row (a builder asks for it in its report). Rows:
+#   <test file at the base><TAB>mock<TAB><mock path as written><TAB><reason>   that jest.mock left out
+#   <test file at the base><TAB>file<TAB>-<TAB><reason>                        the file not compared
+# At the base nothing differs, so none is needed (W-a's dry run, 2026-11-03). Planned: R3.3's 18
+# 3d-dice-react factories replaced by the dice-renderer requireActual (commit 2, T's files), and
+# R1.9.3's turn-toast retarget (commit 8).

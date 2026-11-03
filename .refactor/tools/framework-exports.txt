@@ -1,0 +1,59 @@
+# Gate 6's baseline: the framework files of 24f808b (pages, layouts, not-found, manifest, routes, the
+# 'use server' actions), each with its directive and its exported value names (W-a, Phase 1).
+src/app/api/auth/[...all]/route.ts	-	
+src/app/api/bridge/commands/route.ts	-	OPTIONS,POST,maxDuration
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.ts	-	GET
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.ts	-	POST
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.ts	-	GET
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.ts	-	GET
+src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.ts	-	DELETE,PATCH
+src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.ts	-	PATCH,PUT
+src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.ts	-	POST
+src/app/api/campaigns/[id]/characters/[actor]/notes/route.ts	-	GET,POST
+src/app/api/campaigns/[id]/characters/[actor]/rolls/[roll]/route.ts	-	GET
+src/app/api/campaigns/[id]/characters/[actor]/rolls/route.ts	-	POST
+src/app/api/campaigns/[id]/characters/[actor]/table/route.ts	-	GET
+src/app/api/campaigns/[id]/characters/[actor]/texts/[hash]/route.ts	-	GET
+src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.ts	-	DELETE,PATCH
+src/app/api/campaigns/[id]/party/[group]/notes/order/route.ts	-	PATCH,PUT
+src/app/api/campaigns/[id]/party/[group]/notes/preview/route.ts	-	POST
+src/app/api/campaigns/[id]/party/[group]/notes/route.ts	-	GET,POST
+src/app/api/campaigns/[id]/party/[group]/route.ts	-	GET
+src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.ts	-	GET
+src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.ts	-	GET
+src/app/api/characters/[id]/companions/[companion]/rolls/route.ts	-	POST
+src/app/api/characters/[id]/companions/[companion]/table/route.ts	-	GET
+src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.ts	-	GET
+src/app/api/characters/[id]/cookbook/route.ts	-	GET
+src/app/api/characters/[id]/notes/[note]/route.ts	-	DELETE,PATCH
+src/app/api/characters/[id]/notes/order/route.ts	-	PATCH,PUT
+src/app/api/characters/[id]/notes/preview/route.ts	-	POST
+src/app/api/characters/[id]/notes/route.ts	-	GET,POST
+src/app/api/characters/[id]/party/[group]/notes/[note]/route.ts	-	DELETE,PATCH
+src/app/api/characters/[id]/party/[group]/notes/order/route.ts	-	PATCH,PUT
+src/app/api/characters/[id]/party/[group]/notes/preview/route.ts	-	POST
+src/app/api/characters/[id]/party/[group]/notes/route.ts	-	GET,POST
+src/app/api/characters/[id]/party/[group]/route.ts	-	GET
+src/app/api/characters/[id]/party/[group]/texts/[hash]/route.ts	-	GET
+src/app/api/characters/[id]/rolls/[roll]/route.ts	-	GET
+src/app/api/characters/[id]/rolls/route.ts	-	POST
+src/app/api/characters/[id]/table/route.ts	-	GET
+src/app/api/characters/[id]/texts/[hash]/route.ts	-	GET
+src/app/api/cookbook/dishes/route.ts	-	POST
+src/app/api/events/route.ts	-	OPTIONS,POST
+src/app/campaigns/[id]/characters/[actor]/not-found.tsx	-	default
+src/app/campaigns/[id]/characters/[actor]/page.tsx	-	default,generateMetadata
+src/app/campaigns/[id]/party/[group]/not-found.tsx	-	default
+src/app/campaigns/[id]/party/[group]/page.tsx	-	default,generateMetadata
+src/app/campaigns/actions.ts	use server	changeSecretAction,removeCampaignAction,removePlayerAction,resetInviteAction,revokeCookbookLinkAction,setUpCampaignAction
+src/app/campaigns/page.tsx	-	default,metadata
+src/app/characters/[id]/page.tsx	-	default,generateMetadata
+src/app/characters/[id]/party/[group]/not-found.tsx	-	default
+src/app/characters/[id]/party/[group]/page.tsx	-	default,generateMetadata
+src/app/characters/actions.ts	use server	chooseActor,deleteCharacterAndLeave,joinAsCharacter,makeCookbookCode,markChatReadUpTo,openInvite,removeCharacter,revokeCookbookCode,setManualDice
+src/app/characters/page.tsx	-	default,metadata
+src/app/join/[code]/page.tsx	-	default,metadata
+src/app/layout.tsx	-	default,metadata,viewport
+src/app/login/page.tsx	-	default,metadata
+src/app/manifest.ts	-	default
+src/app/page.tsx	-	default

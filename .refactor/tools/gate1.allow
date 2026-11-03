@@ -1,0 +1,2 @@
+# Gate 1's allowlist (round.md §3.4): `<test file><TAB><reason>`, a test file whose tests may be gone.
+# Only commit 26's retirement of C1, C3 and C9 belongs here (R3.10 adds their three paths then).
