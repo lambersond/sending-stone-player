@@ -1,0 +1,71 @@
+src/app/campaigns/[id]/characters/[actor]/page.test.tsx:1	file	unicorn/no-null	the Gamemaster's seat has no character, null
+src/app/campaigns/[id]/characters/[actor]/page.test.tsx:87	next-line	unicorn/no-useless-undefined	(none)
+src/app/campaigns/[id]/party/[group]/page.test.tsx:96	next-line	unicorn/no-useless-undefined	(none)
+src/app/characters/[id]/page.test.tsx:1	file	unicorn/no-null	a character with no campaign holds null
+src/app/characters/[id]/page.test.tsx:177	next-line	unicorn/no-useless-undefined	(none)
+src/app/characters/[id]/page.test.tsx:196	next-line	unicorn/no-useless-undefined	(none)
+src/app/characters/[id]/party/[group]/page.test.tsx:111	next-line	unicorn/no-null	a character with no actor has null
+src/app/characters/[id]/party/[group]/page.test.tsx:149	next-line	unicorn/no-useless-undefined	(none)
+src/app/characters/[id]/party/[group]/page.test.tsx:154	next-line	unicorn/no-useless-undefined	(none)
+src/app/join/[code]/page.test.tsx:70	next-line	unicorn/no-useless-undefined	(none)
+src/app/layout.tsx:1	file	camelcase	(none)
+src/app/login/page.test.tsx:29	next-line	unicorn/no-useless-undefined	(none)
+src/app/manifest.test.ts:4	file	camelcase	the Web App Manifest's own names
+src/app/manifest.ts:1	file	camelcase	the Web App Manifest's own names
+src/app/page.test.tsx:9	next-line	unicorn/no-useless-undefined	(none)
+src/components/avatar/avatar.test.tsx:17	next-line	unicorn/no-null	as stored for a user with no image
+src/components/avatar/avatar.tsx:17	next-line	@next/next/no-img-element	any provider's avatar host
+src/components/campaigns/campaign-card.test.tsx:556	next-line	unicorn/no-null	a hello says a version it doesn't know as null
+src/components/campaigns/campaign-card.test.tsx:649	next-line	unicorn/no-null	a hello says an unknown version as null
+src/components/campaigns/campaign-card.test.tsx:710	next-line	unicorn/no-null	a hello says an unknown version as null
+src/components/campaigns/campaign-card.test.tsx:1160	next-line	unicorn/no-null	a hello says an unknown version as null
+src/components/campaigns/campaign-card.test.tsx:1246	next-line	unicorn/no-null	a hello says an unknown version as null
+src/components/campaigns/campaign-ids.ts:20	next-line	unicorn/prefer-query-selector	an id, not a selector
+src/components/campaigns/campaign-index.test.tsx:191	next-line	react/jsx-key	unkeyed, for the index to key
+src/components/campaigns/foundry-settings.test.tsx:1	file	unicorn/no-null	protocol payloads use null for an absent value
+src/components/character-list/character-list.test.tsx:1	file	unicorn/no-null	a character with no campaign holds null
+src/components/companions/companion-pane.test.tsx:1	file	unicorn/no-null	the sheet uses null for an absent value
+src/components/companions/creature-header.test.tsx:1	file	unicorn/no-null	the sheet uses null for an absent value
+src/components/companions/creature-switcher.test.tsx:1	file	unicorn/no-this-outside-of-class	(none)
+src/components/companions/creature-switcher.tsx:446	next-line	@next/next/no-img-element	(none)
+src/components/cookbook-card/cookbook-card.test.tsx:1	file	unicorn/no-null	the view uses null for an absent value
+src/components/cookbook-card/cookbook-dish-list.test.tsx:1	file	unicorn/no-null	the view uses null for an absent value
+src/components/cookbook-card/cookbook-entry.test.tsx:1	file	unicorn/no-null	the view uses null for an absent value
+src/components/logo/logo.tsx:22	next-line	@next/next/no-img-element	(none)
+src/components/modal/portal-root.tsx:44	next-line	unicorn/no-null	floating-ui waits for a root that's null
+src/components/notes/chapter-form.test.tsx:1	file	unicorn/no-null	a chapter is in no chapter, as the API has it
+src/components/notes/chapter-pane.test.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/contents.test.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/contents.tsx:1	file	unicorn/no-null	the notes in no chapter are the group of no chapter, null
+src/components/notes/journal-card.test.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/journal-modal.test.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/journal-modal.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/move-menu.test.tsx:1	file	unicorn/no-null	a note in no chapter has null for it
+src/components/notes/move-menu.tsx:49	next-line	unicorn/no-null	floating-ui marks no active item with null
+src/components/notes/move-menu.tsx:90	next-line	unicorn/no-null	out of its chapter, into none
+src/components/notes/note-editor.test.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/note-editor.test.tsx:50	next-line	unicorn/no-useless-undefined	the preview's none
+src/components/notes/note-editor.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/note-lines.test.tsx:1	file	unicorn/no-null	a note written in Foundry has no author
+src/components/notes/note-pane.test.tsx:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/components/notes/reorder-pane.test.tsx:1	file	unicorn/no-null	a note written in Foundry has no author
+src/components/notes/sortable.test.tsx:103	next-line	unicorn/no-this-outside-of-class	the element it's called on
+src/components/party-sheet/party-sheet.test.tsx:1	file	unicorn/no-null	the sheet uses null for an absent value
+src/components/site-header/site-header.test.tsx:35	next-line	unicorn/no-useless-undefined	(none)
+src/components/transfers/give-controls.test.tsx:1	file	unicorn/no-null	the sheet uses null for an absent value
+src/components/transfers/move-dialog.test.tsx:1	file	unicorn/no-null	the sheet uses null for an absent value
+src/components/transfers/remove-dialog.test.tsx:1	file	unicorn/no-null	the sheet uses null for an absent value
+src/components/transfers/take-controls.test.tsx:1	file	unicorn/no-null	the sheet uses null for an absent value
+src/hooks/use-cookbook-view.test.tsx:1	file	unicorn/no-null	the view uses null for an absent value
+src/hooks/use-image-fallback.test.tsx:1	file	unicorn/no-null	the game's icons use null for none
+src/hooks/use-image-fallback.test.tsx:13	next-line	@next/next/no-img-element	(none)
+src/hooks/use-notes.test.ts:1	file	unicorn/no-null	a note in no chapter has null for it, as the API has
+src/hooks/use-party-sheet.test.tsx:19	next-line	unicorn/no-null	the sheet uses null for none
+src/hooks/use-party-sheet.test.tsx:21	next-line	unicorn/no-null	the sheet uses null for none
+src/hooks/use-party-sheet.test.tsx:24	next-line	unicorn/no-null	the sheet uses null for none
+src/utils/campaign-order.ts:24	next-line	unicorn/no-null	needs nothing
+src/utils/companion-row.ts:106	next-line	unicorn/prefer-code-point	(none)
+src/utils/creature-words.test.ts:1	file	unicorn/no-null	the protocol uses null for an absent value
+src/utils/note-headings.test.ts:116	next-line	no-console	the agreement rate is printed (round 0.34.0 §8.11)
+src/utils/note-words.test.ts:1	file	unicorn/no-null	a book with no journal in Foundry has null for it
+src/utils/order-words.test.ts:1	file	unicorn/no-null	a note moved out of its chapter goes to none

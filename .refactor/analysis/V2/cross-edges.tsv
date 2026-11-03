@@ -1,0 +1,187 @@
+mine	importer	names	kind	via
+src/components/character-chooser/character-chooser.tsx	src/components/game-table/game-table.tsx	CharacterChooser	value	src/components/character-chooser/index.ts
+src/components/character-chooser/index.ts	src/components/game-table/game-table.tsx	CharacterChooser	value	
+src/components/character-list/index.ts	src/components/game-table/game-table.tsx	DeleteCharacterWarning	value	
+src/components/character-list/remove-character-button.tsx	src/components/game-table/game-table.tsx	DeleteCharacterWarning	value	src/components/character-list/index.ts
+src/components/companions/companion-ask-notice.tsx	src/components/game-table/game-table.tsx	CompanionAskNotice	value	
+src/components/companions/companion-pane.tsx	src/components/game-table/game-table.tsx	CompanionPane	value	
+src/components/companions/creature-header.tsx	src/components/character-sheet/character-sheet.tsx	CreatureHeader,otherSpeeds	value	
+src/components/companions/creature-switcher.tsx	src/components/game-table/game-table.tsx	CreatureSwitcher,SwitcherCreature	value	
+src/components/cookbook-card/cookbook-entry.tsx	src/components/character-sheet/character-pane.tsx	useCookbookEntry	value	src/components/cookbook-card/index.ts
+src/components/cookbook-card/cookbook-entry.tsx	src/components/character-sheet/sheet-settings.tsx	CONFIGURE_COOKBOOK	value	src/components/cookbook-card/index.ts
+src/components/cookbook-card/cookbook-entry.tsx	src/components/game-table/game-table.tsx	CONFIGURE_COOKBOOK,useCookbookEntry	value	src/components/cookbook-card/index.ts
+src/components/cookbook-card/index.ts	src/components/character-sheet/character-pane.tsx	useCookbookEntry	value	
+src/components/cookbook-card/index.ts	src/components/character-sheet/sheet-settings.tsx	CONFIGURE_COOKBOOK	value	
+src/components/cookbook-card/index.ts	src/components/game-table/game-table.tsx	CONFIGURE_COOKBOOK,useCookbookEntry	value	
+src/components/help-links/help-links.tsx	src/components/character-sheet/sheet-settings.tsx	HelpLinks	value	src/components/help-links/index.ts
+src/components/help-links/index.ts	src/components/character-sheet/sheet-settings.tsx	HelpLinks	value	
+src/components/icons/die.tsx	src/components/dice-entry/dice-entry-dialog.tsx	DieIcon	value	
+src/components/icons/die.tsx	src/components/character-sheet/hit-die-icon.tsx	DieIcon,DieSides	value	src/components/icons/index.ts
+src/components/icons/index.ts	src/components/character-sheet/hit-die-icon.tsx	DieIcon,DieSides	value	
+src/components/modal/confirm-dialog.tsx	src/components/character-sheet/character-sheet.tsx	ConfirmModal	value	src/components/modal/index.ts
+src/components/modal/confirm-dialog.tsx	src/components/character-sheet/concentration.tsx	ConfirmDialog,ConfirmModal	value	src/components/modal/index.ts
+src/components/modal/confirm-dialog.tsx	src/components/character-sheet/effects-tab.tsx	ConfirmModal	value	src/components/modal/index.ts
+src/components/modal/confirm-dialog.tsx	src/components/character-sheet/enchantments.tsx	ConfirmDialog	value	src/components/modal/index.ts
+src/components/modal/confirm-dialog.tsx	src/components/character-sheet/spell-slots.tsx	ConfirmModal	value	src/components/modal/index.ts
+src/components/modal/confirm-dialog.tsx	src/components/game-table/game-table.tsx	ConfirmDialog	value	src/components/modal/index.ts
+src/components/modal/index.ts	src/components/character-sheet/action-info.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/character-sheet.tsx	ConfirmModal	value	
+src/components/modal/index.ts	src/components/character-sheet/concentration.tsx	ConfirmDialog,ConfirmModal	value	
+src/components/modal/index.ts	src/components/character-sheet/d20-rolls.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/damage-menu.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/description-link.test.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/description-link.tsx	Modal,usePortalRoot,useTopmostEscape	value	
+src/components/modal/index.ts	src/components/character-sheet/effects-tab.tsx	ConfirmModal	value	
+src/components/modal/index.ts	src/components/character-sheet/enchantments.tsx	ConfirmDialog	value	
+src/components/modal/index.ts	src/components/character-sheet/hit-dice-menu.tsx	usePortalRoot,useTopmostEscape	value	
+src/components/modal/index.ts	src/components/character-sheet/hit-dice.test.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/inventory-tab.test.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/inventory-tab.tsx	usePortalRoot,useTopmostEscape	value	
+src/components/modal/index.ts	src/components/character-sheet/roll-menu.test.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/roll-menu.tsx	usePortalRoot,useTopmostEscape	value	
+src/components/modal/index.ts	src/components/character-sheet/roll-toasts.tsx	InPortalRoot	value	
+src/components/modal/index.ts	src/components/character-sheet/rolls-button.tsx	InPortalRoot,usePortalRoot	value	
+src/components/modal/index.ts	src/components/character-sheet/sheet-settings.tsx	usePortalRoot,useTopmostEscape	value	
+src/components/modal/index.ts	src/components/character-sheet/spell-slots.tsx	ConfirmModal	value	
+src/components/modal/index.ts	src/components/character-sheet/use-picker.tsx	Modal	value	
+src/components/modal/index.ts	src/components/character-sheet/uses-menu.tsx	usePortalRoot,useTopmostEscape	value	
+src/components/modal/index.ts	src/components/character-sheet/wild-shape.tsx	Modal,usePortalRoot,useTopmostEscape	value	
+src/components/modal/index.ts	src/components/game-table/fullscreen-button.tsx	Modal	value	
+src/components/modal/index.ts	src/components/game-table/game-table.tsx	ConfirmDialog	value	
+src/components/modal/modal.tsx	src/components/dice-entry/dice-entry-dialog.tsx	Modal	value	
+src/components/modal/modal.tsx	src/components/character-sheet/action-info.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/d20-rolls.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/damage-menu.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/description-link.test.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/description-link.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/hit-dice.test.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/inventory-tab.test.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/roll-menu.test.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/use-picker.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/character-sheet/wild-shape.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/modal.tsx	src/components/game-table/fullscreen-button.tsx	Modal	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/description-link.tsx	usePortalRoot,useTopmostEscape	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/hit-dice-menu.tsx	usePortalRoot,useTopmostEscape	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/inventory-tab.tsx	usePortalRoot,useTopmostEscape	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/roll-menu.tsx	usePortalRoot,useTopmostEscape	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/roll-toasts.tsx	InPortalRoot	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/rolls-button.tsx	InPortalRoot,usePortalRoot	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/sheet-settings.tsx	usePortalRoot,useTopmostEscape	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/uses-menu.tsx	usePortalRoot,useTopmostEscape	value	src/components/modal/index.ts
+src/components/modal/portal-root.tsx	src/components/character-sheet/wild-shape.tsx	usePortalRoot,useTopmostEscape	value	src/components/modal/index.ts
+src/components/notes/index.ts	src/components/character-sheet/biography-tab.tsx	JournalCard,NotesPlace	value	
+src/components/notes/index.ts	src/components/character-sheet/character-pane.tsx	NotesPlace	type	
+src/components/notes/index.ts	src/components/game-table/game-table.tsx	JournalCard,NotesPlace	value	
+src/components/notes/journal-card.tsx	src/components/character-sheet/biography-tab.tsx	JournalCard	value	src/components/notes/index.ts
+src/components/notes/journal-card.tsx	src/components/game-table/game-table.tsx	JournalCard	value	src/components/notes/index.ts
+src/components/party-sheet/party-panel.tsx	src/components/game-table/game-table.tsx	PartyPanel	value	
+src/components/party-sheet/party-sheet.tsx	src/components/character-sheet/item-menu.test.tsx	PartySheet	value	
+src/components/scroller/index.ts	src/components/character-sheet/character-pane.tsx	Scroller	value	
+src/components/scroller/index.ts	src/components/character-sheet/favorites.tsx	Scroller	value	
+src/components/scroller/index.ts	src/components/game-table/game-table.tsx	Scroller	value	
+src/components/scroller/scroller.tsx	src/components/character-sheet/character-pane.tsx	Scroller	value	src/components/scroller/index.ts
+src/components/scroller/scroller.tsx	src/components/character-sheet/favorites.tsx	Scroller	value	src/components/scroller/index.ts
+src/components/scroller/scroller.tsx	src/components/game-table/game-table.tsx	Scroller	value	src/components/scroller/index.ts
+src/components/search-field/index.ts	src/components/character-sheet/spells-tab.tsx	SearchField	value	
+src/components/search-field/index.ts	src/components/character-sheet/use-picker.tsx	SearchField	value	
+src/components/search-field/index.ts	src/components/character-sheet/wild-shape.tsx	SearchField	value	
+src/components/search-field/search-field.tsx	src/components/character-sheet/spells-tab.tsx	SearchField	value	src/components/search-field/index.ts
+src/components/search-field/search-field.tsx	src/components/character-sheet/use-picker.tsx	SearchField	value	src/components/search-field/index.ts
+src/components/search-field/search-field.tsx	src/components/character-sheet/wild-shape.tsx	SearchField	value	src/components/search-field/index.ts
+src/components/side-panel/index.ts	src/components/character-sheet/conditions-panel.tsx	SidePanel	value	
+src/components/side-panel/side-panel.tsx	src/components/character-sheet/conditions-panel.tsx	SidePanel	value	src/components/side-panel/index.ts
+src/components/theme-toggle/index.ts	src/components/character-sheet/sheet-settings.tsx	ThemeToggle	value	
+src/components/theme-toggle/theme-toggle.tsx	src/components/character-sheet/sheet-settings.tsx	ThemeToggle	value	src/components/theme-toggle/index.ts
+src/components/transfers/give-controls.tsx	src/components/character-sheet/character-pane.tsx	useGiveControls	value	
+src/components/transfers/remove-controls.tsx	src/components/character-sheet/character-pane.tsx	useRemoveControls	value	
+src/components/transfers/take-controls.tsx	src/components/character-sheet/item-menu.test.tsx	TakeInto	type	
+src/components/transfers/transferring.tsx	src/components/character-sheet/inventory-tab.test.tsx	Transferring,TransferControls	value	
+src/components/transfers/transferring.tsx	src/components/character-sheet/inventory-tab.tsx	NO_TRANSFERS,Transferring,useTransferring,TransferControls	value	
+src/hooks/use-cookbook-view.ts	src/components/character-sheet/biography-tab.test.tsx	forgetCookbook	value	
+src/hooks/use-cookbook-view.ts	src/components/character-sheet/character-pane.test.tsx	forgetCookbook	value	
+src/hooks/use-cookbook-view.ts	src/components/game-table/game-table.cookbook.test.tsx	forgetCookbook	value	
+src/hooks/use-hydrated.ts	src/components/character-sheet/roll-toasts.tsx	useHydrated	value	
+src/hooks/use-hydrated.ts	src/components/character-sheet/wild-shape.tsx	useHydrated	value	
+src/hooks/use-hydrated.ts	src/components/dice-entry/use-dice-entry.tsx	useHydrated	value	
+src/hooks/use-hydrated.ts	src/components/game-table/local-time.tsx	useHydrated	value	
+src/hooks/use-hydrated.ts	src/components/game-table/turn-toast.tsx	useHydrated	value	
+src/hooks/use-image-fallback.ts	src/components/character-sheet/sheet-entry.tsx	useImageFallback	value	
+src/hooks/use-image-fallback.ts	src/components/character-sheet/sheet-tiles.tsx	useImageFallback	value	
+src/hooks/use-image-fallback.ts	src/components/game-table/chat-log.tsx	useImageFallback	value	
+src/hooks/use-media-query.ts	src/components/dice-entry/dice-entry-dialog.tsx	useMediaQuery	value	
+src/hooks/use-media-query.ts	src/components/game-table/game-table.tsx	useMediaQuery	value	
+src/hooks/use-notes.ts	src/components/character-sheet/biography-tab.test.tsx	forgetNotes	value	
+src/hooks/use-notes.ts	src/components/character-sheet/character-pane.notes.test.tsx	forgetNotes,hasDraft,useNotes	value	
+src/hooks/use-notes.ts	src/components/character-sheet/character-pane.tsx	hasDraft,journalOpen	value	
+src/hooks/use-notes.ts	src/components/game-table/game-table.cookbook.test.tsx	forgetNotes	value	
+src/hooks/use-notes.ts	src/components/game-table/game-table.notes.test.tsx	forgetNotes	value	
+src/hooks/use-stored.ts	src/components/character-sheet/actions-layout.tsx	useStoredChoice	value	
+src/hooks/use-stored.ts	src/components/character-sheet/actions-tab.tsx	useStoredSet	value	
+src/hooks/use-stored.ts	src/components/character-sheet/favorites.tsx	useStoredChoice	value	
+src/hooks/use-stored.ts	src/components/character-sheet/use-picker.tsx	useStoredChoice	value	
+src/hooks/use-stored.ts	src/components/character-sheet/wild-shape.tsx	useStoredText	value	
+src/hooks/use-stored.ts	src/hooks/use-end-turn.ts	useStoredChoice	value	
+src/hooks/use-stored.ts	src/hooks/use-roll-toasts.ts	useStoredChoice	value	
+src/hooks/use-stored.ts	src/hooks/use-table-rolls.ts	useStoredChoice	value	
+src/hooks/use-stored.ts	src/hooks/use-turn-undo.ts	useStoredChoice	value	
+src/hooks/use-width.ts	src/components/character-sheet/character-pane.tsx	useWidth	value	
+src/hooks/use-width.ts	src/components/character-sheet/favorites.tsx	useWidth	value	
+src/utils/alone-choices.ts	src/utils/damage-alone.ts	alonePicks,alonePlan,aloneSelection,AloneRow	value	
+src/utils/alone-choices.ts	src/utils/damage-alone.ts	alonePicks,alonePlan,aloneSelection,AlonePicks,AlonePlan,AloneRow,AloneSelection	value	
+src/utils/alone-choices.ts	src/utils/roll-requests.ts	alonePicks,alonePlan	value	
+src/utils/companion-row.ts	src/components/game-table/game-table.tsx	companionRow,numberedNames,RowCompanion	value	
+src/utils/creature-words.ts	src/components/character-sheet/action-entry.tsx	rechargeWords	value	
+src/utils/creature-words.ts	src/components/character-sheet/action-info.tsx	rechargeWords	value	
+src/utils/creature-words.ts	src/components/character-sheet/favorites.tsx	rechargeWords	value	
+src/utils/creature-words.ts	src/components/character-sheet/features-tab.tsx	rechargeWords	value	
+src/utils/creature-words.ts	src/components/character-sheet/sheet-tiles.tsx	afterWords	value	
+src/utils/creature-words.ts	src/utils/wild-shape-words.ts	crWords	value	
+src/utils/format-amount.ts	src/components/character-sheet/inventory-tab.tsx	compactAmount	value	
+src/utils/format-amount.ts	src/components/game-table/game-table.tsx	megabytes	value	
+src/utils/format-modifier.ts	src/components/character-sheet/action-entry.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/action-info.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/character-sheet.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/d20-rolls.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/description-link.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/favorites.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/modify-roll.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/prompt-banner.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/roll-tray.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/sheet-tiles.tsx	formatModifier	value	
+src/utils/format-modifier.ts	src/components/character-sheet/spells-tab.tsx	formatModifier	value	
+src/utils/game-host.ts	src/components/game-table/game-table.tsx	gameHost	value	
+src/utils/literal-pattern.ts	src/db/campaigns.ts	literalPattern	value	
+src/utils/note-headings.ts	src/db/notes.ts	bigHeadings	value	
+src/utils/note-id.ts	src/db/notes.ts	newNoteId	value	
+src/utils/note-id.ts	src/lib/notes-routes.ts	NOTE_ID	value	
+src/utils/note-id.ts	src/schemas/notes.ts	NOTE_ID	value	
+src/utils/note-id.ts	src/schemas/notes.ts	NOTE_ID	value	
+src/utils/note-id.ts	src/schemas/sending-stone.ts	NOTE_ID	value	
+src/utils/search.ts	src/components/character-sheet/spells-tab.tsx	matchesSearch,searchKey	value	
+src/utils/search.ts	src/components/character-sheet/use-picker.tsx	matchesSearch,searchKey	value	
+src/utils/search.ts	src/components/character-sheet/wild-shape.tsx	matchesSearch	value	
+src/utils/seat-words.ts	src/components/character-sheet/actions-tab.test.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/components/character-sheet/character-pane.tsx	seatWords,SeatRole	value	
+src/utils/seat-words.ts	src/components/character-sheet/damage-menu.tsx	seatWords	value	
+src/utils/seat-words.ts	src/components/character-sheet/effects-tab.test.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/components/character-sheet/enchantments.tsx	seatWords	value	
+src/utils/seat-words.ts	src/components/character-sheet/features-tab.test.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/components/character-sheet/inventory-tab.test.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/components/character-sheet/prompt-banner.tsx	seatWords	value	
+src/utils/seat-words.ts	src/components/character-sheet/roll-tray.tsx	seatWords,SeatRole	value	
+src/utils/seat-words.ts	src/components/character-sheet/sheet-settings.tsx	seatWords	value	
+src/utils/seat-words.ts	src/components/character-sheet/spells-tab.test.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/components/character-sheet/use-picker.tsx	seatWords	value	
+src/utils/seat-words.ts	src/components/character-sheet/wild-shape.test.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/components/character-sheet/wild-shape.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/components/game-table/combat-tracker.tsx	seatWords	value	
+src/utils/seat-words.ts	src/components/game-table/game-table.tsx	seatWords	value	
+src/utils/seat-words.ts	src/components/game-table/live-status.tsx	seatWords,SeatWords	value	
+src/utils/seat-words.ts	src/components/game-table/turn-toast.tsx	SeatRole	type	
+src/utils/seat-words.ts	src/utils/effect-words.ts	seatWords,SeatRole	value	
+src/utils/seat-words.ts	src/utils/end-turn.ts	seatWords,SeatRole	value	
+src/utils/seat-words.ts	src/utils/favorite-words.ts	seatWords,SeatRole	value	
+src/utils/seat-words.ts	src/utils/move-words.ts	seatWords,SeatRole	value	
+src/utils/seat-words.ts	src/utils/prepare-words.ts	seatWords,SeatRole	value	
+src/utils/seat-words.ts	src/utils/wild-shape-words.ts	seatWords,SeatRole	value	
+src/utils/table-pages.ts	src/components/game-table/fullscreen-guard.tsx	isTablePage	value	

@@ -1,0 +1,2 @@
+all 12 src/utils/wild-shape.ts src/utils/creature-words.ts src/utils/wild-shape-words.ts src/utils/effect-dice.ts src/types/roll.ts src/types/table.ts src/types/party.ts src/types/sending-stone.ts src/utils/damage-modifiers.ts src/hooks/use-sheet-roller.ts src/utils/formulas.ts src/utils/description-links.ts
+all 2 src/components/transfers/recipient-list.tsx src/components/transfers/move-dialog.tsx
