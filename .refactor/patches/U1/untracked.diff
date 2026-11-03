@@ -365,16 +365,16 @@ index 0000000..cbab7ef
 +}
 diff --git a/src/features/sheet/components/character-pane/types.ts b/src/features/sheet/components/character-pane/types.ts
 new file mode 100644
-index 0000000..6e210c1
+index 0000000..405bd68
 --- /dev/null
 +++ b/src/features/sheet/components/character-pane/types.ts
 @@ -0,0 +1,206 @@
-+import type { useSheetRoller } from '@/features/rolling/hooks/use-sheet-roller'
-+import type { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
 +import type { AlonePick, TableDamage } from '../action-entry/types'
 +import type { PartySheets } from '../party-sheets/types'
 +import type { Picked, Picking } from '../use-picker/types'
 +import type { NotesPlace } from '@/features/notes/types'
++import type { useSheetRoller } from '@/features/rolling/hooks/use-sheet-roller'
++import type { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
 +import type { CookbookPlace } from '@/types/cookbook'
 +import type { TableMoves } from '@/types/party'
 +import type {
@@ -577,12 +577,12 @@ index 0000000..6e210c1
 +}
 diff --git a/src/features/sheet/components/character-pane/use-description-links.ts b/src/features/sheet/components/character-pane/use-description-links.ts
 new file mode 100644
-index 0000000..da976af
+index 0000000..31059ef
 --- /dev/null
 +++ b/src/features/sheet/components/character-pane/use-description-links.ts
 @@ -0,0 +1,90 @@
-+import { blockedReason } from './utils'
 +import { sheetTools } from '../description-actions/utils'
++import { blockedReason } from './utils'
 +import type { Command, PaneRoller, PaneTable, UnlessLocked } from './types'
 +import type { ShowConditions } from '../conditions/types'
 +import type { DescriptionActions } from '../description-actions/types'
@@ -1155,14 +1155,14 @@ index 0000000..dc74802
 +}
 diff --git a/src/features/sheet/components/character-pane/use-picking.ts b/src/features/sheet/components/character-pane/use-picking.ts
 new file mode 100644
-index 0000000..27cbdf3
+index 0000000..6f58f38
 --- /dev/null
 +++ b/src/features/sheet/components/character-pane/use-picking.ts
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,193 @@
 +import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-+import { alonePicked, pickedAttack } from './utils'
 +import { actionTitle, verbOf } from '../action-entry/utils'
 +import { asks, enchantPicks } from '../use-picker/utils'
++import { alonePicked, pickedAttack } from './utils'
 +import { isItemCast } from '@/utils/casts'
 +import { sheetActions } from '@/utils/sheet-actions'
 +import type { PaneRoller, PaneTable, UnlessLocked } from './types'
@@ -1268,7 +1268,8 @@ index 0000000..27cbdf3
 +  }
 +  // Damage on its own's choices, from module 0.41.0, where the game takes them: picked first where
 +  // there's anything to ask, as an attack's or a use's are, else it goes on at once.
-+  const pickAlone = unlessLocked((pick: AlonePick) => {
++  const pickAlone = (pick: AlonePick) => {
++    if (lockedNow.current) return
 +    const asking: Picking = {
 +      kind: 'alone',
 +      action: pick.action,
@@ -1281,7 +1282,7 @@ index 0000000..27cbdf3
 +    }
 +    aloneGoing.current = pick
 +    setPicking(asking)
-+  })
++  }
 +  // Damage on its own's row as the sheet has it now, from module 0.41.0: the page's next poll may
 +  // change it while its player picks, as a slot the Gamemaster gives brings the plan of that level,
 +  // so the picker draws its chips from the row as it is now, and what's picked is rolled from that
@@ -1396,13 +1397,13 @@ index 0000000..105dfa0
 +}
 diff --git a/src/features/sheet/components/character-pane/use-roll-actions.ts b/src/features/sheet/components/character-pane/use-roll-actions.ts
 new file mode 100644
-index 0000000..08d640b
+index 0000000..05e4cd5
 --- /dev/null
 +++ b/src/features/sheet/components/character-pane/use-roll-actions.ts
-@@ -0,0 +1,111 @@
-+import { itemCastOf } from './utils'
+@@ -0,0 +1,112 @@
 +import { actionTitle } from '../action-entry/utils'
 +import { selfPick } from '../use-picker/utils'
++import { itemCastOf } from './utils'
 +import { sheetActions } from '@/utils/sheet-actions'
 +import type {
 +  PaneActions,
@@ -1427,7 +1428,8 @@ index 0000000..08d640b
 + * combatant picked first where the game makes it; a use, at those picked, or its damage while
 + * it's due; damage and formulas; and what the game takes of damage. Nothing rolls once the pane's
 + * rolls are locked, as a gone companion's are (module 0.36.0).
-+ * @param picking - The picker: `ask` opens it where there's anything to pick, saying whether it did.
++ * @param picking - The picker: `ask` opens it where there's anything to pick, saying whether it
++ *   did.
 + */
 +export function useRollActions({
 +  table,
@@ -2006,12 +2008,12 @@ index 0000000..91ef136
 +}
 diff --git a/src/features/sheet/components/character-sheet/types.ts b/src/features/sheet/components/character-sheet/types.ts
 new file mode 100644
-index 0000000..38346b8
+index 0000000..f417246
 --- /dev/null
 +++ b/src/features/sheet/components/character-sheet/types.ts
 @@ -0,0 +1,27 @@
-+import type { CreatureFacts, TableCombat, TableSheet } from '@/types/table'
 +import type { SheetFormulaRoll, SheetRoll } from '@/types/roll'
++import type { CreatureFacts, TableCombat, TableSheet } from '@/types/table'
 +
 +/** What a character's sheet is given (CharacterSheet). */
 +export type CharacterSheetProps = {
@@ -2828,10 +2830,10 @@ index 0000000..56954e6
 +}
 diff --git a/src/features/sheet/components/wild-shape/beast-card.tsx b/src/features/sheet/components/wild-shape/beast-card.tsx
 new file mode 100644
-index 0000000..822408b
+index 0000000..87ed572
 --- /dev/null
 +++ b/src/features/sheet/components/wild-shape/beast-card.tsx
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,72 @@
 +'use client'
 +
 +import clsx from 'clsx'
@@ -2840,7 +2842,10 @@ index 0000000..822408b
 +import { sizeCrWords } from '@/utils/wild-shape-words'
 +import type { BeastEntry } from '@/types/sending-stone'
 +
-+/** A Beast to learn, as a radio: its name, size and CR, and its statistics; known ones not offered. */
++/**
++ * A Beast to learn, as a radio: its name, size and CR, and its statistics; known ones not
++ * offered.
++ */
 +export function BeastCard({
 +  each,
 +  checked,
@@ -3765,10 +3770,10 @@ index 0000000..c482ba9
 +}
 diff --git a/src/features/sheet/components/wild-shape/use-return-confirm.ts b/src/features/sheet/components/wild-shape/use-return-confirm.ts
 new file mode 100644
-index 0000000..9a2ded6
+index 0000000..759db57
 --- /dev/null
 +++ b/src/features/sheet/components/wild-shape/use-return-confirm.ts
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,46 @@
 +import { useEffect, useState } from 'react'
 +import type { Focus } from './types'
 +import type { SheetForm } from '@/types/sending-stone'
@@ -3795,6 +3800,9 @@ index 0000000..9a2ded6
 +  const [returnAnchor, setReturnAnchor] = useState<HTMLElement>()
 +  useEffect(() => {
 +    if (!returnAnchor || returnable) return
++    // The confirm closes once the commit that took its Return away is drawn, as before v0.43:
++    // closing it as it's drawn would change when focus moves.
++    // eslint-disable-next-line react-hooks/set-state-in-effect -- closed after the commit, as ever
 +    setReturnAnchor(undefined)
 +    const active = document.activeElement
 +    if (!active || active === document.body)
@@ -4183,10 +4191,10 @@ index 0000000..25a1bc7
 +}
 diff --git a/src/features/sheet/components/wild-shape/utils.ts b/src/features/sheet/components/wild-shape/utils.ts
 new file mode 100644
-index 0000000..5a5aa97
+index 0000000..8783aa1
 --- /dev/null
 +++ b/src/features/sheet/components/wild-shape/utils.ts
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,187 @@
 +import { reasons } from '../../../../utils/roll-reasons'
 +import { articled, canReturn, isIncapacitated } from '@/utils/wild-shape'
 +import {
@@ -4366,7 +4374,9 @@ index 0000000..5a5aa97
 +  return wildShapeReasons(role, op)[key] ?? reasons(role)[key]
 +}
 +
-+/** The dialog the Wild Shape dialog's body is drawn in, where it's open, for focus to be found in. */
++/**
++ * The dialog the Wild Shape dialog's body is drawn in, where it's open, for focus to be found in.
++ */
 +export function dialogOf(
 +  body: RefObject<HTMLDivElement | null>,
 +): HTMLDialogElement | undefined {
@@ -4447,7 +4457,7 @@ index 0000000..4a6338f
 +}
 diff --git a/src/features/sheet/hooks/use-settle.test.ts b/src/features/sheet/hooks/use-settle.test.ts
 new file mode 100644
-index 0000000..3d5d8b1
+index 0000000..fccf743
 --- /dev/null
 +++ b/src/features/sheet/hooks/use-settle.test.ts
 @@ -0,0 +1,106 @@
@@ -4547,7 +4557,7 @@ index 0000000..3d5d8b1
 +    })
 +    expect(result.current.last('fav')).toEqual({ id: 'line-2', agreed: true })
 +    expect(result.current.last('other')).toBeUndefined()
-+    expect(result.current.waitingOf(undefined)).toBe(false)
++    expect(result.current.waitingOf(result.current.last('other'))).toBe(false)
 +  })
 +
 +  it('clears its timers as the pane goes', () => {
@@ -4714,7 +4724,7 @@ index 0000000..71ed268
 +}
 diff --git a/src/features/sheet/hooks/use-spent-set.ts b/src/features/sheet/hooks/use-spent-set.ts
 new file mode 100644
-index 0000000..88b2c96
+index 0000000..7404f52
 --- /dev/null
 +++ b/src/features/sheet/hooks/use-spent-set.ts
 @@ -0,0 +1,60 @@
@@ -4737,13 +4747,13 @@ index 0000000..88b2c96
 +
 +/**
 + * Each roll a die offered was added to, by its id, from the moment it's among the rolls (the
-+ * returned ref): kept after the roller lets it go, as it keeps only its newest rolls, of every kind,
-+ * so that the die stays spent while its effect is on the sheet however many rolls, uses or changes
-+ * follow, and the effect is still removed once the roll is made. Let go once every effect it spent
-+ * has left the sheet, as nothing then offers it. `spentRef` holds the effects spent, by the sheet's
-+ * ids for them, unless the roll's way ends with it not made; kept up to date before the page is
-+ * drawn, so that a roll asked for after it, and the words under a roll made, never find the spent
-+ * effect as it was.
++ * returned ref): kept after the roller lets it go, as it keeps only its newest rolls, of every
++ * kind, so that the die stays spent while its effect is on the sheet however many rolls, uses or
++ * changes follow, and the effect is still removed once the roll is made. Let go once every effect
++ * it spent has left the sheet, as nothing then offers it. `spentRef` holds the effects spent, by
++ * the sheet's ids for them, unless the roll's way ends with it not made; kept up to date before
++ * the page is drawn, so that a roll asked for after it, and the words under a roll made, never
++ * find the spent effect as it was.
 + */
 +export function useSpentSet({
 +  spent: spentRef,
@@ -4780,7 +4790,7 @@ index 0000000..88b2c96
 +}
 diff --git a/src/features/sheet/utils/roll-labels.ts b/src/features/sheet/utils/roll-labels.ts
 new file mode 100644
-index 0000000..761dff2
+index 0000000..25c73a1
 --- /dev/null
 +++ b/src/features/sheet/utils/roll-labels.ts
 @@ -0,0 +1,29 @@
@@ -4790,8 +4800,8 @@ index 0000000..761dff2
 +
 +/**
 + * A check's or a saving throw's roll button's name, as the sheet says it: what's rolled, its bonus,
-+ * what more it is (`details`), advantage or disadvantage, and what follows (`suffix`), such as whose
-+ * bonus it is on a shaped sheet.
++ * what more it is (`details`), advantage or disadvantage, and what follows (`suffix`), such as
++ * whose bonus it is on a shaped sheet.
 + */
 +export function checkLabel({
 +  label,

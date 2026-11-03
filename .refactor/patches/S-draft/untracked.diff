@@ -1,0 +1,4881 @@
+diff --git a/src/constants/features.ts b/src/constants/features.ts
+new file mode 100644
+index 0000000..92c4636
+--- /dev/null
++++ b/src/constants/features.ts
+@@ -0,0 +1,86 @@
++import {
++  ALONE_CHOICES,
++  COMPANIONS,
++  DISHES,
++  EFFECTS,
++  EVENTS,
++  FAVORITES,
++  FOUNDRY_SETTINGS,
++  GROUPS,
++  MAX_ENVELOPE_BYTES,
++  MIDI_PROMPTS,
++  NOTES,
++  REMOVALS,
++  SLIM_SHEETS,
++  TRANSFERS,
++  WILD_SHAPE,
++} from '@/constants/sending-stone'
++
++/**
++ * The campaign's switches the module's fetches are answered by, in the order they're read: its
++ * players' rolls; from module 0.31.0 moves of items and coins; 0.33.0 removals; 0.34.0 journal
++ * notes; 0.37.0 favorites; 0.38.0 dishes from the Magical Recipe Book; 0.39.0 effects changed; and
++ * 0.40.0 Wild Shape. While any is on, the module's fetches are taken.
++ */
++export const BRIDGE_SWITCHES = [
++  'rollsEnabled',
++  'transfersEnabled',
++  'removalsEnabled',
++  'notesEnabled',
++  'favoritesEnabled',
++  'dishesEnabled',
++  'effectsEnabled',
++  'wildShapeEnabled',
++] as const
++
++/**
++ * What this app does beyond taking events, as told to the module: it has commands to fetch, it
++ * expands slim sheets up to this format, it takes posts of up to this many bytes, and it reads
++ * what Midi-QOL asks of characters in this format, which the module sends only then (0.27.0); and
++ * the campaign's groups in this format, which the module sends only then too (0.30.0).
++ * Foundry's settings too, in this format, which the module likewise sends only then (0.30.0);
++ * moves of items and coins, from module 0.31.0; removals of a character's items, from module
++ * 0.33.0; and journal notes, from module 0.34.0, which the module fetches for, and sends journals
++ * of, only then, and from module 0.35.0 orders of a group's notes and who changed a journal in
++ * Foundry; and from module 0.36.0 the campaign's characters' companions, which the module sends,
++ * and marks its combats and chat with, only then; and from module 0.37.0 favorites added and
++ * removed, which the module fetches for only then; and from module 0.38.0 dishes from the Magical
++ * Recipe Book, which the module fetches, and reports the Gamemaster's choice of, only then; and
++ * from module 0.39.0 a player's own effects turned off, on and deleted, which the module fetches
++ * for only then; and from module 0.40.0, Wild Shape from the app and a shaped character's sheet,
++ * which the module sends and fetches for only then; and from module 0.41.0 the saves the game asks
++ * of companions (`companions` 2), and the plans of damage on its own at each level, in each attack
++ * mode and with each ammunition, and what it would spend (`aloneChoices`), which the module sends
++ * only then.
++ */
++export const FEATURES = {
++  commands: true,
++  slimSheets: SLIM_SHEETS,
++  maxBytes: MAX_ENVELOPE_BYTES,
++  midiPrompts: MIDI_PROMPTS,
++  groups: GROUPS,
++  settings: FOUNDRY_SETTINGS,
++  transfers: TRANSFERS,
++  removals: REMOVALS,
++  notes: NOTES,
++  companions: COMPANIONS,
++  favorites: FAVORITES,
++  dishes: DISHES,
++  effects: EFFECTS,
++  wildShape: WILD_SHAPE,
++  aloneChoices: ALONE_CHOICES,
++}
++
++/**
++ * The events answered with them: a hello and a heartbeat, and from module 0.22.0 a sheet's post,
++ * as the module sends each sheet slim or in full, and sizes it, by the latest answer, so that it
++ * follows this app being rolled back or deployed again without waiting for a heartbeat; a group's
++ * sheet too, from module 0.30.0, and a companion's, from module 0.36.0.
++ */
++export const ANSWERED_WITH_FEATURES: ReadonlySet<string> = new Set([
++  EVENTS.HELLO,
++  EVENTS.HEARTBEAT,
++  EVENTS.CHARACTER_UPDATED,
++  EVENTS.GROUP_UPDATED,
++  EVENTS.COMPANION_UPDATED,
++])
+diff --git a/src/db/campaigns.ts.orig b/src/db/campaigns.ts.orig
+new file mode 100644
+index 0000000..08609e7
+--- /dev/null
++++ b/src/db/campaigns.ts.orig
+@@ -0,0 +1,623 @@
++import prisma from '@/clients/prisma'
++import {
++  BRIDGE_TIMEOUT,
++  REFUSAL,
++  REFUSAL_RECORD_EVERY,
++  REFUSAL_SHOWN_FOR,
++  WAITING_SECRET_CHECKS,
++} from '@/constants/sending-stone'
++import {
++  generateInviteCode,
++  hashSecret,
++  verifySecret,
++} from '@/lib/campaign-secret'
++import { attempt } from '@/lib/routes/bridge-http'
++import { companionRoster } from '@/utils/companions'
++import { literalPattern } from '@/utils/literal-pattern'
++import { availableRollKinds } from '@/utils/requests/availability'
++import { transfersAvailable } from '@/utils/transfers'
++import type { EventCampaign } from './types'
++import type {
++  CampaignChoice,
++  CampaignRefusal,
++  CampaignSetupInput,
++  OwnedCampaign,
++} from '@/types/campaign'
++import type { FoundrySnapshot } from '@/types/foundry-settings'
++import type {
++  CampaignRef,
++  ConnectedCharacter,
++  GroupEntry,
++} from '@/types/sending-stone'
++
++/** Is a Gamemaster's game sending, judging by when its campaign last heard anything? */
++export function isLive(lastSeenAt: Date | null | undefined, now = Date.now()) {
++  return !!lastSeenAt && now - lastSeenAt.getTime() < BRIDGE_TIMEOUT
++}
++
++const rosterOf = (characters: unknown) =>
++  characters as unknown as ConnectedCharacter[]
++
++/** A campaign's groups, from module 0.30.0: none where it has none to read. */
++const groupsOf = (groups: unknown): GroupEntry[] =>
++  Array.isArray(groups) ? (groups as GroupEntry[]) : []
++
++/** What Foundry last said of itself for a campaign, as its hello and settings were stored. */
++const foundryOf = (foundry: unknown): FoundrySnapshot | undefined =>
++  foundry && typeof foundry === 'object' && !Array.isArray(foundry)
++    ? (foundry as FoundrySnapshot)
++    : undefined
++
++/** The refusals a campaign's card explains: those that can be tied to the campaign. */
++const RECORDED: ReadonlySet<string> = new Set<CampaignRefusal['reason']>([
++  REFUSAL.WRONG_SECRET,
++  REFUSAL.NOT_SET_UP,
++  REFUSAL.MALFORMED,
++])
++
++/**
++ * A campaign's latest refusal, as its card shows it: for a day, and only one it can explain.
++ * Current until Foundry has reached the app since.
++ */
++function refusalOf(
++  campaign: {
++    refusedAt: Date | null
++    refusalReason: string | null
++    refusalStatus: number | null
++    refusalDetail: string | null
++    lastSeenAt: Date | null
++  },
++  now = Date.now(),
++): CampaignRefusal | undefined {
++  const { refusedAt, refusalReason: reason, lastSeenAt } = campaign
++  if (!refusedAt || !reason || !RECORDED.has(reason)) return undefined
++  if (now - refusedAt.getTime() > REFUSAL_SHOWN_FOR) return undefined
++  return {
++    reason: reason as CampaignRefusal['reason'],
++    status: campaign.refusalStatus ?? 0,
++    ...(campaign.refusalDetail && { detail: campaign.refusalDetail }),
++    at: refusedAt.toISOString(),
++    current: !lastSeenAt || refusedAt > lastSeenAt,
++  }
++}
++
++/** What clears a campaign's recorded refusal, as binding it or changing its secret does. */
++const NO_REFUSAL = {
++  refusedAt: null,
++  refusalReason: null,
++  refusalStatus: null,
++  refusalDetail: null,
++}
++
++/* -------------------------------------------- */
++/*  Gamemasters                                 */
++/* -------------------------------------------- */
++
++// Every query is scoped to the campaign's owner, so one Gamemaster can never read or change
++// another's campaign by guessing an id.
++
++export async function listOwnedCampaigns(
++  userId: string,
++): Promise<OwnedCampaign[]> {
++  const campaigns = await prisma.campaign.findMany({
++    where: { ownerId: userId },
++    orderBy: [{ title: 'asc' }, { createdAt: 'asc' }],
++    select: {
++      id: true,
++      title: true,
++      origin: true,
++      worldTitle: true,
++      inviteCode: true,
++      foundryId: true,
++      lastSeenAt: true,
++      helloSession: true,
++      characters: true,
++      groups: true,
++      companions: true,
++      rollsEnabled: true,
++      rollKinds: true,
++      rollFeatures: true,
++      bridgePolledAt: true,
++      transfersEnabled: true,
++      dishesEnabled: true,
++      effectsEnabled: true,
++      wildShapeEnabled: true,
++      refusedAt: true,
++      refusalReason: true,
++      refusalStatus: true,
++      refusalDetail: true,
++      foundry: true,
++      players: {
++        select: {
++          id: true,
++          actorId: true,
++          user: { select: { name: true } },
++          // Its player's link from the Magical Recipe Book, from module 0.38.0.
++          cookbookLink: { select: { actorId: true, campaignId: true } },
++        },
++      },
++    },
++  })
++  const dishes = await countDishes(campaigns.map(({ id }) => id))
++  return campaigns.map(campaign => {
++    const players = new Map(
++      campaign.players.map(player => [player.actorId, player]),
++    )
++    const refusal = refusalOf(campaign)
++    const foundry = foundryOf(campaign.foundry)
++    const companions = companionRoster(campaign.companions)
++    return {
++      id: campaign.id,
++      title: campaign.title,
++      gameUrl: campaign.origin,
++      worldTitle: campaign.worldTitle ?? undefined,
++      inviteCode: campaign.inviteCode ?? '',
++      connected: campaign.foundryId !== null,
++      rosterReceived: campaign.helloSession !== null,
++      live: isLive(campaign.lastSeenAt),
++      lastSeenAt: campaign.lastSeenAt?.toISOString(),
++      ...(refusal && { refusal }),
++      // What Foundry last said of itself, which the card shows its Gamemaster alone.
++      ...(foundry && { foundry }),
++      rolls: {
++        enabled: campaign.rollsEnabled,
++        reaching: availableRollKinds(campaign).length > 0,
++        attacks: campaign.rollKinds.includes('attack'),
++        spells: campaign.rollKinds.includes('use'),
++        prompts: campaign.rollFeatures.includes('prompts'),
++      },
++      transfers: {
++        enabled: campaign.transfersEnabled,
++        reaching: transfersAvailable(campaign),
++      },
++      // Dishes from the Magical Recipe Book, from module 0.38.0: waiting for Foundry, queued or
++      // handed over unanswered, and in Foundry, waiting for the Gamemaster.
++      dishes: {
++        enabled: campaign.dishesEnabled,
++        waiting:
++          countOf(dishes, campaign.id, 'queued') +
++          countOf(dishes, campaign.id, 'claimed'),
++        inFoundry: countOf(dishes, campaign.id, 'delivered'),
++      },
++      // Whether the campaign lets its players change their own characters' effects, from module
++      // 0.39.0, as its last hello said.
++      effects: { enabled: campaign.effectsEnabled },
++      // Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, as
++      // its last hello said.
++      wildShape: { enabled: campaign.wildShapeEnabled },
++      characters: rosterOf(campaign.characters).map(({ id, name }) => {
++        const player = players.get(id)
++        const link = player?.cookbookLink
++        return {
++          id,
++          name,
++          player: player?.user.name,
++          characterId: player?.id,
++          // Linked only to this character in this campaign: a link made for its seat's earlier
++          // actor no longer sends.
++          cookbookLinked:
++            link?.actorId === id && link.campaignId === campaign.id,
++          // Its companions, from module 0.36.0, in the module's order: whose they are, by name.
++          companions: companions
++            .filter(entry => entry.of.includes(id))
++            .map(entry => {
++              const from =
++                entry.kind === 'summoned' ? entry.summon?.item : undefined
++              return {
++                name: entry.name,
++                kind: entry.kind,
++                ...(from && { from }),
++              }
++            }),
++        }
++      }),
++      // Its party sheets, each saying whether any of its players may see it in Foundry: never who.
++      groups: groupsOf(campaign.groups).map(
++        ({ id, name, primary, access }) => ({
++          id,
++          name,
++          primary: primary === true,
++          shared: Object.keys(access ?? {}).length > 0,
++        }),
++      ),
++    }
++  })
++}
++
++/** A count of the Gamemaster's campaigns' dishes, by campaign and status. */
++type DishCounts = Map<string, number>
++
++/** Their campaigns' dishes, counted by status, in one query: none for no campaigns. */
++async function countDishes(campaignIds: string[]): Promise<DishCounts> {
++  if (campaignIds.length === 0) return new Map()
++  const groups = await prisma.cookbookDish.groupBy({
++    by: ['campaignId', 'status'],
++    where: { campaignId: { in: campaignIds } },
++    _count: true,
++  })
++  return new Map(
++    groups.map(group => [`${group.campaignId} ${group.status}`, group._count]),
++  )
++}
++
++const countOf = (counts: DishCounts, campaignId: string, status: string) =>
++  counts.get(`${campaignId} ${status}`) ?? 0
++
++/**
++ * Set up a campaign for its Gamemaster. Its secret is kept only as a hash.
++ * @returns The new campaign, or 'duplicate' if they already set up one with that title in
++ *   that game.
++ */
++export async function setUpCampaign(
++  userId: string,
++  { title, gameUrl, secret }: CampaignSetupInput,
++): Promise<{ id: string } | 'duplicate'> {
++  const existing = await prisma.campaign.findFirst({
++    where: {
++      ownerId: userId,
++      origin: gameUrl,
++      title: { equals: literalPattern(title), mode: 'insensitive' },
++    },
++    select: { id: true },
++  })
++  if (existing) return 'duplicate'
++  return prisma.campaign.create({
++    data: {
++      origin: gameUrl,
++      title,
++      ownerId: userId,
++      secretHash: await hashSecret(secret),
++      inviteCode: generateInviteCode(),
++    },
++    select: { id: true },
++  })
++}
++
++/**
++ * A refusal for the old secret no longer says anything of the new one, so it's cleared.
++ * @returns Whether the Gamemaster had a campaign with that id to change.
++ */
++export async function changeCampaignSecret(
++  userId: string,
++  campaignId: string,
++  secret: string,
++): Promise<boolean> {
++  const { count } = await prisma.campaign.updateMany({
++    where: { id: campaignId, ownerId: userId },
++    data: { secretHash: await hashSecret(secret), ...NO_REFUSAL },
++  })
++  return count > 0
++}
++
++/** Retire a campaign's invite link for a new one. Players who already joined are unaffected. */
++export async function resetInviteCode(
++  userId: string,
++  campaignId: string,
++): Promise<boolean> {
++  const { count } = await prisma.campaign.updateMany({
++    where: { id: campaignId, ownerId: userId },
++    data: { inviteCode: generateInviteCode() },
++  })
++  return count > 0
++}
++
++/**
++ * Remove a player's character from one of the Gamemaster's campaigns, so that another player can
++ * choose it.
++ * @returns Whether the Gamemaster had such a player's character to remove.
++ */
++export async function removePlayer(
++  userId: string,
++  campaignId: string,
++  characterId: string,
++): Promise<boolean> {
++  const { count } = await prisma.character.deleteMany({
++    where: {
++      id: characterId,
++      campaignId,
++      campaign: { is: { ownerId: userId } },
++    },
++  })
++  return count > 0
++}
++
++/** Remove a campaign with its chat and combats. Its players' characters stay, without it. */
++export async function removeCampaign(
++  userId: string,
++  campaignId: string,
++): Promise<boolean> {
++  const { count } = await prisma.campaign.deleteMany({
++    where: { id: campaignId, ownerId: userId },
++  })
++  return count > 0
++}
++
++/* -------------------------------------------- */
++/*  The module                                  */
++/* -------------------------------------------- */
++
++/**
++ * Find the campaign an event is for, and check that the secret it came with is that campaign's.
++ * The module's campaign is bound by its first event to the campaign set up here with its title
++ * in its game; from then on its id finds it, whatever it is renamed.
++ *
++ * A refusal is recorded for the campaigns it may be meant for, for their cards to explain: the
++ * wrong secret on the campaign bound, or on each with its title; no campaign with its title on
++ * each of the game's waiting for Foundry whose secret it came with, which is it under another
++ * title, of the newest `WAITING_SECRET_CHECKS` waiting. Only a post with a campaign's secret
++ * records the title it sent there; a wrong-secret note on a waiting campaign can be left by anyone
++ * who knows its title and game, but says nothing they choose.
++ * @param origin - The game's origin, from the request's Origin header.
++ * @param campaign - The module's campaign, as the envelope names it.
++ * @param secret - The secret the request carried.
++ * @param options.record - Record a refusal: not for a connection test, whose title and secret are
++ *   as typed, perhaps not saved.
++ * @returns The campaign; 'unknown' when none is set up for it; 'refused' for the wrong secret.
++ */
++export async function findEventCampaign(
++  origin: string,
++  campaign: CampaignRef,
++  secret: string,
++  { record = true }: { record?: boolean } = {},
++): Promise<EventCampaign> {
++  const wrongSecret = async (ids: string[]): Promise<'refused'> => {
++    if (record) {
++      await recordRefusal(
++        { ids },
++        { reason: REFUSAL.WRONG_SECRET, status: 401 },
++      )
++    }
++    return 'refused'
++  }
++
++  const bound = await prisma.campaign.findUnique({
++    where: { originCampaign: { origin, foundryId: campaign.id } },
++    select: { id: true, secretHash: true, helloSession: true },
++  })
++  if (bound?.secretHash) {
++    return (await verifySecret(secret, bound.secretHash))
++      ? { id: bound.id, helloSession: bound.helloSession ?? undefined }
++      : wrongSecret([bound.id])
++  }
++
++  const candidates = await prisma.campaign.findMany({
++    where: {
++      origin,
++      // Prisma's filters for an unset field.
++      foundryId: null,
++      secretHash: { not: null },
++      title: { equals: literalPattern(campaign.title), mode: 'insensitive' },
++    },
++    orderBy: { createdAt: 'asc' },
++    select: { id: true, secretHash: true },
++  })
++  if (candidates.length === 0) {
++    if (record && secret) {
++      // Anyone can post a title from a game's address, so it's recorded only on the game's
++      // campaigns waiting for Foundry whose secret it came with: the module's, under another title.
++      // Each check is a scrypt hash, so only the newest few are checked, as the one just set up for
++      // the module is likely among them.
++      const waiting = await prisma.campaign.findMany({
++        where: {
++          origin,
++          // Prisma's filters for an unset field, and a set one.
++          foundryId: null,
++          secretHash: { not: null },
++        },
++        orderBy: { createdAt: 'desc' },
++        take: WAITING_SECRET_CHECKS,
++        select: { id: true, secretHash: true },
++      })
++      const ids: string[] = []
++      for (const { id, secretHash } of waiting) {
++        if (await verifySecret(secret, secretHash ?? '')) ids.push(id)
++      }
++      if (ids.length > 0) {
++        await recordRefusal(
++          { ids },
++          {
++            reason: REFUSAL.NOT_SET_UP,
++            status: 404,
++            detail: campaign.title.slice(0, 200),
++          },
++        )
++      }
++    }
++    return 'unknown'
++  }
++  for (const candidate of candidates) {
++    if (await verifySecret(secret, candidate.secretHash ?? '')) {
++      // Bound only now, so it holds no state from the module's session.
++      return { id: await bind(candidate.id, campaign.id, bound?.id) }
++    }
++  }
++  return wrongSecret(candidates.map(({ id }) => id))
++}
++
++/**
++ * Record a post refused for a campaign, for its card to explain, on the campaigns given by id.
++ * Written at most once a minute unless the reason changes, and a failure to is only logged: it
++ * never changes the answer.
++ */
++export async function recordRefusal(
++  { ids }: { ids: string[] },
++  {
++    reason,
++    status,
++    detail,
++  }: { reason: CampaignRefusal['reason']; status: number; detail?: string },
++): Promise<void> {
++  const now = new Date()
++  await attempt(
++    () =>
++      prisma.campaign.updateMany({
++        where: {
++          AND: [
++            { id: { in: ids } },
++            {
++              OR: [
++                { refusedAt: null },
++                {
++                  refusedAt: {
++                    lt: new Date(now.getTime() - REFUSAL_RECORD_EVERY),
++                  },
++                },
++                { refusalReason: { not: reason } },
++              ],
++            },
++          ],
++        },
++        data: {
++          refusedAt: now,
++          refusalReason: reason,
++          refusalStatus: status,
++          refusalDetail: detail ?? null,
++        },
++      }),
++    'Failed to record a refused post',
++  )
++}
++
++/**
++ * Bind a campaign set up here to the module's campaign. If that campaign was already followed
++ * before Gamemasters set campaigns up, the set-up moves to it, keeping its chat, combats and
++ * players.
++ * @returns The bound campaign's id.
++ */
++async function bind(
++  campaignId: string,
++  foundryId: string,
++  earlierId: string | undefined,
++): Promise<string> {
++  // What was refused before it was bound no longer applies.
++  if (!earlierId) {
++    await prisma.campaign.update({
++      where: { id: campaignId },
++      data: { foundryId, ...NO_REFUSAL },
++    })
++    return campaignId
++  }
++  return prisma.$transaction(async tx => {
++    // Nothing has been sent to it yet, so the set-up is all it holds.
++    const setUp = await tx.campaign.delete({
++      where: { id: campaignId },
++      select: {
++        title: true,
++        ownerId: true,
++        secretHash: true,
++        inviteCode: true,
++      },
++    })
++    await tx.campaign.update({
++      where: { id: earlierId },
++      data: { ...setUp, ...NO_REFUSAL },
++    })
++    return earlierId
++  })
++}
++
++/**
++ * Does a secret belong to any campaign set up for a game? For a connection test, which names no
++ * campaign.
++ */
++export async function checkGameSecret(
++  origin: string,
++  secret: string,
++): Promise<'ok' | 'unknown' | 'refused'> {
++  const campaigns = await prisma.campaign.findMany({
++    where: { origin, secretHash: { not: null } },
++    select: { secretHash: true },
++  })
++  if (campaigns.length === 0) return 'unknown'
++  for (const { secretHash } of campaigns) {
++    if (await verifySecret(secret, secretHash ?? '')) return 'ok'
++  }
++  return 'refused'
++}
++
++/** Note that a campaign's Gamemaster is connected, without anything having changed. */
++export async function markSeen(campaignId: string): Promise<void> {
++  await prisma.campaign.update({
++    where: { id: campaignId },
++    data: { lastSeenAt: new Date() },
++  })
++}
++
++/* -------------------------------------------- */
++/*  Players                                     */
++/* -------------------------------------------- */
++
++const choiceSelect = {
++  id: true,
++  title: true,
++  worldTitle: true,
++  origin: true,
++  characters: true,
++  owner: { select: { name: true } },
++  players: { select: { id: true, actorId: true, userId: true } },
++} as const
++
++/**
++ * A campaign's characters, as offered to a player choosing one.
++ * @param userId - The player.
++ * @param exceptCharacterId - A character of theirs choosing again, whose own choice is not a claim.
++ */
++function toChoice(
++  campaign: {
++    id: string
++    title: string
++    worldTitle: string | null
++    origin: string
++    characters: unknown
++    owner: { name: string } | null
++    players: { id: string; actorId: string | null; userId: string }[]
++  },
++  userId: string,
++  exceptCharacterId?: string,
++): CampaignChoice {
++  const claims = new Map(
++    campaign.players
++      .filter(({ id, actorId }) => actorId && id !== exceptCharacterId)
++      .map(player => [player.actorId, player]),
++  )
++  return {
++    id: campaign.id,
++    title: campaign.title,
++    worldTitle: campaign.worldTitle ?? undefined,
++    gameUrl: campaign.origin,
++    gamemaster: campaign.owner?.name,
++    characters: rosterOf(campaign.characters).map(({ id, name }) => {
++      const claim = claims.get(id)
++      if (!claim) return { id, name }
++      return claim.userId === userId
++        ? { id, name, claimedBy: 'you', characterId: claim.id }
++        : { id, name, claimedBy: 'someone' }
++    }),
++  }
++}
++
++/** The campaign an invite link is for, or undefined if the link is not (or no longer) valid. */
++export async function findInvite(
++  inviteCode: string,
++  userId: string,
++): Promise<CampaignChoice | undefined> {
++  if (!inviteCode) return undefined
++  const campaign = await prisma.campaign.findUnique({
++    where: { inviteCode },
++    select: choiceSelect,
++  })
++  return campaign ? toChoice(campaign, userId) : undefined
++}
++
++/** A campaign's characters, for one of a player's characters in it choosing again. */
++export async function getCampaignChoice(
++  campaignId: string,
++  userId: string,
++  characterId: string,
++): Promise<CampaignChoice | undefined> {
++  const campaign = await prisma.campaign.findUnique({
++    where: { id: campaignId },
++    select: choiceSelect,
++  })
++  return campaign ? toChoice(campaign, userId, characterId) : undefined
++}
+diff --git a/src/db/commands.ts b/src/db/commands.ts
+new file mode 100644
+index 0000000..fbfa8e4
+--- /dev/null
++++ b/src/db/commands.ts
+@@ -0,0 +1,233 @@
++import prisma from '@/clients/prisma'
++import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
++import {
++  ROLL_ANSWER_WITHIN,
++  ROLL_PENDING_FOR,
++  ROLLS_IN_FLIGHT,
++  ROLLS_KEPT_FOR,
++  ROLLS_PER_MINUTE,
++} from '@/constants/sending-stone'
++import { switchOn } from '@/utils/features'
++import type {
++  CommandCampaign,
++  CommandKind,
++  CommandRow,
++  CommandSpec,
++  CommandValue,
++  RollRejection,
++  RollSeat,
++  WaitingRow,
++} from '@/db/types'
++import type { SheetSeat } from '@/types/character'
++import type { RollRequestInput } from '@/types/roll'
++import type { CharacterSheet } from '@/types/sending-stone'
++import type { Prisma } from '@prisma/client'
++
++// What every command a seat sends rides on: a RollRequest held for the module to fetch, the seat's
++// own rows found by who made them, and those still on their way.
++
++/**
++ * The rolls a seat sent (#156): its player's, by their character; or the Gamemaster's as this
++ * character in this campaign, by them. Never only `characterId: null`, which every Gamemaster's
++ * roll has, of every campaign. The two seats' rolls are apart, so each has its own limits, and
++ * damage follows only its own seat's attack or use.
++ */
++export function madeBy(seat: RollSeat): Prisma.RollRequestWhereInput {
++  if (seat.role === 'gm') {
++    return {
++      // A Gamemaster's seat always has both; '' matches no row should one be missing.
++      campaignId: seat.campaignId ?? '',
++      actorId: seat.actorId ?? '',
++      role: 'gm',
++      requestedById: seat.userId,
++    }
++  }
++  return { characterId: seat.characterId ?? '' }
++}
++
++/**
++ * A seat's rolls and moves on their way: waiting to be fetched, or fetched and not answered. Its
++ * removals too, from module 0.33.0.
++ */
++export function onItsWay(now: number): Prisma.RollRequestWhereInput {
++  return {
++    OR: [
++      { status: 'pending', createdAt: { gt: ago(now, ROLL_PENDING_FOR) } },
++      { status: 'claimed', claimedAt: { gt: ago(now, ROLL_ANSWER_WITHIN) } },
++    ],
++  }
++}
++
++/** The moment this many milliseconds before another. */
++export function ago(now: number, ms: number): Date {
++  return new Date(now - ms)
++}
++
++/**
++ * Whether a seat is sending too many to take another: its rolls and everything else it sends,
++ * counted together, on their way or sent in the last minute.
++ */
++export async function seatBusy(seat: RollSeat, now: number): Promise<boolean> {
++  const [inFlight, lastMinute] = await Promise.all([
++    prisma.rollRequest.count({ where: { ...madeBy(seat), ...onItsWay(now) } }),
++    prisma.rollRequest.count({
++      where: { ...madeBy(seat), createdAt: { gt: ago(now, 60_000) } },
++    }),
++  ])
++  return inFlight >= ROLLS_IN_FLIGHT || lastMinute >= ROLLS_PER_MINUTE
++}
++
++/** Whether a character is in the campaign's roster, as its module last listed it. */
++export function inRoster(
++  characters: Prisma.JsonValue,
++  actorId: string,
++): boolean {
++  const roster = Array.isArray(characters)
++    ? (characters as unknown as { id: string }[])
++    : []
++  return roster.some(({ id }) => id === actorId)
++}
++
++/**
++ * What the module is sent of a command: what it's called is the app's alone, as for a roll; and
++ * nothing is typed in for one, so nothing says so, nor that its rerolls were kept (module 0.42.0).
++ */
++export function commandPayload(input: RollRequestInput): Prisma.InputJsonValue {
++  const command = { ...input }
++  delete command.label
++  delete command.typed
++  delete command.rerolls
++  return command as unknown as Prisma.InputJsonValue
++}
++
++/**
++ * What the Gamemaster's page called what it sent, kept for the character's player to be shown it
++ * by; a player's own page never asks for theirs.
++ */
++export function gmLabel(
++  seat: RollSeat,
++  label: string | undefined,
++): { label?: string } {
++  return seat.role === 'gm' && label !== undefined ? { label } : {}
++}
++
++/**
++ * Hold what a seat sent for the module to fetch, as a RollRequest of its seat's, made now; and let
++ * the seat's older ones go, as only the latest are asked after.
++ * @param row - Its campaign and actor, then the rest of the row, in the order it's written.
++ * @returns The row's id.
++ */
++export async function holdCommand(
++  seat: SheetSeat,
++  row: CommandRow,
++  now: number,
++): Promise<{ id: string }> {
++  const { campaignId, actorId, ...rest } = row
++  const { id } = await prisma.rollRequest.create({
++    data: {
++      campaignId,
++      characterId: seat.characterId,
++      role: seat.role,
++      requestedById: seat.userId,
++      actorId,
++      ...rest,
++      createdAt: new Date(now),
++    },
++    select: { id: true },
++  })
++  await prisma.rollRequest.deleteMany({
++    where: { ...madeBy(seat), createdAt: { lt: ago(now, ROLLS_KEPT_FOR) } },
++  })
++  return { id }
++}
++
++/**
++ * Take a command that rides to the game as a roll does but is none, for the Gamemaster's game to
++ * make: an item removed (module 0.33.0), a favorite (0.37.0), an effect changed (0.39.0) or Wild
++ * Shape (0.40.0). From its player, or the campaign's Gamemaster at its page where the kind is
++ * theirs to send too; while the campaign's own switch for it is on and its module is fetching;
++ * where the seat isn't sending too many, of rolls and every other kind together; where the
++ * character is in the campaign's roster; where the sheet, as last sent, lets it be done (`check`);
++ * and where nothing of the seat's on its way clashes with it, as from a second tap (`clashes`).
++ * @param seat - Who is at the sheet, already checked to be the signed-in user's.
++ * @returns The command's id, or why it wasn't taken.
++ */
++export async function createCommand<K extends CommandKind>(
++  seat: SheetSeat,
++  input: RollRequestInput,
++  spec: CommandSpec<K>,
++): Promise<{ id: string } | RollRejection> {
++  const { campaignId, actorId } = seat
++  const value = input[spec.kind] as CommandValue<K> | undefined
++  if (!campaignId || !actorId || !value) {
++    return { status: 409, reason: 'unavailable' }
++  }
++  const info = ROLL_KIND_INFO[spec.kind]
++  // The Gamemaster's page offers none of a player's own: it would leave no mark of theirs, or be
++  // the player's in the game.
++  if ('gm' in info && seat.role === 'gm') {
++    return { status: 409, reason: 'unavailable' }
++  }
++  const campaign = (await prisma.campaign.findUnique({
++    where: { id: campaignId },
++    select: { [info.own]: true, bridgePolledAt: true, characters: true },
++  })) as CommandCampaign | null
++  if (!campaign || !switchOn(campaign, info.own)) {
++    return { status: 409, reason: 'unavailable' }
++  }
++
++  const now = Date.now()
++  if (await seatBusy(seat, now)) return { status: 429, reason: 'busy' }
++  if (!inRoster(campaign.characters, actorId)) {
++    return { status: 422, reason: 'unknown' }
++  }
++
++  const { waiting } = spec
++  const [sheet, rows] = await Promise.all([
++    prisma.actorSheet.findUnique({
++      where: { campaignActor: { campaignId, actorId } },
++      select: { data: true },
++    }),
++    waiting.skip?.(value)
++      ? Promise.resolve([])
++      : prisma.rollRequest.findMany({
++          where: { ...madeBy(seat), kind: waiting.kind, ...onItsWay(now) },
++          select: waiting.select,
++          take: ROLLS_IN_FLIGHT,
++        }),
++  ])
++  const data = sheet?.data as unknown as CharacterSheet | undefined
++  const refusal = spec.check(value, data)
++  if (refusal) return { status: 422, reason: refusal }
++  // The game would make the second of what the first left.
++  if (spec.clashes(rows as WaitingRow[], value, data, actorId)) {
++    return { status: 409, reason: 'moving' }
++  }
++
++  return holdCommand(
++    seat,
++    {
++      campaignId,
++      actorId,
++      kind: spec.kind,
++      ...gmLabel(seat, input.label),
++      payload: commandPayload(input),
++    },
++    now,
++  )
++}
++
++/**
++ * Whether it's time to note something again that this server notes at most once every so often,
++ * by a key, such as a campaign's; and if it is, that it's noted now. Each server keeps its own.
++ */
++export function due(
++  noted: Map<string, number>,
++  key: string,
++  every: number,
++  now: number,
++): boolean {
++  if (now - (noted.get(key) ?? 0) < every) return false
++  noted.set(key, now)
++  return true
++}
+diff --git a/src/db/constants.ts b/src/db/constants.ts
+new file mode 100644
+index 0000000..13ba25f
+--- /dev/null
++++ b/src/db/constants.ts
+@@ -0,0 +1,2 @@
++/** A Foundry document's id as the module sends it, such as an actor's or a group's. */
++export const FOUNDRY_ID = /^[\dA-Za-z]{1,64}$/
+diff --git a/src/db/note-sync.ts.orig b/src/db/note-sync.ts.orig
+new file mode 100644
+index 0000000..0224b5e
+--- /dev/null
++++ b/src/db/note-sync.ts.orig
+@@ -0,0 +1,845 @@
++import { randomUUID } from 'node:crypto'
++import {
++  Prisma,
++  type JournalNote,
++  type JournalOrder,
++  type JournalWrite,
++} from '@prisma/client'
++import prisma from '@/clients/prisma'
++import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
++import { NO_DICE } from '@/constants/roll-kinds'
++import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
++import { noteHtml } from '@/lib/note-html'
++import type {
++  NotePageCommand,
++  JournalDrawings,
++  NoteCommand,
++  NoteOrderCommand,
++  Tx,
++} from './types'
++import type { NoteBookKind, NoteReason } from '@/types/notes'
++import type {
++  CommandResult,
++  JournalPage,
++  JournalUpdated,
++} from '@/types/sending-stone'
++
++// The module's side of journal notes (round 0.34.0 §4, §8.9), from module 0.34.0: what Foundry
++// holds of each book, as the module sends it, kept as the app's mirror of it; and the changes made
++// here, handed to the module to make there. Each change is handed over until a result answers it,
++// as Foundry may be closed for days, and the module makes it at most once in effect. Nothing here
++// decides between a change made here and one made in Foundry: the module does, as it makes each.
++//
++// From module 0.35.0 (round 0.35.0 §7.8-§7.10) the mirror keeps each note's place in its group,
++// as Foundry sends the journal in its page order; an order of a group's notes made here is handed
++// over with the notes' changes, oldest first across both; and the book keeps who last deleted or
++// reordered its pages in Foundry, and when, as the module says.
++
++/** How long a made change is kept, so the seat's limit has rows to count while Foundry is live. */
++export const MADE_KEPT_FOR = 3_600_000
++
++/**
++ * On each hello from module 0.34.0 (§4.6): the books whose journal it no longer lists are emptied,
++ * for each of the campaign's characters and parties it names. A book of an actor it doesn't name is
++ * left alone, and a book with no journal yet has nothing to empty. Only the app's copy goes: if the
++ * module simply failed to find the journal, its next `journal.updated` brings it back.
++ * @param characters - The hello's characters, by their actors' ids.
++ * @param groups - The hello's groups, by their actors' ids.
++ * @param journals - The books whose journal the module says exists, for this campaign.
++ */
++export async function reconcileJournals(
++  tx: Tx,
++  campaignId: string,
++  characters: string[],
++  groups: string[],
++  journals: { kind: NoteBookKind; actorId: string }[],
++): Promise<void> {
++  const named = {
++    personal: new Set(characters),
++    party: new Set(groups),
++  }
++  const listed = new Set(
++    journals.map(({ kind, actorId }) => `${kind}:${actorId}`),
++  )
++  const books = await tx.journalBook.findMany({
++    where: { campaignId, journalId: { not: null } },
++    select: { id: true, kind: true, actorId: true },
++  })
++  for (const book of books) {
++    if (!named[book.kind].has(book.actorId)) continue
++    if (listed.has(`${book.kind}:${book.actorId}`)) continue
++    await tx.journalNote.deleteMany({ where: { bookId: book.id } })
++    await tx.journalBook.update({
++      where: { id: book.id },
++      data: {
++        journalId: null,
++        journalName: null,
++        version: { increment: 1 },
++      },
++    })
++  }
++}
++
++/** A journal's note's Markdown as the mirror keeps it: Foundry's HTML is only drawn, never kept. */
++function bodyOf(page: JournalPage): string {
++  return page.format === 2 ? (page.markdown ?? '') : ''
++}
++
++/** A journal's note as the mirror keeps it, but for how it's drawn. */
++function fieldsOf(
++  page: JournalPage,
++  place: number,
++): Omit<JournalNote, 'bookId' | 'html'> {
++  return {
++    noteId: page.id,
++    role: page.role,
++    chapterId: page.role === 'entry' ? page.chapter : null,
++    title: page.title,
++    format: page.format,
++    body: bodyOf(page),
++    cut: page.cut === true,
++    secret: page.secret === true,
++    authorActorId: page.author?.actorId ?? null,
++    authorGm: page.author?.gm ?? false,
++    authorName: page.author?.name ?? null,
++    createdAt: new Date(page.createdAt),
++    modifiedAt: new Date(page.modifiedAt),
++    modifiedBy: page.modifiedBy,
++    modifiedIn: page.modifiedIn,
++    revision: page.rev,
++    place,
++  }
++}
++
++/**
++ * Each note's place in its group (round 0.35.0 §2.4), from 0, as Foundry sends the journal in its
++ * page order: a chapter's among the chapters, an entry's among the entries of its chapter, or of
++ * none. So a reorder in Foundry changes the places, and a note added at a group's end no other's.
++ */
++export function placesOf(pages: JournalPage[]): Map<string, number> {
++  const counted = new Map<string, number>()
++  const places = new Map<string, number>()
++  for (const page of pages) {
++    const group =
++      page.role === 'chapter' ? 'chapters' : `entries:${page.chapter ?? ''}`
++    const place = counted.get(group) ?? 0
++    places.set(page.id, place)
++    counted.set(group, place + 1)
++  }
++  return places
++}
++
++/** A journal's note as its book draws it: a personal book keeps its secrets, a party's never. */
++function drawn(page: JournalPage, origin: string, kind: NoteBookKind): string {
++  return noteHtml(
++    page.format === 2
++      ? { format: 2, body: page.markdown ?? '' }
++      : { format: 1, body: page.html ?? '' },
++    origin,
++    kind === 'personal',
++  )
++}
++
++/**
++ * Whether a note held is drawn again from what Foundry now says of it: where what it says may have
++ * changed, by its revision, its form or its text (a chapter's own text isn't in its revision); and
++ * each time for Foundry's HTML, which isn't kept. A new name alone keeps its drawing.
++ */
++function redrawn(
++  held: Pick<JournalNote, 'revision' | 'format' | 'body' | 'secret'>,
++  page: JournalPage,
++): boolean {
++  return (
++    held.revision !== page.rev ||
++    held.format !== page.format ||
++    held.body !== bodyOf(page) ||
++    held.secret !== (page.secret === true) ||
++    page.format === 1
++  )
++}
++
++/**
++ * Draw a `journal.updated`'s notes ahead (§8.9), before the transaction that keeps them: a large
++ * book's Markdown takes seconds to draw, longer than a transaction may stay open. Only those the
++ * mirror, as it was just now, would draw again are drawn; the keeping draws any other itself, as
++ * where the mirror changed meanwhile.
++ * @returns Undefined where nothing is to be drawn.
++ */
++export async function drawJournal(
++  campaignId: string,
++  event: JournalUpdated,
++): Promise<JournalDrawings | undefined> {
++  const pages = event.journal?.notes ?? []
++  if (event.withheld || pages.length === 0) return
++  const [campaign, book] = await Promise.all([
++    prisma.campaign.findUnique({
++      where: { id: campaignId },
++      select: { origin: true },
++    }),
++    prisma.journalBook.findUnique({
++      where: {
++        campaignBook: { campaignId, kind: event.kind, actorId: event.actorId },
++      },
++      select: {
++        notes: {
++          select: {
++            noteId: true,
++            revision: true,
++            format: true,
++            body: true,
++            secret: true,
++          },
++        },
++      },
++    }),
++  ])
++  if (!campaign) return
++  const held = new Map(book?.notes.map(note => [note.noteId, note]))
++  const html = new Map<string, string>()
++  for (const page of pages) {
++    const before = held.get(page.id)
++    if (!before || redrawn(before, page)) {
++      html.set(page.id, drawn(page, campaign.origin, event.kind))
++    }
++  }
++  return { origin: campaign.origin, html }
++}
++
++/** Whether anything kept of a note differs from what Foundry now says of it. */
++function differs(
++  held: JournalNote,
++  next: Omit<JournalNote, 'bookId' | 'html'>,
++): boolean {
++  return (Object.keys(next) as (keyof typeof next)[]).some(key => {
++    const before = held[key]
++    const after = next[key]
++    return before instanceof Date && after instanceof Date
++      ? before.getTime() !== after.getTime()
++      : before !== after
++  })
++}
++
++/**
++ * A book as Foundry holds it now (§4.6), from module 0.34.0's `journal.updated`: held back, which
++ * keeps the notes as they were; no journal, which empties the mirror; or a journal, whose notes the
++ * mirror becomes, each one changed drawn again. The book of an actor the campaign doesn't have is
++ * ignored. Changes waiting here are never touched: the module decides each as it makes it.
++ * @param drawings - Its notes drawn ahead, outside the transaction (`drawJournal`).
++ */
++export async function applyJournalUpdated(
++  tx: Tx,
++  campaignId: string,
++  event: JournalUpdated,
++  drawings?: JournalDrawings,
++): Promise<void> {
++  const campaign = await tx.campaign.findUnique({
++    where: { id: campaignId },
++    select: { origin: true, characters: true, groups: true },
++  })
++  if (!campaign) return
++  const roster =
++    event.kind === 'personal' ? campaign.characters : campaign.groups
++  const listed =
++    Array.isArray(roster) &&
++    (roster as ({ id?: unknown } | null)[]).some(
++      entry => entry?.id === event.actorId,
++    )
++  if (!listed) return
++
++  const book = await tx.journalBook.upsert({
++    where: {
++      campaignBook: { campaignId, kind: event.kind, actorId: event.actorId },
++    },
++    create: { campaignId, kind: event.kind, actorId: event.actorId },
++    update: {},
++    select: {
++      id: true,
++      journalId: true,
++      journalName: true,
++      withheld: true,
++      changedAt: true,
++      notes: true,
++    },
++  })
++  const now = new Date()
++  let changed = false
++
++  if (event.withheld) {
++    changed = JSON.stringify(book.withheld) !== JSON.stringify(event.withheld)
++    await tx.journalBook.update({
++      where: { id: book.id },
++      data: {
++        withheld: event.withheld as Prisma.InputJsonObject,
++        syncedAt: now,
++        ...(changed && { version: { increment: 1 } }),
++      },
++    })
++    return
++  }
++
++  const { journal } = event
++  const pages = journal?.notes ?? []
++  const ahead = drawings?.origin === campaign.origin ? drawings.html : undefined
++  const draw = (page: JournalPage) =>
++    ahead?.get(page.id) ?? drawn(page, campaign.origin, event.kind)
++  const held = new Map(book.notes.map(note => [note.noteId, note]))
++  const places = placesOf(pages)
++  const sent = new Set(pages.map(({ id }) => id))
++  const gone = book.notes.filter(({ noteId }) => !sent.has(noteId))
++  if (gone.length > 0) {
++    changed = true
++    await tx.journalNote.deleteMany({
++      where: {
++        bookId: book.id,
++        noteId: { in: gone.map(({ noteId }) => noteId) },
++      },
++    })
++  }
++  // New notes are made in one go, so that a book's first post costs one query, not one a note.
++  const made: Prisma.JournalNoteCreateManyInput[] = []
++  for (const page of pages) {
++    const before = held.get(page.id)
++    const fields = fieldsOf(page, places.get(page.id) ?? 0)
++    if (!before) {
++      made.push({ bookId: book.id, ...fields, html: draw(page) })
++      continue
++    }
++    const html = redrawn(before, page) ? draw(page) : before.html
++    if (!differs(before, fields) && html === before.html) continue
++    changed = true
++    await tx.journalNote.update({
++      where: noteKey(book.id, page.id),
++      data: { ...fields, html },
++    })
++  }
++  if (made.length > 0) {
++    changed = true
++    await tx.journalNote.createMany({ data: made })
++  }
++  const journalId = journal?.id ?? null
++  const journalName = journal?.name ?? null
++  changed ||=
++    book.journalId !== journalId ||
++    book.journalName !== journalName ||
++    book.withheld !== null
++  // Who last deleted or reordered its pages in Foundry, from module 0.35.0, where it's later than
++  // the book's last such change: the latest by time wins, so a late post never moves it back.
++  const told = journal?.changed
++  const later =
++    !!told && (!book.changedAt || told.at > book.changedAt.getTime())
++  changed ||= later
++  await tx.journalBook.update({
++    where: { id: book.id },
++    data: {
++      journalId,
++      journalName,
++      withheld: Prisma.DbNull,
++      syncedAt: now,
++      ...(later && {
++        changedAt: new Date(told.at),
++        changedBy: told.by,
++        changedIn: 'foundry',
++      }),
++      ...(changed && { version: { increment: 1 } }),
++    },
++  })
++}
++
++/** A change's command id: the change's own, then which change of it this is. */
++function commandId(write: { id: string; seq: number }): string {
++  return `${write.id}.${write.seq}`
++}
++
++/** A change or an order the claim may hand over, oldest first across both. */
++type Due = {
++  table: 'write' | 'order'
++  id: string
++  seq: number
++  queuedAt: Date
++  /** Characters of title and text: an order's are none. */
++  size: number
++}
++
++/** Which table goes first of a change and an order queued at the same time: the change. */
++const TABLE_FIRST = { write: 0, order: 1 } as const
++
++/** Oldest first, a note's change before an order queued at the same time, then by id. */
++function byQueue(
++  a: { table: 'write' | 'order'; id: string; queuedAt: Date },
++  b: { table: 'write' | 'order'; id: string; queuedAt: Date },
++): number {
++  return (
++    a.queuedAt.getTime() - b.queuedAt.getTime() ||
++    TABLE_FIRST[a.table] - TABLE_FIRST[b.table] ||
++    a.id.localeCompare(b.id)
++  )
++}
++
++/**
++ * Hand the module the changes waiting for its game (§4.3, §8.9), oldest first: those waiting, and
++ * those handed over but unanswered past the time a fetched roll is, which are handed over again
++ * under the same command id. Only to the session whose hello the app holds, and only while it takes
++ * notes; the Gamemaster's only where they're the campaign's owner. At most a few at once, and so
++ * many characters of titles and text, but always one. Made changes past their hour go first. From
++ * module 0.35.0, where its hello says it takes them, the orders of groups' notes go with the
++ * changes, oldest first across both (round 0.35.0 §7.10), so that a note an order places, made
++ * before the order last changed, reaches Foundry first.
++ * @param session - The module session that fetched them.
++ */
++export async function claimNoteWrites(
++  campaignId: string,
++  session: string,
++): Promise<NoteCommand[]> {
++  const now = Date.now()
++  const stale = {
++    campaignId,
++    status: 'made' as const,
++    updatedAt: { lt: new Date(now - MADE_KEPT_FOR) },
++  }
++  await prisma.journalWrite.deleteMany({ where: stale })
++  await prisma.journalOrder.deleteMany({ where: stale })
++  const campaign = await prisma.campaign.findUnique({
++    where: { id: campaignId },
++    select: {
++      helloSession: true,
++      notesEnabled: true,
++      noteFeatures: true,
++      ownerId: true,
++    },
++  })
++  if (
++    !campaign ||
++    campaign.helloSession !== session ||
++    !campaign.notesEnabled
++  ) {
++    return []
++  }
++  const due: Prisma.JournalWriteWhereInput & Prisma.JournalOrderWhereInput = {
++    OR: [
++      { status: 'pending' },
++      {
++        status: 'claimed',
++        claimedAt: { lt: new Date(now - ROLL_ANSWER_WITHIN) },
++      },
++    ],
++  }
++  const whose: Prisma.JournalWriteWhereInput & Prisma.JournalOrderWhereInput = {
++    OR: [
++      { seat: 'player' },
++      ...(campaign.ownerId
++        ? [{ seat: 'gm' as const, requestedById: campaign.ownerId }]
++        : []),
++    ],
++  }
++  const [found, queued] = await Promise.all([
++    prisma.journalWrite.findMany({
++      where: { campaignId, AND: [due, whose] },
++      orderBy: { queuedAt: 'asc' },
++      take: NOTE_CLAIM_LIMIT,
++      select: { id: true, seq: true, title: true, body: true, queuedAt: true },
++    }),
++    // A module before 0.35.0 refuses an order it can't read: they wait for one that takes them.
++    campaign.noteFeatures.includes('orders')
++      ? prisma.journalOrder.findMany({
++          where: { campaignId, AND: [due, whose] },
++          orderBy: { queuedAt: 'asc' },
++          take: NOTE_CLAIM_LIMIT,
++          select: { id: true, seq: true, queuedAt: true },
++        })
++      : [],
++  ])
++  const waiting: Due[] = [
++    ...found.map(({ id, seq, queuedAt, title, body }) => ({
++      table: 'write' as const,
++      id,
++      seq,
++      queuedAt,
++      size: title.length + body.length,
++    })),
++    ...queued.map(({ id, seq, queuedAt }) => ({
++      table: 'order' as const,
++      id,
++      seq,
++      queuedAt,
++      size: 0,
++    })),
++  ]
++    .toSorted(byQueue)
++    .slice(0, NOTE_CLAIM_LIMIT)
++  const taken: Due[] = []
++  let chars = 0
++  for (const next of waiting) {
++    if (taken.length > 0 && chars + next.size > NOTE_CLAIM_CHARS) break
++    taken.push(next)
++    chars += next.size
++  }
++  if (taken.length === 0) return []
++  const claimToken = randomUUID()
++  const claim = {
++    status: 'claimed' as const,
++    claimToken,
++    claimSession: session,
++    claimedAt: new Date(now),
++  }
++  const of = (table: Due['table']) =>
++    taken
++      .filter(next => next.table === table)
++      .map(({ id, seq }) => ({ id, seq }))
++  const writes = of('write')
++  const orders = of('order')
++  if (writes.length > 0) {
++    await prisma.journalWrite.updateMany({
++      where: { OR: writes, AND: [due] },
++      data: claim,
++    })
++  }
++  if (orders.length > 0) {
++    await prisma.journalOrder.updateMany({
++      where: { OR: orders, AND: [due] },
++      data: claim,
++    })
++  }
++  const book = { book: { select: { kind: true, actorId: true } } }
++  const [claimedWrites, claimedOrders] = await Promise.all([
++    writes.length > 0
++      ? prisma.journalWrite.findMany({
++          where: { claimToken },
++          orderBy: { queuedAt: 'asc' },
++          include: book,
++        })
++      : [],
++    orders.length > 0
++      ? prisma.journalOrder.findMany({
++          where: { claimToken },
++          orderBy: { queuedAt: 'asc' },
++          include: book,
++        })
++      : [],
++  ])
++  return [
++    ...claimedWrites.map(write => ({
++      table: 'write' as const,
++      id: write.id,
++      queuedAt: write.queuedAt,
++      command: pageCommand(write),
++    })),
++    ...claimedOrders.map(order => ({
++      table: 'order' as const,
++      id: order.id,
++      queuedAt: order.queuedAt,
++      command: orderCommand(order),
++    })),
++  ]
++    .toSorted(byQueue)
++    .map(({ command }) => command)
++}
++
++/** A change to one page as the module's note command (round 0.34.0 §3.4). */
++function pageCommand(
++  write: JournalWrite & { book: { kind: NoteBookKind; actorId: string } },
++): NotePageCommand {
++  const entry = write.role === 'entry'
++  const { writer, gm } = handedAs(write)
++  return {
++    id: commandId(write),
++    actorId: write.book.actorId,
++    kind: 'note',
++    ...(gm && { by: 'gm' as const }),
++    note: {
++      book: write.book.kind,
++      op: write.op,
++      id: write.noteId,
++      role: write.role,
++      base: write.op === 'create' ? null : write.base,
++      writer,
++      at: write.modifiedAt.getTime(),
++      ...(write.op !== 'delete' && { title: write.title }),
++      ...(write.op !== 'delete' &&
++        entry && { markdown: write.body, chapter: write.chapterId }),
++      ...(write.op === 'create' && {
++        createdAt: write.noteCreatedAt.getTime(),
++      }),
++    },
++    ...NO_DICE,
++  }
++}
++
++/**
++ * An order of a group's notes as the module's note command (round 0.35.0 §3.4): as whoever last
++ * made it, exactly its fields, and nothing a roll names.
++ */
++function orderCommand(
++  order: JournalOrder & { book: { kind: NoteBookKind; actorId: string } },
++): NoteOrderCommand {
++  const gm = order.seat === 'gm'
++  return {
++    id: commandId(order),
++    actorId: order.book.actorId,
++    kind: 'note',
++    ...(gm && { by: 'gm' as const }),
++    note: {
++      book: order.book.kind,
++      op: 'order',
++      chapter: order.chapterId || null,
++      ids: order.ids,
++      was: order.was,
++      writer: gm ? null : order.writerActorId,
++      at: order.modifiedAt.getTime(),
++    },
++    ...NO_DICE,
++  }
++}
++
++/**
++ * Who a change is handed over as (§3.4). A create goes as its author, whoever changed it since: the
++ * module makes a create's writer its author, and a party member owns, in Foundry and here, only the
++ * pages they wrote. So a member's note the Gamemaster fixed while it waited, or made again after
++ * Foundry deleted it, stays the member's. A note first written in Foundry has no author to keep,
++ * and goes as whoever made it again; any other change goes as whoever made it.
++ */
++function handedAs(write: {
++  op: 'create' | 'update' | 'delete'
++  seat: 'player' | 'gm'
++  writerActorId: string | null
++  authorActorId: string | null
++  authorGm: boolean
++}): { writer: string | null; gm: boolean } {
++  if (write.op === 'create' && write.authorActorId) {
++    return { writer: write.authorActorId, gm: false }
++  }
++  if (write.op === 'create' && write.authorGm) return { writer: null, gm: true }
++  return write.seat === 'gm'
++    ? { writer: null, gm: true }
++    : { writer: write.writerActorId, gm: false }
++}
++
++/** The reasons a note command may be refused for, kept as they are; any other is an error. */
++const KEPT_REASONS: ReadonlySet<string> = new Set<NoteReason>([
++  'not-yours',
++  'not-member',
++  'private',
++  'unknown',
++  'headings',
++  'full',
++  'invalid',
++  'foundry-only',
++  'off',
++  'error',
++])
++
++/**
++ * Where a change stands once the module answered it: made; waiting for its author to choose, where
++ * the note was changed or deleted in Foundry; or failed, for a reason the view knows, else error.
++ */
++function outcome(result: CommandResult): {
++  status: 'made' | 'conflict' | 'failed'
++  reason: string | null
++} {
++  if (result.status === 'done') return { status: 'made', reason: null }
++  const reason = result.reason ?? 'error'
++  if (reason === 'changed' || reason === 'gone') {
++    return { status: 'conflict', reason }
++  }
++  return {
++    status: 'failed',
++    reason: KEPT_REASONS.has(reason) ? reason : 'error',
++  }
++}
++
++/** A note's key in its book, as Prisma names the pair. */
++function noteKey(bookId: string, noteId: string) {
++  // eslint-disable-next-line camelcase -- Prisma's name for the table's two-part key
++  return { bookId_noteId: { bookId, noteId } }
++}
++
++/**
++ * What became of a note command (§8.9): only for the change handed over under that id, still on its
++ * way, so a late or doubled result for an earlier hand-over changes nothing. Made, the mirror
++ * follows, where the module's post of the book was lost: deleted for a delete, or set from the
++ * change where the page's revision is known; the change is kept an hour as made. Refused because
++ * the note was changed or deleted in Foundry, it waits for its author to choose; refused otherwise,
++ * it's failed; and a timeout leaves it to be handed over again.
++ */
++export async function recordNoteResult(
++  campaignId: string,
++  result: CommandResult,
++): Promise<void> {
++  const at = result.id.lastIndexOf('.')
++  const seq = Number(result.id.slice(at + 1))
++  if (
++    at < 1 ||
++    !/^\d+$/.test(result.id.slice(at + 1)) ||
++    !Number.isSafeInteger(seq)
++  ) {
++    return
++  }
++  const id = result.id.slice(0, at)
++  if (result.status === 'failed' && result.reason === 'timeout') return
++  const { status, reason } = outcome(result)
++  await prisma.$transaction(async tx => {
++    const { count } = await tx.journalWrite.updateMany({
++      where: { id, seq, campaignId, status: 'claimed' },
++      // A refusal says the page's revision now, kept for where the mirror can't say it: a book
++      // Foundry holds back as too large sends no notes, so Use yours goes again from this.
++      data:
++        status === 'made'
++          ? { status, reason }
++          : { status, reason, foundryRev: result.note?.rev ?? null },
++    })
++    // No change of that id and number on its way: from module 0.35.0, an order's, perhaps.
++    if (count === 0) {
++      await recordOrderResult(tx, campaignId, id, seq, result)
++      return
++    }
++    const write = await tx.journalWrite.findUnique({ where: { id } })
++    if (!write) return
++    if (status === 'made') {
++      if (write.op === 'delete') {
++        await tx.journalNote.deleteMany({
++          where: { bookId: write.bookId, noteId: write.noteId },
++        })
++      } else if (typeof result.note?.rev === 'string') {
++        const rev = result.note.rev
++        const held = await tx.journalNote.findUnique({
++          where: noteKey(write.bookId, write.noteId),
++          select: { revision: true, chapterId: true },
++        })
++        if (held?.revision !== rev) {
++          // A note new to its group lands last in it, as the module makes it (round 0.35.0
++          // §2.3); one that stays keeps its place. The next book sets each right.
++          const comes = !held || held.chapterId !== write.chapterId
++          const place = comes ? await lastPlace(tx, write) : undefined
++          const mirror = {
++            role: write.role,
++            chapterId: write.chapterId,
++            title: write.title,
++            format: 2,
++            body: write.body,
++            html: write.html,
++            cut: false,
++            secret: false,
++            authorActorId: write.authorActorId,
++            authorGm: write.authorGm,
++            authorName: write.authorName || null,
++            createdAt: write.noteCreatedAt,
++            modifiedAt: write.modifiedAt,
++            modifiedBy: write.modifiedBy,
++            modifiedIn: 'app',
++            revision: rev,
++            ...(place !== undefined && { place }),
++          }
++          await tx.journalNote.upsert({
++            where: noteKey(write.bookId, write.noteId),
++            create: { bookId: write.bookId, noteId: write.noteId, ...mirror },
++            update:
++              write.role === 'chapter'
++                ? { ...mirror, html: undefined, body: undefined }
++                : mirror,
++          })
++        }
++      }
++    }
++    await tx.journalBook.update({
++      where: { id: write.bookId },
++      data: { version: { increment: 1 } },
++    })
++  })
++}
++
++/** The place after the last of a note's group in the mirror, itself left out. */
++async function lastPlace(
++  tx: Tx,
++  write: Pick<JournalWrite, 'bookId' | 'noteId' | 'role' | 'chapterId'>,
++): Promise<number> {
++  const { _max: last } = await tx.journalNote.aggregate({
++    where: {
++      bookId: write.bookId,
++      role: write.role,
++      chapterId: write.role === 'entry' ? write.chapterId : null,
++      noteId: { not: write.noteId },
++    },
++    _max: { place: true },
++  })
++  return (last.place ?? -1) + 1
++}
++
++/**
++ * What became of an order of a group's notes (round 0.35.0 §7.10): only for the order handed over
++ * under that id and number, still on its way, so a late result for an earlier hand-over changes
++ * nothing. Made, it's kept an hour as made, and where the module's post of the book was lost, the
++ * mirror's places follow the group's order the result says. Refused because the same notes were
++ * reordered in Foundry, it waits for its seat to choose; refused because its chapter is gone, it's
++ * dropped, its notes now in none; refused otherwise, it's failed.
++ */
++async function recordOrderResult(
++  tx: Tx,
++  campaignId: string,
++  id: string,
++  seq: number,
++  result: CommandResult,
++): Promise<void> {
++  const order = await tx.journalOrder.findUnique({
++    where: { id },
++    select: { bookId: true, chapterId: true },
++  })
++  if (!order) return
++  const where = { id, seq, campaignId, status: 'claimed' as const }
++  const reason = result.reason ?? 'error'
++  const { count } =
++    result.status === 'failed' && reason === 'gone'
++      ? await tx.journalOrder.deleteMany({ where })
++      : await tx.journalOrder.updateMany({ where, data: orderOutcome(result) })
++  if (count === 0) return
++  if (result.status === 'done' && result.order) {
++    await placeAsOrdered(tx, order, result.order.ids)
++  }
++  await tx.journalBook.update({
++    where: { id: order.bookId },
++    data: { version: { increment: 1 } },
++  })
++}
++
++/** Where an order stands once the module answered it, but for a chapter gone. */
++function orderOutcome(result: CommandResult): {
++  status: 'made' | 'conflict' | 'failed'
++  reason: string | null
++} {
++  if (result.status === 'done') return { status: 'made', reason: null }
++  const reason = result.reason ?? 'error'
++  if (reason === 'changed') return { status: 'conflict', reason }
++  return {
++    status: 'failed',
++    reason: KEPT_REASONS.has(reason) ? reason : 'error',
++  }
++}
++
++/**
++ * The mirror's places of a group as an order made them, where the book's post was lost: the notes
++ * it names that the mirror holds in that group, 0, 1, 2… in its order, only those that move
++ * written. Where the book came first, as it does, nothing moves.
++ */
++async function placeAsOrdered(
++  tx: Tx,
++  order: { bookId: string; chapterId: string },
++  ids: string[],
++): Promise<void> {
++  const notes = await tx.journalNote.findMany({
++    where: { bookId: order.bookId, noteId: { in: ids } },
++    select: { noteId: true, role: true, chapterId: true, place: true },
++  })
++  const held = new Map(notes.map(note => [note.noteId, note]))
++  let place = 0
++  for (const id of ids) {
++    const note = held.get(id)
++    if (note?.role !== 'entry' || (note.chapterId ?? '') !== order.chapterId) {
++      continue
++    }
++    if (note.place !== place) {
++      await tx.journalNote.update({
++        where: noteKey(order.bookId, id),
++        data: { place },
++      })
++    }
++    place += 1
++  }
++}
+diff --git a/src/db/notes.ts.orig b/src/db/notes.ts.orig
+new file mode 100644
+index 0000000..058395a
+--- /dev/null
++++ b/src/db/notes.ts.orig
+@@ -0,0 +1,1547 @@
++import { createHash, randomUUID } from 'node:crypto'
++import {
++  Prisma,
++  type JournalNote,
++  type JournalOrder,
++  type JournalWrite,
++} from '@prisma/client'
++import prisma from '@/clients/prisma'
++import {
++  MOST_BOOK_TEXT,
++  MOST_CHAPTERS,
++  MOST_ENTRIES,
++  MOST_NOTE_BODY,
++  MOST_NOTE_TITLE,
++  NOTES_PER_MINUTE,
++} from '@/constants/notes'
++import {
++  BRIDGE_POLLED_WITHIN,
++  ROLL_ANSWER_WITHIN,
++} from '@/constants/sending-stone'
++import { noteHtml } from '@/lib/note-html'
++import { convertNoteMarkdown, hasBigHeading } from '@/lib/note-markdown'
++import { checkChange } from '@/schemas/notes'
++import { bigHeadings } from '@/utils/note-headings'
++import { newNoteId } from '@/utils/note-id'
++import type { NotesBook, NotesSeat, NoteRights, NoteAnswer } from './types'
++import type {
++  NoteBookKind,
++  NoteChapterView,
++  NoteEntryView,
++  NoteGroupView,
++  NoteLastChange,
++  NoteOrder,
++  NoteOrderResolve,
++  NoteReason,
++  NoteRole,
++  NotesView,
++  NoteState,
++} from '@/types/notes'
++import type { ConnectedCharacter } from '@/types/sending-stone'
++
++// A seat's journal notes (round 0.34.0 §8.5-§8.8), from module 0.34.0: a character's own book, or a
++// party's, kept here first and sent to Foundry when the Gamemaster's game next takes them. Every
++// change is stored at once, whatever Foundry's state, and only the app's own checks refuse one: who
++// may change it, what it says and how much there is. Each book holds the module's latest word of
++// its journal (`JournalNote`) and, beside it, at most one change waiting per note (`JournalWrite`),
++// whose every change is compare-and-set, so two saves at once never both land.
++//
++// From module 0.35.0 (round 0.35.0 §7) each group of a book's notes, a chapter's or those in none,
++// has an order: Foundry's, kept in the mirror as each note's place, and at most one new order made
++// here and waiting for it (`JournalOrder`), which anyone who may write the book makes, whoever
++// wrote the notes. And the book keeps its last change that leaves no note to show it: a delete, an
++// order, or a refused change sent again, here or in Foundry.
++
++/** The name the Gamemaster writes as, in both books (Q5). */
++const GAMEMASTER = 'Gamemaster'
++
++/** A change waiting or refused: the module hasn't made it, or didn't. */
++type Waiting = JournalWrite & {
++  status: 'pending' | 'claimed' | 'conflict' | 'failed'
++}
++
++/** A change to a note that still means something: one not yet made. */
++function waiting(write: JournalWrite | undefined): write is Waiting {
++  return !!write && write.status !== 'made'
++}
++
++/**
++ * Whether a change handed to the module has gone unanswered past the time a fetched roll is (§4.3),
++ * as when Foundry closed before its result came. It's handed over again when the game is back, and
++ * meanwhile is no longer waited for: a late result for that hand-over changes nothing once the
++ * change has moved on. An order of a group's notes likewise (round 0.35.0 §4.2).
++ */
++function lost(write: Pick<JournalWrite, 'status' | 'claimedAt'>): boolean {
++  return (
++    write.status === 'claimed' &&
++    !!write.claimedAt &&
++    write.claimedAt.getTime() < Date.now() - ROLL_ANSWER_WITHIN
++  )
++}
++
++/** Where a change to a write may start from, as its compare-and-set's `where` says it. */
++function openFrom(write: JournalWrite): Prisma.JournalWriteWhereInput {
++  return lost(write)
++    ? {
++        status: 'claimed',
++        claimedAt: { lt: new Date(Date.now() - ROLL_ANSWER_WITHIN) },
++      }
++    : { status: { in: ['pending', 'failed'] } }
++}
++
++/**
++ * Where a change to an order may start from (round 0.35.0 §4.2): the status it was read in, or a
++ * claim still thought lost.
++ */
++function orderFrom(order: JournalOrder): Prisma.JournalOrderWhereInput {
++  return lost(order)
++    ? {
++        status: 'claimed',
++        claimedAt: { lt: new Date(Date.now() - ROLL_ANSWER_WITHIN) },
++      }
++    : { status: order.status }
++}
++
++/** What a book holds, as read for a seat, with what decides what the seat may do in it. */
++type Held = {
++  book: NotesBook
++  /** The book's own row: none until a change is first made in it, or Foundry sends it. */
++  row?: {
++    id: string
++    version: number
++    journalName: string | null
++    withheld: Prisma.JsonValue
++  }
++  notes: Map<string, JournalNote>
++  writes: Map<string, JournalWrite>
++  /** Each group's order made here, by its chapter's id, '' for the notes in no chapter. */
++  orders: Map<string, JournalOrder>
++  /** The book's last change that leaves no note to show it, where one was made. */
++  changed?: { at: Date; by: string }
++  /** The campaign's module takes orders, as its latest hello said (module 0.35.0). */
++  takesOrders: boolean
++  /** The book's actor is still in the campaign: else nothing in it can be changed. */
++  connected: boolean
++  live: boolean
++  enabled: boolean
++  origin: string
++  /** Each of the campaign's characters' names, by actor, to write as. */
++  names: Map<string, string>
++}
++
++/** Read a book for a seat: its notes and its changes waiting, and the campaign around it. */
++async function readBook(book: NotesBook): Promise<Held | undefined> {
++  const [campaign, row] = await Promise.all([
++    prisma.campaign.findUnique({
++      where: { id: book.campaignId },
++      select: {
++        origin: true,
++        characters: true,
++        notesEnabled: true,
++        noteFeatures: true,
++        bridgePolledAt: true,
++      },
++    }),
++    prisma.journalBook.findUnique({
++      where: {
++        campaignBook: {
++          campaignId: book.campaignId,
++          kind: book.kind,
++          actorId: book.actorId,
++        },
++      },
++      select: {
++        id: true,
++        version: true,
++        journalName: true,
++        withheld: true,
++        changedAt: true,
++        changedBy: true,
++        notes: true,
++        writes: true,
++        orders: true,
++      },
++    }),
++  ])
++  if (!campaign) return undefined
++  const roster = Array.isArray(campaign.characters)
++    ? (campaign.characters as unknown as (ConnectedCharacter | null)[]).filter(
++        (entry): entry is ConnectedCharacter => typeof entry?.id === 'string',
++      )
++    : []
++  const polled = campaign.bridgePolledAt?.getTime()
++  return {
++    book,
++    ...(row && {
++      row: {
++        id: row.id,
++        version: row.version,
++        journalName: row.journalName,
++        withheld: row.withheld,
++      },
++    }),
++    notes: new Map((row?.notes ?? []).map(note => [note.noteId, note])),
++    writes: new Map((row?.writes ?? []).map(write => [write.noteId, write])),
++    orders: new Map((row?.orders ?? []).map(order => [order.chapterId, order])),
++    ...(row?.changedAt && {
++      changed: { at: row.changedAt, by: row.changedBy ?? '' },
++    }),
++    takesOrders: campaign.noteFeatures.includes('orders'),
++    connected:
++      book.kind === 'party' || roster.some(({ id }) => id === book.actorId),
++    live:
++      campaign.notesEnabled &&
++      !!polled &&
++      Date.now() - polled < BRIDGE_POLLED_WITHIN,
++    enabled: campaign.notesEnabled,
++    origin: campaign.origin,
++    names: new Map(roster.map(({ id, name }) => [id, name])),
++  }
++}
++
++/**
++ * What a seat may do in a book (§8.5): add notes and chapters while the book takes them, its actor
++ * still the campaign's and, for a party, one its characters may see; rename any chapter; and
++ * change or delete an entry in a character's own book, or in a party's the Gamemaster any, a
++ * player only those their character wrote, never one written in Foundry. No chapter is deleted.
++ * And put the notes of any chapter, or of none, in order, whoever wrote them (module 0.35.0), as
++ * the book takes notes.
++ */
++export function noteRights(
++  book: { kind: NoteBookKind; private: boolean; connected: boolean },
++  seat: NotesSeat,
++  note?: { role: NoteRole; authorActorId: string | null },
++): NoteRights {
++  const entry = note?.role === 'entry'
++  const mayChange =
++    entry &&
++    (book.kind === 'personal' ||
++      seat.role === 'gm' ||
++      (!!note.authorActorId && note.authorActorId === seat.actorId))
++  return {
++    canAdd: book.connected && !book.private,
++    canRename: true,
++    canEdit: mayChange,
++    canDelete: mayChange,
++    canReorder: book.connected && !book.private,
++  }
++}
++
++/**
++ * Why an entry from Foundry may be changed only there (§8.5): written in its own editor; sent as
++ * HTML for a party's secret; or more than the app can save back, cut short or too long.
++ */
++function foundryOnly(note: JournalNote): NoteEntryView['foundryOnly'] {
++  if (note.role !== 'entry') return
++  if (note.format !== 2) return note.secret ? 'secret' : 'html'
++  if (
++    note.cut ||
++    note.body.length > MOST_NOTE_BODY ||
++    note.title.length > MOST_NOTE_TITLE
++  ) {
++    return 'long'
++  }
++}
++
++/** What a note says, from Foundry's journal or from the change waiting for it. */
++type Content = {
++  title: string
++  body: string
++  html: string
++  chapterId: string | null
++  authorActorId: string | null
++  authorGm: boolean
++  authorName: string | null
++  createdAt: Date
++  modifiedAt: Date
++  modifiedBy: string
++  modifiedIn: 'app' | 'foundry'
++}
++
++function fromMirror(note: JournalNote): Content {
++  return {
++    title: note.title,
++    body: note.body,
++    html: note.html,
++    chapterId: note.chapterId,
++    authorActorId: note.authorActorId,
++    authorGm: note.authorGm,
++    authorName: note.authorName,
++    createdAt: note.createdAt,
++    modifiedAt: note.modifiedAt,
++    modifiedBy: note.modifiedBy,
++    modifiedIn: note.modifiedIn === 'app' ? 'app' : 'foundry',
++  }
++}
++
++function fromWrite(write: JournalWrite, note?: JournalNote): Content {
++  return {
++    title: write.title,
++    body: write.body,
++    // A chapter's own text is Foundry's, never changed here.
++    html: write.role === 'chapter' ? (note?.html ?? '') : write.html,
++    chapterId: write.chapterId,
++    authorActorId: write.authorActorId,
++    authorGm: write.authorGm,
++    authorName: write.authorName,
++    createdAt: note?.createdAt ?? write.noteCreatedAt,
++    modifiedAt: write.modifiedAt,
++    modifiedBy: write.modifiedBy,
++    modifiedIn: 'app',
++  }
++}
++
++/** What the page last saw of a note, sent back with a change: its change waiting, or revision. */
++function stampOf(note?: JournalNote, write?: JournalWrite): string {
++  return waiting(write)
++    ? `w:${write.id}.${write.seq}`
++    : `n:${note?.revision ?? ''}`
++}
++
++/** A note as one seat sees it, or none where it's hidden from them (§8.8). */
++type Seen = {
++  role: NoteRole
++  content: Content
++  state: NoteState
++  reason?: NoteReason
++  /** It shows Foundry's version, and not the change waiting. */
++  mirrored: boolean
++  mine?: Content & { deleting?: true; by?: string }
++  stamp: string
++}
++
++/**
++ * A note as a seat sees it (§8.8): Foundry's version, or the change made here while the module
++ * hasn't made it yet, which every seat sees; and where the module didn't take a change, Foundry's
++ * version with the seat's own beside it, only to a seat that may change it.
++ * @param mayChange - The seat may change the note: rename it, or edit or delete it.
++ */
++function overlay(
++  note: JournalNote | undefined,
++  write: JournalWrite | undefined,
++  mayChange: boolean,
++  live: boolean,
++  seat: NotesSeat,
++): Seen | undefined {
++  const stamp = stampOf(note, write)
++  if (!waiting(write)) {
++    return note
++      ? {
++          role: note.role,
++          content: fromMirror(note),
++          state: 'synced',
++          mirrored: true,
++          stamp,
++        }
++      : undefined
++  }
++  const role = write.role
++  const mine = {
++    ...fromWrite(write, note),
++    ...(write.op === 'delete' && { deleting: true as const }),
++    ...(write.requestedById !== seat.userId && { by: write.modifiedBy }),
++  }
++  const synced = (): Seen | undefined =>
++    note
++      ? {
++          role,
++          content: fromMirror(note),
++          state: 'synced',
++          mirrored: true,
++          stamp,
++        }
++      : undefined
++  const reason = noteReason(write.reason)
++  switch (write.status) {
++    case 'pending':
++    case 'claimed': {
++      if (write.op !== 'delete') {
++        return {
++          role,
++          content: fromWrite(write, note),
++          state: live ? 'saving' : 'waiting',
++          mirrored: false,
++          stamp,
++        }
++      }
++      if (!mayChange || !note) return undefined
++      return {
++        role,
++        content: fromMirror(note),
++        state: 'deleting',
++        mirrored: true,
++        stamp,
++      }
++    }
++    case 'conflict': {
++      if (!mayChange) return reason === 'gone' ? undefined : synced()
++      if (reason === 'gone' || !note) {
++        return {
++          role,
++          content: fromWrite(write, note),
++          state: 'gone',
++          reason: 'gone',
++          mirrored: false,
++          mine,
++          stamp,
++        }
++      }
++      return {
++        role,
++        content: fromMirror(note),
++        state: 'conflict',
++        reason: 'changed',
++        mirrored: true,
++        mine,
++        stamp,
++      }
++    }
++    case 'failed': {
++      if (!mayChange) return write.op === 'create' ? undefined : synced()
++      const shown = write.op === 'create' || !note
++      return {
++        role,
++        content: shown ? fromWrite(write, note) : fromMirror(note),
++        state: 'failed',
++        reason,
++        mirrored: !shown,
++        mine,
++        stamp,
++      }
++    }
++  }
++}
++
++/** Why the module refused a change, as the view names it; any other as an error. */
++function noteReason(reason: string | null): NoteReason {
++  return (REASONS as readonly string[]).includes(reason ?? '')
++    ? (reason as NoteReason)
++    : 'error'
++}
++
++const REASONS = [
++  'changed',
++  'gone',
++  'not-yours',
++  'not-member',
++  'private',
++  'unknown',
++  'headings',
++  'full',
++  'invalid',
++  'foundry-only',
++  'off',
++  'error',
++] as const satisfies readonly NoteReason[]
++
++/** The rights a seat has with a note, by what it is and who wrote it. */
++function rightsFor(
++  held: Held,
++  seat: NotesSeat,
++  note?: JournalNote,
++  write?: JournalWrite,
++): NoteRights & { role: NoteRole; mayChange: boolean } {
++  const role = note?.role ?? write?.role ?? 'entry'
++  const author = note ?? write
++  const rights = noteRights(
++    {
++      kind: held.book.kind,
++      private: held.book.private,
++      connected: held.connected,
++    },
++    seat,
++    { role, authorActorId: author?.authorActorId ?? null },
++  )
++  return {
++    ...rights,
++    role,
++    mayChange: role === 'chapter' ? rights.canRename : rights.canEdit,
++  }
++}
++
++/** Oldest first, by when each was created, then by id. */
++function byAge<T extends { id: string; createdAt: string }>(a: T, b: T) {
++  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
++}
++
++/** The ids of the notes a book holds, Foundry's and those made here alike. */
++function noteIds(held: Held): string[] {
++  return [...new Set([...held.notes.keys(), ...held.writes.keys()])]
++}
++
++/** Why Foundry sends none of the book now, as the view says it. */
++function withheldOf(held: Held): NotesView['withheld'] {
++  // A party no player may see is said so wherever its book is read, before the module says so.
++  if (held.book.kind === 'party' && held.book.private) {
++    return { reason: 'private' }
++  }
++  const withheld = held.row?.withheld as
++    { reason?: unknown; bytes?: unknown; limit?: unknown } | null | undefined
++  if (withheld?.reason === 'private') return { reason: 'private' }
++  if (withheld?.reason === 'tooLarge') {
++    return {
++      reason: 'tooLarge',
++      ...(typeof withheld.bytes === 'number' && { bytes: withheld.bytes }),
++      ...(typeof withheld.limit === 'number' && { limit: withheld.limit }),
++    }
++  }
++}
++
++/**
++ * A book as a seat sees it (§8.8): its chapters, oldest first, and its entries, each as Foundry
++ * holds it or as changed here and waiting, with where it stands, what the seat may do with it, and
++ * its Markdown only for a seat that may change it. From module 0.35.0 (round 0.35.0 §7.9) its
++ * entries are grouped, the notes in no chapter first, each group's in its order, and each group
++ * says where its order stands; and the book says who last changed anything in it the seat sees. A
++ * book never written in is empty, at version 0; reading it never makes it.
++ * @returns Undefined where the campaign isn't there.
++ */
++export async function getNotesView(
++  seat: NotesSeat,
++  book: NotesBook,
++): Promise<NotesView | undefined> {
++  const held = await readBook(book)
++  if (!held) return undefined
++  return viewOf(held, seat).view
++}
++
++/** A group's key, as an order names it: its chapter's id, or '' for the notes in no chapter. */
++const groupKey = (chapterId: string | null) => chapterId ?? ''
++
++/** A group as a seat sees it, with what decides a change to its order. */
++type Grouped = {
++  /** Its notes as the seat sees them, in the order shown. */
++  ids: string[]
++  /** Its notes as the seat sees them, in Foundry's order and as what waits will make it. */
++  base: string[]
++  /** Its order made here, where there is one. */
++  order?: JournalOrder
++  view: NoteGroupView
++}
++
++/**
++ * What a seat was shown of a group's order (§7.9): the order shown, and a refused order's panel
++ * where it's shown one, never the order's every step. So a note added or gone, a reorder in
++ * Foundry, a new order by anyone and a refusal shown each change it; an order of the seat's going
++ * from waiting to made as asked doesn't.
++ * @param panel - The refused order shown, as `<id>.<seq>`; null where none is.
++ */
++function groupStamp(panel: string | null, ids: string[]): string {
++  const hash = createHash('sha256').update(JSON.stringify([panel, ids]))
++  return `g:${hash.digest('hex').slice(0, 16)}`
++}
++
++/** An order waiting for the game, or on its way to it: the order every seat is shown. */
++function ordering(
++  order?: JournalOrder,
++): order is JournalOrder & { status: 'pending' | 'claimed' } {
++  return order?.status === 'pending' || order?.status === 'claimed'
++}
++
++/** A group's order with an order waiting: its notes the order lists first, in its order. */
++function ordered(base: string[], order?: JournalOrder): string[] {
++  if (!ordering(order)) return base
++  const inGroup = new Set(base)
++  const listed = order.ids.filter(id => inGroup.has(id))
++  const first = new Set(listed)
++  return [...listed, ...base.filter(id => !first.has(id))]
++}
++
++/**
++ * A group's order as Foundry holds it, or will once what waits is made (§2.5): its notes the
++ * mirror holds in it, by their place there, then by when each was written, then id; then those
++ * that wait to come into it, made here or moved in, in the order the module will make them, each
++ * landing last.
++ */
++function baseOrder(
++  held: Held,
++  entries: NoteEntryView[],
++  group: string | null,
++  shown: ReadonlySet<string>,
++): string[] {
++  const shownChapter = (id: string | null) => (id && shown.has(id) ? id : null)
++  const placed: NoteEntryView[] = []
++  const coming: NoteEntryView[] = []
++  for (const entry of entries) {
++    const note = held.notes.get(entry.id)
++    const inMirror =
++      note?.role === 'entry' && shownChapter(note.chapterId) === group
++    ;(inMirror ? placed : coming).push(entry)
++  }
++  const place = (entry: NoteEntryView) => held.notes.get(entry.id)!.place
++  const queued = (entry: NoteEntryView) => {
++    const write = held.writes.get(entry.id)
++    return waiting(write)
++      ? write.queuedAt.getTime()
++      : Date.parse(entry.createdAt)
++  }
++  return [
++    ...placed.toSorted((a, b) => place(a) - place(b) || byAge(a, b)),
++    ...coming.toSorted(
++      (a, b) => queued(a) - queued(b) || a.id.localeCompare(b.id),
++    ),
++  ].map(({ id }) => id)
++}
++
++/** A group's order as a seat is shown it, where its order stands, and its stamp (§7.9). */
++function groupOf(
++  held: Held,
++  seat: NotesSeat,
++  group: string | null,
++  base: string[],
++): Grouped {
++  const order = held.orders.get(groupKey(group))
++  const ids = ordered(base, order)
++  const refused = order?.status === 'conflict' || order?.status === 'failed'
++  // A refused order is its own seat's to settle, and the Gamemaster's: anyone else is shown
++  // Foundry's order, as for a note.
++  const panel =
++    refused && (seat.role === 'gm' || order.requestedById === seat.userId)
++  const view: NoteGroupView = {
++    chapterId: group,
++    state: 'synced',
++    stamp: groupStamp(panel ? `${order.id}.${order.seq}` : null, ids),
++  }
++  if (ordering(order)) {
++    view.state = held.live && held.takesOrders ? 'saving' : 'waiting'
++  } else if (panel) {
++    const inGroup = new Set(base)
++    view.state = order.status === 'conflict' ? 'conflict' : 'failed'
++    view.reason =
++      order.status === 'conflict' ? 'changed' : noteReason(order.reason)
++    view.mine = {
++      ids: order.ids.filter(id => inGroup.has(id)),
++      ...(order.requestedById !== seat.userId && { by: order.modifiedBy }),
++    }
++  }
++  return { ids, base, ...(order && { order }), view }
++}
++
++/**
++ * The journal's last change a seat may be told of (§2.6): the latest of its chapters' and entries'
++ * own, as the seat sees them, and of the book's record; the book's where they're at one time.
++ */
++function lastChangeOf(
++  held: Held,
++  seen: { modifiedAt: string; modifiedBy: string }[],
++): NoteLastChange | undefined {
++  let latest: { at: number; by: string } | undefined
++  for (const { modifiedAt, modifiedBy } of seen) {
++    const at = Date.parse(modifiedAt)
++    if (!latest || at > latest.at) latest = { at, by: modifiedBy }
++  }
++  if (held.changed && (!latest || held.changed.at.getTime() >= latest.at)) {
++    latest = { at: held.changed.at.getTime(), by: held.changed.by }
++  }
++  return latest && { by: latest.by, at: new Date(latest.at).toISOString() }
++}
++
++/** A book as a seat sees it, with each of its groups by key, for a change to their order. */
++function viewOf(
++  held: Held,
++  seat: NotesSeat,
++): { view: NotesView; groups: Map<string, Grouped> } {
++  const { book } = held
++  const chapters: NoteChapterView[] = []
++  const entries: NoteEntryView[] = []
++  for (const id of noteIds(held)) {
++    const note = held.notes.get(id)
++    const write = held.writes.get(id)
++    const rights = rightsFor(held, seat, note, write)
++    const seen = overlay(note, write, rights.mayChange, held.live, seat)
++    if (!seen) continue
++    const { content } = seen
++    const common = {
++      id,
++      title: content.title,
++      createdAt: content.createdAt.toISOString(),
++      modifiedAt: content.modifiedAt.toISOString(),
++      modifiedBy: content.modifiedBy,
++      modifiedIn: content.modifiedIn,
++      state: seen.state,
++      ...(seen.reason && { reason: seen.reason }),
++      stamp: seen.stamp,
++    }
++    if (seen.role === 'chapter') {
++      chapters.push({
++        ...common,
++        html: note?.html ?? '',
++        canRename: rights.canRename,
++        ...(seen.mine && {
++          mine: {
++            title: seen.mine.title,
++            ...(seen.mine.by !== undefined && { by: seen.mine.by }),
++          },
++        }),
++      })
++      continue
++    }
++    const only = seen.mirrored && note ? foundryOnly(note) : undefined
++    const hasAuthor = !!content.authorActorId || content.authorGm
++    entries.push({
++      ...common,
++      chapterId: content.chapterId,
++      html: content.html,
++      ...(rights.mayChange && !only && { body: content.body }),
++      author: hasAuthor ? { name: content.authorName ?? '' } : null,
++      canEdit: rights.canEdit,
++      canDelete: rights.canDelete,
++      ...(only && { foundryOnly: only }),
++      ...(seen.mine && {
++        mine: {
++          title: seen.mine.title,
++          html: seen.mine.html,
++          body: seen.mine.body,
++          chapterId: seen.mine.chapterId,
++          ...(seen.mine.deleting && { deleting: true as const }),
++          ...(seen.mine.by !== undefined && { by: seen.mine.by }),
++        },
++      }),
++    })
++  }
++  const sortedChapters = chapters.toSorted(byAge)
++  const shown = new Set(chapters.map(({ id }) => id))
++  // An entry in a chapter the seat isn't shown is in none, as it reads it.
++  const placedEntries = entries.map(entry =>
++    entry.chapterId && !shown.has(entry.chapterId)
++      ? { ...entry, chapterId: null }
++      : entry,
++  )
++  const byId = new Map(placedEntries.map(entry => [entry.id, entry]))
++  const groups = new Map<string, Grouped>()
++  for (const group of [null, ...sortedChapters.map(({ id }) => id)]) {
++    const members = placedEntries.filter(entry => entry.chapterId === group)
++    const base = baseOrder(held, members, group, shown)
++    groups.set(groupKey(group), groupOf(held, seat, group, base))
++  }
++  const rights = noteRights(
++    { kind: book.kind, private: book.private, connected: held.connected },
++    seat,
++  )
++  const withheld = withheldOf(held)
++  const lastChange = lastChangeOf(held, [...chapters, ...entries])
++  return {
++    view: {
++      version: held.row?.version ?? 0,
++      kind: book.kind,
++      journal: held.row?.journalName ?? null,
++      live: held.live,
++      enabled: held.enabled,
++      canAdd: rights.canAdd,
++      connected: held.connected,
++      canReorder: rights.canReorder,
++      orders: held.takesOrders,
++      ...(lastChange && { lastChange }),
++      ...(withheld && { withheld }),
++      chapters: sortedChapters,
++      groups: [...groups.values()].map(({ view }) => view),
++      entries: [...groups.values()].flatMap(({ ids }) =>
++        ids.map(id => byId.get(id)!),
++      ),
++    },
++    groups,
++  }
++}
++
++/**
++ * Whether anything is new in a book for a page that saw it at a version, live or not: its version,
++ * and whether its game is taking notes now, which changes with no new version.
++ * @returns Undefined where the campaign isn't there.
++ */
++export async function getNotesStatus(
++  book: NotesBook,
++): Promise<{ version: number; live: boolean } | undefined> {
++  const [campaign, row] = await Promise.all([
++    prisma.campaign.findUnique({
++      where: { id: book.campaignId },
++      select: { notesEnabled: true, bridgePolledAt: true },
++    }),
++    prisma.journalBook.findUnique({
++      where: {
++        campaignBook: {
++          campaignId: book.campaignId,
++          kind: book.kind,
++          actorId: book.actorId,
++        },
++      },
++      select: { version: true },
++    }),
++  ])
++  if (!campaign) return undefined
++  const polled = campaign.bridgePolledAt?.getTime()
++  return {
++    version: row?.version ?? 0,
++    live:
++      campaign.notesEnabled &&
++      !!polled &&
++      Date.now() - polled < BRIDGE_POLLED_WITHIN,
++  }
++}
++
++/** A note's Markdown as a book draws it: a personal book keeps its secrets, a party's never. */
++function htmlFor(held: Held, body: string): string {
++  return noteHtml(
++    { format: 2, body },
++    held.origin,
++    held.book.kind === 'personal',
++  )
++}
++
++/** The name a seat writes as: the Gamemaster's, or their character's as the campaign names it. */
++function writerName(held: Held, seat: NotesSeat): string {
++  if (seat.role === 'gm') return GAMEMASTER
++  return (seat.actorId && held.names.get(seat.actorId)) || seat.name
++}
++
++/** Who a change is from, as each change to a note's waiting row records it. */
++function changedBy(held: Held, seat: NotesSeat, now: Date) {
++  return {
++    seat: seat.role,
++    requestedById: seat.userId,
++    writerActorId: seat.role === 'gm' ? null : seat.actorId,
++    modifiedAt: now,
++    modifiedBy: writerName(held, seat),
++  }
++}
++
++/** What a note says now: the change waiting where there is one, else Foundry's; none if neither. */
++function current(note?: JournalNote, write?: JournalWrite) {
++  if (waiting(write) && write.op !== 'delete') return fromWrite(write, note)
++  return note ? fromMirror(note) : undefined
++}
++
++/**
++ * Whether a book takes a change at all, and from this seat now (create steps 2-4): its actor still
++ * the campaign's, a party its characters may see, and the seat not making too many changes.
++ */
++async function takes(
++  held: Held,
++  seat: NotesSeat,
++  { limited }: { limited: boolean },
++): Promise<NoteAnswer | undefined> {
++  if (!held.connected) return { ok: false, status: 409, reason: 'unknown' }
++  if (held.book.private) return { ok: false, status: 409, reason: 'private' }
++  if (!limited) return
++  // The seat's own changes, by when it made them: made ones count too, kept an hour for it, and
++  // each note's folded changes once. The module's claims and answers touch the rows, not this, so
++  // a backlog made at once when the game comes back costs the seat nothing. From module 0.35.0 its
++  // orders count with its notes' changes, each group's refolds once.
++  const mine = {
++    requestedById: seat.userId,
++    modifiedAt: { gte: new Date(Date.now() - 60_000) },
++  }
++  const [notes, orders] = await Promise.all([
++    prisma.journalWrite.count({ where: mine }),
++    prisma.journalOrder.count({ where: mine }),
++  ])
++  if (notes + orders >= NOTES_PER_MINUTE) {
++    return { ok: false, status: 429, reason: 'busy' }
++  }
++}
++
++/**
++ * Whether what's written fits (create steps 5-7): an entry's Markdown with no H1 or H2 as Foundry
++ * renders it, the scanner only pointing at the lines; its chapter one of the book's; and the book
++ * not full.
++ * @param noteId - The note it changes, whose own text and place don't count; none for a new one.
++ */
++function fits(
++  held: Held,
++  role: NoteRole,
++  content: { body: string; chapterId: string | null },
++  noteId?: string,
++): NoteAnswer | undefined {
++  if (role === 'entry' && hasBigHeading(convertNoteMarkdown(content.body))) {
++    return {
++      ok: false,
++      status: 422,
++      reason: 'headings',
++      lines: bigHeadings(content.body),
++    }
++  }
++  if (role === 'entry' && content.chapterId) {
++    const chapter = content.chapterId
++    const known =
++      held.notes.get(chapter)?.role === 'chapter' ||
++      [...held.writes.values()].some(
++        write =>
++          write.noteId === chapter &&
++          write.role === 'chapter' &&
++          write.op === 'create' &&
++          waiting(write),
++      )
++    if (!known) return { ok: false, status: 422, reason: 'gone' }
++  }
++  let entryCount = 0
++  let chapterCount = 0
++  let text = 0
++  for (const id of noteIds(held)) {
++    const note = held.notes.get(id)
++    const write = held.writes.get(id)
++    if (waiting(write) && write.op === 'delete') continue
++    const now = current(note, write)
++    if (!now) continue
++    const itsRole = note?.role ?? write?.role
++    if (itsRole === 'chapter') chapterCount++
++    if (itsRole === 'entry') {
++      entryCount++
++      if (id !== noteId) text += now.body.length
++    }
++  }
++  // A change adds no note; a new one may be one too many.
++  const most = role === 'entry' ? MOST_ENTRIES : MOST_CHAPTERS
++  const count = role === 'entry' ? entryCount : chapterCount
++  const full = !noteId && count >= most
++  if (full || text + content.body.length > MOST_BOOK_TEXT) {
++    return { ok: false, status: 422, reason: 'full' }
++  }
++}
++
++/** A key the database already holds, as a second change made at once meets. */
++const isTaken = (error: unknown) =>
++  error instanceof Prisma.PrismaClientKnownRequestError &&
++  error.code === 'P2002'
++
++/**
++ * The book's last change that leaves no note to show it (round 0.35.0 §2.6): who, when, and
++ * where, here or in Foundry.
++ */
++type BookChange = {
++  changedAt: Date
++  changedBy: string
++  changedIn: 'app' | 'foundry'
++}
++
++/** A change made here by a seat, now, as the book records it. */
++function changedHere(held: Held, seat: NotesSeat, at: Date): BookChange {
++  return { changedAt: at, changedBy: writerName(held, seat), changedIn: 'app' }
++}
++
++/**
++ * The book's row, made where it has none, its version bumped for what changes now; and where the
++ * change leaves no note to show it, the book's record of it.
++ */
++async function bumpBook(
++  tx: Prisma.TransactionClient,
++  book: NotesBook,
++  changed?: BookChange,
++): Promise<string> {
++  const { id } = await tx.journalBook.upsert({
++    where: {
++      campaignBook: {
++        campaignId: book.campaignId,
++        kind: book.kind,
++        actorId: book.actorId,
++      },
++    },
++    create: {
++      campaignId: book.campaignId,
++      kind: book.kind,
++      actorId: book.actorId,
++      version: 1,
++      ...changed,
++    },
++    update: { version: { increment: 1 }, ...changed },
++    select: { id: true },
++  })
++  return id
++}
++
++/** Run a change, a second made at once from the same stamp answered 409, never 500. */
++async function guarded(run: () => Promise<NoteAnswer>): Promise<NoteAnswer> {
++  try {
++    return await run()
++  } catch (error) {
++    if (isTaken(error) || error instanceof Changed) {
++      return { ok: false, status: 409, reason: 'changed' }
++    }
++    throw error
++  }
++}
++
++/** A compare-and-set that found the row changed since it was read: nothing is written. */
++class Changed extends Error {}
++
++/** Throw where a compare-and-set changed no row, so its transaction writes nothing. */
++function changedOne({ count }: { count: number }) {
++  if (count === 0) throw new Changed('The note changed meanwhile')
++}
++
++/**
++ * Add a note or chapter to a book (§8.7): stored at once, whatever Foundry's state, and sent to it
++ * when the Gamemaster's game next takes notes. Its id is made here, never taken from the page, and
++ * becomes its page's id in Foundry.
++ * @returns The note's id and stamp, or why not.
++ */
++export async function createNote(
++  seat: NotesSeat,
++  book: NotesBook,
++  input: {
++    role: NoteRole
++    title: string
++    body?: string
++    chapterId?: string | null
++  },
++): Promise<NoteAnswer> {
++  const held = await readBook(book)
++  if (!held) return { ok: false, status: 404, reason: 'gone' }
++  const refused = await takes(held, seat, { limited: true })
++  if (refused) return refused
++  const body = input.role === 'entry' ? (input.body ?? '') : ''
++  const chapterId = input.role === 'entry' ? (input.chapterId ?? null) : null
++  const misfit = fits(held, input.role, { body, chapterId })
++  if (misfit) return misfit
++  const now = new Date()
++  const id = randomUUID()
++  const noteId = newNoteId()
++  const by = changedBy(held, seat, now)
++  return guarded(() =>
++    prisma.$transaction(async tx => {
++      const bookId = await bumpBook(tx, book)
++      await tx.journalWrite.create({
++        data: {
++          id,
++          seq: 0,
++          campaignId: book.campaignId,
++          bookId,
++          noteId,
++          op: 'create',
++          role: input.role,
++          chapterId,
++          title: input.title.trim(),
++          body,
++          html: input.role === 'entry' ? htmlFor(held, body) : '',
++          authorActorId: seat.role === 'gm' ? null : seat.actorId,
++          authorGm: seat.role === 'gm',
++          authorName: by.modifiedBy,
++          noteCreatedAt: now,
++          ...by,
++          base: null,
++          status: 'pending',
++          queuedAt: now,
++        },
++      })
++      return { ok: true as const, id: noteId, stamp: `w:${id}.0` }
++    }),
++  )
++}
++
++/**
++ * Change a note or chapter (§8.7), from what the page last saw of it: folded into its change
++ * waiting, where there is one, else a change of its own, made from Foundry's revision now.
++ * @returns The note's stamp now, or why not.
++ */
++export async function changeNote(
++  seat: NotesSeat,
++  book: NotesBook,
++  noteId: string,
++  change: {
++    title: string
++    body?: string
++    chapterId?: string | null
++    stamp: string
++  },
++): Promise<NoteAnswer> {
++  const held = await readBook(book)
++  const note = held?.notes.get(noteId)
++  const write = held?.writes.get(noteId)
++  const now = held && current(note, write)
++  if (!held || !now || (!note && !waiting(write))) {
++    return { ok: false, status: 404, reason: 'gone' }
++  }
++  const rights = rightsFor(held, seat, note, write)
++  // A chapter's change is its title alone.
++  const misshapen = checkChange(change, rights.role)
++  if (misshapen) {
++    return { ok: false, status: 400, reason: 'invalid', field: misshapen.field }
++  }
++  if (!rights.mayChange) return { ok: false, status: 403, reason: 'not-yours' }
++  const seen = overlay(note, write, true, held.live, seat)
++  if (seen?.mirrored && note && foundryOnly(note)) {
++    return { ok: false, status: 409, reason: 'foundry-only' }
++  }
++  if (change.stamp !== stampOf(note, write)) {
++    return { ok: false, status: 409, reason: 'changed' }
++  }
++  // On its way: waited for, unless it's thought lost. A create is waited for however long, as made
++  // again with new text it could find its page already made, which keeps the old.
++  if (write?.status === 'claimed' && (write.op === 'create' || !lost(write))) {
++    return { ok: false, status: 409, reason: 'saving' }
++  }
++  if (write?.status === 'conflict') {
++    return { ok: false, status: 409, reason: 'conflict' }
++  }
++  const refused = await takes(held, seat, { limited: true })
++  if (refused) return refused
++  const entry = rights.role === 'entry'
++  const body = entry ? (change.body ?? now.body) : ''
++  const moved =
++    change.chapterId === undefined ? now.chapterId : change.chapterId
++  const chapterId = entry ? moved : null
++  const misfit = fits(held, rights.role, { body, chapterId }, noteId)
++  if (misfit) return misfit
++  const at = new Date()
++  const content = {
++    title: change.title.trim(),
++    body,
++    html: entry ? htmlFor(held, body) : '',
++    chapterId,
++    ...changedBy(held, seat, at),
++  }
++  return guarded(() =>
++    prisma.$transaction(async tx => {
++      await bumpBook(tx, book)
++      const seq = await saveChange(tx, held, noteId, note, write, {
++        content,
++        op: 'update',
++        at,
++      })
++      return { ok: true as const, stamp: `w:${seq.id}.${seq.seq}` }
++    }),
++  )
++}
++
++/** A change folded into the one waiting: a delete stays one, and a change undoes one. */
++function foldedOp(
++  waiting: JournalWrite['op'],
++  change: 'update' | 'delete',
++): JournalWrite['op'] {
++  if (change === 'delete') return 'delete'
++  return waiting === 'delete' ? 'update' : waiting
++}
++
++/**
++ * A change stored, compare-and-set (§4.2): folded into the note's change waiting or refused, its
++ * op kept but a delete's, which becomes this; a made one used again as a new change, from
++ * Foundry's revision now; else a new one, from it too.
++ * @returns The change's id and number now.
++ */
++async function saveChange(
++  tx: Prisma.TransactionClient,
++  held: Held,
++  noteId: string,
++  note: JournalNote | undefined,
++  write: JournalWrite | undefined,
++  {
++    content,
++    op,
++    at,
++  }: {
++    content: Partial<JournalWrite>
++    op: 'update' | 'delete'
++    at: Date
++  },
++): Promise<{ id: string; seq: number }> {
++  if (write && waiting(write)) {
++    changedOne(
++      await tx.journalWrite.updateMany({
++        where: { id: write.id, seq: write.seq, ...openFrom(write) },
++        data: {
++          ...content,
++          op: foldedOp(write.op, op),
++          seq: { increment: 1 },
++          status: 'pending',
++          reason: null,
++        },
++      }),
++    )
++    return { id: write.id, seq: write.seq + 1 }
++  }
++  const mirror = note!
++  const fresh = {
++    op,
++    role: mirror.role,
++    title: mirror.title,
++    body: mirror.body,
++    html: mirror.html,
++    chapterId: mirror.chapterId,
++    authorActorId: mirror.authorActorId,
++    authorGm: mirror.authorGm,
++    authorName: mirror.authorName ?? '',
++    noteCreatedAt: mirror.createdAt,
++    base: mirror.revision,
++    status: 'pending' as const,
++    reason: null,
++    claimToken: null,
++    claimSession: null,
++    claimedAt: null,
++    queuedAt: at,
++    ...content,
++  }
++  if (write) {
++    // Made, and kept only for the limit: it becomes this change.
++    changedOne(
++      await tx.journalWrite.updateMany({
++        where: { id: write.id, seq: write.seq, status: 'made' },
++        data: { ...fresh, foundryRev: null, seq: { increment: 1 } },
++      }),
++    )
++    return { id: write.id, seq: write.seq + 1 }
++  }
++  const id = randomUUID()
++  await tx.journalWrite.create({
++    data: {
++      id,
++      seq: 0,
++      campaignId: held.book.campaignId,
++      bookId: held.row!.id,
++      noteId,
++      seat: 'player',
++      requestedById: '',
++      modifiedAt: at,
++      modifiedBy: '',
++      ...fresh,
++    },
++  })
++  return { id, seq: 0 }
++}
++
++/**
++ * Delete an entry (§8.7): a change waiting that was to make it is dropped, as it never reached
++ * Foundry; any other becomes its deletion, from Foundry's revision. No chapter is deleted here.
++ * @returns The note's stamp now, or why not.
++ */
++export async function deleteNote(
++  seat: NotesSeat,
++  book: NotesBook,
++  noteId: string,
++  stamp: string,
++): Promise<NoteAnswer> {
++  const held = await readBook(book)
++  const note = held?.notes.get(noteId)
++  const write = held?.writes.get(noteId)
++  if (!held || (!note && !waiting(write))) {
++    return { ok: false, status: 404, reason: 'gone' }
++  }
++  const rights = rightsFor(held, seat, note, write)
++  if (rights.role === 'chapter') {
++    return { ok: false, status: 409, reason: 'chapter' }
++  }
++  if (!rights.canDelete) return { ok: false, status: 403, reason: 'not-yours' }
++  if (stamp !== stampOf(note, write)) {
++    return { ok: false, status: 409, reason: 'changed' }
++  }
++  if (write?.status === 'claimed' && !lost(write)) {
++    return { ok: false, status: 409, reason: 'saving' }
++  }
++  if (write?.status === 'conflict') {
++    return { ok: false, status: 409, reason: 'conflict' }
++  }
++  // A create thought lost on its way is dropped too: if Foundry made its page after all, the page
++  // comes back with the journal, as Foundry's. It's on the journal's line only where every seat
++  // saw it: a failed one only its seat and the Gamemaster see (round 0.35.0 §2.6).
++  if (write && waiting(write) && write.op === 'create') {
++    const seen = write.status === 'pending' || write.status === 'claimed'
++    return guarded(() =>
++      prisma.$transaction(async tx => {
++        changedOne(
++          await tx.journalWrite.deleteMany({
++            where: { id: write.id, seq: write.seq, ...openFrom(write) },
++          }),
++        )
++        await bumpBook(
++          tx,
++          book,
++          seen ? changedHere(held, seat, new Date()) : undefined,
++        )
++        return { ok: true as const, stamp: `n:${note?.revision ?? ''}` }
++      }),
++    )
++  }
++  const refused = await takes(held, seat, { limited: false })
++  if (refused) return refused
++  const at = new Date()
++  return guarded(() =>
++    prisma.$transaction(async tx => {
++      await bumpBook(tx, book, changedHere(held, seat, at))
++      const seq = await saveChange(tx, held, noteId, note, write, {
++        content: changedBy(held, seat, at),
++        op: 'delete',
++        at,
++      })
++      return { ok: true as const, stamp: `w:${seq.id}.${seq.seq}` }
++    }),
++  )
++}
++
++/**
++ * Settle a change the game didn't take (§4.5, §8.7): the seat's own, or for the Gamemaster
++ * anyone's in the book. Theirs drops it, Foundry's version staying, as a waiting delete's "Keep
++ * it" does; mine sends it again, from Foundry's revision now, or as the note made again where
++ * Foundry deleted it.
++ * @returns The note's stamp now, or why not.
++ */
++export async function resolveNote(
++  seat: NotesSeat,
++  book: NotesBook,
++  noteId: string,
++  { resolve, stamp }: { resolve: 'mine' | 'theirs'; stamp: string },
++): Promise<NoteAnswer> {
++  const held = await readBook(book)
++  const note = held?.notes.get(noteId)
++  const write = held?.writes.get(noteId)
++  if (!held || (!note && !waiting(write))) {
++    return { ok: false, status: 404, reason: 'gone' }
++  }
++  // Theirs also drops a change thought lost on its way, as the Gamemaster clears a stuck one (Q5):
++  // whatever Foundry made of it comes back with the journal.
++  const settles =
++    write?.status === 'conflict' ||
++    write?.status === 'failed' ||
++    (resolve === 'theirs' &&
++      !!write &&
++      ((write.status === 'pending' && write.op === 'delete') || lost(write)))
++  if (!write || !settles) return { ok: false, status: 409, reason: 'changed' }
++  const rights = rightsFor(held, seat, note, write)
++  const may =
++    seat.role === 'gm' ||
++    write.requestedById === seat.userId ||
++    (write.op === 'delete' ? rights.canDelete : rights.mayChange)
++  if (!may) return { ok: false, status: 403, reason: 'not-yours' }
++  if (stamp !== stampOf(note, write)) {
++    return { ok: false, status: 409, reason: 'changed' }
++  }
++  const where = {
++    id: write.id,
++    seq: write.seq,
++    ...(lost(write) ? openFrom(write) : { status: write.status }),
++  }
++  if (resolve === 'theirs') {
++    return guarded(() =>
++      prisma.$transaction(async tx => {
++        changedOne(await tx.journalWrite.deleteMany({ where }))
++        await bumpBook(tx, book)
++        return { ok: true as const, stamp: `n:${note?.revision ?? ''}` }
++      }),
++    )
++  }
++  const again = sentAgain(write, note, !!held.row?.withheld)
++  return guarded(() =>
++    prisma.$transaction(async tx => {
++      changedOne(
++        await tx.journalWrite.updateMany({
++          where,
++          data: {
++            ...again,
++            status: 'pending',
++            reason: null,
++            seq: { increment: 1 },
++          },
++        }),
++      )
++      // Sent again, it's a change to the journal by whoever chose it (round 0.35.0 §2.6).
++      await bumpBook(tx, book, changedHere(held, seat, new Date()))
++      return { ok: true as const, stamp: `w:${write.id}.${write.seq + 1}` }
++    }),
++  )
++}
++
++/**
++ * A change the game didn't take, sent again as the seat's (§4.5): the note made again where Foundry
++ * deleted it; made from Foundry's revision now where Foundry changed it; else as it was.
++ * @param withheld - Foundry holds the book back, so the mirror can't say its revision now.
++ */
++function sentAgain(
++  write: JournalWrite,
++  note: JournalNote | undefined,
++  withheld: boolean,
++): Partial<Pick<JournalWrite, 'op' | 'base'>> {
++  if (write.status !== 'conflict') return {}
++  if (write.reason === 'gone') return { op: 'create', base: null }
++  // Foundry's revision now is the mirror's, which every journal.updated keeps up; but in a book
++  // Foundry holds back nothing does, and the refusal's own revision is the latest word of it.
++  const now = withheld
++    ? (write.foundryRev ?? note?.revision)
++    : (note?.revision ?? write.foundryRev)
++  return { base: now ?? write.base }
++}
++
++/**
++ * A group's order as the mirror holds it (round 0.35.0 §7.7): its notes as Foundry last sent them
++ * in it, by their place there, then by when each was written, then id. What an order is made from,
++ * so that the module can tell whether Foundry's order of those notes changed since.
++ */
++function mirrorOrder(held: Held, chapterId: string | null): string[] {
++  const group = groupKey(chapterId)
++  return [...held.notes.values()]
++    .filter(note => note.role === 'entry' && groupKey(note.chapterId) === group)
++    .toSorted(
++      (a, b) =>
++        a.place - b.place ||
++        a.createdAt.getTime() - b.createdAt.getTime() ||
++        a.noteId.localeCompare(b.noteId),
++    )
++    .map(({ noteId }) => noteId)
++}
++
++/**
++ * Put the notes of a chapter, or of none, in a new order (round 0.35.0 §4.2, §7.7), from what the
++ * page last saw of the group: by anyone who may write the book, whoever wrote the notes, as it
++ * changes no note's title, text or chapter. Stored at once, whatever Foundry's state, and shown to
++ * everyone at once: folded into the group's order waiting, where there is one, else an order of its
++ * own, made from the mirror's order of the group now.
++ * @returns The group's stamp now, or why not.
++ */
++export async function reorderNotes(
++  seat: NotesSeat,
++  book: NotesBook,
++  { chapterId, ids, stamp }: NoteOrder,
++): Promise<NoteAnswer> {
++  const held = await readBook(book)
++  const group = held && viewOf(held, seat).groups.get(groupKey(chapterId))
++  if (!held || !group) return { ok: false, status: 404, reason: 'gone' }
++  const refused = await takes(held, seat, { limited: false })
++  if (refused) return refused
++  if (stamp !== group.view.stamp) {
++    return { ok: false, status: 409, reason: 'changed' }
++  }
++  // Every note of the group the seat sees, once: none it doesn't, and none left out.
++  const members = new Set(group.ids)
++  if (ids.length !== members.size || ids.some(id => !members.has(id))) {
++    return { ok: false, status: 409, reason: 'changed' }
++  }
++  const { order } = group
++  if (order?.status === 'claimed' && !lost(order)) {
++    return { ok: false, status: 409, reason: 'saving' }
++  }
++  if (ids.every((id, n) => id === group.ids[n])) return { ok: true, stamp }
++  const limited = await takes(held, seat, { limited: true })
++  if (limited) return limited
++  const now = new Date()
++  // Every fold queues it again, so that a note it places, made after it was first queued, reaches
++  // Foundry before it does.
++  const fields = {
++    ids,
++    ...changedBy(held, seat, now),
++    status: 'pending' as const,
++    reason: null,
++    queuedAt: now,
++  }
++  return guarded(() =>
++    prisma.$transaction(async tx => {
++      const bookId = await bumpBook(tx, book, changedHere(held, seat, now))
++      if (!order) {
++        await tx.journalOrder.create({
++          data: {
++            id: randomUUID(),
++            seq: 0,
++            campaignId: book.campaignId,
++            bookId,
++            chapterId: groupKey(chapterId),
++            was: mirrorOrder(held, chapterId),
++            ...fields,
++          },
++        })
++        return { ok: true as const, stamp: groupStamp(null, ids) }
++      }
++      // One waiting, or thought lost on its way, keeps the order in Foundry it was first made
++      // from. One refused or made is made afresh from Foundry's order now, which every seat but
++      // its own and the Gamemaster was shown, and the new order was made from.
++      const afresh = !ordering(order)
++      changedOne(
++        await tx.journalOrder.updateMany({
++          where: { id: order.id, seq: order.seq, ...orderFrom(order) },
++          data: {
++            ...fields,
++            seq: { increment: 1 },
++            ...(afresh && { was: mirrorOrder(held, chapterId) }),
++            ...(order.status === 'made' && {
++              claimToken: null,
++              claimSession: null,
++              claimedAt: null,
++            }),
++          },
++        }),
++      )
++      return { ok: true as const, stamp: groupStamp(null, ids) }
++    }),
++  )
++}
++
++/**
++ * Settle an order the game didn't take (round 0.35.0 §4.3, §7.7): the seat's own, or for the
++ * Gamemaster anyone's. Theirs drops it, Foundry's order staying, as it does one thought lost on its
++ * way; mine sends it again, where Foundry's order changed meanwhile from Foundry's order now.
++ * @returns The group's stamp now, or why not.
++ */
++export async function resolveOrder(
++  seat: NotesSeat,
++  book: NotesBook,
++  { chapterId, resolve, stamp }: NoteOrderResolve,
++): Promise<NoteAnswer> {
++  const held = await readBook(book)
++  const group = held && viewOf(held, seat).groups.get(groupKey(chapterId))
++  if (!held || !group) return { ok: false, status: 404, reason: 'gone' }
++  const { order } = group
++  const settles =
++    order?.status === 'conflict' ||
++    order?.status === 'failed' ||
++    (resolve === 'theirs' && !!order && lost(order))
++  if (!order || !settles) return { ok: false, status: 409, reason: 'changed' }
++  if (seat.role !== 'gm' && order.requestedById !== seat.userId) {
++    return { ok: false, status: 403, reason: 'not-yours' }
++  }
++  if (stamp !== group.view.stamp) {
++    return { ok: false, status: 409, reason: 'changed' }
++  }
++  const where = { id: order.id, seq: order.seq, ...orderFrom(order) }
++  if (resolve === 'theirs') {
++    // Keeping Foundry's order changes nothing in the journal: no one's change to record.
++    return guarded(() =>
++      prisma.$transaction(async tx => {
++        changedOne(await tx.journalOrder.deleteMany({ where }))
++        await bumpBook(tx, book)
++        return { ok: true as const, stamp: groupStamp(null, group.base) }
++      }),
++    )
++  }
++  const now = new Date()
++  return guarded(() =>
++    prisma.$transaction(async tx => {
++      changedOne(
++        await tx.journalOrder.updateMany({
++          where,
++          data: {
++            ...(order.status === 'conflict' && {
++              was: mirrorOrder(held, chapterId),
++            }),
++            status: 'pending',
++            reason: null,
++            seq: { increment: 1 },
++            queuedAt: now,
++          },
++        }),
++      )
++      await bumpBook(tx, book, changedHere(held, seat, now))
++      const again = { ...order, status: 'pending' as const }
++      return {
++        ok: true as const,
++        stamp: groupStamp(null, ordered(group.base, again)),
++      }
++    }),
++  )
++}
++
++/**
++ * A note's Markdown as the book will draw it, for the editor's preview, and the lines the scanner
++ * points at: rendered for the book, its secrets as it keeps them; nothing stored.
++ * @returns Undefined where the campaign isn't there.
++ */
++export async function previewNote(
++  book: NotesBook,
++  body: string,
++): Promise<{ html: string; headings: number[] } | undefined> {
++  const campaign = await prisma.campaign.findUnique({
++    where: { id: book.campaignId },
++    select: { origin: true },
++  })
++  if (!campaign) return undefined
++  return {
++    html: noteHtml(
++      { format: 2, body },
++      campaign.origin,
++      book.kind === 'personal',
++    ),
++    headings: bigHeadings(body),
++  }
++}
+diff --git a/src/db/party.ts.orig b/src/db/party.ts.orig
+new file mode 100644
+index 0000000..902459b
+--- /dev/null
++++ b/src/db/party.ts.orig
+@@ -0,0 +1,432 @@
++import prisma from '@/clients/prisma'
++import { MOST_AMONG } from '@/constants/sending-stone'
++import { isLive } from '@/db/campaigns'
++import { FOUNDRY_ID } from '@/db/constants'
++import { inventoryView, portraitUrl } from '@/utils/table-view'
++import { transfersAvailable } from '@/utils/transfers'
++import type { PartySeat } from './types'
++import type { SheetSeat } from '@/types/character'
++import type {
++  AllowedGroup,
++  PartyView,
++  TableGroup,
++  TableMoves,
++} from '@/types/party'
++import type {
++  ConnectedCharacter,
++  SheetInventory,
++  GroupEntry,
++  GroupSheet,
++} from '@/types/sending-stone'
++
++// Who may see a campaign's party sheets (module 0.30.0), as Foundry shows them: a player whose
++// Foundry user has Observer or Owner on the group, through their character in the campaign; and the
++// campaign's Gamemaster, through the campaign they own. Every read is checked here, each time, so
++// that a player whose access is taken away in Foundry loses it here at once. Anyone else is told
++// nothing: a group that isn't there, a campaign that isn't theirs and no access all look the same.
++
++/** A seat at a character's sheet, at its party sheets: the same player, or the same Gamemaster. */
++export function partySeat(seat: SheetSeat): PartySeat {
++  if (seat.role === 'gm') {
++    return {
++      role: 'gm',
++      campaignId: seat.campaignId ?? '',
++      userId: seat.userId,
++    }
++  }
++  return {
++    role: 'player',
++    campaignId: seat.campaignId,
++    actorId: seat.actorId,
++    characterId: seat.characterId ?? '',
++    name: seat.name,
++  }
++}
++
++/** A campaign's groups, as its roster keeps them: none where there's nothing to read. */
++export function groupRoster(groups: unknown): GroupEntry[] {
++  return Array.isArray(groups)
++    ? (groups as (GroupEntry | null)[]).filter(
++        (entry): entry is GroupEntry => typeof entry?.id === 'string',
++      )
++    : []
++}
++
++/**
++ * Has this campaign character's player Observer or Owner on the group in Foundry? Limited or less
++ * is no access, and so is anything the roster can't say.
++ */
++function canSee(entry: GroupEntry, actorId: string | null): boolean {
++  if (!actorId || !entry.access || !Object.hasOwn(entry.access, actorId)) {
++    return false
++  }
++  const level = entry.access[actorId]
++  return level === 'observer' || level === 'owner'
++}
++
++/**
++ * Has this campaign character's player Owner on the group in Foundry, as Foundry needs to change
++ * its inventory (module 0.31.0)? Observer can see it, and moves nothing.
++ */
++function owns(entry: GroupEntry, actorId: string | null): boolean {
++  return (
++    !!actorId &&
++    !!entry.access &&
++    Object.hasOwn(entry.access, actorId) &&
++    entry.access[actorId] === 'owner'
++  )
++}
++
++/** The group, as a table page lists it to open: never who may see it. */
++function tableGroup(entry: GroupEntry, origin: string): TableGroup {
++  const portrait = portraitUrl(entry.img, origin)
++  return {
++    id: entry.id,
++    name: entry.name,
++    ...(portrait && { portrait }),
++    primary: entry.primary === true,
++  }
++}
++
++/**
++ * The groups a seat at a character's sheet may open, for its table view to offer: for a player,
++ * only those their Foundry user may see; for the Gamemaster, every one listed. The primary party
++ * comes first, then the rest in the module's order.
++ * @param seat - Who is at the sheet, already resolved for the signed-in user.
++ * @param roster - The campaign's groups, as its roster keeps them.
++ * @param origin - The game's address, which a portrait's path may be relative to.
++ */
++export function tableGroups(
++  seat: SheetSeat,
++  roster: GroupEntry[],
++  origin: string,
++): TableGroup[] {
++  return roster
++    .filter(entry => seat.role === 'gm' || canSee(entry, seat.actorId))
++    .toSorted((a, b) => Number(b.primary === true) - Number(a.primary === true))
++    .map(entry => tableGroup(entry, origin))
++}
++
++/**
++ * Where a seat at a character's sheet may move its character's items and coins to, from module
++ * 0.31.0: the groups it may give to, for a player only those their Foundry user has Owner on, for
++ * the Gamemaster every one listed, the primary party first; and the campaign's other characters, in
++ * its roster's order. Never anyone's access.
++ * @param roster - The campaign's groups, as its roster keeps them.
++ * @param characters - The campaign's characters, from its hello.
++ */
++export function tableMoves(
++  seat: SheetSeat,
++  roster: GroupEntry[],
++  characters: Pick<ConnectedCharacter, 'id' | 'name' | 'img'>[],
++  origin: string,
++): TableMoves {
++  return {
++    parties: roster
++      .filter(entry => seat.role === 'gm' || owns(entry, seat.actorId))
++      .toSorted(
++        (a, b) => Number(b.primary === true) - Number(a.primary === true),
++      )
++      .map(entry => tableGroup(entry, origin)),
++    characters: characterEnds(
++      characters.filter(({ id }) => id !== seat.actorId),
++      origin,
++    ),
++  }
++}
++
++/** The campaign's characters, as a move names its ends: by name and portrait only. */
++function characterEnds(
++  characters: Pick<ConnectedCharacter, 'id' | 'name' | 'img'>[],
++  origin: string,
++): TableMoves['characters'] {
++  return characters.map(({ id, name, img }) => {
++    const portrait = portraitUrl(img, origin)
++    return { id, name, ...(portrait && { portrait }) }
++  })
++}
++
++/** What the check reads of a campaign: never anything only its Gamemaster may read. */
++const campaignSelect = {
++  id: true,
++  title: true,
++  origin: true,
++  version: true,
++  lastSeenAt: true,
++  ownerId: true,
++  groups: true,
++  transfersEnabled: true,
++  transferFeatures: true,
++  bridgePolledAt: true,
++} as const
++
++/**
++ * Whether the seat may take from the group, from module 0.31.0: while the campaign lets items and
++ * coins be moved, and its game is taking moves; a player only with Owner on it in Foundry.
++ */
++function takes(
++  seat: PartySeat,
++  campaign: { transfersEnabled: boolean; bridgePolledAt: Date | null },
++  entry: GroupEntry,
++): boolean {
++  return (
++    transfersAvailable(campaign) &&
++    (seat.role === 'gm' || owns(entry, seat.actorId))
++  )
++}
++
++/** The campaign and the group's entry, where the seat may see the group; else undefined. */
++async function access(seat: PartySeat, groupId: string) {
++  if (!FOUNDRY_ID.test(groupId) || !seat.campaignId) return
++  const campaign = await prisma.campaign.findUnique({
++    where: { id: seat.campaignId },
++    select: campaignSelect,
++  })
++  if (!campaign) return
++  const entry = groupRoster(campaign.groups).find(({ id }) => id === groupId)
++  if (!entry) return
++  const allowed =
++    seat.role === 'gm'
++      ? !!seat.userId && campaign.ownerId === seat.userId
++      : canSee(entry, seat.actorId)
++  return allowed ? { campaign, entry } : undefined
++}
++
++/**
++ * The group, where the seat may see it now, for its descriptions to be served by.
++ * @returns Undefined where it may not, or the group isn't there.
++ */
++export async function allowedGroup(
++  seat: PartySeat,
++  groupId: string,
++): Promise<AllowedGroup | undefined> {
++  const found = await access(seat, groupId)
++  return found && { campaignId: found.campaign.id, groupId: found.entry.id }
++}
++
++/**
++ * A party's journal of notes as the seat may reach it now, from module 0.34.0: whether no campaign
++ * character may see the party in Foundry, which only the Gamemaster is ever told, as only they may
++ * open it then; and who a player writes as, their character, or no one for the Gamemaster. Checked
++ * on every request, as the sheet is, so a player whose access was taken away reaches nothing.
++ * @returns Undefined where the seat may not see the party, or it isn't there.
++ */
++export async function partyNotesAccess(
++  seat: PartySeat,
++  groupId: string,
++): Promise<
++  | {
++      campaignId: string
++      groupId: string
++      private: boolean
++      writer: string | null
++    }
++  | undefined
++> {
++  const found = await access(seat, groupId)
++  if (!found) return undefined
++  return {
++    campaignId: found.campaign.id,
++    groupId: found.entry.id,
++    private: Object.keys(found.entry.access ?? {}).length === 0,
++    writer: seat.role === 'player' ? seat.actorId : null,
++  }
++}
++
++/**
++ * Whether anything is new on a party sheet the seat may see now: the campaign's version, whether
++ * its game is live, and from module 0.31.0 whether the seat may take from it, which its game's
++ * taking moves or not changes with no new version. Checked before anything is said to be
++ * unchanged, so a player whose access was taken away is told nothing, rather than that nothing
++ * changed.
++ * @returns Undefined where the seat may not see it.
++ */
++export async function getPartyStatus(
++  seat: PartySeat,
++  groupId: string,
++): Promise<{ version: number; live: boolean; moves: boolean } | undefined> {
++  const found = await access(seat, groupId)
++  return (
++    found && {
++      version: found.campaign.version,
++      live: isLive(found.campaign.lastSeenAt),
++      moves: takes(seat, found.campaign, found.entry),
++    }
++  )
++}
++
++/**
++ * A party sheet as the seat may see it: its members by name and portrait only, the player's own
++ * character marked, its stash and its description; or, without a sheet, why there's none.
++ * @param seat - Who is at it, already resolved for the signed-in user.
++ * @param groupId - The group's actor id.
++ * @param known - What the viewer already has: the sheet of this version is left out.
++ * @returns Undefined where the seat may not see it, or it isn't there.
++ */
++export async function getGroupView(
++  seat: PartySeat,
++  groupId: string,
++  known: { sheetVersion?: string } = {},
++): Promise<PartyView | undefined> {
++  const found = await access(seat, groupId)
++  if (!found) return undefined
++  const { campaign, entry } = found
++  const held = await prisma.groupSheet.findUnique({
++    where: { campaignGroup: { campaignId: campaign.id, actorId: entry.id } },
++    select: { data: true, updatedAt: true },
++  })
++  const sheetVersion = held?.updatedAt.toISOString()
++  const withheld = entry.sheetWithheld
++  // Who the Gamemaster may take into, from module 0.31.0: any of the campaign's characters, which
++  // only their view reads; and from module 0.32.0, who the party's things may be sent to, any of
++  // them too. A player's view gives their character's coins, which they may give the party.
++  const moves = takes(seat, campaign, entry)
++  const sends = campaign.transferFeatures.includes('partySends')
++  const shares = campaign.transferFeatures.includes('distribute')
++  const ownActor = seat.role === 'player' ? seat.actorId : undefined
++  const [roster, ownSheet] = await Promise.all([
++    moves && (seat.role === 'gm' || sends)
++      ? prisma.campaign.findUnique({
++          where: { id: campaign.id },
++          select: { characters: true },
++        })
++      : undefined,
++    moves && ownActor
++      ? prisma.actorSheet.findUnique({
++          where: {
++            campaignActor: { campaignId: campaign.id, actorId: ownActor },
++          },
++          select: { data: true },
++        })
++      : undefined,
++  ])
++  const characters =
++    roster && characterEnds(characterRoster(roster.characters), campaign.origin)
++  const among =
++    shares && held
++      ? distributeAmong(held.data as unknown as GroupSheet, campaign.origin)
++      : undefined
++  const coins = (
++    ownSheet?.data as unknown as { inventory?: SheetInventory } | null
++  )?.inventory?.currency
++  return {
++    version: campaign.version,
++    live: isLive(campaign.lastSeenAt),
++    campaign: { title: campaign.title },
++    group: tableGroup(entry, campaign.origin),
++    ...(held &&
++      sheetVersion !== known.sheetVersion && {
++        sheet: sheetView(
++          held.data as unknown as GroupSheet,
++          seat,
++          campaign.origin,
++        ),
++      }),
++    ...(sheetVersion && { sheetVersion }),
++    ...(withheld?.reason === 'tooLarge' && {
++      withheld: {
++        reason: 'tooLarge' as const,
++        ...(typeof withheld.bytes === 'number' && { bytes: withheld.bytes }),
++        ...(typeof withheld.limit === 'number' && { limit: withheld.limit }),
++      },
++    }),
++    // Only the Gamemaster is told of a group no player may see, as only they may open it.
++    ...(seat.role === 'gm' &&
++      Object.keys(entry.access ?? {}).length === 0 && {
++        private: true as const,
++      }),
++    ...(moves && {
++      moves: {
++        ...(seat.role === 'gm' && characters && { characters }),
++        ...(sends &&
++          characters && {
++            send: {
++              parties: sendParties(
++                seat,
++                campaign.groups,
++                entry,
++                campaign.origin,
++              ),
++              characters,
++            },
++          }),
++        ...(among && { distribute: among }),
++        ...(coins && { give: { currency: coins } }),
++      },
++    }),
++  }
++}
++
++/**
++ * The other parties a party's things may be sent to, from module 0.32.0: for a player, those
++ * their Foundry user owns; for the Gamemaster, every other one listed; the primary first. Never
++ * the party itself, nor anyone's access.
++ */
++function sendParties(
++  seat: PartySeat,
++  groups: unknown,
++  entry: GroupEntry,
++  origin: string,
++): TableGroup[] {
++  return groupRoster(groups)
++    .filter(
++      other =>
++        other.id !== entry.id &&
++        (seat.role === 'gm' || owns(other, seat.actorId)),
++    )
++    .toSorted((a, b) => Number(b.primary === true) - Number(a.primary === true))
++    .map(other => tableGroup(other, origin))
++}
++
++/**
++ * Who a party's coin is distributed among, from module 0.32.0: its members that are the campaign's
++ * characters, as its sheet was last sent, in its order, by name and portrait only; none where it
++ * has none, or more than one distribution shares among.
++ */
++function distributeAmong(
++  sheet: GroupSheet,
++  origin: string,
++): TableMoves['characters'] | undefined {
++  const members = (sheet.members ?? []).filter(
++    ({ character }) => character === true,
++  )
++  if (members.length === 0 || members.length > MOST_AMONG) return
++  return members.map(({ id, name, img }) => {
++    const portrait = portraitUrl(img, origin)
++    return { id, name, ...(portrait && { portrait }) }
++  })
++}
++
++/** A campaign's characters, as its hello listed them: none where there's nothing to read. */
++function characterRoster(
++  characters: unknown,
++): Pick<ConnectedCharacter, 'id' | 'name' | 'img'>[] {
++  return Array.isArray(characters)
++    ? (characters as (ConnectedCharacter | null)[]).filter(
++        (entry): entry is ConnectedCharacter => typeof entry?.id === 'string',
++      )
++    : []
++}
++
++/** A group's sheet as the seat sees it, its portraits and icons loading from the game. */
++function sheetView(
++  sheet: GroupSheet,
++  seat: PartySeat,
++  origin: string,
++): NonNullable<PartyView['sheet']> {
++  const own = seat.role === 'player' ? seat.actorId : undefined
++  return {
++    members: (sheet.members ?? []).map(member => {
++      const portrait = portraitUrl(member.img, origin)
++      return {
++        id: member.id,
++        name: member.name,
++        ...(portrait && { portrait }),
++        ...(own && member.id === own && { own: true as const }),
++      }
++    }),
++    inventory: inventoryView(sheet.inventory, origin),
++    // dnd5e shows the full description, else its summary.
++    description: sheet.description?.full ?? sheet.description?.summary ?? null,
++  }
++}
+diff --git a/src/db/table.ts.orig b/src/db/table.ts.orig
+new file mode 100644
+index 0000000..39f607a
+--- /dev/null
++++ b/src/db/table.ts.orig
+@@ -0,0 +1,598 @@
++import { createHash } from 'node:crypto'
++import prisma from '@/clients/prisma'
++import { ABILITIES, SKILLS } from '@/constants/dnd5e'
++import {
++  GM_ROLLS_SHOWN,
++  MIDI_PROMPT_GRACE,
++  PROMPT_NOTICE_FOR,
++  ROLLS_KEPT_FOR,
++} from '@/constants/sending-stone'
++import { isLive } from '@/db/campaigns'
++import { groupRoster, tableGroups, tableMoves } from '@/db/party'
++import {
++  companionRoster,
++  companionsByKey,
++  tableCompanion,
++} from '@/utils/companions'
++import { effectsAvailable } from '@/utils/effect-commands'
++import { favoritesAvailable } from '@/utils/favorite-commands'
++import { toTablePrompts } from '@/utils/prompts'
++import { removalsAvailable } from '@/utils/removals'
++import {
++  availableRollFeatures,
++  availableRollKinds,
++} from '@/utils/requests/availability'
++import { GM_UNSENT } from '@/utils/requests/commands'
++import { rollStatus } from '@/utils/requests/status'
++import { toGmRollView } from '@/utils/requests/views'
++import {
++  pickCombat,
++  portraitUrl,
++  toTableCombat,
++  toTableMessages,
++  toTableSheet,
++} from '@/utils/table-view'
++import { transfersAvailable } from '@/utils/transfers'
++import { wildShapeAvailable } from '@/utils/wild-shape'
++import type { CampaignStatus } from './types'
++import type { SheetSeat } from '@/types/character'
++import type { PromptData } from '@/types/prompts'
++import type {
++  CharacterSheet,
++  CombatSnapshot,
++  CommandResult,
++  ConnectedCharacter,
++  SerializedMessage,
++  SheetWithheld,
++} from '@/types/sending-stone'
++import type { CompanionAsked, GmRolls, TableView, Viewer } from '@/types/table'
++import type { HeldRollRequest } from '@/utils/requests/types'
++import type { Prisma } from '@prisma/client'
++
++/** The most recent chat messages shown. */
++export const MESSAGE_LIMIT = 100
++
++/**
++ * The rolls the campaign's Gamemaster made as a player's character (#156) that its player is shown,
++ * beside their own: those of the character's actor in its campaign, of those kept. None for the
++ * Gamemaster's own seat, whose page has them already, nor for a character in no campaign.
++ */
++export function gmRollsOf(
++  seat: SheetSeat,
++  now: number,
++): Prisma.RollRequestWhereInput | undefined {
++  if (seat.role !== 'player' || !seat.campaignId || !seat.actorId) return
++  return {
++    campaignId: seat.campaignId,
++    actorId: seat.actorId,
++    role: 'gm',
++    createdAt: { gt: new Date(now - ROLLS_KEPT_FOR) },
++  }
++}
++
++/**
++ * What changes whenever any of the Gamemaster's rolls a player is shown does: its status, as time
++ * moves it too, or what the game said of it. None for none.
++ */
++export function gmRollsKey(
++  rolls: (Pick<HeldRollRequest, 'id' | 'status' | 'createdAt' | 'claimedAt'> & {
++    completedAt: Date | null
++  })[],
++  now: number,
++): string | undefined {
++  if (rolls.length === 0) return undefined
++  const states = rolls.map(
++    roll =>
++      `${roll.id}:${rollStatus(roll, now)}:${roll.completedAt?.getTime() ?? ''}`,
++  )
++  return createHash('sha256')
++    .update(states.join(','))
++    .digest('base64url')
++    .slice(0, 16)
++}
++
++/**
++ * Of the attacks and uses the Gamemaster's damage shown to a player follows (#156), those the game
++ * said healing follows, for that damage to be told as healing, as the player's own is: read from
++ * the rolls shown, where the attack or use is among them, as it nearly always is, sent just before
++ * its damage; else looked up, among the Gamemaster's as the same character, whose damage follows
++ * only their own.
++ */
++export async function healingUses(
++  made: (Pick<HeldRollRequest, 'id' | 'kind' | 'result'> & {
++    useId: string | null
++  })[],
++  seat: SheetSeat,
++): Promise<ReadonlySet<string>> {
++  const followed = new Set(
++    made.flatMap(({ kind, useId }) =>
++      kind === 'damage' && useId ? [useId] : [],
++    ),
++  )
++  if (followed.size === 0) return followed
++  const missing = [...followed].filter(id => !made.some(roll => roll.id === id))
++  const found =
++    missing.length > 0
++      ? await prisma.rollRequest.findMany({
++          where: {
++            id: { in: missing },
++            campaignId: seat.campaignId ?? '',
++            actorId: seat.actorId ?? '',
++            role: 'gm',
++          },
++          select: { id: true, result: true },
++        })
++      : []
++  const heals = [...made, ...found].filter(
++    ({ id, result }) =>
++      followed.has(id) &&
++      (result as CommandResult | null)?.damage?.healing === true,
++  )
++  return new Set(heals.map(({ id }) => id))
++}
++
++/** What says where each of the Gamemaster's rolls a player is shown stands. */
++export const gmRollStateSelect = {
++  id: true,
++  status: true,
++  createdAt: true,
++  claimedAt: true,
++  completedAt: true,
++} as const
++
++/**
++ * What says which rolls a campaign's game takes from players, from module 0.31.0 whether it takes
++ * their moves of items and coins, and from module 0.33.0 whether it removes their items.
++ */
++export const rollsSelect = {
++  rollsEnabled: true,
++  rollKinds: true,
++  rollFeatures: true,
++  bridgePolledAt: true,
++  transfersEnabled: true,
++  removalsEnabled: true,
++} as const
++
++/**
++ * The rolls a seat can have made in the game, none without an actor to make them, and what else
++ * the game does with them. A player's never name `gmRolls`, which only the Gamemaster's view
++ * reads, so their views, and what tells them apart, are as before it. The Gamemaster's (#156) are
++ * none while the game doesn't make their rolls as the character's, marked as theirs, and never an
++ * end of an enchantment, a concentration or from module 0.36.0 a turn, which is no roll and posts
++ * nothing (`GM_UNSENT`); with where their rolls go: made in the game, kept here
++ * until its module is updated, or kept here while it takes no rolls.
++ */
++export function seatRolls(
++  seat: SheetSeat,
++  campaign?: Parameters<typeof availableRollFeatures>[0] | null,
++): Pick<CampaignStatus, 'rollsToTable' | 'rollFeatures' | 'gm'> {
++  const kinds = seat.actorId && campaign ? availableRollKinds(campaign) : []
++  const features =
++    seat.actorId && campaign ? availableRollFeatures(campaign) : []
++  const others = features.filter(feature => feature !== 'gmRolls')
++  if (seat.role !== 'gm') return { rollsToTable: kinds, rollFeatures: others }
++  const made = features.includes('gmRolls')
++  let rolls: GmRolls = 'off'
++  if (made) rolls = 'made'
++  else if (kinds.length > 0) rolls = 'update'
++  return {
++    rollsToTable: made ? kinds.filter(kind => !GM_UNSENT.has(kind)) : [],
++    rollFeatures: made ? others : [],
++    gm: { rolls },
++  }
++}
++
++/**
++ * The status of a seat's campaign, to tell cheaply whether a viewer is up to date.
++ * @returns Version 0, not live, while the character is in no campaign.
++ */
++export async function getCampaignStatus(
++  seat: SheetSeat,
++): Promise<CampaignStatus> {
++  if (!seat.campaignId) {
++    return {
++      version: 0,
++      live: false,
++      ...seatRolls(seat),
++      moves: false,
++      // As the view, which has no campaign to say it in: a campaign removed leaves it stored.
++      typed: false,
++      removes: false,
++      favorites: false,
++      effects: false,
++      wildShape: false,
++    }
++  }
++  const now = Date.now()
++  const gmRolls = gmRollsOf(seat, now)
++  const [campaign, made] = await Promise.all([
++    prisma.campaign.findUnique({
++      where: { id: seat.campaignId },
++      select: {
++        version: true,
++        lastSeenAt: true,
++        ...rollsSelect,
++        favoritesEnabled: true,
++        effectsEnabled: true,
++        wildShapeEnabled: true,
++      },
++    }),
++    gmRolls
++      ? prisma.rollRequest.findMany({
++          where: gmRolls,
++          orderBy: { createdAt: 'desc' },
++          take: GM_ROLLS_SHOWN,
++          select: gmRollStateSelect,
++        })
++      : [],
++  ])
++  const gmRollsKeyNow = gmRollsKey(made, now)
++  return {
++    version: campaign?.version ?? 0,
++    live: isLive(campaign?.lastSeenAt),
++    ...seatRolls(seat, campaign),
++    ...(gmRollsKeyNow && { gmRollsKey: gmRollsKeyNow }),
++    // Whether the character is in the roster, which the view reads too, changes the version.
++    moves: !!seat.actorId && !!campaign && transfersAvailable(campaign, now),
++    // The seat is read from the player's Character on every request, so their choice is as
++    // stored; told only where the view tells it, with its campaign.
++    typed: seat.role === 'player' && seat.manualDice === true && !!campaign,
++    // Whether the seat may remove its character's items, from module 0.33.0, as `moves`.
++    removes: !!seat.actorId && !!campaign && removalsAvailable(campaign, now),
++    // Whether the player may change its character's favorites, from module 0.37.0: theirs alone,
++    // never the Gamemaster's, whose page would leave no mark of it.
++    favorites:
++      seat.role === 'player' &&
++      !!seat.actorId &&
++      !!campaign &&
++      favoritesAvailable(campaign, now),
++    // Whether the player may change its character's own effects, from module 0.39.0, by the
++    // campaign's switch: theirs alone, as favorites.
++    effects:
++      seat.role === 'player' &&
++      !!seat.actorId &&
++      !!campaign &&
++      effectsAvailable(campaign, now),
++    // Whether the player may use Wild Shape, from module 0.40.0, by the campaign's switch: theirs
++    // alone, as effects.
++    wildShape:
++      seat.role === 'player' &&
++      !!seat.actorId &&
++      !!campaign &&
++      wildShapeAvailable(campaign, now),
++  }
++}
++
++/**
++ * Why the module held a character's sheet back, as its entry in the roster keeps it, from module
++ * 0.22.0: only what the player is told.
++ */
++export function withheld(
++  entry: Pick<ConnectedCharacter, 'sheetWithheld'> | undefined,
++): SheetWithheld | undefined {
++  const held = entry?.sheetWithheld
++  return held && { reason: held.reason, bytes: held.bytes, limit: held.limit }
++}
++
++/**
++ * The saves the game asks of one of a campaign's characters, or from module 0.41.0 of a companion
++ * by its key, as its view shows them: those still open, Midi-QOL's a while after their time runs
++ * out, and those that closed just now, for which only Midi-QOL's are shown; oldest first.
++ */
++export function heldPrompts(campaignId: string, actorId: string, now: number) {
++  return prisma.rollPrompt.findMany({
++    where: {
++      campaignId,
++      actorId,
++      OR: [
++        {
++          closedAt: null,
++          expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
++        },
++        {
++          closedAt: { gt: new Date(now - PROMPT_NOTICE_FOR) },
++          closedReason: { in: ['rolled', 'expired'] },
++        },
++      ],
++    },
++    orderBy: { openedAt: 'asc' },
++    select: {
++      promptId: true,
++      data: true,
++      expiresAt: true,
++      closedAt: true,
++      closedReason: true,
++    },
++  })
++}
++
++/**
++ * The companions the game is asking a save of now, from module 0.41.0, each once, in the order
++ * first asked: what its first prompt still waiting asks for, in words, and when the soonest of
++ * those stops waiting. A prompt whose time has run out waits no more, though Midi-QOL may still be
++ * rolling it its own way: a companion with none other isn't asked.
++ * @param held - Its companions' prompts still open, oldest first.
++ */
++export function companionAsks(
++  held: { actorId: string; data: unknown; expiresAt: Date }[],
++  now = Date.now(),
++): CompanionAsked[] {
++  const asked = new Map<string, CompanionAsked>()
++  for (const prompt of held) {
++    if (prompt.expiresAt.getTime() <= now) continue
++    const expiresAt = prompt.expiresAt.toISOString()
++    const known = asked.get(prompt.actorId)
++    if (!known) {
++      asked.set(prompt.actorId, {
++        key: prompt.actorId,
++        label: askedFor(prompt.data as PromptData),
++        expiresAt,
++      })
++    } else if (expiresAt < known.expiresAt) {
++      known.expiresAt = expiresAt
++    }
++  }
++  return [...asked.values()]
++}
++
++/** Abilities or skills by their names, such as "Strength or Dexterity". */
++function either(keys: string[] = [], names: Record<string, string>): string {
++  return new Intl.ListFormat('en', { type: 'disjunction' }).format(
++    keys.map(key => names[key] ?? key),
++  )
++}
++
++/**
++ * What a save the game asks for asks, in words: such as "Dexterity saving throw", "Strength or
++ * Dexterity saving throw", "Concentration check", naming its ability where it isn't Constitution,
++ * or for Midi-QOL's checks "Athletics or Acrobatics check".
++ */
++function askedFor(data: PromptData): string {
++  const [ability] = data.abilities ?? []
++  switch (data.type) {
++    case 'concentration': {
++      return ability && ability !== 'con'
++        ? `Concentration check (${ABILITIES[ability] ?? ability})`
++        : 'Concentration check'
++    }
++    case 'check': {
++      return `${either(data.abilities, ABILITIES)} check`.trim()
++    }
++    case 'skill': {
++      return `${either(data.skills, SKILLS)} check`.trim()
++    }
++    default: {
++      return `${either(data.abilities, ABILITIES)} saving throw`.trim()
++    }
++  }
++}
++
++/**
++ * A character's view of its campaign: the chat its player may read, the encounter under way, and
++ * its own sheet. The Gamemaster at its sheet (#156) sees the same, as its player does, but never
++ * their place in the chat. The caller must already have resolved the seat for the signed-in user.
++ * @param seat - Who is at the sheet.
++ * @param known - What the viewer already has: the sheet of this version is left out.
++ */
++export async function getTableView(
++  seat: SheetSeat,
++  known: { sheetVersion?: string } = {},
++): Promise<TableView> {
++  const campaign = seat.campaignId
++    ? await prisma.campaign.findUnique({
++        where: { id: seat.campaignId },
++        select: {
++          id: true,
++          origin: true,
++          title: true,
++          version: true,
++          worldTitle: true,
++          lastSeenAt: true,
++          characters: true,
++          groups: true,
++          companions: true,
++          ...rollsSelect,
++          favoritesEnabled: true,
++          effectsEnabled: true,
++          wildShapeEnabled: true,
++        },
++      })
++    : undefined
++  if (!campaign) {
++    return { version: 0, live: false, connected: false, messages: [] }
++  }
++
++  const roster = campaign.characters as unknown as ConnectedCharacter[]
++  // The campaign's characters' companions, from module 0.36.0: whose side each is on.
++  const companions = companionRoster(campaign.companions)
++  const viewer: Viewer = {
++    actorId: seat.actorId ?? undefined,
++    party: new Set(roster.map(({ id }) => id)),
++    portraits: new Map(
++      roster.flatMap(({ id, img }) => {
++        const url = portraitUrl(img, campaign.origin)
++        return url ? [[id, url] as const] : []
++      }),
++    ),
++    companions: companionsByKey(companions, campaign.origin),
++  }
++
++  // The character's own companions, for their tabs, from module 0.36.0: never another's, and none
++  // at a companion's own seat, which has its own view.
++  const own = seat.companion
++    ? []
++    : companions.filter(
++        entry => !!seat.actorId && entry.of.includes(seat.actorId),
++      )
++  // The saves the game asks of the character, while it takes their answers; and from module
++  // 0.41.0, whether it asks any of its companions', which their own views show.
++  const rolls = seatRolls(seat, campaign)
++  const prompted = viewer.actorId && rolls.rollFeatures.includes('prompts')
++  const companionsAsked =
++    !!prompted &&
++    rolls.rollFeatures.includes('companionPrompts') &&
++    own.length > 0
++  const now = Date.now()
++  const gmRolls = gmRollsOf(seat, now)
++  const [messages, combats, sheet, prompts, made, asked] = await Promise.all([
++    prisma.chatMessage.findMany({
++      where: {
++        campaignId: campaign.id,
++        // Whispers reach only the players they were meant for.
++        OR: [
++          { public: true },
++          ...(viewer.actorId ? [{ readers: { has: viewer.actorId } }] : []),
++        ],
++      },
++      orderBy: { sentAt: 'desc' },
++      take: MESSAGE_LIMIT,
++      select: { messageId: true, data: true, byGm: true },
++    }),
++    prisma.combat.findMany({
++      where: { campaignId: campaign.id },
++      orderBy: { updatedAt: 'desc' },
++      select: { data: true },
++    }),
++    viewer.actorId
++      ? prisma.actorSheet.findUnique({
++          where: {
++            campaignActor: { campaignId: campaign.id, actorId: viewer.actorId },
++          },
++          select: { data: true, updatedAt: true },
++        })
++      : undefined,
++    prompted && viewer.actorId
++      ? heldPrompts(campaign.id, viewer.actorId, now)
++      : [],
++    gmRolls
++      ? prisma.rollRequest.findMany({
++          where: gmRolls,
++          orderBy: { createdAt: 'desc' },
++          take: GM_ROLLS_SHOWN,
++          select: {
++            ...gmRollStateSelect,
++            actorId: true,
++            role: true,
++            kind: true,
++            label: true,
++            payload: true,
++            useId: true,
++            result: true,
++          },
++        })
++      : [],
++    // Its companions' still open, from module 0.41.0, oldest first, to mark each one asked.
++    companionsAsked
++      ? prisma.rollPrompt.findMany({
++          where: {
++            campaignId: campaign.id,
++            actorId: { in: own.map(({ key }) => key) },
++            closedAt: null,
++            expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
++          },
++          orderBy: { openedAt: 'asc' },
++          select: { actorId: true, data: true, expiresAt: true },
++        })
++      : [],
++  ])
++  const sheetVersion = sheet?.updatedAt.toISOString()
++  const heals = await healingUses(made, seat)
++  const waiting = companionAsks(asked, now)
++
++  const combat = pickCombat(
++    combats.map(({ data }) => data as unknown as CombatSnapshot),
++  )
++  // The party sheets the seat may open, from module 0.30.0: never who else may.
++  const listed = groupRoster(campaign.groups)
++  const groups = tableGroups(seat, listed, campaign.origin)
++  const connected = roster.some(({ id }) => id === viewer.actorId)
++  // Where the seat may move the character's items and coins to, from module 0.31.0.
++  const moves =
++    connected && !!seat.actorId && transfersAvailable(campaign, now)
++      ? tableMoves(seat, listed, roster, campaign.origin)
++      : undefined
++  // Whether the seat may remove the character's items, from module 0.33.0, with no switch: with
++  // moves off too.
++  const removes =
++    connected && !!seat.actorId && removalsAvailable(campaign, now)
++  // Whether the player may add to and remove from the character's favorites, from module 0.37.0,
++  // with no switch: theirs alone, at their own seat.
++  const favorites =
++    connected &&
++    seat.role === 'player' &&
++    !!seat.actorId &&
++    favoritesAvailable(campaign, now)
++  // Whether the player may turn off, turn on and delete the character's own effects, from module
++  // 0.39.0, by the campaign's switch: theirs alone, at their own seat, as favorites.
++  const effects =
++    connected &&
++    seat.role === 'player' &&
++    !!seat.actorId &&
++    effectsAvailable(campaign, now)
++  // Whether the player may use Wild Shape, from module 0.40.0, by the campaign's switch: theirs
++  // alone, at their own seat, as effects. What the character is, and what Wild Shape gives, are on
++  // its sheet.
++  const wildShape =
++    connected &&
++    seat.role === 'player' &&
++    !!seat.actorId &&
++    wildShapeAvailable(campaign, now)
++  return {
++    version: campaign.version,
++    live: isLive(campaign.lastSeenAt),
++    campaign: {
++      title: campaign.title,
++      worldTitle: campaign.worldTitle ?? undefined,
++      lastSeenAt: campaign.lastSeenAt?.toISOString(),
++    },
++    connected,
++    messages: toTableMessages(
++      messages
++        .toReversed()
++        .map(({ data }) => data as unknown as SerializedMessage),
++      viewer,
++      new Set(
++        messages.filter(({ byGm }) => byGm).map(({ messageId }) => messageId),
++      ),
++    ),
++    combat: combat ? toTableCombat(combat, viewer) : undefined,
++    sheet:
++      sheet && sheetVersion !== known.sheetVersion
++        ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
++        : undefined,
++    sheetVersion,
++    sheetWithheld: withheld(roster.find(({ id }) => id === viewer.actorId)),
++    // The player's own; the Gamemaster's seat never reads nor moves it.
++    chatReadAt: seat.role === 'gm' ? undefined : seat.chatReadAt,
++    rollsToTable: rolls.rollsToTable,
++    rollFeatures: rolls.rollFeatures,
++    prompts: toTablePrompts(prompts, now),
++    ...(rolls.gm && { gm: rolls.gm }),
++    ...(made.length > 0 && {
++      gmRolls: made.map(roll =>
++        toGmRollView(roll, now, !!roll.useId && heals.has(roll.useId)),
++      ),
++      gmRollsKey: gmRollsKey(made, now),
++    }),
++    ...(groups.length > 0 && { groups }),
++    ...(own.length > 0 && {
++      companions: own.map(entry => tableCompanion(entry, campaign.origin)),
++    }),
++    ...(waiting.length > 0 && { companionPrompts: waiting }),
++    ...(moves && { moves }),
++    ...(removes && { removes: true as const }),
++    ...(favorites && { favorites: true as const }),
++    ...(effects && { effects: true as const }),
++    ...(wildShape && { wildShape: true as const }),
++    // Whether the player may type in their own dice follows what the game said last, stored,
++    // never whether it polled lately, so a gap in polling never changes how they roll.
++    ...(seat.role === 'player' && {
++      manualDice: {
++        offered:
++          roster.find(({ id }) => id === viewer.actorId)?.manualDice === true &&
++          campaign.rollFeatures.includes('manualDice'),
++        on: seat.manualDice === true,
++      },
++    }),
++  }
++}
+diff --git a/src/lib/attempt.ts b/src/lib/attempt.ts
+new file mode 100644
+index 0000000..64899db
+--- /dev/null
++++ b/src/lib/attempt.ts
+@@ -0,0 +1,12 @@
++/** Run a database step, logging a failure, for the caller to answer with a retryable 500. */
++export async function attempt<T>(
++  step: () => Promise<T>,
++  failure: string,
++): Promise<T | undefined> {
++  try {
++    return await step()
++  } catch (error) {
++    console.error(failure, error)
++    return undefined
++  }
++}
+diff --git a/src/lib/routes/body.ts b/src/lib/routes/body.ts
+new file mode 100644
+index 0000000..034552c
+--- /dev/null
++++ b/src/lib/routes/body.ts
+@@ -0,0 +1,29 @@
++import type { BodyRead, BodyRules } from '@/lib/routes/types'
++
++/**
++ * A request's JSON body, read within its route's limit; or why it can't be: not sent as JSON
++ * (`type`, where the route asks for it, as a page on another site can't send JSON without asking
++ * first), larger than the limit (`size`: refused before reading where the route trusts a declared
++ * size, and checked again once read), or no JSON (`json`). Each route answers each as it always
++ * has.
++ */
++export async function readBody(
++  request: Request,
++  { limit, type, declared = false, reviver }: BodyRules,
++): Promise<BodyRead> {
++  if (type) {
++    const given = request.headers.get('content-type')
++    const said = type === 'lower' ? given?.toLowerCase() : given
++    if (!said?.startsWith('application/json')) return { ok: false, why: 'type' }
++  }
++  if (declared && Number(request.headers.get('content-length')) > limit) {
++    return { ok: false, why: 'size' }
++  }
++  const text = await request.text()
++  if (Buffer.byteLength(text) > limit) return { ok: false, why: 'size' }
++  try {
++    return { ok: true, text, value: JSON.parse(text, reviver) }
++  } catch {
++    return { ok: false, why: 'json' }
++  }
++}
+diff --git a/src/lib/routes/http.ts b/src/lib/routes/http.ts
+new file mode 100644
+index 0000000..4fd8071
+--- /dev/null
++++ b/src/lib/routes/http.ts
+@@ -0,0 +1,53 @@
++import type { Seen } from '@/lib/routes/types'
++
++// How the seat routes answer: never cached, as each answer is the seat's own and changes as its
++// game does; a description is the one answer the browser may keep.
++
++/** The header of every seat route's answer but a description's: never cached. */
++export const NO_STORE = { 'Cache-Control': 'no-store' }
++
++/**
++ * The headers of an answer that has none: the two description routes' 401, and the player's 404s
++ * (bug B16), which carry no `Cache-Control`, unlike their siblings'.
++ */
++export const NO_HEADERS = {}
++
++/** An answer saying nothing more than its status. */
++export function bare(status: number, headers: HeadersInit = NO_STORE) {
++  return new Response(undefined, { status, headers })
++}
++
++/**
++ * A description on a sheet: `{ html }`, already sanitised, which the browser may keep, as the same
++ * hash always names the same description; 404 where the seat has none of that hash.
++ */
++export function textAnswer(html: string | undefined): Response {
++  if (html === undefined) return bare(404)
++  return Response.json(
++    { html },
++    { headers: { 'Cache-Control': 'private, max-age=86400' } },
++  )
++}
++
++/**
++ * Whether a page's query says it last saw what's current, by key: a number as sent, text as sent
++ * (or none for none), and a flag sent as `1` while it's on; and of what a page may leave out, the
++ * value as sent or its absence for none.
++ */
++export function seenAs(
++  known: URLSearchParams,
++  current: Seen,
++  optional: Record<string, string | undefined> = {},
++): boolean {
++  return (
++    Object.entries(current).every(([key, value]) => {
++      const said = known.get(key)
++      if (typeof value === 'number') return Number(said) === value
++      if (typeof value === 'string') return (said ?? '') === value
++      return (said === '1') === value
++    }) &&
++    Object.entries(optional).every(
++      ([key, value]) => (known.get(key) ?? undefined) === value,
++    )
++  )
++}
+diff --git a/src/lib/routes/seat-resolver.ts b/src/lib/routes/seat-resolver.ts
+new file mode 100644
+index 0000000..9feac34
+--- /dev/null
++++ b/src/lib/routes/seat-resolver.ts
+@@ -0,0 +1,29 @@
++import { bare, NO_STORE } from '@/lib/routes/http'
++import { getCurrentUser } from '@/lib/session'
++import type { SeatHeaders } from '@/lib/routes/types'
++
++// How a sheet's routes find who is at it (#156): its player, through their own Character
++// (`getPlayerSeat`), or the campaign's Gamemaster, through the campaign they own (`getGmSeat`); a
++// companion's and a party's from those. Every route resolves the seat itself, from the session and
++// its address alone, answering 401 signed out and 404 for a sheet that isn't the user's to see,
++// saying no more; what it answers then is scoped by that seat alone.
++
++/**
++ * A route's answer once it knows who is at it: 401 signed out, then its address read, 404 where
++ * `find` finds no seat there for the user, else `answer`. Neither refusal is cached, but where a
++ * route's own carry no headers (bug B16).
++ * @param params - The route's address, as Next.js gives it.
++ */
++export async function seatAnswer<P, S>(
++  params: Promise<P>,
++  find: (userId: string, address: P) => Promise<S | undefined>,
++  answer: (seat: S, address: P) => Promise<Response>,
++  { headers = NO_STORE, signedOut = headers }: SeatHeaders = {},
++): Promise<Response> {
++  const user = await getCurrentUser()
++  if (!user) return bare(401, signedOut)
++  const address = await params
++  const seat = await find(user.id, address)
++  if (!seat) return bare(404, headers)
++  return answer(seat, address)
++}
+diff --git a/src/lib/routes/types.ts b/src/lib/routes/types.ts
+new file mode 100644
+index 0000000..70ac4ce
+--- /dev/null
++++ b/src/lib/routes/types.ts
+@@ -0,0 +1,52 @@
++import type { NotesSeat, NotesBook } from '@/db/types'
++import type { RefusalReason } from '@/types/sending-stone'
++
++/** What a page last saw, by its query's key, as `seenAs` compares it with what's current. */
++export type Seen = Record<string, number | boolean | string>
++
++/** The headers of a seat route's 404, and of its 401 where they differ (`seatAnswer`). */
++export type SeatHeaders = { headers?: HeadersInit; signedOut?: HeadersInit }
++
++/** How a route reads its JSON body (`readBody`). */
++export type BodyRules = {
++  /** The largest body taken, in bytes. */
++  limit: number
++  /** Whether it must be sent as JSON, its type read as sent or lower-cased; unchecked if not. */
++  type?: 'exact' | 'lower'
++  /** Whether a declared size over the limit is refused before reading. */
++  declared?: boolean
++  /** Each value as it's read, as `JSON.parse`'s reviver. */
++  reviver?: (key: string, value: unknown) => unknown
++}
++
++/** A body as read, or why it can't be. */
++export type BodyRead =
++  | { ok: true; text: string; value: unknown }
++  | { ok: false; why: 'type' | 'size' | 'json' }
++
++/** Who is at a book, and which book: as resolved from the session and the address. */
++export type NotesPlace = { seat: NotesSeat; book: NotesBook }
++
++/** A book's address, as each route's file names it. */
++export type NotesAddress =
++  | { kind: 'personal'; role: 'player'; character: string }
++  | { kind: 'personal'; role: 'gm'; campaign: string; actor: string }
++  | { kind: 'party'; role: 'player'; character: string; group: string }
++  | { kind: 'party'; role: 'gm'; campaign: string; group: string }
++
++/**
++ * Why a request from the module is refused, as its JSON body says: a `reason` the module words
++ * itself, a `message` for a module that doesn't know the reason, and what more there is to say.
++ */
++export type Refusal = {
++  reason: RefusalReason
++  message: string
++  /** The largest body taken, in bytes. */
++  limit?: number
++  /** The protocol taken. */
++  protocol?: number
++  /** The event type refused. */
++  type?: string
++  /** What was wrong with it. */
++  detail?: string
++}
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+new file mode 100644
+index 0000000..ad810a3
+--- /dev/null
++++ b/src/lib/types.ts
+@@ -0,0 +1,3 @@
++import type { auth } from '@/auth'
++
++export type SessionUser = typeof auth.$Infer.Session.user
+diff --git a/src/utils/features.ts b/src/utils/features.ts
+new file mode 100644
+index 0000000..9354c55
+--- /dev/null
++++ b/src/utils/features.ts
+@@ -0,0 +1,21 @@
++import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
++import type { RollKindInfo } from '@/types/roll'
++
++/**
++ * Whether a campaign takes what one of its own switches gates now, apart from the rolls: its module
++ * says the campaign lets them, and is fetching. A move (module 0.31.0), a removal (0.33.0), a
++ * favorite (0.37.0), an effect changed (0.39.0) and Wild Shape (0.40.0) each have one.
++ * @param field - The switch, as the campaign keeps it, such as `effectsEnabled`.
++ */
++export function switchOn(
++  campaign: Partial<Record<NonNullable<RollKindInfo['own']>, boolean>> & {
++    bridgePolledAt: Date | null
++  },
++  field: NonNullable<RollKindInfo['own']>,
++  now = Date.now(),
++): boolean {
++  const polled = campaign.bridgePolledAt?.getTime()
++  return (
++    campaign[field] === true && !!polled && now - polled < BRIDGE_POLLED_WITHIN
++  )
++}
+diff --git a/src/utils/hello-features.test.ts b/src/utils/hello-features.test.ts
+new file mode 100644
+index 0000000..7839b7a
+--- /dev/null
++++ b/src/utils/hello-features.test.ts
+@@ -0,0 +1,79 @@
++/**
++ * @jest-environment node
++ */
++import {
++  HELLO_ROLL_FLAGS,
++  helloCampaignData,
++  helloCompanionData,
++  kindOn,
++} from './hello-features'
++
++describe('utils/hello-features', () => {
++  it.each([
++    [{ enabled: true, kinds: ['transfer'] }, true],
++    [{ enabled: true, kinds: ['remove'] }, false],
++    [{ enabled: false, kinds: ['transfer'] }, false],
++    [{ enabled: true }, false],
++    [null, false],
++    [undefined, false],
++  ])('kindOn(%j, transfer) is %s', (feature, on) => {
++    expect(kindOn(feature, 'transfer')).toBe(on)
++  })
++
++  it('keeps the roll flags a hello says in the stored order, whatever order it says them in', () => {
++    const rolls = Object.fromEntries(
++      [...HELLO_ROLL_FLAGS].reverse().map(flag => [flag, true]),
++    )
++    const { rollFeatures } = helloCampaignData({
++      rolls: { enabled: true, kinds: [], reason: null, ...rolls },
++    })
++    expect(JSON.stringify(rollFeatures)).toBe(JSON.stringify(HELLO_ROLL_FLAGS))
++  })
++
++  it('clears everything a hello from a module that says nothing of its features leaves out', () => {
++    expect(
++      JSON.stringify({
++        ...helloCampaignData(undefined),
++        ...helloCompanionData(undefined),
++      }),
++    ).toBe(
++      JSON.stringify({
++        rollsEnabled: false,
++        rollKinds: [],
++        rollFeatures: [],
++        transfersEnabled: false,
++        transferFeatures: [],
++        removalsEnabled: false,
++        favoritesEnabled: false,
++        dishesEnabled: false,
++        dishVersions: [],
++        effectsEnabled: false,
++        wildShapeEnabled: false,
++        notesEnabled: false,
++        noteFeatures: [],
++        companionKinds: [],
++        companionInitiative: 'own',
++      }),
++    )
++  })
++
++  it('takes no command kind as a roll, and no move feature while moves are off', () => {
++    const data = helloCampaignData({
++      rolls: {
++        enabled: true,
++        kinds: ['skill', 'transfer', 'favorite', 'wildShape', 'nonsense'],
++        reason: null,
++      },
++      transfers: {
++        enabled: false,
++        kinds: ['transfer'],
++        reason: null,
++        partySends: true,
++        distribute: true,
++      },
++    })
++    expect(data.rollKinds).toEqual(['skill'])
++    expect(data.transfersEnabled).toBe(false)
++    expect(data.transferFeatures).toEqual([])
++  })
++})
+diff --git a/src/utils/hello-features.ts b/src/utils/hello-features.ts
+new file mode 100644
+index 0000000..fd4ea89
+--- /dev/null
++++ b/src/utils/hello-features.ts
+@@ -0,0 +1,135 @@
++import { COOKBOOK_VERSIONS } from '@/constants/cookbook'
++import { OWN_KINDS } from '@/constants/roll-kinds'
++import { COMPANION_UNTAKEN, ROLL_KINDS } from '@/constants/sending-stone'
++import type { BridgeFeatures } from '@/types/sending-stone'
++
++// What a module's hello says the campaign does, as the campaign keeps it: replaced whole on every
++// hello, so what a module before a feature says nothing of is cleared.
++
++/**
++ * What else the game does with players' rolls, as a hello says it, in the order the campaign keeps
++ * them: from module 0.13.0, take damage a player changed, and ask players for the saves their game
++ * asks of them; from module 0.16.0, make area attacks at the combatants players pick; from module
++ * 0.21.0, make a check an activity asks for, the player's own, against it, and change a
++ * description's damage only on a die it adds; from module 0.22.0, make a use at its user; from
++ * module 0.23.0, make the Gamemaster's rolls as a character, marked as theirs; from module 0.25.0,
++ * list the messages each of those made in its result, which only this listener reads, never a
++ * viewer; from module 0.26.0, let players enter their own dice's results; from module 0.27.0, ask
++ * here what Midi-QOL asks of characters, which nothing reads yet; from module 0.41.0, let damage on
++ * its own name its choices and spend what it uses, and ask companions for the saves the game asks
++ * of them; and from module 0.42.0, take a typed roll's effects' dice, and keep its rerolls.
++ */
++export const HELLO_ROLL_FLAGS = [
++  'modifiers',
++  'prompts',
++  'areaAttacks',
++  'activityChecks',
++  'signedDice',
++  'selfTargets',
++  'gmRolls',
++  'gmRollMessages',
++  'manualDice',
++  'midiPrompts',
++  'aloneChoices',
++  'companionPrompts',
++  'effectDice',
++  'keptRerolls',
++] as const
++
++/** Whether a hello says a feature of its own is on, and takes this kind of command. */
++export function kindOn(
++  feature: { enabled: boolean; kinds?: string[] } | null | undefined,
++  kind: string,
++): boolean {
++  return feature?.enabled === true && (feature.kinds ?? []).includes(kind)
++}
++
++/**
++ * The campaign's switches and what else its game does, as a hello says them, in the order the
++ * campaign keeps them; replaced whole on every hello, so a module before a feature, which says
++ * nothing of it, clears it.
++ */
++export function helloCampaignData(features: BridgeFeatures | null | undefined) {
++  // Whether its players may move items and coins from here, from module 0.31.0, apart from the
++  // rolls. A module before it says nothing of them, which clears it.
++  const transfersOn = kindOn(features?.transfers, 'transfer')
++  // Whether the campaign takes dishes from the Magical Recipe Book, from module 0.38.0, by its own
++  // switch under dnd5e 5.
++  const dishesOn = kindOn(features?.dishes, 'dish')
++  return {
++    // Whether its players may roll in the game from here. A module before 0.10.0 can't make their
++    // rolls, and says nothing of them.
++    rollsEnabled: features?.rolls?.enabled === true,
++    // A move of items and coins, a removal, a favorite, from module 0.39.0 an effect changed, or
++    // from module 0.40.0 Wild Shape, is never one of the rolls, even where a module says so: each
++    // has its own feature.
++    rollKinds: (features?.rolls?.kinds ?? []).filter(
++      kind =>
++        (ROLL_KINDS as readonly string[]).includes(kind) &&
++        !(OWN_KINDS as readonly string[]).includes(kind),
++    ),
++    rollFeatures: HELLO_ROLL_FLAGS.filter(
++      flag => features?.rolls?.[flag] === true,
++    ),
++    transfersEnabled: transfersOn,
++    // What else it does with moves, from module 0.32.0; nothing while moves are off, and a module
++    // before it says nothing, which clears them.
++    transferFeatures: transfersOn
++      ? [
++          ...(features?.transfers?.partySends === true ? ['partySends'] : []),
++          ...(features?.transfers?.distribute === true ? ['distribute'] : []),
++        ]
++      : [],
++    // Whether the module removes characters' items for the app, from module 0.33.0, with no
++    // switch: a module before it says nothing of them, which clears it.
++    removalsEnabled: kindOn(features?.removals, 'remove'),
++    // Whether the module adds and removes characters' favorites for the app, from module 0.37.0,
++    // with no switch: a module before it says nothing of them, which clears it.
++    favoritesEnabled: kindOn(features?.favorites, 'favorite'),
++    // Whether the module takes dishes from the Magical Recipe Book for the app, and which body
++    // versions, from module 0.38.0, by its own switch under dnd5e 5: a module before it says
++    // nothing of dishes, which clears both.
++    dishesEnabled: dishesOn,
++    dishVersions: dishesOn
++      ? (features?.dishes?.versions ?? []).filter(version =>
++          (COOKBOOK_VERSIONS as readonly number[]).includes(version),
++        )
++      : [],
++    // Whether the campaign lets its players turn off, turn on and delete their own characters'
++    // effects from here, from module 0.39.0, by its own switch under dnd5e: a module before it
++    // says nothing of them, which clears it.
++    effectsEnabled: kindOn(features?.effects, 'effect'),
++    // Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, by its
++    // own switch under dnd5e: a module before it says nothing of it, which clears it.
++    wildShapeEnabled: kindOn(features?.wildShape, 'wildShape'),
++    // Whether the module keeps journal notes for the app, from module 0.34.0, with no switch: a
++    // module before it says nothing of them, which clears it.
++    notesEnabled: kindOn(features?.notes, 'personal'),
++    // What else the module does with journal notes, from module 0.35.0: 'orders' where it takes
++    // the app's orders of a group's notes. A module before it says nothing, which clears it.
++    noteFeatures:
++      features?.notes?.enabled === true && features.notes.orders === true
++        ? ['orders']
++        : [],
++  }
++}
++
++/**
++ * How its characters' companions roll, as a hello says it (module 0.36.0): the kinds a companion's
++ * rolls may be, never one no companion's is, nor one this app doesn't know; and how they enter
++ * initiative, each its own roll unless the module says otherwise. A module before it says nothing
++ * of them, which clears the first and sets the second back to its own roll.
++ */
++export function helloCompanionData(
++  features: BridgeFeatures | null | undefined,
++) {
++  return {
++    companionKinds: (features?.companions?.kinds ?? []).filter(
++      kind =>
++        (ROLL_KINDS as readonly string[]).includes(kind) &&
++        !(COMPANION_UNTAKEN as readonly string[]).includes(kind),
++    ),
++    companionInitiative:
++      features?.companions?.initiative === 'after' ? 'after' : 'own',
++  }
++}

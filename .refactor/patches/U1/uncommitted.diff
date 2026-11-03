@@ -16,7 +16,7 @@ index 89778da..1b64146 100644
  import { Preparing } from '../components/preparing/preparing'
  import { usePreparing } from '../components/preparing/use-preparing'
 diff --git a/src/features/sheet/components/character-pane/character-pane.tsx b/src/features/sheet/components/character-pane/character-pane.tsx
-index e149f02..0f86295 100644
+index e149f02..97d6bbb 100644
 --- a/src/features/sheet/components/character-pane/character-pane.tsx
 +++ b/src/features/sheet/components/character-pane/character-pane.tsx
 @@ -1,305 +1,51 @@
@@ -1105,7 +1105,7 @@ index e149f02..0f86295 100644
    // The rolls' way to the game, and their damage to roll, as the banner, the toasts and the rolls'
    // button all offer it.
    const trayTable: TableRolls = {
-@@ -994,588 +275,149 @@ function RollingSheet({
+@@ -994,588 +275,150 @@ function RollingSheet({
      states: shown.states,
      rollDamage: rollDue,
    }
@@ -1364,7 +1364,8 @@ index e149f02..0f86295 100644
 -            cookbook={
 -              cookbookEntry.shown ? { onOpen: cookbookEntry.open } : undefined
 -            }
-+        {/* What the character is transformed into, above the tabs, on every tab (module 0.40.0). */}
++        {/* What the character is transformed into, above the tabs, on every tab (module
++            0.40.0). */}
 +        <WildShapeRibbon />
 +        <SheetTabs
 +          rowRef={setTabRow}
@@ -1825,17 +1826,17 @@ index e149f02..0f86295 100644
 -  return 'this device doesn’t send your rolls to the table'
 -}
 diff --git a/src/features/sheet/components/character-sheet/character-sheet.tsx b/src/features/sheet/components/character-sheet/character-sheet.tsx
-index 8d9c2eb..2e49299 100644
+index 8d9c2eb..c9078f5 100644
 --- a/src/features/sheet/components/character-sheet/character-sheet.tsx
 +++ b/src/features/sheet/components/character-sheet/character-sheet.tsx
-@@ -8,6 +8,7 @@ import { RollButton } from '../../../rolling/components/roll-button/roll-button'
- import { useCharging } from '../charging/use-charging'
+@@ -9,6 +9,7 @@ import { useCharging } from '../charging/use-charging'
  import { useFavorite } from '../favorite-mark/use-favorite'
  import { HitDiceList } from '../hit-dice/hit-dice-list'
-+import { ModeChip } from '../mode-chip/mode-chip'
  import { hitDieSpending } from '../hit-dice/utils'
++import { ModeChip } from '../mode-chip/mode-chip'
  import { SheetHeading } from '../sheet-heading/sheet-heading'
  import { Conditions } from '../sheet-tiles/conditions'
+ import { DeathSavesStat } from '../sheet-tiles/death-saves-stat'
 @@ -19,11 +20,14 @@ import { Stat } from '../sheet-tiles/stat'
  import { StatTag } from '../sheet-tiles/stat-tag'
  import { isShowingDeathSaves } from '../sheet-tiles/utils'
@@ -1844,15 +1845,18 @@ index 8d9c2eb..2e49299 100644
  import { ConfirmModal } from '@/components/modal/confirm-modal'
  import { CreatureHeader } from '@/features/companions/components/creature-header/creature-header'
  import { otherSpeeds } from '@/features/companions/components/creature-header/utils'
- import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 +import { PROFICIENCY } from '@/features/sheet/constants'
+ import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
  import { classLine } from '@/features/sheet/utils/class-line'
 +import { checkLabel, detailWords } from '@/features/sheet/utils/roll-labels'
  import { formatModifier } from '@/utils/format-modifier'
  import { hitDicePools } from '@/utils/formulas'
  import { articled } from '@/utils/wild-shape'
-@@ -34,38 +38,9 @@ import {
+@@ -32,40 +36,11 @@ import {
+   legendWords,
+   skillsNoteWords,
  } from '@/utils/wild-shape-words'
++import type { CharacterSheetProps } from './types'
  import type { RollActions } from '../../../rolling/types'
  import type { HitDieSpending } from '../hit-dice/types'
 -import type { SheetFormulaRoll, SheetRoll } from '@/types/roll'
@@ -1887,7 +1891,6 @@ index 8d9c2eb..2e49299 100644
 -  /** What the ids of its pane begin with, as a companion's pane's do (module 0.36.0). */
 -  idPrefix?: string
 -}
-+import type { CharacterSheetProps } from './types'
 +import type { SheetAbility, SheetSkill } from '@/types/sending-stone'
 +import type { TableSheet } from '@/types/table'
  
@@ -3115,14 +3118,14 @@ index b59f350..3342f4e 100644
  
  export const FavoritingContext = createContext<Favorites>(NO_FAVORITING)
 diff --git a/src/features/sheet/components/preparing/preparing.test.tsx b/src/features/sheet/components/preparing/preparing.test.tsx
-index 301c962..4a4bab7 100644
+index 301c962..008cd3d 100644
 --- a/src/features/sheet/components/preparing/preparing.test.tsx
 +++ b/src/features/sheet/components/preparing/preparing.test.tsx
 @@ -1,6 +1,7 @@
  import { act, renderHook } from '@testing-library/react'
++import { NO_PREPARING } from './constants'
  import { Preparing } from './preparing'
 -import { NO_PREPARING, usePrepareChoice } from './use-prepare-choice'
-+import { NO_PREPARING } from './constants'
 +import { usePrepareChoice } from './use-prepare-choice'
  import { usePreparing } from './use-preparing'
  import { PREPARE_SETTLE } from '@/constants/sending-stone'
@@ -3279,10 +3282,18 @@ index dfc8114..bf6013b 100644
    return useMemo(() => ({ choiceFor }), [choiceFor])
  }
 diff --git a/src/features/sheet/components/sheet-settings/sheet-settings.tsx b/src/features/sheet/components/sheet-settings/sheet-settings.tsx
-index 4acc6de..55c0571 100644
+index 4acc6de..303ed44 100644
 --- a/src/features/sheet/components/sheet-settings/sheet-settings.tsx
 +++ b/src/features/sheet/components/sheet-settings/sheet-settings.tsx
-@@ -25,43 +25,8 @@ import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
+@@ -18,6 +18,7 @@ import {
+ import clsx from 'clsx'
+ import { CookingPot, PanelBottom, PanelTop, Settings } from 'lucide-react'
+ import { LayoutPicker } from '../actions-layout/layout-picker'
++import { aloneHint } from './utils'
+ import { HelpLinks } from '@/components/help-links/help-links'
+ import { usePortalRoot } from '@/components/modal/use-portal-root'
+ import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
+@@ -25,43 +26,7 @@ import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
  import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
  import { useTableRole } from '@/hooks/use-table-api'
  import { seatWords } from '@/utils/seat-words'
@@ -3323,7 +3334,6 @@ index 4acc6de..55c0571 100644
 -   */
 -  cookbook?: { onOpen: () => void }
 -}
-+import { aloneHint } from './utils'
 +import type { SheetSettingsProps } from './types'
  
  /**
@@ -3964,7 +3974,7 @@ index 2e3239f..075f917 100644
  import { druidSheet, shapedSheet, wildShapeBlock } from '@/mocks/sending-stone'
  import { toTableSheet } from '@/utils/table-view'
 diff --git a/src/features/sheet/components/wild-shape/wild-shape-ended.tsx b/src/features/sheet/components/wild-shape/wild-shape-ended.tsx
-index 503618c..af1ced5 100644
+index 503618c..faf5946 100644
 --- a/src/features/sheet/components/wild-shape/wild-shape-ended.tsx
 +++ b/src/features/sheet/components/wild-shape/wild-shape-ended.tsx
 @@ -2,7 +2,7 @@
@@ -3976,6 +3986,16 @@ index 503618c..af1ced5 100644
  import { useHydrated } from '@/hooks/use-hydrated'
  import { useStoredText } from '@/hooks/use-stored'
  import { endedWords } from '@/utils/wild-shape-words'
+@@ -36,6 +36,9 @@ export function WildShapeEnded({
+   )
+   if (first === undefined && block) setFirst(block.ended?.at ?? 0)
+   if (!hydrated || !block || !ended || sheet?.form) return
++  // An ending is told of for ENDED_FOR from when it came, as each draw finds the clock, as before
++  // v0.43: reading the clock once would change when it stops.
++  // eslint-disable-next-line react-hooks/purity -- the clock read as each draw is made, as before
+   const fresh = ended.at !== first || Date.now() - ended.at < ENDED_FOR
+   const after = Number(dismissed) || 0
+   const words = endedWords(ended, name, block.hours)
 diff --git a/src/features/sheet/components/wild-shape/wild-shape-note.tsx b/src/features/sheet/components/wild-shape/wild-shape-note.tsx
 index 211dadd..214e557 100644
 --- a/src/features/sheet/components/wild-shape/wild-shape-note.tsx

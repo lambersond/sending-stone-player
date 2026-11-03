@@ -23,15 +23,15 @@ index 2ecfbe2..68a6863 100644
      <div className='mx-auto flex max-w-md flex-col items-center px-6 py-16 text-center'>
        <Icon aria-hidden className='size-8 text-primary' />
 diff --git a/src/components/live-status/live-status.tsx b/src/components/live-status/live-status.tsx
-index bc57c7a..ef7f1ec 100644
+index bc57c7a..0b5f1c3 100644
 --- a/src/components/live-status/live-status.tsx
 +++ b/src/components/live-status/live-status.tsx
-@@ -1,38 +1,7 @@
+@@ -1,38 +1,8 @@
  import clsx from 'clsx'
 +import { statesOf } from './utils'
  import { useTableRole } from '@/hooks/use-table-api'
  import { seatWords } from '@/utils/seat-words'
--import type { LiveState } from './types'
+ import type { LiveState } from './types'
 -import type { SeatWords } from '@/types/seats'
 -
 -/** Each state, as the seat at the sheet reads it: the Gamemaster's game is their own (#156). */
@@ -3302,7 +3302,7 @@ index b98273f..d966106 100644
 -  )
 -}
 diff --git a/src/features/table/hooks/use-end-turn.ts b/src/features/table/hooks/use-end-turn.ts
-index 9635b29..84abfed 100644
+index 9635b29..3eb4b7f 100644
 --- a/src/features/table/hooks/use-end-turn.ts
 +++ b/src/features/table/hooks/use-end-turn.ts
 @@ -2,19 +2,17 @@
@@ -3464,13 +3464,13 @@ index 9635b29..84abfed 100644
 +      update({ status: 'sending' })
 +      follow(api, input, update)
 +    },
-+    [follow],
++    [follow, setShown, setSent],
 +  )
  
    return { turn, offered, way: now.way, sent, end }
  }
 diff --git a/src/features/table/hooks/use-hold.ts b/src/features/table/hooks/use-hold.ts
-index eff7fbe..bfce56c 100644
+index eff7fbe..7d78b98 100644
 --- a/src/features/table/hooks/use-hold.ts
 +++ b/src/features/table/hooks/use-hold.ts
 @@ -2,11 +2,10 @@
@@ -3510,7 +3510,15 @@ index eff7fbe..bfce56c 100644
    /** Whether a press is held now, for the label's colour. */
    holding: boolean
    /**
-@@ -151,11 +144,14 @@ export function useHold(options: {
+@@ -135,6 +128,7 @@ export function useHold(options: {
+   const frame = () => {
+     const held = press.current
+     if (!held) return
++    // eslint-disable-next-line react-hooks/purity -- runs per animation frame, not in render
+     const share = Math.min(1, (performance.now() - held.at) / END_TURN_HOLD)
+     draw(
+       share < END_TURN_QUIET
+@@ -151,11 +145,14 @@ export function useHold(options: {
      if (press.current && press.current.key !== key) cancel()
    })
    // A page hidden mid-press, as a phone's screen locked, loses it.
@@ -3527,7 +3535,7 @@ index eff7fbe..bfce56c 100644
      }
      document.addEventListener('visibilitychange', hidden)
      return () => {
-@@ -167,7 +163,7 @@ export function useHold(options: {
+@@ -167,7 +164,7 @@ export function useHold(options: {
        clearTimeout(held?.toast)
        clearTimeout(held?.end)
      }
@@ -3920,14 +3928,16 @@ index 32be5cf..db74328 100644
 +  return was?.turn !== now.turn || !NOT_MADE.has(was.way.status)
 +}
 diff --git a/src/hooks/use-waiting-prompts.ts b/src/hooks/use-waiting-prompts.ts
-index a8ab73d..3d1bf5e 100644
+index a8ab73d..f3d4d60 100644
 --- a/src/hooks/use-waiting-prompts.ts
 +++ b/src/hooks/use-waiting-prompts.ts
-@@ -60,6 +60,7 @@ export function useShownPrompts(
+@@ -60,6 +60,9 @@ export function useShownPrompts(
      const fresh = prompts.filter(({ id, closed }) => closed && !notices.has(id))
      if (fresh.length === 0) return
      const at = Date.now()
-+    // eslint-disable-next-line react-hooks/set-state-in-effect -- when the page first saw a notice is the time of the commit that showed it; in render it would read the clock there
++    // When the page first saw a notice is the time of the commit that showed it, as it always
++    // was: in render it would read the clock there.
++    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the clock after commit
      setNotices(held => {
        const next = new Map(held)
        for (const prompt of fresh) {

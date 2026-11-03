@@ -1,5 +1,5 @@
 diff --git a/src/mocks/notes-server.ts b/src/mocks/notes-server.ts
-index 4cdb399..1c2ed5e 100644
+index 4cdb399..0efc624 100644
 --- a/src/mocks/notes-server.ts
 +++ b/src/mocks/notes-server.ts
 @@ -1,3 +1,4 @@
@@ -47,7 +47,7 @@ index 4cdb399..1c2ed5e 100644
      const body =
        typeof init.body === 'string' ? JSON.parse(init.body) : undefined
      const sent = { url, method, body }
-@@ -132,83 +116,132 @@ export function serveNotes(
+@@ -132,83 +116,134 @@ export function serveNotes(
          body: { html: `<p>${String(body.body)}</p>`, headings: [] },
        })
      }
@@ -97,7 +97,9 @@ index 4cdb399..1c2ed5e 100644
 -        status: 201,
 -        body: { id: made16, stamp: `w:${made16}.0` },
 -      })
-+      return respond(add(book, body, `madeHere${String(made).padStart(8, '0')}`))
++      return respond(
++        add(book, body, `madeHere${String(made).padStart(8, '0')}`),
++      )
      }
 -    const entry = book.entries.find(note => note.id === id)
 -    const chapter = book.chapters.find(note => note.id === id)
@@ -149,7 +151,7 @@ index 4cdb399..1c2ed5e 100644
 +    const moved = new Set<string>(body.ids)
 +    const ordered = body.ids
 +      .map((id: string) => book.entries.find(note => note.id === id))
-+      .filter((note): note is NoteEntryView => Boolean(note))
++      .filter(Boolean)
 +    book.entries = [
 +      ...book.entries.filter(note => !moved.has(note.id)),
 +      ...ordered,

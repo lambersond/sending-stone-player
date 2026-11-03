@@ -2007,7 +2007,7 @@ index 80a5d23..4fa38df 100644
   * Can't damage be rolled at its highest, as the game refuses it: where a die of it explodes, or is
   * rerolled on its highest face, as its parts have them; or, as the game said it, as its rolls'
 diff --git a/src/utils/dice-modifiers.ts b/src/utils/dice-modifiers.ts
-index 159f032..b10dec7 100644
+index 159f032..86e0c39 100644
 --- a/src/utils/dice-modifiers.ts
 +++ b/src/utils/dice-modifiers.ts
 @@ -48,33 +48,7 @@ export function readModifier(
@@ -2232,7 +2232,7 @@ index 159f032..b10dec7 100644
    }
    let total = 0
    for (const die of dice) {
-@@ -188,6 +204,53 @@ export function throwTerm(
+@@ -188,6 +204,61 @@ export function throwTerm(
    }
  }
  
@@ -2273,20 +2273,28 @@ index 159f032..b10dec7 100644
 +      break
 +    }
 +    case 'count': {
-+      for (const die of dice) {
-+        die.counts = compare(die.value, modifier.comparison, modifier.target)
-+          ? 1
-+          : 0
-+      }
++      countMatches(dice, modifier)
 +      break
 +    }
++  }
++}
++
++/** Count each die 1 where it matches, else 0: a success (`cs`) or a failure (`cf`). */
++function countMatches(
++  dice: ThrownDie[],
++  modifier: Extract<DieModifier, { kind: 'count' }>,
++) {
++  for (const die of dice) {
++    die.counts = compare(die.value, modifier.comparison, modifier.target)
++      ? 1
++      : 0
 +  }
 +}
 +
  /**
   * Reroll or explode dice that match, as Foundry's `Die#reroll` and `Die#explode` walk them: each
   * active die in turn, those thrown since among them, but where it's done once, only the first
-@@ -205,25 +268,45 @@ function rethrow(
+@@ -205,25 +276,45 @@ function rethrow(
    while (checked < dice.length) {
      const die = dice[checked]
      checked++

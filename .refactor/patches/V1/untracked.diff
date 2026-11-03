@@ -311,10 +311,10 @@ index 0000000..19b6621
 +}
 diff --git a/src/features/table/components/chat-log/chat-message.tsx b/src/features/table/components/chat-log/chat-message.tsx
 new file mode 100644
-index 0000000..84b95e7
+index 0000000..d61dd35
 --- /dev/null
 +++ b/src/features/table/components/chat-log/chat-message.tsx
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,144 @@
 +import clsx from 'clsx'
 +import { Lock } from 'lucide-react'
 +import { AskBubble } from './ask-bubble'
@@ -435,7 +435,8 @@ index 0000000..84b95e7
 +  const box = 'size-9 shrink-0 rounded-[10px]'
 +  if (shown) {
 +    return (
-+      // eslint-disable-next-line @next/next/no-img-element -- a portrait from the Gamemaster's game, which Next's image optimizer doesn't know
++      // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
++      // eslint-disable-next-line @next/next/no-img-element -- a portrait Next can't optimize
 +      <img
 +        ref={ref}
 +        src={src}
@@ -460,13 +461,18 @@ index 0000000..84b95e7
 +}
 diff --git a/src/features/table/components/chat-log/constants.ts b/src/features/table/components/chat-log/constants.ts
 new file mode 100644
-index 0000000..679124d
+index 0000000..938ecfa
 --- /dev/null
 +++ b/src/features/table/components/chat-log/constants.ts
-@@ -0,0 +1,48 @@
-+import { Droplet, HeartPulse, Sparkles, Swords } from 'lucide-react'
+@@ -0,0 +1,53 @@
++import {
++  Droplet,
++  HeartPulse,
++  Sparkles,
++  Swords,
++  type LucideIcon,
++} from 'lucide-react'
 +import type { TableAction } from '@/types/table'
-+import type { LucideIcon } from 'lucide-react'
 +
 +/**
 + * How each kind of combat roll is marked: a chip naming it, and an accent down the card's edge.
@@ -1237,12 +1243,13 @@ index 0000000..16f0d92
 +}
 diff --git a/src/features/table/components/combat-tracker/hit-points.tsx b/src/features/table/components/combat-tracker/hit-points.tsx
 new file mode 100644
-index 0000000..e649fd8
+index 0000000..a53deae
 --- /dev/null
 +++ b/src/features/table/components/combat-tracker/hit-points.tsx
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,38 @@
 +'use client'
 +
++import clsx from 'clsx'
 +import { hpBar } from '@/features/table/utils/combat'
 +import type { TableCombatant } from '@/types/table'
 +
@@ -2696,10 +2703,10 @@ index 0000000..d793145
 +}
 diff --git a/src/features/table/components/turn-toast/use-turn-toast-card.ts b/src/features/table/components/turn-toast/use-turn-toast-card.ts
 new file mode 100644
-index 0000000..48bcf3b
+index 0000000..e603371
 --- /dev/null
 +++ b/src/features/table/components/turn-toast/use-turn-toast-card.ts
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,188 @@
 +import { useEffect, useRef, useState } from 'react'
 +import { lastsOf, nextCard, showsTurn } from './utils'
 +import { POLL_INTERVAL } from '@/constants/polling'
@@ -2726,8 +2733,8 @@ index 0000000..48bcf3b
 + * shows as it was two polls on is told with no line and no Undo; an Undo made with the turn still
 + * not shown back two polls on goes all the same; and each card that lasts goes in its time, paused
 + * while the pointer is over it or focus is in it.
-+ * @returns The card; `rest`, which pauses or resumes its time; and `takeBack`, Undo's own: its card,
-+ *   and the Undo sent.
++ * @returns The card; `rest`, which pauses or resumes its time; and `takeBack`, Undo's own: its
++ *   card, and the Undo sent.
 + */
 +export function useTurnToastCard({
 +  ending,
@@ -2771,8 +2778,9 @@ index 0000000..48bcf3b
 +
 +  const { sent } = ending
 +  const { offer, way: undone } = undoing
-+  // What happened since the last render, in the order it did; the last card made shows.
-+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render on purpose: it steps the card from what changed since the last one, and sets it only where it changed
++  // What happened since the last render, in the order it did; the last card made shows. It runs
++  // after every render, as it always has, and sets the card only where the card changes.
++  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render on purpose
 +  useEffect(() => {
 +    const was = seen.current
 +    seen.current = { held, sent }
@@ -3420,7 +3428,7 @@ index 0000000..6c8d2d6
 +}
 diff --git a/src/features/table/hooks/use-table-tabs.ts b/src/features/table/hooks/use-table-tabs.ts
 new file mode 100644
-index 0000000..3feeccb
+index 0000000..3f9e040
 --- /dev/null
 +++ b/src/features/table/hooks/use-table-tabs.ts
 @@ -0,0 +1,52 @@
@@ -3437,8 +3445,8 @@ index 0000000..3feeccb
 + * @param fighting - Whether the page opened on a combat already started: combat then sits beside
 + *   the sheet, else the chat.
 + * @returns The tab and the column's choice; whether they sit side by side; whether the chat, the
-+ *   combat pane and the Character pane are in view; and `show`, which shows a tab, and on a wide screen puts combat
-+ *   or the chat beside the sheet.
++ *   combat pane and the Character pane are in view; and `show`, which shows a tab, and on a wide
++ *   screen puts combat or the chat beside the sheet.
 + */
 +export function useTableTabs(fighting: boolean) {
 +  const [aside, setAside] = useState<Aside>(() =>
@@ -3631,10 +3639,10 @@ index 0000000..fe815ed
 +}
 diff --git a/src/features/table/hooks/use-typed-dice.ts b/src/features/table/hooks/use-typed-dice.ts
 new file mode 100644
-index 0000000..ce8bf7f
+index 0000000..ca52e45
 --- /dev/null
 +++ b/src/features/table/hooks/use-typed-dice.ts
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,53 @@
 +import { useEffect, useState } from 'react'
 +import { POLL_INTERVAL } from '@/constants/polling'
 +import type { DiceSwitch } from '@/features/table/types'
@@ -3660,7 +3668,9 @@ index 0000000..ce8bf7f
 +  const typing = diceChoice?.on ?? stored
 +  useEffect(() => {
 +    const told = view.manualDice?.on === true
-+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a view that disagrees is told apart by the time since the save settled, read after commit as before; in render it would read the clock there
++    // Told apart by the time since the save settled, read after the commit, as it always was:
++    // in render it would read the clock there.
++    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the clock after commit
 +    setDiceChoice(held => {
 +      if (!held || held.on === told) return
 +      // A view polled before the save settled may still say what was stored before it.
