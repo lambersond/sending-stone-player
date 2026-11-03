@@ -2,7 +2,7 @@
 
 import { use } from 'react'
 import clsx from 'clsx'
-import { WildShapeContext } from './use-wild-shape-row'
+import { WildShapeContext } from './context'
 import {
   actionsNoteWords,
   spellsNoteWords,

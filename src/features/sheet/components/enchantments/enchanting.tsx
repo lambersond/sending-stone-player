@@ -1,6 +1,7 @@
 'use client'
 
-import { Actions, type EnchantActions } from './use-enchanting'
+import { Actions } from './use-enchanting'
+import type { EnchantActions } from './types'
 import type { ReactNode } from 'react'
 
 /** Has enchantments ended, and enchant activities followed, wherever the sheet lists them. */

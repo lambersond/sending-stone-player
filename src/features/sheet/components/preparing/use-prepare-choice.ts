@@ -1,19 +1,6 @@
 import { createContext, use } from 'react'
-import type { PrepareChoice } from './types'
-
-/** What a pane offers of its character's spells: none where they can't be changed here. */
-export type Preparations = {
-  choiceFor: (id: string) => PrepareChoice | undefined
-}
-
-/**
- * None, as wherever a sheet's spells can't be prepared from here: a party's sheet, a companion's
- * pane, the Gamemaster's page, a game that doesn't take it, and any row drawn outside a pane.
- */
-export const NO_PREPARING: Preparations = {
-  // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
-  choiceFor: () => undefined,
-}
+import { NO_PREPARING } from './constants'
+import type { PrepareChoice, Preparations } from './types'
 
 export const PreparingContext = createContext<Preparations>(NO_PREPARING)
 

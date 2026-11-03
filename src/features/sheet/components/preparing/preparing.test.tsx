@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
+import { NO_PREPARING } from './constants'
 import { Preparing } from './preparing'
-import { NO_PREPARING, usePrepareChoice } from './use-prepare-choice'
+import { usePrepareChoice } from './use-prepare-choice'
 import { usePreparing } from './use-preparing'
 import { PREPARE_SETTLE } from '@/constants/sending-stone'
 import { sheetSpell } from '@/mocks/sending-stone'

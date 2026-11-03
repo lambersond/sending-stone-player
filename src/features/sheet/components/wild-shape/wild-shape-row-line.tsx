@@ -1,8 +1,8 @@
 'use client'
 
 import { use } from 'react'
-import { WildShapeContext } from './use-wild-shape-row'
-import { isRow, rowOf } from './wild-shape-row-controls'
+import { WildShapeContext } from './context'
+import { isRow, rowOf } from './utils'
 
 /** The Wild Shape row's small line under its name: what Wild Shape does now, or why not. */
 export function WildShapeRowLine({ id }: Readonly<{ id: string }>) {

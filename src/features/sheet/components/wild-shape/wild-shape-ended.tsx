@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Clock, X } from 'lucide-react'
-import { ENDED_KEY, ENDED_FOR } from './wild-shape'
+import { ENDED_KEY, ENDED_FOR } from './constants'
 import { useHydrated } from '@/hooks/use-hydrated'
 import { useStoredText } from '@/hooks/use-stored'
 import { endedWords } from '@/utils/wild-shape-words'
@@ -36,6 +36,9 @@ export function WildShapeEnded({
   )
   if (first === undefined && block) setFirst(block.ended?.at ?? 0)
   if (!hydrated || !block || !ended || sheet?.form) return
+  // An ending is told of for ENDED_FOR from when it came, as each draw finds the clock, as before
+  // v0.43: reading the clock once would change when it stops.
+  // eslint-disable-next-line react-hooks/purity -- the clock read as each draw is made, as before
   const fresh = ended.at !== first || Date.now() - ended.at < ENDED_FOR
   const after = Number(dismissed) || 0
   const words = endedWords(ended, name, block.hours)

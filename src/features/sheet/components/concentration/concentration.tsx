@@ -1,7 +1,8 @@
 'use client'
 
-import { endLabel, ASKED } from './concentration-chip'
+import { ASKED } from './constants'
 import { useConcentrating } from './use-concentrating'
+import { endLabel } from './utils'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
 import type { SheetConcentrationEffect } from '@/types/sending-stone'
 

@@ -1,17 +1,13 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useMemo, useCallback } from 'react'
 import { PREPARE_SETTLE } from '@/constants/sending-stone'
-import { onItsWay } from '@/utils/lifecycle'
-import type { PrepareChoice } from './types'
-import type { Preparations } from './use-prepare-choice'
+import { useSettle } from '@/features/sheet/hooks/use-settle'
+import type { PrepareChoice, Preparations, SentSpell } from './types'
 import type { TableRollState } from '@/types/roll'
 import type {
   PrepareOp,
   SheetSpellSection,
   SheetSpell,
 } from '@/types/sending-stone'
-
-/** The last sent of a spell from here: its line's local id, the state it asked for, and when. */
-type Sent = { local: string; op: PrepareOp; at: number }
 
 /**
  * What a pane offers of its character's spells. A spell's entry is Unprepare where the sheet has
@@ -35,16 +31,6 @@ export function usePreparing({
   states: ReadonlyMap<string, TableRollState>
   send: (spell: SheetSpell, op: PrepareOp) => string
 }>): Preparations {
-  const [sent, setSent] = useState<ReadonlyMap<string, Sent>>(() => new Map())
-  // The local ids of those sent long enough ago that the sheet should have come.
-  const [settled, setSettled] = useState<ReadonlySet<string>>(() => new Set())
-  const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
-  useEffect(() => {
-    const running = timers.current
-    return () => {
-      for (const timer of running) clearTimeout(timer)
-    }
-  }, [])
   // Each spell by its id, once for each sheet.
   const byId = useMemo(() => {
     const found = new Map<string, SheetSpell>()
@@ -55,6 +41,16 @@ export function usePreparing({
     }
     return found
   }, [spells])
+  const { sent, last, waitingOf } = useSettle<SentSpell>({
+    states,
+    settleMs: PREPARE_SETTLE,
+    missing: 'idle',
+    agrees: useCallback(
+      ({ spell, op }) =>
+        byId.get(spell)?.prepared === (op === 'prepare' ? 1 : 0),
+      [byId],
+    ),
+  })
 
   const choiceFor = useCallback(
     (id: string): PrepareChoice | undefined => {
@@ -62,31 +58,15 @@ export function usePreparing({
       const spell = byId.get(id)
       if (spell?.prepared !== 0 && spell?.prepared !== 1) return undefined
       const op = spell.prepared === 1 ? 'unprepare' : 'prepare'
-      const last = sent.get(id)
-      const state = last && states.get(last.local)
-      const wanted = last?.op === 'prepare' ? 1 : 0
-      const waiting =
-        !!last &&
-        !!state &&
-        (onItsWay(state) ||
-          (state.status === 'done' &&
-            spell.prepared !== wanted &&
-            !settled.has(last.local)))
       return {
         op,
-        waiting,
+        waiting: waitingOf(last(id)),
         choose: () => {
-          const local = send(spell, op)
-          setSent(held => new Map(held).set(id, { local, op, at: Date.now() }))
-          const timer = setTimeout(() => {
-            timers.current.delete(timer)
-            setSettled(held => new Set(held).add(local))
-          }, PREPARE_SETTLE)
-          timers.current.add(timer)
+          sent(id, { id: send(spell, op), op, spell: id })
         },
       }
     },
-    [on, byId, sent, states, settled, send],
+    [on, byId, last, waitingOf, sent, send],
   )
   return useMemo(() => ({ choiceFor }), [choiceFor])
 }

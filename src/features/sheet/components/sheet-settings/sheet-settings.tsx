@@ -18,6 +18,7 @@ import {
 import clsx from 'clsx'
 import { CookingPot, PanelBottom, PanelTop, Settings } from 'lucide-react'
 import { LayoutPicker } from '../actions-layout/layout-picker'
+import { aloneHint } from './utils'
 import { HelpLinks } from '@/components/help-links/help-links'
 import { usePortalRoot } from '@/components/modal/use-portal-root'
 import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
@@ -25,43 +26,7 @@ import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
 import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
-import type { ActionsLayout } from '../actions-layout/types'
-
-type Props = {
-  /** Whether this device sends the player's rolls to the table, while the game takes any. */
-  send?: { on: boolean; onChange: (on: boolean) => void }
-  /**
-   * Whether damage rolled here goes to the table on its own, from module 0.36.0, where the game
-   * takes it: this device's, so every pane's cog says the same. Disabled while Send to the table
-   * is off, as nothing goes then. From module 0.41.0, whether the game takes its choices too,
-   * which its hint then says.
-   */
-  alone?: {
-    on: boolean
-    onChange: (on: boolean) => void
-    disabled: boolean
-    choices?: boolean
-  }
-  /**
-   * Whether the player types in what their own dice show, where the campaign's game lets them,
-   * from module 0.32.0: the setting is shown only then.
-   */
-  manualDice?: { on: boolean; onChange: (on: boolean) => void }
-  /** Whether the player's rolls pop up as toasts on this device, or stay in the banner. */
-  toasts?: { on: boolean; onChange: (on: boolean) => void }
-  /** The Actions tab's layouts, where the sheet is wide enough for more than one. */
-  layouts?: ActionsLayout
-  /**
-   * Told as the settings open and close (round 0.39.0), as the player's Magical Recipe Book is read
-   * again each time they open, to know whether to offer it.
-   */
-  onOpenChange?: (open: boolean) => void
-  /**
-   * The player's Magical Recipe Book, at their own seat, while the game takes dishes or the
-   * character has a link (round 0.39.0): Configure Magical Cookbook opens it in a modal of its own.
-   */
-  cookbook?: { onOpen: () => void }
-}
+import type { SheetSettingsProps } from './types'
 
 /**
  * The sheet's settings, behind a cog beside its tabs, so that they're at hand from every tab
@@ -83,7 +48,7 @@ export function SheetSettings({
   layouts,
   onOpenChange,
   cookbook,
-}: Readonly<Props>) {
+}: Readonly<SheetSettingsProps>) {
   const role = useTableRole()
   const { game } = seatWords(role)
   const [open, setOpen] = useState(false)
@@ -233,24 +198,6 @@ export function SheetSettings({
       )}
     </>
   )
-}
-
-/**
- * What Damage on its own does, beneath its switch: that Send to the table must be on first, while
- * it's off; else where it goes, and for whom to apply; and from module 0.41.0, where the game takes
- * its choices, that they're made as it's rolled (round 0.41.0 §2.4.3).
- * @param gm - At the Gamemaster's seat, who applies it.
- */
-function aloneHint(
-  game: string,
-  gm: boolean,
-  { disabled, choices }: NonNullable<Props['alone']>,
-): string {
-  if (disabled) return 'Turn on Send to the table first.'
-  const goes = `Damage you roll goes to ${game} with no attack or saving throw made there, for ${gm ? 'you' : 'your Gamemaster'} to apply.`
-  return choices
-    ? `${goes} You choose a spell’s level, a weapon’s mode and its ammunition as you roll, and whether to spend what it uses.`
-    : goes
 }
 
 /**

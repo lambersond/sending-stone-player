@@ -1,6 +1,7 @@
 'use client'
 
-import { Actions, type ConcentrationActions } from './use-concentrating'
+import { Actions } from './use-concentrating'
+import type { ConcentrationActions } from './types'
 import type { ReactNode } from 'react'
 
 /** Has concentrations ended wherever the sheet shows them. */

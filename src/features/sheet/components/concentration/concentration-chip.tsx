@@ -3,21 +3,11 @@
 import { useState, type ReactNode } from 'react'
 import { CircleOff } from 'lucide-react'
 import { ChoiceMenu } from '../../../rolling/components/roll-menu/choice-menu'
+import { ASKED } from './constants'
 import { useConcentrating } from './use-concentrating'
+import { endLabel } from './utils'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
 import type { SheetConcentrationEffect } from '@/types/sending-stone'
-
-/** What ending a concentration asks, and says it does. */
-export const ASKED = {
-  confirmLabel: 'End',
-  cancelLabel: 'Keep',
-  body: 'What it keeps up on your allies ends too.',
-}
-
-/** What ending one is called, as its button and menu item are: "End concentration on Bless". */
-export function endLabel(effect: SheetConcentrationEffect): string {
-  return `End concentration on ${effect.name}`
-}
 
 /**
  * The Concentrating chip among the header's conditions, while the game takes ending a

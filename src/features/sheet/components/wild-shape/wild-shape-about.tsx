@@ -1,7 +1,7 @@
 'use client'
 
 import { use } from 'react'
-import { WildShapeContext } from './use-wild-shape-row'
+import { WildShapeContext } from './context'
 import { aboutWords } from '@/utils/wild-shape-words'
 
 /** Features' line for the Wild Shape row, from what the rules allow the druid now. */

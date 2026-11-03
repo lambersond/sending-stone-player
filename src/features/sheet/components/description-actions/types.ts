@@ -1,4 +1,4 @@
-import type { ShowConditions } from '../conditions/use-show-conditions'
+import type { ShowConditions } from '../conditions/types'
 import type {
   TextLink,
   SheetRoll,

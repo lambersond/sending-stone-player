@@ -1,6 +1,6 @@
 import { createContext, use } from 'react'
-import { NO_FAVORITING, type Favorites } from './constants'
-import type { FavoriteChoice } from './types'
+import { NO_FAVORITING } from './constants'
+import type { FavoriteChoice, Favorites } from './types'
 import type { FavoriteTarget } from '@/types/roll'
 
 export const FavoritingContext = createContext<Favorites>(NO_FAVORITING)

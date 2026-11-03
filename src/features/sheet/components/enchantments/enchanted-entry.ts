@@ -1,7 +1,7 @@
+import { createElement, type ReactNode } from 'react'
 import { EnchantedMark } from './enchanted-mark'
 import { EnchantmentList } from './enchantment-list'
 import type { SheetEnchantment } from '@/types/sending-stone'
-import type { ReactNode } from 'react'
 
 /**
  * What a row the sheet lists as an entry shows of the enchantments on it: the mark that it's
@@ -16,13 +16,11 @@ export function enchantedEntry(
 ): { badge?: ReactNode; lead?: ReactNode } {
   if (!entry.enchantments?.length) return {}
   return {
-    badge: <EnchantedMark />,
-    lead: (
-      <EnchantmentList
-        item={entry.id}
-        itemName={entry.name}
-        enchantments={entry.enchantments}
-      />
-    ),
+    badge: createElement(EnchantedMark),
+    lead: createElement(EnchantmentList, {
+      item: entry.id,
+      itemName: entry.name,
+      enchantments: entry.enchantments,
+    }),
   }
 }

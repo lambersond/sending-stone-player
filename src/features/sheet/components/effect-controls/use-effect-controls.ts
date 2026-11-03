@@ -1,14 +1,7 @@
-import {
-  useState,
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-  useLayoutEffect,
-} from 'react'
+import { useState, useRef, useMemo, useCallback, useLayoutEffect } from 'react'
 import { EFFECT_SETTLE, EFFECT_OPS } from '@/constants/sending-stone'
-import { onItsWay } from '@/utils/lifecycle'
-import type { Effects, Focusing, EffectChoice } from './types'
+import { useSettle } from '@/features/sheet/hooks/use-settle'
+import type { Effects, Focusing, EffectChoice, SentEffect } from './types'
 import type { TableRollState } from '@/types/roll'
 import type {
   EffectOp,
@@ -23,9 +16,6 @@ import type {
 // or on, an effect moves to another of the tab's sections, its row drawn afresh there: so its row's
 // open state is kept here, by where it's drawn and its id, for it to open again there, and focus,
 // lost with the control pressed, follows it once the sheet agrees.
-
-/** The last change of an effect's sent from here: its local id, and what it asked. */
-type Sent = { id: string; op: EffectOp }
 
 /**
  * Whether the sheet says what the game made of a change: the effect gone once deleted, else off or
@@ -76,20 +66,10 @@ export function useEffectControls({
   states: ReadonlyMap<string, TableRollState>
   send: (effect: SheetEffect, op: EffectOp, at?: number) => string
 }>): Effects {
-  const [sent, setSent] = useState<ReadonlyMap<string, Sent>>(() => new Map())
-  // The local ids of those sent long enough ago that the sheet should have come.
-  const [settled, setSettled] = useState<ReadonlySet<string>>(() => new Set())
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(
     () => new Map(),
   )
   const focusing = useRef(new Map<string, Focusing>())
-  const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
-  useEffect(() => {
-    const running = timers.current
-    return () => {
-      for (const timer of running) clearTimeout(timer)
-    }
-  }, [])
   const index = useMemo(
     () =>
       new Map(
@@ -99,27 +79,29 @@ export function useEffectControls({
       ),
     [effects],
   )
-
+  // A change sent, its way not yet heard of, waits as on its way, for as long as the sheet might
+  // take.
+  const {
+    waitingOf: waits,
+    last,
+    sent: keep,
+  } = useSettle<SentEffect>({
+    states,
+    settleMs: EFFECT_SETTLE,
+    missing: 'waiting',
+    agrees: useCallback(
+      ({ effect, op }, state) => agrees(index.get(effect), op, state.changed),
+      [index],
+    ),
+  })
   const waitingOf = useCallback(
-    (effect: string, id: string, op: EffectOp): boolean => {
-      const state = states.get(id)
-      // Sent, its way not yet heard of: as on its way, for as long as the sheet might take.
-      if (!state) return !settled.has(id)
-      if (onItsWay(state)) return true
-      return (
-        state.status === 'done' &&
-        !settled.has(id) &&
-        !agrees(index.get(effect), op, state.changed)
-      )
-    },
-    [states, settled, index],
+    (effect: string, id: string, op: EffectOp): boolean =>
+      waits({ effect, id, op }),
+    [waits],
   )
   const waitingFor = useCallback(
-    (effect: string): boolean => {
-      const last = sent.get(effect)
-      return !!last && waitingOf(effect, last.id, last.op)
-    },
-    [sent, waitingOf],
+    (effect: string): boolean => waits(last(effect)),
+    [last, waits],
   )
 
   const sendChange = useCallback(
@@ -127,15 +109,10 @@ export function useEffectControls({
       if (!on || !effect.ops?.includes(op) || waitingFor(effect.id)) return
       // A row's change logged as it's sent, as ever; one a roll made, at the time given.
       const id = at === undefined ? send(effect, op) : send(effect, op, at)
-      setSent(held => new Map(held).set(effect.id, { id, op }))
-      const timer = setTimeout(() => {
-        timers.current.delete(timer)
-        setSettled(held => new Set(held).add(id))
-      }, EFFECT_SETTLE)
-      timers.current.add(timer)
+      keep(effect.id, { effect: effect.id, id, op })
       return id
     },
-    [on, waitingFor, send],
+    [on, waitingFor, send, keep],
   )
 
   const choiceFor = useCallback(
@@ -147,13 +124,13 @@ export function useEffectControls({
       return {
         ops,
         waiting,
-        ...(waiting && { pending: sent.get(effect.id)?.op }),
+        ...(waiting && { pending: last(effect.id)?.op }),
         choose: op => {
           sendChange(effect, op)
         },
       }
     },
-    [on, waitingFor, sent, sendChange],
+    [on, waitingFor, last, sendChange],
   )
 
   const effectOf = useCallback((id: string) => index.get(id), [index])

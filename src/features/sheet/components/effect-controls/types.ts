@@ -54,3 +54,6 @@ export type Effects = {
  * party's.
  */
 export type Spent = { gone: boolean; removing: boolean; removable: boolean }
+
+/** The last change of an effect's sent from here: which, its line's local id, and what it asked. */
+export type SentEffect = { effect: string; id: string; op: EffectOp }

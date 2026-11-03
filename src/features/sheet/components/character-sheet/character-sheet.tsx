@@ -9,6 +9,7 @@ import { useCharging } from '../charging/use-charging'
 import { useFavorite } from '../favorite-mark/use-favorite'
 import { HitDiceList } from '../hit-dice/hit-dice-list'
 import { hitDieSpending } from '../hit-dice/utils'
+import { ModeChip } from '../mode-chip/mode-chip'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { Conditions } from '../sheet-tiles/conditions'
 import { DeathSavesStat } from '../sheet-tiles/death-saves-stat'
@@ -19,11 +20,14 @@ import { Stat } from '../sheet-tiles/stat'
 import { StatTag } from '../sheet-tiles/stat-tag'
 import { isShowingDeathSaves } from '../sheet-tiles/utils'
 import { WalkingSpeed } from '../sheet-tiles/walking-speed'
+import { acTag } from './utils'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
 import { CreatureHeader } from '@/features/companions/components/creature-header/creature-header'
 import { otherSpeeds } from '@/features/companions/components/creature-header/utils'
+import { PROFICIENCY } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { classLine } from '@/features/sheet/utils/class-line'
+import { checkLabel, detailWords } from '@/features/sheet/utils/roll-labels'
 import { formatModifier } from '@/utils/format-modifier'
 import { hitDicePools } from '@/utils/formulas'
 import { articled } from '@/utils/wild-shape'
@@ -32,40 +36,11 @@ import {
   legendWords,
   skillsNoteWords,
 } from '@/utils/wild-shape-words'
+import type { CharacterSheetProps } from './types'
 import type { RollActions } from '../../../rolling/types'
 import type { HitDieSpending } from '../hit-dice/types'
-import type { SheetFormulaRoll, SheetRoll } from '@/types/roll'
-import type {
-  RollMode,
-  SheetAbility,
-  SheetForm,
-  SheetSkill,
-} from '@/types/sending-stone'
-import type { CreatureFacts, TableCombat, TableSheet } from '@/types/table'
-
-type Props = {
-  name: string
-  sheet: TableSheet
-  /** The encounter under way, in which the character may be waiting to roll initiative. */
-  combat?: TableCombat
-  onRoll: (roll: SheetRoll) => void
-  /** Spends hit dice, rolling them. */
-  onRollFormula?: (roll: SheetFormulaRoll) => void
-  /** Shows one of the character's conditions in full, with its rules, by its id. */
-  onShowConditions?: (id: string) => void
-  /**
-   * A creature's sheet rather than the character's (module 0.36.0), such as a companion's: its
-   * header is the creature's.
-   */
-  creature?: CreatureFacts
-  /**
-   * The character a companion acts right after in initiative, while it's in the combat (module
-   * 0.36.0): its Initiative tile says so, and rolls nothing.
-   */
-  follows?: string
-  /** What the ids of its pane begin with, as a companion's pane's do (module 0.36.0). */
-  idPrefix?: string
-}
+import type { SheetAbility, SheetSkill } from '@/types/sending-stone'
+import type { TableSheet } from '@/types/table'
 
 /**
  * A player's character sheet: who they are, their vital numbers, and their abilities and skills.
@@ -82,7 +57,7 @@ export function CharacterSheet({
   creature,
   follows,
   idPrefix,
-}: Readonly<Props>) {
+}: Readonly<CharacterSheetProps>) {
   const { actions, dialogs } = useD20Rolls(onRoll)
   const abbreviation = (id: string) =>
     sheet.abilities.find(ability => ability.id === id)?.abbreviation ??
@@ -440,7 +415,12 @@ function AbilityTile({
         }}
         onRoll={onRoll}
         onMenu={onMenu}
-        label={`${label} check, ${formatModifier(check)}${modeText(ability.checkMode)}${whose(beast?.check)}`}
+        label={checkLabel({
+          label: `${label} check`,
+          total: check,
+          mode: ability.checkMode,
+          suffix: whose(beast?.check),
+        })}
         className={clsx(
           'flex flex-col items-center gap-1 px-2 pt-2.5 pb-2 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
           beast?.check && 'bg-wild-bg/55',
@@ -475,7 +455,13 @@ function AbilityTile({
         }}
         onRoll={onRoll}
         onMenu={onMenu}
-        label={`${label} saving throw, ${formatModifier(save)}${saveProficient ? ', proficient' : ''}${modeText(ability.saveMode)}${whose(beast?.save)}`}
+        label={checkLabel({
+          label: `${label} saving throw`,
+          total: save,
+          mode: ability.saveMode,
+          details: saveProficient ? ', proficient' : '',
+          suffix: whose(beast?.save),
+        })}
         className={clsx(
           'flex items-center justify-center gap-1 border-t border-border py-1.5 text-xs transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
           beast?.save && 'bg-wild-bg/55',
@@ -496,13 +482,6 @@ function AbilityTile({
       </RollButton>
     </li>
   )
-}
-
-/** Proficiency, as a skill's multiplier says it. */
-export const PROFICIENCY: Record<string, string> = {
-  '0.5': 'half proficiency',
-  '1': 'proficient',
-  '2': 'expertise',
 }
 
 function SkillRow({
@@ -536,7 +515,13 @@ function SkillRow({
         }}
         onRoll={onRoll}
         onMenu={onMenu}
-        label={`${skill.label} check, ${formatModifier(skill.total)}${details.length > 0 ? ` (${details.join(', ')})` : ''}${modeText(skill.mode)}${beast ? `, the ${beast}’s` : ''}${favorite ? ', favorite' : ''}`}
+        label={checkLabel({
+          label: `${skill.label} check`,
+          total: skill.total,
+          mode: skill.mode,
+          details: detailWords(details),
+          suffix: `${beast ? `, the ${beast}’s` : ''}${favorite ? ', favorite' : ''}`,
+        })}
         className='flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-primary/5 focus-visible:bg-primary/5'
       >
         <ProficiencyMark value={skill.proficiency} />
@@ -577,38 +562,4 @@ function ProficiencyMark({ value }: Readonly<{ value: number }>) {
       )}
     />
   )
-}
-
-/** Advantage or disadvantage from the character's conditions and features. */
-export function ModeChip({ mode }: Readonly<{ mode: RollMode }>) {
-  if (mode === 0) return
-  return (
-    <span
-      aria-hidden
-      className={clsx(
-        'rounded px-1 text-[10px] font-bold tracking-wide uppercase',
-        mode > 0 ? 'bg-primary/15 text-primary-text' : 'bg-ruby/15 text-ruby',
-      )}
-    >
-      {mode > 0 ? 'Adv' : 'Dis'}
-    </span>
-  )
-}
-
-/* -------------------------------------------- */
-
-/** Advantage or disadvantage, as a roll's label says it. */
-export function modeText(mode: RollMode): string {
-  if (mode > 0) return ', with advantage'
-  if (mode < 0) return ', with disadvantage'
-  return ''
-}
-
-/**
- * Whose the Armor class is on a shaped sheet (module 0.40.0): the form's, or the Circle of the
- * Moon's where its floor is the AC.
- */
-function acTag(form?: SheetForm): string | undefined {
-  if (!form) return undefined
-  return form.flooredAc ? 'Circle of the Moon' : form.name
 }

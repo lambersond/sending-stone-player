@@ -1,18 +1,10 @@
+import type { ConditionRules } from './types'
+
 /**
  * The conditions of D&D's 2024 rules ("5.5e"), as the System Reference Document 5.2 gives them,
  * each with its rules. The opening line of each, "While you have the … condition, you experience
  * the following effects.", is left out.
  */
-
-/** One of a condition's rules, such as Blinded's "Can’t See". */
-export type ConditionRule = { title: string; text: string }
-
-/** A condition and its rules. Its id is dnd5e's, as the sheet's conditions are. */
-export type ConditionRules = {
-  id: string
-  name: string
-  rules: ConditionRule[]
-}
 
 /** What conditions are, and how they last and combine. */
 export const CONDITION_BASICS: { title?: string; text: string }[] = [

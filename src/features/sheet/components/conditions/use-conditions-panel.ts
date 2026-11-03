@@ -1,7 +1,6 @@
-import { useState, type ReactNode } from 'react'
-import { ConditionsReference } from './conditions-reference'
-import { SidePanel } from '@/components/side-panel/side-panel'
-import type { ShowConditions } from './use-show-conditions'
+import { createElement, useState, type ReactNode } from 'react'
+import { ConditionsPanel } from './conditions-panel'
+import type { ShowConditions } from './types'
 import type { SheetCondition } from '@/types/sending-stone'
 
 /*
@@ -20,15 +19,10 @@ export function useConditionsPanel(conditions: SheetCondition[]): {
   const [open, setOpen] = useState<{ at?: string }>()
   return {
     show: id => setOpen(id ? { at: id } : {}),
-    panel: (
-      <SidePanel
-        open={open !== undefined}
-        onClose={() => setOpen(undefined)}
-        title='Conditions'
-        subtitle='Every condition in the 2024 rules (5.5e)'
-      >
-        <ConditionsReference conditions={conditions} at={open?.at} />
-      </SidePanel>
-    ),
+    panel: createElement(ConditionsPanel, {
+      open,
+      onClose: () => setOpen(undefined),
+      conditions,
+    }),
   }
 }

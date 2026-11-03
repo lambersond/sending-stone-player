@@ -1,7 +1,5 @@
 import { createContext, use } from 'react'
-
-/** Opens the conditions panel, at a condition by its id, or at the top. */
-export type ShowConditions = (id?: string) => void
+import type { ShowConditions } from './types'
 
 export const Opener = createContext<ShowConditions | undefined>(undefined)
 

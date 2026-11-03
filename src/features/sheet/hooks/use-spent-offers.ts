@@ -1,32 +1,10 @@
 'use client'
 
-import { useLayoutEffect, useRef, type RefObject } from 'react'
+import { type RefObject } from 'react'
+import { useSpentRemovals } from './use-spent-removals'
+import { useSpentSet } from './use-spent-set'
 import type { Effects } from '@/features/sheet/components/effect-controls/types'
-import type { LocalRoll, TableRollState, OfferSpend } from '@/types/roll'
-
-/**
- * The ways a roll's way to the game ends without it made, which spend no die offered that the
- * player added to it: it may be offered again.
- */
-const UNSPENT = new Set<TableRollState['status']>([
-  'failed',
-  'expired',
-  'lost',
-  'refused',
-])
-
-/**
- * Whether a roll's way ended without it made, so that the die offered it spends nothing. Not a roll
- * that took the game too long, which may still be made once the Gamemaster answers, and which the
- * page goes on following (`LATE_FOLLOW`): its die stays spent until it's made, or, where it never
- * is, for as long as the page is open, as the safer of the two mistakes, a die never offered twice.
- */
-function unspent({ status, reason }: TableRollState): boolean {
-  return UNSPENT.has(status) && !(status === 'failed' && reason === 'timeout')
-}
-
-/** A roll a die offered was added to: what adding it spent, and when the roll was made. */
-type Spending = { spends: readonly OfferSpend[]; at: number }
+import type { LocalRoll, TableRollState } from '@/types/roll'
 
 /**
  * The dice offered that the player added to their rolls, from module 0.42.1, such as Bardic
@@ -56,56 +34,6 @@ export function useSpentOffers({
   states: ReadonlyMap<string, TableRollState>
   effecting: Pick<Effects, 'effectOf' | 'choiceFor' | 'send'>
 }>): void {
-  // The effects each roll removed, or left, by the roll's id and the effect's: each once.
-  const handled = useRef(new Set<string>())
-  // Each roll a die offered was added to, by its id, from the moment it's among the rolls: kept
-  // after the roller lets it go, as it keeps only its newest rolls, of every kind, so that the die
-  // stays spent while its effect is on the sheet however many rolls, uses or changes follow, and
-  // the effect is still removed once the roll is made. Let go once every effect it spent has left
-  // the sheet, as nothing then offers it.
-  const spending = useRef(new Map<string, Spending>())
-
-  // Before the page is drawn, so that a roll asked for after it, and the words under a roll made,
-  // never find the spent effect as it was.
-  useLayoutEffect(() => {
-    const kept = spending.current
-    for (const roll of rolls) {
-      if (roll.kind !== 'check' || !roll.spends || kept.has(roll.id)) continue
-      kept.set(roll.id, { spends: roll.spends, at: roll.at })
-    }
-    for (const [id, { spends }] of kept) {
-      if (spends.every(({ effect }) => !effecting.effectOf(effect))) {
-        kept.delete(id)
-      }
-    }
-    spent.current = new Set(
-      [...kept].flatMap(([id, { spends }]) => {
-        const state = states.get(id)
-        if (state && unspent(state)) return []
-        return spends.map(({ effect }) => effect)
-      }),
-    )
-  }, [spent, rolls, states, effecting])
-
-  useLayoutEffect(() => {
-    for (const [roll, { spends, at }] of spending.current) {
-      if (states.get(roll)?.status !== 'done') continue
-      for (const { effect: id } of spends) {
-        const key = `${roll}\n${id}`
-        if (handled.current.has(key)) continue
-        const effect = effecting.effectOf(id)
-        const choice = effect && effecting.choiceFor(effect)
-        // Gone already, or not the player's to remove: nothing to send.
-        if (!effect || !choice?.ops.includes('delete')) {
-          handled.current.add(key)
-          continue
-        }
-        // Another change of it on its way: tried again once that ends.
-        if (choice.waiting) continue
-        if (effecting.send(effect, 'delete', at - 1) !== undefined) {
-          handled.current.add(key)
-        }
-      }
-    }
-  }, [rolls, states, effecting])
+  const spending = useSpentSet({ spent, rolls, states, effecting })
+  useSpentRemovals({ spending, rolls, states, effecting })
 }

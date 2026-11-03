@@ -1,6 +1,7 @@
 'use client'
 
-import { Opener, type ShowConditions } from './use-show-conditions'
+import { Opener } from './use-show-conditions'
+import type { ShowConditions } from './types'
 import type { ReactNode } from 'react'
 
 /**

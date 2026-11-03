@@ -1,7 +1,8 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { PreparingContext, type Preparations } from './use-prepare-choice'
+import { PreparingContext } from './use-prepare-choice'
+import type { Preparations } from './types'
 
 // What a pane offers of its character's spells, from module 0.42.1: on every row of a spell the
 // character prepares, Prepare or Unprepare, as the sheet says it is now, as dnd5e's own sheet's

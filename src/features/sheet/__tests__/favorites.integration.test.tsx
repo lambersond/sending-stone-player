@@ -10,10 +10,8 @@ import { CharacterPane } from '../components/character-pane/character-pane'
 import { Effecting } from '../components/effect-controls/effecting'
 import { useEffectControls } from '../components/effect-controls/use-effect-controls'
 import { FavoriteMarks } from '../components/favorite-mark/favorite-marks'
-import {
-  FavoritesColumn,
-  FavoritesStrip,
-} from '../components/favorites/favorites'
+import { FavoritesStrip } from '../components/favorites/favorites'
+import { FavoritesColumn } from '../components/favorites/favorites-column'
 import { Favoriting } from '../components/favoriting/favoriting'
 import { Preparing } from '../components/preparing/preparing'
 import { usePreparing } from '../components/preparing/use-preparing'
