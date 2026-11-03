@@ -16,11 +16,12 @@ import { ALONE_SPEND_KEY } from '../use-picker/constants'
 import { UsePicker } from '../use-picker/use-picker'
 import { useWildShape } from '../wild-shape/use-wild-shape'
 import { WildShapeRibbon } from '../wild-shape/wild-shape'
+import { linkActions } from './link-actions'
 import { PaneContext } from './pane-context'
+import { rollActions } from './roll-actions'
 import { SheetContext } from './sheet-context'
 import { SheetPanel } from './sheet-panel'
 import { SheetTabs } from './sheet-tabs'
-import { useDescriptionLinks } from './use-description-links'
 import { useDueDamage } from './use-due-damage'
 import { useFavoritesLayout } from './use-favorites-layout'
 import { useGiveRemove } from './use-give-remove'
@@ -29,7 +30,6 @@ import { usePaneLock } from './use-pane-lock'
 import { usePaneStatus } from './use-pane-status'
 import { usePicking } from './use-picking'
 import { usePromptAnswers } from './use-prompt-answers'
-import { useRollActions } from './use-roll-actions'
 import { useSheetTabs } from './use-sheet-tabs'
 import { useTrayTriggers } from './use-tray-triggers'
 import { useTypedRolls } from './use-typed-rolls'
@@ -245,7 +245,7 @@ function RollingSheet({
     paneShown,
   })
   // What the tabs and the favorites roll and use, once for all of them.
-  const actions = useRollActions({
+  const actions = rollActions({
     table,
     roller,
     picking,
@@ -276,7 +276,7 @@ function RollingSheet({
   }
   // What the links in descriptions do, on every tab, favorite and dialog: each roll they make,
   // and the table asked, shows in the tray, whichever tab it's on.
-  const descriptions = useDescriptionLinks({
+  const descriptions = linkActions({
     table,
     roller,
     onRoll: actions.onRoll,

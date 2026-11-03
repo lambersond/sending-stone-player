@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { onItsWay } from '@/utils/lifecycle'
-import type { Settle, SettleOptions, Settling } from '../types'
+import type { Settle, SettleOptions, Settling } from './types'
 
 /**
  * How a pane's commands to the game wait, one kept for each key, as a favorite's, a spell's, an

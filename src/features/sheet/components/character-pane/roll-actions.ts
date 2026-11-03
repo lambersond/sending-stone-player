@@ -28,7 +28,7 @@ import type { TableCombat, TableSheet } from '@/types/table'
  * @param picking - The picker: `ask` opens it where there's anything to pick, saying whether it
  *   did.
  */
-export function useRollActions({
+export function rollActions({
   table,
   roller: { roll, rollFormula },
   picking: { ask, makeUse, pickAlone },

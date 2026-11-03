@@ -195,7 +195,7 @@ export type SheetTab =
 /** One of the sheet's tabs as its row shows it: its name and icon. */
 export type TabEntry = { id: SheetTab; label: string; icon: LucideIcon }
 
-/** What the pane's tabs and favorites roll and use (`useRollActions`), once for all of them. */
+/** What the pane's tabs and favorites roll and use (`rollActions`), once for all of them. */
 export type PaneActions = {
   onRoll: (request: SheetRoll) => void
   onRollDamage: (request: SheetDamageRoll) => void

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react'
-import type { Spending } from '../types'
+import type { Spending } from './types'
 import type { Effects } from '@/features/sheet/components/effect-controls/types'
 import type { LocalRoll, TableRollState } from '@/types/roll'
 

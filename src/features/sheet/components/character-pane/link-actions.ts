@@ -14,7 +14,7 @@ import type { TableSheet } from '@/types/table'
  * @param onRoll - A roll as the pane makes it, an attack picked at first.
  * @param rollsToTable - The rolls the game takes now.
  */
-export function useDescriptionLinks({
+export function linkActions({
   table,
   roller: { rollDamage, rollFormula, logAsk },
   onRoll,
