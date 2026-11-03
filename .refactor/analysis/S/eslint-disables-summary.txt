@@ -1,0 +1,42 @@
+7 prod file unicorn/no-null reason
+1 prod line camelcase reason
+6 prod line unicorn/no-null NOREASON
+16 prod line unicorn/no-null reason
+1 prod line unicorn/prefer-structured-clone reason
+55 test file unicorn/no-null reason
+6 test line camelcase reason
+5 test line unicorn/no-null reason
+20 test line unicorn/no-useless-undefined NOREASON
+42 test line unicorn/no-useless-undefined reason
+--- product lines
+src/db/campaign-events.ts:274 line unicorn/no-null reason
+src/db/campaign-events.ts:802 line unicorn/no-null reason
+src/db/campaign-events.ts:830 line unicorn/no-null reason
+src/db/campaigns.ts:82 file unicorn/no-null reason
+src/db/campaigns.ts:389 line unicorn/no-null NOREASON
+src/db/campaigns.ts:391 line unicorn/no-null NOREASON
+src/db/campaigns.ts:408 line unicorn/no-null NOREASON
+src/db/campaigns.ts:410 line unicorn/no-null NOREASON
+src/db/campaigns.ts:465 line unicorn/no-null reason
+src/db/campaigns.ts:481 line unicorn/no-null reason
+src/db/campaigns.ts:536 line unicorn/no-null reason
+src/db/characters.ts:163 line unicorn/no-null reason
+src/db/cookbook.ts:1 file unicorn/no-null reason
+src/db/note-sync.ts:1 file unicorn/no-null reason
+src/db/note-sync.ts:700 line camelcase reason
+src/db/notes.ts:1 file unicorn/no-null reason
+src/db/party.ts:241 line unicorn/no-null reason
+src/db/party.ts:440 line unicorn/no-null reason
+src/db/roll-requests.ts:763 line unicorn/no-null NOREASON
+src/db/roll-requests.ts:790 line unicorn/no-null NOREASON
+src/db/roll-requests.ts:810 line unicorn/no-null reason
+src/db/seats.ts:61 line unicorn/no-null reason
+src/db/table.ts:319 line unicorn/no-null reason
+src/db/table.ts:521 line unicorn/no-null reason
+src/lib/notes-routes.ts:60 line unicorn/no-null reason
+src/utils/slim-sheet.ts:1 file unicorn/no-null reason
+src/utils/slim-sheet.ts:222 line unicorn/prefer-structured-clone reason
+src/utils/table-view.ts:555 file unicorn/no-null reason
+src/utils/table-view.ts:682 line unicorn/no-null reason
+src/utils/table-view.ts:1162 file unicorn/no-null reason
+src/utils/table-view.ts:1236 line unicorn/no-null reason

@@ -1,0 +1,10 @@
+ 132  132 top  components/game-table/game-table.tsx:159 GameTable [component]
+  45    7 top  hooks/use-end-turn.ts:89 useEndTurn
+  42   24 top  hooks/use-turn-undo.ts:73 useTurnUndo
+  39    0 nest hooks/use-table-view.ts:55 useTableView > (anon)
+  30   30 top  components/game-table/combat-tracker.tsx:234 TurnPanel [component]
+  23   23 nest components/game-table/turn-toast.tsx:271 TurnToast > (anon)
+  22   22 top  components/game-table/chat-log.tsx:126 ChatMessage [component]
+  17   17 top  components/game-table/turn-toast.tsx:212 TurnToast [component]
+  13   13 top  components/game-table/combat-tracker.tsx:140 CombatantRow [component]
+  12   12 top  components/game-table/chat-log.tsx:340 RollCard [component]

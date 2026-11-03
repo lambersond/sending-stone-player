@@ -1,0 +1,90 @@
+
+/home/user/sending-stone-player/src/components/game-table/game-table.tsx
+   245:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/sending-stone-player/src/components/game-table/game-table.tsx:245:5
+  243 |   useEffect(() => {
+  244 |     const told = view.manualDice?.on === true
+> 245 |     setDiceChoice(held => {
+      |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  246 |       if (!held || held.on === told) return
+  247 |       // A view polled before the save settled may still say what was stored before it.
+  248 |       const later =  react-hooks/set-state-in-effect
+  1126:8   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/home/user/sending-stone-player/src/components/game-table/game-table.tsx:1126:8
+  1124 |  */
+  1125 | function HoldFill({ hold }: Readonly<{ hold?: TabHold }>) {
+> 1126 |   if (!hold?.offer) return
+       |        ^^^^^^^^^^^ Cannot access ref value during render
+  1127 |   return (
+  1128 |     <span
+  1129 |       ref={hold.offer.fill}                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/refs
+  1129:12  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/home/user/sending-stone-player/src/components/game-table/game-table.tsx:1129:12
+  1127 |   return (
+  1128 |     <span
+> 1129 |       ref={hold.offer.fill}
+       |            ^^^^^^^^^^^^^^^ Cannot access ref value during render
+  1130 |       aria-hidden
+  1131 |       className='pointer-events-none absolute inset-0 origin-left rounded-[inherit] bg-primary/22'
+  1132 |       style={{ transform: 'scaleX(0)' }}                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/refs
+
+/home/user/sending-stone-player/src/components/game-table/turn-toast.tsx
+  271:3  warning  React Hook useEffect contains a call to 'setCard'. Without a list of dependencies, this can lead to an infinite chain of updates. To fix this, pass [held, sent, card, ending.turn, via, combat, combatShown, offer.requestId, offer.left, uncover, undone] as a second argument to the useEffect Hook  react-hooks/exhaustive-deps
+  335:6  warning  React Hook useEffect has a missing dependency: 'sent'. Either include it or remove the dependency array                                                                                                                                                                                                 react-hooks/exhaustive-deps
+
+/home/user/sending-stone-player/src/hooks/use-end-turn.ts
+  175:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `setShown`, but the source dependencies were []. Inferred dependency not present in source.
+
+/home/user/sending-stone-player/src/hooks/use-end-turn.ts:175:27
+  173 |   const sends = useRef(0)
+  174 |
+> 175 |   const end = useCallback((given: EndableTurn) => {
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 176 |     const { api, shown, offered } = latest.current
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 177 |     // Only the turn the tap or the hold was made on, while it's still the one shown.
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 211 |     )
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 212 |   }, [])
+      | ^^^^ Could not preserve existing manual memoization
+  213 |
+  214 |   return { turn, offered, way: now.way, sent, end }
+  215 | }  react-hooks/preserve-manual-memoization
+
+/home/user/sending-stone-player/src/hooks/use-waiting-prompts.ts
+  63:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/sending-stone-player/src/hooks/use-waiting-prompts.ts:63:5
+  61 |     if (fresh.length === 0) return
+  62 |     const at = Date.now()
+> 63 |     setNotices(held => {
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  64 |       const next = new Map(held)
+  65 |       for (const prompt of fresh) {
+  66 |         if (!next.has(prompt.id)) next.set(prompt.id, { prompt, at })  react-hooks/set-state-in-effect
+
+✖ 7 problems (5 errors, 2 warnings)
+

@@ -1,0 +1,174 @@
+== components/game-table/chat-log.tsx (791 lines)
+  exports: ChatLog initials 
+  OUT components/companions/creature-switcher.tsx: initials ;
+  in components/game-table/chat-log.results.test.tsx: ChatLog ;
+  in components/game-table/chat-log.test.tsx: ChatLog, initials ;
+  in components/game-table/game-table.tsx: ChatLog ;
+== components/game-table/combat-tracker.tsx (413 lines)
+  exports: PanelEnding CombatTracker formatInitiative 
+  in components/game-table/combat-tracker.test.tsx: CombatTracker, formatInitiative ;
+  in components/game-table/game-table.tsx: CombatTracker ;
+== components/game-table/empty-state.tsx (18 lines)
+  exports: EmptyState 
+  in components/game-table/chat-log.tsx: EmptyState ;
+  in components/game-table/combat-tracker.tsx: EmptyState ;
+  in components/game-table/game-table.tsx: EmptyState ;
+  OUT components/party-sheet/party-sheet.tsx: EmptyState ;
+== components/game-table/end-turn-button.tsx (90 lines)
+  exports: EndTurnButton 
+  in components/game-table/combat-tracker.tsx: EndTurnButton ;
+  in components/game-table/end-turn-button.test.tsx: EndTurnButton ;
+== components/game-table/fullscreen-button.tsx (79 lines)
+  exports: FullscreenButton 
+  in components/game-table/fullscreen-button.test.tsx: FullscreenButton ;
+  in components/game-table/game-table.tsx: FullscreenButton ;
+  OUT components/party-sheet/party-page.tsx: FullscreenButton ;
+== components/game-table/fullscreen-guard.tsx (23 lines)
+  exports: FullscreenGuard 
+  OUT app/layout.tsx: FullscreenGuard ;
+  in components/game-table/fullscreen-guard.test.tsx: FullscreenGuard ;
+== components/game-table/game-table.tsx (1508 lines)
+  exports: GameTable 
+  in components/game-table/game-table.companions.test.tsx: GameTable ;
+  in components/game-table/game-table.cookbook.test.tsx: GameTable ;
+  in components/game-table/game-table.endturn.test.tsx: GameTable ;
+  in components/game-table/game-table.favorites.test.tsx: GameTable ;
+  in components/game-table/game-table.manual-dice.test.tsx: GameTable ;
+  in components/game-table/game-table.notes.test.tsx: GameTable ;
+  in components/game-table/game-table.party.test.tsx: GameTable ;
+  in components/game-table/game-table.removals.test.tsx: GameTable ;
+  in components/game-table/game-table.test.tsx: GameTable ;
+  in components/game-table/index.ts:
+  OUT components/transfers/give-controls.test.tsx: GameTable ;
+== components/game-table/index.ts (1 lines)
+  exports: export { GameTable } from 
+  OUT app/campaigns/[id]/characters/[actor]/page.test.tsx: [jest.mock]
+  OUT app/campaigns/[id]/characters/[actor]/page.tsx: GameTable ;
+  OUT app/characters/[id]/page.test.tsx: [jest.mock]
+  OUT app/characters/[id]/page.tsx: GameTable ;
+== components/game-table/live-status.tsx (54 lines)
+  exports: LiveState LiveStatus 
+  in components/game-table/game-table.tsx: LiveStatus, type LiveState ;
+  OUT components/party-sheet/party-page.tsx: LiveStatus, type LiveState ;
+== components/game-table/local-time.tsx (30 lines)
+  exports: LocalTime 
+  OUT components/campaigns/campaign-card.tsx: LocalTime ;
+  OUT components/campaigns/campaign-status.tsx: LocalTime ;
+  OUT components/campaigns/foundry-settings.tsx: LocalTime ;
+  in components/game-table/chat-log.tsx: LocalTime ;
+  in components/game-table/local-time.test.tsx: LocalTime ;
+== components/game-table/turn-toast.tsx (523 lines)
+  exports: TurnToastContext NOT_MADE turnFragment refusalKey newlyNotMade TurnToast 
+  OUT components/character-sheet/roll-toasts.test.tsx: TurnToastContext ;
+  OUT components/character-sheet/roll-toasts.tsx: TurnToastContext ;
+  in components/game-table/combat-tracker.tsx: turnFragment ;
+  in components/game-table/game-table.tsx: newlyNotMade, refusalKey, TurnToast, TurnToastContext, ;
+  in components/game-table/turn-toast.test.tsx: TurnToast ;
+== hooks/use-end-turn.ts (215 lines)
+  exports: useEndTurn 
+  in components/game-table/combat-tracker.tsx: useEndTurn ;
+  in components/game-table/game-table.tsx: useEndTurn ;
+  in components/game-table/turn-toast.tsx: useEndTurn ;
+  in hooks/use-end-turn.test.tsx: useEndTurn ;
+== hooks/use-fullscreen.ts (81 lines)
+  exports: useFullscreen 
+  in components/game-table/fullscreen-button.tsx: useFullscreen ;
+  in hooks/use-fullscreen.test.tsx: useFullscreen ;
+== hooks/use-table-api.ts (24 lines)
+  exports: TableApiContext useTableApi useTableRole 
+  OUT components/character-sheet/character-pane.test.tsx: TableApiContext ;
+  OUT components/character-sheet/character-pane.tsx: useTableRole ;
+  OUT components/character-sheet/charges.test.tsx: TableApiContext ;
+  OUT components/character-sheet/damage-menu.tsx: useTableRole ;
+  OUT components/character-sheet/enchantments.tsx: useTableRole ;
+  OUT components/character-sheet/prompt-banner.tsx: useTableRole ;
+  OUT components/character-sheet/roll-toasts.tsx: useTableRole ;
+  OUT components/character-sheet/roll-tray.test.tsx: TableApiContext ;
+  OUT components/character-sheet/roll-tray.tsx: useTableRole ;
+  OUT components/character-sheet/seat-words.test.tsx: TableApiContext ;
+  OUT components/character-sheet/sheet-settings.test.tsx: TableApiContext ;
+  OUT components/character-sheet/sheet-settings.tsx: useTableRole ;
+  OUT components/character-sheet/sheet-text.test.tsx: TableApiContext ;
+  OUT components/character-sheet/sheet-text.tsx: useTableApi ;
+  OUT components/character-sheet/use-picker.alone.test.tsx: TableApiContext ;
+  OUT components/character-sheet/use-picker.tsx: useTableRole ;
+  OUT components/companions/companion-pane.tsx: TableApiContext ;
+  in components/game-table/chat-log.test.tsx: TableApiContext ;
+  in components/game-table/chat-log.tsx: useTableRole ;
+  in components/game-table/combat-tracker.test.tsx: TableApiContext ;
+  in components/game-table/combat-tracker.tsx: useTableRole ;
+  in components/game-table/game-table.tsx: TableApiContext ;
+  in components/game-table/live-status.tsx: useTableRole ;
+  in components/game-table/turn-toast.test.tsx: TableApiContext ;
+  in components/game-table/turn-toast.tsx: useTableRole ;
+  OUT components/party-sheet/party-page.tsx: TableApiContext ;
+  OUT components/party-sheet/party-sheet.test.tsx: TableApiContext ;
+  OUT components/party-sheet/party-sheet.tsx: TableApiContext ;
+  OUT components/transfers/distribute-dialog.test.tsx: TableApiContext ;
+  OUT components/transfers/distribute-dialog.tsx: useTableRole ;
+  OUT components/transfers/give-controls.test.tsx: TableApiContext ;
+  OUT components/transfers/move-dialog.test.tsx: TableApiContext ;
+  OUT components/transfers/move-dialog.tsx: useTableRole ;
+  OUT components/transfers/move-status.test.tsx: TableApiContext ;
+  OUT components/transfers/move-status.tsx: useTableRole ;
+  OUT components/transfers/remove-controls.test.tsx: TableApiContext ;
+  OUT components/transfers/remove-dialog.test.tsx: TableApiContext ;
+  OUT components/transfers/remove-dialog.tsx: useTableRole ;
+  in hooks/use-table-api.test.tsx: TableApiContext, useTableApi, useTableRole ;
+  OUT hooks/use-table-rolls.test.tsx: TableApiContext ;
+  OUT hooks/use-table-rolls.ts: useTableApi, useTableRole ;
+== hooks/use-table-view.ts (149 lines)
+  exports: Connection POLL_INTERVAL useTableView 
+  in components/game-table/game-table.companions.test.tsx: useTableView, type Connection ; [jest.mock]
+  in components/game-table/game-table.cookbook.test.tsx: useTableView ; [jest.mock]
+  in components/game-table/game-table.endturn.test.tsx: useTableView, type Connection ; [jest.mock]
+  in components/game-table/game-table.favorites.test.tsx: useTableView ; [jest.mock]
+  in components/game-table/game-table.manual-dice.test.tsx: POLL_INTERVAL, useTableView, type Connection, ; [jest.mock]
+  in components/game-table/game-table.notes.test.tsx: POLL_INTERVAL, useTableView, type Connection, ; [jest.mock]
+  in components/game-table/game-table.party.test.tsx: useTableView, type Connection ; [jest.mock]
+  in components/game-table/game-table.removals.test.tsx: useTableView ; [jest.mock]
+  in components/game-table/game-table.test.tsx: useTableView, type Connection ; [jest.mock]
+  in components/game-table/game-table.tsx: POLL_INTERVAL, useTableView ;
+  in components/game-table/turn-toast.test.tsx: [jest.mock]
+  in components/game-table/turn-toast.tsx: POLL_INTERVAL ;
+  OUT components/notes/journal-modal.test.tsx: POLL_INTERVAL ;
+  OUT components/notes/note-editor.test.tsx: POLL_INTERVAL ;
+  OUT components/party-sheet/party-sheet.test.tsx: POLL_INTERVAL ;
+  OUT components/transfers/give-controls.test.tsx: useTableView ; [jest.mock]
+  OUT hooks/use-companion-view.test.tsx: POLL_INTERVAL ;
+  OUT hooks/use-companion-view.ts: POLL_INTERVAL ;
+  in hooks/use-end-turn.test.tsx: POLL_INTERVAL ;
+  in hooks/use-end-turn.ts: POLL_INTERVAL ;
+  OUT hooks/use-notes.test.ts: POLL_INTERVAL ;
+  OUT hooks/use-notes.ts: POLL_INTERVAL ;
+  OUT hooks/use-party-sheet.test.tsx: POLL_INTERVAL ;
+  OUT hooks/use-party-sheet.ts: POLL_INTERVAL, type Connection ;
+  in hooks/use-table-view.test.tsx: POLL_INTERVAL, useTableView ;
+== hooks/use-turn-undo.ts (188 lines)
+  exports: useTurnUndo 
+  in components/game-table/game-table.tsx: useTurnUndo ;
+  in components/game-table/turn-toast.tsx: useTurnUndo ;
+  in hooks/use-turn-undo.test.tsx: useTurnUndo ;
+== hooks/use-waiting-prompts.ts (102 lines)
+  exports: useWaitingPrompts useWaitingCompanions useShownPrompts 
+  OUT components/character-sheet/character-pane.tsx: useShownPrompts ;
+  OUT components/companions/companion-ask-notice.test.tsx: useWaitingCompanions ;
+  in components/game-table/game-table.tsx: useWaitingCompanions, useWaitingPrompts, ;
+  in hooks/use-waiting-prompts.test.tsx: useShownPrompts, useWaitingCompanions, useWaitingPrompts, ;
+== utils/end-turn.ts (196 lines)
+  exports: END_TURN_HOLD END_TURN_TOAST_AT END_TURN_DRIFT END_TURN_ARMS_AFTER END_TURN_QUIET END_TURN_TAP_WITHIN END_TURN_QUIET_CLICKS END_TURN_BUZZ TURN_TOAST_FOR TURN_UNDO_FOR endableTurn turnKey TURN_REFUSALS TURN_OVER END_TURN_LABEL END_TURN_HINT endTurnWords actingLine turnRefusedLine reasonSentence HOLD_HINT turnSendingLine holdDescription 
+  in components/game-table/combat-tracker.test.tsx: endableTurn ;
+  in components/game-table/combat-tracker.tsx: END_TURN_HINT, TURN_OVER, turnKey, turnRefusedLine, ;
+  in components/game-table/end-turn-button.tsx: END_TURN_LABEL, endTurnWords ;
+  in components/game-table/game-table.tsx: END_TURN_QUIET_CLICKS, holdDescription, turnKey, ;
+  in components/game-table/turn-toast.tsx: actingLine, endTurnWords, HOLD_HINT, reasonSentence, TURN_REFUSALS, TURN_TOAST_FOR, TURN_UNDO_FOR, turnSendingLine, ;
+  in hooks/use-end-turn.test.tsx: END_TURN_ARMS_AFTER ;
+  in hooks/use-end-turn.ts: END_TURN_ARMS_AFTER, endableTurn, TURN_OVER, turnKey, ;
+  OUT hooks/use-hold.test.ts: END_TURN_HOLD ;
+  OUT hooks/use-hold.ts: END_TURN_BUZZ, END_TURN_DRIFT, END_TURN_HOLD, END_TURN_QUIET, END_TURN_TAP_WITHIN, END_TURN_TOAST_AT, ;
+  in utils/end-turn.test.ts:
+== utils/table-pages.ts (11 lines)
+  exports: TABLE_PAGES isTablePage 
+  in components/game-table/fullscreen-guard.tsx: isTablePage ;
+  OUT components/site-header/not-on-character-page.tsx: isTablePage ;
+  in utils/table-pages.test.ts: isTablePage, TABLE_PAGES ;

@@ -1,0 +1,159 @@
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.test.ts:4:/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route.test.ts:102:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.test.ts:4:/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/route.test.ts:69:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.test.ts:4:/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/table/route.test.ts:53:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.test.ts:4:/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+src/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/texts/[hash]/route.test.ts:53:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+src/app/api/campaigns/[id]/characters/[actor]/notes/[note]/route.test.ts:113:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+src/app/api/campaigns/[id]/characters/[actor]/notes/order/route.test.ts:133:    // eslint-disable-next-line unicorn/no-useless-undefined -- not their campaign
+src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+src/app/api/campaigns/[id]/characters/[actor]/notes/preview/route.test.ts:94:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+src/app/api/campaigns/[id]/characters/[actor]/notes/route.test.ts:100:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts:4:/* eslint-disable unicorn/no-null -- the Gamemaster's seat has no character, null */
+src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts:179:      // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts:185:      // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/campaigns/[id]/characters/[actor]/routes.test.ts:202:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+src/app/api/campaigns/[id]/party/[group]/notes/[note]/route.test.ts:105:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+src/app/api/campaigns/[id]/party/[group]/notes/order/route.test.ts:124:    // eslint-disable-next-line unicorn/no-useless-undefined -- not their campaign
+src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+src/app/api/campaigns/[id]/party/[group]/notes/preview/route.test.ts:86:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+src/app/api/campaigns/[id]/party/[group]/notes/route.test.ts:92:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/campaigns/[id]/party/[group]/route.test.ts:4:/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+src/app/api/campaigns/[id]/party/[group]/route.test.ts:131:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.test.ts:4:/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+src/app/api/campaigns/[id]/party/[group]/texts/[hash]/route.test.ts:67:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.test.ts:4:/* eslint-disable unicorn/no-null -- the database uses null for an absent value */
+src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.test.ts:89:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/characters/[id]/companions/[companion]/rolls/[roll]/route.test.ts:98:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/companions/[companion]/rolls/route.test.ts:68:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/characters/[id]/companions/[companion]/rolls/route.test.ts:77:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/companions/[companion]/table/route.test.ts:4:/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+src/app/api/characters/[id]/companions/[companion]/table/route.test.ts:53:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/characters/[id]/companions/[companion]/table/route.test.ts:62:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.test.ts:4:/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.test.ts:48:    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
+src/app/api/characters/[id]/companions/[companion]/texts/[hash]/route.test.ts:57:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/cookbook/route.test.ts:4:/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
+src/app/api/characters/[id]/cookbook/route.test.ts:118:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/cookbook/route.test.ts:143:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/notes/[note]/route.test.ts:109:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/notes/order/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+src/app/api/characters/[id]/notes/order/route.test.ts:126:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/notes/preview/route.test.ts:87:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/notes/route.test.ts:99:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/party/[group]/notes/[note]/route.test.ts:125:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
+src/app/api/characters/[id]/party/[group]/notes/order/route.test.ts:135:    // eslint-disable-next-line unicorn/no-useless-undefined -- not theirs to see
+src/app/api/characters/[id]/party/[group]/notes/preview/route.test.ts:97:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/party/[group]/notes/route.test.ts:108:    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/app/api/characters/[id]/party/[group]/route.test.ts:161:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/party/[group]/route.test.ts:170:      // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/party/[group]/texts/[hash]/route.test.ts:4:/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+src/app/api/characters/[id]/party/[group]/texts/[hash]/route.test.ts:106:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/party/[group]/texts/[hash]/route.test.ts:129:      // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/rolls/[roll]/route.test.ts:52:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/rolls/[roll]/route.test.ts:56:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/rolls/[roll]/route.test.ts:64:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/rolls/route.test.ts:137:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/rolls/route.test.ts:141:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/table/route.test.ts:377:      // eslint-disable-next-line unicorn/no-null -- the character's campaign is unset
+src/app/api/characters/[id]/table/route.test.ts:426:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/table/route.test.ts:436:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/texts/[hash]/route.test.ts:48:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/texts/[hash]/route.test.ts:60:      // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/texts/[hash]/route.test.ts:66:      // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/characters/[id]/texts/[hash]/route.test.ts:79:    // eslint-disable-next-line unicorn/no-useless-undefined
+src/app/api/cookbook/dishes/route.test.ts:4:/* eslint-disable unicorn/no-null -- the link's seat uses null for an absent value */
+src/app/api/events/route.test.ts:4:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/db/campaign-events.groups.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/db/campaign-events.settings.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/db/campaign-events.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/db/campaign-events.ts:274:          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+src/db/campaign-events.ts:802:    // eslint-disable-next-line unicorn/no-null -- Prisma's value for an unset field
+src/db/campaign-events.ts:830:    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+src/db/campaigns.foundry.test.ts:1:/* eslint-disable unicorn/no-null -- Prisma's unset columns are null */
+src/db/campaigns.test.ts:1:/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+src/db/campaigns.ts:82:  /* eslint-disable unicorn/no-null -- Prisma unsets a column with null */
+src/db/campaigns.ts:389:      // eslint-disable-next-line unicorn/no-null
+src/db/campaigns.ts:391:      // eslint-disable-next-line unicorn/no-null
+src/db/campaigns.ts:408:          // eslint-disable-next-line unicorn/no-null
+src/db/campaigns.ts:410:          // eslint-disable-next-line unicorn/no-null
+src/db/campaigns.ts:465:                // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+src/db/campaigns.ts:481:          // eslint-disable-next-line unicorn/no-null -- Prisma unsets a column with null
+src/db/campaigns.ts:536:    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
+src/db/characters.test.ts:1:/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
+src/db/characters.ts:163:      // eslint-disable-next-line unicorn/no-null -- Prisma matches an unset column with null
+src/db/companions.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/db/companions.test.ts:205:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/db/cookbook.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+src/db/cookbook.ts:1:/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+src/db/effects.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/db/favorites.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/db/note-sync.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+src/db/note-sync.test.ts:378:        // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+src/db/note-sync.test.ts:975:          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+src/db/note-sync.test.ts:1171:          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+src/db/note-sync.test.ts:1173:          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+src/db/note-sync.test.ts:1537:                // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+src/db/note-sync.test.ts:1546:                // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
+src/db/note-sync.ts:1:/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
+src/db/note-sync.ts:700:  // eslint-disable-next-line camelcase -- Prisma's name for the table's two-part key
+src/db/notes.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/db/notes.ts:1:/* eslint-disable unicorn/no-null -- Prisma and the view use null for an absent value */
+src/db/party.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/db/party.ts:241:    // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
+src/db/party.ts:440:    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
+src/db/removals.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/db/roll-requests.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/db/roll-requests.ts:763:        // eslint-disable-next-line unicorn/no-null
+src/db/roll-requests.ts:790:        // eslint-disable-next-line unicorn/no-null
+src/db/roll-requests.ts:810:      // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
+src/db/seats.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/db/seats.ts:61:    // eslint-disable-next-line unicorn/no-null -- the seat has no character
+src/db/sheet-texts.test.ts:1:/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
+src/db/table.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/db/table.ts:319:          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+src/db/table.ts:521:            // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
+src/db/transfers.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/db/wild-shape.test.ts:4:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/lib/campaign-secret.test.ts:49:    // eslint-disable-next-line unicorn/no-null -- what Headers.get returns
+src/lib/companion-routes.test.ts:4:/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
+src/lib/companion-routes.test.ts:82:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/companion-routes.test.ts:142:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/cookbook-code.test.ts:22:    // eslint-disable-next-line unicorn/no-useless-undefined -- no code at all
+src/lib/notes-routes.test.ts:4:/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
+src/lib/notes-routes.test.ts:178:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/notes-routes.test.ts:240:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/notes-routes.test.ts:281:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/notes-routes.test.ts:331:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/notes-routes.test.ts:333:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/notes-routes.test.ts:630:      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
+src/lib/notes-routes.ts:60:  // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
+src/lib/session.test.ts:32:    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
+src/lib/session.test.ts:46:    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
+src/lib/session.test.ts:54:    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
+src/utils/effect-commands.test.ts:1:/* eslint-disable unicorn/no-null -- Prisma uses null for an unset date */
+src/utils/favorite-commands.test.ts:1:/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+src/utils/prompts.test.ts:1:/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
+src/utils/removals.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/utils/removals.test.ts:55:      // eslint-disable-next-line unicorn/no-useless-undefined -- a character with no sheet yet
+src/utils/slim-sheet.test.ts:4:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/utils/slim-sheet.ts:1:/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+src/utils/slim-sheet.ts:222:  // eslint-disable-next-line unicorn/prefer-structured-clone -- as above
+src/utils/table-view.checks.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/utils/table-view.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/utils/table-view.ts:555:  /* eslint-disable unicorn/no-null -- a total the game didn't say is null, as a roll's is */
+src/utils/table-view.ts:682:  // eslint-disable-next-line unicorn/no-null -- unknown, as a roll's total is
+src/utils/table-view.ts:1162:/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
+src/utils/table-view.ts:1236:  // eslint-disable-next-line unicorn/no-null -- the sheet uses null for no icon
+src/utils/transfers.test.ts:1:/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
+src/utils/transfers.test.ts:502:      // eslint-disable-next-line unicorn/no-useless-undefined -- no sheet, as the module sent none
+src/utils/wild-shape.test.ts:1:/* eslint-disable unicorn/no-null -- Prisma uses null for an unset date */

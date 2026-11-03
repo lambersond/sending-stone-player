@@ -1,0 +1,18 @@
+src/auth-providers.ts: SocialProviderId
+src/db/campaigns.ts: EventCampaign
+src/db/characters.ts: ChoiceProblem
+src/db/companions.ts: CompanionStatus
+src/db/cookbook.ts: CookbookLinkFound DishAccepted CookbookLinkProblem DishDecision CookbookSeat
+src/db/note-sync.ts: NotePageCommand NoteOrderCommand NoteCommand JournalDrawings
+src/db/notes.ts: NotesSeat NotesBook NoteAnswer NoteRights
+src/db/party.ts: PartySeat
+src/db/roll-requests.ts: RollSeat RollRejection
+src/db/table.ts: CampaignStatus
+src/lib/bridge-http.ts: Refusal
+src/lib/notes-routes.ts: NotesPlace NotesAddress
+src/lib/session.ts: SessionUser
+src/utils/prompts.ts: PromptData HeldPrompt
+src/utils/removals.ts: RemovalRefusal
+src/utils/table-view.ts: Viewer LinkedMessages
+src/utils/transfers.ts: TransferRefusal
+src/utils/wild-shape.ts: WildShapeRefusal
