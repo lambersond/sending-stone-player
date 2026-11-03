@@ -58,7 +58,6 @@ export async function getGmSeat(
     userId,
     // The Gamemaster has no Character of the campaign's for this actor, and never reads its
     // player's place in the chat.
-    // eslint-disable-next-line unicorn/no-null -- the seat has no character
     characterId: null,
   }
 }

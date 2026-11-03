@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { characterSheet, sheetAction } from '@/mocks/sending-stone'
 import type {
   CharacterSheet,

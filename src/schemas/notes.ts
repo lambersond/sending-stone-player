@@ -47,7 +47,6 @@ export const noteInputSchema = z
       ? {
           ...input,
           body: input.body ?? '',
-          // eslint-disable-next-line unicorn/no-null -- an entry in no chapter
           chapterId: input.chapterId ?? null,
         }
       : { role: input.role, title: input.title },

@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
 import { NextRequest } from 'next/server'
 import { GET } from '../route'
 import { GET as getCharacterText } from '@/app/api/characters/[id]/texts/[hash]/route'

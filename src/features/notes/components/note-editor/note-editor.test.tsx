@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
 import { useCallback, useReducer, useRef } from 'react'
 import {
   act,

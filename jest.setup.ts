@@ -44,7 +44,6 @@ export function mockFetch({ status = 200, responseData = {} } = {}) {
       type: 'basic',
       url: '',
       clone: () => {},
-      // eslint-disable-next-line unicorn/no-null
       body: null,
       bodyUsed: false,
       arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),

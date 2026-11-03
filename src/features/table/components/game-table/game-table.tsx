@@ -412,7 +412,6 @@ export function GameTable({
   }
 
   // The header, which the sheet's roll toasts start below while its tabs aren't shown.
-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
   const [header, setHeader] = useState<HTMLElement | null>(null)
   // Where the turn's toast ends while one shows, which the roll toasts start below.
   const [toastFoot, setToastFoot] = useState<number>()

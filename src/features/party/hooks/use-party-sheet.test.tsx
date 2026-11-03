@@ -17,12 +17,9 @@ const sheet: NonNullable<PartyView['sheet']> = {
     sections: [],
     containers: [],
     currency: [],
-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
     encumbrance: null,
-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
     attunement: null,
   },
-  // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
   description: null,
 }
 const initial: PartyView = {

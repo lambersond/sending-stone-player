@@ -316,7 +316,6 @@ export function heldPrompts(campaignId: string, actorId: string, now: number) {
       actorId,
       OR: [
         {
-          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
           closedAt: null,
           expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
         },
@@ -518,7 +517,6 @@ export async function getTableView(
           where: {
             campaignId: campaign.id,
             actorId: { in: own.map(({ key }) => key) },
-            // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
             closedAt: null,
             expiresAt: { gt: new Date(now - MIDI_PROMPT_GRACE) },
           },

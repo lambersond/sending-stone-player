@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { z } from 'zod'
 import { OPTIONS, POST } from './route'
 import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'

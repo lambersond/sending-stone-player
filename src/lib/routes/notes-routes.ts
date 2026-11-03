@@ -57,7 +57,6 @@ const GAMEMASTER = 'Gamemaster'
 const gmSeat = (userId: string): NotesSeat => ({
   role: 'gm',
   userId,
-  // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
   actorId: null,
   name: GAMEMASTER,
 })

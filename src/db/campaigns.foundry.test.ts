@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma's unset columns are null */
 import { listOwnedCampaigns } from './campaigns'
 import { getGroupView } from './party'
 import { playerSeat } from './seats'

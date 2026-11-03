@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { castAtLevel, castIndex, castOf, isItemCast } from './casts'
 import {
   castingSheet,

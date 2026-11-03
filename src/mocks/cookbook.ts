@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the cookbook's body uses null for an absent value */
 import type { CookbookChange, CookbookDishBody } from '@/types/cookbook'
 
 /*

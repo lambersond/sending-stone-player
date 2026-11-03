@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameTable } from '../components/game-table/game-table'

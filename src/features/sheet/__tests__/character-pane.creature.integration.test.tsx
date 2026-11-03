@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import {
   act,

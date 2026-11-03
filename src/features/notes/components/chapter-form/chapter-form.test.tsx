@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a chapter is in no chapter, as the API has it */
 import { useCallback, useReducer, useRef } from 'react'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

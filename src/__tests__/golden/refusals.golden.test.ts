@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the protocol and Prisma use null for an absent value */
 // C6, refusals (round 0.43 §3.2): what each checked body is refused with, as the code says it
 // today: the issues of every schema a body or event passes (code, path, message, in order), the
 // text an event's refusal carries, and per route the status and body of each refusal of a body.

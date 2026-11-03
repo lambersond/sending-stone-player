@@ -63,7 +63,6 @@ describe('components/game-table/fullscreen-button', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Full screen' }))
     await screen.findByRole('button', { name: 'Exit full screen' })
 
-    // eslint-disable-next-line unicorn/no-null -- the API's absent element
     act(() => fullscreen.change(null))
 
     expect(

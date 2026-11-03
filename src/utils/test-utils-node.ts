@@ -80,7 +80,6 @@ export const resetPrisma = () => {
 type Row = Record<string, unknown>
 
 /** Prisma's answer for a query that found no row. */
-// eslint-disable-next-line unicorn/no-null -- Prisma answers null where no row matches
 const NO_ROW = null
 
 const FILTERS = new Set([

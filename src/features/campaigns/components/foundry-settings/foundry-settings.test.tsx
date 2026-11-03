@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CampaignCard } from '../campaign-card/campaign-card'

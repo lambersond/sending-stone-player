@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the API uses null for no chapter, as Foundry does */
 import type { NoteChapterView, NoteEntryView, NotesView } from '@/types/notes'
 
 /*

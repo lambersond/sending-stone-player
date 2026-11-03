@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
 import {
   Prisma,
   type JournalNote,

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
 import { Prisma } from '@prisma/client'
 import {
   chooseCharacter,

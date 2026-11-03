@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
 import { Favoriting } from '../favoriting/favoriting'

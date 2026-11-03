@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { applyCampaignEvent, sortTurnOrder } from './campaign-events'
 import { recordCommandResult } from './roll-requests'
 import { noteHtml } from '@/lib/note-html'

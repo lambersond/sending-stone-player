@@ -471,7 +471,6 @@ export function ItemEntry({
         <ActionEntry
           action={action}
           rows={rows}
-          // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
           favorite={null}
           look={{
             // What it is to carry, rather than how it's used, which it opens to; or nothing.
@@ -508,7 +507,6 @@ export function ItemEntry({
         fallback={container ? Backpack : Package}
         favoriteKey={`item:${item.id}`}
         onMenu={onMenu}
-        // eslint-disable-next-line unicorn/no-null -- none of its own: its menu is the item's
         favorite={null}
         busy={waiting}
         detail={detail}

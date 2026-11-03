@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { characterSheet, TEXTS } from '@/mocks/sending-stone'
 import type { CharacterSheet } from '@/types/sending-stone'
 

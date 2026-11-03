@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
 import { randomUUID } from 'node:crypto'
 import { Prisma, type CookbookDishStatus } from '@prisma/client'
 import prisma from '@/clients/prisma'

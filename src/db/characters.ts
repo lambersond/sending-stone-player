@@ -160,7 +160,6 @@ export async function markChatRead(
     where: {
       id: characterId,
       userId,
-      // eslint-disable-next-line unicorn/no-null -- Prisma matches an unset column with null
       OR: [{ chatReadAt: null }, { chatReadAt: { lt: readAt } }],
     },
     data: { chatReadAt: readAt },

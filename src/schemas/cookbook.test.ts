@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the cookbook's body uses null for an absent value */
 import { cookbookDishSchema, KNOWN_CHANGES } from './cookbook'
 import {
   ashenRootFailure,

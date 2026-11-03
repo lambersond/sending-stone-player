@@ -154,7 +154,6 @@ export function ChoiceMenu<T extends string>({
 }: Readonly<
   MenuPlace & { items: MenuItem<T>[]; onChoose: (choice: T) => void }
 >) {
-  // eslint-disable-next-line unicorn/no-null -- floating-ui marks no active item with null
   const [active, setActive] = useState<number | null>(null)
   const list = useRef<(HTMLElement | null)[]>([])
   const reasons = useId()

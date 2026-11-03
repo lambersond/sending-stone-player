@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { allItems } from '@/utils/sheet-texts'
 import type { FavoriteTarget } from '@/types/roll'
 import type {

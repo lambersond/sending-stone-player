@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the Fullscreen API's absent element is null */
 import { act, renderHook } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { useFullscreen } from './use-fullscreen'

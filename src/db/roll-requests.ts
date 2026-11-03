@@ -760,7 +760,6 @@ export async function notePlayersSeen(campaignId: string): Promise<void> {
       id: campaignId,
       OR: [
         // Prisma's filter for an unset field.
-        // eslint-disable-next-line unicorn/no-null
         { playersSeenAt: null },
         { playersSeenAt: { lt: ago(now, PLAYERS_SEEN_EVERY) } },
       ],
@@ -787,7 +786,6 @@ export async function noteTableOpen(characterId: string): Promise<void> {
       id: characterId,
       OR: [
         // Prisma's filter for an unset field.
-        // eslint-disable-next-line unicorn/no-null
         { tableSeenAt: null },
         { tableSeenAt: { lt: ago(now, TABLE_SEEN_EVERY) } },
       ],
@@ -807,7 +805,6 @@ export async function openActorIds(campaignId: string): Promise<string[]> {
   const characters = await prisma.character.findMany({
     where: {
       campaignId,
-      // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
       actorId: { not: null },
       tableSeenAt: { gt: ago(Date.now(), OPEN_WITHIN) },
     },

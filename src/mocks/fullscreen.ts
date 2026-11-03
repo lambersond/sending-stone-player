@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/no-null -- the Fullscreen API's absent element is null */
-
 // jsdom has no Fullscreen API: a stand-in for tests, as a browser that has one behaves. Whatever is
 // asked to fill the screen does, a moment later, and the document says so; each change is told
 // with a `fullscreenchange` event, as the browser tells it.

@@ -221,7 +221,6 @@ function shownOf(combatant: TableCombatant): string[] {
 export const SELF: TableCombatant = {
   id: '@self',
   name: 'Self',
-  // eslint-disable-next-line unicorn/no-null -- the tracker's for no initiative
   initiative: null,
   defeated: false,
   side: 'me',

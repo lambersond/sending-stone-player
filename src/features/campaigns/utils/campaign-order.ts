@@ -21,7 +21,6 @@ export function attentionOf(
 ): Attention | null {
   if (campaign.refusal?.current) return 'refused'
   if (!campaign.connected) return 'waiting'
-  // eslint-disable-next-line unicorn/no-null -- needs nothing
   return null
 }
 

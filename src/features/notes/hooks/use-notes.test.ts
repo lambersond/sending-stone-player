@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
 import { createElement } from 'react'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'

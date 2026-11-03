@@ -210,7 +210,6 @@ const NO_WILD_SHAPE: WildShapeValue = {
   closeReturn: () => {},
   heading: createRef(),
   body: createRef(),
-  // eslint-disable-next-line unicorn/no-null -- no panel, as the DOM says none
   panel: () => null,
 }
 
@@ -405,7 +404,6 @@ export function useWildShape({
     const input = {
       op: 'learn',
       uuid: chosen.uuid,
-      // eslint-disable-next-line unicorn/no-null -- the protocol's for an empty place
       replace: replace?.id ?? null,
     } as const
     const why = refused(input)

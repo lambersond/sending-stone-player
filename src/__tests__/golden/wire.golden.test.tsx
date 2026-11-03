@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 // C2, wire (round 0.43 §3.2): every request the app's pages send, whole, as the code sends it
 // today: its URL, method, headers and raw body (key order and all), and the poll that follows a
 // roll; and, as JSON strings, what the server makes of a held roll for the module and for the

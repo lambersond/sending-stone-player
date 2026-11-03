@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { renderHook } from '@testing-library/react'
 import { useSpentOffers } from './use-spent-offers'
 import type { EffectOp } from '@/constants/sending-stone'

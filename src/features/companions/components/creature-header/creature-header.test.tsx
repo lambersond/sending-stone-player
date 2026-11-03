@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import { CreatureHeader, otherSpeeds } from './creature-header'
 import { ActionsTab } from '@/features/sheet/components/actions-tab/actions-tab'

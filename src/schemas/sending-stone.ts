@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { z } from 'zod'
 import { ABILITIES } from '@/constants/dnd5e'
 import { MOST_NOTE_TEXT, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'

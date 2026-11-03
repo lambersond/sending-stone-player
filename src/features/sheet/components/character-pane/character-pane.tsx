@@ -567,9 +567,7 @@ function RollingSheet({
   const body = useRef<HTMLDivElement>(null)
   // The row of tabs, and the game's prompts beneath it while it asks any, which the rolls' toasts
   // start below, so as not to cover the prompts' only buttons.
-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
   const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null)
-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
   const [promptBanner, setPromptBanner] = useState<HTMLElement | null>(null)
   const width = useWidth(body)
   const show = (next: SheetTab) => {

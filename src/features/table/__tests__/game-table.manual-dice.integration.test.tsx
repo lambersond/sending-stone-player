@@ -198,7 +198,6 @@ describe('components/game-table, typing in their own dice', () => {
 /** Thorin with Second Wind, a use whose healing the game says is due, after it. */
 function winded(): CharacterSheet {
   const sheet = fullerSheet()
-  /* eslint-disable unicorn/no-null -- the sheet has null for none */
   const targets = {
     self: true,
     area: false,
@@ -206,7 +205,6 @@ function winded(): CharacterSheet {
     perLevel: null,
     affects: 'self',
   } as const
-  /* eslint-enable unicorn/no-null */
   return {
     ...sheet,
     actions: sheet.actions.map(section => ({

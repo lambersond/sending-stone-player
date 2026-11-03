@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import type { NotePageCommand } from '@/db/note-sync'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type { NotesView } from '@/types/notes'

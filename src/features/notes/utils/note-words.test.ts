@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a book with no journal in Foundry has null for it */
 import {
   choicesWords,
   journalCounts,

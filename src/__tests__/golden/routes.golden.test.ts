@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the protocol and Prisma use null for an absent value */
 // C5, routes (round 0.43 §3.2): every route method the app serves, as the code answers it today,
 // over the real db modules on a small fake database: who may ask (signed out, another's sheet, the
 // player's seat, the Gamemaster's), what it answers (status, every header, the body as text) and

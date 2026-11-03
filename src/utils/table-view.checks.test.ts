@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { toTableMessage, toTableMessages, type Viewer } from './table-view'
 import { chatMessage } from '@/mocks/sending-stone'
 import type { Dnd5eCheck, SerializedMessage } from '@/types/sending-stone'

@@ -162,6 +162,8 @@ export default [
       'react/prop-types': 0,
       'react/react-in-jsx-scope': 'off',
       'unicorn/no-lonely-if': 'error',
+      // The protocol, Prisma and React use null for an absent value (decisions Q2):
+      'unicorn/no-null': 'off',
       // unicorn 65 checks folder names too, and CLAUDE.md §8 puts integration tests in __tests__/,
       // whose snapshots Jest keeps in __snapshots__/:
       'unicorn/filename-case': [

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it */
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MoveMenu } from './move-menu'

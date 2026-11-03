@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { createElement } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import { slotName, slotWords, type SpellSlotPool } from './slot-words'

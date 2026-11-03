@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the link's seat uses null for an absent value */
 import * as route from './route'
 import {
   acceptDish,

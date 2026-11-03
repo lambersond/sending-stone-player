@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import { RollToasts } from '../components/roll-toasts/roll-toasts'
 import { RollTray } from '../components/roll-tray/roll-tray'

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'

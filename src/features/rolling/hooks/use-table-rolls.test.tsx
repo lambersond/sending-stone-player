@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { act, renderHook } from '@testing-library/react'
 import {
   ALONE_KEY,

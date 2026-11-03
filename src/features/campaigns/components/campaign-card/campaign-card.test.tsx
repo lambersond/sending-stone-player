@@ -553,7 +553,6 @@ describe('components/campaigns/campaign-card', () => {
     ['0.31.0', 'tick'],
     ['0.31.2', 'tick'],
     ['1.0.0', 'tick'],
-    // eslint-disable-next-line unicorn/no-null -- a hello says a version it doesn't know as null
     [null, 'tick'],
     ['dev', 'tick'],
   ] as const)(
@@ -646,7 +645,6 @@ describe('components/campaigns/campaign-card', () => {
         'on, under a module that doesn’t say its version',
         {
           dishes: { ...off, enabled: true },
-          // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
           foundry: foundry(null, dnd5e('5.3.3')),
         },
         ON,
@@ -707,7 +705,6 @@ describe('components/campaigns/campaign-card', () => {
       ],
       [
         'a module that doesn’t say its version',
-        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
         { dishes: off, foundry: foundry(null, dnd5e('5.3.3')) },
         TICK,
       ],
@@ -1157,7 +1154,6 @@ describe('components/campaigns/campaign-card', () => {
       ],
       [
         'a module that doesn’t say its version',
-        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
         { foundry: effectsFoundry(null, dnd5e('5.3.3')) },
         TICK,
       ],
@@ -1243,7 +1239,6 @@ describe('components/campaigns/campaign-card', () => {
       ],
       [
         'a module that doesn’t say its version',
-        // eslint-disable-next-line unicorn/no-null -- a hello says an unknown version as null
         { foundry: effectsFoundry(null, dnd5e('5.3.3')) },
         TICK,
       ],

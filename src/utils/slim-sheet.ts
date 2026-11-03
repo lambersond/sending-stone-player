@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
 
 /*

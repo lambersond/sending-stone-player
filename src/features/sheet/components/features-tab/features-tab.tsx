@@ -217,7 +217,6 @@ export function FeatureEntry({
 
 /** A feature as an action's row that rolls nothing, such as Wild Shape, its uses its own. */
 function plainAction(feature: SheetFeature): SheetAction {
-  /* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
   return {
     id: feature.id,
     name: feature.name,
@@ -240,7 +239,6 @@ function plainAction(feature: SheetFeature): SheetAction {
     identified: true,
     text: feature.text,
   }
-  /* eslint-enable unicorn/no-null */
 }
 
 /**

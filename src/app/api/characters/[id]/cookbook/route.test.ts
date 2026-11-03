@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
 import { createHash } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { GET } from './route'

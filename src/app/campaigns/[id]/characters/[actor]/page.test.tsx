@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the Gamemaster's seat has no character, null */
 import { render, screen } from '@testing-library/react'
 import { notFound } from 'next/navigation'
 import NotFound from './not-found'

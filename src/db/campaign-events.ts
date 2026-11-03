@@ -271,7 +271,6 @@ async function apply(
       await tx.rollPrompt.updateMany({
         where: {
           campaignId,
-          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
           closedAt: null,
           promptId: { notIn: prompts.map(({ id }) => id) },
         },
@@ -799,7 +798,6 @@ async function savePrompt(
   // Gone, then listed or opened again: open again. Answered, rolled or expired stays closed.
   await tx.rollPrompt.updateMany({
     where: { campaignId, promptId: prompt.id, closedReason: 'gone' },
-    // eslint-disable-next-line unicorn/no-null -- Prisma's value for an unset field
     data: { closedAt: null, closedReason: null },
   })
   await tx.rollPrompt.upsert({
@@ -827,7 +825,6 @@ export async function closePrompt(
   reason: string,
 ): Promise<boolean> {
   const { count } = await tx.rollPrompt.updateMany({
-    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
     where: { campaignId, promptId, closedAt: null },
     data: { closedAt: new Date(), closedReason: reason },
   })

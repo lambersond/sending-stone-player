@@ -238,7 +238,6 @@ export async function partyNotesAccess(
     campaignId: found.campaign.id,
     groupId: found.entry.id,
     private: Object.keys(found.entry.access ?? {}).length === 0,
-    // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
     writer: seat.role === 'player' ? seat.actorId : null,
   }
 }
@@ -437,7 +436,6 @@ function sheetView(
     }),
     inventory: inventoryView(sheet.inventory, origin),
     // dnd5e shows the full description, else its summary.
-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
     description: sheet.description?.full ?? sheet.description?.summary ?? null,
   }
 }

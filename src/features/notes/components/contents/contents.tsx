@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the notes in no chapter are the group of no chapter, null */
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'

@@ -147,7 +147,6 @@ export function SpellsTab({
               <SpellSlots
                 value={section.slots.value}
                 max={section.slots.max}
-                // eslint-disable-next-line unicorn/no-null -- as the sheet says a level unknown
                 pool={{ id: section.id, level: section.slots.level ?? null }}
               />
             )}

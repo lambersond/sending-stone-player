@@ -537,7 +537,6 @@ export function useTableRolls(
           targets,
           // At its user too, where the game makes it so.
           ...(use.self && { self: true as const }),
-          // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own slot
           slot: use.slot ?? null,
           // How an enchant activity enchants, and what.
           ...(use.enchant && { enchant: use.enchant }),
@@ -1368,7 +1367,7 @@ export function toRollRequest(
       activity: source.activity,
       ...(source.targets
         ? { targets: source.targets }
-        : // eslint-disable-next-line unicorn/no-null -- the protocol's for no target
+        : // the protocol's for no target
           { target: source.target ?? null }),
       ...(source.slot && { slot: source.slot }),
       ...(source.ammunition && { ammunition: source.ammunition }),
@@ -1618,7 +1617,6 @@ export function missed(state?: TableRollState): boolean {
 /** The kind chosen for each of damage's rolls: this one, for each roll that offers it. */
 function typesFor(damage: DamagePreview, type: string): (string | null)[] {
   return damage.rolls.map(roll =>
-    // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own choice
     roll.types?.some(({ key }) => key === type) ? type : null,
   )
 }

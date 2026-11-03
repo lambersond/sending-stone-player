@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a damage part without a kind has null */
 import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { act, renderHook } from '@testing-library/react'
 import {

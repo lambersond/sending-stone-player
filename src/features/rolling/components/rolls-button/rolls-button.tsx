@@ -50,7 +50,6 @@ export function RollsButton({
   const root = usePortalRoot()
   // A creature's own, at its pane (module 0.36.0).
   const named = rollsName(useCreature())
-  // eslint-disable-next-line unicorn/no-null -- floating-ui waits for a root that's null
   const [inside, setInside] = useState<HTMLDivElement | null>(null)
   const { refs, floatingStyles, context } = useFloating({
     open,

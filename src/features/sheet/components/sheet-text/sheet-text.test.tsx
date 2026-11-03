@@ -132,7 +132,6 @@ describe('components/character-sheet/sheet-text', () => {
       abilities: [],
       skills: [],
       tools: [],
-      // eslint-disable-next-line unicorn/no-null -- the sheet uses null for an absent value
       proficiency: null,
       conditions: [],
       showConditions: jest.fn(),

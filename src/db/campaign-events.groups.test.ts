@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { applyCampaignEvent } from './campaign-events'
 import {
   combat,

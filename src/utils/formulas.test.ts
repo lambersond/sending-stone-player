@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for a count it doesn't know */
 import {
   atFullHitPoints,
   formulaDice,

@@ -549,7 +549,6 @@ export function linkDamage(
   const thrown = critical ? criticalParts(parts, critical, adds) : parts
   const rolls: DamagePreviewRoll[] = thrown.map(({ formula, terms }) => ({
     formula,
-    // eslint-disable-next-line unicorn/no-null -- the preview's for no kind of its own
     type: null,
     perDie: critical?.perDie ?? 1,
     dice: terms.flatMap(term =>

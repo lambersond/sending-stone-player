@@ -108,7 +108,7 @@ describe('app/characters/[id]/party/[group]/page', () => {
   it("takes into no one for a character not in the campaign's roster", async () => {
     jest
       .mocked(getCharacter)
-      // eslint-disable-next-line unicorn/no-null -- a character with no actor has null
+      // a character with no actor has null
       .mockResolvedValue({ ...character, actorId: null })
 
     render(await CharacterPartyPage(props('char-1', 'company')))

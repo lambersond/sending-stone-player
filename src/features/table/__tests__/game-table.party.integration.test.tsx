@@ -34,7 +34,6 @@ jest.mock('@/features/notes/hooks/use-notes', () => ({
     view: {
       version: 1,
       kind: api.includes('/party/') ? 'party' : 'personal',
-      // eslint-disable-next-line unicorn/no-null -- a book with no journal in Foundry yet
       journal: null,
       live: true,
       enabled: true,
@@ -104,12 +103,9 @@ const party: PartyView = {
       sections: [],
       containers: [],
       currency: [],
-      // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
       encumbrance: null,
-      // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
       attunement: null,
     },
-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
     description: null,
   },
 }
@@ -400,7 +396,6 @@ describe('components/game-table, taking from a party, from module 0.31.0', () =>
   })
 
   it("offers a character not in the campaign's roster no party sheet to take from", () => {
-    // eslint-disable-next-line unicorn/no-null -- a character with no actor has null
     renderTable(view([company]), undefined, { actorId: null })
 
     // Without a sheet, it has no Inventory tab to open one from.

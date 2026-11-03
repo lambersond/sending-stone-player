@@ -79,12 +79,10 @@ function refusalOf(
 
 /** What clears a campaign's recorded refusal, as binding it or changing its secret does. */
 const NO_REFUSAL = {
-  /* eslint-disable unicorn/no-null -- Prisma unsets a column with null */
   refusedAt: null,
   refusalReason: null,
   refusalStatus: null,
   refusalDetail: null,
-  /* eslint-enable unicorn/no-null */
 }
 
 /* -------------------------------------------- */
@@ -386,9 +384,7 @@ export async function findEventCampaign(
     where: {
       origin,
       // Prisma's filters for an unset field.
-      // eslint-disable-next-line unicorn/no-null
       foundryId: null,
-      // eslint-disable-next-line unicorn/no-null
       secretHash: { not: null },
       title: { equals: literalPattern(campaign.title), mode: 'insensitive' },
     },
@@ -405,9 +401,7 @@ export async function findEventCampaign(
         where: {
           origin,
           // Prisma's filters for an unset field, and a set one.
-          // eslint-disable-next-line unicorn/no-null
           foundryId: null,
-          // eslint-disable-next-line unicorn/no-null
           secretHash: { not: null },
         },
         orderBy: { createdAt: 'desc' },
@@ -462,7 +456,6 @@ export async function recordRefusal(
             { id: { in: ids } },
             {
               OR: [
-                // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
                 { refusedAt: null },
                 {
                   refusedAt: {
@@ -478,7 +471,6 @@ export async function recordRefusal(
           refusedAt: now,
           refusalReason: reason,
           refusalStatus: status,
-          // eslint-disable-next-line unicorn/no-null -- Prisma unsets a column with null
           refusalDetail: detail ?? null,
         },
       }),
@@ -533,7 +525,6 @@ export async function checkGameSecret(
   secret: string,
 ): Promise<'ok' | 'unknown' | 'refused'> {
   const campaigns = await prisma.campaign.findMany({
-    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
     where: { origin, secretHash: { not: null } },
     select: { secretHash: true },
   })

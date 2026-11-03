@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import { ChatLog } from '../components/chat-log/chat-log'
 import { chatMessage } from '@/mocks/sending-stone'

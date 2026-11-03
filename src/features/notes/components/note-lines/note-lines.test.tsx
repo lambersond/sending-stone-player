@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a note written in Foundry has no author */
 import { render, screen } from '@testing-library/react'
 import {
   ChapterLine,

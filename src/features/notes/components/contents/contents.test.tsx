@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a note in no chapter has null for it, as the API has */
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { JournalCard } from '../journal-card/journal-card'

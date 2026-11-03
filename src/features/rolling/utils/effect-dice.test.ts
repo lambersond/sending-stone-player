@@ -285,7 +285,6 @@ describe('utils/effect-dice', () => {
       expect(
         effectDiceFor(blessedSheet({ effectDice: undefined }), save),
       ).toEqual([])
-      // eslint-disable-next-line unicorn/no-null -- a seat with no sheet yet
       expect(effectDiceFor(null, save)).toEqual([])
       expect(effectDiceFor(undefined, save)).toEqual([])
       expect(effectDiceFor(sheet, {})).toEqual([])
@@ -384,7 +383,6 @@ describe('utils/effect-dice', () => {
       expect(offersFor(inspiredSheet({ effectDice: undefined }), save)).toEqual(
         [],
       )
-      // eslint-disable-next-line unicorn/no-null -- a seat with no sheet yet
       expect(offersFor(null, save)).toEqual([])
       expect(offersFor(undefined, save)).toEqual([])
       expect(offersFor(blessedSheet(), save)).toEqual([])

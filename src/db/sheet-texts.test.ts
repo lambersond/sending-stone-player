@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
 import {
   getGroupText,
   getSheetText,

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a note written in Foundry has no author */
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ReorderPane } from './reorder-pane'

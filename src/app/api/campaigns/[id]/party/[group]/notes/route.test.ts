@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
 import { NextRequest } from 'next/server'
 import { GET, POST } from './route'
 import { createNote, getNotesStatus, getNotesView } from '@/db/notes'

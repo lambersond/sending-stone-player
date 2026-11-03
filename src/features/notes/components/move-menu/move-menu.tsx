@@ -46,7 +46,6 @@ export function MoveMenu({
   onMove,
 }: Readonly<Props>) {
   const [open, setOpen] = useState(false)
-  // eslint-disable-next-line unicorn/no-null -- floating-ui marks no active item with null
   const [active, setActive] = useState<number | null>(null)
   const list = useRef<(HTMLElement | null)[]>([])
   const menuId = useId()
@@ -87,7 +86,6 @@ export function MoveMenu({
 
   const choices = [
     ...chapters.map(chapter => ({ id: chapter.id, title: chapter.title })),
-    // eslint-disable-next-line unicorn/no-null -- out of its chapter, into none
     ...(entry.chapterId === null ? [] : [{ id: null, title: 'No chapter' }]),
   ]
   // The first that can be chosen takes focus as the menu opens: its own place can't be.

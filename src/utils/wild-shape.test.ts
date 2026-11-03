@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma uses null for an unset date */
 import {
   articled,
   canReturn,

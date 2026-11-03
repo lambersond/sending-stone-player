@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { act, renderHook } from '@testing-library/react'
 import {
   NO_PREPARING,

@@ -41,7 +41,6 @@ export function InPortalRoot({
 export function useDialogRoot<T extends HTMLElement>(ref: {
   current: T | null
 }): { root: T | null; attach: Ref<T> } {
-  // eslint-disable-next-line unicorn/no-null -- floating-ui waits for a root that's null
   const [root, setRoot] = useState<T | null>(null)
   const attach = useCallback(
     (node: T | null) => {

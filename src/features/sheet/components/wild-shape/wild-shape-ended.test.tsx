@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ENDED_KEY, WildShapeEnded } from './wild-shape'

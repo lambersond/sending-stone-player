@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the game's icons use null for none */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useImageFallback } from './use-image-fallback'
 

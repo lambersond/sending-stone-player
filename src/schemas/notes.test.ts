@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- an entry in no chapter is null */
 import {
   checkChange,
   noteChangeSchema,

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
 import { render, screen, within } from '@testing-library/react'
 import { CookbookDishList } from './cookbook-dish-list'
 import type { CookbookDishView } from '@/types/cookbook'

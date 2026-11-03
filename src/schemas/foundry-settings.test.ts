@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { foundrySettingsSchema } from './foundry-settings'
 import { foundrySettings } from '@/mocks/sending-stone'
 

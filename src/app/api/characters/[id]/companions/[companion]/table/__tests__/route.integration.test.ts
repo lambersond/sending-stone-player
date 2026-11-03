@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { NextRequest } from 'next/server'
 import { GET } from '../route'
 import { getCharacter } from '@/db/characters'

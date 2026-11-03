@@ -170,7 +170,6 @@ function Toast({
   rollDamage?: RollDue
   modifies?: boolean
 }>) {
-  // eslint-disable-next-line unicorn/no-null -- floating-ui waits for a root that's null
   const [root, setRoot] = useState<HTMLDivElement | null>(null)
   return (
     <div

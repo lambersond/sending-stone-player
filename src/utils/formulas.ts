@@ -231,6 +231,5 @@ function sizeOf(die: string): number {
 
 /** Two counts added, where both are known. */
 function sum(a: number | null, b: number | null): number | null {
-  // eslint-disable-next-line unicorn/no-null -- the sheet's for a count it doesn't know
   return a === null || b === null ? null : a + b
 }

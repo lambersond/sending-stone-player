@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
 
 /**

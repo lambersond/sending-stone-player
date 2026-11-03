@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the Gamemaster's seat has no character, null */
 import { NextRequest } from 'next/server'
 import { GET as getRoll } from './rolls/[roll]/route'
 import { POST as postRoll } from './rolls/route'

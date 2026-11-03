@@ -377,7 +377,6 @@ describe('app/api/characters/[id]/table', () => {
 
     jest
       .mocked(getCharacter)
-      // eslint-disable-next-line unicorn/no-null -- the character's campaign is unset
       .mockResolvedValue({ ...character, campaignId: null })
     jest.mocked(notePlayersSeen).mockClear()
     await get()

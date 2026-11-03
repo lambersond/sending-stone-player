@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
 import {
   act,
   fireEvent,

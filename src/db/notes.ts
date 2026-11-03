@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma and the view use null for an absent value */
 import { createHash, randomUUID } from 'node:crypto'
 import {
   Prisma,

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useCookbookEntry } from './cookbook-entry'
 import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'

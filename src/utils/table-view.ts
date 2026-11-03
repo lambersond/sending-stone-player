@@ -552,7 +552,6 @@ function attackOf(
 export function damageKinds(
   rolls: readonly { total: number | null; damageType?: string }[],
 ): { type: string | undefined; total: number | null }[] {
-  /* eslint-disable unicorn/no-null -- a total the game didn't say is null, as a roll's is */
   const kinds = new Map<string | undefined, number | null>()
   for (const { total, damageType } of rolls) {
     const sum = kinds.has(damageType) ? (kinds.get(damageType) ?? null) : 0
@@ -562,7 +561,6 @@ export function damageKinds(
     type,
     total: total === null ? null : Math.max(0, total),
   }))
-  /* eslint-enable unicorn/no-null */
 }
 
 /**
@@ -679,7 +677,6 @@ function damageCard(
 
 /** Kinds of damage that fill one pool, added up: unknown where any of them is, never part of it. */
 function totalOf(kinds: TableDamageKind[]): number | null {
-  // eslint-disable-next-line unicorn/no-null -- unknown, as a roll's total is
   if (kinds.some(kind => kind.total === null)) return null
   return kinds.reduce((sum, kind) => sum + (kind.total ?? 0), 0)
 }
@@ -1159,7 +1156,6 @@ export function toTableSheet(
   }
 }
 
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 /** A sheet from before module 0.7.0, which sent none of these: as a sheet with none of them. */
 const BEFORE_0_7_0: Pick<
   CharacterSheet,
@@ -1182,7 +1178,6 @@ const BEFORE_0_7_0: Pick<
     biography: null,
   },
 }
-/* eslint-enable unicorn/no-null */
 
 /**
  * The inventory, with its items' icons, those in containers too, loading from the game: a
@@ -1233,7 +1228,6 @@ export function portraitUrl(
 
 /** Where an icon loads from, or null, as the sheet has it, for none. */
 function iconUrl(img: string | null, origin: string): string | null {
-  // eslint-disable-next-line unicorn/no-null -- the sheet uses null for no icon
   return gameAssetUrl(img, origin) ?? null
 }
 

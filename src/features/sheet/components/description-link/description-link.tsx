@@ -729,7 +729,7 @@ function DamageButton({
     const types = link.parts.map(part =>
       chosen && part.types.includes(chosen)
         ? chosen
-        : // eslint-disable-next-line unicorn/no-null -- a part of no kind has none, as the sheet's
+        : // a part of no kind has none, as the sheet's
           (part.types[0] ?? null),
     )
     actions.rollDamage({
@@ -743,7 +743,6 @@ function DamageButton({
       // The kind chosen, for each part that offers a choice, for the game to roll it so.
       ...(choice && {
         types: link.parts.map((part, index) =>
-          // eslint-disable-next-line unicorn/no-null -- the protocol's for the game's own kind
           part.types.length > 1 ? types[index] : null,
         ),
       }),
@@ -831,7 +830,6 @@ function DamageButton({
               const { types } = link.parts[index]
               return {
                 terms: part,
-                // eslint-disable-next-line unicorn/no-null -- none, or one still to choose
                 type: types.length === 1 ? typeLabel(types[0]) : null,
               }
             }),
@@ -863,7 +861,6 @@ function thrownBy(
   adds?: CriticalAdds,
 ): string {
   const changed = withModifiers(
-    // eslint-disable-next-line unicorn/no-null -- its kind is still to choose
     parts.map(terms => ({ terms, type: null })),
     modifiers,
     1,

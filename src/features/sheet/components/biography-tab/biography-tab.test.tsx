@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { act, render, screen, within } from '@testing-library/react'
 import { BiographyTab } from './biography-tab'
 import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'

@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
 import { NextRequest } from 'next/server'
 import { PATCH, PUT } from './route'
 import { reorderNotes, resolveOrder } from '@/db/notes'

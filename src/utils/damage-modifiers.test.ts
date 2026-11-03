@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a preview's roll of no kind of its own has null */
 import {
   changedAt,
   changes,

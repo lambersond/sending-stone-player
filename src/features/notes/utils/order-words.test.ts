@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a note moved out of its chapter goes to none */
 import {
   movedTo,
   movedWords,

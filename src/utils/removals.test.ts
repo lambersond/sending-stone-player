@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { checkRemoval, relatedItems, removalsAvailable } from './removals'
 import { removalInventory } from '@/mocks/sending-stone'
 

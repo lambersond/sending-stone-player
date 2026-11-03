@@ -392,7 +392,6 @@ export function TurnToast({
   }, [card, resting])
 
   // Where it ends, for the roll toasts to start below it, as it shows, moves, changes or goes.
-  // eslint-disable-next-line unicorn/no-null -- React sets a ref to null as it goes
   const [element, setElement] = useState<HTMLDivElement | null>(null)
   const foot = useRef<number | undefined>(undefined)
   const footing = useRef(onFoot)

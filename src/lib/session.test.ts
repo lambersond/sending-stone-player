@@ -29,7 +29,6 @@ describe('lib/session', () => {
   })
 
   it('has no user when nobody is signed in', async () => {
-    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
     getSession.mockResolvedValue(null)
 
     await expect(getCurrentUser()).resolves.toBeUndefined()
@@ -43,7 +42,6 @@ describe('lib/session', () => {
   })
 
   it('requireUser sends anyone not signed in to the login page', async () => {
-    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
     getSession.mockResolvedValue(null)
 
     await expect(requireUser()).rejects.toThrow('NEXT_REDIRECT')
@@ -51,7 +49,6 @@ describe('lib/session', () => {
   })
 
   it('requireUser can bring them back to the page they were on once signed in', async () => {
-    // eslint-disable-next-line unicorn/no-null -- what Better Auth returns
     getSession.mockResolvedValue(null)
 
     await expect(requireUser('/join/abc?x=1')).rejects.toThrow('NEXT_REDIRECT')
