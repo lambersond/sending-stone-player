@@ -74,14 +74,13 @@ export async function applyCampaignEvent(
       ? await drawJournal(campaignId, event.data)
       : undefined
   return prisma.$transaction(async tx => {
-    const lacksTexts = await apply(
+    const lacksTexts = await apply(event, {
       tx,
       campaignId,
-      event,
       session,
       sentAt,
       drawings,
-    )
+    })
     const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
@@ -103,117 +102,153 @@ export async function applyCampaignEvent(
   })
 }
 
+/** What an event's handler is given besides its payload. */
+type Applying = {
+  tx: Tx
+  campaignId: string
+  session: string
+  sentAt: string
+  drawings?: JournalDrawings
+}
+
+/** Each event type's payload, a type that shares its union member with others included. */
+type EventData = {
+  [T in GameEvent['type']]: (GameEvent & { type: T })['data']
+}
+
 /** Apply an event; true when the campaign then lacks a description its sheets refer to. */
-async function apply(
-  tx: Tx,
-  campaignId: string,
-  event: GameEvent,
-  session: string,
-  sentAt: string,
-  drawings?: JournalDrawings,
+async function apply<T extends GameEvent['type']>(
+  event: { type: T; data: EventData[T] },
+  applying: Applying,
 ): Promise<boolean> {
-  switch (event.type) {
-    case 'bridge.hello': {
-      return applyHello(tx, campaignId, event.data, sentAt)
+  const handler = EVENT_HANDLERS[event.type]
+  return handler ? handler(event.data, applying) : false
+}
+
+/**
+ * What each event does to what is held for its campaign, by type: true where the campaign then
+ * lacks a description its sheets refer to. What became of a command and of a dish the events
+ * route records itself, so neither is here.
+ */
+const EVENT_HANDLERS: {
+  [T in GameEvent['type']]?: (
+    data: EventData[T],
+    applying: Applying,
+  ) => Promise<boolean>
+} = {
+  'bridge.hello': (data, { tx, campaignId, sentAt }) =>
+    applyHello(tx, campaignId, data, sentAt),
+  'character.updated': async ({ character }, { tx, campaignId }) => {
+    const { sheet } = character
+    await saveCharacter(tx, campaignId, character)
+    return sheet ? lacksSheetTexts(tx, campaignId, [sheet]) : false
+  },
+  'character.texts': async ({ texts }, { tx, campaignId }) => {
+    await saveSheetTexts(tx, campaignId, texts)
+    return false
+  },
+  'chat.message.created': keepMessage,
+  'chat.message.updated': keepMessage,
+  'chat.message.deleted': async ({ id }, { tx, campaignId }) => {
+    await tx.chatMessage.deleteMany({ where: { campaignId, messageId: id } })
+    return false
+  },
+  'chat.cleared': async (_, { tx, campaignId }) => {
+    await tx.chatMessage.deleteMany({ where: { campaignId } })
+    return false
+  },
+  'combat.ended': async ({ combat }, { tx, campaignId }) => {
+    // The encounter ended, or the campaign's last character left it.
+    await tx.combat.deleteMany({ where: { campaignId, combatId: combat.id } })
+    return false
+  },
+  // combat.created also marks the campaign's first character joining a fight under way.
+  'combat.created': keepCombat,
+  'combat.started': keepCombat,
+  'combat.turn': keepCombat,
+  'combat.updated': keepCombat,
+  'combat.combatant.added': keepCombatant,
+  'combat.combatant.updated': keepCombatant,
+  'combat.combatant.removed': async (
+    { combatId, combatantId },
+    { tx, campaignId },
+  ) => {
+    await patchCombat(tx, campaignId, combatId, combatants =>
+      combatants.filter(({ id }) => id !== combatantId),
+    )
+    return false
+  },
+  'roll.prompt.opened': async ({ prompt }, { tx, campaignId, sentAt }) => {
+    await savePrompt(tx, campaignId, prompt, sentAt)
+    return false
+  },
+  'roll.prompt.closed': async ({ id, reason }, { tx, campaignId }) => {
+    await closePrompt(tx, campaignId, id, reason)
+    return false
+  },
+  'group.updated': async ({ group }, { tx, campaignId }) => {
+    const { sheet } = group
+    await saveGroup(tx, campaignId, group)
+    return sheet ? lacksSheetTexts(tx, campaignId, [], [sheet]) : false
+  },
+  'group.removed': async ({ id }, { tx, campaignId }) => {
+    await removeGroup(tx, campaignId, id)
+    return false
+  },
+  'bridge.settings': async ({ settings }, { tx, campaignId, sentAt }) => {
+    if (settings) {
+      await saveFoundrySettings(tx, campaignId, settings, sentAt)
     }
-    case 'character.updated': {
-      const { sheet } = event.data.character
-      await saveCharacter(tx, campaignId, event.data.character)
-      return sheet ? lacksSheetTexts(tx, campaignId, [sheet]) : false
-    }
-    case 'character.texts': {
-      await saveSheetTexts(tx, campaignId, event.data.texts)
-      return false
-    }
-    case 'chat.message.created':
-    case 'chat.message.updated': {
-      // An update is an upsert: a blind roll the Gamemaster reveals arrives as one.
-      await saveMessage(tx, campaignId, event.data.message, session)
-      return false
-    }
-    case 'chat.message.deleted': {
-      await tx.chatMessage.deleteMany({
-        where: { campaignId, messageId: event.data.id },
-      })
-      return false
-    }
-    case 'chat.cleared': {
-      await tx.chatMessage.deleteMany({ where: { campaignId } })
-      return false
-    }
-    case 'combat.ended': {
-      // The encounter ended, or the campaign's last character left it.
-      await tx.combat.deleteMany({
-        where: { campaignId, combatId: event.data.combat.id },
-      })
-      return false
-    }
-    case 'combat.created':
-    case 'combat.started':
-    case 'combat.turn':
-    case 'combat.updated': {
-      // combat.created also marks the campaign's first character joining a fight under way.
-      await saveCombat(tx, campaignId, event.data.combat)
-      return false
-    }
-    case 'combat.combatant.added':
-    case 'combat.combatant.updated': {
-      const { combatant } = event.data
-      await patchCombat(tx, campaignId, event.data.combatId, combatants =>
-        sortTurnOrder([
-          ...combatants.filter(({ id }) => id !== combatant.id),
-          combatant,
-        ]),
-      )
-      return false
-    }
-    case 'combat.combatant.removed': {
-      const { combatantId } = event.data
-      await patchCombat(tx, campaignId, event.data.combatId, combatants =>
-        combatants.filter(({ id }) => id !== combatantId),
-      )
-      return false
-    }
-    case 'roll.prompt.opened': {
-      await savePrompt(tx, campaignId, event.data.prompt, sentAt)
-      return false
-    }
-    case 'roll.prompt.closed': {
-      await closePrompt(tx, campaignId, event.data.id, event.data.reason)
-      return false
-    }
-    case 'group.updated': {
-      const { sheet } = event.data.group
-      await saveGroup(tx, campaignId, event.data.group)
-      return sheet ? lacksSheetTexts(tx, campaignId, [], [sheet]) : false
-    }
-    case 'group.removed': {
-      await removeGroup(tx, campaignId, event.data.id)
-      return false
-    }
-    case 'bridge.settings': {
-      if (event.data.settings) {
-        await saveFoundrySettings(tx, campaignId, event.data.settings, sentAt)
-      }
-      return false
-    }
-    case 'journal.updated': {
-      await applyJournalUpdated(tx, campaignId, event.data, drawings)
-      return false
-    }
-    case 'companions.listed': {
-      const { companions } = event.data
-      await tx.campaign.update({
-        where: { id: campaignId },
-        data: { companions: companions.map(entry => toJson(entry)) },
-      })
-      await dropUnlistedCompanions(tx, campaignId, companions)
-      return false
-    }
-    case 'companion.updated': {
-      return saveCompanion(tx, campaignId, event.data)
-    }
-  }
+    return false
+  },
+  'journal.updated': async (data, { tx, campaignId, drawings }) => {
+    await applyJournalUpdated(tx, campaignId, data, drawings)
+    return false
+  },
+  'companions.listed': async ({ companions }, { tx, campaignId }) => {
+    await tx.campaign.update({
+      where: { id: campaignId },
+      data: { companions: companions.map(entry => toJson(entry)) },
+    })
+    await dropUnlistedCompanions(tx, campaignId, companions)
+    return false
+  },
+  'companion.updated': (data, { tx, campaignId }) =>
+    saveCompanion(tx, campaignId, data),
+}
+
+/**
+ * A message posted or changed. An update is an upsert: a blind roll the Gamemaster reveals arrives
+ * as one.
+ */
+async function keepMessage(
+  { message }: EventData['chat.message.created'],
+  { tx, campaignId, session }: Applying,
+): Promise<boolean> {
+  await saveMessage(tx, campaignId, message, session)
+  return false
+}
+
+/** A combat made, started, turned or changed: its snapshot held, in place of any before. */
+async function keepCombat(
+  { combat }: EventData['combat.updated'],
+  { tx, campaignId }: Applying,
+): Promise<boolean> {
+  await saveCombat(tx, campaignId, combat)
+  return false
+}
+
+/** A combatant added to a held combat, or changed in it: put in its place in the turn order. */
+async function keepCombatant(
+  { combatId, combatant }: EventData['combat.combatant.updated'],
+  { tx, campaignId }: Applying,
+): Promise<boolean> {
+  await patchCombat(tx, campaignId, combatId, combatants =>
+    sortTurnOrder([
+      ...combatants.filter(({ id }) => id !== combatant.id),
+      combatant,
+    ]),
+  )
   return false
 }
 

@@ -14,7 +14,14 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
-import { ago, due, gmLabel, holdCommand, madeBy, onItsWay } from '@/db/commands'
+import {
+  ago,
+  due,
+  holdCommand,
+  keptLabel,
+  madeBy,
+  onItsWay,
+} from '@/db/commands'
 import { FOUNDRY_ID } from '@/db/constants'
 import { recordDishResult } from '@/db/cookbook'
 import { createEffectRequest } from '@/db/effects'
@@ -171,7 +178,7 @@ export async function createRollRequest(
       // A companion's, made as it, names its character (module 0.36.0).
       ...(companion && { ofActorId: companion.of }),
       kind: input.kind,
-      ...gmLabel(seat, label),
+      ...keptLabel(seat, label),
       payload: rollPayload(
         seat,
         input,
@@ -195,6 +202,9 @@ const ROLL_CAMPAIGN = {
   companionInitiative: true,
 } as const satisfies Prisma.CampaignSelect
 
+/** A roll's campaign, as ROLL_CAMPAIGN reads it. */
+type RollCampaign = Prisma.CampaignGetPayload<{ select: typeof ROLL_CAMPAIGN }>
+
 /**
  * Whether the game takes this roll now, before anything else is read: the Gamemaster's only where
  * it makes them as the character's, its kind where the game takes it, a companion's only of the
@@ -205,7 +215,7 @@ const ROLL_CAMPAIGN = {
 function rollGate(
   seat: SheetSeat,
   input: RollRequestInput,
-  campaign: Prisma.CampaignGetPayload<{ select: typeof ROLL_CAMPAIGN }> | null,
+  campaign: RollCampaign | null,
 ): RollRejection | undefined {
   const { companion } = seat
   // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
@@ -417,7 +427,7 @@ async function readRollContext(
 function rollRefusal(
   companion: SheetSeat['companion'],
   input: RollRequestInput,
-  campaign: Prisma.CampaignGetPayload<{ select: typeof ROLL_CAMPAIGN }>,
+  campaign: RollCampaign,
   context: Awaited<ReturnType<typeof readRollContext>>,
 ): RollRefusal | undefined {
   const { actorId, now, sheet, fights } = context
@@ -480,7 +490,7 @@ function combatOf(input: RollRequestInput): string | undefined {
 function rollPayload(
   seat: SheetSeat,
   input: RollRequestInput,
-  campaign: Prisma.CampaignGetPayload<{ select: typeof ROLL_CAMPAIGN }>,
+  campaign: RollCampaign,
 ) {
   const { typed, effectDice, rerolls } = input
   const command = { ...input }

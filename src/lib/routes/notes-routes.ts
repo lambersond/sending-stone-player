@@ -11,11 +11,10 @@ import {
   resolveOrder,
 } from '@/db/notes'
 import { partyNotesAccess, partySeat } from '@/db/party'
-import { notePlayersSeen } from '@/db/roll-requests'
 import { getGmSeat, getPlayerSeat } from '@/db/seats'
 import { readBody } from '@/lib/routes/body'
 import { bare, NO_STORE, seenAs } from '@/lib/routes/http'
-import { noting } from '@/lib/routes/seat-routes'
+import { notePresent } from '@/lib/routes/seat-routes'
 import { getCurrentUser } from '@/lib/session'
 import {
   noteChangeSchema,
@@ -134,10 +133,7 @@ export async function notesResponse(
   { seat, book }: NotesPlace,
 ): Promise<Response> {
   if (seat.role === 'player') {
-    await noting(
-      () => notePlayersSeen(book.campaignId),
-      'Failed to note a player at their notes',
-    )
+    await notePresent(book.campaignId, 'Failed to note a player at their notes')
   }
   const known = request.nextUrl.searchParams
   if (known.has('version')) {

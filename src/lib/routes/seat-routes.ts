@@ -51,11 +51,7 @@ export async function tableResponse(
   // it, which the Gamemaster's page at it never says. A failure to note either is only logged.
   const { campaignId, characterId } = seat
   await Promise.all([
-    campaignId &&
-      noting(
-        () => notePlayersSeen(campaignId),
-        'Failed to note a player at the table',
-      ),
+    campaignId && notePresent(campaignId),
     seat.role === 'player' &&
       characterId &&
       noting(
@@ -104,12 +100,23 @@ export async function tableResponse(
 }
 
 /** Note who is at the table, saying so where it fails, which never stops the table being seen. */
-export async function noting(note: () => Promise<void>, failed: string) {
+async function noting(note: () => Promise<void>, failed: string) {
   try {
     await note()
   } catch (error) {
     console.error(failed, error)
   }
+}
+
+/**
+ * Note a player present in the campaign, so the Gamemaster's module waits for what they send;
+ * where it fails, say so, as `failed` words it, and carry on.
+ */
+export function notePresent(
+  campaignId: string,
+  failed = 'Failed to note a player at the table',
+) {
+  return noting(() => notePlayersSeen(campaignId), failed)
 }
 
 /**

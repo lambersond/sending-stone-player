@@ -4,11 +4,10 @@ import {
   getPartyStatus,
   partySeat,
 } from '@/db/party'
-import { notePlayersSeen } from '@/db/roll-requests'
 import { getPlayerSeat } from '@/db/seats'
 import { getGroupText } from '@/db/sheet-texts'
 import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
-import { noting } from '@/lib/routes/seat-routes'
+import { notePresent } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import type { PartySeat } from '@/db/types'
 import type { NextRequest } from 'next/server'
@@ -50,10 +49,7 @@ export async function partyResponse(
   // failure to note it is only logged.
   const { campaignId } = seat
   if (campaignId) {
-    await noting(
-      () => notePlayersSeen(campaignId),
-      'Failed to note a player at the table',
-    )
+    await notePresent(campaignId)
   }
 
   const known = request.nextUrl.searchParams

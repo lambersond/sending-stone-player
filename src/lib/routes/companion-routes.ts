@@ -5,10 +5,9 @@ import {
   getCompanionText,
   getCompanionView,
 } from '@/db/companions'
-import { notePlayersSeen } from '@/db/roll-requests'
 import { getGmSeat, getPlayerSeat } from '@/db/seats'
 import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
-import { noting } from '@/lib/routes/seat-routes'
+import { notePresent } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import { rollsKey } from '@/utils/requests/availability'
 import type { RollSeat } from '@/db/types'
@@ -101,10 +100,7 @@ export async function companionTableResponse(
 ): Promise<Response> {
   const { campaignId } = seat
   if (campaignId) {
-    await noting(
-      () => notePlayersSeen(campaignId),
-      'Failed to note a player at the table',
-    )
+    await notePresent(campaignId)
   }
 
   const known = request.nextUrl.searchParams

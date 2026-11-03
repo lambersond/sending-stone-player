@@ -23,7 +23,7 @@ import { convertNoteMarkdown, hasBigHeading } from '@/lib/note-markdown'
 import { checkChange } from '@/schemas/notes'
 import { bigHeadings } from '@/utils/note-headings'
 import { newNoteId } from '@/utils/note-id'
-import type { NotesBook, NotesSeat, NoteRights, NoteAnswer } from './types'
+import type { NotesBook, NotesSeat, NoteRights, NoteAnswer, Tx } from './types'
 import type {
   NoteBookKind,
   NoteChapterView,
@@ -1015,7 +1015,7 @@ function changedHere(held: Held, seat: NotesSeat, at: Date): BookChange {
  * change leaves no note to show it, the book's record of it.
  */
 async function bumpBook(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   book: NotesBook,
   changed?: BookChange,
 ): Promise<string> {
@@ -1226,7 +1226,7 @@ function foldedOp(
  * @returns The change's id and number now.
  */
 async function saveChange(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   held: Held,
   noteId: string,
   note: JournalNote | undefined,

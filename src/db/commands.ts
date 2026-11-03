@@ -78,10 +78,7 @@ export async function seatBusy(seat: RollSeat, now: number): Promise<boolean> {
 }
 
 /** Whether a character is in the campaign's roster, as its module last listed it. */
-export function inRoster(
-  characters: Prisma.JsonValue,
-  actorId: string,
-): boolean {
+function inRoster(characters: Prisma.JsonValue, actorId: string): boolean {
   const roster = Array.isArray(characters)
     ? (characters as unknown as { id: string }[])
     : []
@@ -104,7 +101,7 @@ export function commandPayload(input: RollRequestInput): Prisma.InputJsonValue {
  * What the Gamemaster's page called what it sent, kept for the character's player to be shown it
  * by; a player's own page never asks for theirs.
  */
-export function gmLabel(
+export function keptLabel(
   seat: RollSeat,
   label: string | undefined,
 ): { label?: string } {
@@ -210,7 +207,7 @@ export async function createCommand<K extends CommandKind>(
       campaignId,
       actorId,
       kind: spec.kind,
-      ...gmLabel(seat, input.label),
+      ...keptLabel(seat, input.label),
       payload: commandPayload(input),
     },
     now,

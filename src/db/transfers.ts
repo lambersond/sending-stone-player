@@ -2,8 +2,8 @@ import prisma from '@/clients/prisma'
 import { ROLLS_IN_FLIGHT } from '@/constants/sending-stone'
 import {
   commandPayload,
-  gmLabel,
   holdCommand,
+  keptLabel,
   madeBy,
   onItsWay,
   seatBusy,
@@ -145,7 +145,7 @@ export async function createTransferRequest(
       campaignId,
       actorId,
       kind: 'transfer',
-      ...gmLabel(seat, input.label),
+      ...keptLabel(seat, input.label),
       payload: commandPayload(input),
     },
     now,
