@@ -556,14 +556,14 @@ src/schemas/sending-stone.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-n
 src/schemas/sending-stone.ts	=	W-a	2a 2b 3	R1.0.2 R1.9.1 R1.4.1 R1.4.3 R1.4.8		no-null(R1.0.2):1 no-useless-undefined(§1.7.2):66
 src/types/campaign.ts	=	W-a	-	(none: W-a owns src/types; no Phase 3 item edits it)		
 src/types/character.ts	=	W-a	-	(none: W-a owns src/types; no Phase 3 item edits it)		
-src/types/cookbook.ts	=	W-a	2b	R1.9.1		receives in 2b: CookbookRefusalReason ← constants/cookbook.ts
+src/types/cookbook.ts	=	W-a	2b	R1.9.1	layer:1→§1.7.4	receives in 2b: CookbookRefusalReason ← constants/cookbook.ts
 src/types/dice-entry.ts	=	W-a	-	(none: W-a owns src/types; no Phase 3 item edits it)		
 src/types/foundry-settings.ts	=	W-a	-	(none: W-a owns src/types; no Phase 3 item edits it)		
 src/types/notes.ts	=	W-a	-	(none: W-a owns src/types; no Phase 3 item edits it)		
-src/types/party.ts	=	W-a	2b	R1.9.1		receives in 2b: TableMoves ← types/table.ts; gives in 2b: GroupEntry GroupSheet GroupAccess GroupMember → types/sending-stone.ts (§1.9.1 (3))
-src/types/roll.ts	=	W-a	1 2b 3	R1.6 R1.9.1 R1.4.4	layer:3→§1.7.4	receives in 2b: SheetDamageRoll SheetFormulaRoll SheetRoll LocalFormula TypedRolls LocalGmRoll LocalUse LocalMove LocalCheck LocalRoll * ← hooks/use-sheet-roller.ts; TableRollState ← hooks/use-table-rolls.ts; AloneRow AlonePicks AlonePlan AloneSelection ← utils/alone-choices.ts; DamageModifiers CriticalAdds DieSize DamageChange ← utils/damage-modifiers.ts; HitDiceCount HitDicePool ← utils/formulas.ts; ExtraTerm ExtraDice ExtraFlat ParseExtrasResult ← utils/roll-modifiers.ts; WildShapeLogged ← utils/wild-shape-words.ts; Comparison DieModifier ThrownDie ThrownTerm ← utils/dice-modifiers.ts; MovedPart ← utils/move-words.ts; AttackSource ← hooks/use-table-rolls.ts; OfferSpend SheetOffer EffectAsk ← utils/effect-dice.ts (M's Phase 1 report: they go with the Local* types, so no cycle forms); RollKindInfo appended in Phase 1 (R1.6); receives in 2b: TableRoll ← types/table.ts; gives in 2b: TransferMoved RemovedItem → types/sending-stone.ts (§1.9.1 (3))
-src/types/sending-stone.ts	=	W-a	2b	R1.9.1	layer:1→§1.7.4	receives in 2b: EffectOp PrepareOp SpellSlotOp WildShapeOp RefusalReason TransferFeature ← constants/sending-stone.ts; CastIndex ← utils/casts.ts; FoundLink DamageLink CheckOption LinkClass SaveLink CheckLink RollLink ConditionLink DescriptionLink ← utils/description-links.ts; FavoriteEntry FavoriteView FavoriteIndex ← utils/favorites.ts; ActionGroup SlotPool ← utils/action-groups.ts; receives in 2b: GroupEntry GroupSheet GroupAccess GroupMember ← types/party.ts; TransferMoved RemovedItem ← types/roll.ts (§1.9.1 (3))
-src/types/table.ts	=	W-a	2b	R1.9.1		receives in 2b: Connection ← hooks/use-table-view.ts; RowCompanion ← utils/companion-row.ts; Viewer LinkedMessages ← utils/table-view.ts; gives in 2b: TableMoves → types/party.ts, TableRoll → types/roll.ts (§1.9.1 (3))
+src/types/party.ts	=	W-a	2b 3	R1.9.1 R1.4.9b		receives in 2b: TableMoves ← types/table.ts; gives in 2b: GroupEntry GroupSheet GroupAccess GroupMember → types/sending-stone.ts (§1.9.1 (3))
+src/types/roll.ts	=	W-a	1 2b 3	R1.6 R1.9.1 R1.4.4 R1.4.9b	layer:3→§1.7.4	receives in 2b: SheetDamageRoll SheetFormulaRoll SheetRoll LocalFormula TypedRolls LocalGmRoll LocalUse LocalMove LocalCheck LocalRoll * ← hooks/use-sheet-roller.ts; TableRollState ← hooks/use-table-rolls.ts; AloneRow AlonePicks AlonePlan AloneSelection ← utils/alone-choices.ts; DamageModifiers CriticalAdds DieSize DamageChange ← utils/damage-modifiers.ts; HitDiceCount HitDicePool ← utils/formulas.ts; ExtraTerm ExtraDice ExtraFlat ParseExtrasResult ← utils/roll-modifiers.ts; WildShapeLogged ← utils/wild-shape-words.ts; Comparison DieModifier ThrownDie ThrownTerm ← utils/dice-modifiers.ts; MovedPart ← utils/move-words.ts; AttackSource ← hooks/use-table-rolls.ts; OfferSpend SheetOffer EffectAsk ← utils/effect-dice.ts (M's Phase 1 report: they go with the Local* types, so no cycle forms); RollKindInfo appended in Phase 1 (R1.6); receives in 2b: TableRoll ← types/table.ts; gives in 2b: TransferMoved RemovedItem → types/sending-stone.ts (§1.9.1 (3))
+src/types/sending-stone.ts	=	W-a	2b 3	R1.9.1 R1.4.9b	layer:1→§1.7.4	receives in 2b: EffectOp PrepareOp SpellSlotOp WildShapeOp RefusalReason TransferFeature ← constants/sending-stone.ts; CastIndex ← utils/casts.ts; FoundLink DamageLink CheckOption LinkClass SaveLink CheckLink RollLink ConditionLink DescriptionLink ← utils/description-links.ts; FavoriteEntry FavoriteView FavoriteIndex ← utils/favorites.ts; ActionGroup SlotPool ← utils/action-groups.ts; receives in 2b: GroupEntry GroupSheet GroupAccess GroupMember ← types/party.ts; TransferMoved RemovedItem ← types/roll.ts (§1.9.1 (3))
+src/types/table.ts	=	W-a	2b 3	R1.9.1 R1.4.9b		receives in 2b: Connection ← hooks/use-table-view.ts; RowCompanion ← utils/companion-row.ts; Viewer LinkedMessages ← utils/table-view.ts; gives in 2b: TableMoves → types/party.ts, TableRoll → types/roll.ts (§1.9.1 (3))
 src/utils/action-groups.test.ts	=	U2	2a 3	R1.0.2 R1.1.17		no-null(R1.0.2):1
 src/utils/action-groups.ts	=	U2	2a 3	R1.0.2 R1.1.17	types:2	no-null(R1.0.2):1
 src/utils/alone-choices.ts	=	R-a	2b 3	R1.9.1 R1.2.1	types:4	
@@ -690,7 +690,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/utils/polling.ts	V2	2b	R1.9.3		retryDelay(every, failures, most)
 -	src/utils/polling.test.ts	V2	2b	R1.9.3		retryDelay table
 -	src/constants/lifecycle.ts	R-a	2b	R1.9.1 R1.9.4		SETTLED, NOT_MADE, CHECK_EVERY, FOLLOW_FOR, LATE_FOLLOW, BUSY_WAIT, BUSY_FOR; moved in 2b: SETTLED CHECK_EVERY FOLLOW_FOR LATE_FOLLOW BUSY_WAIT BUSY_FOR ← hooks/use-table-rolls.ts; NOT_MADE ← components/game-table/turn-toast.tsx
--	src/utils/lifecycle.ts	R-a	2b	R1.9.1 R1.9.2		follow, refusal, labelled, pause, onItsWay; moved in 2b: follow labelled ← hooks/use-table-rolls.ts
+-	src/utils/lifecycle.ts	R-a	2b 3	R1.9.1 R1.9.2 R1.2.2	cc:35=25→R1.2.2	follow, refusal, labelled, pause, onItsWay; moved in 2b: follow labelled ← hooks/use-table-rolls.ts
 -	src/hooks/use-follow.ts	R-a	2b	R1.9.4		useFollow (controllers set, abort on unmount)
 -	src/features/rolling/hooks/use-send-choice.ts	R-a	2b	R1.9.4		useSendChoice(gm)
 -	src/features/rolling/types.ts	R-a	2b 3	R1.9.1 R1.2.1		the rolling types other areas import; the rest in Phase 3; moved in 2b: RollActions ← components/character-sheet/d20-rolls.tsx; DamageChoice DamageSubject ← components/character-sheet/damage-menu.tsx; RollTarget ← components/character-sheet/roll-button.tsx; MenuPoint RollChoice MenuItem ← components/character-sheet/roll-menu.tsx; TableRolls ← components/character-sheet/roll-tray.tsx; DueDamage WildShapeForms ← hooks/use-table-rolls.ts
@@ -701,7 +701,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/rolling/utils/menu-points.ts	R-b	2b 3	R1.9.1 R1.2.10		pointWithin, placing, pointOn, choiceItem; moved in 2b: pointWithin ← components/character-sheet/roll-button.tsx; choiceItem placing pointOn ← components/character-sheet/roll-menu.tsx
 -	src/features/rolling/utils/brief.ts	R-b	2b 3	R1.9.1 R1.2.8		briefOf (+ accentOf, madeIt, checkDice, tableLine, toneOf in Phase 3); moved in 2b: briefOf ← components/character-sheet/roll-tray.tsx
 -	src/features/rolling/utils/damage-words.ts	R-b	2b 3	R1.9.1 R1.2.10		formulaOf (+ labelsFor, criticalHint in Phase 3); moved in 2b: formulaOf ← components/character-sheet/damage-menu.tsx
--	src/features/rolling/components/roll-menu/choice-menu.tsx	R-b	2b	R1.9.1		ChoiceMenu; moved in 2b: ChoiceMenu ← components/character-sheet/roll-menu.tsx
+-	src/features/rolling/components/roll-menu/choice-menu.tsx	R-b	2b 3 4	R1.9.1 R1.2.10 R1.2.12b R1.9.20(F-a)	a:1 types:1 hooks:refs@109	ChoiceMenu; moved in 2b: ChoiceMenu ← components/character-sheet/roll-menu.tsx
 -	src/features/rolling/components/d20-rolls/use-d20-rolls.tsx	R-b	2b 3	R1.9.1 R1.2.10		whole in 2b; .ts + d20-dialogs.tsx in Phase 3 (§0.6.4); moved in 2b: useD20Rolls ← components/character-sheet/d20-rolls.tsx
 -	src/features/rolling/components/damage-menu/use-damage-menu.tsx	R-b	2b 3	R1.9.1 R1.2.10		as use-d20-rolls; moved in 2b: useDamageMenu ← components/character-sheet/damage-menu.tsx
 -	src/utils/roll-reasons.ts	R-b	2b 3	R1.9.1 R1.2.8		reasons, REASONS, listed (+ their private helpers); moved in 2b: REASONS reasons listed ← components/character-sheet/roll-tray.tsx
@@ -725,6 +725,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/hooks/use-turn-toast-foot.ts	V1	2b	R1.9.1		TurnToastContext + useTurnToastFoot; moved in 2b: TurnToastContext ← components/game-table/turn-toast.tsx
 -	src/types/seats.ts	W-a	2b	R1.9.1		SeatRole, SeatWords; moved in 2b: SeatRole SeatWords ← utils/seat-words.ts
 -	src/types/prompts.ts	W-a	2b	R1.9.1		PromptData, HeldPrompt from utils/prompts.ts; moved in 2b: PromptData HeldPrompt ← utils/prompts.ts
+-	src/types/base.ts	W-a	3	R1.4.9b		only if R1.4.9b takes amendment 1 (c)’s second way: the types that close src/types’ last cycle group, split into a base the four import
 -	src/db/types.ts	S	2b 3	R1.9.1 R1.3.12		NotePageCommand in 2b; RollSeat, RollRejection, Tx and the rest in Phase 3; moved in 2b: NotePageCommand ← db/note-sync.ts
 -	src/db/constants.ts	S	3	R1.3.14		FOUNDRY_ID
 -	src/db/commands.ts	S	3	R1.3.1 R1.3.2		ago, madeBy, onItsWay (server's), seatBusy, inRoster, commandPayload, holdCommand, createCommand, due
@@ -742,7 +743,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/utils/requests/availability.ts	W-b	2b 3	R1.9.1 R1.4.6		availableRollKinds, availableRollFeatures, rollsKey; moved in 2b: availableRollKinds availableRollFeatures rollsKey ← utils/roll-requests.ts
 -	src/utils/requests/status.ts	W-b	2b	R1.9.1		rollStatus, isDying, sameCounter; moved in 2b: isDying sameCounter rollStatus ← utils/roll-requests.ts
 -	src/utils/requests/views.ts	W-b	2b 3	R1.9.1 R1.4.6		toRollRequestView, toGmRollView; moved in 2b: toGmRollView toRollRequestView ← utils/roll-requests.ts
--	src/utils/requests/commands.ts	W-b	2b	R1.9.1		toCommand, GM_UNSENT; moved in 2b: toCommand GM_UNSENT ← utils/roll-requests.ts
+-	src/utils/requests/commands.ts	W-b	2b 3	R1.9.1 R1.4.4		toCommand, GM_UNSENT; moved in 2b: toCommand GM_UNSENT ← utils/roll-requests.ts
 -	src/utils/requests/checks.ts	W-b	2b 3	R1.9.1 R1.4.6		checkRoll (CHECKS by kind group in Phase 3); moved in 2b: checkRoll ← utils/roll-requests.ts
 -	src/utils/requests/check-linked.ts	W-b	2b 3	R1.9.1 R1.4.6		checkLinked, one function per link kind in Phase 3; moved in 2b: checkLinked checkAloneChoices checkEnchant ← utils/roll-requests.ts
 -	src/utils/requests/check-damage.ts	W-b	2b	R1.9.1		checkDamage; moved in 2b: checkDamage ← utils/roll-requests.ts
