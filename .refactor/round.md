@@ -165,6 +165,21 @@ disables or a note); a glob row covers the new files a split makes in one folder
        `AFTER=3 node .refactor/analysis/owners-check/check.mjs` is clean at this head. The default,
        2b, reproduces commit 8's check.
 
+6. **2026-11-04 ~12:30 AM EST, Phase 4.2 landed (commits 23 and 24, G).** (a) Gate 10's allowance (the frozen node
+   kit's no-null directive, removed with its config block: amendment 2 (b)) and gate 11's allowance
+   (src/features/campaigns/components/campaign-status/last-heard.tsx: LastHeard, split out of
+   campaign-status.tsx for one component per .tsx, has no hook and no directive, so it is a Server
+   Component as its base module was, and draws the client LocalTime as before) are the orchestrator's
+   and accepted; G's landing L1 at b40b6f0 was green on every check and on gates 1-12 with these tools
+   (0 lint warnings, 0 cycle groups) and `next build` green. (b) **Disables: 34 in all (Q2 said about
+   30) and 13 react-hooks line disables (§1.7.3 said at most 7) are accepted**: each keeps a commit the
+   UI goes through today (set-state-in-effect and refs findings in the journal's hooks and the toast and
+   hold timings), which §1.8 forbids changing; each carries its reason, none covers a file, and the PR
+   states both totals and lists them (R/analysis/metrics-after.md §7). (c) From here owners.tsv is a
+   record, not a gate: its check script (R/analysis/owners-check/) was written for the Phase 2 tree and
+   flags every Phase 3 file as "new, already there", and its disables column predates G. Phase 5's fixers
+   take files by area (the lane column), and G or the orchestrator take anything that crosses areas.
+
 ## §0 Summary, principles, metrics
 
 ### §0.1 What v0.43 is
