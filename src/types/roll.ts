@@ -1128,7 +1128,7 @@ export type TableRollState = Omit<
   name?: string
   /** For a use, how the player chose to change the damage that follows it. */
   modifiers?: DamageModifiers
-  /** For an attack or a use, whether its damage has been sent, and not turned away by the app. */
+  /** For an attack or a use, whether its damage has been sent, and may be made by the game. */
   damaged?: boolean
   /** For a saving throw the game asked for, the prompt it answers. */
   prompt?: string

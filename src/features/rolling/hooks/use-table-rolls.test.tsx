@@ -1281,6 +1281,68 @@ describe('hooks/use-table-rolls', () => {
       },
     )
 
+    it.each<[string, object | undefined, boolean]>([
+      ['the game never fetched it', { status: 'expired' }, true],
+      [
+        'the game refused it before rolling any',
+        { status: 'failed', reason: 'invalid' },
+        true,
+      ],
+      [
+        'the game took too long, and may still make it',
+        { status: 'failed', reason: 'timeout' },
+        false,
+      ],
+      [
+        'it failed in the game with an error, perhaps once rolled',
+        { status: 'failed', reason: 'error' },
+        false,
+      ],
+      [
+        'the game says it was rolled already',
+        { status: 'failed', reason: 'damaged' },
+        false,
+      ],
+      [
+        'the game says it was rolled in Foundry',
+        { status: 'failed', reason: 'not-waiting' },
+        false,
+      ],
+      ['the game fetched it and never answered', { status: 'lost' }, false],
+      ['the app took it with nothing to follow it by', undefined, false],
+    ])(
+      "offers an attack's damage again only where the game didn't make it: %s",
+      async (_, view, offered) => {
+        jest
+          .mocked(fetch)
+          .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+          .mockResolvedValueOnce(respond(200, made))
+          .mockResolvedValueOnce(respond(202, view ? { id: 'req-2' } : {}))
+          .mockResolvedValue(respond(200, { id: 'req-2', ...view }))
+        const { result } = render(['attack', 'damage'])
+        act(() => result.current.send(longsword, attackCheck))
+        await advance(CHECK_EVERY)
+        const due = { use: 'req-1', damage: preview() }
+
+        act(() =>
+          result.current.sendDamage(
+            damageRollOf('Longsword', due),
+            thrownDamage(),
+          ),
+        )
+        await advance(CHECK_EVERY)
+
+        expect(result.current.states.get('r2')).toMatchObject(
+          view ?? { status: 'done', unfollowed: true },
+        )
+        const again = offered ? due : undefined
+        expect(result.current.dueDamage('req-1')).toEqual(again)
+        expect(damageDue(attackCheck, result.current.states.get('r1'))).toBe(
+          offered,
+        )
+      },
+    )
+
     it("rolls Great Weapon Fighting's damage as its formula has it, sending each die's first throw", () => {
       const greatsword = preview({
         rolls: [

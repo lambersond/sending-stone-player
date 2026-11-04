@@ -9,7 +9,7 @@ import type { TableRollState } from '@/types/roll'
 /**
  * The rolls' ways, changed: one's way as the game tells it, kept with what was kept of it when it
  * was sent (`way`); rolls sent one after another, as one (`together`); an attack's or use's damage
- * on its way, not offered again (`damaged`), or offered again as the app didn't take it after all
+ * on its way, not offered again (`damaged`), or offered again as the game didn't make it after all
  * (`undamaged`); or a use's damage left for the player to roll, while they type in their own dice,
  * once (`offer`).
  */
@@ -94,12 +94,41 @@ export function dueOf(
 }
 
 /**
- * Whether the app didn't take an attack's or use's damage, refusing it or out of reach, so that
- * it's offered again: not where it says damage for that attack or use is already on its way or
- * made, as from another device.
+ * Why damage the game failed may have been made all the same, or was made already: damage that
+ * took too long may still be made, and is told so once it is; one that failed with an error may
+ * have failed after it was rolled; and damage already rolled for its attack or use, from the app
+ * or in Foundry, is refused again, whatever is sent.
  */
-export function damageUntaken(state: TableRollState): boolean {
-  return state.status === 'refused' && state.reason !== 'damaged'
+const MAYBE_MADE: ReadonlySet<string> = new Set([
+  'timeout',
+  'error',
+  'damaged',
+  'not-waiting',
+])
+
+/**
+ * Whether the game didn't make an attack's or use's damage, so that it's offered again: the app
+ * refused it, or couldn't be reached, but not as damage for it already on its way or made, as from
+ * another device; the game never fetched it (`expired`), as the app hands over none that's waited
+ * too long; or it failed before any of it was rolled. Never where it may have been made: fetched
+ * and never answered for (`lost`), as an answer that comes late still counts; taken with nothing
+ * to follow it by; or failed as `MAYBE_MADE` says.
+ */
+export function damageUnmade(state: TableRollState): boolean {
+  switch (state.status) {
+    case 'refused': {
+      return state.reason !== 'damaged'
+    }
+    case 'expired': {
+      return true
+    }
+    case 'failed': {
+      return state.reason !== undefined && !MAYBE_MADE.has(state.reason)
+    }
+    default: {
+      return false
+    }
+  }
 }
 
 /** Whether the app turned a roll away as one too many at once, to send again a moment later. */

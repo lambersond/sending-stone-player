@@ -23,7 +23,7 @@ import {
 import {
   answeringOf,
   busy,
-  damageUntaken,
+  damageUnmade,
   dueOf,
   rollStates,
 } from '@/features/rolling/utils/roll-states'
@@ -272,8 +272,8 @@ export function useTableRolls(
         return
       }
       if (!use || !takes(latest.current, 'damage')) return
-      // Its attack's or use's damage is on its way: it isn't offered again, unless the app doesn't
-      // take it after all.
+      // Its attack's or use's damage is on its way: it isn't offered again, unless the game doesn't
+      // make it after all.
       setStates(held => rollStates(held, { type: 'damaged', use }))
       start(
         damage.id,
@@ -281,7 +281,7 @@ export function useTableRolls(
         {},
         roll.label,
         state => {
-          if (damageUntaken(state)) {
+          if (damageUnmade(state)) {
             setStates(held => rollStates(held, { type: 'undamaged', use }))
           }
         },
