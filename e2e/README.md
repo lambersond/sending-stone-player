@@ -57,7 +57,7 @@ in between, and from this checkout's root:
 
 (`mkdir -p e2e/.out` first, the first time.)
 
-### The full regression on three lanes (about 31 minutes)
+### The full regression on three lanes (about 60 minutes)
 
 `npm run e2e` (`lanes/checks-lanes.sh`) builds the app, ups the lanes (`lanes/lanes-up.sh`), runs every
 run of `regress.sh` on them (`lanes/regress-lanes.sh`), downs the lanes (`lanes/lanes-down.sh`) and ends
@@ -95,7 +95,7 @@ with `exit N`. It exits 0 only if every run has `exit=0` and `oks=want`.
 - `npm run e2e:dry` (with `ONLY` and `NO_MIDI` if you like) prints which runs would go where and starts
   nothing. It needs no servers and no lock: it plans in a scratch folder of its own.
 
-### Serially (about 57 minutes)
+### Serially (57 minutes when it had 67 runs; not timed since)
 
     flock -o e2e/.out/e2e.lock npm run e2e:serial
 
