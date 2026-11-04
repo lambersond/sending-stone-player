@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { revokeCookbookLinkAction } from './actions'
+import { clearChatAction, revokeCookbookLinkAction } from './actions'
 import CampaignsPage from './page'
 import { listOwnedCampaigns } from '@/db/campaigns'
 import { appOrigin } from '@/lib/app-origin'
@@ -8,6 +8,7 @@ import { requireUser } from '@/lib/session'
 
 jest.mock('./actions', () => ({
   changeSecretAction: jest.fn(),
+  clearChatAction: jest.fn(),
   removeCampaignAction: jest.fn(),
   removePlayerAction: jest.fn(),
   resetInviteAction: jest.fn(),
@@ -43,6 +44,8 @@ const campaign = {
     prompts: false,
   },
   transfers: { enabled: false, reaching: false },
+  // Changed on purpose (v0.44 item 8): its players' chat here.
+  chat: { messages: 0 },
   characters: [
     { id: 'actor-thorin', name: 'Thorin Oakenshield', player: 'Alice' },
     { id: 'actor-vex', name: 'Vex' },
@@ -120,6 +123,25 @@ describe('app/campaigns/page', () => {
       ).getByRole('button', { name: 'Revoke link' }),
     )
     expect(revokeCookbookLinkAction).toHaveBeenCalledWith('c1', 'char-1')
+  })
+
+  it('clears a campaign’s chat from its card (v0.44 item 8)', async () => {
+    jest
+      .mocked(listOwnedCampaigns)
+      .mockResolvedValue([{ ...campaign, chat: { messages: 3 } }])
+    const user = userEvent.setup()
+    render(await CampaignsPage(props()))
+
+    const card = screen.getByRole('article', { name: 'The Lonely Mountain' })
+    await user.click(within(card).getByRole('button', { name: 'Clear chat' }))
+    await user.click(
+      within(
+        screen.getByRole('dialog', {
+          name: 'Clear The Lonely Mountain’s chat?',
+        }),
+      ).getByRole('button', { name: 'Clear chat' }),
+    )
+    expect(clearChatAction).toHaveBeenCalledWith('c1')
   })
 
   it('helps a Gamemaster set up their first campaign and connect Foundry', async () => {

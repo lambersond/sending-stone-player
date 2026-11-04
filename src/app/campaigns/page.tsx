@@ -1,5 +1,6 @@
 import {
   changeSecretAction,
+  clearChatAction,
   removeCampaignAction,
   removePlayerAction,
   resetInviteAction,
@@ -60,6 +61,7 @@ export default async function CampaignsPage({
           undefined,
           campaign.id,
         )}
+        clearChat={clearChatAction.bind(undefined, campaign.id)}
         remove={removeCampaignAction.bind(undefined, campaign.id)}
       />
     )

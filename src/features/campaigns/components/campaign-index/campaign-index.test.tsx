@@ -93,6 +93,8 @@ const base = (id: string, fields: Partial<OwnedCampaign>): OwnedCampaign => ({
     prompts: false,
   },
   transfers: { enabled: false, reaching: false },
+  // Changed on purpose (v0.44 item 8): its players' chat here.
+  chat: { messages: 0 },
   characters: [],
   groups: [],
   ...fields,
@@ -161,6 +163,7 @@ type Actions = {
   resetInvite: jest.Mock<Promise<void>, []>
   removePlayer: jest.Mock<Promise<void>, [string]>
   revokeCookbookLink: jest.Mock<Promise<void>, [string]>
+  clearChat: jest.Mock<Promise<void>, []>
   remove: jest.Mock<Promise<void>, []>
 }
 
@@ -178,6 +181,7 @@ const actionsOf = (id: string): Actions =>
     resetInvite: jest.fn(async () => {}),
     removePlayer: jest.fn<Promise<void>, [string]>(async () => {}),
     revokeCookbookLink: jest.fn<Promise<void>, [string]>(async () => {}),
+    clearChat: jest.fn(async () => {}),
     remove: jest.fn(async () => {}),
   })
 
@@ -699,6 +703,39 @@ describe('components/campaigns/campaign-index (round 0.39.0)', () => {
       ).toHaveFocus()
       expect(pill()).toHaveTextContent('Curse of Strahd deleted')
       expect(toastRegion()).toHaveTextContent('Curse of Strahd deleted')
+    })
+
+    it('says a campaign’s chat is cleared, and focuses its Chat heading, the button gone with the messages (v0.44 item 8)', async () => {
+      const user = userEvent.setup()
+      const chatty = { ...strahd, chat: { messages: 5 } }
+      const { redraw } = renderPage([tomb, saltmarsh, chatty, phandelver], {
+        address: '/campaigns?campaign=strahd',
+      })
+      HTMLElement.prototype.focus = InertBehindDialogs.prototype.focus
+      const answer = later()
+      actionsOf('strahd').clearChat.mockReturnValue(answer.promise)
+
+      await user.click(screen.getByRole('button', { name: 'Clear chat' }))
+      await user.click(
+        within(
+          screen.getByRole('dialog', { name: 'Clear Curse of Strahd’s chat?' }),
+        ).getByRole('button', { name: 'Clear chat' }),
+      )
+      expect(actionsOf('strahd').clearChat).toHaveBeenCalledTimes(1)
+      // The refreshed page arrives, the chat empty.
+      redraw([
+        tomb,
+        saltmarsh,
+        { ...strahd, chat: { messages: 0, clearedAt: minutesAgo(0) } },
+        phandelver,
+      ])
+      await act(async () => answer.settle())
+
+      expect(screen.queryByRole('button', { name: 'Clear chat' })).toBeNull()
+      expect(screen.getByRole('heading', { name: 'Chat' })).toHaveFocus()
+      expect(shownTitle()).toBe('Curse of Strahd')
+      expect(pill()).toHaveTextContent('Curse of Strahd’s chat cleared')
+      expect(toastRegion()).toHaveTextContent('Curse of Strahd’s chat cleared')
     })
 
     it('focuses the character’s sheet link once its player is removed, the button gone with them', async () => {

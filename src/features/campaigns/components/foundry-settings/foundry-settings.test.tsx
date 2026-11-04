@@ -222,6 +222,8 @@ describe('components/campaigns/foundry-settings', () => {
         prompts: false,
       },
       transfers: { enabled: false, reaching: false },
+      // Changed on purpose (v0.44 item 8): its players' chat here.
+      chat: { messages: 0 },
       characters: [],
       groups: [],
       foundry: foundrySnapshot(),
@@ -233,6 +235,7 @@ describe('components/campaigns/foundry-settings', () => {
         changeSecret={jest.fn()}
         resetInvite={jest.fn()}
         removePlayer={jest.fn()}
+        clearChat={jest.fn()}
         remove={jest.fn()}
       />,
     )

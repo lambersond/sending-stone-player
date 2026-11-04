@@ -22,6 +22,8 @@ const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({
     prompts: false,
   },
   transfers: { enabled: false, reaching: false },
+  // Changed on purpose (v0.44 item 8): its players' chat here.
+  chat: { messages: 0 },
   characters: [
     {
       id: 'ireena',

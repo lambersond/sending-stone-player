@@ -55,6 +55,11 @@ export type OwnedCampaign = {
    */
   wildShape?: { enabled: boolean }
   /**
+   * Its players' chat here (v0.44): how many messages it holds, and when it was last cleared, by
+   * its Gamemaster here or by Foundry's Clear Chat Log, as an ISO date; unset if it never was.
+   */
+  chat: { messages: number; clearedAt?: string }
+  /**
    * Each with who plays it, and their character's id, once a player has chosen it; and from module
    * 0.36.0 its companions, as the module lists them, by name and kind, a summoned one with the
    * item it was summoned with: none for none. The app always gives them; optional so that a card

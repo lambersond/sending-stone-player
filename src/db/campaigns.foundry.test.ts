@@ -17,11 +17,16 @@ const ORIGIN = 'https://my-game.forge-vtt.com'
 
 /** The dish count's mock: Prisma's groupBy is typed past what the deep mock's types can follow. */
 const groupBy = () => prismaMock.cookbookDish.groupBy as unknown as jest.Mock
+/** The chat's count's mock, likewise (v0.44 item 8). */
+const messageCount = () =>
+  prismaMock.chatMessage.groupBy as unknown as jest.Mock
 
 // Changed on purpose (round 0.38.0 §D9): the list counts the campaigns' dishes from the Magical
 // Recipe Book, of which there are none here; the deep mock answers nothing otherwise.
 beforeEach(() => {
   groupBy().mockResolvedValue([] as any)
+  // Changed on purpose (v0.44 item 8): and their chat's messages, none here either.
+  messageCount().mockResolvedValue([] as any)
 })
 
 /** A Gamemaster's one campaign, as listed, stored with these fields. */

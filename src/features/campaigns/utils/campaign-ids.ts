@@ -15,6 +15,10 @@ export const campaignHeadingId = (campaignId: string) =>
 export const sheetLinkId = (campaignId: string, characterId: string) =>
   `campaign-${campaignId}-sheet-${characterId}`
 
+/** A campaign's Chat heading on its page, which takes focus once its chat is cleared (v0.44). */
+export const chatHeadingId = (campaignId: string) =>
+  `campaign-${campaignId}-chat`
+
 /** The element with this id, if it's there: by the id itself, which a selector would escape. */
 export const byId = (id: string) =>
   // eslint-disable-next-line unicorn/prefer-query-selector -- an id, not a selector

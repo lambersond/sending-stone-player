@@ -15,5 +15,7 @@ export type CampaignCardProps = {
    * module 0.38.0. Without it, the card offers no revoke.
    */
   revokeCookbookLink?: (characterId: string) => Promise<void>
+  /** Clear the campaign's chat in the app, for every player (v0.44). */
+  clearChat: () => Promise<void>
   remove: () => Promise<void>
 }

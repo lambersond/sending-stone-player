@@ -1,6 +1,7 @@
 import { refresh } from 'next/cache'
 import {
   changeSecretAction,
+  clearChatAction,
   removeCampaignAction,
   removePlayerAction,
   resetInviteAction,
@@ -14,6 +15,7 @@ import {
   resetInviteCode,
   setUpCampaign,
 } from '@/db/campaigns'
+import { clearCampaignChat } from '@/db/chat'
 import { revokeCampaignCookbookLink } from '@/db/cookbook'
 import { requireUser } from '@/lib/session'
 
@@ -25,6 +27,7 @@ jest.mock('@/db/campaigns', () => ({
   resetInviteCode: jest.fn(),
   setUpCampaign: jest.fn(),
 }))
+jest.mock('@/db/chat', () => ({ clearCampaignChat: jest.fn() }))
 jest.mock('@/db/cookbook', () => ({ revokeCampaignCookbookLink: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 
@@ -138,9 +141,12 @@ describe('app/campaigns/actions', () => {
   it.each([
     ['resets an invite link', resetInviteAction, resetInviteCode],
     ['removes a campaign', removeCampaignAction, removeCampaign],
+    // New (v0.44 item 8).
+    ["clears a campaign's chat", clearChatAction, clearCampaignChat],
   ])('%s for the Gamemaster', async (_, action, change) => {
     await action('c1')
 
+    expect(requireUser).toHaveBeenCalledWith('/campaigns')
     expect(change).toHaveBeenCalledWith('gm-1', 'c1')
     expect(refresh).toHaveBeenCalled()
   })
