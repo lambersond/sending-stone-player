@@ -419,8 +419,12 @@ const NAMES = ['Arcane Recovery', 'Dagger', 'Cast Fireball', 'Fire Bolt', 'Potio
 const namesIn = scope => scope.locator('li').evaluateAll(rows => rows.filter(row => row.checkVisibility() && !row.parentElement.closest('li')).map(row => row.querySelector('.font-medium')?.textContent))
 /** The names of the rows starred in a part of the sheet. */
 const starredIn = scope => scope.getByText(', favorite', { exact: true }).evaluateAll(stars => stars.map(star => star.closest('li').querySelector('.font-medium').textContent))
-/** The names of the sections the Character tab shows, in order, by what labels each. */
-const sectionsIn = panel => panel.evaluate(el => [...el.querySelectorAll('section[aria-labelledby]')].filter(section => !section.parentElement.closest('section'))
+/**
+ * The names of the sections the Character tab shows, in order, by what labels each: its own, not
+ * those inside them. The sheet's pane is a section too, around the tab, so only a section inside
+ * the tab counts as one these are in.
+ */
+const sectionsIn = panel => panel.evaluate(el => [...el.querySelectorAll('section[aria-labelledby]')].filter(section => !el.contains(section.parentElement.closest('section')))
   .map(section => document.getElementById(section.getAttribute('aria-labelledby'))?.textContent.trim()))
 /**
  * Turns on Favorites on the Character tab (v0.44), in the sheet's cog, by its 44-pixel label, as
@@ -622,9 +626,11 @@ column = sheet.getByRole('complementary', { name: 'Favorites' })
 check(await column.isVisible() && same(await namesIn(column), NAMES), 'Effects has it again')
 // From v0.44, with Favorites on the Character tab on: on Character between Skills and Traits, never
 // in the column, which Effects and Actions keep.
-await favoritesOnCharacter(page)
-await showTab('Character')
 {
+  const turned = await favoritesOnCharacter(page)
+  check(turned.off && turned.on, 'on a laptop, the switch is off in the cog too, and turns on')
+  await showTab('Character')
+  await panel.getByRole('region', { name: 'Favorites' }).waitFor()
   const sections = await sectionsIn(panel)
   const at = sections.indexOf('Skills')
   check(await sheet.getByRole('complementary').count() === 0 && at >= 0 && same(sections.slice(at, at + 3), ['Skills', 'Favorites', 'Traits'])
