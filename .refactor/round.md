@@ -180,6 +180,22 @@ disables or a note); a glob row covers the new files a split makes in one folder
    flags every Phase 3 file as "new, already there", and its disables column predates G. Phase 5's fixers
    take files by area (the lane column), and G or the orchestrator take anything that crosses areas.
 
+7. **2026-11-04 ~5:05 AM EST, Phase 5 recorded; Phase 6's scope.** (a) Commit 25 is three commits, one per
+   area (server ca30667, table-ui 8fa4150, rolling-sheet eaef5ba), each landed with L1 and build green.
+   (b) RV1-1's R1.3.4 deviation is accepted: the resolver is `seatAnswer` (src/lib/routes/seat-resolver.ts)
+   with getPlayerSeat beside getGmSeat in src/db/seats.ts and partyAt beside the party responders; the
+   four companion seat helpers stay as thin finders on those two, because the frozen
+   companion-routes.integration.test calls them (S.md's deviation 5; the PR lists it). (c) **Commit 26
+   also deletes RV3-1's unused SheetProviders kit** (src/mocks/sheet-providers/, two files, never
+   imported by any test) and EFFECT_DICE_KINDS (read only by C9, G-19); and, if nothing but the kit's own
+   tests then uses them, the kit's `markup()` and `normalizeIds()` with their tests: §3.1.1, gate 10 and
+   counts.conf's header now read "C1, C3, C9 and the sheet-providers kit retire in commit 26". The
+   builder of commit 26 may add the counts.conf `retire` rows and gate10.allow lines this needs (the
+   orchestrator's, delegated for this commit only). (d) **Commit 28 also removes eslint.config.mjs's
+   `'.refactor/**'` ignore and its comment** (RV3-4); §2.5 row 28's check reads ".refactor/ and its
+   eslint ignore". (e) The L3 replay walks every commit after 1dff83f that is not chore(refactor) (41,
+   to ea00b7c), detached, writing X/replay/summary.tsv; its summary is copied into the PR.
+
 ## §0 Summary, principles, metrics
 
 ### §0.1 What v0.43 is
