@@ -20,6 +20,9 @@ import type { ReactNode, RefObject } from 'react'
  * the sheet, or beside why there's none and the notes, with tabs of their own to choose between
  * them, which mark the seat's turn and unread messages, and say what's happening in the one shown.
  * @param paneShown - Whether the sheet's pane shows beside the column on a wide screen.
+ * @param focusable - Whether combat and the chat may take focus: where one is the pane shown, on a
+ *   phone or tablet, as a notice above it is dismissed; never beside the sheet, where nothing moves
+ *   focus to them, and a click in one would.
  * @param quiet - Whether the tabs ignore clicks now, just after a hold has ended the turn.
  * @param onShow - Shows combat or the chat.
  * @param combatTab - The column's Combat tab, where focus on the turn may go.
@@ -31,6 +34,7 @@ export function AsideColumn({
   tab,
   aside,
   paneShown,
+  focusable,
   myTurn,
   unread,
   combat,
@@ -45,6 +49,7 @@ export function AsideColumn({
   tab: Tab
   aside: Aside
   paneShown: boolean
+  focusable: boolean
   myTurn: boolean
   unread: number
   combat?: TableCombat
@@ -120,7 +125,7 @@ export function AsideColumn({
       <Pane
         id='combat-pane'
         label='Combat'
-        focusable
+        focusable={focusable}
         className={aside === 'combat' ? 'flex' : 'hidden'}
       >
         <Scroller>
@@ -131,7 +136,7 @@ export function AsideColumn({
       <Pane
         id='chat-pane'
         label='Chat'
-        focusable
+        focusable={focusable}
         className={aside === 'chat' ? 'flex' : 'hidden'}
       >
         <Scroller ref={scroller} onScroll={onScroll}>

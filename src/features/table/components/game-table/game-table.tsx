@@ -185,6 +185,7 @@ export function GameTable({
           tab={tabs.tab}
           aside={tabs.aside}
           paneShown={paneShown}
+          focusable={!tabs.characterInView}
           myTurn={myTurn}
           unread={unread}
           combat={view.combat}

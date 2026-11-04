@@ -684,6 +684,22 @@ describe('components/game-table/game-table', () => {
       )
     })
 
+    // Beside the sheet nothing moves focus to combat or the chat, so neither takes it: a click in
+    // the chat's log leaves focus where it was, as on a phone it may go to the one shown alone.
+    it('gives combat and the chat beside the sheet no focus, a click in the log leaving it be', async () => {
+      const user = userEvent.setup()
+      renderTable(view({ sheet }))
+      await user.click(screen.getByRole('tab', { name: 'Chat' }))
+
+      await user.click(screen.getByText('message m1'))
+      expect(document.body).toHaveFocus()
+      for (const name of ['Combat', 'Chat']) {
+        expect(screen.getByRole('region', { name })).not.toHaveAttribute(
+          'tabindex',
+        )
+      }
+    })
+
     it("names the class and subclass after the character's name, cut short before it is", () => {
       renderTable(view({ sheet }))
 
