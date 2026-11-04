@@ -1,10 +1,7 @@
-import { getCharacter } from '@/db/characters'
-import { playerSeat } from '@/db/seats'
-import { rollPostResponse } from '@/lib/seat-routes'
-import { getCurrentUser } from '@/lib/session'
+import { getPlayerSeat } from '@/db/seats'
+import { seatAnswer } from '@/lib/routes/seat-resolver'
+import { rollPostResponse } from '@/lib/routes/seat-routes'
 import type { NextRequest } from 'next/server'
-
-const headers = { 'Cache-Control': 'no-store' }
 
 /**
  * Have a roll the player made here made in the Gamemaster's game, with the same dice, when the
@@ -17,12 +14,9 @@ export async function POST(
   request: NextRequest,
   context: RouteContext<'/api/characters/[id]/rolls'>,
 ) {
-  const user = await getCurrentUser()
-  if (!user) return new Response(undefined, { status: 401, headers })
-
-  const { id } = await context.params
-  const character = await getCharacter(user.id, id)
-  if (!character) return new Response(undefined, { status: 404, headers })
-
-  return rollPostResponse(request, playerSeat(character, user.id))
+  return seatAnswer(
+    context.params,
+    (userId, { id }) => getPlayerSeat(userId, id),
+    seat => rollPostResponse(request, seat),
+  )
 }

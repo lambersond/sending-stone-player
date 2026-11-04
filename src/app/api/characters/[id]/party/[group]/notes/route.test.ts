@@ -9,6 +9,9 @@ import { createNote, getNotesStatus, getNotesView } from '@/db/notes'
 import { partyNotesAccess } from '@/db/party'
 import { getCurrentUser } from '@/lib/session'
 import { mockNotesView } from '@/mocks/sending-stone'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -105,7 +108,6 @@ describe('app/api/characters/[id]/party/[group]/notes', () => {
 
   it('answers 404 for a party the character may not see now, saying no more, and never 204', async () => {
     jest.mocked(getCharacter).mockResolvedValue(THORIN)
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
 
     for (const response of [await get(), await get('?version=3&live=1')]) {

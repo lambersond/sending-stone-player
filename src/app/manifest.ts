@@ -1,4 +1,3 @@
-/* eslint-disable camelcase -- the Web App Manifest's own names */
 import type { MetadataRoute } from 'next'
 
 /**

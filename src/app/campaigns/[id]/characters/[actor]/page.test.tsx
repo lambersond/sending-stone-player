@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the Gamemaster's seat has no character, null */
 import { render, screen } from '@testing-library/react'
 import { notFound } from 'next/navigation'
 import NotFound from './not-found'
@@ -15,7 +14,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/db/seats', () => ({ getGmSeat: jest.fn() }))
 jest.mock('@/db/table', () => ({ getTableView: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
-jest.mock('@/components/game-table', () => ({
+jest.mock('@/features/table/components/game-table/game-table', () => ({
   GameTable: ({ character, seat, initialView, ...rest }: any) => (
     <p>
       table for {character.name} as {character.id}, through {seat.api} as{' '}
@@ -84,7 +83,6 @@ describe('app/campaigns/[id]/characters/[actor]/page (#156)', () => {
   })
 
   it("is not found, saying nothing more, for another user's campaign or a character not in its roster", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getGmSeat).mockResolvedValue(undefined)
 
     await expect(GmCharacterPage(props('camp1', 'nobody'))).rejects.toThrow(

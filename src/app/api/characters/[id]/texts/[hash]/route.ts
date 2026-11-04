@@ -1,7 +1,7 @@
-import { getCharacter } from '@/db/characters'
-import { playerSeat } from '@/db/seats'
-import { textResponse } from '@/lib/seat-routes'
-import { getCurrentUser } from '@/lib/session'
+import { getPlayerSeat } from '@/db/seats'
+import { NO_HEADERS } from '@/lib/routes/http'
+import { seatAnswer } from '@/lib/routes/seat-resolver'
+import { textResponse } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import type { NextRequest } from 'next/server'
 
@@ -14,13 +14,11 @@ export async function GET(
   _request: NextRequest,
   context: RouteContext<'/api/characters/[id]/texts/[hash]'>,
 ) {
-  const user = await getCurrentUser()
-  if (!user) return new Response(undefined, { status: 401 })
-
-  const { id, hash } = await context.params
-  if (!TEXT_HASH.test(hash)) return new Response(undefined, { status: 404 })
-  const character = await getCharacter(user.id, id)
-  if (!character) return new Response(undefined, { status: 404 })
-
-  return textResponse(playerSeat(character, user.id), hash)
+  return seatAnswer(
+    context.params,
+    async (userId, { id, hash }) =>
+      TEXT_HASH.test(hash) ? getPlayerSeat(userId, id) : undefined,
+    (seat, { hash }) => textResponse(seat, hash),
+    { headers: NO_HEADERS },
+  )
 }

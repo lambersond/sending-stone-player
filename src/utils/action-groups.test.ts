@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import {
   castAtLevel,
   defaultPool,
@@ -7,10 +6,9 @@ import {
   outOfSlots,
   poolName,
   slotPools,
-  type SlotPool,
 } from './action-groups'
 import { sheetAction, sheetSpell } from '@/mocks/sending-stone'
-import type { SheetSpellSection } from '@/types/sending-stone'
+import type { SheetSpellSection, SlotPool } from '@/types/sending-stone'
 
 /** A warlock-wizard's spellbook, in dnd5e's order. */
 const spellbook: SheetSpellSection[] = [

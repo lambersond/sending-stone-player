@@ -1,16 +1,9 @@
 import prisma from '@/clients/prisma'
-import { COOKBOOK_VERSIONS } from '@/constants/cookbook'
-import {
-  COMPANION_UNTAKEN,
-  MIDI_PROMPT_WAIT,
-  ROLL_ANSWER_WITHIN,
-  ROLL_KINDS,
-} from '@/constants/sending-stone'
+import { MIDI_PROMPT_WAIT, ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import {
   applyJournalUpdated,
   drawJournal,
   reconcileJournals,
-  type JournalDrawings,
 } from '@/db/note-sync'
 import { groupRoster } from '@/db/party'
 import {
@@ -19,8 +12,9 @@ import {
   saveSheetTexts,
 } from '@/db/sheet-texts'
 import { companionRoster } from '@/utils/companions'
+import { helloCampaignData, helloCompanionData } from '@/utils/hello-features'
+import type { JournalDrawings, Tx } from '@/db/types'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
-import type { GroupEntry, GroupSheet } from '@/types/party'
 import type {
   CampaignRef,
   CharacterSheet,
@@ -33,14 +27,27 @@ import type {
   GamePrompt,
   GameEvent,
   SerializedMessage,
+  GroupEntry,
+  GroupSheet,
 } from '@/types/sending-stone'
 import type { Prisma } from '@prisma/client'
 
 // Every handler is idempotent. The module retries a post whose answer was lost with the same
 // envelope, and only ever before sending the next one, so applying a duplicate again is harmless.
 
-type Tx = Prisma.TransactionClient
 type World = { id: string; title: string }
+
+/**
+ * The events that leave the campaign's version alone: descriptions change nothing anyone sees
+ * until a sheet refers to them, and Foundry's settings only the Gamemaster's campaign card shows,
+ * which no table page watches. A journal of notes (module 0.34.0) has its own version, as no table
+ * or party view shows notes.
+ */
+const VERSION_SILENT: ReadonlySet<string> = new Set([
+  'character.texts',
+  'bridge.settings',
+  'journal.updated',
+])
 
 /**
  * Apply an event from a game's Gamemaster to what is held for one of its campaigns.
@@ -67,14 +74,13 @@ export async function applyCampaignEvent(
       ? await drawJournal(campaignId, event.data)
       : undefined
   return prisma.$transaction(async tx => {
-    const lacksTexts = await apply(
+    const lacksTexts = await apply(event, {
       tx,
       campaignId,
-      event,
       session,
       sentAt,
       drawings,
-    )
+    })
     const now = new Date()
     await tx.campaign.update({
       where: { id: campaignId },
@@ -83,13 +89,7 @@ export async function applyCampaignEvent(
         title: campaign.title,
         worldId: world.id,
         worldTitle: world.title,
-        // Descriptions change nothing anyone sees until a sheet refers to them, and Foundry's
-        // settings only the Gamemaster's campaign card shows, which no table page watches. A
-        // journal of notes (module 0.34.0) has its own version, as no table or party view shows
-        // notes.
-        ...(!['character.texts', 'bridge.settings', 'journal.updated'].includes(
-          event.type,
-        ) && {
+        ...(!VERSION_SILENT.has(event.type) && {
           version: { increment: 1 },
         }),
         lastEventAt: now,
@@ -102,333 +102,263 @@ export async function applyCampaignEvent(
   })
 }
 
+/** What an event's handler is given besides its payload. */
+type Applying = {
+  tx: Tx
+  campaignId: string
+  session: string
+  sentAt: string
+  drawings?: JournalDrawings
+}
+
+/** Each event type's payload, a type that shares its union member with others included. */
+type EventData = {
+  [T in GameEvent['type']]: (GameEvent & { type: T })['data']
+}
+
 /** Apply an event; true when the campaign then lacks a description its sheets refer to. */
-async function apply(
+async function apply<T extends GameEvent['type']>(
+  event: { type: T; data: EventData[T] },
+  applying: Applying,
+): Promise<boolean> {
+  const handler = EVENT_HANDLERS[event.type]
+  return handler ? handler(event.data, applying) : false
+}
+
+/**
+ * What each event does to what is held for its campaign, by type: true where the campaign then
+ * lacks a description its sheets refer to. What became of a command and of a dish the events
+ * route records itself, so neither is here.
+ */
+const EVENT_HANDLERS: {
+  [T in GameEvent['type']]?: (
+    data: EventData[T],
+    applying: Applying,
+  ) => Promise<boolean>
+} = {
+  'bridge.hello': (data, { tx, campaignId, sentAt }) =>
+    applyHello(tx, campaignId, data, sentAt),
+  'character.updated': async ({ character }, { tx, campaignId }) => {
+    const { sheet } = character
+    await saveCharacter(tx, campaignId, character)
+    return sheet ? lacksSheetTexts(tx, campaignId, [sheet]) : false
+  },
+  'character.texts': async ({ texts }, { tx, campaignId }) => {
+    await saveSheetTexts(tx, campaignId, texts)
+    return false
+  },
+  'chat.message.created': keepMessage,
+  'chat.message.updated': keepMessage,
+  'chat.message.deleted': async ({ id }, { tx, campaignId }) => {
+    await tx.chatMessage.deleteMany({ where: { campaignId, messageId: id } })
+    return false
+  },
+  'chat.cleared': async (_, { tx, campaignId }) => {
+    await tx.chatMessage.deleteMany({ where: { campaignId } })
+    return false
+  },
+  'combat.ended': async ({ combat }, { tx, campaignId }) => {
+    // The encounter ended, or the campaign's last character left it.
+    await tx.combat.deleteMany({ where: { campaignId, combatId: combat.id } })
+    return false
+  },
+  // combat.created also marks the campaign's first character joining a fight under way.
+  'combat.created': keepCombat,
+  'combat.started': keepCombat,
+  'combat.turn': keepCombat,
+  'combat.updated': keepCombat,
+  'combat.combatant.added': keepCombatant,
+  'combat.combatant.updated': keepCombatant,
+  'combat.combatant.removed': async (
+    { combatId, combatantId },
+    { tx, campaignId },
+  ) => {
+    await patchCombat(tx, campaignId, combatId, combatants =>
+      combatants.filter(({ id }) => id !== combatantId),
+    )
+    return false
+  },
+  'roll.prompt.opened': async ({ prompt }, { tx, campaignId, sentAt }) => {
+    await savePrompt(tx, campaignId, prompt, sentAt)
+    return false
+  },
+  'roll.prompt.closed': async ({ id, reason }, { tx, campaignId }) => {
+    await closePrompt(tx, campaignId, id, reason)
+    return false
+  },
+  'group.updated': async ({ group }, { tx, campaignId }) => {
+    const { sheet } = group
+    await saveGroup(tx, campaignId, group)
+    return sheet ? lacksSheetTexts(tx, campaignId, [], [sheet]) : false
+  },
+  'group.removed': async ({ id }, { tx, campaignId }) => {
+    await removeGroup(tx, campaignId, id)
+    return false
+  },
+  'bridge.settings': async ({ settings }, { tx, campaignId, sentAt }) => {
+    if (settings) {
+      await saveFoundrySettings(tx, campaignId, settings, sentAt)
+    }
+    return false
+  },
+  'journal.updated': async (data, { tx, campaignId, drawings }) => {
+    await applyJournalUpdated(tx, campaignId, data, drawings)
+    return false
+  },
+  'companions.listed': async ({ companions }, { tx, campaignId }) => {
+    await tx.campaign.update({
+      where: { id: campaignId },
+      data: { companions: companions.map(entry => toJson(entry)) },
+    })
+    await dropUnlistedCompanions(tx, campaignId, companions)
+    return false
+  },
+  'companion.updated': (data, { tx, campaignId }) =>
+    saveCompanion(tx, campaignId, data),
+}
+
+/**
+ * A message posted or changed. An update is an upsert: a blind roll the Gamemaster reveals arrives
+ * as one.
+ */
+async function keepMessage(
+  { message }: EventData['chat.message.created'],
+  { tx, campaignId, session }: Applying,
+): Promise<boolean> {
+  await saveMessage(tx, campaignId, message, session)
+  return false
+}
+
+/** A combat made, started, turned or changed: its snapshot held, in place of any before. */
+async function keepCombat(
+  { combat }: EventData['combat.updated'],
+  { tx, campaignId }: Applying,
+): Promise<boolean> {
+  await saveCombat(tx, campaignId, combat)
+  return false
+}
+
+/** A combatant added to a held combat, or changed in it: put in its place in the turn order. */
+async function keepCombatant(
+  { combatId, combatant }: EventData['combat.combatant.updated'],
+  { tx, campaignId }: Applying,
+): Promise<boolean> {
+  await patchCombat(tx, campaignId, combatId, combatants =>
+    sortTurnOrder([
+      ...combatants.filter(({ id }) => id !== combatant.id),
+      combatant,
+    ]),
+  )
+  return false
+}
+
+/**
+ * Apply a hello: the campaign's full current state, its roster, its groups, what its game does,
+ * its companions and what Foundry says of itself, replacing what was held; and the saves its game
+ * is asking, its combats and its sheets. It carries no chat, so the chat log is kept.
+ * @returns Whether the campaign then lacks a description its sheets refer to.
+ */
+async function applyHello(
   tx: Tx,
   campaignId: string,
-  event: GameEvent,
-  session: string,
+  data: Extract<GameEvent, { type: 'bridge.hello' }>['data'],
   sentAt: string,
-  drawings?: JournalDrawings,
 ): Promise<boolean> {
-  switch (event.type) {
-    case 'bridge.hello': {
-      // The campaign's full current state. It carries no chat, so the chat log is kept.
-      const { characters, features, prompts = [], groups = [] } = event.data
-      // Its characters' companions, from module 0.36.0, whose sheets follow it; none from an
-      // older module, which clears them.
-      const { companions = [] } = event.data
-      const { module, foundry, system, settings } = event.data
-      // Whether its players may move items and coins from here, from module 0.31.0, apart from
-      // the rolls. A module before it says nothing of them, which clears it.
-      const transfersOn =
-        features?.transfers?.enabled === true &&
-        (features.transfers.kinds ?? []).includes('transfer')
-      // Whether the campaign takes dishes from the Magical Recipe Book, from module 0.38.0, by its
-      // own switch under dnd5e 5.
-      const dishesOn =
-        features?.dishes?.enabled === true &&
-        (features.dishes.kinds ?? []).includes('dish')
-      // What else the module does with journal notes, from module 0.35.0: 'orders' where it takes
-      // the app's orders of a group's notes. A module before it says nothing, which clears it.
-      const noteFeatures =
-        features?.notes?.enabled === true && features.notes.orders === true
-          ? ['orders']
-          : []
-      const before = await tx.campaign.findUnique({
-        where: { id: campaignId },
-        select: { noteFeatures: true },
-      })
-      await tx.campaign.update({
-        where: { id: campaignId },
-        data: {
-          characters: characters.map(character => rosterEntry(character)),
-          // Its groups, from module 0.30.0, whose sheets follow it; none from an older module.
-          groups: groups.map(group => groupRosterEntry(group)),
-          // Whether its players may roll in the game from here. A module before 0.10.0 can't
-          // make their rolls, and says nothing of them.
-          rollsEnabled: features?.rolls?.enabled === true,
-          // A move of items and coins, a removal, a favorite, from module 0.39.0 an effect
-          // changed, or from module 0.40.0 Wild Shape, is never one of the rolls, even where a
-          // module says so: each has its own feature.
-          rollKinds: (features?.rolls?.kinds ?? []).filter(
-            kind =>
-              (ROLL_KINDS as readonly string[]).includes(kind) &&
-              kind !== 'transfer' &&
-              kind !== 'remove' &&
-              kind !== 'favorite' &&
-              kind !== 'effect' &&
-              kind !== 'wildShape',
-          ),
-          // What else it can do with them: from module 0.13.0, take damage a player changed, and
-          // ask players for the saves their game asks of them; from module 0.16.0, make area
-          // attacks at the combatants players pick; from module 0.21.0, make a check an activity
-          // asks for, the player's own, against it, and change a description's damage only on a
-          // die it adds; from module 0.22.0, make a use at its user; from module 0.23.0, make the
-          // Gamemaster's rolls as a character, marked as theirs; from module 0.25.0, list the
-          // messages each of those made in its result, which only this listener reads, never a
-          // viewer; from module 0.26.0, let players enter their own dice's results; from module
-          // 0.27.0, ask here what Midi-QOL asks of characters, which nothing reads yet; from
-          // module 0.41.0, let damage on its own name its choices and spend what it uses, and ask
-          // companions for the saves the game asks of them; and from module 0.42.0, take a typed
-          // roll's effects' dice, and keep its rerolls.
-          rollFeatures: [
-            ...(features?.rolls?.modifiers === true ? ['modifiers'] : []),
-            ...(features?.rolls?.prompts === true ? ['prompts'] : []),
-            ...(features?.rolls?.areaAttacks === true ? ['areaAttacks'] : []),
-            ...(features?.rolls?.activityChecks === true
-              ? ['activityChecks']
-              : []),
-            ...(features?.rolls?.signedDice === true ? ['signedDice'] : []),
-            ...(features?.rolls?.selfTargets === true ? ['selfTargets'] : []),
-            ...(features?.rolls?.gmRolls === true ? ['gmRolls'] : []),
-            ...(features?.rolls?.gmRollMessages === true
-              ? ['gmRollMessages']
-              : []),
-            ...(features?.rolls?.manualDice === true ? ['manualDice'] : []),
-            ...(features?.rolls?.midiPrompts === true ? ['midiPrompts'] : []),
-            ...(features?.rolls?.aloneChoices === true ? ['aloneChoices'] : []),
-            ...(features?.rolls?.companionPrompts === true
-              ? ['companionPrompts']
-              : []),
-            ...(features?.rolls?.effectDice === true ? ['effectDice'] : []),
-            ...(features?.rolls?.keptRerolls === true ? ['keptRerolls'] : []),
-          ],
-          transfersEnabled: transfersOn,
-          // What else it does with moves, from module 0.32.0; nothing while moves are off, and a
-          // module before it says nothing, which clears them.
-          transferFeatures: transfersOn
-            ? [
-                ...(features?.transfers?.partySends === true
-                  ? ['partySends']
-                  : []),
-                ...(features?.transfers?.distribute === true
-                  ? ['distribute']
-                  : []),
-              ]
-            : [],
-          // Whether the module removes characters' items for the app, from module 0.33.0, with no
-          // switch: a module before it says nothing of them, which clears it.
-          removalsEnabled:
-            features?.removals?.enabled === true &&
-            (features.removals.kinds ?? []).includes('remove'),
-          // Whether the module adds and removes characters' favorites for the app, from module
-          // 0.37.0, with no switch: a module before it says nothing of them, which clears it.
-          favoritesEnabled:
-            features?.favorites?.enabled === true &&
-            (features.favorites.kinds ?? []).includes('favorite'),
-          // Whether the module takes dishes from the Magical Recipe Book for the app, and which
-          // body versions, from module 0.38.0, by its own switch under dnd5e 5: a module before it
-          // says nothing of dishes, which clears both.
-          dishesEnabled: dishesOn,
-          dishVersions: dishesOn
-            ? (features?.dishes?.versions ?? []).filter(version =>
-                (COOKBOOK_VERSIONS as readonly number[]).includes(version),
-              )
-            : [],
-          // Whether the campaign lets its players turn off, turn on and delete their own
-          // characters' effects from here, from module 0.39.0, by its own switch under dnd5e: a
-          // module before it says nothing of them, which clears it.
-          effectsEnabled:
-            features?.effects?.enabled === true &&
-            (features.effects.kinds ?? []).includes('effect'),
-          // Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, by
-          // its own switch under dnd5e: a module before it says nothing of it, which clears it.
-          wildShapeEnabled:
-            features?.wildShape?.enabled === true &&
-            (features.wildShape.kinds ?? []).includes('wildShape'),
-          // Whether the module keeps journal notes for the app, from module 0.34.0, with no
-          // switch: a module before it says nothing of them, which clears it.
-          notesEnabled:
-            features?.notes?.enabled === true &&
-            (features.notes.kinds ?? []).includes('personal'),
-          noteFeatures,
-          // Its characters' companions, from module 0.36.0, each as listed, never its sheet; the
-          // kinds a companion's rolls may be, never one no companion's is, nor one this app
-          // doesn't know; and how they enter initiative, each its own roll unless the module says
-          // otherwise. A module before it says nothing of them, which clears the first two and
-          // sets the third back to its own roll.
-          companions: companions.map(entry => toJson(entry)),
-          companionKinds: (features?.companions?.kinds ?? []).filter(
-            kind =>
-              (ROLL_KINDS as readonly string[]).includes(kind) &&
-              !(COMPANION_UNTAKEN as readonly string[]).includes(kind),
-          ),
-          companionInitiative:
-            features?.companions?.initiative === 'after' ? 'after' : 'own',
-          // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
-          // module before 0.30.0, which reports no settings, clears those an earlier one sent.
-          foundry: toJson({
-            receivedAt: sentAt,
-            ...(module && { module }),
-            ...(foundry && { foundry }),
-            ...(system && { system }),
-            ...(settings && { settings }),
-          }),
-        },
-      })
-      // The saves its game is asking for: any other still open has closed meanwhile.
-      await tx.rollPrompt.updateMany({
-        where: {
-          campaignId,
-          // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
-          closedAt: null,
-          promptId: { notIn: prompts.map(({ id }) => id) },
-        },
-        data: { closedAt: new Date(), closedReason: 'gone' },
-      })
-      for (const prompt of prompts) {
-        await savePrompt(tx, campaignId, prompt, sentAt)
-      }
-      // Pages showing an order "kept here for now" learn that the game now takes it, or no longer
-      // does: every book of the campaign is new where what the module does with notes changed.
-      if (before && before.noteFeatures.join(',') !== noteFeatures.join(',')) {
-        await tx.journalBook.updateMany({
-          where: { campaignId },
-          data: { version: { increment: 1 } },
-        })
-      }
-      // The books whose journal Foundry no longer has, from module 0.34.0, which lists those it
-      // has; an older module lists none, and nothing is reconciled.
-      if (features?.notes) {
-        await reconcileJournals(
-          tx,
-          campaignId,
-          characters.map(({ id }) => id),
-          groups.map(({ id }) => id),
-          features.notes.journals,
-        )
-      }
-      await tx.combat.deleteMany({ where: { campaignId } })
-      await tx.combat.createMany({
-        data: event.data.combats.map(combat => ({
-          campaignId,
-          combatId: combat.id,
-          data: toJson(combat),
-        })),
-      })
-      // A group it no longer lists has left the campaign, with its sheet; those it lists keep
-      // theirs until theirs follow.
-      await tx.groupSheet.deleteMany({
-        where: { campaignId, actorId: { notIn: groups.map(({ id }) => id) } },
-      })
-      // A companion it no longer lists has gone, with its sheet, before the descriptions kept are
-      // counted, so that only those listed keep theirs (module 0.36.0).
-      await dropUnlistedCompanions(tx, campaignId, companions)
-      if (event.data.sheetsApart === true) {
-        return keepRosterSheets(tx, campaignId, characters)
-      }
-      await tx.actorSheet.deleteMany({ where: { campaignId } })
-      await tx.actorSheet.createMany({
-        data: characters.flatMap(({ id, sheet }) =>
-          sheet ? [{ campaignId, actorId: id, data: toJson(sheet) }] : [],
-        ),
-      })
-      // Its descriptions came first; any no sheet refers to any more go, its companions' kept.
-      const sheets = characters.flatMap(({ sheet }) => (sheet ? [sheet] : []))
-      const companionSheets = await keptCompanionSheets(tx, campaignId)
-      await keepOnlySheetTexts(tx, campaignId, sheets, [], companionSheets)
-      return lacksSheetTexts(tx, campaignId, sheets, [], companionSheets)
-    }
-    case 'character.updated': {
-      const { sheet } = event.data.character
-      await saveCharacter(tx, campaignId, event.data.character)
-      return sheet ? lacksSheetTexts(tx, campaignId, [sheet]) : false
-    }
-    case 'character.texts': {
-      await saveSheetTexts(tx, campaignId, event.data.texts)
-      return false
-    }
-    case 'chat.message.created':
-    case 'chat.message.updated': {
-      // An update is an upsert: a blind roll the Gamemaster reveals arrives as one.
-      await saveMessage(tx, campaignId, event.data.message, session)
-      return false
-    }
-    case 'chat.message.deleted': {
-      await tx.chatMessage.deleteMany({
-        where: { campaignId, messageId: event.data.id },
-      })
-      return false
-    }
-    case 'chat.cleared': {
-      await tx.chatMessage.deleteMany({ where: { campaignId } })
-      return false
-    }
-    case 'combat.ended': {
-      // The encounter ended, or the campaign's last character left it.
-      await tx.combat.deleteMany({
-        where: { campaignId, combatId: event.data.combat.id },
-      })
-      return false
-    }
-    case 'combat.created':
-    case 'combat.started':
-    case 'combat.turn':
-    case 'combat.updated': {
-      // combat.created also marks the campaign's first character joining a fight under way.
-      await saveCombat(tx, campaignId, event.data.combat)
-      return false
-    }
-    case 'combat.combatant.added':
-    case 'combat.combatant.updated': {
-      const { combatant } = event.data
-      await patchCombat(tx, campaignId, event.data.combatId, combatants =>
-        sortTurnOrder([
-          ...combatants.filter(({ id }) => id !== combatant.id),
-          combatant,
-        ]),
-      )
-      return false
-    }
-    case 'combat.combatant.removed': {
-      const { combatantId } = event.data
-      await patchCombat(tx, campaignId, event.data.combatId, combatants =>
-        combatants.filter(({ id }) => id !== combatantId),
-      )
-      return false
-    }
-    case 'roll.prompt.opened': {
-      await savePrompt(tx, campaignId, event.data.prompt, sentAt)
-      return false
-    }
-    case 'roll.prompt.closed': {
-      await closePrompt(tx, campaignId, event.data.id, event.data.reason)
-      return false
-    }
-    case 'group.updated': {
-      const { sheet } = event.data.group
-      await saveGroup(tx, campaignId, event.data.group)
-      return sheet ? lacksSheetTexts(tx, campaignId, [], [sheet]) : false
-    }
-    case 'group.removed': {
-      await removeGroup(tx, campaignId, event.data.id)
-      return false
-    }
-    case 'bridge.settings': {
-      if (event.data.settings) {
-        await saveFoundrySettings(tx, campaignId, event.data.settings, sentAt)
-      }
-      return false
-    }
-    case 'journal.updated': {
-      await applyJournalUpdated(tx, campaignId, event.data, drawings)
-      return false
-    }
-    case 'companions.listed': {
-      const { companions } = event.data
-      await tx.campaign.update({
-        where: { id: campaignId },
-        data: { companions: companions.map(entry => toJson(entry)) },
-      })
-      await dropUnlistedCompanions(tx, campaignId, companions)
-      return false
-    }
-    case 'companion.updated': {
-      return saveCompanion(tx, campaignId, event.data)
-    }
+  // The campaign's full current state. It carries no chat, so the chat log is kept.
+  const { characters, features, prompts = [], groups = [] } = data
+  // Its characters' companions, from module 0.36.0, whose sheets follow it; none from an
+  // older module, which clears them.
+  const { companions = [] } = data
+  const { module, foundry, system, settings } = data
+  const switches = helloCampaignData(features)
+  const before = await tx.campaign.findUnique({
+    where: { id: campaignId },
+    select: { noteFeatures: true },
+  })
+  await tx.campaign.update({
+    where: { id: campaignId },
+    data: {
+      characters: characters.map(character => rosterEntry(character)),
+      // Its groups, from module 0.30.0, whose sheets follow it; none from an older module.
+      groups: groups.map(group => groupRosterEntry(group)),
+      ...switches,
+      // Its characters' companions, from module 0.36.0, each as listed, never its sheet; and how
+      // they roll (`helloCompanionData`).
+      companions: companions.map(entry => toJson(entry)),
+      ...helloCompanionData(features),
+      // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
+      // module before 0.30.0, which reports no settings, clears those an earlier one sent.
+      foundry: toJson({
+        receivedAt: sentAt,
+        ...(module && { module }),
+        ...(foundry && { foundry }),
+        ...(system && { system }),
+        ...(settings && { settings }),
+      }),
+    },
+  })
+  // The saves its game is asking for: any other still open has closed meanwhile.
+  await tx.rollPrompt.updateMany({
+    where: {
+      campaignId,
+      closedAt: null,
+      promptId: { notIn: prompts.map(({ id }) => id) },
+    },
+    data: { closedAt: new Date(), closedReason: 'gone' },
+  })
+  for (const prompt of prompts) {
+    await savePrompt(tx, campaignId, prompt, sentAt)
   }
-  return false
+  // Pages showing an order "kept here for now" learn that the game now takes it, or no longer
+  // does: every book of the campaign is new where what the module does with notes changed.
+  const noteFeatures = switches.noteFeatures.join(',')
+  if (before && before.noteFeatures.join(',') !== noteFeatures) {
+    await tx.journalBook.updateMany({
+      where: { campaignId },
+      data: { version: { increment: 1 } },
+    })
+  }
+  // The books whose journal Foundry no longer has, from module 0.34.0, which lists those it
+  // has; an older module lists none, and nothing is reconciled.
+  if (features?.notes) {
+    await reconcileJournals(
+      tx,
+      campaignId,
+      characters.map(({ id }) => id),
+      groups.map(({ id }) => id),
+      features.notes.journals,
+    )
+  }
+  await tx.combat.deleteMany({ where: { campaignId } })
+  await tx.combat.createMany({
+    data: data.combats.map(combat => ({
+      campaignId,
+      combatId: combat.id,
+      data: toJson(combat),
+    })),
+  })
+  // A group it no longer lists has left the campaign, with its sheet; those it lists keep
+  // theirs until theirs follow.
+  await tx.groupSheet.deleteMany({
+    where: { campaignId, actorId: { notIn: groups.map(({ id }) => id) } },
+  })
+  // A companion it no longer lists has gone, with its sheet, before the descriptions kept are
+  // counted, so that only those listed keep theirs (module 0.36.0).
+  await dropUnlistedCompanions(tx, campaignId, companions)
+  if (data.sheetsApart === true) {
+    return keepRosterSheets(tx, campaignId, characters)
+  }
+  await tx.actorSheet.deleteMany({ where: { campaignId } })
+  await tx.actorSheet.createMany({
+    data: characters.flatMap(({ id, sheet }) =>
+      sheet ? [{ campaignId, actorId: id, data: toJson(sheet) }] : [],
+    ),
+  })
+  // Its descriptions came first; any no sheet refers to any more go, its companions' kept.
+  const sheets = characters.flatMap(({ sheet }) => (sheet ? [sheet] : []))
+  const companionSheets = await keptCompanionSheets(tx, campaignId)
+  await keepOnlySheetTexts(tx, campaignId, sheets, [], companionSheets)
+  return lacksSheetTexts(tx, campaignId, sheets, [], companionSheets)
 }
 
 /**
@@ -799,7 +729,6 @@ async function savePrompt(
   // Gone, then listed or opened again: open again. Answered, rolled or expired stays closed.
   await tx.rollPrompt.updateMany({
     where: { campaignId, promptId: prompt.id, closedReason: 'gone' },
-    // eslint-disable-next-line unicorn/no-null -- Prisma's value for an unset field
     data: { closedAt: null, closedReason: null },
   })
   await tx.rollPrompt.upsert({
@@ -827,7 +756,6 @@ export async function closePrompt(
   reason: string,
 ): Promise<boolean> {
   const { count } = await tx.rollPrompt.updateMany({
-    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
     where: { campaignId, promptId, closedAt: null },
     data: { closedAt: new Date(), closedReason: reason },
   })

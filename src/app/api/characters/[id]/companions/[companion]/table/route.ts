@@ -1,11 +1,9 @@
 import {
-  companionTableResponse,
   playerCompanionSeat,
-} from '@/lib/companion-routes'
-import { getCurrentUser } from '@/lib/session'
+  companionTableResponse,
+} from '@/lib/routes/companion-routes'
+import { seatAnswer } from '@/lib/routes/seat-resolver'
 import type { NextRequest } from 'next/server'
-
-const headers = { 'Cache-Control': 'no-store' }
 
 /**
  * A character's companion's view of its campaign, for its pane to poll (module 0.36.0): only its
@@ -17,12 +15,9 @@ export async function GET(
   request: NextRequest,
   context: RouteContext<'/api/characters/[id]/companions/[companion]/table'>,
 ) {
-  const user = await getCurrentUser()
-  if (!user) return new Response(undefined, { status: 401, headers })
-
-  const { id, companion } = await context.params
-  const seat = await playerCompanionSeat(user.id, id, companion)
-  if (!seat) return new Response(undefined, { status: 404, headers })
-
-  return companionTableResponse(request, seat)
+  return seatAnswer(
+    context.params,
+    (userId, { id, companion }) => playerCompanionSeat(userId, id, companion),
+    seat => companionTableResponse(request, seat),
+  )
 }

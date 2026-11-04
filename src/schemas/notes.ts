@@ -1,12 +1,16 @@
 import { z } from 'zod'
 import { MOST_NOTE_BODY, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
 import { NOTE_ID } from '@/utils/note-id'
+import type {
+  NoteChange,
+  NoteOrder,
+  NoteOrderResolve,
+  NoteResolve,
+} from '@/types/notes'
 
 // What a page sends to write journal notes (round 0.34.0 §8.3), from module 0.34.0: each is strict,
 // so a body naming anything more, such as a note's id or whose it is, is refused. Which book it's
 // in, who writes it and the new note's id all come from the seat and the server, never the body.
-
-export { NOTE_ID } from '@/utils/note-id'
 
 /** A title: one line, trimmed, of 1 to 200 characters. */
 const title = z
@@ -47,7 +51,6 @@ export const noteInputSchema = z
       ? {
           ...input,
           body: input.body ?? '',
-          // eslint-disable-next-line unicorn/no-null -- an entry in no chapter
           chapterId: input.chapterId ?? null,
         }
       : { role: input.role, title: input.title },
@@ -57,7 +60,7 @@ export const noteInputSchema = z
  * A change to a note or chapter, from what the page last saw of it. Whether its body and chapter
  * may be given depends on what it changes, which only the server knows (`checkChange`).
  */
-export const noteChangeSchema = z.strictObject({
+export const noteChangeSchema: z.ZodType<NoteChange> = z.strictObject({
   title,
   body: body.optional(),
   chapterId: chapterId.optional(),
@@ -65,7 +68,7 @@ export const noteChangeSchema = z.strictObject({
 })
 
 /** The seat's choice where the game didn't take its change. */
-export const noteResolveSchema = z.strictObject({
+export const noteResolveSchema: z.ZodType<NoteResolve> = z.strictObject({
   resolve: z.enum(['mine', 'theirs']),
   stamp: z.string().min(1).max(80),
 })
@@ -91,15 +94,16 @@ const orderIds = z
   .refine(ids => new Set(ids).size === ids.length, { message: 'Each once' })
 
 /** A new order of a group's notes, from what the page last saw of it (module 0.35.0). */
-export const noteOrderSchema = z.strictObject({
+export const noteOrderSchema: z.ZodType<NoteOrder> = z.strictObject({
   chapterId,
   ids: orderIds,
   stamp: z.string().min(1).max(80),
 })
 
 /** The seat's choice where the game didn't take a group's order. */
-export const noteOrderResolveSchema = z.strictObject({
-  chapterId,
-  resolve: z.enum(['mine', 'theirs']),
-  stamp: z.string().min(1).max(80),
-})
+export const noteOrderResolveSchema: z.ZodType<NoteOrderResolve> =
+  z.strictObject({
+    chapterId,
+    resolve: z.enum(['mine', 'theirs']),
+    stamp: z.string().min(1).max(80),
+  })

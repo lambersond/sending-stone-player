@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import {
   moveLabel,
   moveReasons,
@@ -6,8 +5,7 @@ import {
   namesWords,
   thingsWords,
 } from './move-words'
-import type { LocalMove } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
+import type { LocalMove, TableRollState } from '@/types/roll'
 
 const take: LocalMove = {
   verb: 'take',

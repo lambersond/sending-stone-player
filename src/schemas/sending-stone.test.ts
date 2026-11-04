@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { envelopeSchema, parseGameEvent } from './sending-stone'
@@ -4739,7 +4738,6 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
       important: false,
     })
     expect(creatureOf('dragon')).toBeUndefined()
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     expect(creatureOf(undefined)).toBeUndefined()
   })
 

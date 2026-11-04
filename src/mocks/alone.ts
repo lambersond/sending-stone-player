@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { characterSheet, sheetAction } from '@/mocks/sending-stone'
 import type {
   CharacterSheet,
@@ -14,7 +13,7 @@ import type {
  */
 
 /** Damage or healing as the game plans it: one roll, of the dice given. */
-export function planned(
+function planned(
   formula: string,
   type: string | null,
   dice: { faces: number; number: number }[],
@@ -100,7 +99,7 @@ export function fireBreath(fields: Partial<SheetAction> = {}): SheetAction {
 }
 
 /** Second Wind: healing, 1d10 + 5, never a critical hit's. */
-export function secondWind(fields: Partial<SheetAction> = {}): SheetAction {
+function secondWind(fields: Partial<SheetAction> = {}): SheetAction {
   return sheetAction({
     id: 'secondWind',
     name: 'Second Wind',

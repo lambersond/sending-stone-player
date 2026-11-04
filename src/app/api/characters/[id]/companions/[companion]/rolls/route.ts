@@ -1,9 +1,7 @@
-import { playerCompanionSeat } from '@/lib/companion-routes'
-import { rollPostResponse } from '@/lib/seat-routes'
-import { getCurrentUser } from '@/lib/session'
+import { playerCompanionSeat } from '@/lib/routes/companion-routes'
+import { seatAnswer } from '@/lib/routes/seat-resolver'
+import { rollPostResponse } from '@/lib/routes/seat-routes'
 import type { NextRequest } from 'next/server'
-
-const headers = { 'Cache-Control': 'no-store' }
 
 /**
  * Have a roll the player made here for their character's companion made in the Gamemaster's game,
@@ -15,12 +13,9 @@ export async function POST(
   request: NextRequest,
   context: RouteContext<'/api/characters/[id]/companions/[companion]/rolls'>,
 ) {
-  const user = await getCurrentUser()
-  if (!user) return new Response(undefined, { status: 401, headers })
-
-  const { id, companion } = await context.params
-  const seat = await playerCompanionSeat(user.id, id, companion)
-  if (!seat) return new Response(undefined, { status: 404, headers })
-
-  return rollPostResponse(request, seat)
+  return seatAnswer(
+    context.params,
+    (userId, { id, companion }) => playerCompanionSeat(userId, id, companion),
+    seat => rollPostResponse(request, seat),
+  )
 }

@@ -1,8 +1,5 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import {
   companionRollSeat,
-  companionRoster,
   companionSeat,
   getCompanionStatus,
   getCompanionText,
@@ -17,7 +14,9 @@ import {
   mockSummonedEntry,
   PARTY,
 } from '@/mocks/sending-stone'
+import { companionRoster } from '@/utils/companions'
 import { toTableSheet } from '@/utils/table-view'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 import type { CompanionEntry } from '@/types/sending-stone'
 
@@ -202,7 +201,6 @@ describe('db/companions', () => {
           imp,
         ]),
       ).toEqual([wolf, imp])
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       expect(companionRoster(undefined)).toEqual([])
       expect(companionRoster({ wolf })).toEqual([])
     })

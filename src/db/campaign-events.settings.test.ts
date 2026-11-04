@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import { applyCampaignEvent } from './campaign-events'
 import {
   combat,
@@ -8,6 +6,7 @@ import {
   roster,
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { GameEvent } from '@/types/sending-stone'
 
 // What Foundry says of itself for a campaign: its versions in every hello, and from module 0.30.0

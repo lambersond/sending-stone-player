@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
 import { randomUUID } from 'node:crypto'
 import {
   Prisma,
@@ -8,9 +7,17 @@ import {
 } from '@prisma/client'
 import prisma from '@/clients/prisma'
 import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
+import { NO_DICE } from '@/constants/roll-kinds'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { noteHtml } from '@/lib/note-html'
-import type { NoteBookKind, NoteReason, NoteRole } from '@/types/notes'
+import type {
+  NotePageCommand,
+  JournalDrawings,
+  NoteCommand,
+  NoteOrderCommand,
+  Tx,
+} from './types'
+import type { NoteBookKind, NoteReason } from '@/types/notes'
 import type {
   CommandResult,
   JournalPage,
@@ -28,55 +35,8 @@ import type {
 // over with the notes' changes, oldest first across both; and the book keeps who last deleted or
 // reordered its pages in Foundry, and when, as the module says.
 
-type Tx = Prisma.TransactionClient
-
 /** How long a made change is kept, so the seat's limit has rows to count while Foundry is live. */
 export const MADE_KEPT_FOR = 3_600_000
-
-/** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
-export type NotePageCommand = {
-  id: string
-  actorId: string
-  kind: 'note'
-  by?: 'gm'
-  note: {
-    book: NoteBookKind
-    op: 'create' | 'update' | 'delete'
-    id: string
-    role: NoteRole
-    base: string | null
-    writer: string | null
-    at: number
-    title?: string
-    markdown?: string
-    chapter?: string | null
-    createdAt?: number
-  }
-  mode: 0
-  explicit: false
-  extras: []
-  dice: []
-}
-
-/**
- * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
- * ids in the new order, and in Foundry's order it was made from.
- */
-export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
-  note: {
-    book: NoteBookKind
-    op: 'order'
-    /** The group: a chapter's page, or null for the notes in no chapter. */
-    chapter: string | null
-    ids: string[]
-    was: string[]
-    writer: string | null
-    at: number
-  }
-}
-
-/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
-export type NoteCommand = NotePageCommand | NoteOrderCommand
 
 /**
  * On each hello from module 0.34.0 (§4.6): the books whose journal it no longer lists are emptied,
@@ -198,9 +158,6 @@ function redrawn(
   )
 }
 
-/** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */
-export type JournalDrawings = { origin: string; html: Map<string, string> }
-
 /**
  * Draw a `journal.updated`'s notes ahead (§8.9), before the transaction that keeps them: a large
  * book's Markdown takes seconds to draw, longer than a transaction may stay open. Only those the
@@ -279,15 +236,7 @@ export async function applyJournalUpdated(
     where: { id: campaignId },
     select: { origin: true, characters: true, groups: true },
   })
-  if (!campaign) return
-  const roster =
-    event.kind === 'personal' ? campaign.characters : campaign.groups
-  const listed =
-    Array.isArray(roster) &&
-    (roster as ({ id?: unknown } | null)[]).some(
-      entry => entry?.id === event.actorId,
-    )
-  if (!listed) return
+  if (!campaign || !listedIn(campaign, event)) return
 
   const book = await tx.journalBook.upsert({
     where: {
@@ -321,10 +270,66 @@ export async function applyJournalUpdated(
   }
 
   const { journal } = event
-  const pages = journal?.notes ?? []
   const ahead = drawings?.origin === campaign.origin ? drawings.html : undefined
   const draw = (page: JournalPage) =>
     ahead?.get(page.id) ?? drawn(page, campaign.origin, event.kind)
+  changed = await mirrorPages(tx, book, journal?.notes ?? [], draw)
+  const journalId = journal?.id ?? null
+  const journalName = journal?.name ?? null
+  changed ||=
+    book.journalId !== journalId ||
+    book.journalName !== journalName ||
+    book.withheld !== null
+  // Who last deleted or reordered its pages in Foundry, from module 0.35.0, where it's later than
+  // the book's last such change: the latest by time wins, so a late post never moves it back.
+  const told = journal?.changed
+  const later =
+    !!told && (!book.changedAt || told.at > book.changedAt.getTime())
+  changed ||= later
+  await tx.journalBook.update({
+    where: { id: book.id },
+    data: {
+      journalId,
+      journalName,
+      withheld: Prisma.DbNull,
+      syncedAt: now,
+      ...(later && {
+        changedAt: new Date(told.at),
+        changedBy: told.by,
+        changedIn: 'foundry',
+      }),
+      ...(changed && { version: { increment: 1 } }),
+    },
+  })
+}
+
+/** Whether the campaign has the book's actor: a character, or a group, as its roster lists them. */
+function listedIn(
+  campaign: { characters: Prisma.JsonValue; groups: Prisma.JsonValue },
+  event: Pick<JournalUpdated, 'kind' | 'actorId'>,
+): boolean {
+  const roster =
+    event.kind === 'personal' ? campaign.characters : campaign.groups
+  return (
+    Array.isArray(roster) &&
+    (roster as ({ id?: unknown } | null)[]).some(
+      entry => entry?.id === event.actorId,
+    )
+  )
+}
+
+/**
+ * The mirror of a book made its journal's notes: those Foundry no longer has gone, each one
+ * changed written again, drawn again where its text changed, and new ones made.
+ * @returns Whether any note changed.
+ */
+async function mirrorPages(
+  tx: Tx,
+  book: { id: string; notes: JournalNote[] },
+  pages: JournalPage[],
+  draw: (page: JournalPage) => string,
+): Promise<boolean> {
+  let changed = false
   const held = new Map(book.notes.map(note => [note.noteId, note]))
   const places = placesOf(pages)
   const sent = new Set(pages.map(({ id }) => id))
@@ -359,33 +364,7 @@ export async function applyJournalUpdated(
     changed = true
     await tx.journalNote.createMany({ data: made })
   }
-  const journalId = journal?.id ?? null
-  const journalName = journal?.name ?? null
-  changed ||=
-    book.journalId !== journalId ||
-    book.journalName !== journalName ||
-    book.withheld !== null
-  // Who last deleted or reordered its pages in Foundry, from module 0.35.0, where it's later than
-  // the book's last such change: the latest by time wins, so a late post never moves it back.
-  const told = journal?.changed
-  const later =
-    !!told && (!book.changedAt || told.at > book.changedAt.getTime())
-  changed ||= later
-  await tx.journalBook.update({
-    where: { id: book.id },
-    data: {
-      journalId,
-      journalName,
-      withheld: Prisma.DbNull,
-      syncedAt: now,
-      ...(later && {
-        changedAt: new Date(told.at),
-        changedBy: told.by,
-        changedIn: 'foundry',
-      }),
-      ...(changed && { version: { increment: 1 } }),
-    },
-  })
+  return changed
 }
 
 /** A change's command id: the change's own, then which change of it this is. */
@@ -603,10 +582,7 @@ function pageCommand(
         createdAt: write.noteCreatedAt.getTime(),
       }),
     },
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: [],
+    ...NO_DICE,
   }
 }
 
@@ -632,10 +608,7 @@ function orderCommand(
       writer: gm ? null : order.writerActorId,
       at: order.modifiedAt.getTime(),
     },
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: [],
+    ...NO_DICE,
   }
 }
 
@@ -697,7 +670,6 @@ function outcome(result: CommandResult): {
 
 /** A note's key in its book, as Prisma names the pair. */
 function noteKey(bookId: string, noteId: string) {
-  // eslint-disable-next-line camelcase -- Prisma's name for the table's two-part key
   return { bookId_noteId: { bookId, noteId } }
 }
 
@@ -742,56 +714,67 @@ export async function recordNoteResult(
     }
     const write = await tx.journalWrite.findUnique({ where: { id } })
     if (!write) return
-    if (status === 'made') {
-      if (write.op === 'delete') {
-        await tx.journalNote.deleteMany({
-          where: { bookId: write.bookId, noteId: write.noteId },
-        })
-      } else if (typeof result.note?.rev === 'string') {
-        const rev = result.note.rev
-        const held = await tx.journalNote.findUnique({
-          where: noteKey(write.bookId, write.noteId),
-          select: { revision: true, chapterId: true },
-        })
-        if (held?.revision !== rev) {
-          // A note new to its group lands last in it, as the module makes it (round 0.35.0
-          // §2.3); one that stays keeps its place. The next book sets each right.
-          const comes = !held || held.chapterId !== write.chapterId
-          const place = comes ? await lastPlace(tx, write) : undefined
-          const mirror = {
-            role: write.role,
-            chapterId: write.chapterId,
-            title: write.title,
-            format: 2,
-            body: write.body,
-            html: write.html,
-            cut: false,
-            secret: false,
-            authorActorId: write.authorActorId,
-            authorGm: write.authorGm,
-            authorName: write.authorName || null,
-            createdAt: write.noteCreatedAt,
-            modifiedAt: write.modifiedAt,
-            modifiedBy: write.modifiedBy,
-            modifiedIn: 'app',
-            revision: rev,
-            ...(place !== undefined && { place }),
-          }
-          await tx.journalNote.upsert({
-            where: noteKey(write.bookId, write.noteId),
-            create: { bookId: write.bookId, noteId: write.noteId, ...mirror },
-            update:
-              write.role === 'chapter'
-                ? { ...mirror, html: undefined, body: undefined }
-                : mirror,
-          })
-        }
-      }
-    }
+    if (status === 'made') await mirrorMade(tx, write, result)
     await tx.journalBook.update({
       where: { id: write.bookId },
       data: { version: { increment: 1 } },
     })
+  })
+}
+
+/**
+ * The mirror of a change the module made, at once, where the book's post of it may be lost: a
+ * deletion gone, and a note as written, at the revision the module says, where the mirror is at
+ * another.
+ */
+async function mirrorMade(
+  tx: Tx,
+  write: JournalWrite,
+  result: CommandResult,
+): Promise<void> {
+  if (write.op === 'delete') {
+    await tx.journalNote.deleteMany({
+      where: { bookId: write.bookId, noteId: write.noteId },
+    })
+    return
+  }
+  if (typeof result.note?.rev !== 'string') return
+  const rev = result.note.rev
+  const held = await tx.journalNote.findUnique({
+    where: noteKey(write.bookId, write.noteId),
+    select: { revision: true, chapterId: true },
+  })
+  if (held?.revision === rev) return
+  // A note new to its group lands last in it, as the module makes it (round 0.35.0 §2.3); one
+  // that stays keeps its place. The next book sets each right.
+  const comes = !held || held.chapterId !== write.chapterId
+  const place = comes ? await lastPlace(tx, write) : undefined
+  const mirror = {
+    role: write.role,
+    chapterId: write.chapterId,
+    title: write.title,
+    format: 2,
+    body: write.body,
+    html: write.html,
+    cut: false,
+    secret: false,
+    authorActorId: write.authorActorId,
+    authorGm: write.authorGm,
+    authorName: write.authorName || null,
+    createdAt: write.noteCreatedAt,
+    modifiedAt: write.modifiedAt,
+    modifiedBy: write.modifiedBy,
+    modifiedIn: 'app',
+    revision: rev,
+    ...(place !== undefined && { place }),
+  }
+  await tx.journalNote.upsert({
+    where: noteKey(write.bookId, write.noteId),
+    create: { bookId: write.bookId, noteId: write.noteId, ...mirror },
+    update:
+      write.role === 'chapter'
+        ? { ...mirror, html: undefined, body: undefined }
+        : mirror,
   })
 }
 

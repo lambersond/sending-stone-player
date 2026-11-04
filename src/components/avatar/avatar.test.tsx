@@ -14,7 +14,6 @@ describe('components/avatar', () => {
   })
 
   it('falls back to the first letter of the name', () => {
-    // eslint-disable-next-line unicorn/no-null -- as stored for a user with no image
     const { container } = render(<Avatar name=' alice' image={null} />)
 
     expect(container).toHaveTextContent('A')

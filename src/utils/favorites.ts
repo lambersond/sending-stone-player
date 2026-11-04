@@ -1,85 +1,19 @@
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 import { allItems } from '@/utils/sheet-texts'
 import type { FavoriteTarget } from '@/types/roll'
 import type {
+  FavoriteEntry,
+  FavoriteIndex,
+  FavoriteView,
   CharacterSheet,
   SheetAction,
   SheetActivityFavorite,
-  SheetClass,
-  SheetContainer,
-  SheetEffect,
   SheetFavorite,
   SheetFeature,
   SheetItem,
   SheetItemFavorite,
   SheetResourceFavorite,
   SheetRolls,
-  SheetSkill,
-  SheetSlotsFavorite,
-  SheetSpell,
 } from '@/types/sending-stone'
-
-/**
- * A favorite, with what it refers to on the rest of the sheet, so that it can be shown as the
- * sheet shows that elsewhere. An item is shown as an action if it's one, rolled as the Actions tab
- * rolls it; otherwise as a spell, as something carried, as a feature or as a class. An activity is
- * shown as an action, for that activity alone. A skill or a tool rolls as the Character tab rolls a
- * skill. An old-style resource that stands for a feature is shown as that feature, as an action if
- * it's one, with the resource's uses; one that stands for none is a counter of its own.
- */
-export type FavoriteView =
-  | {
-      kind: 'action'
-      action: SheetAction
-      /** What to say of it first, such as the item an activity is one of. */
-      note?: string
-      /** The resource it stands for, whose uses it shows in place of its own. */
-      resource?: SheetResourceFavorite
-    }
-  | { kind: 'spell'; spell: SheetSpell }
-  | { kind: 'item'; item: SheetItem | SheetContainer }
-  | {
-      kind: 'feature'
-      feature: SheetFeature
-      /** The resource it stands for, whose uses it shows in place of its own. */
-      resource?: SheetResourceFavorite
-    }
-  | { kind: 'class'; entry: SheetClass }
-  | { kind: 'effect'; effect: SheetEffect; suppressed: boolean }
-  | {
-      kind: 'check'
-      check: SheetSkill
-      /** A skill's or a tool's, for the Gamemaster's game to roll it too. */
-      source: { kind: 'skill' | 'tool'; key: string }
-    }
-  | { kind: 'slots'; slots: SheetSlotsFavorite }
-  | { kind: 'resource'; resource: SheetResourceFavorite }
-  /** An item the sheet lists nowhere else, such as a background. */
-  | { kind: 'other'; item: SheetItemFavorite }
-
-/**
- * A favorite as it's shown, by a key unique among them, with what it is as the app adds and removes
- * it, from module 0.37.0: none for a resource, nor for the feature a resource stands for, whose
- * place among the favorites is the resource's, which the app never changes; nor for a skill, a tool
- * or spell slots, which are made favorites in Foundry.
- */
-export type FavoriteEntry = FavoriteView & {
-  key: string
-  target: FavoriteTarget | null
-}
-
-/** The sheet's lists, by id, to find what a favorite refers to. */
-export type FavoriteIndex = {
-  actions: Map<string, SheetAction>
-  spells: Map<string, SheetSpell>
-  items: Map<string, SheetItem | SheetContainer>
-  features: Map<string, SheetFeature>
-  /** The features, in the order the sheet lists them. */
-  listed: SheetFeature[]
-  classes: Map<string, SheetClass>
-  effects: Map<string, SheetEffect>
-  skills: Map<string, SheetSkill>
-}
 
 /**
  * The character's favorites, in their order, each with what it refers to. One that refers to

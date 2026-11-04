@@ -8,6 +8,9 @@ import { getCharacter } from '@/db/characters'
 import { previewNote } from '@/db/notes'
 import { partyNotesAccess } from '@/db/party'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -94,7 +97,6 @@ describe('app/api/characters/[id]/party/[group]/notes/preview', () => {
 
   it('answers 404 for a party the character may not see now', async () => {
     jest.mocked(getCharacter).mockResolvedValue(THORIN)
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
 
     await expect(post({ body: 'a' })).resolves.toHaveProperty('status', 404)

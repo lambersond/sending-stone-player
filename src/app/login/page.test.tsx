@@ -11,7 +11,7 @@ jest.mock('next/navigation', () => ({
 }))
 jest.mock('@/auth-providers', () => ({ enabledSocialProviders: jest.fn() }))
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
-jest.mock('@/components/sign-in-buttons', () => ({
+jest.mock('@/components/sign-in-buttons/sign-in-buttons', () => ({
   SignInButtons: ({ providers, callbackURL, errorCallbackURL }: any) => (
     <p>
       providers: {providers.join(', ')}; to {callbackURL}, or {errorCallbackURL}
@@ -26,7 +26,6 @@ const props = (searchParams: Record<string, string> = {}) => ({
 
 describe('app/login/page', () => {
   beforeEach(() => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
     jest.mocked(enabledSocialProviders).mockReturnValue(['google', 'discord'])
   })

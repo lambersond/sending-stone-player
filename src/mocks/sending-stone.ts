@@ -1,8 +1,11 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
-import type { NotePageCommand } from '@/db/note-sync'
+import { NO_DICE } from '@/constants/roll-kinds'
+import { DONE_HEAD } from '@/mocks/results'
+import { switchedOff, switchedOn, tableViewOf } from '@/mocks/switches'
+import type { NotePageCommand } from '@/db/types'
+import type { ChosenFavorite } from '@/mocks/types'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type { NotesView } from '@/types/notes'
-import type { GroupEntry, GroupSheet, PartyView } from '@/types/party'
+import type { PartyView, TableMoves } from '@/types/party'
 import type { FavoriteTarget } from '@/types/roll'
 import type {
   AloneSpend,
@@ -34,13 +37,10 @@ import type {
   SheetUses,
   SheetWildShape,
   TableDamagePlan,
+  GroupEntry,
+  GroupSheet,
 } from '@/types/sending-stone'
-import type {
-  CompanionView,
-  TableCombat,
-  TableMoves,
-  TableView,
-} from '@/types/table'
+import type { CompanionView, TableCombat, TableView } from '@/types/table'
 
 // Payloads shaped like the fvtt-sending-stone module's, for tests.
 
@@ -2223,9 +2223,7 @@ export function movedResult(
 ): CommandResult {
   return {
     id: 'req-move',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: 'm-line',
     visible: true,
     rolls: [],
@@ -2253,26 +2251,17 @@ export function manualDiceView(
   manualDice: NonNullable<TableView['manualDice']>,
   fields: Partial<TableView> = {},
 ): TableView {
-  return {
-    version: 7,
-    live: true,
-    campaign: { title: 'The Lonely Mountain' },
-    connected: true,
-    messages: [],
+  return tableViewOf({
     rollsToTable: ['skill', 'attack', 'damage'],
     rollFeatures: ['manualDice'],
     manualDice,
     ...fields,
-  }
+  })
 }
 
 /** The game lets Thorin's player type in their own dice, which they haven't chosen to. */
 export const offeredDiceView = (fields: Partial<TableView> = {}) =>
   manualDiceView({ offered: true, on: false }, fields)
-
-/** Thorin's player chose to type in their own dice, which the game no longer lets them. */
-export const storedDiceView = (fields: Partial<TableView> = {}) =>
-  manualDiceView({ offered: false, on: true }, fields)
 
 /** A finesse rapier dnd5e gives Elven Accuracy, as its sheet says from module 0.32.0. */
 export function rapierAction(fields: Partial<SheetAction> = {}): SheetAction {
@@ -2311,13 +2300,10 @@ export function typingRosterEntry(
 // Module 0.32.0: a party's things sent elsewhere by its Owner, and its coin distributed.
 
 /** What a hello from module 0.32.0 says of moves, on, under dnd5e. */
-export const SENDING_TRANSFERS = {
-  enabled: true,
-  kinds: ['transfer'],
-  reason: null,
+export const SENDING_TRANSFERS = switchedOn('transfer', {
   partySends: true,
   distribute: true,
-} as const
+})
 
 /** The Iron Company's members that are the campaign's characters, in its sheet's order. */
 export const COMPANY_CHARACTERS = [
@@ -2361,9 +2347,7 @@ export function distributedResult(
 ): CommandResult {
   return {
     id: 'req-move',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: 'm-line',
     visible: true,
     rolls: [],
@@ -2381,18 +2365,10 @@ export function distributedResult(
 // Module 0.33.0: an item removed from a character.
 
 /** What a hello from module 0.33.0 says of removals under dnd5e, with no switch: on. */
-export const REMOVING = {
-  enabled: true,
-  kinds: ['remove'],
-  reason: null,
-} as const
+export const REMOVING = switchedOn('remove')
 
 /** What a hello from module 0.33.0 says of removals under another system: off, and why. */
-export const NOT_REMOVING = {
-  enabled: false,
-  kinds: [],
-  reason: 'system',
-} as const
+export const NOT_REMOVING = switchedOff('system')
 
 /** Two of Thorin's three Potions of Healing removed. */
 export function removedResult(
@@ -2400,9 +2376,7 @@ export function removedResult(
 ): CommandResult {
   return {
     id: 'req-remove',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: 'm-line',
     visible: true,
     rolls: [],
@@ -2413,53 +2387,22 @@ export function removedResult(
 
 /** Thorin's table view as his player has it while the game removes his items, moves off. */
 export function removingTableView(fields: Partial<TableView> = {}): TableView {
-  return {
-    version: 7,
-    live: true,
-    campaign: { title: 'The Lonely Mountain' },
-    connected: true,
-    messages: [],
-    removes: true,
-    ...fields,
-  }
+  return tableViewOf({ removes: true, ...fields })
 }
 
 // Module 0.37.0: a character's favorites added and removed from the app.
 
 /** What a hello from module 0.37.0 says of favorites under dnd5e, with no switch: on. */
-export const FAVORITING = {
-  enabled: true,
-  kinds: ['favorite'],
-  reason: null,
-} as const
+export const FAVORITING = switchedOn('favorite')
 
 /** What a hello from module 0.37.0 says of favorites under another system: off, and why. */
-export const NOT_FAVORITING = {
-  enabled: false,
-  kinds: [],
-  reason: 'system',
-} as const
+export const NOT_FAVORITING = switchedOff('system')
 
 /** Thorin's table view as his player has it while the game takes his favorites, rolls off. */
 export function favoritingTableView(
   fields: Partial<TableView> = {},
 ): TableView {
-  return {
-    version: 7,
-    live: true,
-    campaign: { title: 'The Lonely Mountain' },
-    connected: true,
-    messages: [],
-    favorites: true,
-    ...fields,
-  }
-}
-
-/** What a row's favorites entry was chosen for, as `offeringFavorites` notes it. */
-export type ChosenFavorite = {
-  target: FavoriteTarget
-  name: string
-  op: 'add' | 'remove'
+  return tableViewOf({ favorites: true, ...fields })
 }
 
 /** A favorite's key, as `targetKey` makes it: "activity:<itemId>.<id>" or "<type>:<id>". */
@@ -2509,9 +2452,7 @@ export function favoritedResult(
 ): CommandResult {
   return {
     id: 'req-favorite',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: null,
     visible: true,
     rolls: [],
@@ -2523,36 +2464,19 @@ export function favoritedResult(
 // Module 0.38.0: dishes from the Magical Recipe Book.
 
 /** What a hello from module 0.38.0 says of dishes with the campaign's switch on, under dnd5e 5. */
-export const TAKING_DISHES = {
-  enabled: true,
-  kinds: ['dish'],
-  reason: null,
-  versions: [1],
-} as const
+export const TAKING_DISHES = switchedOn('dish', { versions: [1] })
 
 /** What it says with the campaign's switch off, the default. */
-export const DISHES_SWITCHED_OFF = {
-  enabled: false,
-  kinds: [],
-  reason: 'off',
-  versions: [],
-} as const
+export const DISHES_SWITCHED_OFF = switchedOff('off', { versions: [] })
 
 /** What it says with the switch on under another system, or under dnd5e 6. */
-export const DISHES_OTHER_SYSTEM = {
-  enabled: false,
-  kinds: [],
-  reason: 'system',
-  versions: [],
-} as const
+export const DISHES_OTHER_SYSTEM = switchedOff('system', { versions: [] })
 
 /** A dish's card posted in Foundry, waiting for the Gamemaster. */
 export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
   return {
     id: 'dish-cmh9q2x7k0003ssdish0001',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: 'Xy12ChatCardId00',
     visible: false,
     rolls: [],
@@ -2564,25 +2488,13 @@ export function dishResult(fields: Partial<CommandResult> = {}): CommandResult {
 // Module 0.39.0: a player's own effects.
 
 /** What a hello from module 0.39.0 says of effects with the campaign's switch on, under dnd5e. */
-export const TAKING_EFFECTS = {
-  enabled: true,
-  kinds: ['effect'],
-  reason: null,
-} as const
+export const TAKING_EFFECTS = switchedOn('effect')
 
 /** What it says with the campaign's switch off, the default. */
-export const EFFECTS_SWITCHED_OFF = {
-  enabled: false,
-  kinds: [],
-  reason: 'off',
-} as const
+export const EFFECTS_SWITCHED_OFF = switchedOff('off')
 
 /** What it says with the switch on under another system. */
-export const EFFECTS_OTHER_SYSTEM = {
-  enabled: false,
-  kinds: [],
-  reason: 'system',
-} as const
+export const EFFECTS_OTHER_SYSTEM = switchedOff('system')
 
 /** Bless turned off from the app: off now, its sheet sent first, nothing posted. */
 export function effectResult(
@@ -2590,9 +2502,7 @@ export function effectResult(
 ): CommandResult {
   return {
     id: 'req-effect',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: null,
     visible: true,
     rolls: [],
@@ -2604,31 +2514,19 @@ export function effectResult(
 // Module 0.40.0: Wild Shape.
 
 /** What a hello from module 0.40.0 says of Wild Shape, its campaign's switch on, under dnd5e. */
-export const TAKING_WILD_SHAPE = {
-  enabled: true,
-  kinds: ['wildShape'],
-  reason: null,
-} as const
+export const TAKING_WILD_SHAPE = switchedOn('wildShape')
 
 /** What it says with the campaign's switch off, the default. */
-export const WILD_SHAPE_SWITCHED_OFF = {
-  enabled: false,
-  kinds: [],
-  reason: 'off',
-} as const
+export const WILD_SHAPE_SWITCHED_OFF = switchedOff('off')
 
 /** What it says with the switch on under another system. */
-export const WILD_SHAPE_OTHER_SYSTEM = {
-  enabled: false,
-  kinds: [],
-  reason: 'system',
-} as const
+export const WILD_SHAPE_OTHER_SYSTEM = switchedOff('system')
 
 /**
  * Elowen's Wild Shape feature's id, its row's on her sheet and on her form's, which dnd5e copies
  * with her items' ids.
  */
-export const WILD_SHAPE_ITEM = 'phbdrdWildShape0'
+const WILD_SHAPE_ITEM = 'phbdrdWildShape0'
 
 /** The ids of the profiles of the forms Elowen knows, as dnd5e makes them. */
 export const FORM_IDS = {
@@ -2643,7 +2541,7 @@ export const FORM_IDS = {
 } as const
 
 /** A Beast of dnd5e's 2024 Actors, by its uuid. */
-export const actors24 = (id: string) => `Compendium.dnd5e.actors24.Actor.${id}`
+const actors24 = (id: string) => `Compendium.dnd5e.actors24.Actor.${id}`
 
 /** One of a druid's known forms, from the campaign's compendiums and within the rules, as given. */
 export function knownForm(
@@ -3121,9 +3019,7 @@ export function wildShapeResult(
 ): CommandResult {
   return {
     id: 'req-wildshape',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: null,
     visible: true,
     rolls: [],
@@ -3509,9 +3405,7 @@ export function aloneResult(
 ): CommandResult {
   return {
     id: 'req-alone',
-    status: 'done',
-    reason: null,
-    error: null,
+    ...DONE_HEAD,
     messageId: 'msg-alone',
     visible: true,
     rolls: [{ formula: '4d6', total: 14, dice: [], damageType: 'fire' }],
@@ -4024,10 +3918,7 @@ export function mockNoteCommand(
       createdAt: written(1),
       ...fields,
     },
-    mode: 0,
-    explicit: false,
-    extras: [],
-    dice: [],
+    ...NO_DICE,
   }
 }
 
@@ -4215,14 +4106,7 @@ export function mockCompanionSheet(
 
 /** A table view of Thorin's, as the app serves it, with no sheet unless given. */
 export function mockTableView(fields: Partial<TableView> = {}): TableView {
-  return {
-    version: 7,
-    live: true,
-    campaign: { title: 'The Frost Road' },
-    connected: true,
-    messages: [],
-    ...fields,
-  }
+  return tableViewOf({ campaign: { title: 'The Frost Road' }, ...fields })
 }
 
 /** The wolf's own view, for its pane, each its own roll unless given. */

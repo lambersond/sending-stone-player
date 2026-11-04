@@ -1,15 +1,13 @@
 import prisma from '@/clients/prisma'
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
 import { groupTextRefs, sheetTextRefs } from '@/utils/sheet-texts'
+import type { Tx } from './types'
 import type { Character } from '@/types/character'
-import type { AllowedGroup, GroupSheet } from '@/types/party'
-import type { CharacterSheet } from '@/types/sending-stone'
-import type { Prisma } from '@prisma/client'
+import type { AllowedGroup } from '@/types/party'
+import type { CharacterSheet, GroupSheet } from '@/types/sending-stone'
 
 // The descriptions a campaign's sheets refer to by hash. The module sends each before the sheet
 // that refers to it, and the same hash always names the same description.
-
-type Tx = Prisma.TransactionClient
 
 /**
  * Keep descriptions for a campaign, sanitised, with images and links pointing at its game.

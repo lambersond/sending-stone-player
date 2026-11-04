@@ -44,6 +44,9 @@ export const DISHES_SHOWN = 10
 /** How often the player's card asks after its dishes, in milliseconds. */
 export const COOKBOOK_POLL_EVERY = 15_000
 
+/** The longest wait between reads of the card while the server can't be reached. */
+export const COOKBOOK_MOST_DELAY = 120_000
+
 /**
  * The most a change this app doesn't know is kept as sent: its keys, and its JSON's length
  * (round 0.38.0): unknown kinds are forwarded to Foundry and listed on its card.
@@ -67,5 +70,3 @@ export const COOKBOOK_REFUSAL = {
   FULL: 'full',
   UNAVAILABLE: 'unavailable',
 } as const
-export type CookbookRefusalReason =
-  (typeof COOKBOOK_REFUSAL)[keyof typeof COOKBOOK_REFUSAL]

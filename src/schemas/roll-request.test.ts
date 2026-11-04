@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the protocol says no target with null */
 import { commandsPollSchema, rollRequestSchema } from './roll-request'
 
 /** A Perception check, rolled normally. */

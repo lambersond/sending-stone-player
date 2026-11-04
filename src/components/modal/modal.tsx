@@ -1,39 +1,13 @@
 'use client'
 
-import { useEffect, useId, type ReactNode, type RefObject } from 'react'
+import { useEffect, useId } from 'react'
 import clsx from 'clsx'
 import { ArrowLeft, X } from 'lucide-react'
-import { InPortalRoot, useDialogRoot } from './portal-root'
+import { InPortalRoot } from './in-portal-root'
+import { useDialogRoot } from './use-dialog-root'
+import { HEADER_ICON_BUTTON } from '@/constants/buttons'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
-
-type Props = {
-  open: boolean
-  onClose: () => void
-  title: string
-  /** Under the title, such as where its content comes from. */
-  subtitle?: string
-  /** On a phone, as wide as the screen, as the side panel is: for content that needs the room. */
-  fullOnPhone?: boolean
-  /**
-   * What takes focus as it opens, such as a confirm's Cancel (round 0.39.0): without it, the
-   * browser gives focus to the first control in it, the header's Close.
-   */
-  initialFocus?: RefObject<HTMLElement | null>
-  /**
-   * Where it sits (round 0.40.0): centred, as ever; or as a sheet, which on a phone rises from the
-   * bottom of the screen, as wide as it, its top corners rounded, at most 92% of its height, and
-   * from `sm` up is a centred dialog up to 640 pixels wide.
-   */
-  placement?: 'center' | 'sheet'
-  /**
-   * What stays under its content, outside what scrolls, such as a picker's note and its button
-   * (round 0.40.0); above the screen's own inset at the bottom, as a sheet.
-   */
-  footer?: ReactNode
-  /** A way back, before its title, for a dialog with views one inside another (round 0.40.0). */
-  back?: { label: string; onClick: () => void }
-  children: ReactNode
-}
+import type { ModalProps } from './types'
 
 /**
  * A modal dialog on the browser's own <dialog>, which keeps focus inside it, closes on Escape and
@@ -51,7 +25,7 @@ export function Modal({
   footer,
   back,
   children,
-}: Readonly<Props>) {
+}: Readonly<ModalProps>) {
   const sheet = placement === 'sheet'
   const ref = useModalDialog(open)
   const { root, attach } = useDialogRoot(ref)
@@ -123,7 +97,7 @@ export function Modal({
               onClick={onClose}
               aria-label='Close'
               className={clsx(
-                '-mr-1.5 shrink-0 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary',
+                `-mr-1.5 shrink-0 ${HEADER_ICON_BUTTON}`,
                 // As tall as a finger on a phone, as every control in a sheet is.
                 sheet &&
                   'flex min-h-11 min-w-11 items-center justify-center sm:min-h-9 sm:min-w-9',

@@ -3,8 +3,9 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfirmDialog } from './confirm-dialog'
 import { Modal } from './modal'
-import { usePortalRoot, useTopmostEscape } from './portal-root'
-import { SidePanel } from '@/components/side-panel'
+import { usePortalRoot } from './use-portal-root'
+import { useTopmostEscape } from './use-topmost-escape'
+import { SidePanel } from '@/components/side-panel/side-panel'
 
 /** A dialog as a browser shows it, which jsdom's doesn't: its first control focused. */
 class FocusingDialog extends HTMLDialogElement {

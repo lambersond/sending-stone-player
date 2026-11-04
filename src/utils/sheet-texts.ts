@@ -1,10 +1,10 @@
-import type { GroupSheet } from '@/types/party'
 import type {
   CharacterSheet,
   SheetActivity,
   SheetCast,
   SheetContainer,
   SheetItem,
+  GroupSheet,
 } from '@/types/sending-stone'
 
 /**

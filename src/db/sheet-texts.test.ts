@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/no-null -- what Prisma returns for an absent value */
-import { prismaMock } from '../../jest.setup'
 import {
   getGroupText,
   getSheetText,
@@ -14,6 +12,7 @@ import {
   TEXTS,
 } from '@/mocks/sending-stone'
 import { groupTextRefs, sheetTextRefs } from '@/utils/sheet-texts'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { Character } from '@/types/character'
 
 const character = {

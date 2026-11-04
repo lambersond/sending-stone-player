@@ -1,5 +1,6 @@
-import { seatWords, type SeatRole } from '@/utils/seat-words'
-import type { PrepareOp } from '@/constants/sending-stone'
+import { seatWords } from '@/utils/seat-words'
+import type { SeatRole } from '@/types/seats'
+import type { PrepareOp } from '@/types/sending-stone'
 
 // How a spell prepared or unprepared (module 0.42.1) is told, in English: its menu entry, its line
 // on its way, made, refused, and in short, and why it wasn't made where that differs from a roll's.

@@ -1,8 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import { createRollRequest } from './roll-requests'
 import { playerSeat } from './seats'
 import { createWildShapeRequest, shapedRefusal } from './wild-shape'
@@ -16,6 +14,7 @@ import {
   wolfForm,
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput, WildShapeInput } from '@/types/roll'
 

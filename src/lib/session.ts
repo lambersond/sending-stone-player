@@ -2,8 +2,7 @@ import { cache } from 'react'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
-
-export type SessionUser = typeof auth.$Infer.Session.user
+import type { SessionUser } from './types'
 
 /**
  * The signed-in user, checked against the database once per request.

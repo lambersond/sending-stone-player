@@ -8,7 +8,10 @@ import { notePlayersSeen, noteTableOpen } from '@/db/roll-requests'
 import { playerSeat } from '@/db/seats'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
 import type { RollKind } from '@/types/roll'
+
+guardNoDb()
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({
@@ -374,7 +377,6 @@ describe('app/api/characters/[id]/table', () => {
 
     jest
       .mocked(getCharacter)
-      // eslint-disable-next-line unicorn/no-null -- the character's campaign is unset
       .mockResolvedValue({ ...character, campaignId: null })
     jest.mocked(notePlayersSeen).mockClear()
     await get()
@@ -423,7 +425,6 @@ describe('app/api/characters/[id]/table', () => {
   })
 
   it('refuses someone not signed in', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     const response = await get()
@@ -433,7 +434,6 @@ describe('app/api/characters/[id]/table', () => {
   })
 
   it("is not found for a character that isn't the user's", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     const response = await get()

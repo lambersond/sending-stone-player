@@ -1,13 +1,15 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the seats and the notes in no chapter use null for none */
 import { NextRequest } from 'next/server'
 import { PATCH, PUT } from './route'
 import { getCharacter } from '@/db/characters'
 import { reorderNotes, resolveOrder } from '@/db/notes'
 import { partyNotesAccess } from '@/db/party'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -132,7 +134,6 @@ describe('app/api/characters/[id]/party/[group]/notes/order', () => {
   })
 
   it('answers 404 for a party the player may not see now, saying no more', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- not theirs to see
     jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
 
     for (const [method, body] of [

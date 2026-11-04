@@ -6,7 +6,7 @@ import {
   REFUSAL_SHOWN_FOR,
   WAITING_SECRET_CHECKS,
 } from '@/constants/sending-stone'
-import { attempt } from '@/lib/bridge-http'
+import { attempt } from '@/lib/attempt'
 import {
   generateInviteCode,
   hashSecret,
@@ -14,8 +14,9 @@ import {
 } from '@/lib/campaign-secret'
 import { companionRoster } from '@/utils/companions'
 import { literalPattern } from '@/utils/literal-pattern'
-import { availableRollKinds } from '@/utils/roll-requests'
+import { availableRollKinds } from '@/utils/requests/availability'
 import { transfersAvailable } from '@/utils/transfers'
+import type { EventCampaign } from './types'
 import type {
   CampaignChoice,
   CampaignRefusal,
@@ -23,8 +24,11 @@ import type {
   OwnedCampaign,
 } from '@/types/campaign'
 import type { FoundrySnapshot } from '@/types/foundry-settings'
-import type { GroupEntry } from '@/types/party'
-import type { CampaignRef, ConnectedCharacter } from '@/types/sending-stone'
+import type {
+  CampaignRef,
+  ConnectedCharacter,
+  GroupEntry,
+} from '@/types/sending-stone'
 
 /** Is a Gamemaster's game sending, judging by when its campaign last heard anything? */
 export function isLive(lastSeenAt: Date | null | undefined, now = Date.now()) {
@@ -79,12 +83,10 @@ function refusalOf(
 
 /** What clears a campaign's recorded refusal, as binding it or changing its secret does. */
 const NO_REFUSAL = {
-  /* eslint-disable unicorn/no-null -- Prisma unsets a column with null */
   refusedAt: null,
   refusalReason: null,
   refusalStatus: null,
   refusalDetail: null,
-  /* eslint-enable unicorn/no-null */
 }
 
 /* -------------------------------------------- */
@@ -334,10 +336,6 @@ export async function removeCampaign(
 /*  The module                                  */
 /* -------------------------------------------- */
 
-/** The campaign an event is for, with the module session whose state it holds, if any. */
-export type EventCampaign =
-  { id: string; helloSession?: string } | 'unknown' | 'refused'
-
 /**
  * Find the campaign an event is for, and check that the secret it came with is that campaign's.
  * The module's campaign is bound by its first event to the campaign set up here with its title
@@ -386,9 +384,7 @@ export async function findEventCampaign(
     where: {
       origin,
       // Prisma's filters for an unset field.
-      // eslint-disable-next-line unicorn/no-null
       foundryId: null,
-      // eslint-disable-next-line unicorn/no-null
       secretHash: { not: null },
       title: { equals: literalPattern(campaign.title), mode: 'insensitive' },
     },
@@ -396,39 +392,7 @@ export async function findEventCampaign(
     select: { id: true, secretHash: true },
   })
   if (candidates.length === 0) {
-    if (record && secret) {
-      // Anyone can post a title from a game's address, so it's recorded only on the game's
-      // campaigns waiting for Foundry whose secret it came with: the module's, under another title.
-      // Each check is a scrypt hash, so only the newest few are checked, as the one just set up for
-      // the module is likely among them.
-      const waiting = await prisma.campaign.findMany({
-        where: {
-          origin,
-          // Prisma's filters for an unset field, and a set one.
-          // eslint-disable-next-line unicorn/no-null
-          foundryId: null,
-          // eslint-disable-next-line unicorn/no-null
-          secretHash: { not: null },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: WAITING_SECRET_CHECKS,
-        select: { id: true, secretHash: true },
-      })
-      const ids: string[] = []
-      for (const { id, secretHash } of waiting) {
-        if (await verifySecret(secret, secretHash ?? '')) ids.push(id)
-      }
-      if (ids.length > 0) {
-        await recordRefusal(
-          { ids },
-          {
-            reason: REFUSAL.NOT_SET_UP,
-            status: 404,
-            detail: campaign.title.slice(0, 200),
-          },
-        )
-      }
-    }
+    if (record && secret) await recordNotSetUp(origin, campaign, secret)
     return 'unknown'
   }
   for (const candidate of candidates) {
@@ -438,6 +402,44 @@ export async function findEventCampaign(
     }
   }
   return wrongSecret(candidates.map(({ id }) => id))
+}
+
+/**
+ * Record a post for a title no campaign of the game has, for the cards to explain. Anyone can post
+ * a title from a game's address, so it's recorded only on the game's campaigns waiting for Foundry
+ * whose secret it came with: the module's, under another title. Each check is a scrypt hash, so
+ * only the newest few are checked, as the one just set up for the module is likely among them.
+ */
+async function recordNotSetUp(
+  origin: string,
+  campaign: CampaignRef,
+  secret: string,
+): Promise<void> {
+  const waiting = await prisma.campaign.findMany({
+    where: {
+      origin,
+      // Prisma's filters for an unset field, and a set one.
+      foundryId: null,
+      secretHash: { not: null },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: WAITING_SECRET_CHECKS,
+    select: { id: true, secretHash: true },
+  })
+  const ids: string[] = []
+  for (const { id, secretHash } of waiting) {
+    if (await verifySecret(secret, secretHash ?? '')) ids.push(id)
+  }
+  if (ids.length > 0) {
+    await recordRefusal(
+      { ids },
+      {
+        reason: REFUSAL.NOT_SET_UP,
+        status: 404,
+        detail: campaign.title.slice(0, 200),
+      },
+    )
+  }
 }
 
 /**
@@ -462,7 +464,6 @@ export async function recordRefusal(
             { id: { in: ids } },
             {
               OR: [
-                // eslint-disable-next-line unicorn/no-null -- Prisma's filter for an unset field
                 { refusedAt: null },
                 {
                   refusedAt: {
@@ -478,7 +479,6 @@ export async function recordRefusal(
           refusedAt: now,
           refusalReason: reason,
           refusalStatus: status,
-          // eslint-disable-next-line unicorn/no-null -- Prisma unsets a column with null
           refusalDetail: detail ?? null,
         },
       }),
@@ -533,7 +533,6 @@ export async function checkGameSecret(
   secret: string,
 ): Promise<'ok' | 'unknown' | 'refused'> {
   const campaigns = await prisma.campaign.findMany({
-    // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
     where: { origin, secretHash: { not: null } },
     select: { secretHash: true },
   })

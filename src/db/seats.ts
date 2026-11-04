@@ -1,4 +1,6 @@
 import prisma from '@/clients/prisma'
+import { getCharacter } from '@/db/characters'
+import { FOUNDRY_ID } from '@/db/constants'
 import type { Character, SheetSeat } from '@/types/character'
 import type { ConnectedCharacter } from '@/types/sending-stone'
 
@@ -7,9 +9,6 @@ import type { ConnectedCharacter } from '@/types/sending-stone'
 // through the campaign they own, without claiming the character. Every route that reads a sheet,
 // its descriptions, rolls, prompts or chat resolves a seat one of these two ways and scopes all it
 // does by it, never by ids in a request's body.
-
-/** An actor's id as the module sends it. */
-const ACTOR_ID = /^[\dA-Za-z]{1,64}$/
 
 /** A player at their own character's sheet. */
 export function playerSeat(character: Character, userId: string): SheetSeat {
@@ -28,6 +27,18 @@ export function playerSeat(character: Character, userId: string): SheetSeat {
 }
 
 /**
+ * A player at their own Character's sheet, found by its id.
+ * @returns Undefined for a character that isn't the user's.
+ */
+export async function getPlayerSeat(
+  userId: string,
+  characterId: string,
+): Promise<SheetSeat | undefined> {
+  const character = await getCharacter(userId, characterId)
+  return character ? playerSeat(character, userId) : undefined
+}
+
+/**
  * The Gamemaster at one of their campaign's characters' sheets: only the campaign's owner, and
  * only for an actor in its roster, claimed or not.
  * @returns Undefined for anyone else, a campaign of another's, or an actor not in the roster.
@@ -37,7 +48,7 @@ export async function getGmSeat(
   campaignId: string,
   actorId: string,
 ): Promise<SheetSeat | undefined> {
-  if (!userId || !ACTOR_ID.test(actorId)) return undefined
+  if (!userId || !FOUNDRY_ID.test(actorId)) return undefined
   const campaign = await prisma.campaign.findFirst({
     where: { id: campaignId, ownerId: userId },
     select: { id: true, title: true, origin: true, characters: true },
@@ -58,7 +69,6 @@ export async function getGmSeat(
     userId,
     // The Gamemaster has no Character of the campaign's for this actor, and never reads its
     // player's place in the chat.
-    // eslint-disable-next-line unicorn/no-null -- the seat has no character
     characterId: null,
   }
 }

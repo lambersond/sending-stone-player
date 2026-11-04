@@ -1,6 +1,4 @@
-/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
 import { Prisma } from '@prisma/client'
-import { prismaMock } from '../../jest.setup'
 import {
   chooseCharacter,
   deleteCharacter,
@@ -11,6 +9,7 @@ import {
   setCharacterManualDice,
 } from './characters'
 import { roster } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 const select = {
   id: true,

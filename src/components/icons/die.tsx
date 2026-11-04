@@ -1,7 +1,5 @@
+import type { DieSides } from './types'
 import type { SVGProps } from 'react'
-
-/** The sizes of die there's an icon of. */
-export type DieSides = 4 | 6 | 8 | 10 | 12 | 20
 
 /*
  * Each die's shape, drawn in its own box, as the Magical Recipe Book draws it: the paths are

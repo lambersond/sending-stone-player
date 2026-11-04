@@ -19,7 +19,6 @@ describe('link codes', () => {
 
   it('takes the example and refuses what no code is', () => {
     expect(isCookbookCode(EXAMPLE)).toBe(true)
-    // eslint-disable-next-line unicorn/no-useless-undefined -- no code at all
     expect(isCookbookCode(undefined)).toBe(false)
     expect(isCookbookCode('x')).toBe(false)
     expect(isCookbookCode(EXAMPLE.slice(0, -1))).toBe(false)

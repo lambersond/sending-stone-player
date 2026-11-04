@@ -1,5 +1,5 @@
-/* eslint-disable unicorn/no-null -- the protocol uses null for an absent value */
 import { z } from 'zod'
+import { leftOut, orNull } from '@/schemas/utils'
 import type { FoundrySettings } from '@/types/foundry-settings'
 
 // The Foundry settings a module from 0.30.0 sends with each hello, and in bridge.settings when one
@@ -30,7 +30,7 @@ const listOf = <T extends z.ZodType>(entry: T, most: number) =>
 const moduleSchema = z.object({
   id: text,
   title: text,
-  version: z.string().max(LONGEST).nullable().catch(null),
+  version: orNull(z.string().max(LONGEST)),
   active: z.boolean().catch(false),
 })
 
@@ -41,8 +41,7 @@ const rowSchema = z.object({
     .union([z.boolean(), z.string().max(LONGEST_VALUE), z.number(), z.null()])
     .catch(null),
   text,
-  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk
-  note: z.string().max(LONGEST).optional().catch(undefined),
+  note: leftOut(z.string().max(LONGEST)),
 })
 
 const sectionSchema = z.object({

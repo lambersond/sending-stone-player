@@ -1,14 +1,16 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the view uses null for an absent value */
 import { createHash } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { GET } from './route'
 import { getCharacter } from '@/db/characters'
 import { getCookbookView } from '@/db/cookbook'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
 import type { CookbookView } from '@/types/cookbook'
+
+guardNoDb()
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/cookbook', () => ({ getCookbookView: jest.fn() }))
@@ -115,7 +117,6 @@ describe('app/api/characters/[id]/cookbook', () => {
   })
 
   it("answers a bare 404 for another user's character", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     const response = await get()
@@ -140,7 +141,6 @@ describe('app/api/characters/[id]/cookbook', () => {
   })
 
   it('answers a bare 404 where the campaign is gone', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getCookbookView).mockResolvedValue(undefined)
 
     const response = await get()

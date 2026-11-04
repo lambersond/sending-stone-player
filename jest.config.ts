@@ -1,6 +1,11 @@
 import nextJest from 'next/jest.js'
 import type { Config } from 'jest'
 
+// Every suite runs in UTC, whatever the machine's own zone: set here, in Jest's own process before
+// its workers start, as each worker and a run in band take it from there (a suite's own
+// `process.env.TZ` is a copy, which Node's clock never reads).
+process.env.TZ = 'UTC'
+
 const createJestConfig = nextJest({
   dir: './',
 })

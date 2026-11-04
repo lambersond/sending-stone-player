@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { z } from 'zod'
 import { OPTIONS, POST } from './route'
 import { MAX_ENVELOPE_BYTES } from '@/constants/sending-stone'
@@ -23,6 +22,9 @@ import {
   roster,
 } from '@/mocks/sending-stone'
 import { parseGameEvent } from '@/schemas/sending-stone'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/db/campaign-events', () => ({ applyCampaignEvent: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({

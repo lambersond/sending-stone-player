@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the Gamemaster's seat has no character, null */
 import { NextRequest } from 'next/server'
 import { GET as getRoll } from './rolls/[roll]/route'
 import { POST as postRoll } from './rolls/route'
@@ -17,6 +16,9 @@ import { getGmSeat } from '@/db/seats'
 import { getSheetText } from '@/db/sheet-texts'
 import { getCampaignStatus, getTableView } from '@/db/table'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/db/seats', () => ({ getGmSeat: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({
@@ -176,13 +178,11 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
   it.each(Object.keys(routes) as (keyof typeof routes)[])(
     '%s: not found, saying nothing, for another user’s campaign or a character not in its roster; 401 signed out',
     async name => {
-      // eslint-disable-next-line unicorn/no-useless-undefined
       jest.mocked(getGmSeat).mockResolvedValue(undefined)
       const missing = await routes[name]()
       expect(missing.status).toBe(404)
       await expect(missing.text()).resolves.toBe('')
 
-      // eslint-disable-next-line unicorn/no-useless-undefined
       jest.mocked(getCurrentUser).mockResolvedValue(undefined)
       jest.mocked(getGmSeat).mockClear()
       await expect(routes[name]()).resolves.toHaveProperty('status', 401)
@@ -199,7 +199,6 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
   )
 
   it("is not found for a roll that isn't this Gamemaster's as this character", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getRollRequestView).mockResolvedValue(undefined)
     await expect(routes.roll()).resolves.toHaveProperty('status', 404)
   })

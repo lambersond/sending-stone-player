@@ -1,4 +1,8 @@
-import { notesPostResponse, notesResponse, notesSeat } from '@/lib/notes-routes'
+import {
+  notesPostResponse,
+  notesResponse,
+  notesSeat,
+} from '@/lib/routes/notes-routes'
 import type { NextRequest } from 'next/server'
 
 /**

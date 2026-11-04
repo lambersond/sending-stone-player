@@ -1,14 +1,10 @@
-import { seatWords, type SeatRole } from '@/utils/seat-words'
-import type { LocalMove } from '@/hooks/use-sheet-roller'
-import type { TableRollState } from '@/hooks/use-table-rolls'
+import { seatWords } from '@/utils/seat-words'
+import type { LocalMove, MovedPart, TableRollState } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 
 // How a move of items and coins (module 0.31.0) is told, in English: what moved, as the game's
 // chat line says it, where it stands on its way to the game, and why it wasn't made. From module
 // 0.33.0, a removal of the character's item is told the same way.
-
-/** A part of a move, as it's told: an item and how many of it, or a coin and how many. */
-export type MovedPart =
-  { quantity: number; name: string } | { coins: number; abbreviation: string }
 
 /**
  * What a move moves, as the module's chat line says it in English: "2 Potion of Healing", or

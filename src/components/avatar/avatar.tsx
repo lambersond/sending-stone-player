@@ -1,12 +1,8 @@
 import clsx from 'clsx'
+import { initial } from './utils'
+import type { AvatarProps } from './types'
 
-type Props = {
-  name: string
-  image?: string | null
-  className?: string
-}
-
-export function Avatar({ name, image, className }: Readonly<Props>) {
+export function Avatar({ name, image, className }: Readonly<AvatarProps>) {
   const classes = clsx(
     'shrink-0 rounded-full bg-primary/15 object-cover',
     className ?? 'size-8',
@@ -36,5 +32,3 @@ export function Avatar({ name, image, className }: Readonly<Props>) {
     </span>
   )
 }
-
-const initial = (name: string) => name.trim().charAt(0).toUpperCase() || '?'

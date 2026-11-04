@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/session'
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 let pathname = '/'
 jest.mock('next/navigation', () => ({ usePathname: () => pathname }))
-jest.mock('@/components/sign-out-button', () => ({
+jest.mock('@/components/sign-out-button/sign-out-button', () => ({
   SignOutButton: () => <button type='button'>Sign out</button>,
 }))
 
@@ -32,7 +32,6 @@ describe('components/site-header', () => {
   })
 
   it('offers sign-in to someone signed out', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
     render(await HeaderAccount())
 

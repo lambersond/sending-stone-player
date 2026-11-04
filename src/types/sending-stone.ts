@@ -1,12 +1,15 @@
 import type {
+  REFUSAL,
+  EFFECT_OPS,
+  PREPARE_OPS,
+  WILD_SHAPE_OPS,
+  SPELL_SLOT_OPS,
+  LINK_CLASSES,
   ALONE_SPENDS,
-  EffectOp,
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
 import type { NoteBookKind, NoteRole } from '@/types/notes'
-import type { GroupEntry, GroupSheet } from '@/types/party'
-import type { RemovedItem, TransferMoved } from '@/types/roll'
 import type { DieSides } from '@lambersond/3d-dice-core'
 
 /**
@@ -245,7 +248,7 @@ export type AloneSpend = (typeof ALONE_SPENDS)[number]
  * slot's level above the spell's own, a weapon's attack mode, its ammunition's id, as many as it
  * picks; its dice, and a critical hit's where one is allowed.
  */
-export type AloneChoicePlan = {
+type AloneChoicePlan = {
   level?: number
   attackMode?: string
   ammunition?: string
@@ -382,12 +385,12 @@ export type SheetFeature = {
  * How a feature or inventory item that rolls, or is used through anything, is used, as an action
  * is, and what it rolls. Module 0.13.0; absent from one that rolls nothing, and before.
  */
-export type SheetUsage = Partial<
+type SheetUsage = Partial<
   Pick<SheetAction, 'range' | 'target' | 'concentration'> & SheetRolls
 >
 
 /** Features from one class, the species, the background, or anything else. */
-export type SheetFeatureSection = {
+type SheetFeatureSection = {
   id: string
   label: string
   /** The class's, species' or background's own description. */
@@ -557,9 +560,9 @@ export type SheetSpellSection = {
 }
 
 /** Such as Senses: Darkvision 60 ft. */
-export type SheetTrait = { id: string; label: string; values: string[] }
+type SheetTrait = { id: string; label: string; values: string[] }
 
-export type SheetDetail = { id: string; label: string; value: string }
+type SheetDetail = { id: string; label: string; value: string }
 
 export type SheetDetails = {
   /** Alignment, age and the like. */
@@ -573,7 +576,7 @@ export type SheetDetails = {
 }
 
 /** A part of an action's damage or healing, such as 1d8 + 4 slashing. */
-export type SheetDamage = {
+type SheetDamage = {
   /** As dnd5e shows it, such as "1d8 + 4". */
   formula: string
   /** Such as "Slashing" or "Healing"; null for none. */
@@ -759,16 +762,13 @@ export type SheetCastLevel = {
  * Whom an area attack is made at: as many as it affects, or any number, more for each level a
  * spell is cast above its own where it says so, and of what kind, such as "creature".
  */
-export type SheetAttackArea = Pick<
-  SheetUseTargets,
-  'count' | 'perLevel' | 'affects'
->
+type SheetAttackArea = Pick<SheetUseTargets, 'count' | 'perLevel' | 'affects'>
 
 /**
  * A utility activity's own formula, with the character's numbers in it, such as "1d4 + 3", and
  * what dnd5e calls it, such as "Light radius", if anything.
  */
-export type SheetFormula = { formula: string; name: string | null }
+type SheetFormula = { formula: string; name: string | null }
 
 /**
  * An activity a player can have used in the Gamemaster's game other than an attack: one calling for
@@ -833,7 +833,7 @@ export type SheetEnchantProfile = {
 }
 
 /** An enchantment an enchant activity applied: on which item, its effect's id, and which way. */
-export type SheetEnchantApplied = {
+type SheetEnchantApplied = {
   item: string
   effect: string
   profile: string
@@ -860,7 +860,7 @@ export type SheetCheck = {
  * One way a check an activity asks for may be made: an ability check, or a skill's or a tool's,
  * each with the ability it's made with, as dnd5e's card's button has it.
  */
-export type SheetCheckOption = {
+type SheetCheckOption = {
   type: 'check' | 'skill' | 'tool'
   /** dnd5e's id, such as "dex". */
   ability: string
@@ -959,10 +959,10 @@ export type SheetUseTargets = {
 }
 
 /** A way a weapon attacks, such as "twoHanded", as dnd5e labels it, such as "Two-Handed". */
-export type SheetAttackMode = { value: string; label: string }
+type SheetAttackMode = { value: string; label: string }
 
 /** Ammunition a weapon fires, by its item's id, with how much is left. */
-export type SheetAmmunition = { id: string; name: string; quantity: number }
+type SheetAmmunition = { id: string; name: string; quantity: number }
 
 /**
  * What an action rolls, and what it's used through in the Gamemaster's game. Module 0.13.0 sends
@@ -1053,7 +1053,7 @@ export type SheetActivityFavorite = Pick<
 }
 
 /** An effect made a favorite. */
-export type SheetEffectFavorite = {
+type SheetEffectFavorite = {
   type: 'effect'
   /** As in effects. */
   id: string
@@ -1065,7 +1065,7 @@ export type SheetEffectFavorite = {
 }
 
 /** A skill made a favorite. */
-export type SheetSkillFavorite = {
+type SheetSkillFavorite = {
   type: 'skill'
   /** As in skills, such as "prc". */
   id: string
@@ -1073,7 +1073,7 @@ export type SheetSkillFavorite = {
 }
 
 /** A tool made a favorite, with what rolling it takes, as a skill has, since it's nowhere else. */
-export type SheetToolFavorite = {
+type SheetToolFavorite = {
   type: 'tool'
   /** Such as "thief". */
   id: string
@@ -1279,7 +1279,7 @@ export type RollSummary = {
   attack?: true
 }
 
-export type Dnd5eMessageData = {
+type Dnd5eMessageData = {
   messageType: string | null
   roll: {
     type?: string
@@ -1338,7 +1338,7 @@ export type Dnd5eCheck = Dnd5eSave
 export type MessageAsk = MessageSaveAsk | MessageCheckAsk
 
 /** A saving throw, or a concentration check, a roll request card asks the table for. */
-export type MessageSaveAsk = {
+type MessageSaveAsk = {
   type: 'save' | 'concentration'
   /** dnd5e's ids, such as ["dex"]; for a concentration check, the one it names, if any. */
   abilities: string[]
@@ -1349,7 +1349,7 @@ export type MessageSaveAsk = {
 }
 
 /** A check a roll request card asks the table for, its buttons' ways to make it. Module 0.18.0. */
-export type MessageCheckAsk = {
+type MessageCheckAsk = {
   type: 'check'
   checks: AskedCheck[]
   /** Its DC, only where players may see it. */
@@ -1595,7 +1595,7 @@ export type BridgeFeatures = {
 }
 
 /** The campaign's characters' companions, whole, whenever they change (module 0.36.0). */
-export type CompanionsListed = { companions: CompanionEntry[] }
+type CompanionsListed = { companions: CompanionEntry[] }
 
 /** One of the campaign's characters' companions' sheets (module 0.36.0). */
 export type CompanionUpdated = {
@@ -1863,7 +1863,7 @@ export type AttackOutcome = {
 }
 
 /** Whether an area attack hit one of the combatants it was made at. */
-export type AttackTargetOutcome = {
+type AttackTargetOutcome = {
   combatId: string
   combatantId: string
   outcome: 'hit' | 'miss' | null
@@ -1908,19 +1908,19 @@ export type DamagePreviewRoll = {
 }
 
 /** A kind of damage to choose, such as { key: "fire", label: "Fire" }. */
-export type DamageTypeChoice = { key: string; label: string }
+type DamageTypeChoice = { key: string; label: string }
 
 /**
  * Who decided what became of a dish from the Magical Recipe Book, in Foundry, and when, in real
  * and world time.
  */
-export type DishDecider = {
+type DishDecider = {
   by: { userId: string; name: string } | null
   at: { time: string; worldTime: number } | null
 }
 
 /** One character the Gamemaster served a dish to, as the module tells of it. */
-export type DishEater = {
+type DishEater = {
   actorId: string
   name: string
   /** The dish's effect on it; null for a standard dish, which has none. */
@@ -2034,3 +2034,265 @@ export type GameEvent =
   | { type: 'journal.updated'; data: JournalUpdated }
   | { type: 'companions.listed'; data: CompanionsListed }
   | { type: 'companion.updated'; data: CompanionUpdated }
+
+export type RefusalReason = (typeof REFUSAL)[keyof typeof REFUSAL]
+
+export type EffectOp = (typeof EFFECT_OPS)[number]
+
+export type PrepareOp = (typeof PREPARE_OPS)[number]
+
+export type WildShapeOp = (typeof WILD_SHAPE_OPS)[number]
+
+export type SpellSlotOp = (typeof SPELL_SLOT_OPS)[number]
+
+/** How each spell an item casts is cast, by the id of the copy of it the Spells tab lists. */
+export type CastIndex = ReadonlyMap<string, SheetCast>
+
+/**
+ * A favorite, with what it refers to on the rest of the sheet, so that it can be shown as the
+ * sheet shows that elsewhere. An item is shown as an action if it's one, rolled as the Actions tab
+ * rolls it; otherwise as a spell, as something carried, as a feature or as a class. An activity is
+ * shown as an action, for that activity alone. A skill or a tool rolls as the Character tab rolls a
+ * skill. An old-style resource that stands for a feature is shown as that feature, as an action if
+ * it's one, with the resource's uses; one that stands for none is a counter of its own.
+ */
+export type FavoriteView =
+  | {
+      kind: 'action'
+      action: SheetAction
+      /** What to say of it first, such as the item an activity is one of. */
+      note?: string
+      /** The resource it stands for, whose uses it shows in place of its own. */
+      resource?: SheetResourceFavorite
+    }
+  | { kind: 'spell'; spell: SheetSpell }
+  | { kind: 'item'; item: SheetItem | SheetContainer }
+  | {
+      kind: 'feature'
+      feature: SheetFeature
+      /** The resource it stands for, whose uses it shows in place of its own. */
+      resource?: SheetResourceFavorite
+    }
+  | { kind: 'class'; entry: SheetClass }
+  | { kind: 'effect'; effect: SheetEffect; suppressed: boolean }
+  | {
+      kind: 'check'
+      check: SheetSkill
+      /** A skill's or a tool's, for the Gamemaster's game to roll it too. */
+      source: { kind: 'skill' | 'tool'; key: string }
+    }
+  | { kind: 'slots'; slots: SheetSlotsFavorite }
+  | { kind: 'resource'; resource: SheetResourceFavorite }
+  /** An item the sheet lists nowhere else, such as a background. */
+  | { kind: 'other'; item: SheetItemFavorite }
+
+/**
+ * A favorite as it's shown, by a key unique among them, with what it is as the app adds and removes
+ * it, from module 0.37.0: none for a resource, nor for the feature a resource stands for, whose
+ * place among the favorites is the resource's, which the app never changes; nor for a skill, a tool
+ * or spell slots, which are made favorites in Foundry.
+ */
+export type FavoriteEntry = FavoriteView & {
+  key: string
+  /** What it is as the app adds and removes it; src/types/roll.ts's FavoriteTarget reads it. */
+  target:
+    | { type: 'item' | 'effect' | 'skill' | 'tool' | 'slots'; id: string }
+    | { type: 'activity'; id: string; item: string }
+    | null
+}
+
+/** The sheet's lists, by id, to find what a favorite refers to. */
+export type FavoriteIndex = {
+  actions: Map<string, SheetAction>
+  spells: Map<string, SheetSpell>
+  items: Map<string, SheetItem | SheetContainer>
+  features: Map<string, SheetFeature>
+  /** The features, in the order the sheet lists them. */
+  listed: SheetFeature[]
+  classes: Map<string, SheetClass>
+  effects: Map<string, SheetEffect>
+  skills: Map<string, SheetSkill>
+}
+
+/**
+ * Actions of one kind within a section of the Actions tab, as Tidy 5e groups a sheet by where
+ * things come from: weapons, equipment and the like, spells cast one way, such as those of a spell
+ * level or pact magic, spells cast from an item, or features.
+ */
+export type ActionGroup = {
+  /**
+   * Such as "weapons", "consumables" or "features"; a spellbook section's id after "spells-"; or
+   * the id of the item spells are cast from, after "from-".
+   */
+  id: string
+  label: string
+  /** The slots its spells are cast with, for a spell level or pact magic that has any. */
+  slots: { value: number; max: number } | null
+  actions: SheetAction[]
+}
+
+/** Slots a spell can be cast with: one spell level's, or pact magic's. */
+export type SlotPool = {
+  /** The spellbook section's id, such as "spell3" or "pact". */
+  id: string
+  /** As dnd5e labels it, such as "3rd Level" or "Pact Magic — 3rd Level". */
+  label: string
+  /** The level a spell is cast at with one; unknown for pact magic from an older module. */
+  level: number | null
+  value: number
+  max: number
+}
+
+/** What a campaign character's player has on a group in Foundry: less is no access. */
+type GroupAccess = 'observer' | 'owner'
+
+/** A group as the campaign's roster keeps it: who may see it, never its sheet. */
+export type GroupEntry = {
+  id: string
+  uuid: string
+  name: string
+  img: string | null
+  type: 'group'
+  /** dnd5e's primary party. */
+  primary: boolean
+  /** By campaign character's actor id: only those whose player has Observer or Owner on it. */
+  access: Record<string, GroupAccess>
+  /** Why its sheet is null, where the module held it back: for its size, or as none may see it. */
+  sheetWithheld?: Pick<SheetWithheld, 'reason'> &
+    Partial<Pick<SheetWithheld, 'bytes' | 'limit'>>
+}
+
+/** One of a group's members: its name and portrait, and nothing else of it, for anyone. */
+type GroupMember = {
+  id: string
+  name: string
+  img: string | null
+  type: 'character' | 'npc' | 'vehicle'
+  /** One of this campaign's characters. */
+  character: boolean
+}
+
+/** A group's sheet, as the module last sent it. */
+export type GroupSheet = {
+  members: GroupMember[]
+  /** Hashes of its descriptions, sent apart, as a character's are. */
+  description: { full: string | null; summary: string | null }
+  /** As a character's, with nothing to roll or use, and no load or attunement. */
+  inventory: SheetInventory
+}
+
+/**
+ * What a move moved, as the game reports it, from module 0.31.0: each of the command's own items
+ * that moved, and the item it made at the other end or the stack it joined there, and the coins.
+ * Never a name, nor what a container held.
+ */
+export type TransferMoved = {
+  from: string
+  /** null for a distribution. */
+  to: string | null
+  items: {
+    id: string
+    quantity: number
+    created: string | null
+    stacked: string | null
+  }[]
+  currency: Record<string, number> | null
+  /** A distribution's characters that were given their share, in order. */
+  among?: string[]
+}
+
+/** What a removal removed, as the game says it: by id and count alone. Module 0.33.0. */
+export type RemovedItem = { item: string; quantity: number }
+
+export type LinkClass = (typeof LINK_CLASSES)[number]
+
+/** A saving throw a description asks for, such as "DC 15 Dexterity saving throw". */
+export type SaveLink = {
+  kind: 'save'
+  n: number
+  /**
+   * Ability ids, more than one for a choice, such as Strength or Dexterity; at least one, which
+   * for a concentration check that names none is Constitution.
+   */
+  abilities: string[]
+  /** Where the description says one. */
+  dc?: number
+  /** A concentration check, which is a Constitution saving throw. */
+  concentration: boolean
+}
+
+/**
+ * One way a check a description asks for may be made, as dnd5e's roll request card offers it: an
+ * ability check, or a skill's or a tool's, each with the ability it's made with. That is the one
+ * the description names, or else dnd5e's for the skill or tool, never the character's own.
+ */
+export type CheckOption = {
+  type: 'check' | 'skill' | 'tool'
+  /** dnd5e's id, such as "str". */
+  ability: string
+  /** The skill's or tool's key, such as "ath" or "thief"; none for an ability check. */
+  key?: string
+}
+
+/**
+ * A check a description asks for, such as "DC 15 Strength (Athletics) check". Module 0.18.0; never
+ * a passive one, which is only text.
+ */
+export type CheckLink = {
+  kind: 'check'
+  n: number
+  /**
+   * At least one, each skill, tool or ability once; more for a choice, such as Strength
+   * (Athletics) or Dexterity (Acrobatics).
+   */
+  checks: CheckOption[]
+  /** Where the description says one. */
+  dc?: number
+  /** For a skill check made using a tool, as the 2024 rules have it: the tool's key. */
+  usingTool?: string
+}
+
+/** Damage or healing a description deals, in one part or more, such as 1d6 fire plus 1d6 cold. */
+export type DamageLink = {
+  kind: 'damage'
+  n: number
+  parts: {
+    formula: string
+    /** dnd5e damage type ids, more than one for a choice; none where it doesn't say. */
+    types: string[]
+  }[]
+  healing: boolean
+  /**
+   * Damage never rolled as a critical hit's, as dnd5e's own link offers none, such as a saving
+   * throw's, or the game can't plan its dice, as a weapon's extra dice before module 0.20.0. Module
+   * 0.19.0.
+   */
+  critical?: false
+  /**
+   * What a critical hit adds to each part, in order, as the game reads its activity: the extra dice
+   * its first die throws, such as Savage Attacks' or Brutal Critical's, and its critical damage,
+   * such as a weapon's 1d6, or "" for none. Only where both are sent for every part, and each
+   * critical damage reads; then it may be rolled as a critical hit's, though the module marks it
+   * never one for apps before. Module 0.20.0.
+   */
+  criticalAdds?: { dice: number[]; damage: string[] }
+}
+
+/** A roll of a description's own, such as [[/r 1d4]]. */
+export type RollLink = { kind: 'roll'; n: number; formula: string }
+
+/** A condition a description names, such as Prone, by dnd5e's id. */
+export type ConditionLink = { kind: 'condition'; condition: string }
+
+export type DescriptionLink =
+  SaveLink | CheckLink | DamageLink | RollLink | ConditionLink
+
+/**
+ * A link the game acts on, as found in a description: what it is, and whether it's in one of its
+ * secrets, which only the Gamemaster and the character's owners read, so is never asked of the
+ * table.
+ */
+export type FoundLink = {
+  link: SaveLink | CheckLink | DamageLink | RollLink
+  secret: boolean
+}

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { parseGameEvent } from './sending-stone'
 import { combat, foundrySettings, roster } from '@/mocks/sending-stone'
 

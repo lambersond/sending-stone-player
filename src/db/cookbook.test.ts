@@ -1,9 +1,7 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- Prisma and the protocol use null for an absent value */
 import { Prisma, type CookbookDish } from '@prisma/client'
-import { prismaMock } from '../../jest.setup'
 import {
   acceptDish,
   claimDishes,
@@ -15,8 +13,6 @@ import {
   recordDishResult,
   revokeCampaignCookbookLink,
   revokeCookbookLink,
-  type CookbookLinkFound,
-  type DishDecision,
 } from './cookbook'
 import {
   DISH_ATTEMPTS,
@@ -32,6 +28,8 @@ import { BRIDGE_TIMEOUT, ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { hashCookbookCode } from '@/lib/cookbook-code'
 import { fireberryBoon } from '@/mocks/cookbook'
 import { dishResult } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
+import type { CookbookLinkFound, DishDecision } from './types'
 import type { DishApplied, DishDismissed } from '@/types/sending-stone'
 
 const NOW = Date.parse('2026-10-25T12:00:00Z')

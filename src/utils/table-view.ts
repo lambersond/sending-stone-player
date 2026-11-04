@@ -1,11 +1,7 @@
+import { askTitle, isAbility } from './ask-words'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
-import {
-  checkName,
-  checkTitle,
-  MAX_CHECKS,
-  toolOrSkillName,
-  type CheckOption,
-} from '@/utils/description-links'
+import { MAX_CHECKS, toolOrSkillName } from '@/utils/description-links'
+import type { TableRoll } from '@/types/roll'
 import type {
   AskedCheck,
   CharacterSheet,
@@ -32,24 +28,12 @@ import type {
   TableDamage,
   TableDamageKind,
   TableMessage,
-  TableRoll,
   TableSheet,
   TableTarget,
+  Viewer,
+  LinkedMessages,
+  SaveOutcome,
 } from '@/types/table'
-
-/**
- * Who is looking: their character's actor id, if chosen, and the party's actor ids, with the
- * party's portraits by actor id. From module 0.36.0, the campaign's characters' companions, by
- * key, with the characters each is a companion of; and at a companion's own view, its key in
- * place of the character's actor id, with the character whose companion it is (`of`).
- */
-export type Viewer = {
-  actorId: string | undefined
-  party: Set<string>
-  portraits?: Map<string, string>
-  companions?: Map<string, { of: string[]; portrait?: string; name: string }>
-  of?: string
-}
 
 /**
  * Whose side a combatant or a message is on, from the viewer's point of view, and whether it's one
@@ -137,14 +121,6 @@ export function toTableMessages(
       byGm.has(message.id),
     )
   })
-}
-
-/** What a message's targets are shown with, from the rest of the chat. */
-export type LinkedMessages = {
-  /** The card it was rolled from, if it's in the chat. */
-  card?: SerializedMessage
-  /** The saves rolled from it, as `savesByCard` has them: by their creature's actor's uuid. */
-  saves?: ReadonlyMap<string, SaveOutcome>
 }
 
 /**
@@ -370,48 +346,6 @@ function dataOf(attributes: string): Map<string, string> {
   )
 }
 
-/** Is this one of dnd5e's abilities' ids, and not a name any object answers to? */
-function isAbility(id: unknown): id is string {
-  return typeof id === 'string' && Object.hasOwn(ABILITIES, id)
-}
-
-/**
- * What a roll request card asks for, in words: such as "DC 15 Dexterity saving throw", "Strength
- * or Dexterity saving throw", or "DC 10 Concentration check", naming its ability where it isn't
- * Constitution; or a check, such as "DC 15 Strength (Athletics) check", or "Intelligence or Wisdom
- * check", a tool by the game's name for it where it says.
- */
-export function askTitle(ask: TableAsk): string {
-  if (ask.type === 'check') {
-    const names = ask.checks.map(check =>
-      checkName(checkOptionOf(check), check.name),
-    )
-    return checkTitle(names, { dc: ask.dc })
-  }
-  const dc = ask.dc === undefined ? '' : `DC ${ask.dc} `
-  const names = ask.abilities
-    .filter(id => isAbility(id))
-    .map(id => ABILITIES[id])
-  if (ask.type === 'concentration') {
-    const [ability] = ask.abilities
-    return ability && ability !== 'con' && names[0]
-      ? `${dc}Concentration check (${names[0]})`
-      : `${dc}Concentration check`
-  }
-  const list = new Intl.ListFormat('en', { type: 'disjunction' }).format(names)
-  return `${dc}${list} saving throw`
-}
-
-/** One way a check the table is asked for may be made, as a description's link has it. */
-function checkOptionOf(check: AskedCheck): CheckOption {
-  const key = check.type === 'skill' ? check.skill : check.tool
-  return {
-    type: check.type,
-    ability: check.ability,
-    ...(check.type !== 'check' && key !== undefined && { key }),
-  }
-}
-
 const HEALING = new Set(['healing', 'temphp', 'maximum'])
 
 /**
@@ -552,7 +486,6 @@ function attackOf(
 export function damageKinds(
   rolls: readonly { total: number | null; damageType?: string }[],
 ): { type: string | undefined; total: number | null }[] {
-  /* eslint-disable unicorn/no-null -- a total the game didn't say is null, as a roll's is */
   const kinds = new Map<string | undefined, number | null>()
   for (const { total, damageType } of rolls) {
     const sum = kinds.has(damageType) ? (kinds.get(damageType) ?? null) : 0
@@ -562,7 +495,6 @@ export function damageKinds(
     type,
     total: total === null ? null : Math.max(0, total),
   }))
-  /* eslint-enable unicorn/no-null */
 }
 
 /**
@@ -679,7 +611,6 @@ function damageCard(
 
 /** Kinds of damage that fill one pool, added up: unknown where any of them is, never part of it. */
 function totalOf(kinds: TableDamageKind[]): number | null {
-  // eslint-disable-next-line unicorn/no-null -- unknown, as a roll's total is
   if (kinds.some(kind => kind.total === null)) return null
   return kinds.reduce((sum, kind) => sum + (kind.total ?? 0), 0)
 }
@@ -742,9 +673,6 @@ const SAVED: Record<SaveOutcome, NonNullable<TableTarget['save']>> = {
   success: 'saved',
   failure: 'failed',
 }
-
-/** Whether a save succeeded, as the module says. */
-type SaveOutcome = NonNullable<Dnd5eSave['outcome']>
 
 /** Who sent a message, as the chat names them. */
 function speakerOf(message: SerializedMessage): string {
@@ -898,47 +826,8 @@ function messageLabel(
   const activity = textOf(dnd5e?.activity?.name)
   const roll = dnd5e?.roll
 
-  if (roll) {
-    const ability = ABILITIES[String(roll.ability)]
-    switch (roll.type) {
-      case 'skill': {
-        const skill = SKILLS[String(roll.skillId)]
-        if (skill) return `${skill} check`
-        break
-      }
-      case 'ability': {
-        if (ability) return `${ability} check`
-        break
-      }
-      case 'save': {
-        if (ability) return `${ability} save`
-        break
-      }
-      // Whether it was an attack, damage or healing is shown beside the item's name.
-      case 'attack': {
-        if (item) return item
-        break
-      }
-      // Damage from a description, which no activity rolls, is named for where it's from, as its
-      // card's flavor names it: a spell an item casts, by the spell's name and the item's.
-      case 'damage':
-      case 'healing': {
-        const origin = dnd5e?.activity ? undefined : originOf(message.flavor)
-        if (origin) return origin
-        if (item) return item
-        break
-      }
-      case 'death': {
-        return 'Death save'
-      }
-      case 'hitDie': {
-        return 'Hit Die'
-      }
-      case 'concentration': {
-        return 'Concentration'
-      }
-    }
-  }
+  const rolled = roll ? rollLabel(message, roll, item) : undefined
+  if (rolled) return rolled
   if (isUsage(message) && item) {
     // Its rolls are named for its item alone, as dnd5e's own attack and damage messages are, such
     // as Midi-QOL's card holding them.
@@ -949,6 +838,56 @@ function messageLabel(
   const origin = damaged ? originOf(message.flavor) : undefined
   return origin ?? htmlToText(message.flavor) ?? textOf(message.title)
 }
+
+/**
+ * What a message's roll is, by what D&D Fifth Edition recorded of it; none where it says too
+ * little.
+ */
+function rollLabel(
+  message: SerializedMessage,
+  roll: NonNullable<NonNullable<SerializedMessage['dnd5e']>['roll']>,
+  item: string | undefined,
+): string | undefined {
+  const ability = ABILITIES[String(roll.ability)]
+  switch (roll.type) {
+    case 'skill': {
+      return named(SKILLS[String(roll.skillId)], 'check')
+    }
+    case 'ability': {
+      return named(ability, 'check')
+    }
+    case 'save': {
+      return named(ability, 'save')
+    }
+    // Whether it was an attack, damage or healing is shown beside the item's name.
+    case 'attack': {
+      return item
+    }
+    // Damage from a description, which no activity rolls, is named for where it's from, as its
+    // card's flavor names it: a spell an item casts, by the spell's name and the item's.
+    case 'damage':
+    case 'healing': {
+      const origin = message.dnd5e?.activity
+        ? undefined
+        : originOf(message.flavor)
+      return origin ?? item
+    }
+    case 'death': {
+      return 'Death save'
+    }
+    case 'hitDie': {
+      return 'Hit Die'
+    }
+    case 'concentration': {
+      return 'Concentration'
+    }
+  }
+  return undefined
+}
+
+/** A check's or save's name, as "Perception check"; none for no name. */
+const named = (name: string | undefined, roll: 'check' | 'save') =>
+  name ? `${name} ${roll}` : undefined
 
 const textOf = (value: unknown) =>
   typeof value === 'string' ? value.trim() || undefined : undefined
@@ -1159,7 +1098,6 @@ export function toTableSheet(
   }
 }
 
-/* eslint-disable unicorn/no-null -- the sheet uses null for an absent value */
 /** A sheet from before module 0.7.0, which sent none of these: as a sheet with none of them. */
 const BEFORE_0_7_0: Pick<
   CharacterSheet,
@@ -1182,7 +1120,6 @@ const BEFORE_0_7_0: Pick<
     biography: null,
   },
 }
-/* eslint-enable unicorn/no-null */
 
 /**
  * The inventory, with its items' icons, those in containers too, loading from the game: a
@@ -1233,7 +1170,6 @@ export function portraitUrl(
 
 /** Where an icon loads from, or null, as the sheet has it, for none. */
 function iconUrl(img: string | null, origin: string): string | null {
-  // eslint-disable-next-line unicorn/no-null -- the sheet uses null for no icon
   return gameAssetUrl(img, origin) ?? null
 }
 
@@ -1241,7 +1177,7 @@ function iconUrl(img: string | null, origin: string): string | null {
  * Where an image from the game loads from, such as an icon: Foundry keeps its own files, such as
  * icons/svg/item-bag.svg, relative to the game's address. Only web addresses are kept.
  */
-export function gameAssetUrl(
+function gameAssetUrl(
   img: string | null | undefined,
   origin: string,
 ): string | undefined {

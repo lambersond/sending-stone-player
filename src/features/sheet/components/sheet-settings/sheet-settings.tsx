@@ -1,0 +1,336 @@
+'use client'
+
+import { useCallback, useId, useRef, useState, type ReactNode } from 'react'
+import {
+  FloatingFocusManager,
+  FloatingPortal,
+  useClick,
+  useDismiss,
+  useInteractions,
+  useRole,
+} from '@floating-ui/react'
+import clsx from 'clsx'
+import { CookingPot, PanelBottom, PanelTop, Settings } from 'lucide-react'
+import { LayoutPicker } from '../actions-layout/layout-picker'
+import { aloneHint } from './utils'
+import { HelpLinks } from '@/components/help-links/help-links'
+import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
+import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
+import { usePopover } from '@/hooks/use-popover'
+import { useTableRole } from '@/hooks/use-table-api'
+import { seatWords } from '@/utils/seat-words'
+import type { SheetSettingsProps } from './types'
+
+/**
+ * The sheet's settings, behind a cog beside its tabs, so that they're at hand from every tab
+ * without taking room from them: whether this device sends the player's rolls to the table, and
+ * beneath it, where the game takes it, whether their damage goes there on its own; where the game
+ * lets them, typing in what their own dice show; whether rolls show as
+ * toasts or in a banner, the theme, and how the Actions tab is laid out; and since round 0.39.0,
+ * at the player's own seat, Configure Magical Cookbook, which opens their Magical Recipe Book in a
+ * modal, and last, in every cog, Help: Report a bug and Request a feature. It opens as
+ * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
+ * focus; Escape, a click or tap elsewhere, or the cog again closes it. It stays open as settings
+ * change, for several to be changed at once.
+ */
+export function SheetSettings({
+  send,
+  alone,
+  manualDice,
+  toasts,
+  layouts,
+  onOpenChange,
+  cookbook,
+}: Readonly<SheetSettingsProps>) {
+  const role = useTableRole()
+  const { game } = seatWords(role)
+  const [open, setOpen] = useState(false)
+  const change = useCallback(
+    (next: boolean) => {
+      setOpen(next)
+      onOpenChange?.(next)
+    },
+    [onOpenChange],
+  )
+  const title = useId()
+  const helpId = useId()
+  const cog = useRef<HTMLButtonElement>(null)
+  const { setReference, setFloating, floatingStyles, context, root } =
+    usePopover({
+      open,
+      onOpenChange: change,
+      placement: 'bottom-end',
+      gap: 6,
+      // No taller than the room below the cog, as on a phone turned sideways; it scrolls inside.
+      fit: {
+        padding: 8,
+        apply: ({ availableHeight, elements }) => {
+          elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
+        },
+      },
+    })
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    useClick(context),
+    useDismiss(context),
+    useRole(context, { role: 'dialog' }),
+  ])
+  return (
+    <>
+      {/* A little tighter in the row of tabs on a phone under 390 pixels, as the rolls' button. */}
+      <button
+        ref={node => {
+          setReference(node)
+          cog.current = node
+        }}
+        type='button'
+        aria-label='Settings'
+        title='Settings'
+        className='rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary'
+        {...getReferenceProps()}
+      >
+        <Settings aria-hidden className='size-4' />
+      </button>
+      {open && (
+        <FloatingPortal root={root}>
+          <FloatingFocusManager context={context} modal={false}>
+            {/* Over the rolls' toasts, 100001, which start just below the cog, as it does. */}
+            <div
+              ref={setFloating}
+              style={floatingStyles}
+              aria-labelledby={title}
+              className='z-[100002] flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-3 text-text-primary shadow-xl outline-none'
+              {...getFloatingProps()}
+            >
+              <p
+                id={title}
+                className='text-xs font-semibold text-text-secondary'
+              >
+                Settings
+              </p>
+              {send && (
+                <SwitchSetting
+                  label='Send to the table'
+                  hint={`Your rolls here are made in ${game} too, with the same dice.`}
+                  {...send}
+                />
+              )}
+              {/* Under Send to the table, as what it sends rides on it. */}
+              {alone && (
+                <SwitchSetting
+                  label='Damage on its own'
+                  hint={aloneHint(game, role === 'gm', alone)}
+                  on={alone.on}
+                  onChange={alone.onChange}
+                  disabled={alone.disabled}
+                  child
+                />
+              )}
+              {manualDice && (
+                <SwitchSetting
+                  label='Enter dice results manually'
+                  hint='Type in what your own dice show, instead of rolling here.'
+                  {...manualDice}
+                />
+              )}
+              {toasts && <ResultsSetting {...toasts} />}
+              <Setting label='Theme'>
+                <ThemeToggle />
+              </Setting>
+              {layouts && (
+                <Setting label='Actions layout'>
+                  <LayoutPicker
+                    layouts={layouts.offered}
+                    layout={layouts.layout}
+                    onChange={layouts.choose}
+                  />
+                </Setting>
+              )}
+              {/* Last among the settings, so the first keeps taking focus as they open. */}
+              {cookbook && (
+                <div className='border-t border-border pt-3'>
+                  <button
+                    type='button'
+                    aria-haspopup='dialog'
+                    onClick={() => {
+                      // The cog has focus as the modal opens, so that the browser gives it back
+                      // to the cog, not to this button, gone with the settings, once it closes.
+                      cog.current?.focus({ preventScroll: true })
+                      change(false)
+                      cookbook.onOpen()
+                    }}
+                    className='flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm font-medium transition-colors hover:bg-primary/5'
+                  >
+                    <CookingPot aria-hidden className='size-4 shrink-0' />
+                    {CONFIGURE_COOKBOOK}
+                  </button>
+                </div>
+              )}
+              {/* In every cog, at the end: the app's own issue forms. */}
+              <div
+                role='group'
+                aria-labelledby={helpId}
+                className='flex flex-col gap-1 border-t border-border pt-3'
+              >
+                <p
+                  id={helpId}
+                  className='text-xs font-semibold text-text-secondary'
+                >
+                  Help
+                </p>
+                <HelpLinks />
+              </div>
+            </div>
+          </FloatingFocusManager>
+        </FloatingPortal>
+      )}
+    </>
+  )
+}
+
+/**
+ * A setting turned on or off by a switch, said more of beneath it; one that rides on the setting
+ * above it set in beneath it, its `child`. A disabled one is drawn and announced off, whatever's
+ * stored, which comes back once it's enabled again.
+ */
+function SwitchSetting({
+  label,
+  hint,
+  on,
+  onChange,
+  child = false,
+  disabled = false,
+}: Readonly<{
+  label: string
+  hint: string
+  on: boolean
+  onChange: (on: boolean) => void
+  child?: boolean
+  disabled?: boolean
+}>) {
+  const hintId = useId()
+  const shown = on && !disabled
+  return (
+    <div
+      className={clsx(
+        'flex flex-col gap-1',
+        child
+          ? 'ml-1 border-l border-border pl-4'
+          : 'border-t border-border pt-3',
+      )}
+    >
+      {/* A 44-pixel target, as the switch inside it is small. */}
+      <label
+        className={clsx(
+          'flex min-h-11 items-center gap-3 text-sm font-medium',
+          disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+        )}
+      >
+        <input
+          type='checkbox'
+          role='switch'
+          checked={shown}
+          disabled={disabled}
+          onChange={event => onChange(event.target.checked)}
+          aria-describedby={hintId}
+          className='peer sr-only'
+        />
+        <span
+          aria-hidden
+          className={clsx(
+            'relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary',
+            shown ? 'bg-primary' : 'bg-border',
+          )}
+        >
+          <span
+            className={clsx(
+              'absolute top-0.5 size-4 rounded-full bg-card shadow-sm transition-[left]',
+              shown ? 'left-4.5' : 'left-0.5',
+            )}
+          />
+        </span>
+        {label}
+      </label>
+      <p id={hintId} className='pl-12 text-xs text-text-secondary'>
+        {hint}
+      </p>
+    </div>
+  )
+}
+
+/** The ways the player's rolls are shown, one or the other: as toasts, or in the banner. */
+const RESULTS = [
+  {
+    toasts: true,
+    label: 'Toasts',
+    icon: PanelTop,
+    hint: 'Each roll pops up at the top of the screen for 4 seconds; one you need to act on stays until you do.',
+  },
+  {
+    toasts: false,
+    label: 'Banner',
+    icon: PanelBottom,
+    hint: 'Your rolls stay in a banner at the bottom of the sheet.',
+  },
+]
+
+/**
+ * How the player's rolls are shown, as toasts or in the banner, picked as the Actions tab's layout
+ * is, and said more of beneath, as the choice made shows them.
+ */
+function ResultsSetting({
+  on,
+  onChange,
+}: Readonly<{ on: boolean; onChange: (on: boolean) => void }>) {
+  const hintId = useId()
+  const chosen = RESULTS.find(({ toasts }) => toasts === on) ?? RESULTS[0]
+  return (
+    <Setting label='Roll results'>
+      <div
+        role='radiogroup'
+        aria-label='Roll results'
+        aria-describedby={hintId}
+        className='flex rounded-lg border border-border bg-card p-0.5'
+      >
+        {RESULTS.map(({ toasts, label, icon: Icon }) => (
+          <button
+            key={label}
+            type='button'
+            role='radio'
+            aria-checked={on === toasts}
+            onClick={() => onChange(toasts)}
+            className={clsx(
+              'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
+              on === toasts
+                ? 'bg-primary/10 text-primary-text'
+                : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary',
+            )}
+          >
+            <Icon aria-hidden className='size-4' />
+            {label}
+          </button>
+        ))}
+      </div>
+      <p id={hintId} className='text-xs text-text-secondary'>
+        {chosen.hint}
+      </p>
+    </Setting>
+  )
+}
+
+/**
+ * A setting under its caption, which only shows: the control it captions is named the same for
+ * screen readers.
+ */
+function Setting({
+  label,
+  children,
+}: Readonly<{ label: string; children: ReactNode }>) {
+  return (
+    <div className='flex flex-col items-start gap-1.5 border-t border-border pt-3'>
+      <p aria-hidden className='text-xs font-semibold text-text-secondary'>
+        {label}
+      </p>
+      {children}
+    </div>
+  )
+}

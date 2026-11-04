@@ -7,13 +7,16 @@ import { requireUser } from '@/lib/session'
 jest.mock('@/app/characters/actions', () => ({ joinAsCharacter: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({ findInvite: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
-jest.mock('@/components/character-chooser', () => ({
-  CharacterChooser: ({ choice, action, submitLabel }: any) => (
-    <button type='button' onClick={() => action({}, 'form')}>
-      {submitLabel} in {choice.title}
-    </button>
-  ),
-}))
+jest.mock(
+  '@/features/characters/components/character-chooser/character-chooser',
+  () => ({
+    CharacterChooser: ({ choice, action, submitLabel }: any) => (
+      <button type='button' onClick={() => action({}, 'form')}>
+        {submitLabel} in {choice.title}
+      </button>
+    ),
+  }),
+)
 
 const props = (code: string) => ({
   params: Promise.resolve({ code }),
@@ -67,7 +70,6 @@ describe('app/join/[code]/page', () => {
   })
 
   it("says when a link doesn't work", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(findInvite).mockResolvedValue(undefined)
     render(await JoinPage(props('old')))
 

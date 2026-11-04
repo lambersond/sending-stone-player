@@ -8,43 +8,107 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.42.0 and its app.
+Released: module v0.42.1 and its app.
 
-## v0.42.1 (in progress)
+## v0.43
 
-1. **Elven Accuracy's third d20 on its own line:** when typing in dice, typed in, or skipped for
-   Foundry to roll it.
-2. **Bardic Inspiration offered:** the 2024 Bardic Inspiration a bard gave the character is offered
-   beside Done in the dice dialog, left out until the player adds it once their Gamemaster says the
-   roll fails; once that roll is made, the app removes Inspired where the campaign lets players
-   remove their own effects, and it isn't offered again.
-3. **Spell slots from the dots:** a tap on a spell slot's dot, on the Spells tab or a spell-slots
-   favorite, asks to spend one, or to restore one where it's used, then changes it in Foundry, its
-   line in chat. Pact Magic too.
-4. **Spells prepared from the row menus:** a right-click or a held touch on a spell, on the Spells
-   tab or among the favorites, offers Prepare or Unprepare (on the Actions tab, Unprepare), then
-   changes it in Foundry as its sheet's own menu does. A spell not prepared now says so on its row.
-   A prepared spell casts from the app, and shows on the Actions tab if it attacks, deals damage,
-   is a bonus action or reaction, or lasts a round or a minute. Nothing is posted in chat. The
-   Spells tab shows how many spells each class has prepared, of how many, as Foundry's sheet does
-   ("Prepared 5 / 6").
-
-Patch releases (0.42.x) are expected as Friday's session turns up things to tweak.
-
-## v0.43 (release candidate)
-
-1. Refactor existing code to best practices.
+1. **Refactor (done in v0.43's PR):** the app's code laid out by feature under `src/features/`, each
+   `.tsx` exporting one component, named types in `types.ts`, rules in utilities and behaviour in
+   hooks; one request-kind table, one command pipeline on the server, one request lifecycle, one
+   settle hook and one seat resolver; no import cycles or barrels; CLAUDE.md's rules enforced by the
+   linter. No behaviour changed: the module and its protocol are untouched, and the bugs found are
+   below, under v0.44.
 2. **Supported versions:** a breakdown of which module versions each app version supports.
 
-v0.43 is the release candidate for v1.0: it runs at the table for a while before v1.0 is tagged.
+## v0.44 (release candidate)
 
-Open question:
-- The refactor: write down what it should fix first, and go area by area, with the test harness and
-  end-to-end suites as its safety net.
+From the table's first session with v0.42.1, after the refactor:
+
+1. **Typed dice for every roll an item makes:** when typing in dice, the dice an item rolls after
+   its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry, as
+   Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
+   homebrew and custom ones included, never a handler per spell.
+2. **Favorites on the Character tab:** a setting to show the favorites between skills and traits.
+3. **Larger icon buttons on tablets:** icon-only buttons grow above a small screen, and can shrink
+   again where the screen is wide enough for their words.
+4. **Hit points from the app:** players adjust their own character's hit points.
+5. **Manual dice said in the dice dialog:** a note, or a "Manual Dice" chip in its header, that the
+   die results are typed in.
+6. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
+   dice), what each long press offers (damage, attack and other rolls), the settings, how manual
+   dice work, and that the Gamemaster applies short and long rests.
+7. **A plain die roll:** d4, d6, d8, d10, d12, d20 or d100, with advantage or disadvantage and any
+   modifier, not tied to the character, for what the Gamemaster asks.
+8. **The Gamemaster clears a campaign's chat:** including messages from the cookbook, whose
+   whispers now stay.
+9. Remaining bugs, and the known limits chosen to close before v1.0. Found in the v0.43 refactor
+   (not fixed there):
+   - **A connection test binds a campaign:** a Test from the module (`bridge.ping`) whose typed
+     title and secret match a campaign waiting for Foundry binds it to the tester's module campaign,
+     though the protocol says a ping stores nothing; a Test from another campaign of the same game
+     then leaves the real campaign refused as not set up (`src/db/campaigns.ts`, `bind` from
+     `findEventCampaign`).
+   - **Damage not offered again after a failed send:** an attack's or use's damage that the app
+     couldn't send (offline, busy, refused) is marked as sent, so its Roll damage button is gone
+     (`src/features/rolling/hooks/use-table-rolls.ts`, `sendDamage`).
+   - **The Gamemaster's partly-made hit dice** don't say the hit points regained, as the player's do
+     (`src/features/rolling/utils/gm-words.ts`, `gmLine`).
+   - **A roll the app took told as unreached** when its 202 answer isn't JSON
+     (`src/utils/lifecycle.ts`, `follow`; unlikely).
+   - **"Effects, 1 conditions":** the Effects tab's hidden count has no singular (the phone suite's
+     check changes with it).
+   - **The target list promises more than it takes:** "Up to 24." where at most 20 can be ticked,
+     and nothing said for "any number" (`use-picker`'s `leadFor`).
+   - **The same uses named two ways:** an activity's uses in the table layout are named after the
+     activity, in the list layout after the item (to confirm with the module).
+   - **Ending an enchantment says nothing** on the Effects tab when no favorite rolls (to confirm),
+     and Heroic Inspiration likewise: intended?
+   - **Dismissing "Wild Shape ended"** sends keyboard focus to a hidden panel when a companion's
+     pane or another phone tab is shown.
+   - **Health bars:** a living combatant under half a percent of its hit points shows an empty red
+     bar.
+   - **Chat times after midnight:** an idle table keeps showing yesterday's times without their
+     date.
+   - **Initials of a name starting with an emoji** show a broken glyph on the sheet and in the chat
+     (the campaigns page gets them right).
+   - **A companion pane's reads** never back off or say they are reconnecting while the server is
+     down.
+   - **The journal after signing out elsewhere** says it failed instead of asking to sign in (to
+     confirm).
+   - **Large bodies:** a roll's or a note's body is read whole before its size is checked; the
+     module's and the cookbook's routes refuse a declared oversize first.
+   - **Two sheet-text routes** answer 401/404 without `Cache-Control: no-store` (to confirm it
+     matters).
+   - **Chained proxies:** the app's own address takes a comma-separated `X-Forwarded-Host` whole
+     (latent on Vercel).
+   - **Throttle memory:** three per-server throttles keep one entry per campaign or character
+     forever.
+   - **Rules in the database modules:** `src/db/roll-requests.ts` still holds a roll's pure refusal
+     rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
+     `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
+     `seatAllows`) and `src/db/notes.ts` the notes' view overlay; move them to `src/utils/`, where
+     they can be tested without the database's mocks.
+   - **Coverage:** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
+   - **Tooling:** a chapter line's test can race the clock, about once in 200 runs: its "just added"
+     case reads the time twice (`note-lines.test.tsx`, and the same case in
+     `chapter-pane.test.tsx`); the `@test-utils` path alias in
+     `tsconfig.json` has no match in `jest.config.ts`, so a suite importing the kit by it fails in
+     Jest only; and unicorn's `prefer-native-coercion-functions` autofix turns a type-guard filter
+     into `.filter(Boolean)`, which no longer typechecks.
+
+   Questions from it: a companion's refusals for its own-switch kinds (409 or 422); whether a list
+   in the module's settings is cut to its limit before or after its malformed entries are dropped
+   (the two readers differ); where the turn's refusal line clears; "the seat's own turn" for an
+   empty companion key; the hand-written types that differ from their schemas; the double reads on
+   the table, party and module polls; the overlapping route and table tests; the five
+   `console.error` logs; and whether the favorites' resource and check rows should draw the sheet's
+   own uses chips and row names, which would change their markup.
+
+v0.44 is the release candidate for v1.0: it runs at the table for a while before v1.0 is tagged.
 
 ## v1.0
 
-The major release of the app and the module, once the v0.43 release candidate holds up, before
+The major release of the app and the module, once the v0.44 release candidate holds up, before
 work starts on v1.x.
 
 The module keeps its id, `sending-stone`, though its title changed in v0.37: Foundry keeps the

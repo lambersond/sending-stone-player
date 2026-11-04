@@ -1,8 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
-import { prismaMock } from '../../jest.setup'
 import {
   claimRollRequests,
   createRollRequest,
@@ -36,7 +34,8 @@ import {
   sheetSpell,
   shapedSheet,
 } from '@/mocks/sending-stone'
-import { toCommand } from '@/utils/roll-requests'
+import { toCommand } from '@/utils/requests/commands'
+import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 

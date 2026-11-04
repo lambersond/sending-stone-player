@@ -7,6 +7,9 @@ import { getCharacter } from '@/db/characters'
 import { getRollRequestView } from '@/db/roll-requests'
 import { playerSeat } from '@/db/seats'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({ getRollRequestView: jest.fn() }))
@@ -49,11 +52,9 @@ describe('app/api/characters/[id]/rolls/[roll]', () => {
   })
 
   it("is not found for a roll that isn't the character's, or a character not the user's", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getRollRequestView).mockResolvedValue(undefined)
     await expect(get()).resolves.toHaveProperty('status', 404)
 
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCharacter).mockResolvedValue(undefined)
     jest.mocked(getRollRequestView).mockClear()
     await expect(get()).resolves.toHaveProperty('status', 404)
@@ -61,7 +62,6 @@ describe('app/api/characters/[id]/rolls/[roll]', () => {
   })
 
   it('refuses someone not signed in', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     await expect(get()).resolves.toHaveProperty('status', 401)

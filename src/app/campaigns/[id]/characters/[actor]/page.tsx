@@ -1,12 +1,11 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
-import { GameTable } from '@/components/game-table'
 import { getGmSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
+import { GameTable } from '@/features/table/components/game-table/game-table'
 import { requireUser } from '@/lib/session'
+import { gmCharacterApi, gmCharacterPath } from '@/utils/seat-urls'
 import type { Metadata } from 'next'
-
-type Props = PageProps<'/campaigns/[id]/characters/[actor]'>
 
 /**
  * The Gamemaster's seat at one of their campaign's characters' sheets (#156), once per request:
@@ -14,12 +13,14 @@ type Props = PageProps<'/campaigns/[id]/characters/[actor]'>
  * page and back here.
  */
 const findSeat = cache(async (campaignId: string, actorId: string) => {
-  const path = `/campaigns/${encodeURIComponent(campaignId)}/characters/${encodeURIComponent(actorId)}`
+  const path = gmCharacterPath(campaignId, actorId)
   const user = await requireUser(path)
   return getGmSeat(user.id, campaignId, actorId)
 })
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<'/campaigns/[id]/characters/[actor]'>): Promise<Metadata> {
   const { id, actor } = await params
   const seat = await findSeat(id, actor)
   return { title: seat?.name ?? 'Character' }
@@ -31,7 +32,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * campaign of another's, or a character not in its roster is told only that the sheet isn't open
  * here.
  */
-export default async function GmCharacterPage({ params }: Props) {
+export default async function GmCharacterPage({
+  params,
+}: PageProps<'/campaigns/[id]/characters/[actor]'>) {
   const { id, actor } = await params
   const seat = await findSeat(id, actor)
   if (!seat) notFound()
@@ -50,7 +53,7 @@ export default async function GmCharacterPage({ params }: Props) {
       }}
       seat={{
         role: 'gm',
-        api: `/api/campaigns/${encodeURIComponent(id)}/characters/${encodeURIComponent(actor)}`,
+        api: gmCharacterApi(id, actor),
         key,
       }}
       initialView={view}

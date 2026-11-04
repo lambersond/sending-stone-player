@@ -1,0 +1,2247 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`golden C8: dice draws the bodies posted, from the sheet a hit die spent: hit die 1`] = `
+"{
+ "randomCalls": 1,
+ "posted": [
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"hitDie\\",\\"denomination\\":\\"d10\\",\\"mode\\":0,\\"explicit\\":false,\\"extras\\":[],\\"dice\\":[{\\"faces\\":10,\\"results\\":[3]}]}"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws the bodies posted, from the sheet a save with advantage, from its menu: advantage 1`] = `
+"{
+ "randomCalls": 2,
+ "posted": [
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"save\\",\\"key\\":\\"str\\",\\"mode\\":1,\\"explicit\\":true,\\"extras\\":[],\\"dice\\":[{\\"faces\\":20,\\"results\\":[6,4]}]}"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws the bodies posted, from the sheet a save with disadvantage, from its menu: disadvantage 1`] = `
+"{
+ "randomCalls": 2,
+ "posted": [
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"save\\",\\"key\\":\\"str\\",\\"mode\\":-1,\\"explicit\\":true,\\"extras\\":[],\\"dice\\":[{\\"faces\\":20,\\"results\\":[6,4]}]}"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws the bodies posted, from the sheet a save, as tapped: save 1`] = `
+"{
+ "randomCalls": 1,
+ "posted": [
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"save\\",\\"key\\":\\"str\\",\\"mode\\":0,\\"explicit\\":false,\\"extras\\":[],\\"dice\\":[{\\"faces\\":20,\\"results\\":[6]}]}"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws the bodies posted, from the sheet an attack dnd5e gives Elven Accuracy, with advantage: elven accuracy 1`] = `
+"{
+ "randomCalls": 2,
+ "posted": [
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"attack\\",\\"item\\":\\"warhammer\\",\\"activity\\":\\"warhammerAttack\\",\\"target\\":null,\\"mode\\":1,\\"explicit\\":true,\\"extras\\":[],\\"dice\\":[{\\"faces\\":20,\\"results\\":[6,4]}]}"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws the bodies posted, from the sheet an attack the game makes a critical hit, then its damage: a critical hit 1`] = `
+"{
+ "randomCalls": 3,
+ "posted": [
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"attack\\",\\"item\\":\\"warhammer\\",\\"activity\\":\\"warhammerAttack\\",\\"target\\":null,\\"mode\\":0,\\"explicit\\":false,\\"extras\\":[],\\"dice\\":[{\\"faces\\":20,\\"results\\":[6]}]}"
+  },
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"damage\\",\\"use\\":\\"req-1\\",\\"mode\\":0,\\"explicit\\":false,\\"extras\\":[],\\"dice\\":[{\\"faces\\":8,\\"results\\":[2,3]}]}"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws the bodies posted, from the sheet an attack the game makes a hit, then its damage: a hit 1`] = `
+"{
+ "randomCalls": 2,
+ "posted": [
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"attack\\",\\"item\\":\\"warhammer\\",\\"activity\\":\\"warhammerAttack\\",\\"target\\":null,\\"mode\\":0,\\"explicit\\":false,\\"extras\\":[],\\"dice\\":[{\\"faces\\":20,\\"results\\":[6]}]}"
+  },
+  {
+   "url": "/api/characters/char-1/rolls",
+   "body": "{\\"kind\\":\\"damage\\",\\"use\\":\\"req-1\\",\\"mode\\":0,\\"explicit\\":false,\\"extras\\":[],\\"dice\\":[{\\"faces\\":8,\\"results\\":[2]}]}"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape Elven Accuracy thrown, with advantage: Elven Accuracy thrown, with advantage 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 2,
+ "asked": [],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Longbow attack",
+    "modifier": 7,
+    "source": {
+     "kind": "attack",
+     "item": "longbow",
+     "activity": "attack"
+    },
+    "advantage": "adv",
+    "elvenAccuracy": true
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longbow attack",
+    "total": 13,
+    "modifier": 7,
+    "advantage": "adv",
+    "d20s": [
+     6,
+     4
+    ],
+    "natural": 6,
+    "extras": [],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longbow attack",
+   "total": 13,
+   "modifier": 7,
+   "advantage": "adv",
+   "d20s": [
+    6,
+    4
+   ],
+   "natural": 6,
+   "extras": [],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape d20 with dice added and taken away (+1d4, −1d6, +2): d20 with dice added and taken away (+1d4, −1d6, +2) 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 3,
+ "asked": [],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Perception check",
+    "modifier": 4,
+    "source": {
+     "kind": "skill",
+     "key": "prc"
+    },
+    "extras": [
+     {
+      "sign": 1,
+      "count": 1,
+      "sides": 4
+     },
+     {
+      "sign": -1,
+      "count": 1,
+      "sides": 6
+     },
+     {
+      "sign": 1,
+      "flat": 2
+     }
+    ]
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Perception check",
+    "total": 11,
+    "modifier": 4,
+    "d20s": [
+     6
+    ],
+    "natural": 6,
+    "extras": [
+     {
+      "text": "+1d4",
+      "values": [
+       1
+      ],
+      "value": 1
+     },
+     {
+      "text": "−1d6",
+      "values": [
+       2
+      ],
+      "value": -2
+     },
+     {
+      "text": "+2",
+      "values": [],
+      "value": 2
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Perception check",
+   "total": 11,
+   "modifier": 4,
+   "d20s": [
+    6
+   ],
+   "natural": 6,
+   "extras": [
+    {
+     "text": "+1d4",
+     "values": [
+      1
+     ],
+     "value": 1
+    },
+    {
+     "text": "−1d6",
+     "values": [
+      2
+     ],
+     "value": -2
+    },
+    {
+     "text": "+2",
+     "values": [],
+     "value": 2
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape d20, advantage: d20, advantage 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 2,
+ "asked": [],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Perception check",
+    "modifier": 4,
+    "source": {
+     "kind": "skill",
+     "key": "prc"
+    },
+    "advantage": "adv"
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Perception check",
+    "total": 10,
+    "modifier": 4,
+    "advantage": "adv",
+    "d20s": [
+     6,
+     4
+    ],
+    "natural": 6,
+    "extras": [],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Perception check",
+   "total": 10,
+   "modifier": 4,
+   "advantage": "adv",
+   "d20s": [
+    6,
+    4
+   ],
+   "natural": 6,
+   "extras": [],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape d20, disadvantage: d20, disadvantage 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 2,
+ "asked": [],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Perception check",
+    "modifier": 4,
+    "source": {
+     "kind": "skill",
+     "key": "prc"
+    },
+    "advantage": "dis"
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Perception check",
+    "total": 8,
+    "modifier": 4,
+    "advantage": "dis",
+    "d20s": [
+     6,
+     4
+    ],
+    "natural": 4,
+    "extras": [],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Perception check",
+   "total": 8,
+   "modifier": 4,
+   "advantage": "dis",
+   "d20s": [
+    6,
+    4
+   ],
+   "natural": 4,
+   "extras": [],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape d20, normal: d20, normal 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 1,
+ "asked": [],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Perception check",
+    "modifier": 4,
+    "source": {
+     "kind": "skill",
+     "key": "prc"
+    }
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Perception check",
+    "total": 10,
+    "modifier": 4,
+    "d20s": [
+     6
+    ],
+    "natural": 6,
+    "extras": [],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Perception check",
+   "total": 10,
+   "modifier": 4,
+   "d20s": [
+    6
+   ],
+   "natural": 6,
+   "extras": [],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape damage, critical (every die twice): damage, critical (every die twice) 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 2,
+ "asked": [],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Longsword damage",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 8
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Slashing"
+     }
+    ],
+    "source": {
+     "item": "longsword",
+     "activity": "attack"
+    },
+    "critical": true
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longsword damage",
+    "total": 8,
+    "critical": true,
+    "healing": false,
+    "parts": [
+     {
+      "type": "Slashing",
+      "total": 8,
+      "terms": [
+       {
+        "text": "2d8",
+        "values": [
+         3,
+         2
+        ],
+        "value": 5
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longsword damage",
+   "total": 8,
+   "critical": true,
+   "healing": false,
+   "parts": [
+    {
+     "type": "Slashing",
+     "total": 8,
+     "terms": [
+      {
+       "text": "2d8",
+       "values": [
+        3,
+        2
+       ],
+       "value": 5
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape damage, critical and one more die: damage, critical and one more die 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 4,
+ "asked": [],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Longsword damage",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 2,
+        "sides": 8
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Slashing"
+     }
+    ],
+    "source": {
+     "item": "longsword",
+     "activity": "attack"
+    },
+    "critical": true,
+    "modifiers": {
+     "extra": 1
+    }
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longsword damage",
+    "total": 14,
+    "critical": true,
+    "healing": false,
+    "parts": [
+     {
+      "type": "Slashing",
+      "total": 14,
+      "terms": [
+       {
+        "text": "4d8",
+        "values": [
+         3,
+         2,
+         3,
+         3
+        ],
+        "value": 11
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longsword damage",
+   "total": 14,
+   "critical": true,
+   "healing": false,
+   "parts": [
+    {
+     "type": "Slashing",
+     "total": 14,
+     "terms": [
+      {
+       "text": "4d8",
+       "values": [
+        3,
+        2,
+        3,
+        3
+       ],
+       "value": 11
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape damage, maximized: damage, maximized 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 0,
+ "asked": [],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Longsword damage",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 8
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Slashing"
+     }
+    ],
+    "source": {
+     "item": "longsword",
+     "activity": "attack"
+    },
+    "modifiers": {
+     "maximize": true
+    }
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longsword damage",
+    "total": 11,
+    "critical": false,
+    "healing": false,
+    "maximized": true,
+    "parts": [
+     {
+      "type": "Slashing",
+      "total": 11,
+      "terms": [
+       {
+        "text": "1d8",
+        "values": [
+         8
+        ],
+        "value": 8
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longsword damage",
+   "total": 11,
+   "critical": false,
+   "healing": false,
+   "maximized": true,
+   "parts": [
+    {
+     "type": "Slashing",
+     "total": 11,
+     "terms": [
+      {
+       "text": "1d8",
+       "values": [
+        8
+       ],
+       "value": 8
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape damage, normal: damage, normal 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 1,
+ "asked": [],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Longsword damage",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 8
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Slashing"
+     }
+    ],
+    "source": {
+     "item": "longsword",
+     "activity": "attack"
+    }
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longsword damage",
+    "total": 6,
+    "critical": false,
+    "healing": false,
+    "parts": [
+     {
+      "type": "Slashing",
+      "total": 6,
+      "terms": [
+       {
+        "text": "1d8",
+        "values": [
+         3
+        ],
+        "value": 3
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longsword damage",
+   "total": 6,
+   "critical": false,
+   "healing": false,
+   "parts": [
+    {
+     "type": "Slashing",
+     "total": 6,
+     "terms": [
+      {
+       "text": "1d8",
+       "values": [
+        3
+       ],
+       "value": 3
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape damage, one more die, made a d12: damage, one more die, made a d12 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 2,
+ "asked": [],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Longsword damage",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 2,
+        "sides": 12
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Slashing"
+     }
+    ],
+    "source": {
+     "item": "longsword",
+     "activity": "attack"
+    },
+    "modifiers": {
+     "extra": 1,
+     "faces": 12
+    }
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longsword damage",
+    "total": 10,
+    "critical": false,
+    "healing": false,
+    "parts": [
+     {
+      "type": "Slashing",
+      "total": 10,
+      "terms": [
+       {
+        "text": "2d12",
+        "values": [
+         4,
+         3
+        ],
+        "value": 7
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longsword damage",
+   "total": 10,
+   "critical": false,
+   "healing": false,
+   "parts": [
+    {
+     "type": "Slashing",
+     "total": 10,
+     "terms": [
+      {
+       "text": "2d12",
+       "values": [
+        4,
+        3
+       ],
+       "value": 7
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape damage, two kinds: damage, two kinds 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 3,
+ "asked": [],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Flame Tongue damage",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 8
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Slashing"
+     },
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 2,
+        "sides": 6
+       }
+      ],
+      "type": "Fire"
+     }
+    ]
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Flame Tongue damage",
+    "total": 10,
+    "critical": false,
+    "healing": false,
+    "parts": [
+     {
+      "type": "Slashing",
+      "total": 6,
+      "terms": [
+       {
+        "text": "1d8",
+        "values": [
+         3
+        ],
+        "value": 3
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     },
+     {
+      "type": "Fire",
+      "total": 4,
+      "terms": [
+       {
+        "text": "+2d6",
+        "values": [
+         2,
+         2
+        ],
+        "value": 4
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Flame Tongue damage",
+   "total": 10,
+   "critical": false,
+   "healing": false,
+   "parts": [
+    {
+     "type": "Slashing",
+     "total": 6,
+     "terms": [
+      {
+       "text": "1d8",
+       "values": [
+        3
+       ],
+       "value": 3
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    },
+    {
+     "type": "Fire",
+     "total": 4,
+     "terms": [
+      {
+       "text": "+2d6",
+       "values": [
+        2,
+        2
+       ],
+       "value": 4
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape formula: formula 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 2,
+ "asked": [],
+ "thrown": [
+  [
+   "formula",
+   {
+    "label": "Light radius",
+    "terms": [
+     {
+      "sign": 1,
+      "count": 2,
+      "sides": 6
+     },
+     {
+      "sign": 1,
+      "flat": 10
+     }
+    ],
+    "source": {
+     "kind": "formula",
+     "item": "torch",
+     "activity": "light"
+    }
+   },
+   {
+    "kind": "formula",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Light radius",
+    "total": 14,
+    "healing": false,
+    "terms": [
+     {
+      "text": "2d6",
+      "values": [
+       2,
+       2
+      ],
+      "value": 4
+     },
+     {
+      "text": "+10",
+      "values": [],
+      "value": 10
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "formula",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Light radius",
+   "total": 14,
+   "healing": false,
+   "terms": [
+    {
+     "text": "2d6",
+     "values": [
+      2,
+      2
+     ],
+     "value": 4
+    },
+    {
+     "text": "+10",
+     "values": [],
+     "value": 10
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape healing: healing 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 2,
+ "asked": [],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Cure Wounds healing",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 2,
+        "sides": 8
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Healing"
+     }
+    ],
+    "healing": true
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Cure Wounds healing",
+    "total": 8,
+    "critical": false,
+    "healing": true,
+    "parts": [
+     {
+      "type": "Healing",
+      "total": 8,
+      "terms": [
+       {
+        "text": "2d8",
+        "values": [
+         3,
+         2
+        ],
+        "value": 5
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Cure Wounds healing",
+   "total": 8,
+   "critical": false,
+   "healing": true,
+   "parts": [
+    {
+     "type": "Healing",
+     "total": 8,
+     "terms": [
+      {
+       "text": "2d8",
+       "values": [
+        3,
+        2
+       ],
+       "value": 5
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape hit dice at once: hit dice at once 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 3,
+ "asked": [],
+ "thrown": [
+  [
+   "formula",
+   {
+    "label": "Hit dice (2d10 + 1d8)",
+    "terms": [],
+    "sets": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 10
+       },
+       {
+        "sign": -1,
+        "flat": 1
+       }
+      ],
+      "times": 2
+     },
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 8
+       },
+       {
+        "sign": -1,
+        "flat": 1
+       }
+      ],
+      "times": 1
+     }
+    ],
+    "healing": true,
+    "minimum": 1,
+    "source": {
+     "kind": "hitDice",
+     "hitDice": [
+      {
+       "denomination": "d10",
+       "count": 2
+      },
+      {
+       "denomination": "d8",
+       "count": 1
+      }
+     ]
+    }
+   },
+   {
+    "kind": "formula",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Hit dice (2d10 + 1d8)",
+    "total": 5,
+    "healing": true,
+    "terms": [
+     {
+      "text": "2d10",
+      "values": [
+       3,
+       2
+      ],
+      "value": 5
+     },
+     {
+      "text": "+1d8",
+      "values": [
+       3
+      ],
+      "value": 3
+     },
+     {
+      "text": "−3",
+      "values": [],
+      "value": -3
+     }
+    ],
+    "times": 3,
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "formula",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Hit dice (2d10 + 1d8)",
+   "total": 5,
+   "healing": true,
+   "terms": [
+    {
+     "text": "2d10",
+     "values": [
+      3,
+      2
+     ],
+     "value": 5
+    },
+    {
+     "text": "+1d8",
+     "values": [
+      3
+     ],
+     "value": 3
+    },
+    {
+     "text": "−3",
+     "values": [],
+     "value": -3
+    }
+   ],
+   "times": 3,
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape hit die, its minimum: hit die, its minimum 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 1,
+ "asked": [],
+ "thrown": [
+  [
+   "formula",
+   {
+    "label": "Hit die (d8)",
+    "terms": [
+     {
+      "sign": 1,
+      "count": 1,
+      "sides": 8
+     },
+     {
+      "sign": -1,
+      "flat": 3
+     }
+    ],
+    "healing": true,
+    "minimum": 1,
+    "source": {
+     "kind": "hitDie",
+     "denomination": "d8"
+    }
+   },
+   {
+    "kind": "formula",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Hit die (d8)",
+    "total": 1,
+    "healing": true,
+    "terms": [
+     {
+      "text": "1d8",
+      "values": [
+       3
+      ],
+      "value": 3
+     },
+     {
+      "text": "−3",
+      "values": [],
+      "value": -3
+     }
+    ],
+    "minimum": 1,
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "formula",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Hit die (d8)",
+   "total": 1,
+   "healing": true,
+   "terms": [
+    {
+     "text": "1d8",
+     "values": [
+      3
+     ],
+     "value": 3
+    },
+    {
+     "text": "−3",
+     "values": [],
+     "value": -3
+    }
+   ],
+   "minimum": 1,
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape hit die, with Constitution: hit die, with Constitution 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 1,
+ "asked": [],
+ "thrown": [
+  [
+   "formula",
+   {
+    "label": "Hit die (d8)",
+    "terms": [
+     {
+      "sign": 1,
+      "count": 1,
+      "sides": 8
+     },
+     {
+      "sign": 1,
+      "flat": 2
+     }
+    ],
+    "healing": true,
+    "minimum": 1,
+    "source": {
+     "kind": "hitDie",
+     "denomination": "d8"
+    }
+   },
+   {
+    "kind": "formula",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Hit die (d8)",
+    "total": 5,
+    "healing": true,
+    "terms": [
+     {
+      "text": "1d8",
+      "values": [
+       3
+      ],
+      "value": 3
+     },
+     {
+      "text": "+2",
+      "values": [],
+      "value": 2
+     }
+    ],
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "formula",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Hit die (d8)",
+   "total": 5,
+   "healing": true,
+   "terms": [
+    {
+     "text": "1d8",
+     "values": [
+      3
+     ],
+     "value": 3
+    },
+    {
+     "text": "+2",
+     "values": [],
+     "value": 2
+    }
+   ],
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape recharge: recharge 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 1,
+ "asked": [],
+ "thrown": [
+  [
+   "formula",
+   {
+    "label": "Fire Breath recharge",
+    "terms": [
+     {
+      "sign": 1,
+      "count": 1,
+      "sides": 6
+     }
+    ],
+    "recharge": {
+     "item": "breath",
+     "activity": "use"
+    }
+   },
+   {
+    "kind": "formula",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Fire Breath recharge",
+    "total": 2,
+    "healing": false,
+    "terms": [
+     {
+      "text": "1d6",
+      "values": [
+       2
+      ],
+      "value": 2
+     }
+    ],
+    "recharge": {
+     "name": "Fire Breath"
+    },
+    "at": 1791142200000
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "formula",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Fire Breath recharge",
+   "total": 2,
+   "healing": false,
+   "terms": [
+    {
+     "text": "1d6",
+     "values": [
+      2
+     ],
+     "value": 2
+    }
+   ],
+   "recharge": {
+    "name": "Fire Breath"
+   },
+   "at": 1791142200000
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape typed Elven Accuracy, its third d20 on its own line: typed Elven Accuracy, its third d20 on its own line 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 0,
+ "asked": [
+  {
+   "title": "Longbow attack",
+   "terms": [
+    {
+     "sides": 20,
+     "count": 2,
+     "label": "d20, advantage"
+    },
+    {
+     "sides": 20,
+     "count": 1,
+     "label": "Elven Accuracy: third d20",
+     "name": "Elven Accuracy",
+     "skippable": true
+    },
+    {
+     "sides": 4,
+     "count": 1,
+     "label": "Bless: +1d4",
+     "skippable": true,
+     "name": "Bless"
+    },
+    {
+     "sides": 4,
+     "count": 1,
+     "label": "Bane: −1d4",
+     "skippable": true,
+     "name": "Bane"
+    }
+   ]
+  }
+ ],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Longbow attack",
+    "modifier": 7,
+    "source": {
+     "kind": "attack",
+     "item": "longbow",
+     "activity": "attack"
+    },
+    "advantage": "adv",
+    "elvenAccuracy": true
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longbow attack",
+    "total": 21,
+    "modifier": 7,
+    "advantage": "adv",
+    "d20s": [
+     6,
+     11,
+     17
+    ],
+    "natural": 17,
+    "extras": [
+     {
+      "text": "Bless +1d4",
+      "values": [
+       1
+      ],
+      "value": 1
+     },
+     {
+      "text": "Bane −1d4",
+      "values": [
+       4
+      ],
+      "value": -4
+     }
+    ],
+    "at": 1791142200000,
+    "effectDice": [
+     {
+      "faces": 4,
+      "sign": 1,
+      "results": [
+       1
+      ]
+     },
+     {
+      "faces": 4,
+      "sign": -1,
+      "results": [
+       4
+      ]
+     }
+    ],
+    "typed": true,
+    "rerolls": "kept"
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longbow attack",
+   "total": 21,
+   "modifier": 7,
+   "advantage": "adv",
+   "d20s": [
+    6,
+    11,
+    17
+   ],
+   "natural": 17,
+   "extras": [
+    {
+     "text": "Bless +1d4",
+     "values": [
+      1
+     ],
+     "value": 1
+    },
+    {
+     "text": "Bane −1d4",
+     "values": [
+      4
+     ],
+     "value": -4
+    }
+   ],
+   "at": 1791142200000,
+   "effectDice": [
+    {
+     "faces": 4,
+     "sign": 1,
+     "results": [
+      1
+     ]
+    },
+    {
+     "faces": 4,
+     "sign": -1,
+     "results": [
+      4
+     ]
+    }
+   ],
+   "typed": true,
+   "rerolls": "kept"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape typed d20 with Bane skipped: typed d20 with Bane skipped 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 0,
+ "asked": [
+  {
+   "title": "Longbow attack",
+   "terms": [
+    {
+     "sides": 20,
+     "count": 1,
+     "label": "d20"
+    },
+    {
+     "sides": 4,
+     "count": 1,
+     "label": "Bless: +1d4",
+     "skippable": true,
+     "name": "Bless"
+    },
+    {
+     "sides": 4,
+     "count": 1,
+     "label": "Bane: −1d4",
+     "skippable": true,
+     "name": "Bane"
+    }
+   ]
+  }
+ ],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Longbow attack",
+    "modifier": 7,
+    "source": {
+     "kind": "attack",
+     "item": "longbow",
+     "activity": "attack"
+    }
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longbow attack",
+    "total": 20,
+    "modifier": 7,
+    "d20s": [
+     9
+    ],
+    "natural": 9,
+    "extras": [
+     {
+      "text": "Bless +1d4",
+      "values": [
+       4
+      ],
+      "value": 4
+     }
+    ],
+    "at": 1791142200000,
+    "effectDice": [
+     {
+      "faces": 4,
+      "sign": 1,
+      "results": [
+       4
+      ]
+     }
+    ],
+    "skipped": true,
+    "typed": true,
+    "rerolls": "kept"
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longbow attack",
+   "total": 20,
+   "modifier": 7,
+   "d20s": [
+    9
+   ],
+   "natural": 9,
+   "extras": [
+    {
+     "text": "Bless +1d4",
+     "values": [
+      4
+     ],
+     "value": 4
+    }
+   ],
+   "at": 1791142200000,
+   "effectDice": [
+    {
+     "faces": 4,
+     "sign": 1,
+     "results": [
+      4
+     ]
+    }
+   ],
+   "skipped": true,
+   "typed": true,
+   "rerolls": "kept"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape typed d20 with Bless and Bane, rerolls kept: typed d20 with Bless and Bane, rerolls kept 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 0,
+ "asked": [
+  {
+   "title": "Longbow attack",
+   "terms": [
+    {
+     "sides": 20,
+     "count": 1,
+     "label": "d20"
+    },
+    {
+     "sides": 4,
+     "count": 1,
+     "label": "Bless: +1d4",
+     "skippable": true,
+     "name": "Bless"
+    },
+    {
+     "sides": 4,
+     "count": 1,
+     "label": "Bane: −1d4",
+     "skippable": true,
+     "name": "Bane"
+    }
+   ]
+  }
+ ],
+ "thrown": [
+  [
+   "check",
+   {
+    "label": "Longbow attack",
+    "modifier": 7,
+    "source": {
+     "kind": "attack",
+     "item": "longbow",
+     "activity": "attack"
+    }
+   },
+   {
+    "kind": "check",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longbow attack",
+    "total": 22,
+    "modifier": 7,
+    "d20s": [
+     14
+    ],
+    "natural": 14,
+    "extras": [
+     {
+      "text": "Bless +1d4",
+      "values": [
+       3
+      ],
+      "value": 3
+     },
+     {
+      "text": "Bane −1d4",
+      "values": [
+       2
+      ],
+      "value": -2
+     }
+    ],
+    "at": 1791142200000,
+    "effectDice": [
+     {
+      "faces": 4,
+      "sign": 1,
+      "results": [
+       3
+      ]
+     },
+     {
+      "faces": 4,
+      "sign": -1,
+      "results": [
+       2
+      ]
+     }
+    ],
+    "typed": true,
+    "rerolls": "kept"
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "check",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longbow attack",
+   "total": 22,
+   "modifier": 7,
+   "d20s": [
+    14
+   ],
+   "natural": 14,
+   "extras": [
+    {
+     "text": "Bless +1d4",
+     "values": [
+      3
+     ],
+     "value": 3
+    },
+    {
+     "text": "Bane −1d4",
+     "values": [
+      2
+     ],
+     "value": -2
+    }
+   ],
+   "at": 1791142200000,
+   "effectDice": [
+    {
+     "faces": 4,
+     "sign": 1,
+     "results": [
+      3
+     ]
+    },
+    {
+     "faces": 4,
+     "sign": -1,
+     "results": [
+      2
+     ]
+    }
+   ],
+   "typed": true,
+   "rerolls": "kept"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape typed damage, critical, rerolls kept: typed damage, critical, rerolls kept 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 0,
+ "asked": [
+  {
+   "title": "Longsword damage",
+   "terms": [
+    {
+     "sides": 8,
+     "count": 2,
+     "label": "2d8 Slashing"
+    }
+   ]
+  }
+ ],
+ "thrown": [
+  [
+   "damage",
+   {
+    "label": "Longsword damage",
+    "parts": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 8
+       },
+       {
+        "sign": 1,
+        "flat": 3
+       }
+      ],
+      "type": "Slashing"
+     }
+    ],
+    "source": {
+     "item": "longsword",
+     "activity": "attack"
+    },
+    "critical": true
+   },
+   {
+    "kind": "damage",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Longsword damage",
+    "total": 12,
+    "critical": true,
+    "healing": false,
+    "parts": [
+     {
+      "type": "Slashing",
+      "total": 12,
+      "terms": [
+       {
+        "text": "2d8",
+        "values": [
+         2,
+         7
+        ],
+        "value": 9
+       },
+       {
+        "text": "+3",
+        "values": [],
+        "value": 3
+       }
+      ]
+     }
+    ],
+    "at": 1791142200000,
+    "typed": true,
+    "rerolls": "kept"
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "damage",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Longsword damage",
+   "total": 12,
+   "critical": true,
+   "healing": false,
+   "parts": [
+    {
+     "type": "Slashing",
+     "total": 12,
+     "terms": [
+      {
+       "text": "2d8",
+       "values": [
+        2,
+        7
+       ],
+       "value": 9
+      },
+      {
+       "text": "+3",
+       "values": [],
+       "value": 3
+      }
+     ]
+    }
+   ],
+   "at": 1791142200000,
+   "typed": true,
+   "rerolls": "kept"
+  }
+ ]
+}"
+`;
+
+exports[`golden C8: dice draws useSheetRoller, per roll shape typed hit dice at once: typed hit dice at once 1`] = `
+"{
+ "kept": true,
+ "randomCalls": 0,
+ "asked": [
+  {
+   "title": "Hit dice (2d10 + 1d8)",
+   "terms": [
+    {
+     "sides": 10,
+     "count": 2,
+     "label": "2d10"
+    },
+    {
+     "sides": 8,
+     "count": 1,
+     "label": "+1d8"
+    }
+   ]
+  }
+ ],
+ "thrown": [
+  [
+   "formula",
+   {
+    "label": "Hit dice (2d10 + 1d8)",
+    "terms": [],
+    "sets": [
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 10
+       },
+       {
+        "sign": -1,
+        "flat": 1
+       }
+      ],
+      "times": 2
+     },
+     {
+      "terms": [
+       {
+        "sign": 1,
+        "count": 1,
+        "sides": 8
+       },
+       {
+        "sign": -1,
+        "flat": 1
+       }
+      ],
+      "times": 1
+     }
+    ],
+    "healing": true,
+    "minimum": 1,
+    "source": {
+     "kind": "hitDice",
+     "hitDice": [
+      {
+       "denomination": "d10",
+       "count": 2
+      },
+      {
+       "denomination": "d8",
+       "count": 1
+      }
+     ]
+    }
+   },
+   {
+    "kind": "formula",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "label": "Hit dice (2d10 + 1d8)",
+    "total": 11,
+    "healing": true,
+    "terms": [
+     {
+      "text": "2d10",
+      "values": [
+       3,
+       9
+      ],
+      "value": 12
+     },
+     {
+      "text": "+1d8",
+      "values": [
+       1
+      ],
+      "value": 1
+     },
+     {
+      "text": "−3",
+      "values": [],
+      "value": -3
+     }
+    ],
+    "minimum": 1,
+    "times": 3,
+    "at": 1791142200000,
+    "typed": true
+   }
+  ]
+ ],
+ "rolls": [
+  {
+   "kind": "formula",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "label": "Hit dice (2d10 + 1d8)",
+   "total": 11,
+   "healing": true,
+   "terms": [
+    {
+     "text": "2d10",
+     "values": [
+      3,
+      9
+     ],
+     "value": 12
+    },
+    {
+     "text": "+1d8",
+     "values": [
+      1
+     ],
+     "value": 1
+    },
+    {
+     "text": "−3",
+     "values": [],
+     "value": -3
+    }
+   ],
+   "minimum": 1,
+   "times": 3,
+   "at": 1791142200000,
+   "typed": true
+  }
+ ]
+}"
+`;

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- the cookbook's body uses null for an absent value */
 import type { CookbookChange, CookbookDishBody } from '@/types/cookbook'
 
 /*
@@ -62,7 +61,7 @@ export const fireberryBoon = dish(
 )
 
 /** Ashcakes with Fireberry Jam's bane, its 1d6 rolled as 6. */
-export const fireberryBane = dish(
+const fireberryBane = dish(
   'cmh2k8q0n0002ab12cd34ef56',
   'Ashcakes with Fireberry Jam',
   'bane',
@@ -82,7 +81,7 @@ export const fireberryBane = dish(
 )
 
 /** Shadowleaf Mushroom Skewers' boon: two ingredients, two skills. */
-export const shadowleafBoon = dish(
+const shadowleafBoon = dish(
   'cmh2k8q0n0003ab12cd34ef56',
   'Shadowleaf Mushroom Skewers',
   'boon',
@@ -100,7 +99,7 @@ export const shadowleafBoon = dish(
 )
 
 /** Glowlure Fritters' boon: a sense, and a part no change holds (Water Breathing). */
-export const glowlureBoon = dish(
+const glowlureBoon = dish(
   'cmh2k8q0n0004ab12cd34ef56',
   'Glowlure Fritters',
   'boon',
@@ -120,7 +119,7 @@ export const glowlureBoon = dish(
 )
 
 /** Ashen Root Stew's bane: −1 to every check and save. */
-export const ashenRootBane = dish(
+const ashenRootBane = dish(
   'cmh2k8q0n0005ab12cd34ef56',
   'Ashen Root Stew',
   'bane',
@@ -140,7 +139,7 @@ export const ashenRootBane = dish(
 )
 
 /** Kraken Ink Risotto's bane: an ability score down, and a level of exhaustion. */
-export const krakenBane = dish(
+const krakenBane = dish(
   'cmh2k8q0n0006ab12cd34ef56',
   'Kraken Ink Risotto',
   'bane',

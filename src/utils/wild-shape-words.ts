@@ -1,13 +1,15 @@
 import { crWords } from '@/utils/creature-words'
-import { seatWords, type SeatRole } from '@/utils/seat-words'
+import { seatWords } from '@/utils/seat-words'
 import { articled, hoursWords } from '@/utils/wild-shape'
-import type { WildShapeOp } from '@/constants/sending-stone'
+import type { WildShapeLogged } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type {
   KnownForm,
   SheetForm,
   SheetSpellSection,
   SheetWildShape,
   WildShapeEnded,
+  WildShapeOp,
 } from '@/types/sending-stone'
 
 // How Wild Shape from the app (module 0.40.0) is told, in English: on the ribbon, the Wild Shape
@@ -334,19 +336,6 @@ export function endedWords(
     foundry: 'Wild Shape was ended in Foundry.',
   }[ended.why]
   return first && `${first} ${name} is no longer ${articled(ended.form)}.`
-}
-
-/** What a Wild Shape command logged here asked: its op, and of which form or Beast. */
-export type WildShapeLogged = {
-  op: Exclude<WildShapeOp, 'forms'>
-  /** The form taken or left, or the Beast learned, by name. */
-  form?: string
-  /** The known form a Beast learned replaces, by name. */
-  old?: string
-  /** The character's name, which its toast names. */
-  character: string
-  /** For a return, the temporary hit points the character has, which stay. */
-  temp?: number
 }
 
 /** A Wild Shape command's line in the tray: on its way, made, and not made (round 0.40.0 §5.10). */

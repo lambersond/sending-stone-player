@@ -1,12 +1,14 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the seats and Prisma use null for none */
 import { NextRequest } from 'next/server'
 import { POST } from './route'
 import { previewNote } from '@/db/notes'
 import { getGmSeat } from '@/db/seats'
 import { getCurrentUser } from '@/lib/session'
+import { guardNoDb } from '@/utils/test-utils-node'
+
+guardNoDb()
 
 jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
@@ -91,7 +93,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/preview', () => {
   })
 
   it('answers 404 for another Gamemaster’s campaign', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getGmSeat).mockResolvedValue(undefined)
 
     await expect(post({ body: 'a' })).resolves.toHaveProperty('status', 404)

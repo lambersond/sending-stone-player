@@ -1,6 +1,7 @@
 /**
  * The Sending Stone protocol, as described in the fvtt-sending-stone module's PROTOCOL.md.
  */
+import { DIE_SIZES } from '@/constants/dice'
 
 /** The protocol version this listener understands. Version 2 sends each event to campaigns. */
 export const PROTOCOL_VERSION = 2
@@ -19,12 +20,6 @@ export const MAX_ENVELOPE_BYTES = 4_000_000
  * module 0.22.0, actions by reference to their rows, and defaults left out.
  */
 export const SLIM_SHEETS = 1
-
-/**
- * Where the module posts events. The Gamemaster sets only this app's address as the module's
- * destination; the module adds this path.
- */
-export const EVENTS_PATH = '/api/events'
 
 /**
  * How long a campaign can go without hearing anything, an event or a heartbeat, before its
@@ -49,8 +44,6 @@ export const REFUSAL = {
   MALFORMED: 'malformed',
   UNAVAILABLE: 'unavailable',
 } as const
-
-export type RefusalReason = (typeof REFUSAL)[keyof typeof REFUSAL]
 
 /** How often a campaign's latest refusal is written, at most, unless its reason changes. */
 export const REFUSAL_RECORD_EVERY = 60_000
@@ -95,12 +88,6 @@ export const EVENTS = {
   DISH_APPLIED: 'dish.applied',
   DISH_DISMISSED: 'dish.dismissed',
 } as const
-
-/**
- * Where the Gamemaster's module fetches what players ask their game to do, such as rolls. It asks
- * only once this app has said, in its answer to a hello or heartbeat, that it has commands.
- */
-export const COMMANDS_PATH = '/api/bridge/commands'
 
 /**
  * The rolls a player can have made in the Gamemaster's game: a skill check, a tool check, an
@@ -208,20 +195,6 @@ export const ROLL_FEATURES = [
   'keptRerolls',
 ] as const
 
-/**
- * The rolls a player typing in their dice may type the dice of their effects for too, from module
- * 0.42.0: those of a d20, which is never one of them.
- */
-export const EFFECT_DICE_KINDS = [
-  'skill',
-  'tool',
-  'ability',
-  'save',
-  'death',
-  'initiative',
-  'attack',
-] as const
-
 /** The most dice an effect adds that one roll names, or one sheet lists, from module 0.42.0. */
 export const MOST_EFFECT_DICE = 10
 
@@ -272,15 +245,6 @@ export const FOUNDRY_SETTINGS = 1
  * fetches moves alone, with rolls off, only then.
  */
 export const TRANSFERS = 1
-
-/**
- * What else the Gamemaster's module does with moves, as its hello says, from module 0.32.0: send a
- * party's items and coins elsewhere, by a player whose Foundry user owns it, to any of the
- * campaign's characters or another party they own, and party to party (`partySends`); and share a
- * party's coin of one kind among its members that are the campaign's characters (`distribute`).
- */
-export const TRANSFER_FEATURES = ['partySends', 'distribute'] as const
-export type TransferFeature = (typeof TRANSFER_FEATURES)[number]
 
 /**
  * The format of removals of a character's items this app takes, as it tells the module
@@ -341,7 +305,6 @@ export const EFFECTS = 1
  * off, turn it back on, or delete it; the state wanted, never a toggle.
  */
 export const EFFECT_OPS = ['disable', 'enable', 'delete'] as const
-export type EffectOp = (typeof EFFECT_OPS)[number]
 
 /**
  * An effect as the sheet names it, from module 0.39.0's `effect` command: the character's own by
@@ -354,7 +317,6 @@ export const EFFECT_ID = /^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/
  * `prepare` command, as dnd5e's sheet's Prepare and Unprepare do: the state wanted, never a toggle.
  */
 export const PREPARE_OPS = ['prepare', 'unprepare'] as const
-export type PrepareOp = (typeof PREPARE_OPS)[number]
 
 /**
  * The format of Wild Shape this app takes, as it tells the module (`wildShape`): from module
@@ -369,7 +331,6 @@ export const WILD_SHAPE = 1
  * form, or the Beasts she may learn listed, which writes nothing.
  */
 export const WILD_SHAPE_OPS = ['transform', 'revert', 'learn', 'forms'] as const
-export type WildShapeOp = (typeof WILD_SHAPE_OPS)[number]
 
 /**
  * A known form as the sheet names it, from module 0.40.0: the id of its profile on the druid's Wild
@@ -516,8 +477,8 @@ export const MAX_USE_TARGETS = 20
 /** A kind of damage or healing, as dnd5e keys it, such as "fire" or "temphp". */
 export const DAMAGE_TYPE = /^[A-Za-z][\w-]{0,31}$/
 
-/** A hit die's size, as dnd5e names it, such as "d10". */
-export const HIT_DIE = /^d(4|6|8|10|12)$/
+/** A hit die's size, as dnd5e names it, such as "d10": one of the sizes a die of damage may be. */
+export const HIT_DIE = new RegExp(`^d(${DIE_SIZES.join('|')})$`)
 
 /**
  * The most hit dice spent at once, of every size together: a character's at level 20. One with more
@@ -533,7 +494,6 @@ export const SPELL_SLOT = /^(spell[1-9]|pact)$/
  * `spellSlot` command: spend one, as a cast would, or restore one that's used; one at a time.
  */
 export const SPELL_SLOT_OPS = ['spend', 'restore'] as const
-export type SpellSlotOp = (typeof SPELL_SLOT_OPS)[number]
 
 /** A weapon's attack mode, as dnd5e keys it, such as "twoHanded" or "thrown-offhand". */
 export const ATTACK_MODE = /^[A-Za-z][\w-]{0,31}$/
@@ -603,3 +563,12 @@ export const ROLLS_PER_MINUTE = 20
  * don't count.
  */
 export const ASKS_PER_MINUTE = 3
+
+/** The classes of the links the app acts on. */
+export const LINK_CLASSES = [
+  'ss-save',
+  'ss-check',
+  'ss-damage',
+  'ss-roll',
+  'ss-condition',
+] as const

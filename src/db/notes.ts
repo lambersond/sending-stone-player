@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma and the view use null for an absent value */
 import { createHash, randomUUID } from 'node:crypto'
 import {
   Prisma,
@@ -24,6 +23,7 @@ import { convertNoteMarkdown, hasBigHeading } from '@/lib/note-markdown'
 import { checkChange } from '@/schemas/notes'
 import { bigHeadings } from '@/utils/note-headings'
 import { newNoteId } from '@/utils/note-id'
+import type { NotesBook, NotesSeat, NoteRights, NoteAnswer, Tx } from './types'
 import type {
   NoteBookKind,
   NoteChapterView,
@@ -33,7 +33,6 @@ import type {
   NoteOrder,
   NoteOrderResolve,
   NoteReason,
-  NoteRefusal,
   NoteRole,
   NotesView,
   NoteState,
@@ -52,49 +51,6 @@ import type { ConnectedCharacter } from '@/types/sending-stone'
 // here and waiting for it (`JournalOrder`), which anyone who may write the book makes, whoever
 // wrote the notes. And the book keeps its last change that leaves no note to show it: a delete, an
 // order, or a refused change sent again, here or in Foundry.
-
-/**
- * Who is at a book of notes, as its route resolved them from the session and the address alone:
- * the character's player, as their character, or the campaign's Gamemaster, as no character.
- */
-export type NotesSeat = {
-  role: 'player' | 'gm'
-  userId: string
-  /** The player's character's actor, which they write as; null for the Gamemaster. */
-  actorId: string | null
-  /** The character's name, as their seat knows it; the Gamemaster's is "Gamemaster". */
-  name: string
-}
-
-/** The book a seat is at: a character's or a party's, in one campaign. */
-export type NotesBook = {
-  campaignId: string
-  kind: NoteBookKind
-  /** The character's actor, or the party's Group actor. */
-  actorId: string
-  /** A party no campaign character may see in Foundry, which only its Gamemaster reaches. */
-  private: boolean
-}
-
-/** What a change answered: done, with the note's id and stamp now, or why not, with a status. */
-export type NoteAnswer =
-  | { ok: true; id?: string; stamp: string }
-  | {
-      ok: false
-      status: 400 | 403 | 404 | 409 | 422 | 429
-      reason: NoteRefusal
-      field?: string
-      lines?: number[]
-    }
-
-/** What a seat may do in a book, and with a note in it (§8.5). */
-export type NoteRights = {
-  canAdd: boolean
-  canRename: boolean
-  canEdit: boolean
-  canDelete: boolean
-  canReorder: boolean
-}
 
 /** The name the Gamemaster writes as, in both books (Q5). */
 const GAMEMASTER = 'Gamemaster'
@@ -368,91 +324,140 @@ function overlay(
   seat: NotesSeat,
 ): Seen | undefined {
   const stamp = stampOf(note, write)
-  if (!waiting(write)) {
-    return note
-      ? {
-          role: note.role,
-          content: fromMirror(note),
-          state: 'synced',
-          mirrored: true,
-          stamp,
-        }
-      : undefined
+  if (!waiting(write)) return note && syncedSeen(note, note.role, stamp)
+  switch (write.status) {
+    case 'pending':
+    case 'claimed': {
+      return onItsWaySeen(note, write, mayChange, live, stamp)
+    }
+    case 'conflict': {
+      return refusedSeen(note, write, mayChange, seat, stamp)
+    }
+    case 'failed': {
+      return failedSeen(note, write, mayChange, seat, stamp)
+    }
   }
-  const role = write.role
-  const mine = {
+}
+
+/** Foundry's version of a note, as a seat sees it. */
+function syncedSeen(note: JournalNote, role: NoteRole, stamp: string): Seen {
+  return {
+    role,
+    content: fromMirror(note),
+    state: 'synced',
+    mirrored: true,
+    stamp,
+  }
+}
+
+/** The seat's own change beside Foundry's version, where the module didn't take it. */
+function mineOf(
+  note: JournalNote | undefined,
+  write: JournalWrite,
+  seat: NotesSeat,
+) {
+  return {
     ...fromWrite(write, note),
     ...(write.op === 'delete' && { deleting: true as const }),
     ...(write.requestedById !== seat.userId && { by: write.modifiedBy }),
   }
-  const synced = (): Seen | undefined =>
-    note
-      ? {
-          role,
-          content: fromMirror(note),
-          state: 'synced',
-          mirrored: true,
-          stamp,
-        }
-      : undefined
+}
+
+/** A note with a change on its way: the change, or for a deletion, Foundry's version, as going. */
+function onItsWaySeen(
+  note: JournalNote | undefined,
+  write: JournalWrite,
+  mayChange: boolean,
+  live: boolean,
+  stamp: string,
+): Seen | undefined {
+  const { role } = write
+  if (write.op !== 'delete') {
+    return {
+      role,
+      content: fromWrite(write, note),
+      state: live ? 'saving' : 'waiting',
+      mirrored: false,
+      stamp,
+    }
+  }
+  if (!mayChange || !note) return undefined
+  return {
+    role,
+    content: fromMirror(note),
+    state: 'deleting',
+    mirrored: true,
+    stamp,
+  }
+}
+
+/**
+ * A note whose change the module refused as changed in Foundry, or gone there: to a seat that may
+ * change it, Foundry's version with its own beside it, or its own where the note is gone.
+ */
+function refusedSeen(
+  note: JournalNote | undefined,
+  write: JournalWrite,
+  mayChange: boolean,
+  seat: NotesSeat,
+  stamp: string,
+): Seen | undefined {
+  const { role } = write
   const reason = noteReason(write.reason)
-  switch (write.status) {
-    case 'pending':
-    case 'claimed': {
-      if (write.op !== 'delete') {
-        return {
-          role,
-          content: fromWrite(write, note),
-          state: live ? 'saving' : 'waiting',
-          mirrored: false,
-          stamp,
-        }
-      }
-      if (!mayChange || !note) return undefined
-      return {
-        role,
-        content: fromMirror(note),
-        state: 'deleting',
-        mirrored: true,
-        stamp,
-      }
+  if (!mayChange) {
+    return reason === 'gone' || !note
+      ? undefined
+      : syncedSeen(note, role, stamp)
+  }
+  const mine = mineOf(note, write, seat)
+  if (reason === 'gone' || !note) {
+    return {
+      role,
+      content: fromWrite(write, note),
+      state: 'gone',
+      reason: 'gone',
+      mirrored: false,
+      mine,
+      stamp,
     }
-    case 'conflict': {
-      if (!mayChange) return reason === 'gone' ? undefined : synced()
-      if (reason === 'gone' || !note) {
-        return {
-          role,
-          content: fromWrite(write, note),
-          state: 'gone',
-          reason: 'gone',
-          mirrored: false,
-          mine,
-          stamp,
-        }
-      }
-      return {
-        role,
-        content: fromMirror(note),
-        state: 'conflict',
-        reason: 'changed',
-        mirrored: true,
-        mine,
-        stamp,
-      }
-    }
-    case 'failed': {
-      if (!mayChange) return write.op === 'create' ? undefined : synced()
-      const shown = write.op === 'create' || !note
-      return {
-        role,
-        content: shown ? fromWrite(write, note) : fromMirror(note),
-        state: 'failed',
-        reason,
-        mirrored: !shown,
-        mine,
-        stamp,
-      }
-    }
+  }
+  return {
+    role,
+    content: fromMirror(note),
+    state: 'conflict',
+    reason: 'changed',
+    mirrored: true,
+    mine,
+    stamp,
+  }
+}
+
+/**
+ * A note whose change failed otherwise: to a seat that may change it, Foundry's version with its
+ * own beside it, or its own where it was to make the note.
+ */
+function failedSeen(
+  note: JournalNote | undefined,
+  write: JournalWrite,
+  mayChange: boolean,
+  seat: NotesSeat,
+  stamp: string,
+): Seen | undefined {
+  const { role } = write
+  if (!mayChange) {
+    return write.op === 'create' || !note
+      ? undefined
+      : syncedSeen(note, role, stamp)
+  }
+  const shown = write.op === 'create' || !note
+  return {
+    role,
+    content: shown ? fromWrite(write, note) : fromMirror(note),
+    state: 'failed',
+    reason: noteReason(write.reason),
+    mirrored: !shown,
+    mine: mineOf(note, write, seat),
+    stamp,
   }
 }
 
@@ -680,6 +685,77 @@ function lastChangeOf(
   return latest && { by: latest.by, at: new Date(latest.at).toISOString() }
 }
 
+/** What every note's view says of it, as a seat sees it. */
+function commonView(id: string, seen: Seen) {
+  const { content } = seen
+  return {
+    id,
+    title: content.title,
+    createdAt: content.createdAt.toISOString(),
+    modifiedAt: content.modifiedAt.toISOString(),
+    modifiedBy: content.modifiedBy,
+    modifiedIn: content.modifiedIn,
+    state: seen.state,
+    ...(seen.reason && { reason: seen.reason }),
+    stamp: seen.stamp,
+  }
+}
+
+/** A chapter as a seat sees it: its title, with the seat's own beside it where it's theirs. */
+function chapterView(
+  id: string,
+  seen: Seen,
+  note: JournalNote | undefined,
+  rights: ReturnType<typeof rightsFor>,
+): NoteChapterView {
+  return {
+    ...commonView(id, seen),
+    html: note?.html ?? '',
+    canRename: rights.canRename,
+    ...(seen.mine && {
+      mine: {
+        title: seen.mine.title,
+        ...(seen.mine.by !== undefined && { by: seen.mine.by }),
+      },
+    }),
+  }
+}
+
+/**
+ * An entry as a seat sees it: its text, its body only where the seat may change it and Foundry
+ * holds nothing the app can't write, and the seat's own beside it where it's theirs.
+ */
+function entryView(
+  id: string,
+  seen: Seen,
+  note: JournalNote | undefined,
+  rights: ReturnType<typeof rightsFor>,
+): NoteEntryView {
+  const { content } = seen
+  const only = seen.mirrored && note ? foundryOnly(note) : undefined
+  const hasAuthor = !!content.authorActorId || content.authorGm
+  return {
+    ...commonView(id, seen),
+    chapterId: content.chapterId,
+    html: content.html,
+    ...(rights.mayChange && !only && { body: content.body }),
+    author: hasAuthor ? { name: content.authorName ?? '' } : null,
+    canEdit: rights.canEdit,
+    canDelete: rights.canDelete,
+    ...(only && { foundryOnly: only }),
+    ...(seen.mine && {
+      mine: {
+        title: seen.mine.title,
+        html: seen.mine.html,
+        body: seen.mine.body,
+        chapterId: seen.mine.chapterId,
+        ...(seen.mine.deleting && { deleting: true as const }),
+        ...(seen.mine.by !== undefined && { by: seen.mine.by }),
+      },
+    }),
+  }
+}
+
 /** A book as a seat sees it, with each of its groups by key, for a change to their order. */
 function viewOf(
   held: Held,
@@ -694,54 +770,9 @@ function viewOf(
     const rights = rightsFor(held, seat, note, write)
     const seen = overlay(note, write, rights.mayChange, held.live, seat)
     if (!seen) continue
-    const { content } = seen
-    const common = {
-      id,
-      title: content.title,
-      createdAt: content.createdAt.toISOString(),
-      modifiedAt: content.modifiedAt.toISOString(),
-      modifiedBy: content.modifiedBy,
-      modifiedIn: content.modifiedIn,
-      state: seen.state,
-      ...(seen.reason && { reason: seen.reason }),
-      stamp: seen.stamp,
-    }
-    if (seen.role === 'chapter') {
-      chapters.push({
-        ...common,
-        html: note?.html ?? '',
-        canRename: rights.canRename,
-        ...(seen.mine && {
-          mine: {
-            title: seen.mine.title,
-            ...(seen.mine.by !== undefined && { by: seen.mine.by }),
-          },
-        }),
-      })
-      continue
-    }
-    const only = seen.mirrored && note ? foundryOnly(note) : undefined
-    const hasAuthor = !!content.authorActorId || content.authorGm
-    entries.push({
-      ...common,
-      chapterId: content.chapterId,
-      html: content.html,
-      ...(rights.mayChange && !only && { body: content.body }),
-      author: hasAuthor ? { name: content.authorName ?? '' } : null,
-      canEdit: rights.canEdit,
-      canDelete: rights.canDelete,
-      ...(only && { foundryOnly: only }),
-      ...(seen.mine && {
-        mine: {
-          title: seen.mine.title,
-          html: seen.mine.html,
-          body: seen.mine.body,
-          chapterId: seen.mine.chapterId,
-          ...(seen.mine.deleting && { deleting: true as const }),
-          ...(seen.mine.by !== undefined && { by: seen.mine.by }),
-        },
-      }),
-    })
+    if (seen.role === 'chapter')
+      chapters.push(chapterView(id, seen, note, rights))
+    else entries.push(entryView(id, seen, note, rights))
   }
   const sortedChapters = chapters.toSorted(byAge)
   const shown = new Set(chapters.map(({ id }) => id))
@@ -903,19 +934,43 @@ function fits(
       lines: bigHeadings(content.body),
     }
   }
-  if (role === 'entry' && content.chapterId) {
-    const chapter = content.chapterId
-    const known =
-      held.notes.get(chapter)?.role === 'chapter' ||
-      [...held.writes.values()].some(
-        write =>
-          write.noteId === chapter &&
-          write.role === 'chapter' &&
-          write.op === 'create' &&
-          waiting(write),
-      )
-    if (!known) return { ok: false, status: 422, reason: 'gone' }
+  if (
+    role === 'entry' &&
+    content.chapterId &&
+    !chapterKnown(held, content.chapterId)
+  ) {
+    return { ok: false, status: 422, reason: 'gone' }
   }
+  const { entryCount, chapterCount, text } = bookCounts(held, noteId)
+  // A change adds no note; a new one may be one too many.
+  const most = role === 'entry' ? MOST_ENTRIES : MOST_CHAPTERS
+  const count = role === 'entry' ? entryCount : chapterCount
+  const full = !noteId && count >= most
+  if (full || text + content.body.length > MOST_BOOK_TEXT) {
+    return { ok: false, status: 422, reason: 'full' }
+  }
+}
+
+/** Whether a chapter is the book's: Foundry's, or one made here on its way. */
+function chapterKnown(held: Held, chapter: string): boolean {
+  return (
+    held.notes.get(chapter)?.role === 'chapter' ||
+    [...held.writes.values()].some(
+      write =>
+        write.noteId === chapter &&
+        write.role === 'chapter' &&
+        write.op === 'create' &&
+        waiting(write),
+    )
+  )
+}
+
+/**
+ * The book's entries and chapters as they'll stand, none on its way out counted, and its entries'
+ * text but a note's own.
+ * @param noteId - The note a change is to, whose own text doesn't count.
+ */
+function bookCounts(held: Held, noteId?: string) {
   let entryCount = 0
   let chapterCount = 0
   let text = 0
@@ -932,13 +987,7 @@ function fits(
       if (id !== noteId) text += now.body.length
     }
   }
-  // A change adds no note; a new one may be one too many.
-  const most = role === 'entry' ? MOST_ENTRIES : MOST_CHAPTERS
-  const count = role === 'entry' ? entryCount : chapterCount
-  const full = !noteId && count >= most
-  if (full || text + content.body.length > MOST_BOOK_TEXT) {
-    return { ok: false, status: 422, reason: 'full' }
-  }
+  return { entryCount, chapterCount, text }
 }
 
 /** A key the database already holds, as a second change made at once meets. */
@@ -966,7 +1015,7 @@ function changedHere(held: Held, seat: NotesSeat, at: Date): BookChange {
  * change leaves no note to show it, the book's record of it.
  */
 async function bumpBook(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   book: NotesBook,
   changed?: BookChange,
 ): Promise<string> {
@@ -1100,21 +1149,8 @@ export async function changeNote(
     return { ok: false, status: 400, reason: 'invalid', field: misshapen.field }
   }
   if (!rights.mayChange) return { ok: false, status: 403, reason: 'not-yours' }
-  const seen = overlay(note, write, true, held.live, seat)
-  if (seen?.mirrored && note && foundryOnly(note)) {
-    return { ok: false, status: 409, reason: 'foundry-only' }
-  }
-  if (change.stamp !== stampOf(note, write)) {
-    return { ok: false, status: 409, reason: 'changed' }
-  }
-  // On its way: waited for, unless it's thought lost. A create is waited for however long, as made
-  // again with new text it could find its page already made, which keeps the old.
-  if (write?.status === 'claimed' && (write.op === 'create' || !lost(write))) {
-    return { ok: false, status: 409, reason: 'saving' }
-  }
-  if (write?.status === 'conflict') {
-    return { ok: false, status: 409, reason: 'conflict' }
-  }
+  const standing = changeStanding(held, seat, note, write, change.stamp)
+  if (standing) return standing
   const refused = await takes(held, seat, { limited: true })
   if (refused) return refused
   const entry = rights.role === 'entry'
@@ -1145,6 +1181,35 @@ export async function changeNote(
   )
 }
 
+/**
+ * Why a note can't be changed now, as it stands: Foundry holds what the app can't write, the page
+ * saw it otherwise than it is, or a change of it is on its way or refused.
+ */
+function changeStanding(
+  held: Held,
+  seat: NotesSeat,
+  note: JournalNote | undefined,
+  write: JournalWrite | undefined,
+  stamp: string,
+): NoteAnswer | undefined {
+  const seen = overlay(note, write, true, held.live, seat)
+  if (seen?.mirrored && note && foundryOnly(note)) {
+    return { ok: false, status: 409, reason: 'foundry-only' }
+  }
+  if (stamp !== stampOf(note, write)) {
+    return { ok: false, status: 409, reason: 'changed' }
+  }
+  // On its way: waited for, unless it's thought lost. A create is waited for however long, as made
+  // again with new text it could find its page already made, which keeps the old.
+  if (write?.status === 'claimed' && (write.op === 'create' || !lost(write))) {
+    return { ok: false, status: 409, reason: 'saving' }
+  }
+  if (write?.status === 'conflict') {
+    return { ok: false, status: 409, reason: 'conflict' }
+  }
+  return undefined
+}
+
 /** A change folded into the one waiting: a delete stays one, and a change undoes one. */
 function foldedOp(
   waiting: JournalWrite['op'],
@@ -1161,7 +1226,7 @@ function foldedOp(
  * @returns The change's id and number now.
  */
 async function saveChange(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   held: Held,
   noteId: string,
   note: JournalNote | undefined,

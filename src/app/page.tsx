@@ -1,6 +1,6 @@
 import { Gem, Swords, UserRound } from 'lucide-react'
 import Link from 'next/link'
-import { Logo } from '@/components/logo'
+import { Logo } from '@/components/logo/logo'
 import { getCurrentUser } from '@/lib/session'
 
 const STEPS = [

@@ -1,13 +1,13 @@
-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
+import { switchOn } from '@/utils/features'
 import { allItems } from '@/utils/sheet-texts'
-import type { GroupEntry } from '@/types/party'
 import type { TransferInput } from '@/types/roll'
 import type {
   SheetContainer,
   SheetInventory,
   SheetItem,
+  GroupEntry,
 } from '@/types/sending-stone'
-import type { RollRefusal } from '@/utils/roll-requests'
+import type { RollRefusal } from '@/utils/requests/types'
 
 // How this app checks a move of items and coins (module 0.31.0) before the Gamemaster's module is
 // sent it: who may make it, by the campaign's roster and its groups' access, and whether what's
@@ -15,7 +15,7 @@ import type { RollRefusal } from '@/utils/roll-requests'
 // the game; these checks only spare a player a move the game would refuse.
 
 /** Why a move can't go to the game, as these checks say. */
-export type TransferRefusal = Extract<
+type TransferRefusal = Extract<
   RollRefusal,
   | 'unknown'
   | 'not-yours'
@@ -36,12 +36,7 @@ export function transfersAvailable(
   campaign: { transfersEnabled: boolean; bridgePolledAt: Date | null },
   now = Date.now(),
 ): boolean {
-  const polled = campaign.bridgePolledAt?.getTime()
-  return (
-    campaign.transfersEnabled === true &&
-    !!polled &&
-    now - polled < BRIDGE_POLLED_WITHIN
-  )
+  return switchOn(campaign, 'transfersEnabled', now)
 }
 
 /**
@@ -83,6 +78,22 @@ export function checkEnds(
   if (among?.some(id => !character(id))) return 'unknown'
   const { actorId } = seat
   if (!actorId || !character(actorId)) return 'not-yours'
+  return checkMover(seat.role, actorId, transfer, group, features)
+}
+
+/**
+ * Whether the seat's character may make a move whose ends are all known: a distribution only from
+ * a group; a character's things only as one of the move's ends; before module 0.32.0, never two
+ * groups, nor a move the character is no end of; and for a player, from their own character, or
+ * from a party they own, to one they own.
+ */
+function checkMover(
+  role: 'player' | 'gm',
+  actorId: string,
+  { from, to, among }: Pick<TransferInput, 'from' | 'to' | 'among'>,
+  group: (id: string) => GroupEntry | undefined,
+  features: readonly string[],
+): TransferRefusal | undefined {
   const fromGroup = group(from)
   const toGroup = to === undefined ? undefined : group(to)
   if (among && !fromGroup) return 'not-yours'
@@ -96,7 +107,17 @@ export function checkEnds(
   ) {
     return 'not-yours'
   }
-  if (seat.role === 'gm') return undefined
+  if (role === 'gm') return undefined
+  return playerMover(from, actorId, fromGroup, toGroup)
+}
+
+/** Whether a player may make a move: from their own character, or a party they own, to one too. */
+function playerMover(
+  from: string,
+  actorId: string,
+  fromGroup: GroupEntry | undefined,
+  toGroup: GroupEntry | undefined,
+): TransferRefusal | undefined {
   if (!fromGroup && from !== actorId) return 'not-yours'
   if (fromGroup && accessOf(fromGroup, actorId) !== 'owner') return 'not-owner'
   if (toGroup && accessOf(toGroup, actorId) !== 'owner') return 'not-owner'

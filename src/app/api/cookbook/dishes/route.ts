@@ -1,4 +1,4 @@
-import { dishPostResponse } from '@/lib/cookbook-routes'
+import { dishPostResponse } from '@/lib/routes/cookbook-routes'
 
 // Where the Magical Recipe Book's server posts each dish a player eats there, from module 0.38.0,
 // with the player's link code as `Authorization: Bearer <code>`, server to server.

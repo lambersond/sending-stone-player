@@ -8,28 +8,30 @@ import {
   revokeCookbookCode,
   setManualDice,
 } from '../actions'
-import { GameTable } from '@/components/game-table'
 import { getCampaignChoice } from '@/db/campaigns'
 import { getCharacter } from '@/db/characters'
 import { playerSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
+import { GameTable } from '@/features/table/components/game-table/game-table'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
-
-type Props = PageProps<'/characters/[id]'>
 
 const findCharacter = cache(async (characterId: string) => {
   const user = await requireUser()
   return getCharacter(user.id, characterId)
 })
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<'/characters/[id]'>): Promise<Metadata> {
   const { id } = await params
   const character = await findCharacter(id)
   return { title: character?.name ?? 'Character' }
 }
 
-export default async function CharacterPage({ params }: Props) {
+export default async function CharacterPage({
+  params,
+}: PageProps<'/characters/[id]'>) {
   const { id } = await params
   const character = await findCharacter(id)
   if (!character) notFound()

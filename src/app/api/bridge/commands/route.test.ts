@@ -12,8 +12,11 @@ import {
 } from '@/db/roll-requests'
 import { fireberryBoon } from '@/mocks/cookbook'
 import { mockNoteCommand } from '@/mocks/sending-stone'
+import { guardNoDb } from '@/utils/test-utils-node'
 import type { DishCommand } from '@/types/cookbook'
-import type { RollCommand } from '@/utils/roll-requests'
+import type { RollCommand } from '@/utils/requests/types'
+
+guardNoDb()
 
 jest.mock('@/db/campaigns', () => ({ findEventCampaign: jest.fn() }))
 jest.mock('@/db/cookbook', () => ({ claimDishes: jest.fn() }))

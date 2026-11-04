@@ -17,25 +17,23 @@ import {
   tableCompanion,
 } from '@/utils/companions'
 import { toTablePrompts } from '@/utils/prompts'
-import { toGmRollView } from '@/utils/roll-requests'
+import { toGmRollView } from '@/utils/requests/views'
 import { sheetTextRefs } from '@/utils/sheet-texts'
 import {
   pickCombat,
   portraitUrl,
   toTableCombat,
   toTableSheet,
-  type Viewer,
 } from '@/utils/table-view'
-import type { RollSeat } from '@/db/roll-requests'
+import type { RollSeat, CompanionStatus } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
-import type { RollFeature, RollKind } from '@/types/roll'
 import type {
   CharacterSheet,
   CombatSnapshot,
   CompanionEntry,
   ConnectedCharacter,
 } from '@/types/sending-stone'
-import type { CompanionView, GmRolls } from '@/types/table'
+import type { CompanionView, Viewer } from '@/types/table'
 
 // A campaign's characters' companions, from module 0.36.0: each seen, and rolled for, from its
 // character's seat, by that character's player or the campaign's Gamemaster, through a companion
@@ -44,8 +42,6 @@ import type { CompanionView, GmRolls } from '@/types/table'
 // so a companion the module stops listing answers no more at once; all but the one that says
 // where a roll sent for it stands, which answers its seat's own rolls for it, listed or not, so
 // that one sent a moment before it left the list is still followed to what the game made of it.
-
-export { companionRoster } from '@/utils/companions'
 
 /**
  * The seat at one of a character's companions' sheets (module 0.36.0): the character's seat, its
@@ -105,23 +101,6 @@ export function companionRollSeat(
     characterId,
     companion: { of: actorId },
   }
-}
-
-/**
- * What tells a companion's pane whether anything is new: as a character's view, the campaign's
- * version, whether it's live, the rolls the game takes for it and what else it does with them,
- * where the Gamemaster's rolls go at their seat, what changes whenever any of the Gamemaster's
- * rolls as it does, at its player's, and whether its player types in their own dice. A change of
- * how companions enter initiative comes in a hello, which moves the version.
- */
-export type CompanionStatus = {
-  version: number
-  live: boolean
-  rollsToTable: RollKind[]
-  rollFeatures: RollFeature[]
-  gm?: { rolls: GmRolls }
-  gmRollsKey?: string
-  typed: boolean
 }
 
 /** What a companion's campaign is read for, for its view and its status. */

@@ -1,16 +1,14 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- the link's seat uses null for an absent value */
 import * as route from './route'
-import {
-  acceptDish,
-  deleteCookbookLink,
-  findCookbookLink,
-  type CookbookLinkFound,
-} from '@/db/cookbook'
+import { acceptDish, deleteCookbookLink, findCookbookLink } from '@/db/cookbook'
 import { hashCookbookCode } from '@/lib/cookbook-code'
 import { fireberryBoon } from '@/mocks/cookbook'
+import { guardNoDb } from '@/utils/test-utils-node'
+import type { CookbookLinkFound } from '@/db/types'
+
+guardNoDb()
 
 // The waiting cap's words are built from its constant: mocked here to another number, so words
 // written out with 50 fail.

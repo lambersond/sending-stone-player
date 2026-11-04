@@ -1,4 +1,4 @@
-import { BRIDGE_POLLED_WITHIN } from '@/constants/sending-stone'
+import { switchOn } from '@/utils/features'
 import type { EffectInput } from '@/types/roll'
 import type { CharacterSheet } from '@/types/sending-stone'
 
@@ -17,12 +17,7 @@ export function effectsAvailable(
   campaign: { effectsEnabled: boolean; bridgePolledAt: Date | null },
   now = Date.now(),
 ): boolean {
-  const polled = campaign.bridgePolledAt?.getTime()
-  return (
-    campaign.effectsEnabled === true &&
-    !!polled &&
-    now - polled < BRIDGE_POLLED_WITHIN
-  )
+  return switchOn(campaign, 'effectsEnabled', now)
 }
 
 /**

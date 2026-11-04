@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma's unset columns are null */
-import { prismaMock } from '../../jest.setup'
 import { listOwnedCampaigns } from './campaigns'
 import { getGroupView } from './party'
 import { playerSeat } from './seats'
@@ -10,6 +8,7 @@ import {
   groupSheet,
   roster,
 } from '@/mocks/sending-stone'
+import { prismaMock } from '@/utils/test-utils-node'
 
 // What Foundry says of itself for a campaign is its Gamemaster's alone, on their campaign card
 // (decision 8): no view a player reads ever carries it, nor asks for it.

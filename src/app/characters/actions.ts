@@ -9,11 +9,11 @@ import {
   joinCampaign,
   markChatRead,
   setCharacterManualDice,
-  type ChoiceProblem,
 } from '@/db/characters'
 import { makeCookbookLink, revokeCookbookLink } from '@/db/cookbook'
 import { requireUser } from '@/lib/session'
 import { toInviteCode } from '@/schemas/campaign'
+import type { ChoiceProblem } from '@/db/types'
 import type {
   ChooseCharacterFormState,
   InviteFormState,

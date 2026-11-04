@@ -1,19 +1,28 @@
 import { randomUUID } from 'node:crypto'
 import prisma from '@/clients/prisma'
+import { BRIDGE_SWITCHES } from '@/constants/features'
+import { ANSWER_KINDS, OWN_KINDS, ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import {
   ASKS_PER_MINUTE,
   MOST_OPEN,
   OPEN_WITHIN,
   PLAYERS_PRESENT_FOR,
   PLAYERS_SEEN_EVERY,
-  ROLL_ANSWER_WITHIN,
   ROLL_PENDING_FOR,
   ROLLS_IN_FLIGHT,
-  ROLLS_KEPT_FOR,
   ROLLS_PER_MINUTE,
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import {
+  ago,
+  due,
+  holdCommand,
+  keptLabel,
+  madeBy,
+  onItsWay,
+} from '@/db/commands'
+import { FOUNDRY_ID } from '@/db/constants'
 import { recordDishResult } from '@/db/cookbook'
 import { createEffectRequest } from '@/db/effects'
 import { createFavoriteRequest } from '@/db/favorites'
@@ -25,27 +34,37 @@ import { sheetLinks } from '@/lib/sheet-html'
 import { companionRoster } from '@/utils/companions'
 import { changes } from '@/utils/damage-modifiers'
 import { checkPrompt } from '@/utils/prompts'
-import {
-  availableRollKinds,
-  checkDamage,
-  checkEndTurn,
-  checkRoll,
-  checkUndoTurn,
-  GM_UNSENT,
-  toCommand,
-  toRollRequestView,
-  type HeldRollRequest,
-  type RollCommand,
-  type RollRefusal,
-} from '@/utils/roll-requests'
+import { availableRollKinds } from '@/utils/requests/availability'
+import { checkDamage } from '@/utils/requests/check-damage'
+import { checkEndTurn, checkUndoTurn } from '@/utils/requests/check-turns'
+import { checkRoll } from '@/utils/requests/checks'
+import { GM_UNSENT, toCommand } from '@/utils/requests/commands'
+import { toRollRequestView } from '@/utils/requests/views'
+import type {
+  BridgePolled,
+  BridgeSwitch,
+  CommandCreator,
+  RollRejection,
+  RollSeat,
+} from '@/db/types'
 import type { SheetSeat } from '@/types/character'
-import type { RollRequestInput, RollRequestView } from '@/types/roll'
+import type {
+  RollKind,
+  RollKindInfo,
+  RollRequestInput,
+  RollRequestView,
+} from '@/types/roll'
 import type {
   CharacterSheet,
   CombatSnapshot,
   CommandResult,
   ConnectedCharacter,
 } from '@/types/sending-stone'
+import type {
+  HeldRollRequest,
+  RollCommand,
+  RollRefusal,
+} from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
 // A player's roll goes to the Gamemaster's game through the module, which fetches it. It is
@@ -54,6 +73,15 @@ import type { Prisma } from '@prisma/client'
 
 /** The most rolls one fetch takes. */
 const CLAIM_LIMIT = 10
+
+/** What isn't a roll, each kind with a switch of its own, taken by its own creator. */
+const OWN_CREATORS: Partial<Record<RollKind, CommandCreator>> = {
+  transfer: createTransferRequest,
+  remove: createRemoveRequest,
+  favorite: createFavoriteRequest,
+  effect: createEffectRequest,
+  wildShape: createWildShapeRequest,
+}
 
 const heldSelect = {
   id: true,
@@ -67,47 +95,6 @@ const heldSelect = {
   createdAt: true,
   claimedAt: true,
 } as const
-
-/**
- * Whose rolls are asked after: a seat's (#156), as a sheet's routes resolve it; or, from module
- * 0.36.0, one following the rolls it sent for one of its character's companions, which needs only
- * whose companion that is, so that a roll sent a moment before the module stopped listing it is
- * still answered (`companionRollSeat`, APP src/db/companions.ts).
- */
-export type RollSeat = Pick<
-  SheetSeat,
-  'role' | 'userId' | 'campaignId' | 'actorId' | 'characterId'
-> & { companion?: Pick<NonNullable<SheetSeat['companion']>, 'of'> }
-
-/**
- * The rolls a seat sent (#156): its player's, by their character; or the Gamemaster's as this
- * character in this campaign, by them. Never only `characterId: null`, which every Gamemaster's
- * roll has, of every campaign. The two seats' rolls are apart, so each has its own limits, and
- * damage follows only its own seat's attack or use.
- */
-export function madeBy(seat: RollSeat): Prisma.RollRequestWhereInput {
-  if (seat.role === 'gm') {
-    return {
-      // A Gamemaster's seat always has both; '' matches no row should one be missing.
-      campaignId: seat.campaignId ?? '',
-      actorId: seat.actorId ?? '',
-      role: 'gm',
-      requestedById: seat.userId,
-    }
-  }
-  return { characterId: seat.characterId ?? '' }
-}
-
-/**
- * Why a roll wasn't taken, with the HTTP status that says so; for a move of items and coins, from
- * module 0.31.0, also that the seat has a move of the same on its way already (`moving`), and for
- * a removal, from module 0.33.0, a move or removal of the item, of anything in it, or of a
- * container it's in.
- */
-export type RollRejection = {
-  status: 409 | 422 | 429
-  reason: RollRefusal | 'busy' | 'moving'
-}
 
 /**
  * Take a roll for a character to make in the Gamemaster's game, from its player or from the
@@ -148,39 +135,89 @@ export async function createRollRequest(
   // has no Wild Shape of a character's, and the schema takes the kinds, so they're refused here
   // first, before any is looked at.
   const { companion } = seat
-  if (
-    companion &&
-    (
-      ['transfer', 'remove', 'favorite', 'effect', 'wildShape'] as string[]
-    ).includes(input.kind)
-  ) {
+  if (companion && OWN_KINDS.includes(input.kind)) {
     return { status: 422, reason: 'unknown' }
   }
   // While the character is transformed, what would change its own actor's things waits.
-  if (['transfer', 'remove', 'favorite', 'effect'].includes(input.kind)) {
+  if ('shaped' in ROLL_KIND_INFO[input.kind]) {
     const shaped = await shapedRefusal(seat, input)
     if (shaped) return shaped
   }
-  if (input.kind === 'transfer') return createTransferRequest(seat, input)
-  if (input.kind === 'remove') return createRemoveRequest(seat, input)
-  if (input.kind === 'favorite') return createFavoriteRequest(seat, input)
-  if (input.kind === 'effect') return createEffectRequest(seat, input)
-  if (input.kind === 'wildShape') return createWildShapeRequest(seat, input)
+  const own = OWN_CREATORS[input.kind]
+  if (own) return own(seat, input)
   const { campaignId, actorId } = seat
   if (!campaignId || !actorId) return { status: 409, reason: 'unavailable' }
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
-    select: {
-      rollsEnabled: true,
-      rollKinds: true,
-      rollFeatures: true,
-      bridgePolledAt: true,
-      characters: true,
-      companions: true,
-      companionKinds: true,
-      companionInitiative: true,
-    },
+    select: ROLL_CAMPAIGN,
   })
+  const gated = rollGate(seat, input, campaign)
+  if (gated || !campaign) return gated ?? { status: 409, reason: 'unavailable' }
+
+  const now = Date.now()
+  const context = await readRollContext(seat, input, campaignId, actorId, now)
+  const { inFlight, lastMinute, asks } = context
+  if (
+    inFlight >= ROLLS_IN_FLIGHT ||
+    lastMinute >= ROLLS_PER_MINUTE ||
+    asks >= ASKS_PER_MINUTE
+  ) {
+    return { status: 429, reason: 'busy' }
+  }
+  const refusal = rollRefusal(companion, input, campaign, context)
+  if (refusal) return { status: 422, reason: refusal }
+
+  // What it's called is the app's alone: the module is sent only what to roll. The Gamemaster's is
+  // kept, for the character's player to be shown it by; a player's own page never asks for theirs.
+  const { label } = input
+  return holdCommand(
+    seat,
+    {
+      campaignId,
+      actorId,
+      // A companion's, made as it, names its character (module 0.36.0).
+      ...(companion && { ofActorId: companion.of }),
+      kind: input.kind,
+      ...keptLabel(seat, label),
+      payload: rollPayload(
+        seat,
+        input,
+        campaign,
+      ) as unknown as Prisma.InputJsonValue,
+      useId: context.damage,
+    },
+    now,
+  )
+}
+
+/** What a roll reads of its campaign: whether the game takes it, how, and its roster. */
+const ROLL_CAMPAIGN = {
+  rollsEnabled: true,
+  rollKinds: true,
+  rollFeatures: true,
+  bridgePolledAt: true,
+  characters: true,
+  companions: true,
+  companionKinds: true,
+  companionInitiative: true,
+} as const satisfies Prisma.CampaignSelect
+
+/** A roll's campaign, as ROLL_CAMPAIGN reads it. */
+type RollCampaign = Prisma.CampaignGetPayload<{ select: typeof ROLL_CAMPAIGN }>
+
+/**
+ * Whether the game takes this roll now, before anything else is read: the Gamemaster's only where
+ * it makes them as the character's, its kind where the game takes it, a companion's only of the
+ * kinds the game takes for companions, and whatever it asks of the game only where the game does
+ * that.
+ * @returns Why not; nothing where it does.
+ */
+function rollGate(
+  seat: SheetSeat,
+  input: RollRequestInput,
+  campaign: RollCampaign | null,
+): RollRejection | undefined {
+  const { companion } = seat
   // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
   // and ending an enchantment, a concentration or from module 0.36.0 a turn, or taking one back, is
   // no roll, and posts nothing, so it would leave no mark: the Gamemaster ends one in Foundry.
@@ -208,36 +245,52 @@ export async function createRollRequest(
   ) {
     return { status: 422, reason: 'prompt' }
   }
-  // Damage a player changed goes only to a game that can roll it so, an answer to what the game
-  // asked only to one that asks, an area attack only to one that makes it at those picked, a check
-  // an activity asks for only to one that makes it against the activity, and from module 0.41.0
-  // damage on its own with its choices, or spending what it uses, only to one that takes them.
-  if (
-    (changes(input.modifiers) &&
-      !campaign.rollFeatures.includes('modifiers')) ||
-    (input.kind === 'itemDamage' &&
-      namesAloneChoices(input) &&
-      !campaign.rollFeatures.includes('aloneChoices')) ||
-    (input.prompt && !campaign.rollFeatures.includes('prompts')) ||
-    (input.kind === 'attack' &&
-      input.targets !== undefined &&
-      !campaign.rollFeatures.includes('areaAttacks')) ||
-    (['skill', 'tool', 'ability'].includes(input.kind) &&
-      input.item !== undefined &&
-      !campaign.rollFeatures.includes('activityChecks'))
-  ) {
+  if (lacksFeature(input, campaign.rollFeatures)) {
     return { status: 409, reason: 'unavailable' }
   }
+  return undefined
+}
 
-  const now = Date.now()
+/**
+ * Whether a roll asks the game for what it doesn't do: damage a player changed goes only to a game
+ * that can roll it so, an answer to what the game asked only to one that asks, an area attack only
+ * to one that makes it at those picked, a check an activity asks for only to one that makes it
+ * against the activity, and from module 0.41.0 damage on its own with its choices, or spending
+ * what it uses, only to one that takes them.
+ */
+function lacksFeature(input: RollRequestInput, features: string[]): boolean {
+  return (
+    (changes(input.modifiers) && !features.includes('modifiers')) ||
+    (input.kind === 'itemDamage' &&
+      namesAloneChoices(input) &&
+      !features.includes('aloneChoices')) ||
+    (!!input.prompt && !features.includes('prompts')) ||
+    (input.kind === 'attack' &&
+      input.targets !== undefined &&
+      !features.includes('areaAttacks')) ||
+    ('check' in ROLL_KIND_INFO[input.kind] &&
+      input.item !== undefined &&
+      !features.includes('activityChecks'))
+  )
+}
+
+/**
+ * What a roll is checked against, read at once: its sheet, its combat, for damage the attack or use
+ * it follows and what else followed it, the seat's rolls on their way and of the last minute, what
+ * the game asked and its answers so far, the description a link was in, the seat's asks of the
+ * last minute, and for a turn taken back, the End Turn it names.
+ */
+async function readRollContext(
+  seat: SheetSeat,
+  input: RollRequestInput,
+  campaignId: string,
+  actorId: string,
+  now: number,
+) {
+  const { companion } = seat
   const damage = input.kind === 'damage' && input.use ? input.use : undefined
-  // The combat a roll is made in: initiative's, or the one an attack's or a use's targets are in;
-  // or from module 0.36.0, the one whose turn is ended, or taken back.
   const undoing = input.kind === 'undoEndTurn'
-  const ending = input.kind === 'endTurn' || undoing
-  let combatId = input.target?.combatId ?? input.targets?.[0]?.combatId
-  if (input.kind === 'initiative') combatId = input.combatId
-  else if (ending) combatId = input.turn?.combatId
+  const combatId = combatOf(input)
   const prompt = input.prompt
   const text = input.text
   const [
@@ -282,19 +335,7 @@ export async function createRollRequest(
         })
       : [],
     prisma.rollRequest.count({
-      where: {
-        ...madeBy(seat),
-        OR: [
-          {
-            status: 'pending',
-            createdAt: { gt: ago(now, ROLL_PENDING_FOR) },
-          },
-          {
-            status: 'claimed',
-            claimedAt: { gt: ago(now, ROLL_ANSWER_WITHIN) },
-          },
-        ],
-      },
+      where: { ...madeBy(seat), ...onItsWay(now) },
     }),
     prisma.rollRequest.count({
       where: {
@@ -320,7 +361,7 @@ export async function createRollRequest(
           where: {
             campaignId,
             actorId,
-            kind: { in: ['save', 'ability', 'skill'] },
+            kind: { in: [...ANSWER_KINDS] },
             payload: { path: ['prompt'], equals: prompt },
           },
           select: { status: true, createdAt: true, claimedAt: true },
@@ -357,68 +398,115 @@ export async function createRollRequest(
         })
       : undefined,
   ])
-  if (
-    inFlight >= ROLLS_IN_FLIGHT ||
-    lastMinute >= ROLLS_PER_MINUTE ||
-    asks >= ASKS_PER_MINUTE
-  ) {
-    return { status: 429, reason: 'busy' }
+  return {
+    actorId,
+    now,
+    damage,
+    undoing,
+    ending: input.kind === 'endTurn' || undoing,
+    sheet: sheet?.data as unknown as CharacterSheet | undefined,
+    fights: combats.map(({ data }) => data as unknown as CombatSnapshot),
+    use,
+    others,
+    inFlight,
+    lastMinute,
+    asked,
+    answers,
+    described,
+    asks,
+    ended,
   }
-  const held = sheet?.data as unknown as CharacterSheet | undefined
-  const fights = combats.map(({ data }) => data as unknown as CombatSnapshot)
-  // A turn ended, from module 0.36.0, is checked against the combat alone, with a sheet or none:
-  // the turn the page was shown, still the current one, and the character's or a companion's. One
-  // taken back, against the End Turn it names too, and the combat where that left it.
-  let refusal: RollRefusal | undefined
-  if (undoing) {
-    refusal = checkUndoTurn(
+}
+
+/**
+ * Why the character can't make this roll, as its sheet and combat say. A turn ended, from module
+ * 0.36.0, is checked against the combat alone, with a sheet or none: the turn the page was shown,
+ * still the current one, and the character's or a companion's. One taken back, against the End
+ * Turn it names too, and the combat where that left it.
+ */
+function rollRefusal(
+  companion: SheetSeat['companion'],
+  input: RollRequestInput,
+  campaign: RollCampaign,
+  context: Awaited<ReturnType<typeof readRollContext>>,
+): RollRefusal | undefined {
+  const { actorId, now, sheet, fights } = context
+  if (context.undoing) {
+    return checkUndoTurn(
       input.turn,
-      ended,
+      context.ended,
       fights,
       actorId,
       companionRoster(campaign.companions),
       now,
     )
-  } else if (ending) {
-    refusal = checkEndTurn(
+  }
+  if (context.ending) {
+    return checkEndTurn(
       input.turn,
       fights,
       actorId,
       companionRoster(campaign.companions),
     )
-  } else if (damage) {
-    refusal = checkDamage(input, use, others, now, actorId)
-  } else {
-    refusal =
-      companionRefusal(input, companion, held, fights, campaign) ??
-      checkRoll(
-        input,
-        held,
-        fights,
-        actorId,
-        described ? sheetLinks(described.html) : undefined,
-        campaign.rollFeatures,
-      ) ??
-      (prompt ? checkPrompt(input, asked, actorId, answers, now) : undefined)
   }
-  if (refusal) return { status: 422, reason: refusal }
+  if (context.damage) {
+    return checkDamage(input, context.use, context.others, now, actorId)
+  }
+  return (
+    companionRefusal(input, companion, sheet, fights, campaign) ??
+    checkRoll(
+      input,
+      sheet,
+      fights,
+      actorId,
+      context.described ? sheetLinks(context.described.html) : undefined,
+      campaign.rollFeatures,
+    ) ??
+    (input.prompt
+      ? checkPrompt(input, context.asked, actorId, context.answers, now)
+      : undefined)
+  )
+}
 
-  // What it's called is the app's alone: the module is sent only what to roll. The Gamemaster's is
-  // kept, for the character's player to be shown it by; a player's own page never asks for theirs.
-  const { label, typed, effectDice, rerolls, ...command } = input
+/**
+ * The combat a roll is made in: initiative's, or the one an attack's or a use's targets are in; or
+ * from module 0.36.0, the one whose turn is ended, or taken back.
+ */
+function combatOf(input: RollRequestInput): string | undefined {
+  if (input.kind === 'initiative') return input.combatId
+  if (input.kind === 'endTurn' || input.kind === 'undoEndTurn') {
+    return input.turn?.combatId
+  }
+  return input.target?.combatId ?? input.targets?.[0]?.combatId
+}
+
+/**
+ * What the module is sent of a roll: only what to roll, as its label is the app's alone. Marked as
+ * typed in only where the player may type theirs, as the game said last: else the same dice,
+ * unmarked. A companion's are typed as its character's are. And with it, the dice its effects add,
+ * and that its rerolls are its player's, where the game takes them (module 0.42.0); else the game
+ * rolls those.
+ */
+function rollPayload(
+  seat: SheetSeat,
+  input: RollRequestInput,
+  campaign: RollCampaign,
+) {
+  const { typed, effectDice, rerolls } = input
+  const command = { ...input }
+  delete command.label
+  delete command.typed
+  delete command.effectDice
+  delete command.rerolls
   const roster = campaign.characters as unknown as ConnectedCharacter[]
-  // Marked as typed in only where the player may type theirs, as the game said last: else the
-  // same dice, unmarked. A companion's are typed as its character's are. And with it, the dice its
-  // effects add, and that its rerolls are its player's, where the game takes them (module 0.42.0);
-  // else the game rolls those.
-  const typer = companion?.of ?? actorId
+  const typer = seat.companion?.of ?? seat.actorId
   const typedHere =
     typed === true &&
     seat.role === 'player' &&
     command.dice.length > 0 &&
     campaign.rollFeatures.includes('manualDice') &&
     roster.some(({ id, manualDice }) => id === typer && manualDice === true)
-  const payload = typedHere
+  return typedHere
     ? {
         ...command,
         typed: true as const,
@@ -429,31 +517,6 @@ export async function createRollRequest(
           campaign.rollFeatures.includes('keptRerolls') && { rerolls }),
       }
     : command
-  const { id } = await prisma.rollRequest.create({
-    data: {
-      campaignId,
-      characterId: seat.characterId,
-      role: seat.role,
-      requestedById: seat.userId,
-      actorId,
-      // A companion's, made as it, names its character (module 0.36.0).
-      ...(companion && { ofActorId: companion.of }),
-      kind: input.kind,
-      ...(seat.role === 'gm' && label !== undefined && { label }),
-      payload: payload as unknown as Prisma.InputJsonValue,
-      useId: damage,
-      createdAt: new Date(now),
-    },
-    select: { id: true },
-  })
-  // Only the latest rolls are asked after; the seat's older ones go.
-  await prisma.rollRequest.deleteMany({
-    where: {
-      ...madeBy(seat),
-      createdAt: { lt: ago(now, ROLLS_KEPT_FOR) },
-    },
-  })
-  return { id }
 }
 
 /**
@@ -563,23 +626,16 @@ export async function claimRollRequests(
   // ever taken, so none is handed over. A character's own effects changed, from module 0.39.0, as
   // favorites, by the campaign's own switch; and Wild Shape, from module 0.40.0, likewise, so a
   // module before it, which says nothing of it, is never handed one.
-  const transfers = current && campaign?.transfersEnabled === true
-  const removals = current && campaign?.removalsEnabled === true
-  const favorites = current && campaign?.favoritesEnabled === true
-  const effects = current && campaign?.effectsEnabled === true
-  const wildShape = current && campaign?.wildShapeEnabled === true
-  // A row of a kind the session doesn't take now waits, and runs out.
-  const withheld = [
-    ...(transfers ? [] : ['transfer']),
-    ...(removals ? [] : ['remove']),
-    ...(favorites ? [] : ['favorite']),
-    ...(effects ? [] : ['effect']),
-    ...(wildShape ? [] : ['wildShape']),
-  ]
-  const notWithheld = withheld.length > 0 ? { kind: { notIn: withheld } } : {}
-  const notOwn = {
-    kind: { notIn: ['transfer', 'remove', 'favorite', 'effect', 'wildShape'] },
+  const takes = (kind: RollKind) => {
+    const field = (ROLL_KIND_INFO[kind] as RollKindInfo).own
+    return current && !!field && campaign?.[field] === true
   }
+  const transfers = takes('transfer')
+  const removals = takes('remove')
+  // A row of a kind the session doesn't take now waits, and runs out.
+  const withheld = OWN_KINDS.filter(kind => !takes(kind))
+  const notWithheld = withheld.length > 0 ? { kind: { notIn: withheld } } : {}
+  const notOwn = { kind: { notIn: [...OWN_KINDS] } }
   const waiting = await prisma.rollRequest.findMany({
     where: {
       campaignId,
@@ -664,34 +720,67 @@ export async function recordCommandResult(
   })
   // No roll of that id: from module 0.34.0, a note command's, which is no roll.
   if (count === 0) return recordNoteResult(campaignId, result)
+  await recordRollResult(campaignId, result)
+}
+
+/**
+ * What a roll's result, once recorded, marks: the chat messages the Gamemaster's roll made as
+ * theirs, and what the game asked that a save answered, closed. The campaign's pages are told only
+ * when that changes what they show.
+ */
+async function recordRollResult(
+  campaignId: string,
+  result: CommandResult,
+): Promise<void> {
   const listed = result.messages ?? []
-  const answers = made || result.reason === 'prompt'
+  const answers = result.status === 'done' || result.reason === 'prompt'
   if (!answers && listed.length === 0) return
   const request = await prisma.rollRequest.findFirst({
     where: { id: result.id, campaignId },
     select: { payload: true, role: true },
   })
-  // Only what the module said a roll handed over as the Gamemaster's made, never a player's.
-  const marked =
-    request?.role === 'gm' && listed.length > 0
-      ? await prisma.chatMessage.updateMany({
-          where: { campaignId, messageId: { in: listed }, byGm: false },
-          data: { byGm: true },
-        })
-      : { count: 0 }
-  const prompt = answers
-    ? (request?.payload as RollRequestInput | null)?.prompt
-    : undefined
-  const reason = made ? 'answered' : (result.error ?? 'gone')
+  const marked = await markGmMessages(campaignId, request?.role, listed)
   const closed =
-    !!prompt && (await closePrompt(prisma, campaignId, prompt, reason))
-  // The campaign's pages are told only when that changes what they show.
-  if (marked.count > 0 || closed) {
+    answers && (await closeAnsweredPrompt(campaignId, request?.payload, result))
+  if (marked || closed) {
     await prisma.campaign.update({
       where: { id: campaignId },
       data: { version: { increment: 1 } },
     })
   }
+}
+
+/**
+ * Mark as the Gamemaster's the chat messages the module said a roll handed over as theirs made;
+ * never a player's.
+ * @returns Whether any was marked.
+ */
+async function markGmMessages(
+  campaignId: string,
+  role: string | undefined,
+  listed: string[],
+): Promise<boolean> {
+  if (role !== 'gm' || listed.length === 0) return false
+  const marked = await prisma.chatMessage.updateMany({
+    where: { campaignId, messageId: { in: listed }, byGm: false },
+    data: { byGm: true },
+  })
+  return marked.count > 0
+}
+
+/**
+ * Close what the game asked that a roll answered: made, or found to wait no longer.
+ * @returns Whether it closed.
+ */
+async function closeAnsweredPrompt(
+  campaignId: string,
+  payload: Prisma.JsonValue | undefined,
+  result: CommandResult,
+): Promise<boolean> {
+  const prompt = (payload as RollRequestInput | null | undefined)?.prompt
+  const reason =
+    result.status === 'done' ? 'answered' : (result.error ?? 'gone')
+  return !!prompt && closePrompt(prisma, campaignId, prompt, reason)
 }
 
 /**
@@ -703,43 +792,25 @@ export async function recordCommandResult(
  * module 0.40.0 Wild Shape, and whether any of its players have their table open, so that one may
  * be coming.
  */
-export async function markBridgePolled(campaignId: string): Promise<{
-  rollsEnabled: boolean
-  transfersEnabled: boolean
-  removalsEnabled: boolean
-  notesEnabled: boolean
-  favoritesEnabled: boolean
-  dishesEnabled: boolean
-  effectsEnabled: boolean
-  wildShapeEnabled: boolean
-  playersPresent: boolean
-}> {
+export async function markBridgePolled(
+  campaignId: string,
+): Promise<BridgePolled> {
   const now = new Date()
   const campaign = await prisma.campaign.update({
     where: { id: campaignId },
     data: { bridgePolledAt: now, lastSeenAt: now },
     select: {
-      rollsEnabled: true,
-      transfersEnabled: true,
-      removalsEnabled: true,
-      notesEnabled: true,
-      favoritesEnabled: true,
-      dishesEnabled: true,
-      effectsEnabled: true,
-      wildShapeEnabled: true,
+      ...(Object.fromEntries(
+        BRIDGE_SWITCHES.map(field => [field, true]),
+      ) as Record<BridgeSwitch, true>),
       playersSeenAt: true,
     },
   })
   const seen = campaign.playersSeenAt?.getTime()
   return {
-    rollsEnabled: campaign.rollsEnabled,
-    transfersEnabled: campaign.transfersEnabled,
-    removalsEnabled: campaign.removalsEnabled,
-    notesEnabled: campaign.notesEnabled,
-    favoritesEnabled: campaign.favoritesEnabled,
-    dishesEnabled: campaign.dishesEnabled,
-    effectsEnabled: campaign.effectsEnabled,
-    wildShapeEnabled: campaign.wildShapeEnabled,
+    ...(Object.fromEntries(
+      BRIDGE_SWITCHES.map(field => [field, campaign[field]]),
+    ) as Record<BridgeSwitch, boolean>),
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
 }
@@ -753,14 +824,12 @@ const noted = new Map<string, number>()
  */
 export async function notePlayersSeen(campaignId: string): Promise<void> {
   const now = Date.now()
-  if (now - (noted.get(campaignId) ?? 0) < PLAYERS_SEEN_EVERY) return
-  noted.set(campaignId, now)
+  if (!due(noted, campaignId, PLAYERS_SEEN_EVERY, now)) return
   await prisma.campaign.updateMany({
     where: {
       id: campaignId,
       OR: [
         // Prisma's filter for an unset field.
-        // eslint-disable-next-line unicorn/no-null
         { playersSeenAt: null },
         { playersSeenAt: { lt: ago(now, PLAYERS_SEEN_EVERY) } },
       ],
@@ -780,14 +849,12 @@ const tablesNoted = new Map<string, number>()
  */
 export async function noteTableOpen(characterId: string): Promise<void> {
   const now = Date.now()
-  if (now - (tablesNoted.get(characterId) ?? 0) < TABLE_SEEN_EVERY) return
-  tablesNoted.set(characterId, now)
+  if (!due(tablesNoted, characterId, TABLE_SEEN_EVERY, now)) return
   await prisma.character.updateMany({
     where: {
       id: characterId,
       OR: [
         // Prisma's filter for an unset field.
-        // eslint-disable-next-line unicorn/no-null
         { tableSeenAt: null },
         { tableSeenAt: { lt: ago(now, TABLE_SEEN_EVERY) } },
       ],
@@ -795,9 +862,6 @@ export async function noteTableOpen(characterId: string): Promise<void> {
     data: { tableSeenAt: new Date(now) },
   })
 }
-
-/** An actor's id as the module sends it, and reads it back. */
-const ACTOR_ID = /^[A-Za-z0-9]{1,64}$/
 
 /**
  * The campaign's characters open in the app now, by their actors' ids, sorted: those whose
@@ -807,7 +871,6 @@ export async function openActorIds(campaignId: string): Promise<string[]> {
   const characters = await prisma.character.findMany({
     where: {
       campaignId,
-      // eslint-disable-next-line unicorn/no-null -- Prisma's filter for a set field
       actorId: { not: null },
       tableSeenAt: { gt: ago(Date.now(), OPEN_WITHIN) },
     },
@@ -816,12 +879,7 @@ export async function openActorIds(campaignId: string): Promise<string[]> {
     select: { actorId: true },
   })
   const ids = characters.flatMap(({ actorId }) =>
-    actorId && ACTOR_ID.test(actorId) ? [actorId] : [],
+    actorId && FOUNDRY_ID.test(actorId) ? [actorId] : [],
   )
   return [...new Set(ids)]
-}
-
-/** The moment this many milliseconds before another. */
-export function ago(now: number, ms: number): Date {
-  return new Date(now - ms)
 }

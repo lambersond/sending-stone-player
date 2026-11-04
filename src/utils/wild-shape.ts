@@ -1,7 +1,5 @@
-import {
-  BRIDGE_POLLED_WITHIN,
-  ENDING_STATUSES,
-} from '@/constants/sending-stone'
+import { ENDING_STATUSES } from '@/constants/sending-stone'
+import { switchOn } from '@/utils/features'
 import type { WildShapeInput } from '@/types/roll'
 import type { CharacterSheet, KnownForm } from '@/types/sending-stone'
 
@@ -18,7 +16,7 @@ type ShapedSheet = Partial<
 >
 
 /** Why the sheet, as last sent, says the game would refuse a Wild Shape command. */
-export type WildShapeRefusal =
+type WildShapeRefusal =
   | 'gone'
   | 'form'
   | 'transformed'
@@ -37,12 +35,7 @@ export function wildShapeAvailable(
   campaign: { wildShapeEnabled: boolean; bridgePolledAt: Date | null },
   now = Date.now(),
 ): boolean {
-  const polled = campaign.bridgePolledAt?.getTime()
-  return (
-    campaign.wildShapeEnabled === true &&
-    !!polled &&
-    now - polled < BRIDGE_POLLED_WITHIN
-  )
+  return switchOn(campaign, 'wildShapeEnabled', now)
 }
 
 /** Whether the character is transformed now, as its sheet says: its numbers are the form's. */
@@ -100,36 +93,59 @@ export function checkWildShape(
 ): WildShapeRefusal | undefined {
   const block = sheet?.wildShape
   if (!block) return 'gone'
-  const form = sheet.form
   switch (input.op) {
     case 'transform': {
-      const known = block.known.find(({ id }) => id === input.form)
-      if (!known || !usableForm(known) || form?.profile === input.form) {
-        return 'form'
-      }
-      if (form && form.hours == undefined) return 'transformed'
-      if (isIncapacitated(sheet)) return 'incapacitated'
-      if (!(block.uses.value > 0)) return 'consume'
-      return undefined
+      return checkTransform(input, block, sheet)
     }
     case 'revert': {
-      if (!form) return 'not-shaped'
-      if (form.hours == undefined) return 'transformed'
-      return undefined
+      return checkRevert(sheet.form)
     }
     case 'learn': {
-      if (input.replace === null) {
-        return block.known.length >= block.limits.count ? 'full' : undefined
-      }
-      if (!block.known.some(({ id }) => id === input.replace)) return 'form'
-      if (form?.profile === input.replace) return 'shaped'
-      if (!block.swap) return 'swap'
-      return undefined
+      return checkLearn(input, block, sheet.form)
     }
     default: {
       return undefined
     }
   }
+}
+
+/** Why a change into a form is refused, as `checkWildShape` says, of a sheet with Wild Shape. */
+function checkTransform(
+  input: Extract<WildShapeInput, { op: 'transform' }>,
+  block: NonNullable<ShapedSheet['wildShape']>,
+  sheet: ShapedSheet,
+): WildShapeRefusal | undefined {
+  const form = sheet.form
+  const known = block.known.find(({ id }) => id === input.form)
+  if (!known || !usableForm(known) || form?.profile === input.form) {
+    return 'form'
+  }
+  if (form && form.hours == undefined) return 'transformed'
+  if (isIncapacitated(sheet)) return 'incapacitated'
+  if (!(block.uses.value > 0)) return 'consume'
+  return undefined
+}
+
+/** Why a return is refused, as `checkWildShape` says. */
+function checkRevert(form: ShapedSheet['form']): WildShapeRefusal | undefined {
+  if (!form) return 'not-shaped'
+  if (form.hours == undefined) return 'transformed'
+  return undefined
+}
+
+/** Why a Beast learned is refused, as `checkWildShape` says. */
+function checkLearn(
+  input: Extract<WildShapeInput, { op: 'learn' }>,
+  block: NonNullable<ShapedSheet['wildShape']>,
+  form: ShapedSheet['form'],
+): WildShapeRefusal | undefined {
+  if (input.replace === null) {
+    return block.known.length >= block.limits.count ? 'full' : undefined
+  }
+  if (!block.known.some(({ id }) => id === input.replace)) return 'form'
+  if (form?.profile === input.replace) return 'shaped'
+  if (!block.swap) return 'swap'
+  return undefined
 }
 
 /**

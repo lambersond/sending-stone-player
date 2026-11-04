@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- a character with no campaign holds null */
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { notFound } from 'next/navigation'
@@ -34,7 +33,7 @@ jest.mock('@/db/campaigns', () => ({ getCampaignChoice: jest.fn() }))
 jest.mock('@/db/characters', () => ({ getCharacter: jest.fn() }))
 jest.mock('@/db/table', () => ({ getTableView: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
-jest.mock('@/components/game-table', () => ({
+jest.mock('@/features/table/components/game-table/game-table', () => ({
   GameTable: ({
     character,
     initialView,
@@ -174,7 +173,6 @@ describe('app/characters/[id]/page', () => {
   })
 
   it('is not found when the user has no such character', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     await expect(CharacterPage(props('someone-elses'))).rejects.toThrow(
@@ -193,7 +191,6 @@ describe('app/characters/[id]/page', () => {
   })
 
   it('has a plain title when the character is not found', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     await expect(generateMetadata(props('missing'))).resolves.toEqual({

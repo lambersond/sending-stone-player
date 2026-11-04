@@ -1,14 +1,12 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- Prisma uses null for an absent value */
 import {
   Prisma,
   type JournalNote,
   type JournalOrder,
   type JournalWrite,
 } from '@prisma/client'
-import { prismaMock } from '../../jest.setup'
 import { claimNoteWrites, recordNoteResult } from './note-sync'
 import {
   changeNote,
@@ -21,9 +19,9 @@ import {
   reorderNotes,
   resolveNote,
   resolveOrder,
-  type NotesBook,
-  type NotesSeat,
 } from './notes'
+import { prismaMock } from '@/utils/test-utils-node'
+import type { NotesBook, NotesSeat } from './types'
 
 const NOW = Date.parse('2026-10-22T12:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms)

@@ -1,0 +1,1121 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`golden C7: storage browser storage, after each gesture that stores something Wild Shape ended in the game: its banner dismissed, for the seat: wild shape ended 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "dismissed",
+    "{
+ "local": {
+  "sending-stone:wild-shape-ended:char-1": "1791138600000"
+ },
+ "session": {}
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage browser storage, after each gesture that stores something Wild Shape: the form taken kept as the last, from the pane: wild shape form 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "sent",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "made",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "the sheet a form’s",
+    "{
+ "local": {
+  "sending-stone:wild-shape-form:char-1": "Kp3vQ8mZr2LdW0aB"
+ },
+ "session": {}
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage browser storage, after each gesture that stores something the Actions tab: its layout, a group closed and opened again: actions 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "table chosen",
+    "{
+ "local": {
+  "sending-stone:actions-layout": "table"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "list chosen",
+    "{
+ "local": {
+  "sending-stone:actions-layout": "list"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "weapons closed",
+    "{
+ "local": {
+  "sending-stone:actions-closed:char-1": "[\\"action/weapons\\"]",
+  "sending-stone:actions-layout": "list"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "cantrips closed",
+    "{
+ "local": {
+  "sending-stone:actions-closed:char-1": "[\\"action/weapons\\",\\"action/spells-spell0\\"]",
+  "sending-stone:actions-layout": "list"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "weapons opened",
+    "{
+ "local": {
+  "sending-stone:actions-closed:char-1": "[\\"action/spells-spell0\\"]",
+  "sending-stone:actions-layout": "list"
+ },
+ "session": {}
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage browser storage, after each gesture that stores something the creature chosen at the table, for the tab’s session: creature 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "the companion chosen",
+    "{
+ "local": {},
+ "session": {
+  "sending-stone:creature:char-1": "wolfBrakka"
+ }
+}",
+  ],
+  [
+    "the character chosen again",
+    "{
+ "local": {},
+ "session": {
+  "sending-stone:creature:char-1": "self"
+ }
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage browser storage, after each gesture that stores something the favorites strip, hidden and shown again, on a narrow sheet: favorites 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "hidden",
+    "{
+ "local": {
+  "sending-stone:favorites-shown:char-1": "closed"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "shown",
+    "{
+ "local": {
+  "sending-stone:favorites-shown:char-1": "open"
+ },
+ "session": {}
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage browser storage, after each gesture that stores something the settings at the Gamemaster’s seat: Send to the table, damage on its own, roll results: settings 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "damage on its own switched",
+    "{
+ "local": {
+  "sending-stone:send-damage:gm": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "send to the table off",
+    "{
+ "local": {
+  "sending-stone:send-damage:gm": "on",
+  "sending-stone:send-rolls:gm": "off"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "send to the table on",
+    "{
+ "local": {
+  "sending-stone:send-damage:gm": "on",
+  "sending-stone:send-rolls:gm": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "banner chosen",
+    "{
+ "local": {
+  "sending-stone:roll-toasts": "off",
+  "sending-stone:send-damage:gm": "on",
+  "sending-stone:send-rolls:gm": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "toasts chosen",
+    "{
+ "local": {
+  "sending-stone:roll-toasts": "on",
+  "sending-stone:send-damage:gm": "on",
+  "sending-stone:send-rolls:gm": "on"
+ },
+ "session": {}
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage browser storage, after each gesture that stores something the settings at the player’s seat: Send to the table, damage on its own, roll results: settings 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {},
+ "session": {}
+}",
+  ],
+  [
+    "damage on its own switched",
+    "{
+ "local": {
+  "sending-stone:send-damage": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "send to the table off",
+    "{
+ "local": {
+  "sending-stone:send-damage": "on",
+  "sending-stone:send-rolls": "off"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "send to the table on",
+    "{
+ "local": {
+  "sending-stone:send-damage": "on",
+  "sending-stone:send-rolls": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "banner chosen",
+    "{
+ "local": {
+  "sending-stone:roll-toasts": "off",
+  "sending-stone:send-damage": "on",
+  "sending-stone:send-rolls": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "toasts chosen",
+    "{
+ "local": {
+  "sending-stone:roll-toasts": "on",
+  "sending-stone:send-damage": "on",
+  "sending-stone:send-rolls": "on"
+ },
+ "session": {}
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage browser storage, after each gesture that stores something the spend switch of damage on its own, at the player’s seat: alone spend 1`] = `
+[
+  [
+    "mounted",
+    "{
+ "local": {
+  "sending-stone:send-damage": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "spend off",
+    "{
+ "local": {
+  "sending-stone:alone-spend:player:char-1": "off",
+  "sending-stone:send-damage": "on"
+ },
+ "session": {}
+}",
+  ],
+  [
+    "spend on",
+    "{
+ "local": {
+  "sending-stone:alone-spend:player:char-1": "on",
+  "sending-stone:send-damage": "on"
+ },
+ "session": {}
+}",
+  ],
+]
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database Wild Shape: a change: Wild Shape: a change 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": "char-1",
+     "role": "player",
+     "requestedById": "user-1",
+     "actorId": "actorThorin1",
+     "kind": "wildShape",
+     "payload": {
+      "kind": "wildShape",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [],
+      "wildShape": {
+       "op": "transform",
+       "form": "Kp3vQ8mZr2LdW0aB"
+      }
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "characterId": "char-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database Wild Shape: the forms asked for: Wild Shape: the forms asked for 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": "char-1",
+     "role": "player",
+     "requestedById": "user-1",
+     "actorId": "actorThorin1",
+     "kind": "wildShape",
+     "payload": {
+      "kind": "wildShape",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [],
+      "wildShape": {
+       "op": "forms"
+      }
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "characterId": "char-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database a check typed, with an effect’s die, rerolls kept: a check typed, with an effect’s die, rerolls kept 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": "char-1",
+     "role": "player",
+     "requestedById": "user-1",
+     "actorId": "actorThorin1",
+     "kind": "skill",
+     "payload": {
+      "kind": "skill",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [
+       {
+        "faces": 20,
+        "results": [
+         14
+        ]
+       }
+      ],
+      "key": "prc",
+      "typed": true,
+      "effectDice": [
+       {
+        "faces": 4,
+        "sign": 1,
+        "results": [
+         3
+        ]
+       }
+      ],
+      "rerolls": "kept"
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "characterId": "char-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database a favorite added: a favorite added 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": "char-1",
+     "role": "player",
+     "requestedById": "user-1",
+     "actorId": "actorThorin1",
+     "kind": "favorite",
+     "payload": {
+      "kind": "favorite",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [],
+      "favorite": {
+       "op": "add",
+       "type": "item",
+       "id": "rope"
+      }
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "characterId": "char-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database a move, by the Gamemaster, labelled: a move, by the Gamemaster, labelled 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": null,
+     "role": "gm",
+     "requestedById": "gm-1",
+     "actorId": "actorThorin1",
+     "kind": "transfer",
+     "label": "Take 2 Potion of Healing from The Iron Company",
+     "payload": {
+      "kind": "transfer",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [],
+      "transfer": {
+       "from": "groupIronCo01",
+       "to": "actorThorin1",
+       "items": [
+        {
+         "id": "potionHeal01",
+         "quantity": 2
+        }
+       ]
+      }
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "campaignId": "c1",
+     "actorId": "actorThorin1",
+     "role": "gm",
+     "requestedById": "gm-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database a removal: a removal 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": "char-1",
+     "role": "player",
+     "requestedById": "user-1",
+     "actorId": "actorThorin1",
+     "kind": "remove",
+     "payload": {
+      "kind": "remove",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [],
+      "remove": {
+       "item": "ropeThorin01",
+       "quantity": 1,
+       "held": 1
+      }
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "characterId": "char-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database an effect turned off: an effect turned off 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": "char-1",
+     "role": "player",
+     "requestedById": "user-1",
+     "actorId": "actorThorin1",
+     "kind": "effect",
+     "payload": {
+      "kind": "effect",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [],
+      "effect": {
+       "op": "disable",
+       "id": "blessed"
+      }
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "characterId": "char-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database the Gamemaster’s check, labelled: the Gamemaster’s check, labelled 1`] = `
+"{
+ "answer": {
+  "id": "rollRequest-1"
+ },
+ "writes": [
+  {
+   "model": "rollRequest",
+   "method": "create",
+   "args": {
+    "data": {
+     "campaignId": "c1",
+     "characterId": null,
+     "role": "gm",
+     "requestedById": "gm-1",
+     "actorId": "actorThorin1",
+     "kind": "skill",
+     "label": "Perception check",
+     "payload": {
+      "kind": "skill",
+      "mode": 0,
+      "explicit": false,
+      "extras": [],
+      "dice": [
+       {
+        "faces": 20,
+        "results": [
+         9
+        ]
+       }
+      ],
+      "key": "prc"
+     },
+     "createdAt": "2026-10-04T19:30:00.000Z"
+    },
+    "select": {
+     "id": true
+    }
+   }
+  },
+  {
+   "model": "rollRequest",
+   "method": "deleteMany",
+   "args": {
+    "where": {
+     "campaignId": "c1",
+     "actorId": "actorThorin1",
+     "role": "gm",
+     "requestedById": "gm-1",
+     "createdAt": {
+      "lt": "2026-10-03T19:30:00.000Z"
+     }
+    }
+   }
+  }
+ ]
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database the first refusal: favorites off: the first refusal: favorites off 1`] = `
+"{
+ "answer": {
+  "status": 409,
+  "reason": "unavailable"
+ },
+ "writes": []
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database the first refusal: moves off: the first refusal: moves off 1`] = `
+"{
+ "answer": {
+  "status": 409,
+  "reason": "unavailable"
+ },
+ "writes": []
+}"
+`;
+
+exports[`golden C7: storage rows written, per command kind, over a small database the first refusal: rolls off: the first refusal: rolls off 1`] = `
+"{
+ "answer": {
+  "status": 409,
+  "reason": "unavailable"
+ },
+ "writes": []
+}"
+`;
+
+exports[`golden C7: storage the campaign row a hello writes a full hello from module 0.42: a full hello from module 0.42 1`] = `
+"[
+ {
+  "model": "campaign",
+  "method": "update",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "data": {
+    "characters": [
+     {
+      "id": "actorThorin1",
+      "name": "Thorin",
+      "manualDice": true
+     },
+     {
+      "id": "actorVex0001",
+      "name": "Vex"
+     }
+    ],
+    "groups": [
+     {
+      "id": "groupIronCo01",
+      "uuid": "Actor.groupIronCo01",
+      "name": "The Iron Company",
+      "img": "worlds/erebor/company.webp",
+      "type": "group",
+      "primary": true,
+      "access": {
+       "actorThorin1": "owner",
+       "actorVex0001": "observer"
+      }
+     }
+    ],
+    "rollsEnabled": true,
+    "rollKinds": [
+     "skill",
+     "tool",
+     "ability",
+     "save",
+     "death",
+     "initiative",
+     "attack",
+     "damage"
+    ],
+    "rollFeatures": [
+     "manualDice",
+     "effectDice",
+     "keptRerolls"
+    ],
+    "transfersEnabled": true,
+    "transferFeatures": [
+     "partySends",
+     "distribute"
+    ],
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "dishesEnabled": true,
+    "dishVersions": [
+     1
+    ],
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "notesEnabled": true,
+    "noteFeatures": [
+     "orders"
+    ],
+    "companions": [],
+    "companionKinds": [],
+    "companionInitiative": "own",
+    "foundry": {
+     "receivedAt": "2026-10-04T19:30:00.000Z",
+     "module": {
+      "id": "sending-stone",
+      "version": "0.42.1"
+     },
+     "foundry": {
+      "version": "14.365",
+      "generation": 14
+     },
+     "system": {
+      "id": "dnd5e",
+      "title": "D&D Fifth Edition",
+      "version": "5.3.3"
+     },
+     "settings": {
+      "format": 1,
+      "modules": [
+       {
+        "id": "lib-wrapper",
+        "title": "libWrapper",
+        "version": "1.13.2.0",
+        "active": true
+       },
+       {
+        "id": "manual-dice",
+        "title": "Manual Dice",
+        "version": null,
+        "active": false
+       }
+      ],
+      "sections": [
+       {
+        "id": "campaign",
+        "title": "This campaign",
+        "rows": [
+         {
+          "id": "rolls",
+          "label": "Players roll in the app",
+          "value": true,
+          "text": "On"
+         },
+         {
+          "id": "attacks",
+          "label": "Attacks, spells and features",
+          "value": true,
+          "text": "On"
+         },
+         {
+          "id": "prompts",
+          "label": "Save and concentration prompts",
+          "value": false,
+          "text": "Off"
+         },
+         {
+          "id": "manualDice",
+          "label": "Allow Players to enter dice results manually",
+          "value": true,
+          "text": "On",
+          "note": "Manual Dice is not enabled in this world."
+         },
+         {
+          "id": "transfers",
+          "label": "Players move items and coins",
+          "value": false,
+          "text": "Off"
+         },
+         {
+          "id": "groups",
+          "label": "Party sheets",
+          "value": 1,
+          "text": "The Company"
+         }
+        ]
+       },
+       {
+        "id": "sending-stone",
+        "title": "Sending Stone, for every campaign",
+        "rows": [
+         {
+          "id": "chatEvents",
+          "label": "Chat messages",
+          "value": true,
+          "text": "On"
+         },
+         {
+          "id": "chatScope",
+          "label": "Which messages",
+          "value": "all",
+          "text": "Every message players can see"
+         },
+         {
+          "id": "chatResults",
+          "label": "Hit/miss and save results in the app",
+          "value": "foundry",
+          "text": "Follow Foundry's visibility settings"
+         },
+         {
+          "id": "combatEvents",
+          "label": "Combat tracker",
+          "value": true,
+          "text": "On"
+         },
+         {
+          "id": "gmContent",
+          "label": "GM-only details",
+          "value": false,
+          "text": "Off"
+         }
+        ]
+       },
+       {
+        "id": "dnd5e",
+        "title": "D&D Fifth Edition",
+        "rows": [
+         {
+          "id": "attackRollVisibility",
+          "label": "Attack Result Visibility",
+          "value": "hideAC",
+          "text": "Show only results"
+         },
+         {
+          "id": "challengeVisibility",
+          "label": "Challenge Visibility",
+          "value": "player",
+          "text": "Show only from other players"
+         }
+        ]
+       }
+      ],
+      "results": [
+       {
+        "id": "hits",
+        "state": "shown",
+        "text": "Hit and miss: shown (Attack Result Visibility: Show only results)"
+       },
+       {
+        "id": "saves",
+        "state": "partial",
+        "text": "Saves: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)"
+       },
+       {
+        "id": "checks",
+        "state": "partial",
+        "text": "Checks: shown on players' cards and rolls, hidden otherwise (Challenge Visibility: Show only from other players)"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "update",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "data": {
+    "title": "The Frost Road",
+    "worldId": "frost-road",
+    "worldTitle": "The Frost Road",
+    "version": {
+     "increment": 1
+    },
+    "lastEventAt": "2026-10-04T19:30:00.000Z",
+    "lastSeenAt": "2026-10-04T19:30:00.000Z",
+    "helloSession": "session-1"
+   }
+  }
+ }
+]"
+`;
+
+exports[`golden C7: storage the campaign row a hello writes a hello from before module 0.10: a hello from before module 0.10 1`] = `
+"[
+ {
+  "model": "campaign",
+  "method": "update",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "data": {
+    "characters": [
+     {
+      "id": "actorThorin1",
+      "name": "Thorin"
+     },
+     {
+      "id": "actorVex0001",
+      "name": "Vex"
+     }
+    ],
+    "groups": [],
+    "rollsEnabled": false,
+    "rollKinds": [],
+    "rollFeatures": [],
+    "transfersEnabled": false,
+    "transferFeatures": [],
+    "removalsEnabled": false,
+    "favoritesEnabled": false,
+    "dishesEnabled": false,
+    "dishVersions": [],
+    "effectsEnabled": false,
+    "wildShapeEnabled": false,
+    "notesEnabled": false,
+    "noteFeatures": [],
+    "companions": [],
+    "companionKinds": [],
+    "companionInitiative": "own",
+    "foundry": {
+     "receivedAt": "2026-10-04T19:30:00.000Z"
+    }
+   }
+  }
+ },
+ {
+  "model": "campaign",
+  "method": "update",
+  "args": {
+   "where": {
+    "id": "c1"
+   },
+   "data": {
+    "title": "The Frost Road",
+    "worldId": "frost-road",
+    "worldTitle": "The Frost Road",
+    "version": {
+     "increment": 1
+    },
+    "lastEventAt": "2026-10-04T19:30:00.000Z",
+    "lastSeenAt": "2026-10-04T19:30:00.000Z",
+    "helloSession": "session-1"
+   }
+  }
+ }
+]"
+`;

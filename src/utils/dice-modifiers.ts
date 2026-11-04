@@ -1,5 +1,10 @@
-import type { ExtraDice } from '@/utils/roll-modifiers'
-
+import type {
+  ExtraDice,
+  DieModifier,
+  Comparison,
+  ThrownTerm,
+  ThrownDie,
+} from '@/types/roll'
 /*
  * What Foundry does with a term's dice once they're thrown, as a sheet's formula may say after its
  * faces, such as Great Weapon Fighting's 2d6r<=2 or 4d6kh3: reroll some, explode some, keep or drop
@@ -8,65 +13,6 @@ import type { ExtraDice } from '@/utils/roll-modifiers'
  * the game's. At the table the player's dice are each die's first throw only: Foundry throws the
  * dice it rerolls or explodes itself, so the game's total stands once it says.
  */
-
-/** How a result is compared with a modifier's target, as Foundry compares them. */
-export type Comparison = '=' | '<' | '<=' | '>' | '>='
-
-/** One of a term's modifiers, read. */
-export type DieModifier =
-  | {
-      /** Rerolled (`r`, once; `rr`, until it no longer matches) or exploded (`x`; `xo`, once). */
-      kind: 'reroll' | 'explode'
-      recursive: boolean
-      /** The most results rerolled or exploded; none for no limit. */
-      most?: number
-      comparison: Comparison
-      target: number
-    }
-  | {
-      /** Kept (`k`, `kh`, `kl`) or dropped (`d`, `dh`, `dl`) among the active results. */
-      kind: 'keep' | 'drop'
-      highest: boolean
-      count: number
-    }
-  | {
-      /** Each result counts at least (`min`) or at most (`max`) so much. */
-      kind: 'min' | 'max'
-      value: number
-    }
-  | {
-      /** Each result counts 1 where it matches, else 0: a success (`cs`) or a failure (`cf`). */
-      kind: 'count'
-      success: boolean
-      comparison: Comparison
-      target: number
-    }
-
-/** A die of a term as thrown, and what became of it. */
-export type ThrownDie = {
-  /** The face it landed on. */
-  value: number
-  /** It counts toward the total. */
-  active: boolean
-  /** What it counts as, where a modifier says, such as 1 for a success; else its value. */
-  counts?: number
-  /** It was rerolled: a die thrown after it took its place. */
-  rerolled?: true
-  /** It exploded: another die was thrown for it. */
-  exploded?: true
-  /** It was dropped, or not kept. */
-  discarded?: true
-}
-
-/** A term's dice as thrown and worked out, and what they came to. */
-export type ThrownTerm = {
-  /** Every die thrown, in the order Foundry throws them: the first throw, then the rest. */
-  dice: ThrownDie[]
-  /** What the active dice count for, added up, the term's sign left out. */
-  total: number
-  /** A die was rerolled or exploded, which at the table Foundry throws, not the player. */
-  rethrown: boolean
-}
 
 /** The most dice a term throws here, rerolls and explosions among them. */
 export const MOST_THROWN = 100
@@ -102,33 +48,7 @@ export function readModifier(
     case 'rr':
     case 'x':
     case 'xo': {
-      const match = /^(\d+)?([<>=]+)?(\d+)?$/.exec(rest)
-      if (!match) return undefined
-      const [, written, comparison, number] = match
-      // A lone number is the target.
-      const lone = written !== undefined && !number && !comparison
-      const most = lone ? undefined : written
-      const target = lone ? written : number
-      if (comparison !== undefined && !COMPARISONS.has(comparison)) return
-      const explode = command.startsWith('x')
-      const read = {
-        kind: explode ? ('explode' as const) : ('reroll' as const),
-        recursive: command === 'rr' || command === 'x',
-        ...(most !== undefined && { most: Number(most) }),
-        comparison: (comparison === '=='
-          ? '='
-          : (comparison ?? '=')) as Comparison,
-        // Bare, a reroll is of 1s and an explosion of the highest face.
-        target: target === undefined ? (explode ? faces : 1) : Number(target),
-      }
-      // Every face matching, one done again and again never ends, and an explosion done once throws
-      // every die twice: neither is read.
-      const endless =
-        (read.recursive || explode) &&
-        Array.from({ length: faces }, (_, at) => at + 1).every(face =>
-          compare(face, read.comparison, read.target),
-        )
-      return endless ? undefined : read
+      return readRethrow(command, rest, faces)
     }
     case 'k':
     case 'kh':
@@ -136,40 +56,116 @@ export function readModifier(
     case 'd':
     case 'dh':
     case 'dl': {
-      // Foundry keeps or drops one for none, which no formula means.
-      if (!/^\d*$/.test(rest) || /^0+$/.test(rest)) return
-      const keep = command.startsWith('k')
-      const direction = command[1] ?? (keep ? 'h' : 'l')
-      return {
-        kind: keep ? 'keep' : 'drop',
-        highest: direction === 'h',
-        count: rest === '' ? 1 : Number(rest),
-      }
+      return readKeepOrDrop(command, rest)
     }
     case 'min':
     case 'max': {
-      if (!/^\d+$/.test(rest)) return
-      const value = Math.min(Number(rest), faces)
-      // Foundry counts every result at most 1 at the least.
-      if (command === 'max' && value < 1) return
-      return { kind: command, value }
+      return readLimit(command, rest, faces)
     }
     case 'cs':
     case 'cf': {
-      const match = /^([<>=]+)?(\d+)$/.exec(rest)
-      if (!match) return
-      const [, comparison = '=', target] = match
-      if (!COMPARISONS.has(comparison)) return
-      return {
-        kind: 'count',
-        success: command === 'cs',
-        comparison: (comparison === '==' ? '=' : comparison) as Comparison,
-        target: Number(target),
-      }
+      return readCount(command, rest)
     }
     default: {
       return undefined
     }
+  }
+}
+
+/**
+ * A reroll or an explosion, as written after its command, such as "<=2" of "r<=2": a lone number is
+ * the target, else the most rerolled or exploded and then the target. None where it doesn't read,
+ * or compares in a way Foundry doesn't.
+ */
+function readRethrow(
+  command: 'r' | 'rr' | 'x' | 'xo',
+  rest: string,
+  faces: number,
+): Extract<DieModifier, { kind: 'reroll' | 'explode' }> | undefined {
+  const match = /^(\d+)?([<>=]+)?(\d+)?$/.exec(rest)
+  if (!match) return undefined
+  const [, written, comparison, number] = match
+  // A lone number is the target.
+  const lone = written !== undefined && !number && !comparison
+  const most = lone ? undefined : written
+  const target = lone ? written : number
+  if (comparison !== undefined && !COMPARISONS.has(comparison)) return
+  return rethrowOf(command, { most, comparison, target }, faces)
+}
+
+/**
+ * A reroll or an explosion read: bare, a reroll is of 1s and an explosion of the highest face. None
+ * where every face matches, as one done again and again never ends, and an explosion done once
+ * throws every die twice.
+ */
+function rethrowOf(
+  command: 'r' | 'rr' | 'x' | 'xo',
+  written: { most?: string; comparison?: string; target?: string },
+  faces: number,
+): Extract<DieModifier, { kind: 'reroll' | 'explode' }> | undefined {
+  const { most, comparison, target } = written
+  const explode = command.startsWith('x')
+  const read = {
+    kind: explode ? ('explode' as const) : ('reroll' as const),
+    recursive: command === 'rr' || command === 'x',
+    ...(most !== undefined && { most: Number(most) }),
+    comparison: (comparison === '==' ? '=' : (comparison ?? '=')) as Comparison,
+    // Bare, a reroll is of 1s and an explosion of the highest face.
+    target: target === undefined ? (explode ? faces : 1) : Number(target),
+  }
+  // Every face matching, one done again and again never ends, and an explosion done once throws
+  // every die twice: neither is read.
+  const endless =
+    (read.recursive || explode) &&
+    Array.from({ length: faces }, (_, at) => at + 1).every(face =>
+      compare(face, read.comparison, read.target),
+    )
+  return endless ? undefined : read
+}
+
+/** Keeping or dropping so many, as written after its command, such as "3" of "kh3": one bare. */
+function readKeepOrDrop(
+  command: 'k' | 'kh' | 'kl' | 'd' | 'dh' | 'dl',
+  rest: string,
+): Extract<DieModifier, { kind: 'keep' | 'drop' }> | undefined {
+  // Foundry keeps or drops one for none, which no formula means.
+  if (!/^\d*$/.test(rest) || /^0+$/.test(rest)) return
+  const keep = command.startsWith('k')
+  const direction = command[1] ?? (keep ? 'h' : 'l')
+  return {
+    kind: keep ? 'keep' : 'drop',
+    highest: direction === 'h',
+    count: rest === '' ? 1 : Number(rest),
+  }
+}
+
+/** Each result counted at least or at most so much, as written after `min` or `max`. */
+function readLimit(
+  command: 'min' | 'max',
+  rest: string,
+  faces: number,
+): Extract<DieModifier, { kind: 'min' | 'max' }> | undefined {
+  if (!/^\d+$/.test(rest)) return
+  const value = Math.min(Number(rest), faces)
+  // Foundry counts every result at most 1 at the least.
+  if (command === 'max' && value < 1) return
+  return { kind: command, value }
+}
+
+/** Successes or failures counted, as written after `cs` or `cf`, such as ">=5". */
+function readCount(
+  command: 'cs' | 'cf',
+  rest: string,
+): Extract<DieModifier, { kind: 'count' }> | undefined {
+  const match = /^([<>=]+)?(\d+)$/.exec(rest)
+  if (!match) return
+  const [, comparison = '=', target] = match
+  if (!COMPARISONS.has(comparison)) return
+  return {
+    kind: 'count',
+    success: command === 'cs',
+    comparison: (comparison === '==' ? '=' : comparison) as Comparison,
+    target: Number(target),
   }
 }
 
@@ -195,41 +191,7 @@ export function throwTerm(
   for (const text of term.modifiers ?? []) {
     const modifier = readModifier(text, term.sides)
     if (!modifier) continue
-    switch (modifier.kind) {
-      case 'reroll':
-      case 'explode': {
-        rethrow(dice, modifier, another)
-        break
-      }
-      case 'keep':
-      case 'drop': {
-        keepOrDrop(dice, modifier.count, {
-          keep: modifier.kind === 'keep',
-          highest: modifier.highest,
-        })
-        break
-      }
-      case 'min': {
-        for (const die of dice) {
-          if (die.value < modifier.value) die.counts = modifier.value
-        }
-        break
-      }
-      case 'max': {
-        for (const die of dice) {
-          if (die.value > modifier.value) die.counts = modifier.value
-        }
-        break
-      }
-      case 'count': {
-        for (const die of dice) {
-          die.counts = compare(die.value, modifier.comparison, modifier.target)
-            ? 1
-            : 0
-        }
-        break
-      }
-    }
+    apply(dice, modifier, another)
   }
   let total = 0
   for (const die of dice) {
@@ -239,6 +201,61 @@ export function throwTerm(
     dice,
     total,
     rethrown: dice.some(die => die.rerolled || die.exploded),
+  }
+}
+
+/**
+ * A modifier worked out on a term's dice, as Foundry v14 does: rerolled or exploded, kept or
+ * dropped, each counted at least or at most so much, or counted as a success or a failure.
+ * @param another - Throws one more die; none where no more may be thrown.
+ */
+function apply(
+  dice: ThrownDie[],
+  modifier: DieModifier,
+  another: () => ThrownDie | undefined,
+) {
+  switch (modifier.kind) {
+    case 'reroll':
+    case 'explode': {
+      rethrow(dice, modifier, another)
+      break
+    }
+    case 'keep':
+    case 'drop': {
+      keepOrDrop(dice, modifier.count, {
+        keep: modifier.kind === 'keep',
+        highest: modifier.highest,
+      })
+      break
+    }
+    case 'min': {
+      for (const die of dice) {
+        if (die.value < modifier.value) die.counts = modifier.value
+      }
+      break
+    }
+    case 'max': {
+      for (const die of dice) {
+        if (die.value > modifier.value) die.counts = modifier.value
+      }
+      break
+    }
+    case 'count': {
+      countMatches(dice, modifier)
+      break
+    }
+  }
+}
+
+/** Count each die 1 where it matches, else 0: a success (`cs`) or a failure (`cf`). */
+function countMatches(
+  dice: ThrownDie[],
+  modifier: Extract<DieModifier, { kind: 'count' }>,
+) {
+  for (const die of dice) {
+    die.counts = compare(die.value, modifier.comparison, modifier.target)
+      ? 1
+      : 0
   }
 }
 
@@ -259,23 +276,43 @@ function rethrow(
   while (checked < dice.length) {
     const die = dice[checked]
     checked++
-    if (die.active) {
-      if (most !== undefined && most <= 0) break
-      if (compare(die.value, modifier.comparison, modifier.target)) {
-        const next = another()
-        if (!next) break
-        if (modifier.kind === 'reroll') {
-          die.rerolled = true
-          die.active = false
-        } else {
-          die.exploded = true
-        }
-        dice.push(next)
-        if (most !== undefined) most -= 1
-      }
-    }
+    const done = rethrowDie(dice, die, { modifier, most }, another)
+    if (done === 'stop') break
+    if (done === 'thrown' && most !== undefined) most -= 1
     if (!modifier.recursive && checked === initial) break
   }
+}
+
+/**
+ * One die walked, as `rethrow` walks them: rerolled or exploded where it's active and matches, its
+ * next throw after the rest (`thrown`); else left (`left`). It stops there (`stop`) where no more
+ * may be rerolled or exploded, as many as `most` already have, or no more may be thrown.
+ */
+function rethrowDie(
+  dice: ThrownDie[],
+  die: ThrownDie,
+  {
+    modifier,
+    most,
+  }: {
+    modifier: Extract<DieModifier, { kind: 'reroll' | 'explode' }>
+    most: number | undefined
+  },
+  another: () => ThrownDie | undefined,
+): 'thrown' | 'left' | 'stop' {
+  if (!die.active) return 'left'
+  if (most !== undefined && most <= 0) return 'stop'
+  if (!compare(die.value, modifier.comparison, modifier.target)) return 'left'
+  const next = another()
+  if (!next) return 'stop'
+  if (modifier.kind === 'reroll') {
+    die.rerolled = true
+    die.active = false
+  } else {
+    die.exploded = true
+  }
+  dice.push(next)
+  return 'thrown'
 }
 
 /**

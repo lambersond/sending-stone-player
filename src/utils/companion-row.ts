@@ -1,13 +1,10 @@
-import type { TableCompanion } from '@/types/table'
+import type { TableCompanion, RowCompanion } from '@/types/table'
 
 /*
  * The row of creatures above a character's sheet (module 0.36.0): its companions as the module
  * lists them, and those it no longer lists, kept until the player has seen they've gone; each one's
  * name, numbered where the row repeats it; and the tint of its initials.
  */
-
-/** A companion in the row: listed now, or kept, marked gone, until it's been shown and left. */
-export type RowCompanion = TableCompanion & { gone?: true }
 
 /**
  * The companions the row shows: those listed now, in the module's order, unmarked; and each the
@@ -43,6 +40,32 @@ export function companionRow(
 }
 
 /**
+ * Numbers the creatures of one name held more than once, into `numbers`: each keeps the number it
+ * was given before, and one with none takes the lowest from 1 that no other of that name holds.
+ */
+function numberKeys(
+  keys: readonly string[],
+  kept: ReadonlyMap<string, number>,
+  numbers: Map<string, number>,
+): void {
+  const taken = new Set<number>()
+  // Those numbered before keep their numbers, each once, should two have been given the same.
+  for (const key of keys) {
+    const number = kept.get(key)
+    if (number === undefined || taken.has(number)) continue
+    taken.add(number)
+    numbers.set(key, number)
+  }
+  for (const key of keys) {
+    if (numbers.has(key)) continue
+    let number = 1
+    while (taken.has(number)) number++
+    taken.add(number)
+    numbers.set(key, number)
+  }
+}
+
+/**
  * Each creature's name as the row says it, and the numbers kept for the next time. A name the row
  * holds once is itself. Where it holds one more than once, each creature keeps the number it was
  * given before, and one with none takes the lowest from 1 that no other of that name holds, in the
@@ -62,21 +85,7 @@ export function numberedNames(
   const numbers = new Map<string, number>()
   for (const keys of byName.values()) {
     if (keys.length < 2) continue
-    const taken = new Set<number>()
-    // Those numbered before keep their numbers, each once, should two have been given the same.
-    for (const key of keys) {
-      const number = kept.get(key)
-      if (number === undefined || taken.has(number)) continue
-      taken.add(number)
-      numbers.set(key, number)
-    }
-    for (const key of keys) {
-      if (numbers.has(key)) continue
-      let number = 1
-      while (taken.has(number)) number++
-      taken.add(number)
-      numbers.set(key, number)
-    }
+    numberKeys(keys, kept, numbers)
   }
   const names = new Map(
     row.map(({ key, name }) => {
@@ -103,7 +112,7 @@ export function tintOf(name: string): (typeof TINTS)[number] {
   let sum = 0
   for (let index = 0; index < name.length; index++) {
     // Its UTF-16 code units, as the prototype sums them, not its code points.
-    // eslint-disable-next-line unicorn/prefer-code-point
+    // eslint-disable-next-line unicorn/prefer-code-point -- code units, as said above
     sum += name.charCodeAt(index)
   }
   return TINTS[sum % TINTS.length]

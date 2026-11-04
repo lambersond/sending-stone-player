@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-null -- Prisma uses null for an unset date */
 import { checkEffect, effectsAvailable } from './effect-commands'
 import { fullerSheet } from '@/mocks/sending-stone'
 import type { EffectInput } from '@/types/roll'

@@ -1,38 +1,30 @@
 import prisma from '@/clients/prisma'
 import { MOST_AMONG } from '@/constants/sending-stone'
 import { isLive } from '@/db/campaigns'
+import { FOUNDRY_ID } from '@/db/constants'
 import { inventoryView, portraitUrl } from '@/utils/table-view'
 import { transfersAvailable } from '@/utils/transfers'
+import type { PartySeat } from './types'
 import type { SheetSeat } from '@/types/character'
 import type {
   AllowedGroup,
-  GroupEntry,
-  GroupSheet,
   PartyView,
   TableGroup,
+  TableMoves,
 } from '@/types/party'
-import type { ConnectedCharacter, SheetInventory } from '@/types/sending-stone'
-import type { TableMoves } from '@/types/table'
+import type {
+  ConnectedCharacter,
+  SheetInventory,
+  GroupEntry,
+  GroupSheet,
+} from '@/types/sending-stone'
+import type { Prisma } from '@prisma/client'
 
 // Who may see a campaign's party sheets (module 0.30.0), as Foundry shows them: a player whose
 // Foundry user has Observer or Owner on the group, through their character in the campaign; and the
 // campaign's Gamemaster, through the campaign they own. Every read is checked here, each time, so
 // that a player whose access is taken away in Foundry loses it here at once. Anyone else is told
 // nothing: a group that isn't there, a campaign that isn't theirs and no access all look the same.
-
-/** A Foundry document's id, as the module sends a group's. */
-const GROUP_ID = /^[\dA-Za-z]{1,64}$/
-
-/** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
-export type PartySeat =
-  | {
-      role: 'player'
-      campaignId: string | null
-      actorId: string | null
-      characterId: string
-      name: string
-    }
-  | { role: 'gm'; campaignId: string; userId: string }
 
 /** A seat at a character's sheet, at its party sheets: the same player, or the same Gamemaster. */
 export function partySeat(seat: SheetSeat): PartySeat {
@@ -186,7 +178,7 @@ function takes(
 
 /** The campaign and the group's entry, where the seat may see the group; else undefined. */
 async function access(seat: PartySeat, groupId: string) {
-  if (!GROUP_ID.test(groupId) || !seat.campaignId) return
+  if (!FOUNDRY_ID.test(groupId) || !seat.campaignId) return
   const campaign = await prisma.campaign.findUnique({
     where: { id: seat.campaignId },
     select: campaignSelect,
@@ -238,7 +230,6 @@ export async function partyNotesAccess(
     campaignId: found.campaign.id,
     groupId: found.entry.id,
     private: Object.keys(found.entry.access ?? {}).length === 0,
-    // eslint-disable-next-line unicorn/no-null -- the Gamemaster writes as no character
     writer: seat.role === 'player' ? seat.actorId : null,
   }
 }
@@ -287,21 +278,54 @@ export async function getGroupView(
   })
   const sheetVersion = held?.updatedAt.toISOString()
   const withheld = entry.sheetWithheld
-  // Who the Gamemaster may take into, from module 0.31.0: any of the campaign's characters, which
-  // only their view reads; and from module 0.32.0, who the party's things may be sent to, any of
-  // them too. A player's view gives their character's coins, which they may give the party.
-  const moves = takes(seat, campaign, entry)
+  const moves = await partyMoves(seat, found, held)
+  return {
+    version: campaign.version,
+    live: isLive(campaign.lastSeenAt),
+    campaign: { title: campaign.title },
+    group: tableGroup(entry, campaign.origin),
+    ...(held &&
+      sheetVersion !== known.sheetVersion && {
+        sheet: sheetView(
+          held.data as unknown as GroupSheet,
+          seat,
+          campaign.origin,
+        ),
+      }),
+    ...(sheetVersion && { sheetVersion }),
+    ...(withheld?.reason === 'tooLarge' && { withheld: tooLarge(withheld) }),
+    // Only the Gamemaster is told of a group no player may see, as only they may open it.
+    ...(seat.role === 'gm' &&
+      Object.keys(entry.access ?? {}).length === 0 && {
+        private: true as const,
+      }),
+    ...(moves && { moves }),
+  }
+}
+
+/**
+ * Where the seat may move a party's things, where it may: who the Gamemaster may take into, from
+ * module 0.31.0, any of the campaign's characters, which only their view reads; from module
+ * 0.32.0, who the party's things may be sent to, any of them too, and those its coin is shared
+ * among; and a player's character's coins, which they may give the party.
+ */
+async function partyMoves(
+  seat: PartySeat,
+  { campaign, entry }: NonNullable<Awaited<ReturnType<typeof access>>>,
+  held: { data: Prisma.JsonValue } | null,
+) {
+  if (!takes(seat, campaign, entry)) return
   const sends = campaign.transferFeatures.includes('partySends')
   const shares = campaign.transferFeatures.includes('distribute')
   const ownActor = seat.role === 'player' ? seat.actorId : undefined
   const [roster, ownSheet] = await Promise.all([
-    moves && (seat.role === 'gm' || sends)
+    seat.role === 'gm' || sends
       ? prisma.campaign.findUnique({
           where: { id: campaign.id },
           select: { characters: true },
         })
       : undefined,
-    moves && ownActor
+    ownActor
       ? prisma.actorSheet.findUnique({
           where: {
             campaignActor: { campaignId: campaign.id, actorId: ownActor },
@@ -320,50 +344,25 @@ export async function getGroupView(
     ownSheet?.data as unknown as { inventory?: SheetInventory } | null
   )?.inventory?.currency
   return {
-    version: campaign.version,
-    live: isLive(campaign.lastSeenAt),
-    campaign: { title: campaign.title },
-    group: tableGroup(entry, campaign.origin),
-    ...(held &&
-      sheetVersion !== known.sheetVersion && {
-        sheet: sheetView(
-          held.data as unknown as GroupSheet,
-          seat,
-          campaign.origin,
-        ),
+    ...(seat.role === 'gm' && characters && { characters }),
+    ...(sends &&
+      characters && {
+        send: {
+          parties: sendParties(seat, campaign.groups, entry, campaign.origin),
+          characters,
+        },
       }),
-    ...(sheetVersion && { sheetVersion }),
-    ...(withheld?.reason === 'tooLarge' && {
-      withheld: {
-        reason: 'tooLarge' as const,
-        ...(typeof withheld.bytes === 'number' && { bytes: withheld.bytes }),
-        ...(typeof withheld.limit === 'number' && { limit: withheld.limit }),
-      },
-    }),
-    // Only the Gamemaster is told of a group no player may see, as only they may open it.
-    ...(seat.role === 'gm' &&
-      Object.keys(entry.access ?? {}).length === 0 && {
-        private: true as const,
-      }),
-    ...(moves && {
-      moves: {
-        ...(seat.role === 'gm' && characters && { characters }),
-        ...(sends &&
-          characters && {
-            send: {
-              parties: sendParties(
-                seat,
-                campaign.groups,
-                entry,
-                campaign.origin,
-              ),
-              characters,
-            },
-          }),
-        ...(among && { distribute: among }),
-        ...(coins && { give: { currency: coins } }),
-      },
-    }),
+    ...(among && { distribute: among }),
+    ...(coins && { give: { currency: coins } }),
+  }
+}
+
+/** Why a party's sheet was held back as too large, as its player is told it. */
+function tooLarge(withheld: { bytes?: unknown; limit?: unknown }) {
+  return {
+    reason: 'tooLarge' as const,
+    ...(typeof withheld.bytes === 'number' && { bytes: withheld.bytes }),
+    ...(typeof withheld.limit === 'number' && { limit: withheld.limit }),
   }
 }
 
@@ -437,7 +436,6 @@ function sheetView(
     }),
     inventory: inventoryView(sheet.inventory, origin),
     // dnd5e shows the full description, else its summary.
-    // eslint-disable-next-line unicorn/no-null -- the sheet uses null for none
     description: sheet.description?.full ?? sheet.description?.summary ?? null,
   }
 }

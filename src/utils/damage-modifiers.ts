@@ -5,17 +5,20 @@ import {
   unmaximizableDie,
 } from '@/utils/dice-modifiers'
 import { formulaTerms } from '@/utils/formulas'
-import {
-  MAX_DICE,
-  type ExtraDice,
-  type ExtraTerm,
-} from '@/utils/roll-modifiers'
+import { MAX_DICE } from '@/utils/roll-modifiers'
+import type {
+  ExtraDice,
+  ExtraTerm,
+  DamageModifiers,
+  DamageChange,
+  CriticalAdds,
+} from '@/types/roll'
 import type {
   CriticalRule,
   DamagePreview,
   DamagePreviewRoll,
+  DamageLink,
 } from '@/types/sending-stone'
-import type { DamageLink } from '@/utils/description-links'
 
 /*
  * Changing damage or healing as it's rolled, as dnd5e's damage dialog lets a player: more of its
@@ -29,33 +32,11 @@ import type { DamageLink } from '@/utils/description-links'
  * isn't known.
  */
 
-/** How a player changes damage or healing as they roll it. Each changes nothing unless set. */
-export type DamageModifiers = {
-  /** How many more of its first die. */
-  extra?: number
-  /** The size its first die is made instead, such as 12 for a d12. */
-  faces?: DieSize
-  /** Every die at its highest. */
-  maximize?: boolean
-}
-
-/** The sizes a die of damage may be made. */
-export const DIE_SIZES = [4, 6, 8, 10, 12] as const
-
-export type DieSize = (typeof DIE_SIZES)[number]
-
 /** The most of one die a roll of damage may throw, a critical hit's dice doubled. */
 export const MOST_DICE = MAX_DICE * 2
 
 /** A part of damage, as rolled: its terms, such as 1d8 and +4. */
 type Part = { terms: ExtraTerm[] }
-
-/**
- * What a critical hit adds to each of damage's parts, in order: the extra dice its first die
- * throws, such as Savage Attacks' or Brutal Critical's, and the terms of its critical damage, such
- * as a weapon's 1d6; none, each, where it adds nothing.
- */
-export type CriticalAdds = { dice: number[]; damage: ExtraTerm[][] }
 
 /**
  * A critical hit's damage as dnd5e makes it by default, and one rolled here: every die twice, and
@@ -268,44 +249,71 @@ export function formulaTakesAway(formula: string): boolean {
  * @param negative - It's taken away, or made negative, as a whole.
  */
 function groupTakesAway(text: string, negative: boolean): boolean {
-  let group: FormulaGroup = { negative: false, own: '', within: [] }
-  const groups = [group]
-  let depth = 0
-  // What's within the brackets being read.
-  let inner = ''
-  // The last character read that isn't a space: a sign after a term parts two groups.
-  let before = ''
-  for (const char of text) {
-    if ('({'.includes(char)) {
-      if (depth++ > 0) inner += char
-    } else if (')}'.includes(char)) {
-      if (depth > 1) inner += char
-      else if (depth === 1) {
-        group.within.push(inner)
-        inner = ''
-      }
-      depth = Math.max(depth - 1, 0)
-    } else if (depth > 0) {
-      inner += char
-    } else if ('+-,'.includes(char)) {
-      if (char === ',' || /[\w.)}]/.test(before)) {
-        group = { negative: char === '-', own: '', within: [] }
-        groups.push(group)
-      } else if (char === '-') {
-        group.negative = !group.negative
-      }
-    } else {
-      group.own += char
-    }
-    if (char.trim()) before = char
-  }
-  return groups.some(({ negative: turned, own, within }) => {
+  return groupsOf(text).some(({ negative: turned, own, within }) => {
     const sign = negative !== turned
     return (
       (sign && /d\d/i.test(own)) ||
       within.some(each => groupTakesAway(each, sign))
     )
   })
+}
+
+/**
+ * A formula's groups of terms, or those within a pair of brackets of one, as dnd5e reads their
+ * signs: each group's own text and what's within each pair of brackets in it, read one character
+ * at a time, outside brackets (`readSign`) and within them (`readBracket`).
+ */
+function groupsOf(text: string): FormulaGroup[] {
+  const group: FormulaGroup = { negative: false, own: '', within: [] }
+  // The formula read so far: its groups, the group being read, how deep within brackets, what's
+  // within the brackets being read, and the last character read that isn't a space, as a sign
+  // after a term parts two groups.
+  const scan = { group, groups: [group], depth: 0, inner: '', before: '' }
+  for (const char of text) {
+    if ('({)}'.includes(char) || scan.depth > 0) readBracket(scan, char)
+    else readSign(scan, char)
+    if (char.trim()) scan.before = char
+  }
+  return scan.groups
+}
+
+/** A bracket, or what's within brackets, read: each pair's text kept with its group. */
+function readBracket(
+  scan: { group: FormulaGroup; depth: number; inner: string },
+  char: string,
+) {
+  if ('({'.includes(char)) {
+    if (scan.depth++ > 0) scan.inner += char
+  } else if (')}'.includes(char)) {
+    if (scan.depth > 1) scan.inner += char
+    else if (scan.depth === 1) {
+      scan.group.within.push(scan.inner)
+      scan.inner = ''
+    }
+    scan.depth = Math.max(scan.depth - 1, 0)
+  } else {
+    scan.inner += char
+  }
+}
+
+/**
+ * A character outside brackets read: a sign after a term, or a function's comma, parts two groups;
+ * a `-` before a term turns its group over; anything else is the group's own.
+ */
+function readSign(
+  scan: { group: FormulaGroup; groups: FormulaGroup[]; before: string },
+  char: string,
+) {
+  if ('+-,'.includes(char)) {
+    if (char === ',' || /[\w.)}]/.test(scan.before)) {
+      scan.group = { negative: char === '-', own: '', within: [] }
+      scan.groups.push(scan.group)
+    } else if (char === '-') {
+      scan.group.negative = !scan.group.negative
+    }
+  } else {
+    scan.group.own += char
+  }
 }
 
 /**
@@ -377,9 +385,6 @@ export function takesAway(parts: readonly Part[]): boolean {
     part.terms.some(term => 'sides' in term && term.sign < 0),
   )
 }
-
-/** How damage may be changed as it's rolled: at its highest, or with its dice changed first. */
-export type DamageChange = 'maximize' | 'modify-damage'
 
 /**
  * The ways damage's parts may be changed as they're rolled, in order: at its highest, unless it
@@ -549,7 +554,6 @@ export function linkDamage(
   const thrown = critical ? criticalParts(parts, critical, adds) : parts
   const rolls: DamagePreviewRoll[] = thrown.map(({ formula, terms }) => ({
     formula,
-    // eslint-disable-next-line unicorn/no-null -- the preview's for no kind of its own
     type: null,
     perDie: critical?.perDie ?? 1,
     dice: terms.flatMap(term =>

@@ -46,7 +46,6 @@ describe('lib/campaign-secret', () => {
     expect(bearerSecret('Bearer hunter2')).toBe('hunter2')
     expect(bearerSecret('Basic aHVudGVyMg==')).toBeUndefined()
     expect(bearerSecret('Bearer ')).toBeUndefined()
-    // eslint-disable-next-line unicorn/no-null -- what Headers.get returns
     expect(bearerSecret(null)).toBeUndefined()
   })
 })

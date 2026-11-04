@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable unicorn/no-null -- protocol payloads use null for an absent value */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expandSheet } from './slim-sheet'
