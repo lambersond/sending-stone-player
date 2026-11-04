@@ -1,2 +1,0 @@
-# Gate 7's allowlist (round.md §3.4): `<path><TAB><reason>`, a module allowed to re-export a moved
-# name or to be re-exports only. Expected empty; empty again after commit 23 (G removes any).

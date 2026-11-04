@@ -1,4 +1,0 @@
-## shared modules importing a module that moves into a feature or src/components
-- src/utils/formulas.ts:10 [R-a] → src/hooks/use-sheet-roller (moves to src/features/rolling/hooks/use-sheet-roller.ts) :: import type { SheetFormulaRoll } from '@/hooks/use-sheet-roller'
-- src/utils/move-words.ts:2 [R-a] → src/hooks/use-sheet-roller (moves to src/features/rolling/hooks/use-sheet-roller.ts) :: import type { LocalMove } from '@/hooks/use-sheet-roller'
-- src/utils/move-words.ts:3 [R-a] → src/hooks/use-table-rolls (moves to src/features/rolling/hooks/use-table-rolls.ts) :: import type { TableRollState } from '@/hooks/use-table-rolls'

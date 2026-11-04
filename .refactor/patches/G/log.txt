@@ -1,4 +1,0 @@
-9986f99 chore(refactor): G's codemod, export sweep and zone probes (R/tools/g/)
-fe2087e docs(roadmap): v0.43 done; bugs and checks for v0.44
-6fee233 chore(lint): CLAUDE.md's rules as errors, layered imports, an import-cycle test; dead code and unused exports gone
-bc80be7 chore(refactor): gate 10 and 11 allowances for commit 23 (G)

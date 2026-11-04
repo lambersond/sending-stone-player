@@ -1,3 +1,0 @@
-# Gate 11's allowlist (round.md §3.4, phase4-items.md G-9): `<new component module><TAB><reason>`,
-# a Server Component split out of a base server-graph module, so it is in the server graph too.
-src/features/campaigns/components/campaign-status/last-heard.tsx	commit 23 (G-9): LastHeard out of campaign-status.tsx (CLAUDE.md §2, one component per .tsx); both are Server Components that CampaignCard draws, as at the base

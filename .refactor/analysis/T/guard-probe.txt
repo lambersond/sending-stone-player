@@ -1,9 +1,0 @@
-# guardNoDb probe (map T, 2026-11-03, on 51b8916 = 24f808b + .refactor/)
-# guard-probe.js added as a second setupFilesAfterEnv file: after each test, every prismaMock model
-# method with calls is appended to $GUARD_OUT (method names walk the deep mock's created children).
-# cmd: GUARD_OUT=... npx jest --maxWorkers=2 --setupFilesAfterEnv ./jest.setup.ts <probe> --runTestsByPath <files>
-route suites without prismaMock (route-suites.txt "noprisma"): 25 suites, 281 tests, 0 hits
-app pages/actions + lib suites without prismaMock: 22 suites, 322 tests, 0 hits
-positive control src/app/api/campaigns/[id]/party/[group]/route.test.ts (uses prismaMock): 6 tests, 5 with hits
-  (campaign.findUnique, campaign.updateMany, groupSheet.findUnique): the probe sees real db code.
-=> guardNoDb() can go into all 25 route suites (and the 22) with none failing on today's code.

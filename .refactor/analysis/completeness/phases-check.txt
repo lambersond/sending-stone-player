@@ -1,7 +1,0 @@
-## rows whose phases miss a phase their items need: 6
-- owners.tsv:556 src/types/cookbook.ts [W-a; phases "3"]: missing 2b (cites R1.9.1-6 or receives in 2b) | items R1.4.9
-- owners.tsv:563 src/types/table.ts [W-a; phases "3"]: missing 2b (cites R1.9.1-6 or receives in 2b) | items R1.4.9
-- owners.tsv:681 src/utils/dice.ts [W-a; phases "2b"]: missing 3 (cites a lane item) | items R1.9.1 R1.4.2
-- owners.tsv:682 src/utils/dice.test.ts [W-a; phases "2b"]: missing 3 (cites a lane item) | items R1.4.2
-- owners.tsv:695 src/features/rolling/utils/menu-points.ts [R-b; phases "2b"]: missing 3 (cites a lane item) | items R1.9.1 R1.2.10
-- owners.tsv:701 src/utils/roll-reasons.ts [R-b; phases "2b"]: missing 3 (cites a lane item) | items R1.9.1 R1.2.8
