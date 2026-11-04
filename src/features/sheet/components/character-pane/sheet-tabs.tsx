@@ -77,7 +77,12 @@ export function SheetTabs({
             </span>
             {id === 'effects' && conditions > 0 && (
               <span className='size-1.5 rounded-full bg-ruby'>
-                <span className='sr-only'>, {conditions} conditions</span>
+                <span className='sr-only'>
+                  ,{' '}
+                  {conditions === 1
+                    ? '1 condition'
+                    : `${conditions} conditions`}
+                </span>
               </span>
             )}
           </button>

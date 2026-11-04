@@ -327,7 +327,7 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
 
   // ---- The cog: after the sheet's tabs, on their row, on the screen ----
   const named = await tabs.getByRole('tab').evaluateAll(all => all.map(tab => tab.textContent))
-  check(named.length === 7 && /^Effects, 1 conditions$/.test(named[5].replace(/\s+/g, ' ').trim()),
+  check(named.length === 7 && /^Effects, 1 condition$/.test(named[5].replace(/\s+/g, ' ').trim()),
     `${at}, the sheet has its seven tabs, Effects with its condition's dot (${named.join(' | ')})`)
   check(m.cogInRow && m.cog.left >= m.tablist.right - 0.5 && Math.abs((m.cog.top + m.cog.bottom) / 2 - (m.tablist.top + m.tablist.bottom) / 2) < 2
     && m.cog.left >= 0 && m.cog.right <= Math.min(m.width, m.sheet.right) && m.tabsScroll <= 0,
