@@ -31,7 +31,8 @@ function queryOf(view: CompanionView | undefined): URLSearchParams {
  * While the server can't be reached it says it's reconnecting, and backs off as the table's poll
  * does. A sheet left out is the one the pane has already. Once its API answers 404, the companion
  * is no longer the seat's character's, or the seat's own: it's gone, and asked for no more, its
- * last view kept with nothing to roll and not connected.
+ * last view kept with nothing to roll and not connected. A 404 or a 401 is the server's answer, so
+ * neither leaves it reconnecting.
  * @param api - The companion's API base: the seat's own API and `/companions/<key>`.
  * @param active - Whether its pane is the one shown.
  */
@@ -65,6 +66,7 @@ export function useCompanionView(
         answered.current = true
         if (response.status === 404) {
           stopped.current = true
+          setConnection('live')
           setGone(true)
           setView(
             last =>
@@ -75,6 +77,7 @@ export function useCompanionView(
         // Signed out: the character's own page says why.
         if (response.status === 401) {
           stopped.current = true
+          setConnection('live')
           return
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`)

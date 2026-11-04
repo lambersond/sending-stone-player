@@ -207,4 +207,25 @@ describe('hooks/use-companion-view', () => {
     expect(result.current.connection).toBe('live')
     expect(result.current.view?.version).toBe(7)
   })
+
+  it.each([404, 401])(
+    'is live again, asking no more, when a failed read is followed by a %i',
+    async status => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(500))
+        .mockResolvedValueOnce(respond(status))
+      const { result } = renderHook(() =>
+        useCompanionView(API, { active: true }),
+      )
+      await advance(0)
+      expect(result.current.connection).toBe('reconnecting')
+
+      await advance(POLL_INTERVAL * 20)
+
+      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(result.current.connection).toBe('live')
+      expect(result.current.gone).toBe(status === 404)
+    },
+  )
 })
