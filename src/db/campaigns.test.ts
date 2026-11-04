@@ -766,6 +766,40 @@ describe('db/campaigns', () => {
       })
     })
 
+    it.each([
+      ['waiting for Foundry', null, 'c1'],
+      ['followed before Gamemasters set them up', 'earlier', 'earlier'],
+    ])(
+      'binds nothing on a connection test of a campaign %s; its first event binds it',
+      async (_, earlierId, boundId) => {
+        prismaMock.$transaction.mockImplementation((run: any) =>
+          run(prismaMock),
+        )
+        prismaMock.campaign.findUnique.mockResolvedValue(
+          earlierId && ({ id: earlierId, secretHash: null } as any),
+        )
+        prismaMock.campaign.findMany.mockResolvedValue([
+          { id: 'c1', secretHash: 'hash:right' },
+        ] as any)
+        prismaMock.campaign.delete.mockResolvedValue({} as any)
+
+        await expect(
+          findEventCampaign(ORIGIN, ref, 'right', { record: false }),
+        ).resolves.toEqual({ id: boundId })
+        expect(prismaMock.$transaction).not.toHaveBeenCalled()
+        expect(prismaMock.campaign.update).not.toHaveBeenCalled()
+        expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
+        expect(prismaMock.campaign.delete).not.toHaveBeenCalled()
+
+        await expect(findEventCampaign(ORIGIN, ref, 'right')).resolves.toEqual({
+          id: boundId,
+        })
+        expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: boundId } }),
+        )
+      },
+    )
+
     it('knows no campaign that was never set up, and refuses the wrong secret', async () => {
       prismaMock.campaign.findUnique.mockResolvedValue(null)
       prismaMock.campaign.findMany.mockResolvedValue([])

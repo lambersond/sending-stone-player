@@ -350,7 +350,8 @@ export async function removeCampaign(
  * @param origin - The game's origin, from the request's Origin header.
  * @param campaign - The module's campaign, as the envelope names it.
  * @param secret - The secret the request carried.
- * @param options.record - Record a refusal: not for a connection test, whose title and secret are
+ * @param options.record - Store what the post tells: a refusal, or the binding of a campaign
+ *   waiting for Foundry. Not for a connection test, which stores nothing: its title and secret are
  *   as typed, perhaps not saved.
  * @returns The campaign; 'unknown' when none is set up for it; 'refused' for the wrong secret.
  */
@@ -397,6 +398,8 @@ export async function findEventCampaign(
   }
   for (const candidate of candidates) {
     if (await verifySecret(secret, candidate.secretHash ?? '')) {
+      // A connection test binds nothing; it is told of the campaign an event would bind.
+      if (!record) return { id: bound?.id ?? candidate.id }
       // Bound only now, so it holds no state from the module's session.
       return { id: await bind(candidate.id, campaign.id, bound?.id) }
     }
