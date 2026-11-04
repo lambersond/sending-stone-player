@@ -1,17 +1,26 @@
 import { useSyncExternalStore } from 'react'
 import { untilTomorrow } from './utils'
 
+// Every time shown shares one timer: set as the first subscribes, cleared as the last leaves.
+const listeners = new Set<() => void>()
+let timer: ReturnType<typeof setTimeout> | undefined
+
+/** Sets the timer for the next local midnight, which tells every listener and sets it again. */
+function arm(): void {
+  timer = setTimeout(() => {
+    arm()
+    for (const onDayTurn of listeners) onDayTurn()
+  }, untilTomorrow(new Date()))
+}
+
 /** Tells `onDayTurn` at each local midnight, until unsubscribed. */
 function subscribe(onDayTurn: () => void): () => void {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const arm = () => {
-    timer = setTimeout(() => {
-      onDayTurn()
-      arm()
-    }, untilTomorrow(new Date()))
+  listeners.add(onDayTurn)
+  if (listeners.size === 1) arm()
+  return () => {
+    listeners.delete(onDayTurn)
+    if (listeners.size === 0) clearTimeout(timer)
   }
-  arm()
-  return () => clearTimeout(timer)
 }
 
 const today = () => new Date().toDateString()
