@@ -8,6 +8,7 @@ import {
   damageBadge,
   leastOf,
   madeOf,
+  notMadeAtTable,
   outcomeOf,
   reasonOf,
   rechargeTitle,
@@ -355,16 +356,4 @@ function madeAtTable(
       : outcomeOf(state, role)
   const total = `At the table: ${state.total ?? '?'}`
   return outcome ? `${total} · ${outcome}` : total
-}
-
-/**
- * That a roll wasn't made, before why: of hit dice spent at once, how many the game made before
- * one it didn't, and the hit points they gave back.
- */
-function notMadeAtTable(state: TableRollState): string {
-  const { together, healed } = state
-  const healing = healed === undefined ? '' : ` · ${healed} HP regained`
-  return together?.made
-    ? `${together.made} of ${together.count} made at the table${healing}. Not the rest`
-    : 'Not made at the table'
 }

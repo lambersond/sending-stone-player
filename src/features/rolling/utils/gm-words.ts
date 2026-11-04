@@ -3,6 +3,7 @@ import {
   areaTold,
   damageBadge,
   enchantmentNote,
+  notMadeAtTable,
   outcomeOf,
   reasonOf,
   SLOT_REASONS,
@@ -118,17 +119,14 @@ function gmDone(
 
 /**
  * What's said of one the game didn't make, before why: of hit dice spent at once, how many it
- * made before one it didn't.
+ * made before one it didn't, and the hit points they gave back, as the player's own say.
  */
 function gmNotMade(
   roll: LocalGmRoll,
   shape: ReturnType<typeof gmShape>,
   state: TableRollState,
 ): string {
-  const { together } = state
-  if (together?.made) {
-    return `${together.made} of ${together.count} made at the table. Not the rest`
-  }
+  if (state.together?.made) return notMadeAtTable(state)
   if (shape === 'use') {
     return `Not ${gmVerbs(roll).done.toLowerCase()} at the table`
   }
