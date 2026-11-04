@@ -120,6 +120,7 @@ export function AsideColumn({
       <Pane
         id='combat-pane'
         label='Combat'
+        focusable
         className={aside === 'combat' ? 'flex' : 'hidden'}
       >
         <Scroller>
@@ -130,6 +131,7 @@ export function AsideColumn({
       <Pane
         id='chat-pane'
         label='Chat'
+        focusable
         className={aside === 'chat' ? 'flex' : 'hidden'}
       >
         <Scroller ref={scroller} onScroll={onScroll}>

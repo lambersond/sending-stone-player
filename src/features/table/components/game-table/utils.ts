@@ -1,3 +1,4 @@
+import type { Tab } from '@/features/table/types'
 import type { Character, TableSeat } from '@/types/character'
 import type { CookbookPlace } from '@/types/cookbook'
 import type { TableView } from '@/types/table'
@@ -58,4 +59,23 @@ export function sheetPane(
     paneShown: hasSheet || parties !== undefined || playing || switching,
     sharedDice: hasSheet || switching,
   }
+}
+
+/**
+ * The panel shown under the table's notices, where focus goes as one is dismissed, as the ids to
+ * look for in turn: where the Character pane is in view, the sheet's panel of the creature it
+ * shows, the character's own or a companion's, or that companion's own panel while it has no
+ * sheet; on a phone or tablet showing combat or the chat, that pane.
+ * @param characterInView - Whether the Character pane is in view: on a wide screen, or as its tab.
+ * @param tab - The table's tab shown on a phone or tablet.
+ * @param chosen - The creature the Character pane shows: 'self', or a companion's key.
+ */
+export function shownPanels(
+  characterInView: boolean,
+  tab: Tab,
+  chosen: string,
+): string[] {
+  if (!characterInView) return [`${tab}-pane`]
+  if (chosen === 'self') return ['sheet-panel']
+  return [`creature-${chosen}-sheet-panel`, `creature-panel-${chosen}`]
 }

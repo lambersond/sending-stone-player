@@ -13,6 +13,8 @@ import type { TableView } from '@/types/table'
  * @param playing - Whether the character plays one of its campaign's characters.
  * @param seatKey - The seat's key, as its table page has it.
  * @param addBack - How the seat's words say the character is added back to the game.
+ * @param panels - The panel shown under the notices, as `shownPanels` finds it, where focus goes as
+ *   one is dismissed.
  */
 export function TableNotices({
   gm,
@@ -21,6 +23,7 @@ export function TableNotices({
   character,
   seatKey,
   addBack,
+  panels,
 }: Readonly<{
   gm: boolean
   playing: boolean
@@ -28,6 +31,7 @@ export function TableNotices({
   character: Character
   seatKey: string
   addBack: string
+  panels: readonly string[]
 }>) {
   return (
     <>
@@ -45,6 +49,7 @@ export function TableNotices({
           sheet={view.sheet}
           name={character.name}
           seat={seatKey}
+          panels={panels}
         />
       )}
     </>

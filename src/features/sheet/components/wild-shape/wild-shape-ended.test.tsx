@@ -42,7 +42,12 @@ const endedSheet = (
 const renderBanner = (sheet = endedSheet({})) => {
   const view = (shown: typeof sheet) => (
     <>
-      <WildShapeEnded sheet={shown} name='Elowen' seat='char-1' />
+      <WildShapeEnded
+        sheet={shown}
+        name='Elowen'
+        seat='char-1'
+        panels={['sheet-panel']}
+      />
       <div id='sheet-panel' role='tabpanel' tabIndex={-1} />
     </>
   )
@@ -152,6 +157,24 @@ describe('components/character-sheet/wild-shape: the banner when the game ends i
     expect(screen.queryByRole('status')).toBeNull()
     rerender(endedSheet({ why: 'hp', at: NOW - 60_000 }))
     expect(screen.getByRole('status')).toHaveTextContent(/at 0 hit points/)
+  })
+
+  it('gives focus to the first of the panels it’s given that is on the page', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <WildShapeEnded
+          sheet={endedSheet({})}
+          name='Elowen'
+          seat='char-1'
+          panels={['creature-wolf-sheet-panel', 'creature-panel-wolf']}
+        />
+        <div id='creature-panel-wolf' role='tabpanel' tabIndex={0} />
+      </>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.getByRole('tabpanel')).toHaveFocus()
   })
 
   it('keeps what’s dismissed for its seat alone', () => {

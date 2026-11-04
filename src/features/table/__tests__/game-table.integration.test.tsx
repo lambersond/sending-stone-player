@@ -1484,6 +1484,18 @@ describe('components/game-table/game-table, Wild Shape, from module 0.40.0', () 
     expect(document.querySelector('#sheet-panel')).toHaveFocus()
   })
 
+  it('gives focus to the pane shown as it is dismissed, the chat on a phone, never the hidden sheet', async () => {
+    const user = userEvent.setup()
+    renderTable(view({ sheet: ended('hp'), combat: undefined }))
+
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
+    const banner = screen
+      .getAllByRole('status')
+      .find(each => each.textContent?.includes('Wild Shape')) as HTMLElement
+    await user.click(within(banner).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.getByRole('region', { name: 'Chat' })).toHaveFocus()
+  })
+
   it('says nothing of one ended from the app', () => {
     renderTable(view({ sheet: ended('app'), combat: undefined }))
 

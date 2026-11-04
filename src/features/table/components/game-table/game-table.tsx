@@ -14,7 +14,7 @@ import { TableNav } from '../table-nav/table-nav'
 import { TableNotices } from '../table-notices/table-notices'
 import { TablePartyPanel } from '../table-party-panel/table-party-panel'
 import { TurnToast } from '../turn-toast/turn-toast'
-import { cookbookPlace, seatOf, sheetPane } from './utils'
+import { cookbookPlace, seatOf, sheetPane, shownPanels } from './utils'
 import { Scroller } from '@/components/scroller/scroller'
 import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
 import { useChatRead } from '@/features/table/hooks/use-chat-read'
@@ -94,6 +94,8 @@ export function GameTable({
   }
 
   const playing = view.campaign !== undefined && character.actorId !== null
+  // The panel shown under the notices, where focus goes as one is dismissed.
+  const panels = shownPanels(tabs.characterInView, tabs.tab, companions.chosen)
   // The character's own journal notes (module 0.34.0), on the sheet's Biography tab, or under why
   // there's no sheet: polled while the Character pane is in view, as it is on a wide screen or as
   // its tab, and no party sheet is open over it. On one pane it stays mounted, hidden, behind
@@ -232,6 +234,7 @@ export function GameTable({
             character={character}
             seatKey={seat.key}
             addBack={words.addBack}
+            panels={panels}
           />
           <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
         </div>
