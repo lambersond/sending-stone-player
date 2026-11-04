@@ -67,7 +67,7 @@ export function WildShapeEnded({
             .find(panel => panel !== null)
             ?.focus()
         }}
-        className='-my-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-text-primary/5 hover:text-text-primary sm:size-9'
+        className='-my-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-text-primary/5 hover:text-text-primary'
       >
         <X aria-hidden className='size-4' />
       </button>

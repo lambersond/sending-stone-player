@@ -1016,7 +1016,7 @@ describe('components/campaigns/campaign-card', () => {
       ).toHaveAttribute('id', 'campaign-c1-sheet-thorin')
     })
 
-    it('makes its buttons easy to tap: 40 px, its icon buttons 36', () => {
+    it('makes its buttons easy to tap: 40 px, its icon buttons 36 on a phone and 44 from sm (v0.44)', () => {
       renderCard({
         characters: [
           {
@@ -1034,7 +1034,7 @@ describe('components/campaigns/campaign-card', () => {
       expect(screen.getByText('Change secret')).toHaveClass('min-h-10')
       expect(
         screen.getByRole('button', { name: 'Remove Alice as Thorin' }),
-      ).toHaveClass('size-9')
+      ).toHaveClass('size-9', 'sm:size-11')
     })
 
     describe('its dialogs, each opening on Cancel', () => {

@@ -4,6 +4,7 @@ import { useEffect, type Ref } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Send, TriangleAlert, X } from 'lucide-react'
 import { MADE_SHOWN_FOR } from './constants'
+import { ICON_TARGET } from '@/constants/buttons'
 import { useTableRole } from '@/hooks/use-table-api'
 import { onItsWay as isOnItsWay } from '@/utils/lifecycle'
 import { moveWords } from '@/utils/move-words'
@@ -73,7 +74,7 @@ export function MoveStatus({
           type='button'
           aria-label='Dismiss'
           onClick={onDismiss}
-          className='-my-1 -mr-1.5 shrink-0 rounded-lg p-1 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+          className={`${ICON_TARGET} -my-1 -mr-1.5 sm:-mr-4 rounded-lg p-1 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`}
         >
           <X aria-hidden className='size-4' />
         </button>

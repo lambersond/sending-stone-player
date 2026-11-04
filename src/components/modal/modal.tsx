@@ -100,10 +100,9 @@ export function Modal({
               onClick={onClose}
               aria-label='Close'
               className={clsx(
-                `-mr-1.5 shrink-0 ${HEADER_ICON_BUTTON}`,
-                // As tall as a finger on a phone, as every control in a sheet is.
-                sheet &&
-                  'flex min-h-11 min-w-11 items-center justify-center sm:min-h-9 sm:min-w-9',
+                `-mr-1.5 sm:-mr-3 ${HEADER_ICON_BUTTON}`,
+                // As tall as a finger on a phone too, as every control in a sheet is.
+                sheet && 'min-h-11 min-w-11',
               )}
             >
               <X aria-hidden className='size-5' />

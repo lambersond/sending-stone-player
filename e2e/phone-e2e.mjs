@@ -352,9 +352,12 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
   await page.waitForTimeout(300)
   let p = await popover(settings)
   m = await measure(page)
+  // From sm, the Theme choices are icon buttons a finger wide (v0.44).
+  const themes = await settings.getByRole('radiogroup', { name: 'Theme' }).getByRole('radio')
+    .evaluateAll(all => all.map(el => { const b = el.getBoundingClientRect(); return [b.width, b.height] }))
   check(await cog.getAttribute('aria-expanded') === 'true' && p.left >= 0 && p.right <= m.width && p.top >= 0 && p.bottom <= m.height && m.pageX === 0 && m.pageY === 0
-    && p.focusIn && p.focused === 'switch',
-    `${at}, a tap on the cog opens the settings on the screen, its switch first and focused, nothing scrolling (${JSON.stringify(p)})`)
+    && p.focusIn && p.focused === 'switch' && (width < 640 || (themes.length === 3 && themes.every(([w, h]) => w >= 43.5 && h >= 43.5))),
+    `${at}, a tap on the cog opens the settings on the screen, its switch first and focused, nothing scrolling${width < 640 ? '' : `, its three Theme choices at least 44 pixels square (${themes.map(([w, h]) => `${Math.round(w)}×${Math.round(h)}`)})`} (${JSON.stringify(p)})`)
   await shoot(page, `${width}-settings`)
   await page.keyboard.press('Escape')
   await settings.waitFor({ state: 'detached' })

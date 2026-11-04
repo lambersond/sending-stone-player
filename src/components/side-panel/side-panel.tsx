@@ -62,7 +62,7 @@ export function SidePanel({
                 type='button'
                 onClick={onClose}
                 aria-label='Close'
-                className={`-mr-1.5 ${HEADER_ICON_BUTTON}`}
+                className={`-mr-1.5 sm:-mr-3 ${HEADER_ICON_BUTTON}`}
               >
                 <X aria-hidden className='size-5' />
               </button>

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { FullscreenButton } from '@/components/fullscreen-button/fullscreen-button'
 import { LiveStatus } from '@/components/live-status/live-status'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
-import { HEADER_ICON_BUTTON } from '@/constants/buttons'
+import { HEADER_ICON_BUTTON, ICON_TARGET } from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import {
   campaignAndGame,
@@ -60,7 +60,7 @@ export function TableHeader({
               : '/characters'
           }
           aria-label={gm ? 'Your campaigns' : 'All characters'}
-          className={`-ml-1.5 shrink-0 ${HEADER_ICON_BUTTON}`}
+          className={`-ml-1.5 sm:-ml-3 ${HEADER_ICON_BUTTON}`}
         >
           <ArrowLeft aria-hidden className='size-5' />
         </Link>
@@ -112,7 +112,7 @@ export function TableHeader({
           <ConfirmDialog
             trigger={<Trash2 aria-hidden className='size-4' />}
             triggerLabel={`Delete ${character.name}`}
-            triggerClassName='rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+            triggerClassName={`${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger`}
             title={`Delete ${character.name}?`}
             confirmLabel='Delete'
             onConfirm={deleteCharacter}

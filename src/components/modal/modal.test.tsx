@@ -223,6 +223,24 @@ describe('components/modal', () => {
     )
   })
 
+  it.each(['center', 'sheet'] as const)(
+    'makes its Close a 44-pixel square from sm, its glyph where it was, placed %s (v0.44)',
+    placement => {
+      render(
+        <Modal open onClose={jest.fn()} title='Help' placement={placement}>
+          <p>Steps</p>
+        </Modal>,
+      )
+      const close = within(
+        screen.getByRole('dialog', { name: 'Help' }),
+      ).getByRole('button', { name: 'Close' })
+
+      expect(close).toHaveClass('sm:size-11', '-mr-1.5', 'sm:-mr-3')
+      // None smaller from sm, as a sheet's once was.
+      expect(close.className).not.toMatch(/sm:min-[hw]-9/)
+    },
+  )
+
   it('gives focus to what it is told to as it opens, after the browser has focused its first control (round 0.39.0)', () => {
     function Asking({ open }: Readonly<{ open: boolean }>) {
       const keep = useRef<HTMLButtonElement>(null)

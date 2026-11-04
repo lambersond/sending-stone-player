@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { Maximize, Minimize } from 'lucide-react'
 import { useFullscreen } from '@/components/fullscreen-button/use-fullscreen'
 import { Modal } from '@/components/modal/modal'
+import { ICON_TARGET } from '@/constants/buttons'
 
 /** The table header's icon buttons' look. */
-const ICON_BUTTON =
-  'rounded-lg p-2 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+const ICON_BUTTON = `${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
 
 /**
  * Fills the screen with the page, as a video does, and back. On an iPhone, which lets no website

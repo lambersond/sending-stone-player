@@ -96,14 +96,13 @@ describe('components/character-sheet/wild-shape: the banner when the game ends i
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeVisible()
   })
 
-  it('makes Dismiss a finger’s height on a phone, and at least 36 pixels from sm up, as every new control (round 0.40.0 §9.7)', () => {
+  it('makes Dismiss a finger’s height on a phone and from sm up (v0.44)', () => {
     renderBanner()
 
     const dismiss = screen.getByRole('button', { name: 'Dismiss' })
     expect(dismiss).toHaveClass('size-11')
-    // Tailwind's size-9 is 2.25rem, 36 pixels: none smaller from sm up.
-    const wide = /(?:^|\s)sm:size-(\d+)(?:\s|$)/.exec(dismiss.className)
-    expect(Number(wide?.[1])).toBeGreaterThanOrEqual(9)
+    // Tailwind's size-11 is 2.75rem, 44 pixels, at every width: no smaller size from sm.
+    expect(dismiss.className).not.toMatch(/(?:^|\s)sm:size-/)
   })
 
   it('says "its hour ran out" for a druid whose Wild Shape lasts an hour', () => {

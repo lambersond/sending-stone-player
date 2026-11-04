@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Check, Copy } from 'lucide-react'
+import { ICON_TARGET } from '@/constants/buttons'
 import type { CopyFieldProps } from './types'
 
 /**
@@ -48,7 +49,7 @@ export function CopyField({
           // With its word, as tall as the page's small buttons; its name starts with the word.
           word
             ? 'inline-flex min-h-9 items-center gap-1.5 px-2.5 text-xs font-medium'
-            : 'p-1.5',
+            : `${ICON_TARGET} p-1.5`,
           // A value copied on a phone: a button as easy to tap as the card's others.
           wrap && 'inline-flex min-h-11 min-w-11 items-center justify-center',
         )}

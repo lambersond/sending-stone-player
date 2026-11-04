@@ -2,6 +2,7 @@
 
 import { Info } from 'lucide-react'
 import { actionTitle, usedFromApp } from './utils'
+import { ICON_TARGET } from '@/constants/buttons'
 import type { ActionRows } from './types'
 import type { SheetAction, SheetActivity } from '@/types/sending-stone'
 
@@ -43,7 +44,7 @@ export function ActivityInfoButton({
           foundry: !usedFromApp(activity),
         })
       }
-      className='-my-1 shrink-0 rounded-full p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-primary'
+      className={`${ICON_TARGET} -my-1 rounded-full p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-primary`}
     >
       <Info aria-hidden className='size-4' />
     </button>

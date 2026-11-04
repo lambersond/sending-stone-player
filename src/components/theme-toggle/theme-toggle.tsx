@@ -3,6 +3,7 @@
 import clsx from 'clsx'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { ICON_TARGET } from '@/constants/buttons'
 import { useHydrated } from '@/hooks/use-hydrated'
 
 const THEMES = [
@@ -34,7 +35,7 @@ export function ThemeToggle() {
           title={label}
           onClick={() => setTheme(value)}
           className={clsx(
-            'rounded-md p-1.5 transition-colors',
+            `${ICON_TARGET} rounded-md p-1.5 transition-colors`,
             current === value
               ? 'bg-primary text-on-primary'
               : 'text-text-secondary hover:bg-primary/10 hover:text-text-primary',
