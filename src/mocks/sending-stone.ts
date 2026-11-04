@@ -2263,10 +2263,6 @@ export function manualDiceView(
 export const offeredDiceView = (fields: Partial<TableView> = {}) =>
   manualDiceView({ offered: true, on: false }, fields)
 
-/** Thorin's player chose to type in their own dice, which the game no longer lets them. */
-export const storedDiceView = (fields: Partial<TableView> = {}) =>
-  manualDiceView({ offered: false, on: true }, fields)
-
 /** A finesse rapier dnd5e gives Elven Accuracy, as its sheet says from module 0.32.0. */
 export function rapierAction(fields: Partial<SheetAction> = {}): SheetAction {
   return sheetAction({
@@ -2530,7 +2526,7 @@ export const WILD_SHAPE_OTHER_SYSTEM = switchedOff('system')
  * Elowen's Wild Shape feature's id, its row's on her sheet and on her form's, which dnd5e copies
  * with her items' ids.
  */
-export const WILD_SHAPE_ITEM = 'phbdrdWildShape0'
+const WILD_SHAPE_ITEM = 'phbdrdWildShape0'
 
 /** The ids of the profiles of the forms Elowen knows, as dnd5e makes them. */
 export const FORM_IDS = {
@@ -2545,7 +2541,7 @@ export const FORM_IDS = {
 } as const
 
 /** A Beast of dnd5e's 2024 Actors, by its uuid. */
-export const actors24 = (id: string) => `Compendium.dnd5e.actors24.Actor.${id}`
+const actors24 = (id: string) => `Compendium.dnd5e.actors24.Actor.${id}`
 
 /** One of a druid's known forms, from the campaign's compendiums and within the rules, as given. */
 export function knownForm(

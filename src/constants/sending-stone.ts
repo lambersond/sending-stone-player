@@ -22,12 +22,6 @@ export const MAX_ENVELOPE_BYTES = 4_000_000
 export const SLIM_SHEETS = 1
 
 /**
- * Where the module posts events. The Gamemaster sets only this app's address as the module's
- * destination; the module adds this path.
- */
-export const EVENTS_PATH = '/api/events'
-
-/**
  * How long a campaign can go without hearing anything, an event or a heartbeat, before its
  * Gamemaster's game counts as offline. The module sends something at least every 30 to 40
  * seconds, but a background tab's timers may run only once a minute.
@@ -94,12 +88,6 @@ export const EVENTS = {
   DISH_APPLIED: 'dish.applied',
   DISH_DISMISSED: 'dish.dismissed',
 } as const
-
-/**
- * Where the Gamemaster's module fetches what players ask their game to do, such as rolls. It asks
- * only once this app has said, in its answer to a hello or heartbeat, that it has commands.
- */
-export const COMMANDS_PATH = '/api/bridge/commands'
 
 /**
  * The rolls a player can have made in the Gamemaster's game: a skill check, a tool check, an
@@ -257,14 +245,6 @@ export const FOUNDRY_SETTINGS = 1
  * fetches moves alone, with rolls off, only then.
  */
 export const TRANSFERS = 1
-
-/**
- * What else the Gamemaster's module does with moves, as its hello says, from module 0.32.0: send a
- * party's items and coins elsewhere, by a player whose Foundry user owns it, to any of the
- * campaign's characters or another party they own, and party to party (`partySends`); and share a
- * party's coin of one kind among its members that are the campaign's characters (`distribute`).
- */
-export const TRANSFER_FEATURES = ['partySends', 'distribute'] as const
 
 /**
  * The format of removals of a character's items this app takes, as it tells the module
