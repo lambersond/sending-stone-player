@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { LocalTime } from './local-time'
 
@@ -24,6 +24,20 @@ describe('components/game-table/local-time', () => {
     )
 
     expect(container.textContent).toMatch(/Oct 4/)
+  })
+
+  it('adds the date once the day turns, with nothing else rendered again', () => {
+    jest.useFakeTimers({ now: new Date(2026, 10, 3, 23, 58) })
+    const { container, unmount } = render(
+      <LocalTime value={new Date(2026, 10, 3, 23, 55).toISOString()} />,
+    )
+    expect(container.textContent).not.toMatch(/Nov/)
+
+    act(() => jest.advanceTimersByTime(3 * 60_000))
+
+    expect(container.textContent).toMatch(/Nov 3/)
+    unmount()
+    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('leaves the time to the browser when rendered on the server', () => {
