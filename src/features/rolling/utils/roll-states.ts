@@ -9,8 +9,9 @@ import type { TableRollState } from '@/types/roll'
 /**
  * The rolls' ways, changed: one's way as the game tells it, kept with what was kept of it when it
  * was sent (`way`); rolls sent one after another, as one (`together`); an attack's or use's damage
- * on its way, not offered again (`damaged`); or a use's damage left for the player to roll, while
- * they type in their own dice, once (`offer`).
+ * on its way, not offered again (`damaged`), or offered again as the app didn't take it after all
+ * (`undamaged`); or a use's damage left for the player to roll, while they type in their own dice,
+ * once (`offer`).
  */
 export function rollStates(
   held: ReadonlyMap<string, TableRollState>,
@@ -30,6 +31,13 @@ export function rollStates(
         if (state.requestId === action.use) {
           next.set(id, { ...state, damaged: true })
         }
+      }
+      return next
+    }
+    case 'undamaged': {
+      const next = new Map(held)
+      for (const [id, { damaged, ...state }] of held) {
+        if (damaged && state.requestId === action.use) next.set(id, state)
       }
       return next
     }
@@ -83,6 +91,15 @@ export function dueOf(
         ...(due.modifiers && { modifiers: due.modifiers }),
       }
     : undefined
+}
+
+/**
+ * Whether the app didn't take an attack's or use's damage, refusing it or out of reach, so that
+ * it's offered again: not where it says damage for that attack or use is already on its way or
+ * made, as from another device.
+ */
+export function damageUntaken(state: TableRollState): boolean {
+  return state.status === 'refused' && state.reason !== 'damaged'
 }
 
 /** Whether the app turned a roll away as one too many at once, to send again a moment later. */

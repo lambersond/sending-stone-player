@@ -41,7 +41,7 @@ import {
   MOST_DICE,
   withModifiers,
 } from '@/utils/damage-modifiers'
-import { advance, respond } from '@/utils/test-utils'
+import { advance, respond, responding } from '@/utils/test-utils'
 import type {
   FormulaSource,
   GmRollView,
@@ -1210,6 +1210,47 @@ describe('hooks/use-table-rolls', () => {
         result.current.dueFor({ item: 'longsword', activity: 'swing' }),
       ).toBeUndefined()
     })
+
+    it.each([
+      ['network', () => Promise.reject(new TypeError('offline')), true],
+      ['damaged', () => responding(422, { reason: 'damaged' }), false],
+    ] as const)(
+      "offers an attack's damage again once the app didn't take it (%s), but not as damage already on its way",
+      async (reason, answer, offered) => {
+        jest
+          .mocked(fetch)
+          .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+          .mockResolvedValueOnce(respond(200, made))
+          .mockImplementationOnce(answer)
+        const { result } = render(['attack', 'damage'])
+        act(() => result.current.send(longsword, attackCheck))
+        await advance(CHECK_EVERY)
+        const due = { use: 'req-1', damage: preview() }
+
+        act(() =>
+          result.current.sendDamage(
+            damageRollOf('Longsword', due),
+            thrownDamage(),
+          ),
+        )
+        expect(result.current.dueDamage('req-1')).toBeUndefined()
+        await advance(0)
+
+        expect(result.current.states.get('r2')).toEqual({
+          status: 'refused',
+          reason,
+        })
+        const again = offered ? due : undefined
+        expect(result.current.dueDamage('req-1')).toEqual(again)
+        expect(
+          result.current.dueFor({ item: 'longsword', activity: 'swing' }),
+        ).toEqual(again)
+        // As the tray, the rolls' popover and the toast offer it.
+        expect(damageDue(attackCheck, result.current.states.get('r1'))).toBe(
+          offered,
+        )
+      },
+    )
 
     it("rolls Great Weapon Fighting's damage as its formula has it, sending each die's first throw", () => {
       const greatsword = preview({
