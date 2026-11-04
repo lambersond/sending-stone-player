@@ -1,0 +1,42 @@
+n	sha	subject	failed	failing	note
+1	4e7b8ec	test: a small test kit, byte-identical helpers adopted, the no-db guard, TZ pinned, a values golden; the request-kind table (setup and new files)	1	gate 7 FAIL (44 problem(s); 670 modules; 0 base barrels left; 474 moved names);	tool artifact: the gates apply move records later commits write (moves.tsv/moves.d); jest, tsc and eslint pass alone; green from 63c5cc3
+2	eb533bd	test: characterization goldens for wire, composition, routes and refusals	1	gate 7 FAIL (44 problem(s); 674 modules; 0 base barrels left; 474 moved names);	tool artifact: the gates apply move records later commits write (moves.tsv/moves.d); jest, tsc and eslint pass alone; green from 63c5cc3
+3	929c797	test: characterization goldens for markup, words, storage and dice draws	1	gate 7 FAIL (44 problem(s); 678 modules; 0 base barrels left; 474 moved names);	tool artifact: the gates apply move records later commits write (moves.tsv/moves.d); jest, tsc and eslint pass alone; green from 63c5cc3
+4	f7eb1a5	refactor: features layout, a folder per component, barrels gone (moves only)	2	gate 1b FAIL (1 problem(s); 288 base test files compared, 474 moved names);gate 7 FAIL (4 problem(s); 652 modules; 0 base barrels left; 474 moved names);	tool artifact: the gates apply move records later commits write (moves.tsv/moves.d); jest, tsc and eslint pass alone; green from 63c5cc3
+5	fd2c34d	chore(lint): unicorn/no-null off with its reason; its 250 disables gone	2	gate 1b FAIL (1 problem(s); 288 base test files compared, 474 moved names);gate 7 FAIL (4 problem(s); 652 modules; 0 base barrels left; 474 moved names);	tool artifact: the gates apply move records later commits write (moves.tsv/moves.d); jest, tsc and eslint pass alone; green from 63c5cc3; its full jest run had one red test (chapter-pane 'says who added a chapter, and when', a clock race at base: see ROADMAP.md Tooling), green rerun alone
+6	51e82f8	chore(lint): the node test kit's no-null directive restored; the rule on for it alone	2	gate 1b FAIL (1 problem(s); 288 base test files compared, 474 moved names);gate 7 FAIL (4 problem(s); 652 modules; 0 base barrels left; 474 moved names);	tool artifact: the gates apply move records later commits write (moves.tsv/moves.d); jest, tsc and eslint pass alone; green from 63c5cc3
+7	3255abf	refactor: names other areas import, moved to their homes (export moves only)	1	gate 1b FAIL (1 problem(s); 288 base test files compared, 474 moved names);	tool artifact: the gates apply move records later commits write (moves.tsv/moves.d); jest, tsc and eslint pass alone; green from 63c5cc3
+8	63c5cc3	refactor: cross-area seams (onItsWay, polling constants, useFollow, useSendChoice, NOT_MADE)	0		
+9	9c694f1	fix: v0.43 moves and seams, round 1	0		
+10	064a76b	fix: v0.43 moves and seams, round 2	0		
+11	299d979	fix: v0.43 moves and seams, round 3 (isDieSides home; module comments restored)	0		
+12	a3b222f	refactor(wire): lenient helpers, die sizes, event schemas table, hand types checked, types home	0		
+13	2365911	refactor(wire): the request-kind table read by schemas and constants; rollRequestSchema's rules by group	0		
+14	410051c	fix: v0.43 wire and checks, round 1 (src/types' last cycle gone; typedRules reads the kind table)	0		
+15	38a17b5	refactor(checks): request checks by kind group, views in branches, the kind table read; mock base	3	gate 1 FAIL (268 problem(s); 5665 tests in 290 base test files and 10 frozen ones);gate 1b FAIL (1 problem(s); 288 base test files compared, 474 moved names);gate 2 FAIL (399 problem(s); 8607 base tests);	tool artifact: the test split's move record lands in the next commit (5ec922f, chore(refactor)); jest, tsc and eslint pass alone; f1bde09 green
+16	f1bde09	fix: v0.43 checks and mocks, round 1 (off fixtures make their own arrays; checkText gone)	0		
+17	d264d9a	refactor(server): the db cycle gone, one command creator, the kind table's switches, throttles	0		
+18	e88b05a	refactor(server): one seat resolver, NO_STORE and the answers, one body reader, the result router, types	0		
+19	f7d3890	refactor(server): event table and hello split, the roll path in stages, route and db complexity	0		
+20	8088279	fix: v0.43 server, round 1 (notePresent; the event handlers table; one Tx; RollCampaign; keptLabel)	0		
+21	e173ffc	refactor(rolling): types out, one lifecycle, request builders, state reducer, GM rolls, roller split, dice parsers	0		
+22	71cef6c	fix: v0.43 rolling core, round 1 (an id-less answer followed as before; logAsk on keep; no new named type)	0		
+23	ef3507a	refactor(rolling): the tray one export per file, words per kind, toasts, small components, dice entry	0		
+24	ac31d37	fix: v0.43 rolling tray, round 1 (scrollDown's reason; UsedResult; commandWords' return spelled out)	0		
+25	4114094	refactor(sheet): the pane as composition, one command(), one actions object, one settle hook, Wild Shape split	0		
+26	aae075d	fix(sheet): the pane's panel types its layout by ActionsLayout, not the layouts' constants	0		
+27	c9b5be3	fix: v0.43 sheet wiring, round 1 (roll and link actions as plain builders; settle types in the hooks' types.ts)	0		
+28	64172b6	refactor(sheet): one export per file; picker rules, link pills, one chip cluster, usePopover	0		
+29	bba5753	fix: v0.43 sheet parts, round 1 (import type; UsesChips' place; useChoices' whom; PlainUseChip)	0		
+30	61de31a	refactor(table): GameTable as composition, TurnToast and the tracker split, End Turn hooks, chat by kind	0		
+31	c2ca691	fix: v0.43 table, round 1 (named types; file-private helpers; toast types and places colocated)	0		
+32	983b4b4	refactor(ui): seen query, icon-button classes, journal, party, companions, campaigns, transfers, cookbook	0		
+33	f4b17f1	fix: v0.43 other UI, round 1 (a directive's reason; a file-wide disable narrowed)	0		
+34	2abfc20	refactor: popovers, roll labels and chips adopted across areas	0		
+35	5c56ff7	refactor: seat URLs, the table's seen query and header button adopted	0		
+36	00709e2	chore(lint): CLAUDE.md's rules as errors, layered imports, an import-cycle test; dead code and unused exports gone	0		
+37	a8377ca	docs(roadmap): v0.43 done; bugs and checks for v0.44	0		
+38	153834e	fix: v0.43 lint, round 1 (two directives say what timing they keep; the companions mock's range made line-level)	0		
+39	ca30667	fix: review findings (v0.43, server)	0		
+40	8fa4150	fix: review findings (v0.43, table-ui)	0		
+41	eaef5ba	fix: review findings (v0.43, rolling-sheet)	0		
