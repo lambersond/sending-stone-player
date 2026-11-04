@@ -1,0 +1,139 @@
+From bc80be7802175b690888bc58493b827714dd4c8d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 04:21:11 +0000
+Subject: [PATCH 1/4] chore(refactor): gate 10 and 11 allowances for commit 23
+ (G)
+
+Gate 10 reads gate10.allow, the lines a frozen file may lose: the node kit's one
+unicorn/no-null directive (src/utils/test-utils-node.ts:83), which commit 23 removes with
+the config block that kept the rule on for that file (amendment 2 (b)). Every other line
+of every frozen file stays held.
+
+Gate 11 reads gate11.allow, a new Server Component split out of a base server-graph
+module: LastHeard's last-heard.tsx, out of campaign-status.tsx (phase4-items.md G-9).
+
+Planning files only; nothing under src/ changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ .refactor/tools/gate-10.mjs  | 28 ++++++++++++++++++++++++++--
+ .refactor/tools/gate-11.mjs  | 12 +++++++++---
+ .refactor/tools/gate10.allow |  4 ++++
+ .refactor/tools/gate11.allow |  3 +++
+ 4 files changed, 42 insertions(+), 5 deletions(-)
+ create mode 100644 .refactor/tools/gate10.allow
+ create mode 100644 .refactor/tools/gate11.allow
+
+diff --git a/.refactor/tools/gate-10.mjs b/.refactor/tools/gate-10.mjs
+index fc9479f..77881f0 100644
+--- a/.refactor/tools/gate-10.mjs
++++ b/.refactor/tools/gate-10.mjs
+@@ -5,8 +5,32 @@
+ // test-utils-node.ts, src/mocks/dice-renderer.ts, src/mocks/sheet-providers/**) but in import
+ // declarations and the path strings of jest.mock and its kin. A file that commit added and the
+ // checkout no longer has must be a counts.conf retirement (commit 26: C1, C3, C9 and their .snap).
++// gate10.allow names the lines a frozen file may lose (amendment 2 (b): the node kit's no-null
++// directive, with the config block that kept the rule on for it).
+ import ts from 'typescript'
+-import { GOLDEN_DIR, frozenFiles, gate, git, parse, retired, verdict } from './gate-lib.mjs'
++import {
++  GOLDEN_DIR,
++  frozenFiles,
++  gate,
++  git,
++  parse,
++  readAllow,
++  retired,
++  verdict,
++} from './gate-lib.mjs'
++
++// gate10.allow's rows: `<file><TAB><a line it may lose, trimmed><TAB><reason>`.
++const ALLOWED = readAllow('gate10.allow')
++
++// The text as the commit that added it had it, less the lines gate10.allow lets it lose since.
++function allowedText(file, text) {
++  const gone = new Set(ALLOWED.filter(([path]) => path === file).map(([, line]) => line))
++  if (gone.size === 0) return text
++  return text
++    .split('\n')
++    .filter(line => !gone.has(line.trim()))
++    .join('\n')
++}
+ 
+ const PATH_CALLS = new Set(['mock', 'doMock', 'requireActual', 'requireMock', 'unmock'])
+ 
+@@ -62,7 +86,7 @@ gate('10', checkout => {
+       continue
+     }
+     if (file.startsWith(GOLDEN_DIR) && /\.test\.[jt]sx?$/.test(file) && !ran.has(file)) problems.push(`${file}: not run`)
+-    const then = git(checkout.root, ['show', `${sha}:${file}`])
++    const then = allowedText(file, git(checkout.root, ['show', `${sha}:${file}`]))
+     const now = checkout.text(file)
+     if (file.endsWith('.snap') ? then !== now : frozenText(file, then) !== frozenText(file, now)) {
+       problems.push(`${file}: changed since ${sha.slice(0, 7)}, which added it`)
+diff --git a/.refactor/tools/gate-11.mjs b/.refactor/tools/gate-11.mjs
+index 2cec029..0daa525 100644
+--- a/.refactor/tools/gate-11.mjs
++++ b/.refactor/tools/gate-11.mjs
+@@ -3,14 +3,15 @@
+ // component .tsx (not a types, constants, utils or use-* module), and none has 'use server'; the
+ // 'use server' modules stay 2; every module in the head's server graph (from src/app's pages,
+ // layouts, not-found, manifest, routes and actions through value imports, stopping at 'use client'
+-// modules) is a base server-graph module (followed) or a new module with no component; and
+-// header-account.tsx stays a Server Component.
++// modules) is a base server-graph module (followed) or a new module with no component, or one
++// gate11.allow names; and header-account.tsx stays a Server Component.
+ import path from 'node:path'
+ import {
+   directiveOf,
+   gate,
+   hasComponent,
+   isTestFile,
++  readAllow,
+   readBaseJson,
+   serverGraph,
+   verdict,
+@@ -18,6 +19,10 @@ import {
+ 
+ const HEADER = 'src/components/site-header/header-account.tsx'
+ 
++// gate11.allow's rows: `<new component module><TAB><reason>`, a Server Component split out of a
++// base server-graph module.
++const ALLOWED = new Set(readAllow('gate11.allow').map(([file]) => file))
++
+ gate('11', checkout => {
+   const problems = []
+   const notes = []
+@@ -49,7 +54,8 @@ gate('11', checkout => {
+     if (was !== undefined) {
+       if (!baseServer.has(was)) problems.push(`${file}: in the server graph now, not at the base (${was})`)
+     } else if (hasComponent(file, checkout.parse(file))) {
+-      problems.push(`${file}: a new component module in the server graph`)
++      if (ALLOWED.has(file)) notes.push(`new Server Component (gate11.allow): ${file}`)
++      else problems.push(`${file}: a new component module in the server graph`)
+     }
+   }
+   const header = checkout.head(HEADER)
+diff --git a/.refactor/tools/gate10.allow b/.refactor/tools/gate10.allow
+new file mode 100644
+index 0000000..5023f9d
+--- /dev/null
++++ b/.refactor/tools/gate10.allow
+@@ -0,0 +1,4 @@
++# Gate 10's allowlist (round.md §3.4, amendment 2 (b)): `<frozen file><TAB><a line it may lose,
++# trimmed><TAB><reason>`. The line is dropped from the text the file was added with before the two
++# are compared; every other line stays held.
++src/utils/test-utils-node.ts	// eslint-disable-next-line unicorn/no-null -- Prisma answers null where no row matches	commit 23 (G): unicorn/no-null is off everywhere since commit 6, and the config block that kept it on for this file alone goes with this directive (amendment 2 (b))
+diff --git a/.refactor/tools/gate11.allow b/.refactor/tools/gate11.allow
+new file mode 100644
+index 0000000..7524284
+--- /dev/null
++++ b/.refactor/tools/gate11.allow
+@@ -0,0 +1,3 @@
++# Gate 11's allowlist (round.md §3.4, phase4-items.md G-9): `<new component module><TAB><reason>`,
++# a Server Component split out of a base server-graph module, so it is in the server graph too.
++src/features/campaigns/components/campaign-status/last-heard.tsx	commit 23 (G-9): LastHeard out of campaign-status.tsx (CLAUDE.md §2, one component per .tsx); both are Server Components that CampaignCard draws, as at the base
+-- 
+2.43.0
+
