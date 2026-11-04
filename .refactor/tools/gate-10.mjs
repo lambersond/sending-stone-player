@@ -5,8 +5,9 @@
 // test-utils-node.ts, src/mocks/dice-renderer.ts, src/mocks/sheet-providers/**) but in import
 // declarations and the path strings of jest.mock and its kin. A file that commit added and the
 // checkout no longer has must be a counts.conf retirement (commit 26: C1, C3, C9 and their .snap).
-// gate10.allow names the lines a frozen file may lose (amendment 2 (b): the node kit's no-null
-// directive, with the config block that kept the rule on for it).
+// gate10.allow names the lines a frozen file may keep or lose (amendment 2 (b): the node kit's
+// no-null directive, with the config block that kept the rule on for it). Such a line is dropped
+// from both sides before they are compared, so the commits before its removal stay ok too.
 import ts from 'typescript'
 import {
   GOLDEN_DIR,
@@ -19,10 +20,10 @@ import {
   verdict,
 } from './gate-lib.mjs'
 
-// gate10.allow's rows: `<file><TAB><a line it may lose, trimmed><TAB><reason>`.
+// gate10.allow's rows: `<file><TAB><a line it may keep or lose, trimmed><TAB><reason>`.
 const ALLOWED = readAllow('gate10.allow')
 
-// The text as the commit that added it had it, less the lines gate10.allow lets it lose since.
+// The text less the lines gate10.allow lets the file keep or lose; applied to both sides.
 function allowedText(file, text) {
   const gone = new Set(ALLOWED.filter(([path]) => path === file).map(([, line]) => line))
   if (gone.size === 0) return text
@@ -86,9 +87,12 @@ gate('10', checkout => {
       continue
     }
     if (file.startsWith(GOLDEN_DIR) && /\.test\.[jt]sx?$/.test(file) && !ran.has(file)) problems.push(`${file}: not run`)
-    const then = allowedText(file, git(checkout.root, ['show', `${sha}:${file}`]))
+    const then = git(checkout.root, ['show', `${sha}:${file}`])
     const now = checkout.text(file)
-    if (file.endsWith('.snap') ? then !== now : frozenText(file, then) !== frozenText(file, now)) {
+    const changed = file.endsWith('.snap')
+      ? then !== now
+      : frozenText(file, allowedText(file, then)) !== frozenText(file, allowedText(file, now))
+    if (changed) {
       problems.push(`${file}: changed since ${sha.slice(0, 7)}, which added it`)
     }
   }
