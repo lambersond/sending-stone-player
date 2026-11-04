@@ -4,6 +4,7 @@ import { D20_CHOICES } from '@/features/rolling/constants'
 import { formulaOf } from '@/features/rolling/utils/damage-words'
 import { choiceItem } from '@/features/rolling/utils/menu-points'
 import { toAdvantage } from '@/features/rolling/utils/roll-mode'
+import { rollOf } from '@/features/rolling/utils/sheet-rolls'
 import {
   EVERY_DIE_TWICE,
   changes,
@@ -383,15 +384,12 @@ export function rollAgainst(
   dc: number | undefined,
   chosen?: 'adv' | 'dis',
 ) {
-  actions.roll({
-    label: target.label,
-    modifier: target.modifier,
-    advantage: chosen ?? toAdvantage(target.mode),
-    source: target.source,
-    explicit: chosen !== undefined,
-    ...(dc !== undefined && { dc }),
-    ...(target.ask && { ask: target.ask }),
-  })
+  actions.roll(
+    rollOf(target, chosen ?? toAdvantage(target.mode), chosen !== undefined, {
+      dc,
+      ask: target.ask,
+    }),
+  )
 }
 
 /** A kind of damage or healing, by dnd5e's key, as the tray says it, such as "fire". */

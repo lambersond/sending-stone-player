@@ -2,21 +2,15 @@
 
 import { use, useId, useRef } from 'react'
 import {
-  autoUpdate,
-  flip,
   FloatingFocusManager,
   FloatingPortal,
-  offset,
-  shift,
   useDismiss,
-  useFloating,
   useInteractions,
   useRole,
 } from '@floating-ui/react'
 import { PLAIN, SOLID } from './constants'
 import { WildShapeContext } from './context'
-import { usePortalRoot } from '@/components/modal/use-portal-root'
-import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
+import { usePopover } from '@/hooks/use-popover'
 import { returnWords } from '@/utils/wild-shape-words'
 
 /**
@@ -28,17 +22,14 @@ export function ReturnPopover({ anchor }: Readonly<{ anchor: HTMLElement }>) {
   const ws = use(WildShapeContext)
   const titleId = useId()
   const stay = useRef<HTMLButtonElement>(null)
-  const root = usePortalRoot()
-  useTopmostEscape(true)
-  const { refs, floatingStyles, context } = useFloating({
+  const { setFloating, floatingStyles, context, root } = usePopover({
     open: true,
     onOpenChange: open => {
       if (!open) ws.closeReturn(false)
     },
-    elements: { reference: anchor },
+    anchor,
     placement: 'bottom-end',
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
+    gap: 6,
   })
   const { getFloatingProps } = useInteractions([
     useDismiss(context),
@@ -58,7 +49,7 @@ export function ReturnPopover({ anchor }: Readonly<{ anchor: HTMLElement }>) {
         returnFocus={false}
       >
         <div
-          ref={refs.setFloating}
+          ref={setFloating}
           style={floatingStyles}
           aria-labelledby={titleId}
           className='z-50 flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 text-sm text-text-primary shadow-xl'

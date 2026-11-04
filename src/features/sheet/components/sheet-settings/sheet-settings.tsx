@@ -2,16 +2,10 @@
 
 import { useCallback, useId, useRef, useState, type ReactNode } from 'react'
 import {
-  autoUpdate,
-  flip,
   FloatingFocusManager,
   FloatingPortal,
-  offset,
-  shift,
-  size,
   useClick,
   useDismiss,
-  useFloating,
   useInteractions,
   useRole,
 } from '@floating-ui/react'
@@ -20,10 +14,9 @@ import { CookingPot, PanelBottom, PanelTop, Settings } from 'lucide-react'
 import { LayoutPicker } from '../actions-layout/layout-picker'
 import { aloneHint } from './utils'
 import { HelpLinks } from '@/components/help-links/help-links'
-import { usePortalRoot } from '@/components/modal/use-portal-root'
-import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
 import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
+import { usePopover } from '@/hooks/use-popover'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
 import type { SheetSettingsProps } from './types'
@@ -62,26 +55,20 @@ export function SheetSettings({
   const title = useId()
   const helpId = useId()
   const cog = useRef<HTMLButtonElement>(null)
-  const root = usePortalRoot()
-  useTopmostEscape(open)
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: change,
-    placement: 'bottom-end',
-    whileElementsMounted: autoUpdate,
-    middleware: [
-      offset(6),
-      flip({ padding: 8 }),
-      shift({ padding: 8 }),
+  const { setReference, setFloating, floatingStyles, context, root } =
+    usePopover({
+      open,
+      onOpenChange: change,
+      placement: 'bottom-end',
+      gap: 6,
       // No taller than the room below the cog, as on a phone turned sideways; it scrolls inside.
-      size({
+      fit: {
         padding: 8,
         apply: ({ availableHeight, elements }) => {
           elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
         },
-      }),
-    ],
-  })
+      },
+    })
   const { getReferenceProps, getFloatingProps } = useInteractions([
     useClick(context),
     useDismiss(context),
@@ -92,7 +79,7 @@ export function SheetSettings({
       {/* A little tighter in the row of tabs on a phone under 390 pixels, as the rolls' button. */}
       <button
         ref={node => {
-          refs.setReference(node)
+          setReference(node)
           cog.current = node
         }}
         type='button'
@@ -108,7 +95,7 @@ export function SheetSettings({
           <FloatingFocusManager context={context} modal={false}>
             {/* Over the rolls' toasts, 100001, which start just below the cog, as it does. */}
             <div
-              ref={refs.setFloating}
+              ref={setFloating}
               style={floatingStyles}
               aria-labelledby={title}
               className='z-[100002] flex w-72 max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-3 text-text-primary shadow-xl outline-none'

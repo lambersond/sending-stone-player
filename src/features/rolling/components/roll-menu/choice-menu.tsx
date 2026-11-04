@@ -2,12 +2,6 @@
 
 import { useState, useRef, useId, useLayoutEffect } from 'react'
 import {
-  useFloating,
-  autoUpdate,
-  offset,
-  flip,
-  shift,
-  size,
   useInteractions,
   useDismiss,
   useRole,
@@ -16,9 +10,8 @@ import {
   FloatingFocusManager,
 } from '@floating-ui/react'
 import clsx from 'clsx'
-import { usePortalRoot } from '@/components/modal/use-portal-root'
-import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { placing, pointOn } from '@/features/rolling/utils/menu-points'
+import { usePopover } from '@/hooks/use-popover'
 import type { MenuPlace } from './types'
 import type { MenuItem } from '@/features/rolling/types'
 
@@ -42,35 +35,29 @@ export function ChoiceMenu<T extends string>({
   const [active, setActive] = useState<number | null>(null)
   const list = useRef<(HTMLElement | null)[]>([])
   const reasons = useId()
-  const root = usePortalRoot()
-  useTopmostEscape(true)
   const { placement, gap, across } = placing(point)
-  const { refs, floatingStyles, context } = useFloating({
-    open: true,
-    onOpenChange: open => {
-      if (!open) onClose()
-    },
-    elements: { reference: anchor },
-    placement,
-    whileElementsMounted: autoUpdate,
-    middleware: [
-      offset(gap),
-      flip({ padding: 8 }),
-      shift({ padding: 8, crossAxis: across }),
+  const { setFloating, setPositionReference, floatingStyles, context, root } =
+    usePopover({
+      open: true,
+      onOpenChange: open => {
+        if (!open) onClose()
+      },
+      anchor,
+      placement,
+      gap,
+      across,
       // No taller than the room on the side it's on, its items scrolled inside it: one with many,
       // as a check that may be made many ways, may be taller than a phone's screen.
-      size({
+      fit: {
         padding: 8,
         apply: ({ availableHeight, elements }) => {
           elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
         },
-      }),
-    ],
-  })
-  const { setFloating } = refs
+      },
+    })
   useLayoutEffect(() => {
-    refs.setPositionReference(point ? pointOn(anchor, point) : anchor)
-  }, [anchor, point, refs])
+    setPositionReference(point ? pointOn(anchor, point) : anchor)
+  }, [anchor, point, setPositionReference])
   const { getFloatingProps, getItemProps } = useInteractions([
     useDismiss(context),
     useRole(context, { role: 'menu' }),

@@ -2,24 +2,17 @@
 
 import { Fragment, useId, useRef, useState } from 'react'
 import {
-  autoUpdate,
-  flip,
   FloatingFocusManager,
   FloatingPortal,
-  offset,
-  shift,
-  size,
   useClick,
   useDismiss,
-  useFloating,
   useInteractions,
   useListNavigation,
 } from '@floating-ui/react'
 import clsx from 'clsx'
 import { Check, ChevronDown, FolderInput, LoaderCircle } from 'lucide-react'
-import { usePortalRoot } from '@/components/modal/use-portal-root'
-import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
+import { usePopover } from '@/hooks/use-popover'
 import type { MoveMenuProps } from './types'
 
 /**
@@ -40,27 +33,21 @@ export function MoveMenu({
   const [active, setActive] = useState<number | null>(null)
   const list = useRef<(HTMLElement | null)[]>([])
   const menuId = useId()
-  const root = usePortalRoot()
-  useTopmostEscape(open)
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: setOpen,
-    placement: 'bottom-end',
-    whileElementsMounted: autoUpdate,
-    middleware: [
-      offset(4),
-      flip({ padding: 8 }),
-      shift({ padding: 8 }),
+  const { setReference, setFloating, floatingStyles, context, root } =
+    usePopover({
+      open,
+      onOpenChange: setOpen,
+      placement: 'bottom-end',
+      gap: 4,
       // No taller than the room on the side it's on, its chapters scrolled inside it: a journal
       // may hold fifty.
-      size({
+      fit: {
         padding: 8,
         apply: ({ availableHeight, elements }) => {
           elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
         },
-      }),
-    ],
-  })
+      },
+    })
   const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions(
     [
       useClick(context),
@@ -90,7 +77,7 @@ export function MoveMenu({
     <FolderInput aria-hidden className='size-5' />
   )
   const button = {
-    ref: refs.setReference,
+    ref: setReference,
     type: 'button' as const,
     'aria-haspopup': 'menu' as const,
     'aria-expanded': open,
@@ -128,7 +115,7 @@ export function MoveMenu({
             modal={false}
           >
             <div
-              ref={refs.setFloating}
+              ref={setFloating}
               id={menuId}
               role='menu'
               aria-label='Move to'

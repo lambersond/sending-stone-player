@@ -2,18 +2,13 @@
 
 import { useCallback, useId, useState } from 'react'
 import {
-  autoUpdate,
-  flip,
   FloatingFocusManager,
   FloatingPortal,
-  offset,
-  shift,
-  size,
   useClick,
   useDismiss,
-  useFloating,
   useInteractions,
   useRole,
+  type OpenChangeReason,
 } from '@floating-ui/react'
 import { History } from 'lucide-react'
 import { rollsName } from '../../utils/tray-words'
@@ -21,9 +16,9 @@ import { DamageDue } from '../roll-tray/damage-due'
 import { RollHistory } from '../roll-tray/roll-history'
 import { offersDamage } from '../roll-tray/utils'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
-import { usePortalRoot } from '@/components/modal/use-portal-root'
 import { needsPlayer } from '@/features/rolling/utils/damage-due'
 import { useCreature } from '@/hooks/use-creature'
+import { usePopover } from '@/hooks/use-popover'
 import type { TableRolls } from '../../types'
 import type { LocalRoll } from '@/types/roll'
 
@@ -46,46 +41,42 @@ export function RollsButton({
 }: Readonly<{ rolls: LocalRoll[]; rolling: boolean; table: TableRolls }>) {
   const [open, setOpen] = useState(false)
   const title = useId()
-  const root = usePortalRoot()
   // A creature's own, at its pane (module 0.36.0).
   const named = rollsName(useCreature())
   const [inside, setInside] = useState<HTMLDivElement | null>(null)
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: (next, _, reason) => {
-      // Escape on the damage menu, or the dialog that changes the damage, opened inside closes
-      // only that.
-      if (
-        reason === 'escape-key' &&
-        inside?.querySelector('[role=menu], dialog[open]')
-      ) {
-        return
-      }
-      setOpen(next)
-    },
-    placement: 'bottom-end',
-    whileElementsMounted: autoUpdate,
-    middleware: [
-      offset(6),
-      flip({ padding: 8 }),
-      shift({ padding: 8 }),
+  const { setReference, setFloating, floatingStyles, context, root } =
+    usePopover({
+      open,
+      onOpenChange: (next: boolean, _?: Event, reason?: OpenChangeReason) => {
+        // Escape on the damage menu, or the dialog that changes the damage, opened inside closes
+        // only that.
+        if (
+          reason === 'escape-key' &&
+          inside?.querySelector('[role=menu], dialog[open]')
+        ) {
+          return
+        }
+        setOpen(next)
+      },
+      placement: 'bottom-end',
+      gap: 6,
       // No taller than the room below the button, as on a phone turned sideways; it scrolls inside.
-      size({
+      fit: {
         padding: 8,
         apply: ({ availableHeight, elements }) => {
           elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`
         },
-      }),
-    ],
-  })
-  const { setReference } = refs
+      },
+      // Escape goes on to the browser, for a dialog opened from it to close on it.
+      escape: false,
+    })
   // The popover, which is also where menus and dialogs opened from it go.
   const attach = useCallback(
     (node: HTMLDivElement | null) => {
-      refs.setFloating(node)
+      setFloating(node)
       setInside(node)
     },
-    [refs],
+    [setFloating],
   )
   const { getReferenceProps, getFloatingProps } = useInteractions([
     useClick(context),
