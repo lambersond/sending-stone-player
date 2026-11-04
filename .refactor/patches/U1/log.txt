@@ -1,3 +1,0 @@
-1649abf fix: v0.43 sheet wiring, round 1 (roll and link actions as plain builders; settle types in the hooks' types.ts)
-f3c0010 fix(sheet): the pane's panel types its layout by ActionsLayout, not the layouts' constants
-98665eb refactor(sheet): the pane as composition, one command(), one actions object, one settle hook, Wild Shape split

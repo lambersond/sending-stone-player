@@ -1,2 +1,0 @@
-41a5b45 fix: v0.43 sheet parts, round 1 (import type; UsesChips' place; useChoices' whom; PlainUseChip)
-f2c42a1 refactor(sheet): one export per file; picker rules, link pills, one chip cluster, usePopover
