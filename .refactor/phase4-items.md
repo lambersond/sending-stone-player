@@ -469,3 +469,11 @@ follow-up) sits beside commit 17, and 5ec922f (W-b's moves.d record) beside comm
   - S-1's note
 - **The check:** `AFTER=3 node .refactor/analysis/owners-check/check.mjs` is clean.
 - **U1-m1** is decided in amendment 5.
+
+
+## From Phase 4.1 (F-a, F-b), for G (added by the orchestrator after the 4.1 checkpoint)
+
+- [F-a → G] FA-R1 (for G, commit 23, src/hooks/use-popover.ts; owners.tsv:777 gives it to U2 in phase 3 only, so F-a can't edit it): type usePopover's `onOpenChange` option as floating-ui's `UseFloatingOptions['onOpenChange']` instead of `(open: boolean) => void`. Then RollsButton's handler in src/features/rolling/components/rolls-button/rolls-button.tsx (:52) can go back to inferred parameters instead of `(next: boolean, _?: Event, reason?: OpenChangeReason)`. Both edits are type-only. rolls-button.test.tsx R6 and R9 already pin the `reason` pass-through.
+- [F-a → G] FA-R2 (for G or the orchestrator, R1.9.29's ROADMAP edit or the PR's notes, §7): paste one line: 'favorites' resource and check rows not on UsesChips/RowName: would change markup'. These are the three R1.9.25 sites left undone: the resource favorite's bare UsesButton in SheetEntry's aside (UsesChips would add a data-uses span and maybe a RechargeChip), CheckEntry's name block (not RowName's markup), and CheckEntry's ModeChip and modifier pair (nothing in the chip cluster draws it). It's a behaviour question for v0.44, not a bug.
+- [F-b → G] Orchestrator: commit 22 (2d2c154) sits on 680d60e. If APP's head has moved (for example F-a's commit 21 landed first), rebase it and run L1 again at the rebased commit. F-a and F-b change no file in common.
+- [F-b → G] G: no F-b work is left. game-table.tsx's F-b grant (row 295) and glob rows 780-781 need nothing more. table-header's /campaigns?campaign= query link and table-party-panel's unencoded ownSheetHref stay as they are, as FB-2 and R1.5.22 say.
