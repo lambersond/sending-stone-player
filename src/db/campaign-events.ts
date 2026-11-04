@@ -1,5 +1,6 @@
 import prisma from '@/clients/prisma'
 import { MIDI_PROMPT_WAIT, ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+import { clearChat } from '@/db/chat'
 import {
   applyJournalUpdated,
   drawJournal,
@@ -11,6 +12,7 @@ import {
   lacksSheetTexts,
   saveSheetTexts,
 } from '@/db/sheet-texts'
+import { postedBeforeClear } from '@/utils/chat-clear'
 import { companionRoster } from '@/utils/companions'
 import { helloCampaignData, helloCompanionData } from '@/utils/hello-features'
 import type { JournalDrawings, Tx } from '@/db/types'
@@ -148,13 +150,15 @@ const EVENT_HANDLERS: {
     return false
   },
   'chat.message.created': keepMessage,
-  'chat.message.updated': keepMessage,
+  'chat.message.updated': changeMessage,
   'chat.message.deleted': async ({ id }, { tx, campaignId }) => {
     await tx.chatMessage.deleteMany({ where: { campaignId, messageId: id } })
     return false
   },
+  // Foundry's Clear Chat Log, sent to every campaign: marked as the Gamemaster's clear here is
+  // (v0.44).
   'chat.cleared': async (_, { tx, campaignId }) => {
-    await tx.chatMessage.deleteMany({ where: { campaignId } })
+    await clearChat(tx, campaignId, new Date())
     return false
   },
   'combat.ended': async ({ combat }, { tx, campaignId }) => {
@@ -218,14 +222,33 @@ const EVENT_HANDLERS: {
 }
 
 /**
- * A message posted or changed. An update is an upsert: a blind roll the Gamemaster reveals arrives
- * as one.
+ * A message posted, kept whenever it was posted: a new message, whose time is its posting
+ * browser's, never set against the server's clear.
  */
 async function keepMessage(
   { message }: EventData['chat.message.created'],
   { tx, campaignId, session }: Applying,
 ): Promise<boolean> {
   await saveMessage(tx, campaignId, message, session)
+  return false
+}
+
+/**
+ * A message changed. An update is an upsert, as a blind roll the Gamemaster reveals arrives as one;
+ * but one posted before the chat was cleared changes only what's still held (v0.44), so a dish card
+ * cleared stays cleared once its Gamemaster serves it or sets it aside.
+ */
+async function changeMessage(
+  { message }: EventData['chat.message.updated'],
+  { tx, campaignId, session }: Applying,
+): Promise<boolean> {
+  const campaign = await tx.campaign.findUnique({
+    where: { id: campaignId },
+    select: { chatClearedAt: true },
+  })
+  await saveMessage(tx, campaignId, message, session, {
+    heldOnly: postedBeforeClear(message.timestamp, campaign?.chatClearedAt),
+  })
   return false
 }
 
@@ -606,12 +629,14 @@ function rosterEntry(character: ConnectedCharacter) {
  * character (#156) where this app knows it was (`madeForGm`). Once marked, it stays marked,
  * whatever an edit later says.
  * @param session - The module session that sent it.
+ * @param heldOnly - Whether to change it only where it's held, never adding it (v0.44).
  */
 async function saveMessage(
   tx: Tx,
   campaignId: string,
   message: SerializedMessage,
   session: string,
+  { heldOnly = false } = {},
 ) {
   const fields = {
     sentAt: new Date(message.timestamp),
@@ -620,10 +645,18 @@ async function saveMessage(
     data: toJson(message),
   }
   const byGm = await madeForGm(tx, campaignId, message, session)
+  const update = { ...fields, ...(byGm && { byGm: true }) }
+  if (heldOnly) {
+    await tx.chatMessage.updateMany({
+      where: { campaignId, messageId: message.id },
+      data: update,
+    })
+    return
+  }
   await tx.chatMessage.upsert({
     where: { campaignMessage: { campaignId, messageId: message.id } },
     create: { campaignId, messageId: message.id, ...fields, byGm },
-    update: { ...fields, ...(byGm && { byGm: true }) },
+    update,
   })
 }
 
