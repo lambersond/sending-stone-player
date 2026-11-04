@@ -192,7 +192,8 @@ export function briefOf(
       }
     }
     case 'use': {
-      if (roll.wildShape && state?.status === 'done') {
+      // One taken with nothing to follow it by says only that it went (`unfollowed`).
+      if (roll.wildShape && state?.status === 'done' && !state.unfollowed) {
         return wildShapeBrief(brief, roll.wildShape, state)
       }
       return { ...brief, badge: 'use' }

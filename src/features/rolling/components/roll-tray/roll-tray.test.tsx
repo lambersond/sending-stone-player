@@ -4392,6 +4392,25 @@ describe('Wild Shape from the app, from module 0.40.0', () => {
     expect(brief.table).toBeUndefined()
   })
 
+  // v0.44 review: an answer naming no id says only that it went, as the tray does.
+  it.each([
+    ['a change', change],
+    ['a return', back],
+    ['a Beast learned', learned],
+  ])(
+    'toasts %s taken with nothing to follow it by as sent, naming no form',
+    (_, roll) => {
+      const brief = briefOf(roll, { status: 'done', unfollowed: true })
+
+      expect(brief).toMatchObject({
+        label: 'Wild Shape',
+        badge: 'use',
+        table: { tone: 'made', text: 'Sent to your Gamemaster’s game' },
+      })
+      expect(brief.dice).toBeUndefined()
+    },
+  )
+
   it.each([
     ['refused', 'off', 'your Gamemaster’s game isn’t taking Wild Shape now'],
     [
