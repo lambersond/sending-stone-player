@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from '../components/character-pane/character-pane'
+import { CHARACTER_FAVORITES_KEY } from '../components/character-pane/use-favorites-layout'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'
 import { ALONE_KEY, SEND_KEY } from '@/features/rolling/constants'
@@ -4259,6 +4260,54 @@ describe('components/character-sheet/character-pane', () => {
         expect(screen.queryByRole('complementary')).toBeNull()
       },
     )
+
+    it('shows them between Skills and Traits on Character once Favorites on the Character tab is on, however wide, for every character on this device', async () => {
+      const user = userEvent.setup()
+      wide(1200)
+      const { unmount } = renderPane(favored())
+      await show('Character')
+      const settings = await openSettings(user)
+      await user.click(
+        within(settings).getByRole('switch', {
+          name: 'Favorites on the Character tab',
+        }),
+      )
+
+      const panel = screen.getByRole('tabpanel')
+      const favorites = within(panel).getByRole('region', { name: 'Favorites' })
+      expect(within(favorites).getAllByRole('listitem')).toHaveLength(7)
+      expect(
+        within(panel)
+          .getByRole('region', { name: 'Skills' })
+          .compareDocumentPosition(favorites),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(
+        favorites.compareDocumentPosition(
+          within(panel).getByRole('region', { name: 'Traits' }),
+        ),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(screen.queryByRole('complementary')).toBeNull()
+      expect(localStorage.getItem(CHARACTER_FAVORITES_KEY)).toBe('on')
+
+      unmount()
+      renderPane(favored())
+      await show('Character')
+      expect(
+        screen.getByRole('region', { name: 'Favorites' }),
+      ).toBeInTheDocument()
+    })
+
+    it('offers no such switch for a sheet without favorites', async () => {
+      const user = userEvent.setup()
+      renderPane()
+      const settings = await openSettings(user)
+
+      expect(
+        within(settings).queryByRole('switch', {
+          name: 'Favorites on the Character tab',
+        }),
+      ).toBeNull()
+    })
 
     it('shows them in a column beside those tabs where the sheet is wide enough for both', async () => {
       wide(936)

@@ -26,7 +26,8 @@ import type { SheetSettingsProps } from './types'
  * without taking room from them: whether this device sends the player's rolls to the table, and
  * beneath it, where the game takes it, whether their damage goes there on its own; where the game
  * lets them, typing in what their own dice show; whether rolls show as
- * toasts or in a banner, the theme, and how the Actions tab is laid out; and since round 0.39.0,
+ * toasts or in a banner, the theme, from v0.44 whether the Character tab shows the favorites too,
+ * and how the Actions tab is laid out; and since round 0.39.0,
  * at the player's own seat, Configure Magical Cookbook, which opens their Magical Recipe Book in a
  * modal, and last, in every cog, Help: Report a bug and Request a feature. It opens as
  * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
@@ -38,6 +39,7 @@ export function SheetSettings({
   alone,
   manualDice,
   toasts,
+  characterFavorites,
   layouts,
   onOpenChange,
   cookbook,
@@ -136,6 +138,14 @@ export function SheetSettings({
               <Setting label='Theme'>
                 <ThemeToggle />
               </Setting>
+              {/* After the theme, so whichever setting is first still takes focus as they open. */}
+              {characterFavorites && (
+                <SwitchSetting
+                  label='Favorites on the Character tab'
+                  hint='Shows the character’s favorites between Skills and Traits.'
+                  {...characterFavorites}
+                />
+              )}
               {layouts && (
                 <Setting label='Actions layout'>
                   <LayoutPicker

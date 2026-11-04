@@ -57,6 +57,7 @@ export function CharacterSheet({
   creature,
   follows,
   idPrefix,
+  favorites,
 }: Readonly<CharacterSheetProps>) {
   const { actions, dialogs } = useD20Rolls(onRoll)
   const abbreviation = (id: string) =>
@@ -161,6 +162,8 @@ export function CharacterSheet({
           )}
         </section>
       )}
+
+      {favorites}
 
       {sheet.traits.length > 0 && (
         <section aria-labelledby={traitsId} className='flex flex-col gap-2'>

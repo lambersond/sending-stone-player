@@ -2,7 +2,9 @@
 // tiefling wizard and warlock) sends what she made a favorite in Foundry to the production app. On
 // a phone and a tablet, Alice finds them at the top of Actions, Inventory, Spells and Effects; on a
 // laptop and a wide screen, in a column beside them. Each rolls, opens and shows its uses as it
-// does where the sheet lists it, and each is starred there. Screenshots to SHOTS.
+// does where the sheet lists it, and each is starred there. From v0.44, a switch in the cog puts
+// them on Character too, between Skills and Traits, on a phone and a laptop alike. Screenshots to
+// SHOTS.
 import { actor, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -417,6 +419,26 @@ const NAMES = ['Arcane Recovery', 'Dagger', 'Cast Fireball', 'Fire Bolt', 'Potio
 const namesIn = scope => scope.locator('li').evaluateAll(rows => rows.filter(row => row.checkVisibility() && !row.parentElement.closest('li')).map(row => row.querySelector('.font-medium')?.textContent))
 /** The names of the rows starred in a part of the sheet. */
 const starredIn = scope => scope.getByText(', favorite', { exact: true }).evaluateAll(stars => stars.map(star => star.closest('li').querySelector('.font-medium').textContent))
+/** The names of the sections the Character tab shows, in order, by what labels each. */
+const sectionsIn = panel => panel.evaluate(el => [...el.querySelectorAll('section[aria-labelledby]')].filter(section => !section.parentElement.closest('section'))
+  .map(section => document.getElementById(section.getAttribute('aria-labelledby'))?.textContent.trim()))
+/**
+ * Turns on Favorites on the Character tab (v0.44), in the sheet's cog, by its 44-pixel label, as
+ * the switch inside it is drawn small, and closes the cog.
+ */
+const favoritesOnCharacter = async page => {
+  const LABEL = 'Favorites on the Character tab'
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  const cog = page.getByRole('dialog', { name: 'Settings' })
+  const toggle = cog.getByRole('switch', { name: LABEL, exact: true })
+  const hint = await toggle.evaluate(input => document.getElementById(input.getAttribute('aria-describedby'))?.textContent)
+  const off = !(await toggle.isChecked())
+  await cog.locator('label').filter({ hasText: LABEL }).click()
+  const on = await cog.getByRole('switch', { name: LABEL, exact: true, checked: true }).waitFor({ state: 'attached', timeout: 10_000 }).then(() => true, () => false)
+  await page.keyboard.press('Escape')
+  await cog.waitFor({ state: 'detached' })
+  return { hint, off, on }
+}
 /** What runs past the sheet's right edge. */
 const overflowing = sheet => sheet.evaluate(region => [...region.querySelectorAll('*')].filter(el => el.checkVisibility() && el.getBoundingClientRect().right > region.getBoundingClientRect().right + 0.5).map(el => el.textContent.slice(0, 40)))
 
@@ -529,6 +551,23 @@ for (const tab of ['Features', 'Biography', 'Character']) {
   check(await sheet.getByRole('region', { name: 'Favorites' }).count() === 0, `${tab} has no favorites of its own`)
 }
 check(await sheet.getByRole('button', { name: /^Arcana check, \+6.*, favorite$/ }).isVisible(), 'on Character, Arcana is starred')
+// From v0.44: Favorites on the Character tab, off until turned on in the cog.
+{
+  const turned = await favoritesOnCharacter(page)
+  check(turned.off && turned.on && turned.hint === 'Shows the character’s favorites between Skills and Traits.',
+    `the cog offers "Favorites on the Character tab", off, which turns on, saying "${turned.hint}"`)
+  const onCharacter = panel.getByRole('region', { name: 'Favorites' })
+  await onCharacter.waitFor()
+  const sections = await sectionsIn(panel)
+  const at = sections.indexOf('Skills')
+  check(at >= 0 && same(sections.slice(at, at + 3), ['Skills', 'Favorites', 'Traits']) && same(await namesIn(onCharacter), NAMES),
+    `on a phone, Character then shows her favorites between Skills and Traits, in her order (${sections.join(', ')})`)
+  await onCharacter.getByRole('button', { name: 'Fire Bolt attack, +6' }).click()
+  await rolled('Fire Bolt attack')
+  check(/d20 \d+ \+6/.test(await status.textContent()), `and one rolls from there into the tray: ${await status.textContent()}`)
+  check(same(await overflowing(sheet), []), 'nothing runs past the edge of the phone on Character')
+  if (SHOTS) await shoot(page, 'phone-character')
+}
 await showTab('Features')
 check(same(await starredIn(panel), ['Eldritch Mind']), 'on Features, Eldritch Mind is')
 await view.close()
@@ -581,6 +620,20 @@ check(await sheet.getByRole('complementary', { name: 'Favorites' }).count() === 
 await showTab('Effects')
 column = sheet.getByRole('complementary', { name: 'Favorites' })
 check(await column.isVisible() && same(await namesIn(column), NAMES), 'Effects has it again')
+// From v0.44, with Favorites on the Character tab on: on Character between Skills and Traits, never
+// in the column, which Effects and Actions keep.
+await favoritesOnCharacter(page)
+await showTab('Character')
+{
+  const sections = await sectionsIn(panel)
+  const at = sections.indexOf('Skills')
+  check(await sheet.getByRole('complementary').count() === 0 && at >= 0 && same(sections.slice(at, at + 3), ['Skills', 'Favorites', 'Traits'])
+    && same(await namesIn(panel.getByRole('region', { name: 'Favorites' })), NAMES),
+    `on a laptop with the switch on, Character shows them inline between Skills and Traits, with no column (${sections.join(', ')})`)
+  if (SHOTS) await shoot(page, 'laptop-character')
+}
+await showTab('Effects')
+check(await column.isVisible() && await panel.getByRole('region', { name: 'Favorites' }).count() === 0, 'while Effects still has them in the column')
 if (SHOTS) await shoot(page, 'laptop-effects')
 
 // ---- Foundry: she changes her favorites ----

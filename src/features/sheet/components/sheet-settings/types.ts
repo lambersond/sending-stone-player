@@ -23,6 +23,11 @@ export type SheetSettingsProps = {
   manualDice?: { on: boolean; onChange: (on: boolean) => void }
   /** Whether the player's rolls pop up as toasts on this device, or stay in the banner. */
   toasts?: { on: boolean; onChange: (on: boolean) => void }
+  /**
+   * Whether this device's Character tab shows the character's favorites too, between its skills
+   * and traits (v0.44): for every character, offered where this one has any.
+   */
+  characterFavorites?: { on: boolean; onChange: (on: boolean) => void }
   /** The Actions tab's layouts, where the sheet is wide enough for more than one. */
   layouts?: ActionsLayout
   /**
