@@ -14,9 +14,9 @@ import type { SheetSettingsProps } from '../sheet-settings/types'
  * margin and their own padding keep them apart: a caster's seven tabs, with a condition's dot on
  * Effects, take 301 pixels, of the 302 beside both on a 390-pixel screen. Narrower, the tabs and
  * the buttons are a little tighter, so that they take 277 of the 280 on a 360-pixel one; narrower
- * still, the tabs scroll. From `sm` (v0.44), a finger wide on a tablet: the icons, the rolls' button
- * and the cog are 44-pixel squares, in a row 48 pixels tall; where the labels show, the tabs are
- * compact again.
+ * still, the tabs scroll. From `sm` (v0.44), a finger wide on a tablet: the icons, the rolls'
+ * button and the cog are 44-pixel squares, in a row 48 pixels tall; where the labels show, the
+ * tabs are compact again.
  * @param conditions - How many conditions the character has, which Effects' dot says.
  * @param cookbookModal - The player's Magical Recipe Book, beside the cog, never in its settings,
  *   which close as it opens.
