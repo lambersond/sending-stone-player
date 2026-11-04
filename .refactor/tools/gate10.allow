@@ -1,0 +1,4 @@
+# Gate 10's allowlist (round.md §3.4, amendment 2 (b)): `<frozen file><TAB><a line it may lose,
+# trimmed><TAB><reason>`. The line is dropped from the text the file was added with before the two
+# are compared; every other line stays held.
+src/utils/test-utils-node.ts	// eslint-disable-next-line unicorn/no-null -- Prisma answers null where no row matches	commit 23 (G): unicorn/no-null is off everywhere since commit 6, and the config block that kept it on for this file alone goes with this directive (amendment 2 (b))

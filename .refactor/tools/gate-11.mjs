@@ -3,20 +3,25 @@
 // component .tsx (not a types, constants, utils or use-* module), and none has 'use server'; the
 // 'use server' modules stay 2; every module in the head's server graph (from src/app's pages,
 // layouts, not-found, manifest, routes and actions through value imports, stopping at 'use client'
-// modules) is a base server-graph module (followed) or a new module with no component; and
-// header-account.tsx stays a Server Component.
+// modules) is a base server-graph module (followed) or a new module with no component, or one
+// gate11.allow names; and header-account.tsx stays a Server Component.
 import path from 'node:path'
 import {
   directiveOf,
   gate,
   hasComponent,
   isTestFile,
+  readAllow,
   readBaseJson,
   serverGraph,
   verdict,
 } from './gate-lib.mjs'
 
 const HEADER = 'src/components/site-header/header-account.tsx'
+
+// gate11.allow's rows: `<new component module><TAB><reason>`, a Server Component split out of a
+// base server-graph module.
+const ALLOWED = new Set(readAllow('gate11.allow').map(([file]) => file))
 
 gate('11', checkout => {
   const problems = []
@@ -49,7 +54,8 @@ gate('11', checkout => {
     if (was !== undefined) {
       if (!baseServer.has(was)) problems.push(`${file}: in the server graph now, not at the base (${was})`)
     } else if (hasComponent(file, checkout.parse(file))) {
-      problems.push(`${file}: a new component module in the server graph`)
+      if (ALLOWED.has(file)) notes.push(`new Server Component (gate11.allow): ${file}`)
+      else problems.push(`${file}: a new component module in the server graph`)
     }
   }
   const header = checkout.head(HEADER)

@@ -5,8 +5,32 @@
 // test-utils-node.ts, src/mocks/dice-renderer.ts, src/mocks/sheet-providers/**) but in import
 // declarations and the path strings of jest.mock and its kin. A file that commit added and the
 // checkout no longer has must be a counts.conf retirement (commit 26: C1, C3, C9 and their .snap).
+// gate10.allow names the lines a frozen file may lose (amendment 2 (b): the node kit's no-null
+// directive, with the config block that kept the rule on for it).
 import ts from 'typescript'
-import { GOLDEN_DIR, frozenFiles, gate, git, parse, retired, verdict } from './gate-lib.mjs'
+import {
+  GOLDEN_DIR,
+  frozenFiles,
+  gate,
+  git,
+  parse,
+  readAllow,
+  retired,
+  verdict,
+} from './gate-lib.mjs'
+
+// gate10.allow's rows: `<file><TAB><a line it may lose, trimmed><TAB><reason>`.
+const ALLOWED = readAllow('gate10.allow')
+
+// The text as the commit that added it had it, less the lines gate10.allow lets it lose since.
+function allowedText(file, text) {
+  const gone = new Set(ALLOWED.filter(([path]) => path === file).map(([, line]) => line))
+  if (gone.size === 0) return text
+  return text
+    .split('\n')
+    .filter(line => !gone.has(line.trim()))
+    .join('\n')
+}
 
 const PATH_CALLS = new Set(['mock', 'doMock', 'requireActual', 'requireMock', 'unmock'])
 
@@ -62,7 +86,7 @@ gate('10', checkout => {
       continue
     }
     if (file.startsWith(GOLDEN_DIR) && /\.test\.[jt]sx?$/.test(file) && !ran.has(file)) problems.push(`${file}: not run`)
-    const then = git(checkout.root, ['show', `${sha}:${file}`])
+    const then = allowedText(file, git(checkout.root, ['show', `${sha}:${file}`]))
     const now = checkout.text(file)
     if (file.endsWith('.snap') ? then !== now : frozenText(file, then) !== frozenText(file, now)) {
       problems.push(`${file}: changed since ${sha.slice(0, 7)}, which added it`)
