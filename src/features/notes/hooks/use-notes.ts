@@ -1,11 +1,13 @@
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   useSyncExternalStore,
   type RefObject,
 } from 'react'
+import { useRouter } from 'next/navigation'
 import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
 import {
   answerOf,
@@ -131,7 +133,8 @@ export function forgetNotes(): void {
 /**
  * Reads a book while it's active: at once without a view kept, else after POLL_INTERVAL, then
  * every POLL_INTERVAL while the page is visible, backing off on failures; one read at a time, and
- * one asked for meanwhile once it's done. 404 is gone, and nothing of it stays on the page.
+ * one asked for meanwhile once it's done. 404 is gone, and nothing of it stays on the page. 401
+ * stops it, and the page is rendered again, as the table's poll does.
  * @returns whether the seat may no longer see the book, whether reading it failed since it was
  * mounted, and `refresh`, which reads it at once while it's polled.
  */
@@ -149,6 +152,10 @@ function useBookReads(
   const gone = goneFrom === api
   // Reads the book at once, while it's polled: after a change, so the list shows it.
   const refresh = useRef<() => Promise<void>>(undefined)
+  const router = useRouter()
+  // Signed out, as in another tab, or once the session lapsed: the page is rendered again, which
+  // sends them to sign in and back.
+  const signedOut = useEffectEvent(() => router.refresh())
 
   useEffect(() => {
     if (!active || gone) return
@@ -176,6 +183,11 @@ function useBookReads(
           stopped = true
           put(api)
           setGoneFrom(api)
+          return
+        }
+        if (response.status === 401) {
+          stopped = true
+          signedOut()
           return
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`)

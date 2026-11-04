@@ -21,6 +21,12 @@ import {
 } from '@/mocks/notes-server'
 import type { NotesView } from '@/types/notes'
 
+// The journal's poll refreshes the page once signed out, as the table's does.
+jest.mock('next/navigation', () => ({
+  ...jest.requireActual('next/navigation'),
+  useRouter: () => ({ refresh: jest.fn() }),
+}))
+
 const API = '/api/characters/char-1'
 const PARTY_API = '/api/characters/char-1/party/company'
 
