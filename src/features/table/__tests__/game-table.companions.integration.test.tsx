@@ -6,9 +6,11 @@ import { useTableView } from '@/features/table/hooks/use-table-view'
 import {
   biteAction,
   characterSheet,
+  druidSheet,
   mockCompanionSheet,
   mockCompanionView,
   sheetAction,
+  wildShapeBlock,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
@@ -820,6 +822,36 @@ describe('components/game-table/game-table, with companions', () => {
     expect(creatureTab(/^Thorin/)).toHaveAccessibleName(
       'Thorin, your Gamemaster asks for a roll',
     )
+  })
+
+  // The bug log's reproduction (round 0.44): the banner is under the header above every pane, and
+  // the character's own panel is hidden while a companion's is chosen.
+  it('gives focus to the companion’s pane shown as "Wild Shape ended" is dismissed, never the hidden sheet', async () => {
+    const user = userEvent.setup()
+    companionViews.set(BRAKKA.key, companionView(BRAKKA))
+    const ended = druidSheet({
+      wildShape: wildShapeBlock({
+        ended: {
+          form: 'Wolf',
+          why: 'hp',
+          at: Date.now() - 60_000,
+          formId: 'formWolf00000001',
+        },
+      }),
+    })
+    renderTable(
+      view({ sheet: toTableSheet(ended, GAME), companions: [BRAKKA] }),
+    )
+    await user.click(creatureTab('Brakka'))
+    await sheetOf('wolfBrakka')
+
+    const banner = screen
+      .getAllByRole('status')
+      .find(each => each.textContent?.includes('Wild Shape')) as HTMLElement
+    await user.click(within(banner).getByRole('button', { name: 'Dismiss' }))
+    expect(
+      document.querySelector('#creature-wolfBrakka-sheet-panel'),
+    ).toHaveFocus()
   })
 
   describe('on a wide screen', () => {
