@@ -2008,7 +2008,7 @@ describe('components/character-sheet/character-pane', () => {
       // Nothing is used until its targets are picked: anyone in the area but its user.
       expect(fetch).not.toHaveBeenCalled()
       expect(
-        within(picker).getByText('Tick who is caught in the area.'),
+        within(picker).getByText('Tick who is caught in the area. Up to 20.'),
       ).toBeInTheDocument()
       expect(within(picker).queryByText('Thorin Oakenshield')).toBeNull()
       await user.click(within(picker).getByRole('checkbox', { name: 'Goblin' }))

@@ -268,7 +268,7 @@ function TickStep({
   const { most, chosen } = tickedOf(ticked, targets, takes)
   return (
     <TickList
-      lead={leadFor(area, takes)}
+      lead={leadFor(area, most)}
       sections={sectionsOf(targets, combat, { helpful: helps })}
       {...search}
       ticked={chosen}
