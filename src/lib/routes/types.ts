@@ -4,9 +4,6 @@ import type { RefusalReason } from '@/types/sending-stone'
 /** What a page last saw, by its query's key, as `seenAs` compares it with what's current. */
 export type Seen = Record<string, number | boolean | string>
 
-/** The headers of a seat route's 404, and of its 401 where they differ (`seatAnswer`). */
-export type SeatHeaders = { headers?: HeadersInit; signedOut?: HeadersInit }
-
 /** How a route reads its JSON body (`readBody`). */
 export type BodyRules = {
   /** The largest body taken, in bytes. */

@@ -8117,7 +8117,9 @@ exports[`the routes of a sheet text GET, another’s: text GET, another’s 1`] 
   }
  }
 ]",
-  "headers": {},
+  "headers": {
+    "cache-control": "no-store",
+  },
   "status": 404,
 }
 `;
@@ -8126,7 +8128,9 @@ exports[`the routes of a sheet text GET, bad hash: text GET, bad hash 1`] = `
 {
   "body": "",
   "calls": "[]",
-  "headers": {},
+  "headers": {
+    "cache-control": "no-store",
+  },
   "status": 404,
 }
 `;
@@ -8387,7 +8391,9 @@ exports[`the routes of a sheet text GET, signed out: text GET, signed out 1`] = 
 {
   "body": "",
   "calls": "[]",
-  "headers": {},
+  "headers": {
+    "cache-control": "no-store",
+  },
   "status": 401,
 }
 `;

@@ -1,5 +1,4 @@
 import { getGmSeat } from '@/db/seats'
-import { NO_HEADERS } from '@/lib/routes/http'
 import { seatAnswer } from '@/lib/routes/seat-resolver'
 import { textResponse } from '@/lib/routes/seat-routes'
 import type { NextRequest } from 'next/server'
@@ -16,6 +15,5 @@ export async function GET(
     context.params,
     (userId, { id, actor }) => getGmSeat(userId, id, actor),
     (seat, { hash }) => textResponse(seat, hash),
-    { signedOut: NO_HEADERS },
   )
 }

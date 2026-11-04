@@ -1,6 +1,5 @@
-import { bare, NO_STORE } from '@/lib/routes/http'
+import { bare } from '@/lib/routes/http'
 import { getCurrentUser } from '@/lib/session'
-import type { SeatHeaders } from '@/lib/routes/types'
 
 // How a sheet's routes find who is at it (#156): its player, through their own Character
 // (`getPlayerSeat`), or the campaign's Gamemaster, through the campaign they own (`getGmSeat`); a
@@ -10,20 +9,18 @@ import type { SeatHeaders } from '@/lib/routes/types'
 
 /**
  * A route's answer once it knows who is at it: 401 signed out, then its address read, 404 where
- * `find` finds no seat there for the user, else `answer`. Neither refusal is cached, but where a
- * route's own carry no headers (bug B16).
+ * `find` finds no seat there for the user, else `answer`. Neither refusal is cached.
  * @param params - The route's address, as Next.js gives it.
  */
 export async function seatAnswer<P, S>(
   params: Promise<P>,
   find: (userId: string, address: P) => Promise<S | undefined>,
   answer: (seat: S, address: P) => Promise<Response>,
-  { headers = NO_STORE, signedOut = headers }: SeatHeaders = {},
 ): Promise<Response> {
   const user = await getCurrentUser()
-  if (!user) return bare(401, signedOut)
+  if (!user) return bare(401)
   const address = await params
   const seat = await find(user.id, address)
-  if (!seat) return bare(404, headers)
+  if (!seat) return bare(404)
   return answer(seat, address)
 }
