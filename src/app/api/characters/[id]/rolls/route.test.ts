@@ -136,6 +136,29 @@ describe('app/api/characters/[id]/rolls', () => {
     expect(response.status).toBe(413)
   })
 
+  it('refuses a declared oversized roll without reading it', async () => {
+    const request = new NextRequest(
+      'https://player.example/api/characters/char-1/rolls',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(20_000),
+        },
+        body: JSON.stringify(perception),
+      },
+    )
+    const text = jest.spyOn(request, 'text')
+
+    const response = await POST(request, {
+      params: Promise.resolve({ id: 'char-1' }),
+    })
+
+    expect(response.status).toBe(413)
+    expect(text).not.toHaveBeenCalled()
+    expect(createRollRequest).not.toHaveBeenCalled()
+  })
+
   it('refuses someone not signed in, or a character not theirs', async () => {
     jest.mocked(getCharacter).mockResolvedValue(undefined)
     await expect(post()).resolves.toHaveProperty('status', 404)
