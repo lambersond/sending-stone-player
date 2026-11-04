@@ -4,8 +4,16 @@ export type ModalProps = {
   open: boolean
   onClose: () => void
   title: string
-  /** Under the title, such as where its content comes from. */
+  /**
+   * Under the title, such as where its content comes from: with its chip, the dialog's description
+   * (v0.44), which a screen reader says as it opens.
+   */
   subtitle?: string
+  /**
+   * A chip before the subtitle, on its line, such as the dice dialog's Manual Dice (v0.44): never
+   * part of the dialog's name.
+   */
+  chip?: string
   /** On a phone, as wide as the screen, as the side panel is: for content that needs the room. */
   fullOnPhone?: boolean
   /**

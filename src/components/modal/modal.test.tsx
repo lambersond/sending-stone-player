@@ -156,15 +156,44 @@ describe('components/modal', () => {
     expect(
       within(dialog).getByText('Cantrip · From Bardic Flame'),
     ).toBeVisible()
+    expect(dialog).toHaveAccessibleDescription('Cantrip · From Bardic Flame')
 
     rerender(
       <Modal open onClose={jest.fn()} title='Help'>
         <p>Steps</p>
       </Modal>,
     )
+    const help = screen.getByRole('dialog', { name: 'Help' })
+    expect(help.querySelector('header')).toHaveTextContent(/^Help$/)
+    expect(help).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('starts the line under its title with its chip, in its description but never its name', () => {
+    render(
+      <Modal
+        open
+        onClose={jest.fn()}
+        title='Perception check'
+        subtitle='Type in what your dice show'
+        chip='Manual Dice'
+      >
+        <p>Boxes</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Perception check' })
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(
+      /^Perception check$/,
+    )
+    const chip = within(dialog).getByText('Manual Dice')
+    expect(chip).toBeVisible()
     expect(
-      screen.getByRole('dialog', { name: 'Help' }).querySelector('header'),
-    ).toHaveTextContent(/^Help$/)
+      chip.compareDocumentPosition(
+        within(dialog).getByText('Type in what your dice show'),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(dialog).toHaveAccessibleDescription(
+      'Manual Dice Type in what your dice show',
+    )
   })
 
   it('is as wide as a phone’s screen only where it asks to be, and leaves a gutter otherwise', () => {

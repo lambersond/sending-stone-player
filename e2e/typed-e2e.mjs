@@ -969,8 +969,8 @@ let entry = await asked(alice, () => perception(alice).click(), 'the Perception 
   const title = await dialog.getByRole('heading').first().textContent()
   const groups = await groupsOf(dialog)
   const focused = await firstFocused(dialog, 'd20')
-  check(/^Perception/.test(title) && same(groups, [{ name: 'd20', boxes: ['d20'] }]) && focused === 'd20' && await dialog.getByText(SUBTITLE).isVisible(),
-    `tapped, Perception asks for its d20: "${title}", "${SUBTITLE}", one box, d20, focused (${JSON.stringify(groups)})`)
+  check(/^Perception/.test(title) && same(groups, [{ name: 'd20', boxes: ['d20'] }]) && focused === 'd20' && await dialog.getByText(SUBTITLE).isVisible() && await dialog.getByText('Manual Dice', { exact: true }).isVisible(),
+    `tapped, Perception asks for its d20: "${title}", its "Manual Dice" chip (v0.44) and "${SUBTITLE}", one box, d20, focused (${JSON.stringify(groups)})`)
   check(await nextDie(dialog).count() === 0 && await keypad(dialog).getByRole('button').count() === 12 && await dialog.getByRole('button', { name: 'Done', exact: true }).isVisible(),
     'a single die\'s keypad has no "Next die", its 12 other keys and Done there')
   await keys(dialog, '1', '7')

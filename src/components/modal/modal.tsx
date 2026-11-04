@@ -19,6 +19,7 @@ export function Modal({
   onClose,
   title,
   subtitle,
+  chip,
   fullOnPhone = false,
   initialFocus,
   placement = 'center',
@@ -30,6 +31,8 @@ export function Modal({
   const ref = useModalDialog(open)
   const { root, attach } = useDialogRoot(ref)
   const titleId = useId()
+  const subtitleId = useId()
+  const described = Boolean(subtitle || chip)
   // After the dialog's own effect has shown it, and the browser has focused its first control.
   useEffect(() => {
     if (open) initialFocus?.current?.focus()
@@ -39,6 +42,8 @@ export function Modal({
     <dialog
       ref={attach}
       aria-labelledby={titleId}
+      // Its subtitle line, chip and all, is said as it opens, before focus lands inside (v0.44).
+      aria-describedby={described ? subtitleId : undefined}
       // Escape closes the dialog itself; this keeps the owner's state in step. Only its own close:
       // React hands a dialog opened inside it, such as one modifying damage in an item's details,
       // the close of that dialog too. And only while its owner still has it open: a browser fires
@@ -69,7 +74,7 @@ export function Modal({
           <header
             className={clsx(
               'flex justify-between gap-4 border-b border-border px-5 py-4',
-              subtitle ? 'items-start' : 'items-center',
+              described ? 'items-start' : 'items-center',
               sheet && 'shrink-0',
             )}
           >
@@ -88,9 +93,7 @@ export function Modal({
               <h2 id={titleId} className='text-lg font-semibold'>
                 {title}
               </h2>
-              {subtitle && (
-                <p className='text-xs text-text-secondary'>{subtitle}</p>
-              )}
+              <Subtitle id={subtitleId} subtitle={subtitle} chip={chip} />
             </div>
             <button
               type='button'
@@ -131,5 +134,30 @@ export function Modal({
         </InPortalRoot>
       )}
     </dialog>
+  )
+}
+
+/**
+ * The line under the title: the subtitle alone, as ever, or a chip such as Manual Dice starting it
+ * (v0.44), outside the title so the dialog's name stays the title alone; nothing without either.
+ */
+function Subtitle({
+  id,
+  subtitle,
+  chip,
+}: Readonly<Pick<ModalProps, 'subtitle' | 'chip'> & { id: string }>) {
+  const line = subtitle && (
+    <p id={chip ? undefined : id} className='text-xs text-text-secondary'>
+      {subtitle}
+    </p>
+  )
+  if (!chip) return line
+  return (
+    <div id={id} className='mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1'>
+      <span className='inline-flex shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-primary-text'>
+        {chip}
+      </span>
+      {line}
+    </div>
   )
 }
