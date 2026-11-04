@@ -47,7 +47,7 @@ run links 119 SHOTS=$O/shots-links
 run links 143 MIDI=1 SHOTS=$O/shots-links
 run activities 100 SHOTS=$O/shots-activities
 run activities 105 MIDI=1 SHOTS=$O/shots-activities
-run phone 95 SHOTS=$O/shots-phone
+run phone 97 SHOTS=$O/shots-phone
 run rolling 45 SHOTS=$O/shots-022
 run rolling 47 MIDI=1 SHOTS=$O/shots-022
 run sync 62 SHOTS=$O/shots-022

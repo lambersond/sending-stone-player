@@ -4204,13 +4204,13 @@ describe('components/character-sheet/character-pane', () => {
       ).toBeGreaterThan(layer(region))
     })
 
-    it("P6 tightens the row of tabs on a phone narrower than 390 pixels, for a caster's to fit beside the rolls' button and the cog", () => {
+    it("P6 tightens the row of tabs on a phone narrower than 390 pixels, for a caster's to fit beside the rolls' button and the cog; from sm, makes each a 44-pixel icon (v0.44)", () => {
       renderPane(castingSheet())
 
       // The row's width inside its padding, 366 pixels on a 390-pixel screen, as measured in a
       // browser: the tabs take 277 pixels of the 280 left on a 360-pixel one.
       const row = screen.getByRole('tablist').parentElement as HTMLElement
-      expect(row).toHaveClass('@container', 'px-3')
+      expect(row).toHaveClass('@container', 'px-3', 'h-11', 'sm:h-12')
       const tabs = screen.getAllByRole('tab')
       expect(tabs).toHaveLength(7)
       for (const tab of tabs.filter(
@@ -4220,11 +4220,15 @@ describe('components/character-sheet/character-pane', () => {
       }
       expect(tabs[0]).toHaveClass('px-2')
       expect(tabs[0]).not.toHaveClass('@max-[366px]:px-1')
+      // From sm, while the row has no room for their labels (under 768 pixels, @3xl).
+      for (const tab of tabs) {
+        expect(tab).toHaveClass('sm:@max-3xl:min-h-11', 'sm:@max-3xl:min-w-11')
+      }
       for (const button of [
         rollsButton() as HTMLElement,
         screen.getByRole('button', { name: 'Settings' }),
       ]) {
-        expect(button).toHaveClass('p-2', '@max-[366px]:p-1.5')
+        expect(button).toHaveClass('p-2', '@max-[366px]:p-1.5', 'sm:size-11')
       }
     })
   })

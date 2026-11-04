@@ -76,7 +76,7 @@ export function AsideColumn({
           'lg:w-[clamp(320px,40%,500px)] lg:flex-none lg:border-l lg:border-border',
       )}
     >
-      <div className='hidden h-11 shrink-0 items-center gap-3 border-b border-border px-3 lg:flex'>
+      <div className='hidden h-12 shrink-0 items-center gap-3 border-b border-border px-3 lg:flex'>
         <div
           role='tablist'
           aria-label='Combat or chat'

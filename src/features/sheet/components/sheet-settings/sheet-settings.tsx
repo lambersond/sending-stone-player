@@ -15,6 +15,7 @@ import { LayoutPicker } from '../actions-layout/layout-picker'
 import { aloneHint } from './utils'
 import { HelpLinks } from '@/components/help-links/help-links'
 import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
+import { ICON_TARGET } from '@/constants/buttons'
 import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
 import { usePopover } from '@/hooks/use-popover'
 import { useTableRole } from '@/hooks/use-table-api'
@@ -87,7 +88,7 @@ export function SheetSettings({
         type='button'
         aria-label='Settings'
         title='Settings'
-        className='rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary'
+        className={`${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary`}
         {...getReferenceProps()}
       >
         <Settings aria-hidden className='size-4' />

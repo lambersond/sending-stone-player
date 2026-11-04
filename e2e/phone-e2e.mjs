@@ -290,6 +290,32 @@ const measure = page => page.evaluate(() => {
     tabsScroll: tablist.scrollWidth - tablist.clientWidth, cogInRow: tablist.parentElement.contains(cog) && !tablist.contains(cog),
   }
 })
+/**
+ * The icon-only controls in the table's header and the sheet's row of tabs, as each is named and
+ * as big as it shows: a button, link or tab with no visible text, each word of it in a box clipped
+ * to a pixel, as sr-only is.
+ */
+const iconOnly = page => page.evaluate(() => {
+  const row = document.querySelector('[role=tablist][aria-label="Character sheet"]').parentElement
+  const controls = [document.querySelector('main header'), row].flatMap(scope => [...scope.querySelectorAll('button, a[href], [role=tab]')])
+  const unseen = (control, node) => {
+    for (let el = node.parentElement; el && el !== control; el = el.parentElement) if (el.getBoundingClientRect().width <= 1) return true
+    return false
+  }
+  const words = control => {
+    const walker = document.createTreeWalker(control, NodeFilter.SHOW_TEXT)
+    const found = []
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent.trim()) found.push(node)
+    return found
+  }
+  return [...new Set(controls)]
+    .filter(control => { const b = control.getBoundingClientRect(); return b.width > 0 && b.height > 0 })
+    .filter(control => words(control).every(node => unseen(control, node)))
+    .map(control => {
+      const b = control.getBoundingClientRect()
+      return { name: control.getAttribute('aria-label') ?? control.getAttribute('title') ?? control.textContent.trim(), width: b.width, height: b.height }
+    })
+})
 /** Where the open settings are, and whether what has focus is in them. */
 const popover = settings => settings.evaluate(el => {
   const b = el.getBoundingClientRect()
@@ -332,6 +358,16 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
   check(m.cogInRow && m.cog.left >= m.tablist.right - 0.5 && Math.abs((m.cog.top + m.cog.bottom) / 2 - (m.tablist.top + m.tablist.bottom) / 2) < 2
     && m.cog.left >= 0 && m.cog.right <= Math.min(m.width, m.sheet.right) && m.tabsScroll <= 0,
     `${at}, the settings' cog is after the tabs, outside their list, on their row and on the sheet (${Math.round(m.tablist.right)} → ${Math.round(m.cog.left)}–${Math.round(m.cog.right)} of ${m.width})`)
+  if (width >= 640) {
+    // ---- From sm, every icon-only control in the table's header and the tabs' row is 44 pixels square (v0.44) ----
+    const icons = await iconOnly(page)
+    const names = icons.map(icon => icon.name)
+    const wanted = ['All characters', 'Full screen', 'Settings', ...named.slice(1).map(tab => tab.replace(/,.*/s, '').trim())]
+    const missed = wanted.filter(name => !names.includes(name))
+    const small = icons.filter(icon => icon.width < 43.5 || icon.height < 43.5)
+    check(missed.length === 0 && small.length === 0,
+      `${at}, every icon-only control in the header and the tabs' row, the back arrow, Full screen, the six tabs not chosen and the cog among them, is at least 44 pixels square (${names.join(' | ')})${missed.length ? `; not found: ${missed.join(', ')}` : ''}${small.length ? `; smaller: ${small.map(icon => `${icon.name} ${Math.round(icon.width)}×${Math.round(icon.height)}`).join(', ')}` : ''}`)
+  }
   if (width <= 390) {
     const scrolled = []
     for (let index = 0; index < named.length; index++) {
