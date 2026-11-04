@@ -1,0 +1,13 @@
+{
+  "commit": "6fee233",
+  "label": "after",
+  "command": "eslint . -f json",
+  "note": "Warnings per unit (src/features/<feature>, else the top-level folder) per rule; a unit or rule that is missing has 0. Gate 9: no count may rise.",
+  "totals": {
+    "files": 1161,
+    "errors": 0,
+    "warnings": 0
+  },
+  "byFolder": {},
+  "noRestrictedSyntaxByCheck": {}
+}
