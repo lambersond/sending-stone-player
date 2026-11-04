@@ -9,20 +9,13 @@ import { useItemMenu } from '../item-menu/use-item-menu'
 import { usePressMenu } from '../press-menu/press-menu'
 import { RowName } from '../row-name/row-name'
 import { SheetText } from '../sheet-text/sheet-text'
+import { keyTarget } from './utils'
 import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import type { DescriptionOrigin } from '../description-actions/types'
 import type { EffectChoice } from '../effect-controls/types'
 import type { PrepareChoice } from '../preparing/types'
 import type { MenuPoint } from '@/features/rolling/types'
 import type { FavoriteTarget } from '@/types/roll'
-
-/** What a row's favorites key names, as the app adds and removes it: an item or an effect alone. */
-function keyTarget(key: string | undefined): FavoriteTarget | undefined {
-  const [type, ...rest] = key?.split(':') ?? []
-  const id = rest.join(':')
-  if (!id) return undefined
-  return type === 'item' || type === 'effect' ? { type, id } : undefined
-}
 
 /**
  * A row on the sheet, such as a feature or an effect, that opens to show its description, loaded

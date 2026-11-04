@@ -1,9 +1,6 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react'
-import type { Spending } from './types'
-import type { Effects } from '@/features/sheet/components/effect-controls/types'
+import type { Effecting, Spending } from './types'
 import type { LocalRoll, TableRollState } from '@/types/roll'
-
-type Effecting = Pick<Effects, 'effectOf' | 'choiceFor' | 'send'>
 
 /**
  * An effect a made roll spent, removed, once, where the player may remove it, as the Effects tab's

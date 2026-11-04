@@ -1,6 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
+import { initials } from './utils'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 
 /** A character's or creature's portrait, or its initials where it has none or it won't load. */
@@ -35,13 +36,4 @@ export function Portrait({
       onError={onError}
     />
   )
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(word => word[0].toUpperCase())
-    .join('')
 }

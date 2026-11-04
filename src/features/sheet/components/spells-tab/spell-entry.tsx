@@ -10,10 +10,11 @@ import { enchantedEntry } from '../enchantments/enchanted-entry'
 import { usePrepareChoice } from '../preparing/use-prepare-choice'
 import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { UsesLeft } from '../uses-button/uses-left'
+import { factsOf, fromNote } from './utils'
 import { spellAction } from '@/utils/sheet-actions'
 import type { ActionRows } from '../action-entry/types'
 import type { FavoriteTarget } from '@/types/roll'
-import type { SheetSpell, SheetCastFrom } from '@/types/sending-stone'
+import type { SheetSpell } from '@/types/sending-stone'
 import type { ReactNode } from 'react'
 
 /**
@@ -118,11 +119,6 @@ export function SpellEntry({
   )
 }
 
-/** The item a spell is cast from, such as "From Wand of Fireballs". */
-function fromNote(castFrom: SheetCastFrom): string {
-  return `From ${castFrom.name}`
-}
-
 /** A spell's marks: for concentration, ritual or always prepared, and not prepared. */
 function Marks({ spell }: Readonly<{ spell: SheetSpell }>) {
   return (
@@ -139,15 +135,6 @@ function Marks({ spell }: Readonly<{ spell: SheetSpell }>) {
       {spell.ritual && <Mark short='R' label='Ritual' />}
       {spell.prepared === 2 && <Mark short='Always' label='Always prepared' />}
     </>
-  )
-}
-
-/** The facts there are of these, each with its label. */
-function factsOf(
-  specifics: [string, string | null][],
-): { label: string; value: string }[] {
-  return specifics.flatMap(([label, value]) =>
-    value ? [{ label, value }] : [],
   )
 }
 

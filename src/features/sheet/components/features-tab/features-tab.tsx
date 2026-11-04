@@ -11,6 +11,7 @@ import { usePressMenu } from '../press-menu/press-menu'
 import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { FeatureEntry } from './feature-entry'
+import { originName } from './utils'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import type { TableDamage } from '../action-entry/types'
 import type {
@@ -160,11 +161,4 @@ function ClassCard({ entry }: Readonly<{ entry: SheetClass }>) {
       {menu}
     </>
   )
-}
-
-/** The name of what a group of features came from: its class, species or background. */
-function originName(sheet: TableSheet, id: string): string | undefined {
-  if (id === 'species') return sheet.species ?? undefined
-  if (id === 'background') return sheet.background ?? undefined
-  return sheet.classes.find(entry => entry.identifier === id)?.name
 }

@@ -30,3 +30,9 @@ export const ROLL_HISTORY = 20
 
 /** None of the Gamemaster's rolls, the same each time, for what's worked out from them to keep. */
 export const NO_GM_ROLLS: readonly GmRollView[] = []
+
+/** What a roll of the Gamemaster's as the player's character says of itself (#156). */
+export const GM_WORDS = 'Rolled by your Gamemaster'
+
+/** The same, after what the roll is called, or what it came to. */
+export const GM_WORDS_AFTER = 'rolled by your Gamemaster'

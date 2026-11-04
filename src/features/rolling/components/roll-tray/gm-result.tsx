@@ -1,6 +1,5 @@
 import clsx from 'clsx'
 import {
-  GM_WORDS,
   gmBadge,
   gmHidden,
   gmLine,
@@ -10,6 +9,7 @@ import {
 import { BADGE_ICONS, BADGES } from './constants'
 import { GmPill } from './gm-pill'
 import { StatusLine } from './status-line'
+import { GM_WORDS } from '@/features/rolling/constants'
 import { useCreature } from '@/hooks/use-creature'
 import { useTableRole } from '@/hooks/use-table-api'
 import type { LocalGmRoll, TableRollState } from '@/types/roll'

@@ -1,3 +1,4 @@
+import type { Effects } from '@/features/sheet/components/effect-controls/types'
 import type { OfferSpend, TableRollState } from '@/types/roll'
 
 /** What a settle follows of a command sent from a pane: its line's local id, at least. */
@@ -32,3 +33,6 @@ export type Settle<T extends Settling> = {
 
 /** A roll a die offered was added to: what adding it spent, and when the roll was made. */
 export type Spending = { spends: readonly OfferSpend[]; at: number }
+
+/** The Effects tab's controls that a spent effect's removal reads, and sends it by. */
+export type Effecting = Pick<Effects, 'effectOf' | 'choiceFor' | 'send'>

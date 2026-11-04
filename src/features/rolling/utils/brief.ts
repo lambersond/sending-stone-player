@@ -1,12 +1,7 @@
 import { NOT_MADE } from '@/constants/lifecycle'
+import { GM_WORDS, GM_WORDS_AFTER } from '@/features/rolling/constants'
 import { missed } from '@/features/rolling/utils/damage-due'
-import {
-  GM_WORDS,
-  GM_WORDS_AFTER,
-  gmBadge,
-  gmLine,
-  gmShape,
-} from '@/features/rolling/utils/gm-words'
+import { gmBadge, gmLine, gmShape } from '@/features/rolling/utils/gm-words'
 import {
   askedWords,
   byTheGame,

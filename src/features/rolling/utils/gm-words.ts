@@ -14,12 +14,6 @@ import type { Creature, RollBrief } from '@/features/rolling/types'
 import type { TableRollState, LocalGmRoll, RollKindInfo } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 
-/** What a roll of the Gamemaster's as the player's character says of itself (#156). */
-export const GM_WORDS = 'Rolled by your Gamemaster'
-
-/** The same, after what the roll is called, or what it came to. */
-export const GM_WORDS_AFTER = 'rolled by your Gamemaster'
-
 /**
  * What a roll of the Gamemaster's as the character is told as (#156): an ask, as the player's own
  * is; a use, as the player's own are, and anything else they send that throws no dice, as it has

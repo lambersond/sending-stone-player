@@ -7,6 +7,7 @@ import { useConcentrating } from '../concentration/use-concentrating'
 import { EffectButtons } from '../effect-controls/effect-buttons'
 import { useEffectChoice } from '../effect-controls/use-effect-choice'
 import { SheetEntry } from '../sheet-entry/sheet-entry'
+import { effectDetail } from './utils'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
 import type { FavoriteTarget } from '@/types/roll'
 import type { SheetEffect } from '@/types/sending-stone'
@@ -96,16 +97,4 @@ export function EffectEntry({
       text={effect.text}
     />
   )
-}
-
-/**
- * Where an effect came from, unless that is its own name, as for a spell's effect named after the
- * spell, and the time it has left.
- */
-function effectDetail(effect: SheetEffect): string | undefined {
-  const source =
-    effect.source && effect.source !== effect.name
-      ? `From ${effect.source}`
-      : undefined
-  return [source, effect.duration].filter(Boolean).join(' · ') || undefined
 }

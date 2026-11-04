@@ -1,4 +1,4 @@
-import { GM_WORDS, GM_WORDS_AFTER } from '../../utils/gm-words'
+import { GM_WORDS, GM_WORDS_AFTER } from '@/features/rolling/constants'
 
 /**
  * The mark of a roll of the Gamemaster's, as the chat marks a message made for one: in the light
