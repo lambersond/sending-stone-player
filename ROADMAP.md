@@ -43,16 +43,6 @@ From the table's first session with v0.42.1, after the refactor:
    whispers now stay.
 9. Remaining bugs, and the known limits chosen to close before v1.0. Found in the v0.43 refactor
    (not fixed there):
-   - **A connection test binds a campaign:** a Test from the module (`bridge.ping`) whose typed
-     title and secret match a campaign waiting for Foundry binds it to the tester's module campaign,
-     though the protocol says a ping stores nothing; a Test from another campaign of the same game
-     then leaves the real campaign refused as not set up (`src/db/campaigns.ts`, `bind` from
-     `findEventCampaign`).
-   - **Damage not offered again after a failed send:** an attack's or use's damage that the app
-     couldn't send (offline, busy, refused) is marked as sent, so its Roll damage button is gone
-     (`src/features/rolling/hooks/use-table-rolls.ts`, `sendDamage`).
-   - **The Gamemaster's partly-made hit dice** don't say the hit points regained, as the player's do
-     (`src/features/rolling/utils/gm-words.ts`, `gmLine`).
    - **A roll the app took told as unreached** when its 202 answer isn't JSON
      (`src/utils/lifecycle.ts`, `follow`; unlikely).
    - **"Effects, 1 conditions":** the Effects tab's hidden count has no singular (the phone suite's
@@ -65,24 +55,6 @@ From the table's first session with v0.42.1, after the refactor:
      and Heroic Inspiration likewise: intended?
    - **Dismissing "Wild Shape ended"** sends keyboard focus to a hidden panel when a companion's
      pane or another phone tab is shown.
-   - **Health bars:** a living combatant under half a percent of its hit points shows an empty red
-     bar.
-   - **Chat times after midnight:** an idle table keeps showing yesterday's times without their
-     date.
-   - **Initials of a name starting with an emoji** show a broken glyph on the sheet and in the chat
-     (the campaigns page gets them right).
-   - **A companion pane's reads** never back off or say they are reconnecting while the server is
-     down.
-   - **The journal after signing out elsewhere** says it failed instead of asking to sign in (to
-     confirm).
-   - **Large bodies:** a roll's or a note's body is read whole before its size is checked; the
-     module's and the cookbook's routes refuse a declared oversize first.
-   - **Two sheet-text routes** answer 401/404 without `Cache-Control: no-store` (to confirm it
-     matters).
-   - **Chained proxies:** the app's own address takes a comma-separated `X-Forwarded-Host` whole
-     (latent on Vercel).
-   - **Throttle memory:** three per-server throttles keep one entry per campaign or character
-     forever.
    - **Rules in the database modules:** `src/db/roll-requests.ts` still holds a roll's pure refusal
      rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
      `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
