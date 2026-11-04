@@ -26,6 +26,7 @@ import { useTableView } from '@/features/table/hooks/use-table-view'
 import { useTurnEnding } from '@/features/table/hooks/use-turn-ending'
 import { useTypedDice } from '@/features/table/hooks/use-typed-dice'
 import { isMyTurn } from '@/features/table/utils/combat'
+import { pageConnection } from '@/features/table/utils/header'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { TurnToastContext } from '@/hooks/use-turn-toast-foot'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
@@ -221,7 +222,7 @@ export function GameTable({
             playing={playing}
             view={view}
             tab={tabs.tab}
-            connection={connection}
+            connection={pageConnection(connection, companions.reconnecting)}
             deleteCharacter={deleteCharacter}
           />
           <TableNotices

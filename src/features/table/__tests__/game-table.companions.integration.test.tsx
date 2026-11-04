@@ -165,10 +165,10 @@ const showing = (next: TableView) => {
 }
 
 /**
- * The routes: each companion's view by its key (404 for none), its rolls and the character's,
- * answered by id as `answers` says at the time. Everything asked, in order.
+ * The routes: each companion's view by its key (404 for none, or the error it's set to), its rolls
+ * and the character's, answered by id as `answers` says at the time. Everything asked, in order.
  */
-let companionViews: Map<string, CompanionView | 404>
+let companionViews: Map<string, CompanionView | 404 | 500>
 let answers: Record<string, Record<string, unknown>>
 let asked: { url: string; method: string }[]
 const route = () => {
@@ -180,8 +180,9 @@ const route = () => {
     const table = /\/companions\/([^/]+)\/table/.exec(path)
     if (table) {
       const found = companionViews.get(table[1])
-      if (!found || found === 404) {
-        return { ok: false, status: 404, json: async () => ({}) } as Response
+      if (!found || found === 404 || found === 500) {
+        const status = found || 404
+        return { ok: false, status, json: async () => ({}) } as Response
       }
       return { ok: true, status: 200, json: async () => found } as Response
     }
@@ -242,6 +243,9 @@ const toasted = (words: string) =>
   screen
     .queryAllByRole('log', { name: 'Roll results' })
     .some(log => log.textContent?.includes(words))
+
+/** The page's live status, in the table's header, the first on the page. */
+const live = () => within(screen.getAllByRole('banner')[0]).getByRole('status')
 
 const panelOf = (key: string) =>
   document.querySelector<HTMLElement>(`#creature-panel-${key}`)
@@ -630,6 +634,19 @@ describe('components/game-table/game-table, with companions', () => {
         )
       },
     )
+  })
+
+  it('says the page is reconnecting while the shown companion’s view can’t be read', async () => {
+    const user = userEvent.setup()
+    companionViews.set(BRAKKA.key, 500)
+    renderTable(view({ companions: [BRAKKA] }))
+    expect(live()).toHaveTextContent('Live')
+
+    await user.click(creatureTab('Brakka'))
+    await waitFor(() => expect(live()).toHaveTextContent('Reconnecting'))
+
+    await user.click(creatureTab('Thorin'))
+    expect(live()).toHaveTextContent('Live')
   })
 
   it('mounts afresh a companion listed again after its route said it was gone', async () => {

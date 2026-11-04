@@ -67,7 +67,13 @@ export function withMark(
 ): ReadonlyMap<string, PaneMarks> {
   const held = marks.get(key) ?? {}
   const next = { ...held, ...change }
-  if (next.pending === held.pending && next.busy === held.busy) return marks
+  if (
+    next.pending === held.pending &&
+    next.busy === held.busy &&
+    next.reconnecting === held.reconnecting
+  ) {
+    return marks
+  }
   return new Map(marks).set(key, next)
 }
 

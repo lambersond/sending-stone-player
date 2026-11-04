@@ -61,6 +61,8 @@ function usePanes(
         onPending: pending =>
           setPaneMarks(marks => withMark(marks, key, { pending })),
         onBusy: busy => setPaneMarks(marks => withMark(marks, key, { busy })),
+        onReconnecting: reconnecting =>
+          setPaneMarks(marks => withMark(marks, key, { reconnecting })),
         onLost: () => onLost(key),
       }
       reporters.set(key, held)
@@ -86,8 +88,9 @@ function usePanes(
  * @param seatKey - The seat's key, which the creature chosen is kept by.
  * @param show - Shows one of the table's tabs.
  * @returns The row, its names, numbers and how often each has come back; those asked; the one
- *   chosen, and `choose`; the panes mounted, what each says of itself and how it says so; and
- *   `openCompanion`, which chooses one, shows the Character tab and focuses its tab.
+ *   chosen, and `choose`; the panes mounted, what each says of itself and how it says so; whether
+ *   the chosen one's pane can't read its view; and `openCompanion`, which chooses one, shows the
+ *   Character tab and focuses its tab.
  */
 export function useCompanionRow({
   view,
@@ -147,6 +150,7 @@ export function useCompanionRow({
     paneMarks,
     reportersOf,
     panes,
+    reconnecting: paneMarks.get(chosen)?.reconnecting === true,
     openCompanion,
   }
 }

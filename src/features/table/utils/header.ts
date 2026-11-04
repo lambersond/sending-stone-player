@@ -6,7 +6,7 @@ import { headerLineOf } from '@/utils/wild-shape-words'
 import type { LiveState } from '@/components/live-status/types'
 import type { Tab } from '@/features/table/types'
 import type { Character } from '@/types/character'
-import type { GmRolls, TableCombat, TableView } from '@/types/table'
+import type { Connection, GmRolls, TableCombat, TableView } from '@/types/table'
 
 /** The header's line under the character's name: what is happening in the tab shown. */
 export function subtitle(
@@ -60,6 +60,17 @@ export function combatSummary(combat?: TableCombat): string {
 /** An unread count as a badge shows it. */
 export function badgeCount(count: number): string {
   return count > 99 ? '99+' : String(count)
+}
+
+/**
+ * The page's connection as its header says it: reconnecting while the table's poll can't reach
+ * the server, or the companion's pane shown can't read its view.
+ */
+export function pageConnection(
+  table: Connection,
+  companionReconnecting: boolean,
+): Connection {
+  return companionReconnecting ? 'reconnecting' : table
 }
 
 export function liveState(
