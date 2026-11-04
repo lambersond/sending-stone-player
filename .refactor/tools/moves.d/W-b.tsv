@@ -37,5 +37,5 @@ src/utils/roll-requests.test.ts	utils/roll-requests, damage on its own's choices
 src/utils/roll-requests.test.ts	utils/roll-requests, a spell slot spent or restored, from module 0.42.1 is no roll the Gamemaster never sends: their page spends and restores one, marked theirs	src/utils/requests/commands.test.ts
 src/utils/roll-requests.test.ts	utils/roll-requests, a spell slot spent or restored, from module 0.42.1 is sent to the game as it came, the Gamemaster’s marked theirs	src/utils/requests/commands.test.ts
 src/utils/roll-requests.test.ts	utils/roll-requests, a spell prepared or unprepared, from module 0.42.1 is sent to the game as it came	src/utils/requests/commands.test.ts
-src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 takes the seat’s own combatant as its character’s, or the companion’s by its key	src/utils/roll-requests.test.ts
-src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 damage on its own checks its dice as an attack’s due damage is checked	src/utils/roll-requests.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 takes the seat’s own combatant as its character’s, or the companion’s by its key	src/utils/requests/checks.test.ts
+src/utils/roll-requests.test.ts	utils/roll-requests for companions, from module 0.36.0 damage on its own checks its dice as an attack’s due damage is checked	src/utils/requests/check-damage.test.ts

@@ -1,4 +1,5 @@
-import { checkDamage } from './check-damage'
+import { checkDamage, checkDamageDice } from './check-damage'
+import { mockTableDamage } from '@/mocks/sending-stone'
 import type { HeldRollRequest } from './types'
 import type { RollRequestInput } from '@/types/roll'
 import type { CommandResult, DamagePreview } from '@/types/sending-stone'
@@ -464,6 +465,39 @@ describe('utils/roll-requests for dice Foundry works out once thrown, from modul
       expect(
         checkDamage(damageRequest([]), rolledThere, [], NOW),
       ).toBeUndefined()
+    })
+  })
+})
+
+const alone = (fields: Partial<RollRequestInput> = {}) =>
+  request({
+    kind: 'itemDamage',
+    key: undefined,
+    item: 'wolfBite',
+    activity: 'biteAttack',
+    dice: [{ faces: 8, results: [5] }],
+    ...fields,
+  })
+
+describe('utils/roll-requests for companions, from module 0.36.0', () => {
+  describe('damage on its own', () => {
+    it('checks its dice as an attack’s due damage is checked', () => {
+      const { normal } = mockTableDamage()
+      expect(checkDamageDice(alone(), normal)).toBeUndefined()
+      expect(
+        checkDamageDice(
+          alone({
+            dice: [{ faces: 8, results: [5, 6] }],
+            modifiers: { extra: 1 },
+          }),
+          normal,
+        ),
+      ).toBeUndefined()
+      expect(checkDamageDice(alone({ modifiers: { extra: 1 } }), normal)).toBe(
+        'dice',
+      )
+      expect(checkDamageDice(alone({ types: [null] }), normal)).toBeUndefined()
+      expect(checkDamageDice(alone({ types: ['cold'] }), normal)).toBe('type')
     })
   })
 })

@@ -275,7 +275,7 @@ commit 24 lands.
 | request-lifecycle copies | 6 lifecycles, 4 controller sets | 1 `follow` + 1 `useFollow` | 1 `follow` (src/utils/lifecycle.ts) + 1 `useFollow`; useTableRolls keeps its own controllers for startEach and readWildShapeForms (G-12, two sites) |
 | server command pipelines | 5 creators + the roll path's copy | 1 `createCommand` | 1 `createCommand` (src/db/commands.ts), 4 callers, transfer's own gates kept (commit 9) |
 | settle hooks | 5 | 1 `useSettle` | 1 (src/features/sheet/hooks/use-settle.ts), 6 adopters (commit 17) |
-| seat resolution | 21 route files, 4 companion helpers, `notesSeat` | 1 seat-resolver.ts | 1 (src/lib/routes/seat-resolver.ts, commit 10) |
+| seat resolution | 21 route files, 4 companion helpers, `notesSeat` | 1 seat-resolver.ts | 1 `seatAnswer` (src/lib/routes/seat-resolver.ts, commit 10); the 4 companion finders kept on `getPlayerSeat`/`getGmSeat`; `notesSeat` keeps its own checks |
 | request-kind facts by hand | 14 files | 1 ROLL_KIND_INFO | 1 (src/constants/roll-kinds.ts) and the lists derived from it |
 | `'sending' \|\| 'rolling'` | 13 sites | 1 `onItsWay` | 1 (src/utils/lifecycle.ts) |
 | no-dice body tail | 11 sites | 1 `NO_DICE` | 1 (src/constants/roll-kinds.ts) |

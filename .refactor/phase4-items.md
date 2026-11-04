@@ -359,7 +359,8 @@ Optional (G decides; each is fine to leave, with the reason recorded):
 :231). Move them to src/types/roll.ts only if every named type should sit in a types.ts. FR/types.ts
 would break zone 4. (R-a.md item 3, int R-a, RA-3.)
 
-**G-24. src/utils/roll-requests.ts emptied** (WB-2).
+**G-24. src/utils/roll-requests.ts emptied** (WB-2). Done in commit 25 (Phase 5, RV1-3), with
+moves.d/W-b.tsv's two rows.
 
 - **What:**
   - Move isSeatCombatant, sheetUses and checkDamageDice into src/utils/requests/, with
@@ -453,6 +454,10 @@ follow-up) sits beside commit 17, and 5ec922f (W-b's moves.d record) beside comm
     targets are met.
   - blockedReason follows amendment 5.
 - **Commit 11:** notePresent sits in src/lib/routes/seat-routes.ts, not http.ts (S-1).
+- **Commit 10 (R1.3.4; Phase 5, RV1-1):** the resolver is `seatAnswer` in
+  src/lib/routes/seat-resolver.ts. `getPlayerSeat` sits beside `getGmSeat` in src/db/seats.ts, and
+  `partyAt` beside the party responders. The four companion helpers stay as two-line finders on those
+  two, because the frozen companion-routes.integration.test calls each of them.
 
 ## Done in the bookkeeping commit (for the record)
 

@@ -1,8 +1,13 @@
 import { DAMAGE_WITHIN } from '@/constants/sending-stone'
+import {
+  diceTakenAway,
+  modifiedDice,
+  unmaximizable,
+} from '@/utils/damage-modifiers'
+import { matchesPlanned } from '@/utils/requests/check-linked'
 import { rollStatus } from '@/utils/requests/status'
-import { checkDamageDice } from '@/utils/roll-requests'
 import type { RollRequestInput } from '@/types/roll'
-import type { CommandResult } from '@/types/sending-stone'
+import type { CommandResult, DamagePreview } from '@/types/sending-stone'
 import type { HeldRollRequest, RollRefusal } from '@/utils/requests/types'
 
 /**
@@ -34,4 +39,35 @@ export function checkDamage(
   )
   if (taken) return 'damaged'
   return checkDamageDice(input, damage)
+}
+
+/**
+ * Are damage's dice those the game said it throws, in order, each die's first throw, changed as
+ * the player chose, if they did, never at its highest where it takes a die away, or a die explodes
+ * or is rerolled on its highest face; and is each kind of damage chosen one its roll offers? For an
+ * attack's or a use's damage, and from module 0.36.0 an action's on its own.
+ */
+export function checkDamageDice(
+  input: RollRequestInput,
+  damage: DamagePreview,
+): RollRefusal | undefined {
+  // Never at its highest where it takes a die away, nor where a die explodes, or is rerolled on its
+  // highest face, whose highest isn't known.
+  if (
+    input.modifiers?.maximize &&
+    (diceTakenAway(damage) || unmaximizable(damage))
+  ) {
+    return 'dice'
+  }
+  const planned = modifiedDice(damage, input.modifiers)
+  if (!planned || !matchesPlanned(input, planned)) return 'dice'
+  const types = input.types ?? []
+  const offered =
+    types.length <= damage.rolls.length &&
+    types.every(
+      (type, index) =>
+        type === null ||
+        (damage.rolls[index].types ?? []).some(({ key }) => key === type),
+    )
+  return offered ? undefined : 'type'
 }

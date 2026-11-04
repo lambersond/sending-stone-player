@@ -106,7 +106,7 @@ Over S's 181 files: eslint at commit 8 (l1/M/landing-fix3, 169 S files then) aga
 | eslint-disable comments in S files | 70 | 70 |
 | `{'Cache-Control':'no-store'}` copies | 25 files | 1 (NO_STORE) |
 | command creators | 5 + the roll path's copy | 1 (createCommand; transfer keeps its own gates on seatBusy and holdCommand) |
-| seat resolution | 21 route files, 4 helpers, notesSeat | seat-resolver.ts |
+| seat resolution | 21 route files, 4 helpers, notesSeat | 1 seatAnswer (seat-resolver.ts); the 4 companion finders kept on getPlayerSeat/getGmSeat; notesSeat keeps its own checks |
 
 - The 7 no-restricted-paths warnings all come from commit 1's old "db must not import schemas" zone.
   §1.7.4 drops that zone in commit 23, so they clear there.
@@ -121,6 +121,16 @@ Over S's 181 files: eslint at commit 8 (l1/M/landing-fix3, 169 S files then) aga
 3. R1.3.13 split no test file: there were no attempt cases to split.
 4. Fix round names: `gmLabel()` → `keptLabel()`, and `noting` and `inRoster` are now file-private. These
    are S's own new names, imported by no other lane, test or mock.
+5. R1.3.4 (e88b05a; added in Phase 5, RV1-1). seat-resolver.ts holds `seatAnswer` alone, not playerAt,
+   gmAt, companionAt, companionRollAt and partyAt. The player's finder is `getPlayerSeat`, beside
+   `getGmSeat` in src/db/seats.ts. The party's player seat is `partyAt`, beside its responders in
+   src/lib/routes/party-routes.ts. The four companion-routes helpers stay by name (playerCompanionSeat,
+   gmCompanionSeat, playerCompanionRollSeat, gmCompanionRollSeat), each a two-line finder on those two.
+   Why: the frozen companion-routes.integration.test calls each of the four, and no route's import
+   closure grows (the GM routes suite mocks db/seats with getGmSeat alone; route suites mock db/table
+   without what db/companions reads). notesSeat keeps its own 401/404 on getPlayerSeat/getGmSeat, with its stricter player
+   check, as R1.3.4 planned. Behaviour is unchanged: at the base the four helpers were already finders
+   that never answered 401 or 404.
 
 ## Bugs logged
 

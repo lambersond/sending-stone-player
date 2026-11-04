@@ -1,4 +1,4 @@
-import { checkRoll } from './checks'
+import { checkRoll, isSeatCombatant } from './checks'
 import {
   castingSheet,
   characterSheet,
@@ -3953,6 +3953,15 @@ describe('utils/roll-requests for companions, from module 0.36.0', () => {
       combatant({ id: 'c-wolf', companion: 'wolfBrakka', initiative: null }),
       combatant({ id: 'c-goblin', name: 'Goblin' }),
     ],
+  })
+
+  it('takes the seat’s own combatant as its character’s, or the companion’s by its key', () => {
+    const [thorin, wolf, goblin] = fight.combatants
+    expect(isSeatCombatant(thorin, 'actor-thorin')).toBe(true)
+    expect(isSeatCombatant(wolf, 'wolfBrakka')).toBe(true)
+    expect(isSeatCombatant(wolf, 'actor-thorin')).toBe(false)
+    expect(isSeatCombatant(goblin, 'wolfBrakka')).toBe(false)
+    expect(isSeatCombatant(thorin, 'wolfBrakka')).toBe(false)
   })
 
   it("rolls a companion's initiative as its own combatant's, by its key", () => {

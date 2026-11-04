@@ -83,6 +83,11 @@ From the table's first session with v0.42.1, after the refactor:
      (latent on Vercel).
    - **Throttle memory:** three per-server throttles keep one entry per campaign or character
      forever.
+   - **Rules in the database modules:** `src/db/roll-requests.ts` still holds a roll's pure refusal
+     rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
+     `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
+     `seatAllows`) and `src/db/notes.ts` the notes' view overlay; move them to `src/utils/`, where
+     they can be tested without the database's mocks.
    - **Coverage:** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
    - **Tooling:** a chapter line's test can race the clock, about once in 200 runs: its "just added"
      case reads the time twice (`note-lines.test.tsx`); the `@test-utils` path alias in

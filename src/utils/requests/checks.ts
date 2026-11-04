@@ -2,6 +2,7 @@ import { slotPools, outOfSlots } from '@/utils/action-groups'
 import { alonePlan, alonePicks } from '@/utils/alone-choices'
 import { castIndex, castOf, castAtLevel } from '@/utils/casts'
 import { formulaDice } from '@/utils/formulas'
+import { checkDamageDice } from '@/utils/requests/check-damage'
 import {
   checkTypeOf,
   checkLinked,
@@ -10,11 +11,6 @@ import {
   throws,
 } from '@/utils/requests/check-linked'
 import { isDying, sameCounter } from '@/utils/requests/status'
-import {
-  isSeatCombatant,
-  sheetUses,
-  checkDamageDice,
-} from '@/utils/roll-requests'
 import { sheetActions } from '@/utils/sheet-actions'
 import { allItems } from '@/utils/sheet-texts'
 import { mostTargets } from '@/utils/uses'
@@ -26,6 +22,7 @@ import type {
   FoundLink,
   SheetAction,
   SheetEnchantment,
+  SheetUses,
   CastIndex,
 } from '@/types/sending-stone'
 import type { RollRefusal } from '@/utils/requests/types'
@@ -626,4 +623,43 @@ function checkTargets(
 /** Nothing, for what the sheet has; or that it doesn't. */
 function known(found: boolean): RollRefusal | undefined {
   return found ? undefined : 'unknown'
+}
+
+/**
+ * Is this combatant the seat's own: its character, or from module 0.36.0 the companion the seat is
+ * at, which the module marks by its key?
+ */
+export function isSeatCombatant(
+  combatant: Pick<
+    CombatSnapshot['combatants'][number],
+    'character' | 'companion'
+  >,
+  actorId: string,
+): boolean {
+  return combatant.character === actorId || combatant.companion === actorId
+}
+
+/**
+ * Every count of uses the sheet shows: its features', items', spells' and actions', each of their
+ * activities', and its favorites', a resource's among them.
+ */
+function sheetUses(sheet: CharacterSheet): SheetUses[] {
+  const rows: {
+    uses?: SheetUses | null
+    activities?: { uses?: SheetUses | null }[]
+  }[] = [
+    ...sheet.features.flatMap(section => section.features),
+    ...allItems(sheet),
+    ...sheet.spells.flatMap(section => section.spells),
+    ...sheet.actions.flatMap(section => section.actions),
+    ...sheet.favorites.flatMap(favorite =>
+      favorite.type === 'activity' || favorite.type === 'resource'
+        ? [favorite]
+        : [],
+    ),
+  ]
+  return rows.flatMap(row => [
+    ...(row.uses ? [row.uses] : []),
+    ...(row.activities ?? []).flatMap(({ uses }) => (uses ? [uses] : [])),
+  ])
 }
