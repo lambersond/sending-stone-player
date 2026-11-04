@@ -1,5 +1,6 @@
 import { MOST_SEATS_SHOWN } from '@/constants/campaign'
 import { BRIDGE_TIMEOUT } from '@/constants/sending-stone'
+import { firstLetter } from '@/utils/initials'
 import type { Attention, Seat } from '@/features/campaigns/types'
 import type { CampaignRefusal, OwnedCampaign } from '@/types/campaign'
 
@@ -99,7 +100,7 @@ export function initialsOf(name: string): string {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map(word => [...word][0])
+    .map(word => firstLetter(word))
     .join('')
     .toUpperCase()
 }

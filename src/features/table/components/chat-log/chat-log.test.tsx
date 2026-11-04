@@ -1092,6 +1092,7 @@ describe('components/game-table/chat-log', () => {
       ['Thorin Oakenshield', 'TO'],
       ['vex', 'V'],
       ['Gimli son of Gloin', 'GS'],
+      ['🐉 Ember', '🐉E'],
       ['  ', '?'],
     ])('%s -> %s', (name, expected) => {
       expect(initials(name)).toBe(expected)

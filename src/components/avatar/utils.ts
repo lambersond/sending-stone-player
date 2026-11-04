@@ -1,2 +1,4 @@
+import { firstLetter } from '@/utils/initials'
+
 export const initial = (name: string) =>
-  name.trim().charAt(0).toUpperCase() || '?'
+  firstLetter(name.trim()).toUpperCase() || '?'
