@@ -217,6 +217,8 @@ export async function createCommand<K extends CommandKind>(
 /**
  * Whether it's time to note something again that this server notes at most once every so often,
  * by a key, such as a campaign's; and if it is, that it's noted now. Each server keeps its own.
+ * A key whose time has passed is forgotten as another is noted, as it would be due anyway, so a
+ * map, always kept with the same `every`, holds only the keys noted within it.
  */
 export function due(
   noted: Map<string, number>,
@@ -225,6 +227,12 @@ export function due(
   now: number,
 ): boolean {
   if (now - (noted.get(key) ?? 0) < every) return false
+  // Kept in the order noted, so that those whose time has passed come first.
+  noted.delete(key)
   noted.set(key, now)
+  for (const [held, at] of noted) {
+    if (now - at < every) break
+    noted.delete(held)
+  }
   return true
 }
