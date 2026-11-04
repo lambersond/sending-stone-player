@@ -1,0 +1,131 @@
+From f338ea5902c3fc267560d5b3b8dae9004d8e9cd1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 00:08:25 +0000
+Subject: [PATCH 2/2] fix: v0.43 rolling tray, round 1 (scrollDown's reason;
+ UsedResult; commandWords' return spelled out)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RB-1: dice-entry-dialog.tsx's scrollDown keeps its own function, and its doc comment now says why.
+It is an imperative scroll of a DOM node from an event or effect-event handler.
+react-hooks/immutability can't tell that node, found through the `form` ref prop, from a render
+value being mutated. Written inline, the rule flags it again, and the react-hooks line disables
+are at their budget.
+
+RB-4: roll-tray/use-result.tsx, a component file named like a hook, is now used-result.tsx (git
+mv). Its component UseResult is now UsedResult, and the private UseStatus is now UsedStatus. The
+one importer, latest-result.tsx, follows. All three are private to the tray, which is new in
+commit 16, so no other lane's file and no test changes.
+
+RB-5, in part: commandWords (tray-words.ts) spells out its return,
+`{ doing: string; done: string; not: string } | undefined`, in place of
+`Parameters<typeof wayWords>[2]`. No named type is added outside a types.ts (CLAUDE.md §3; RA-3
+removed one such in this round). Naming WayWords and ToastDraft in src/features/rolling/types.ts
+joins the Phase 4 item that moves RollToast and ToastBook there.
+
+Names and comments only: no statement changes, no test file changes. L0 (38 related suites, 2,045
+tests) green; L1 on this tree: jest, typegen and tsc, eslint and gates 1-12 all ok; next build ok.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR
+---
+ .../rolling/components/dice-entry/dice-entry-dialog.tsx  | 9 ++++++++-
+ .../rolling/components/roll-tray/latest-result.tsx       | 4 ++--
+ .../roll-tray/{use-result.tsx => used-result.tsx}        | 6 +++---
+ src/features/rolling/utils/tray-words.ts                 | 2 +-
+ 4 files changed, 14 insertions(+), 7 deletions(-)
+ rename src/features/rolling/components/roll-tray/{use-result.tsx => used-result.tsx} (93%)
+
+diff --git a/src/features/rolling/components/dice-entry/dice-entry-dialog.tsx b/src/features/rolling/components/dice-entry/dice-entry-dialog.tsx
+index feee5cb..94c0164 100644
+--- a/src/features/rolling/components/dice-entry/dice-entry-dialog.tsx
++++ b/src/features/rolling/components/dice-entry/dice-entry-dialog.tsx
+@@ -32,7 +32,14 @@ import type { DiceEntry, DiceEntrySides } from '@/types/dice-entry'
+ /** A phone held sideways, or any screen as short: the dice beside the keypad, not above it. */
+ const SHORT = '(max-height: 30rem)'
+ 
+-/** Scrolls an element's content down by some pixels, as focus moves past what covers it. */
++/**
++ * Scrolls an element's content down by some pixels, as focus moves past what covers it.
++ *
++ * A function of its own, not an inline `scrollTop +=`, on purpose: it is an imperative scroll of a
++ * DOM node from an event or effect-event handler, and react-hooks/immutability can't tell that
++ * node (found through the `form` ref prop) from a render value being mutated. Written inline, the
++ * rule flags it again, and the react-hooks line disables are at their budget.
++ */
+ function scrollDown(scroller: HTMLElement, by: number) {
+   scroller.scrollTop += by
+ }
+diff --git a/src/features/rolling/components/roll-tray/latest-result.tsx b/src/features/rolling/components/roll-tray/latest-result.tsx
+index f3f0939..edb40a6 100644
+--- a/src/features/rolling/components/roll-tray/latest-result.tsx
++++ b/src/features/rolling/components/roll-tray/latest-result.tsx
+@@ -3,7 +3,7 @@ import { CheckResult } from './check-result'
+ import { DamageResult } from './damage-result'
+ import { FormulaResult } from './formula-result'
+ import { GmResult } from './gm-result'
+-import { UseResult } from './use-result'
++import { UsedResult } from './used-result'
+ import type { TableRolls } from '../../types'
+ import type { LocalRoll } from '@/types/roll'
+ 
+@@ -25,7 +25,7 @@ export function LatestResult({
+     }
+     case 'use': {
+       return (
+-        <UseResult
++        <UsedResult
+           roll={roll}
+           state={state}
+           onRollDamage={table?.rollDamage}
+diff --git a/src/features/rolling/components/roll-tray/use-result.tsx b/src/features/rolling/components/roll-tray/used-result.tsx
+similarity index 93%
+rename from src/features/rolling/components/roll-tray/use-result.tsx
+rename to src/features/rolling/components/roll-tray/used-result.tsx
+index 6676650..d6bfe59 100644
+--- a/src/features/rolling/components/roll-tray/use-result.tsx
++++ b/src/features/rolling/components/roll-tray/used-result.tsx
+@@ -11,7 +11,7 @@ import type { LocalUse, TableRollState } from '@/types/roll'
+  * A spell or feature used in the game: its way there, and once it's made, the damage or healing
+  * that follows it, rolled at once, unless its kind is to be chosen first.
+  */
+-export function UseResult({
++export function UsedResult({
+   roll,
+   state,
+   onRollDamage,
+@@ -22,7 +22,7 @@ export function UseResult({
+   onRollDamage?: RollDue
+   modifies?: boolean
+ }>) {
+-  const status = state && <UseStatus roll={roll} state={state} />
++  const status = state && <UsedStatus roll={roll} state={state} />
+   return (
+     <div className='flex items-center gap-3'>
+       <span className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary'>
+@@ -46,7 +46,7 @@ export function UseResult({
+  * Where a use is on its way to the game, or what became of it: for an enchant activity, the
+  * enchantment it applied, and on what, or the one it ended. Or where an enchantment ended is.
+  */
+-function UseStatus({
++function UsedStatus({
+   roll,
+   state,
+ }: Readonly<{ roll: LocalUse; state: TableRollState }>) {
+diff --git a/src/features/rolling/utils/tray-words.ts b/src/features/rolling/utils/tray-words.ts
+index 0ef44b3..8898e7e 100644
+--- a/src/features/rolling/utils/tray-words.ts
++++ b/src/features/rolling/utils/tray-words.ts
+@@ -345,7 +345,7 @@ const FAVORITE_WORDS = {
+ function commandWords(
+   roll: LocalUse,
+   state: TableRollState,
+-): Parameters<typeof wayWords>[2] | undefined {
++): { doing: string; done: string; not: string } | undefined {
+   // A favorite added or removed, from module 0.37.0.
+   if (roll.favorite) return FAVORITE_WORDS[roll.favorite]
+   // One of the character's own effects turned off, on or deleted, from module 0.39.0, the same way.
+-- 
+2.43.0
+

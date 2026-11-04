@@ -1,0 +1,2 @@
+f338ea5 fix: v0.43 rolling tray, round 1 (scrollDown's reason; UsedResult; commandWords' return spelled out)
+be4a367 refactor(rolling): the tray one export per file, words per kind, toasts, small components, dice entry

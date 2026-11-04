@@ -1,2 +1,0 @@
-e95fdf3 fix: v0.43 rolling core, round 1 (an id-less answer followed as before; logAsk on keep; no new named type)
-896cf1e refactor(rolling): types out, one lifecycle, request builders, state reducer, GM rolls, roller split, dice parsers
