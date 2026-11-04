@@ -1,0 +1,116 @@
+{
+ "phase": 5,
+ "head_before": "6e92666",
+ "run": {
+  "reviews": [
+   {
+    "k": "RV1",
+    "n": 4,
+    "verdicts": [
+     {
+      "id": "RV1-1",
+      "real": true,
+      "severity": "minor",
+      "reason": "I checked the code at head 6e92666 and every code fact in the finding is correct. seat-resolver.ts:17 exports seatAnswer and nothing else. getPlayerSeat is at db/seats.ts:33 and partyAt is at party-routes.ts:26. The four companion helpers are still in companion-routes.ts at :31, :45, :61 and :77, now as thin wrappers on getPlayerSeat/getGmSeat. So R1.3.4 as written (round.md:831-838: playerAt, gmAt, companionAt, companionRollAt and partyAt in the resolver, and 'the four companion-routes helpers go') was not done. Keeping the helpers is justified: the frozen src/lib/routes/__tests__/companion-routes.integration.test.ts calls all four in its test bodies (lines 60-150, 220), and §0.2.2 freezes those tests. At base (24f808b:src/lib/companion-routes.ts) these helpers were already finders that never answered 401 or 404, so behaviour is unchanged.\n\nOne central claim does not hold: 'no amendment or report records the deviation' is false. The committed lane record .refactor/reports/phase3-S-W-a.json (landed in 8c4c2e0) records it twice. The builder's report lists 'Deviations from round.md, and why: 1. R1.3.4, seat finders not in seat-resolver.ts', with the reasons from gate 4b and the frozen test. The S lane reviewer also wrote that 'Two deviations are justified: the four companion helpers stay because companion-routes.integration.test calls each, and partyAt sits in party-routes', and raised no finding on it. e88b05a's message records it as well, and §7 says the PR body is written from the commit messages.\n\nWhat remains is a real but small documentation gap. The final S.md Deviations list (lines 116-123) and amendment 5(d) leave it out. metrics-after.md:278 and S.md:109 say 'after: 1 seat-resolver.ts' without noting that the four companion finders remain, and notesSeat is still its own 401/404 resolver, as round.md itself planned. The metrics-after line feeds the PR's metrics table (§7 item 2), so a one-line correction is worth making. Nothing about behaviour or structure is wrong, the deviation was reviewed and accepted in a committed record, and .refactor/ (S.md included) is removed in commit 28. For those reasons I lowered the severity from major to minor."
+     }
+    ]
+   },
+   {
+    "k": "RV2",
+    "n": 3,
+    "verdicts": [
+     {
+      "id": "RV2-1",
+      "real": true,
+      "severity": "minor",
+      "reason": "The evidence holds at APP head (6e92666). The grep finds 138 lowercase top-level functions in rolling/sheet product .tsx at a2332a2, 18 at 2abfc20 and 17 at HEAD. The eight named helpers are where the finding says, all file-private, and each is used only in its own file (initials also appears as a word in character-sheet.test.tsx). All eight were file-private in their .tsx at 24f808b too. Map U2 §2, which R1.1.17 follows, names 'the effect detail at :195-204' (base effects-tab.tsx:193-203, effectDetail) for effects-tab/utils.ts. Only conditionDetail went there. moves.tsv:770 records effectDetail going to effect-entry.tsx instead. Neither U2's report nor its fix round, nor amendment 5(d), records this deviation. Round.md §0.3 (base roll-tray.tsx had exactly 46 such functions) shows the plan counted file-private helpers as 'pure functions inside components' to be moved, and the lanes did move about 120 of them. So no amendment or report accepts these eight. The fix is a verbatim move of pure functions and changes no behaviour. I lowered the severity from major to minor for four reasons. (1) CLAUDE.md §2 is not broken: none of the eight is exported. (2) R1.1.17's binding list is map U2 §2, and it names only effectDetail. Its spells-tab, sheet-entry, sheet-tiles and features-tab entries list no utils for foundOf, preparedCount, fromNote, factsOf, keyTarget, initials or originName, so those seven rest only on CLAUDE.md §3 and §0.3's general row. (3) No lint rule, gate or §0.4 metric checks this, and the head tree keeps similar file-private helpers in other areas: description-html.tsx (draw, cellProps, attributesOf), local-time formatTime, entry-icon isSvg, campaign-setup-form randomSecret, and dice-entry-dialog, which R1.2.11 keeps by contract. (4) Each helper is one to seven lines with a single reader, so the fix matches the workflow's 'small cleanup' (minor). Notes for the fixer: new spells-tab/utils.ts and sheet-entry/utils.ts carry no directive (§1.0 rule 9). An exported initials in sheet-tiles/utils.ts would sit beside src/utils/initials.ts, which behaves differently (B8). Keep its first-code-unit behaviour, and make sure portrait.tsx imports the local one."
+     }
+    ]
+   },
+   {
+    "k": "RV3",
+    "n": 6,
+    "verdicts": [
+     {
+      "id": "RV3-1",
+      "real": true,
+      "severity": "major",
+      "reason": "I could not refute it. At the head (6e92666), `grep -rn \"SheetProviders\\|sheet-providers\" src jest.setup.ts jest.config.ts eslint.config.mjs e2e`, run outside src/mocks/sheet-providers/, prints nothing. `git grep` gives the same at 4e7b8ec (commit 2, which adds it), eb533bd (3), 929c797 (4), a8377ca (24) and HEAD, so the module has never had an importer. RV3's orphans.cjs, run again at the head, prints only src/mocks/sheet-providers/sheet-providers.tsx; types.ts is imported only by it (line 27). values.golden.test.ts imports its mocks by name, not by walking a folder, so C9 does not reach it either. R3.5 says the file is for the goldens only, but C-a's goldens render CharacterPane directly. No report says the harness went unused (C-a.md, T.md and G.md never mention it), and no amendment or phase4 item accepts it. G's sweep skipped it on purpose (unused-exports.mjs:76 FROZEN). R1.9.27 only covers exports and the contract freezes the kit, so G followed the contract. But the PR itself adds 400 lines that nothing renders, against CLAUDE.md §9 (unused code) and §1 (KISS), and commit 23's subject says 'dead code ... gone'. The wf-phase5 scale counts a CLAUDE.md rule not met as major. The fix changes no behaviour. Nothing in the product or the tests imports the file, and no eslint zone or ROADMAP line names it. Gate 3 and gate 2 count only base tests, so deleting it changes no count. Gate 10 already lets a frozen file go missing when counts.conf has a `retire` row for it, so the deletion needs no tool change. It does need an orchestrator amendment, because §3.1.1, §3.4 gate 10 and counts.conf's header all say C1, C3 and C9 are the only deletion. Caveats: the file is 349 lines at commit 2 and 340 at the head, after the import lines followed the moves. The duplicate PaneTable and PaneRoller are two one-line ReturnType aliases. U1 added them to character-pane/types.ts in Phase 3; the base had neither. U1 had little choice, since product code should not import from src/mocks, so they are a minor side effect. That the kit bound the Phase 3 lanes is history and needs no fix now. The note on markup() and normalizeIds() is a separate decision for commit 26: after C1 retires, only test-utils.test.ts uses them."
+     }
+    ]
+   }
+  ],
+  "fixes": [
+   {
+    "a": "server",
+    "ok": true,
+    "commits": [
+     "ca30667 fix: review findings (v0.43, server)"
+    ],
+    "answered": [
+     "RV1-4: fixed with the finding's option (b), a ROADMAP v0.44 line, not option (a). Option (a) is not a small fix: rollGate returns RollRejection, which is defined in src/db/types.ts and has 8 importers. Zone 4 bars src/utils from importing src/db, so that type would have to move too, and the campaign parameter is Prisma-derived (RollCampaign). R1.3.9 and R1.3.11 also put these stages in the file. ROADMAP.md is in RV3's (table-ui) scope; the bullet sits between two server bullets to make a rebase conflict unlikely.",
+     "RV1-1: fixed as documentation only, as the finding asks. One part was not done literally: no amendment line was added to round.md, because amendments are the orchestrator's. The PR note went into phase4-items.md P-5 instead. I agree with the skeptic that the deviation was already recorded in phase3-S-W-a.json and in e88b05a's message; what was missing was S.md's deviations list and the metrics line."
+    ]
+   },
+   {
+    "a": "table-ui",
+    "ok": true,
+    "commits": [
+     "24a687b fix: review findings (v0.43, table-ui)"
+    ],
+    "answered": [
+     "RV3-1 (major, confirmed): I left the deletion to commit 26, which is the finding's first route, because it needs two orchestrator rows in R/tools/counts.conf. Gate 10 (R/tools/gate-10.mjs:84-86) fails when a frozen file is gone and counts.conf has no `retire` row for it. A fixer may not write APP's R/tools, and counts.conf's header and §3.1.1 say only commit 26 adds retirements. I ran a dry run in my worktree: I moved src/mocks/sheet-providers/sheet-providers.tsx and types.ts aside, added the two rows to the worktree's own counts.conf, and ran the gates on this L1's jest.json, then restored everything. With the rows, gates 1, 2, 3 and 10 are all ok (gate 10: 991 golden tests, 24 frozen files held; the gate 3 counts do not change). Without the rows, gate 10 FAILs with 2 problems. Nothing imports the module: grep over src, jest.setup.ts, jest.config.ts, eslint.config.mjs, e2e, tsconfig.json and package.json, outside the folder, prints nothing. For commit 26: `retire\\tsrc/mocks/sheet-providers/sheet-providers.tsx\\t…` and `retire\\tsrc/mocks/sheet-providers/types.ts\\t…`; delete both files; mark owners.tsv rows 670-671 deleted; amend §3.1.1, §3.4 gate 10 and counts.conf's header; name the deletion in the PR. Also decide whether markup() and normalizeIds() stay in the kit once C1 retires.",
+     "RV3-4 (minor): this is commit 28's job, not commit 25's. Until commit 28 removes .refactor/, `.refactor/**` must stay ignored. Otherwise `eslint .` (in L1 and gate 9) would lint the folder's 77 .js/.mjs/.cjs scripts, written in another style, under the app's rules, which are set to error. Commit 28 should drop the ignore line and its comment from eslint.config.mjs along with the folder, then run `npx eslint .` again. Amending §2.5 row 28's check to '.refactor/ and its eslint ignore' is the orchestrator's call.",
+     "RV3-6 (minor): no code change, as the finding says. The goldens are frozen (gate 10) and C1 retires in commit 26. I confirmed the gap: the markup snapshot holds only `3 data-mode=\"tabs\"`. Avatars mode is held by creature-switcher.test.tsx:356-419 ('avatars' at :363, :389, :392, :400) and by e2e companions part 2b (companions-e2e.mjs:380-405), which was green in pass 4. Text for the PR's goldens note: 'C1 (commit 4) pins CreatureSwitcher's tabs mode only, not avatars mode (a deviation from §3.2's C1 list for V2). creature-switcher.test.tsx and e2e companions hold avatars mode.'"
+    ]
+   },
+   {
+    "a": "rolling-sheet",
+    "ok": true,
+    "commits": [
+     "443530b fix: review findings (v0.43, rolling-sheet)"
+    ],
+    "answered": []
+   }
+  ],
+  "landed": [
+   {
+    "a": "server",
+    "landed": true,
+    "red": ""
+   },
+   {
+    "a": "table-ui",
+    "landed": true,
+    "red": ""
+   },
+   {
+    "a": "rolling-sheet",
+    "landed": true,
+    "red": ""
+   }
+  ]
+ },
+ "landed_as": {
+  "server": {
+   "fixer": "ca30667",
+   "branch": "ca30667",
+   "report": "99c31c9"
+  },
+  "table-ui": {
+   "fixer": "24a687b",
+   "branch": "8fa4150",
+   "report": "72befcc"
+  },
+  "rolling-sheet": {
+   "fixer": "443530b",
+   "branch": "eaef5ba",
+   "report": "0f32d24"
+  }
+ },
+ "reports": {
+  "RV1": ".refactor/reports/RV1.md",
+  "RV2": ".refactor/reports/RV2.md",
+  "RV3": ".refactor/reports/RV3.md"
+ }
+}
