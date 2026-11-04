@@ -45,18 +45,23 @@ export function nextUp(combat: TableCombat): TableCombatant | undefined {
 }
 
 /**
- * A combatant's hit points as its bar draws them: how full, in percent, where it has a maximum;
- * and the bar's colour, the accent's, a warning's from half, a danger's at none.
+ * A combatant's hit points as its bar draws them: how full, in percent, where it has a maximum,
+ * a living one's at least a sliver; and the bar's colour, the accent's, a warning's from half, a
+ * danger's at none.
  */
 export function hpBar(hp: NonNullable<TableCombatant['hp']>): {
   percent?: number
   bar: string
 } {
+  const living = hp.value > 0
   const percent = hp.max
-    ? Math.min(100, Math.max(0, Math.round((hp.value / hp.max) * 100)))
+    ? Math.min(
+        100,
+        Math.max(living ? 1 : 0, Math.round((hp.value / hp.max) * 100)),
+      )
     : undefined
   let bar = 'bg-primary'
   if (percent !== undefined && percent <= 50) bar = 'bg-warning'
-  if (percent === 0) bar = 'bg-danger'
+  if (percent !== undefined && !living) bar = 'bg-danger'
   return { percent, bar }
 }
