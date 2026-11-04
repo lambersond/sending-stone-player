@@ -1020,6 +1020,37 @@ describe('Heroic Inspiration, from module 0.29.0', () => {
     },
   )
 
+  // Used from the sheet's header, on the Character tab, its line says how it went on every tab, as
+  // a spend's does: on Effects too, which shows the rolls only once something was done, and where
+  // the game's answer may come once the player has moved on.
+  it('says on the Effects tab how a use went, refused once the player is there', async () => {
+    const user = userEvent.setup()
+    const posted = answering({
+      'req-1': { status: 'failed', reason: 'not-inspired' },
+    })
+    render(pane(chargingSheet({ inspiration: true })))
+
+    await user.click(
+      screen.getByRole('button', { name: 'Inspired. Use Heroic Inspiration' }),
+    )
+    await user.click(
+      within(
+        screen.getByRole('dialog', { name: 'Use Heroic Inspiration?' }),
+      ).getByRole('button', { name: 'Use' }),
+    )
+    expect(posted).toEqual([
+      { kind: 'inspiration', inspiration: 'use', ...PLAIN },
+    ])
+    await show(user, 'Effects')
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Heroic InspirationNot used at the table: you have no Heroic Inspiration to use',
+        ),
+      { timeout: 5000 },
+    )
+  })
+
   it('shows only the mark, while inspired, where the game takes it not', () => {
     answering()
     const { rerender } = render(
