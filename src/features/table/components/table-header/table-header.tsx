@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { FullscreenButton } from '@/components/fullscreen-button/fullscreen-button'
 import { LiveStatus } from '@/components/live-status/live-status'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
+import { HEADER_ICON_BUTTON } from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import {
   campaignAndGame,
@@ -59,7 +60,7 @@ export function TableHeader({
               : '/characters'
           }
           aria-label={gm ? 'Your campaigns' : 'All characters'}
-          className='-ml-1.5 shrink-0 rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+          className={`-ml-1.5 shrink-0 ${HEADER_ICON_BUTTON}`}
         >
           <ArrowLeft aria-hidden className='size-5' />
         </Link>

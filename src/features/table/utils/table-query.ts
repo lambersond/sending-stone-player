@@ -1,4 +1,5 @@
 import { rollsKey } from '@/utils/requests/availability'
+import { seenQuery } from '@/utils/seen-query'
 import type { ViewSeen } from '@/features/table/types'
 import type { TableView } from '@/types/table'
 
@@ -30,8 +31,8 @@ export function seenOf(view: TableView): ViewSeen {
 }
 
 /**
- * The table's poll's query, from what the viewer has of its view: each key in this order, which is
- * the wire's, and those it has none of left out.
+ * The table's poll's query, from what the viewer has of its view: each key by its name on the
+ * wire, in seenQuery's order, which is the wire's, and those it has none of left out.
  */
 export function tableQuery({
   version,
@@ -47,18 +48,18 @@ export function tableQuery({
   effects,
   wildShape,
 }: ViewSeen): URLSearchParams {
-  return new URLSearchParams({
-    version: String(version),
-    live: live ? '1' : '0',
-    ...(rolls && { rolls }),
-    ...(gm && { gm }),
-    ...(gmRolls && { gmrolls: gmRolls }),
-    ...(moves && { moves: '1' }),
-    ...(typed && { typed: '1' }),
-    ...(removes && { removes: '1' }),
-    ...(favorites && { favorites: '1' }),
-    ...(effects && { effects: '1' }),
-    ...(wildShape && { wildshape: '1' }),
-    ...(sheetVersion && { sheet: sheetVersion }),
+  return seenQuery({
+    version,
+    live,
+    rolls,
+    gm,
+    gmrolls: gmRolls,
+    moves,
+    typed,
+    removes,
+    favorites,
+    effects,
+    wildshape: wildShape,
+    sheet: sheetVersion,
   })
 }

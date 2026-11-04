@@ -1,3 +1,9 @@
+import {
+  gmPartyApi,
+  gmPartyPath,
+  partyApi as playerPartyApi,
+  partyPath,
+} from '@/utils/seat-urls'
 import type { Character, TableSeat } from '@/types/character'
 
 /**
@@ -9,10 +15,9 @@ export function partyApi(
   character: Character,
   group = '',
 ): string {
-  const id = encodeURIComponent(group)
   return seat.role === 'gm'
-    ? `/api/campaigns/${encodeURIComponent(character.campaignId ?? '')}/party/${id}`
-    : `/api/characters/${encodeURIComponent(character.id)}/party/${id}`
+    ? gmPartyApi(character.campaignId ?? '', group)
+    : playerPartyApi(character.id, group)
 }
 
 /** A party sheet's own page, as the player or the Gamemaster opens it. */
@@ -21,8 +26,7 @@ export function partyPage(
   character: Character,
   group = '',
 ): string {
-  const id = encodeURIComponent(group)
   return seat.role === 'gm'
-    ? `/campaigns/${encodeURIComponent(character.campaignId ?? '')}/party/${id}`
-    : `/characters/${encodeURIComponent(character.id)}/party/${id}`
+    ? gmPartyPath(character.campaignId ?? '', group)
+    : partyPath(character.id, group)
 }
