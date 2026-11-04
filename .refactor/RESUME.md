@@ -1,19 +1,19 @@
-# RESUME: v0.43, checkpoint after Phase 4.1
+# RESUME: v0.43, Phase 4 complete (checkpoint before Phase 5)
 
-Written 2026-11-03, about 10:45 PM EST (03:45 UTC on Nov 4). Checked head: **1545a40**
-(`chore(refactor): builders work in progress (snapshot)`) on `claude/dazzling-dirac-m8cq54`. Its
-tree outside .refactor/ equals commit 22's (5c56ff7). The commit that adds this file sits on
-1545a40 and changes only `.refactor/RESUME.md`.
+Updated 2026-11-04, about 1:25 AM EST, after Phase 4.2 (G, commits 23-24) landed and e2e pass 4 went
+104/104 green. Checked head: **66d5f4a** (`chore(refactor): amendment 6`) on
+`claude/dazzling-dirac-m8cq54`; its src is commit 24's tree with G's fix 153834e. (First written
+2026-11-03 ~10:45 PM EST at the Phase 4.1 checkpoint, 1545a40.)
 
 R = /home/user/sending-stone-player/.refactor. X = the scratchpad's v043 folder (brief.md). APP = the
 checkout on the branch.
 
-To resume: read R/brief.md, then R/round.md (amendments 1-5 at the top first), then this file.
+To resume: read R/brief.md, then R/round.md (amendments 1-6 at the top first), then this file.
 After a container reset, rebuild the machine first (below). Then run the first step under "Left".
 
 ## Done
 
-### Commits 1-22 (§2.5's numbers)
+### Commits 1-24 (§2.5's numbers)
 
 After commit 8 the commits sit on the branch in landing order: 12, 13, 14, 9, 10, 11, then 15-22
 (amendment 5 (a)). Fix and follow-up commits sit beside their commit. Planning commits
@@ -43,6 +43,8 @@ After commit 8 the commits sit on the branch in landing order: 12, 13, 14, 9, 10
 | 20 | 983b4b4 | V2 | other UI: seen query, icon buttons, journal, party, companions … | fix f4b17f1 |
 | 21 | 2abfc20 | F-a | popovers, roll labels and chips adopted across areas | report a7831f8 |
 | 22 | 5c56ff7 | F-b | seat URLs, the table's seen query and header button adopted | report 711a5bc |
+| 23 | 00709e2 | G | lint: CLAUDE.md's rules as errors, layered imports, an import-cycle test; dead code and unused exports gone | tools 938efea (gate 10/11 allowances), 6b8aff8; fix 153834e |
+| 24 | a8377ca | G | docs(roadmap): v0.43 done; bugs and checks for v0.44 (metrics after: R/analysis/metrics-after.md) | metrics re-taken 00d330c; report b40b6f0 |
 
 - **Phase 3 (amendment 5).** The nine lanes (S, W-a, W-b, R-a, R-b, U1, U2, V1, V2) were built,
   reviewed and fixed, then integrated in §2.3.7's order (W-a, W-b, S, R-a, R-b, U1, U2, V1, V2). No
@@ -60,13 +62,20 @@ After commit 8 the commits sit on the branch in landing order: 12, 13, 14, 9, 10
 
 ### e2e passes (R/analysis/e2e/)
 
-All three ran 104 runs over 49 suites, `BUILD=1`, with RETRY off.
+All four ran 104 runs over 49 suites, `BUILD=1`, with RETRY off.
 
 | pass | at | first try | rerun alone | wall | record |
 |---|---|---|---|---|---|
 | 1, baseline | commit 1's tree (1dff83f) | 104/104 | none needed | 59m02s | base.md (2d84cfa) |
 | 2, after commits 5-8 | 9589546 (src = 63c5cc3) | 103/104: notesoffline (base) 43/47 | 47/47 | 61m00s | pass2.md (15e82cb) |
 | 3, after integration | 680d60e (src = the integrated Phase 3 tree) | 103/104: endturn (base) 23/73 | all 4 endturn runs green | 57m22s | pass3.md (89f6884) |
+| 4, after commits 21-24 | 66d5f4a (src = commit 24 + 153834e) | **104/104** | none needed | 59m29s | pass4.md |
+
+**Phase 4.2 (G).** Commits 23-24 were built, reviewed (RV-G-1 major: gate 10's allowance one-sided,
+fixed in 6b8aff8; four minor) and landed at b40b6f0: L1 green on every check and gates 1-12 with the
+branch's tools (318 suites, 9,727 tests; eslint 0 warnings, every CLAUDE.md rule at error; 0 cycle
+groups), `next build` green. Amendment 6 accepts the gate 10/11 allowances and the disable totals (34
+in all, 13 react-hooks, each with its reason; the PR states both).
 
 Both failures were the environment, not the product. Pass 2: a `bridgePolledAt` race under three
 lanes' load. Pass 3: no animation frame was sampled in the 560-640 ms window of part 8, at 768 px.
@@ -93,22 +102,7 @@ lanes' load. Pass 3: no animation frame was sampled in the 560-640 ms window of 
 
 ## Left, in order
 
-1. **Phase 4.2: G**, commits 23 and 24, then e2e pass 4.
-   - **Contract:** round.md §1.9 R1.9.26-.30, the WS12 row of §2.4, and §2.5 rows 23-24. G's items
-     are phase4-items.md's G-1 to G-30, plus the G items in amendments 1 (c), 2 (b) and 4 (c), plus
-     FA-R1 and FA-R2.
-   - **Commit 23:** `chore(lint): CLAUDE.md's rules as errors, layered imports, an import-cycle test;
-     dead code and unused exports gone`. This covers R1.9.26-.28.
-   - **Commit 24:** `docs(roadmap): v0.43 done; bugs and checks for v0.44`, with R1.9.29 (ROADMAP,
-     §4.5) and R1.9.30 (`sh R/analysis/metrics/run.sh after` into R/analysis/metrics-after.md, and
-     §0.4 filled).
-   - **e2e pass 4:** §2.6 and §2.3.8, recorded in R/analysis/e2e/pass4.md.
-   - **Run:** the workflow R/tools/wf-phase4.js with args `{"stage":"g"}`. It builds G in
-     /home/user/w043/G/sending-stone-player from the branch head, runs a review and one fix round,
-     lands the commits (L1, build, fast-forward, push), then runs e2e pass 4 and updates this file's
-     "Done" and "Left". With `{"stage":"g","noE2E":true}` the workflow stops after the landing, and
-     the orchestrator runs pass 4 (brief.md's E2E environment).
-   - **Before it starts,** remove the F-a and F-b worktrees (§2.3.3; see the last section).
+1. **Phase 4: done** (commits 21-24, e2e pass 4 green).
 2. **Phase 5: review**, commit 25.
    - **Contract:** round.md §2.1 (the Phase 5 row), §2.4 (its Phase 5 row) and §2.5 row 25.
    - **The work:** RV1 reads commits 9-14 and 22. RV2 reads 15-18 and 21. RV3 reads 2-8, 19-20 and
@@ -116,9 +110,11 @@ lanes' load. Pass 3: no animation frame was sampled in the 560-640 ms window of 
      The lane's builder fixes each finding in a worktree from the branch head, or G fixes it when it
      crosses areas. The fixes are commit 25, `fix: review findings (v0.43)`, one per area if there
      are more than a few.
-   - **Script:** not written yet. Write R/tools/wf-phase5.js from §2.4's Phase 5 row, in
-     wf-phase4.js's shape (build, review, fix, land). §8 runs the L3 replay under the lock while the
-     review reads.
+   - **Script:** R/tools/wf-phase5.js (no args): three reviewers (RV1, RV2, RV3), a skeptic per
+     review for blocker and major findings, one fixer per area with confirmed findings (worktrees
+     /home/user/w043/fix-<area>), landed with L1 and build, then a checkpoint that updates this file.
+     Started 2026-11-04 ~1:30 AM EST; if a reset stops it, check the branch for "fix: review findings"
+     commits and the worktrees, then rerun it (its reviews are read-only).
 3. **Phase 6: final**, commits 26-28 and the PR.
    - **Contract:** round.md §2.4 (its Phase 6 row), §2.5 rows 26-28, §2.6 (L3 and pass 5) and §7
      (the PR).
