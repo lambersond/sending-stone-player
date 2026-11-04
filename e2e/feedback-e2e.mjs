@@ -1573,7 +1573,7 @@ if (NEW) {
     await theme(phone, 'light')
     await phone.page.setViewportSize({ width: 390, height: 844 })
     phone.width = 390
-    // The tablet, from sm: each dot smaller.
+    // The tablet, from sm: each dot as big as on the phone, 28 × 44 (v0.44).
     await tablet.tab('Spells')
     const tabletPact = levelOf(tablet, 'Pact Magic — 3rd Level')
     const tabletShown = await dotsRead(dotsOf(tabletPact, 'Pact Magic slots (3rd level)'), slotNames(PACT, 2, 4))
@@ -1586,9 +1586,9 @@ if (NEW) {
     const tabletName = await dotsOf(tabletStrip, '1st-level spell slots').locator('xpath=ancestor::li[1]/div[1]')
       .evaluate(el => el.querySelector(':scope > span.min-w-0.flex-1').getBoundingClientRect().width, undefined, { timeout: 5000 }).catch(() => 0)
     const tabletLists = await tabletStrip.getByRole('list').count()
-    check(tabletShown && wide.dots.length === 25 && wide.dots.every(dot => Math.round(dot.width) === 24 && Math.round(dot.height) === 24) && wide.sideways <= 0
+    check(tabletShown && wide.dots.length === 25 && wide.dots.every(dot => Math.round(dot.width) === 28 && Math.round(dot.height) === 44) && wide.sideways <= 0
       && tabletLists === 2 && tabletName >= 48,
-      `on the tablet, 768 px, dark, every dot is 24 × 24 px (${JSON.stringify([...new Set(wide.dots.map(dot => `${Math.round(dot.width)}×${Math.round(dot.height)}`))])}); in the Favorites strip's ${tabletLists} lists, the spell-slots row's name at least 48 px wide (${Math.round(tabletName)} px)`)
+      `on the tablet, 768 px, dark, every dot is 28 × 44 px, as on the phone (${JSON.stringify([...new Set(wide.dots.map(dot => `${Math.round(dot.width)}×${Math.round(dot.height)}`))])}); in the Favorites strip's ${tabletLists} lists, the spell-slots row's name at least 48 px wide (${Math.round(tabletName)} px)`)
     await shoot(tablet, 'slots')
     await tablet.tab('Character')
   }
