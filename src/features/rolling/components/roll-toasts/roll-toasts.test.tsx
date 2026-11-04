@@ -10,8 +10,8 @@ import userEvent from '@testing-library/user-event'
 import { renderToString } from 'react-dom/server'
 import { RollTray } from '../roll-tray/roll-tray'
 import { RollToasts } from './roll-toasts'
-import { gmRollsOf, useGmRolls } from '@/features/rolling/hooks/use-gm-rolls'
-import { withGmRolls } from '@/features/rolling/utils/gm-rolls'
+import { useGmRolls } from '@/features/rolling/hooks/use-gm-rolls'
+import { gmRollsOf, withGmRolls } from '@/features/rolling/utils/gm-rolls'
 import { TurnToastContext } from '@/hooks/use-turn-toast-foot'
 import type {
   GmRollView,

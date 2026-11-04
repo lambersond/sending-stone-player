@@ -109,7 +109,6 @@ describe('app/api/characters/[id]/notes/[note]', () => {
   })
 
   it('answers 404 for another player’s character, changing nothing', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     await expect(patch({ title: 'a', stamp: 'n:' })).resolves.toHaveProperty(

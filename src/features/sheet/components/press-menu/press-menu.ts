@@ -1,10 +1,10 @@
 'use client'
 
 import { useRef, type SyntheticEvent } from 'react'
-import { LONG_PRESS } from '../../../rolling/constants'
-import { pointWithin } from '../../../rolling/utils/menu-points'
+import { LONG_PRESS } from '@/features/rolling/constants'
+import { pointWithin } from '@/features/rolling/utils/menu-points'
 import type { PressProps } from './types'
-import type { MenuPoint } from '../../../rolling/types'
+import type { MenuPoint } from '@/features/rolling/types'
 
 /** How far a touch may move and still count as held, in pixels, as a roll's. */
 const DRIFT = 10

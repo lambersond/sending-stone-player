@@ -112,7 +112,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/[note]', () => {
   })
 
   it('answers 404 for another Gamemaster’s campaign, changing nothing', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getGmSeat).mockResolvedValue(undefined)
 
     await expect(patch({ title: 'a', stamp: 'n:' })).resolves.toHaveProperty(

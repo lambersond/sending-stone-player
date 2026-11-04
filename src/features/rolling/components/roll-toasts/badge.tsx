@@ -2,7 +2,7 @@
 
 import clsx from 'clsx'
 import { BADGE_ICONS, BADGES } from '../roll-tray/constants'
-import type { RollBrief } from '../../utils/tray-words'
+import type { RollBrief } from '../../types'
 
 /**
  * A roll's total, coloured as the tray's; or a use's or an ask's icon, and for one of the

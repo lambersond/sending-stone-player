@@ -1,11 +1,4 @@
 import { act, renderHook } from '@testing-library/react'
-import {
-  BUSY_FOR,
-  BUSY_WAIT,
-  CHECK_EVERY,
-  FOLLOW_FOR,
-  LATE_FOLLOW,
-} from '../../../constants/lifecycle'
 import { ALONE_KEY, GM_ALONE_KEY, GM_SEND_KEY, SEND_KEY } from '../constants'
 import {
   choicesOf,
@@ -13,14 +6,21 @@ import {
   damageRollOf,
   needsPlayer,
 } from '../utils/damage-due'
+import { gmRollsOf } from '../utils/gm-rolls'
 import {
   toFormulaRequest,
   toHitDiceRequest,
   toHitDieRequests,
   toRollRequest,
 } from '../utils/request-bodies'
-import { gmRollsOf } from './use-gm-rolls'
 import { useTableRolls } from './use-table-rolls'
+import {
+  BUSY_FOR,
+  BUSY_WAIT,
+  CHECK_EVERY,
+  FOLLOW_FOR,
+  LATE_FOLLOW,
+} from '@/constants/lifecycle'
 import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
 import { aloneRollOf } from '@/features/sheet/utils/damage-alone'
 import { TableApiContext } from '@/hooks/use-table-api'

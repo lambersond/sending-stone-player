@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { Geist, Geist_Mono } from 'next/font/google'
 import { FullscreenGuard } from '@/components/fullscreen-guard/fullscreen-guard'
 import { SiteFooter } from '@/components/site-footer/site-footer'

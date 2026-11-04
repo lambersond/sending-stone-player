@@ -26,7 +26,6 @@ const props = (searchParams: Record<string, string> = {}) => ({
 
 describe('app/login/page', () => {
   beforeEach(() => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
     jest.mocked(enabledSocialProviders).mockReturnValue(['google', 'discord'])
   })

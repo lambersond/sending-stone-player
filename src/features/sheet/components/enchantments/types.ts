@@ -3,7 +3,7 @@ import type { AttackSource, TableRollState } from '@/types/roll'
 import type { SheetEnchantment } from '@/types/sending-stone'
 
 /** An enchantment ended: on which of the character's items, its effect's id, and its name. */
-export type EndEnchantment = (
+type EndEnchantment = (
   item: string,
   enchantment: Pick<SheetEnchantment, 'id' | 'name'>,
   /** The enchant activity's switch or chip it's ended from, if any, which then follows it. */

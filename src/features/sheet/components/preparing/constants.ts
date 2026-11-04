@@ -5,6 +5,5 @@ import type { Preparations } from './types'
  * pane, the Gamemaster's page, a game that doesn't take it, and any row drawn outside a pane.
  */
 export const NO_PREPARING: Preparations = {
-  // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
   choiceFor: () => undefined,
 }

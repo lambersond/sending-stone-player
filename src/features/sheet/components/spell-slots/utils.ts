@@ -1,7 +1,7 @@
 import { SPELL_SLOT } from '@/constants/sending-stone'
 import { ordinal } from '@/utils/action-groups'
 import type { ChargeActions } from '../charging/types'
-import type { SpellSlotPool } from '@/features/sheet/utils/slot-words'
+import type { SpellSlotPool } from '@/features/sheet/utils/types'
 
 /** Counts shown as pips up to this many; past it, as a number alone. */
 export const MAX_PIPS = 9

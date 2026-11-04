@@ -10,10 +10,10 @@ import { usePressMenu } from '../press-menu/press-menu'
 import { RowName } from '../row-name/row-name'
 import { SheetText } from '../sheet-text/sheet-text'
 import { EntryIcon } from '@/components/entry-icon/entry-icon'
-import type { MenuPoint } from '../../../rolling/types'
 import type { DescriptionOrigin } from '../description-actions/types'
 import type { EffectChoice } from '../effect-controls/types'
 import type { PrepareChoice } from '../preparing/types'
+import type { MenuPoint } from '@/features/rolling/types'
 import type { FavoriteTarget } from '@/types/roll'
 
 /** What a row's favorites key names, as the app adds and removes it: an item or an effect alone. */

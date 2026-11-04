@@ -111,7 +111,7 @@ export type TableDamageKind = {
   pool: DamagePool
 }
 
-export type TableDamageRoll = {
+type TableDamageRoll = {
   formula: string
   /** As rolled: may be below 0. */
   total: number | null
@@ -146,7 +146,7 @@ export type TableDamage = {
 export type TableAsk = TableSaveAsk | TableCheckAsk
 
 /** A saving throw, or a concentration check, the table is asked for. */
-export type TableSaveAsk = {
+type TableSaveAsk = {
   type: 'save' | 'concentration'
   /** The abilities it may be rolled with, such as ["dex"]; for concentration, the one it names. */
   abilities: string[]

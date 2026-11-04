@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react'
-import { reasons, REASONS } from '../../../utils/roll-reasons'
-import { RollToasts } from '../../rolling/components/roll-toasts/roll-toasts'
-import { RollTray } from '../../rolling/components/roll-tray/roll-tray'
-import { briefOf } from '../../rolling/utils/brief'
 import { PromptBanner } from '../components/prompt-banner/prompt-banner'
+import { RollToasts } from '@/features/rolling/components/roll-toasts/roll-toasts'
+import { RollTray } from '@/features/rolling/components/roll-tray/roll-tray'
+import { briefOf } from '@/features/rolling/utils/brief'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { characterSheet } from '@/mocks/sending-stone'
+import { reasons, REASONS } from '@/utils/roll-reasons'
 import { toTableSheet } from '@/utils/table-view'
-import type { TableRolls } from '../../rolling/types'
+import type { TableRolls } from '@/features/rolling/types'
 import type { LocalCheck, TableRollState } from '@/types/roll'
 
 // The Gamemaster at one of their campaign's characters' sheets (#156) reads every string that

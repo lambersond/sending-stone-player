@@ -7,13 +7,13 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RollTray } from '../../rolling/components/roll-tray/roll-tray'
-import { briefOf } from '../../rolling/utils/brief'
 import { ActionsTab } from '../components/actions-tab/actions-tab'
 import { CharacterPane } from '../components/character-pane/character-pane'
 import { Charging } from '../components/charging/charging'
 import { COMPANION_UNTAKEN, ROLL_KINDS } from '@/constants/sending-stone'
+import { RollTray } from '@/features/rolling/components/roll-tray/roll-tray'
 import { SEND_KEY } from '@/features/rolling/constants'
+import { briefOf } from '@/features/rolling/utils/brief'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { TableApiContext } from '@/hooks/use-table-api'
 import {
@@ -27,7 +27,7 @@ import {
   utilityUse,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import type { TableRolls } from '../../rolling/types'
+import type { TableRolls } from '@/features/rolling/types'
 import type { TableSeat } from '@/types/character'
 import type {
   GmRollView,

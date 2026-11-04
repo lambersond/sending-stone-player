@@ -22,14 +22,13 @@ import {
   toneOf,
   usedWords,
   wayWords,
-  type Creature,
-  type RollBrief,
 } from '@/features/rolling/utils/tray-words'
 import { EFFECT_WORDS } from '@/utils/effect-words'
 import { formatModifier } from '@/utils/format-modifier'
 import { PREPARE_WORDS } from '@/utils/prepare-words'
 import { seatWords } from '@/utils/seat-words'
 import { WILD_SHAPE_WORDS, wildShapeToast } from '@/utils/wild-shape-words'
+import type { Creature, RollBrief } from '@/features/rolling/types'
 import type {
   TableRollState,
   LocalCheck,

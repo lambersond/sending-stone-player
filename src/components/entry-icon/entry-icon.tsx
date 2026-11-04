@@ -26,7 +26,7 @@ export function EntryIcon({
   }
   return (
     // An icon from the Gamemaster's game, which Next's image optimizer doesn't know.
-    // eslint-disable-next-line @next/next/no-img-element
+    // eslint-disable-next-line @next/next/no-img-element -- the game's image, not Next's
     <img
       ref={ref}
       src={src}

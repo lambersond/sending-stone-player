@@ -26,69 +26,6 @@ globalThis.ResizeObserver = jest.fn().mockImplementation(() => ({
 }))
 
 globalThis.fetch = jest.fn()
-/**
- * A simple mockFetch function that returns a Promise<Response>.
- * @param status The status code of the response
- * @param responseData The data that is passed in response
- * @returns void
- */
-export function mockFetch({ status = 200, responseData = {} } = {}) {
-  globalThis.fetch = jest.fn(() => {
-    return Promise.resolve({
-      status,
-      ok: status >= 200 && status < 300,
-      json: () => Promise.resolve(responseData),
-      headers: new Headers(),
-      redirected: false,
-      statusText: 'OK',
-      type: 'basic',
-      url: '',
-      clone: () => {},
-      body: null,
-      bodyUsed: false,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-      blob: () => Promise.resolve(new Blob()),
-      formData: () => Promise.resolve(new FormData()),
-      text: () => Promise.resolve(responseData),
-    } as Response)
-  })
-}
-
-export function mockManyFetch(
-  responses: Array<{ status?: number; responseData?: any }> = [
-    { status: 200, responseData: {} },
-  ],
-) {
-  const fetchMock = jest.fn<Promise<Response>, [RequestInfo, RequestInit?]>()
-
-  // for each config, queue up one mock response
-  for (const { status = 200, responseData = {} } of responses) {
-    const res: Partial<Response> = {
-      status,
-      ok: status >= 200 && status < 300,
-      json: () => Promise.resolve(responseData),
-      text: () =>
-        typeof responseData === 'string'
-          ? Promise.resolve(responseData)
-          : Promise.resolve(JSON.stringify(responseData)),
-      headers: new Headers(),
-      redirected: false,
-      statusText: 'OK',
-      type: 'basic',
-      url: '',
-      clone: () => ({}) as Response,
-      body: undefined,
-      bodyUsed: false,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-      blob: () => Promise.resolve(new Blob()),
-      formData: () => Promise.resolve(new FormData()),
-    }
-    fetchMock.mockResolvedValueOnce(res as Response)
-  }
-
-  globalThis.fetch = fetchMock as any
-  return fetchMock
-}
 
 // jsdom has <dialog> but not its methods. Suites run in Node have no DOM at all.
 if (typeof HTMLDialogElement !== 'undefined') {

@@ -48,7 +48,6 @@ describe('app/api/characters/[id]/texts/[hash]', () => {
   })
 
   it('asks the signed-out to sign in', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     const response = await get()
@@ -60,13 +59,11 @@ describe('app/api/characters/[id]/texts/[hash]', () => {
     ['a malformed hash', () => {}, 'not-a-hash'],
     [
       'another player’s character',
-      // eslint-disable-next-line unicorn/no-useless-undefined
       () => jest.mocked(getCharacter).mockResolvedValue(undefined),
       HASH,
     ],
     [
       'a description its sheet doesn’t refer to',
-      // eslint-disable-next-line unicorn/no-useless-undefined
       () => jest.mocked(getSheetText).mockResolvedValue(undefined),
       HASH,
     ],
@@ -79,7 +76,6 @@ describe('app/api/characters/[id]/texts/[hash]', () => {
   })
 
   it('lets a browser ask again for one not yet arrived', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getSheetText).mockResolvedValue(undefined)
 
     const response = await get()

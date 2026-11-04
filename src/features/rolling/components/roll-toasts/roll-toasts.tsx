@@ -3,10 +3,8 @@
 import { createPortal } from 'react-dom'
 import { briefOf } from '../../utils/brief'
 import { Toast } from './toast'
-import {
-  useRollToasts,
-  useToastTop,
-} from '@/features/rolling/hooks/use-roll-toasts'
+import { useRollToasts } from '@/features/rolling/hooks/use-roll-toasts'
+import { useToastTop } from '@/features/rolling/hooks/use-toast-top'
 import { needsPlayer } from '@/features/rolling/utils/damage-due'
 import { belowTurn } from '@/features/rolling/utils/roll-toasts'
 import { useCreature } from '@/hooks/use-creature'

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { TOAST_FOR } from '@/features/campaigns/constants'
 import { ToastContext } from '@/features/campaigns/hooks/use-toast'
 import type { Toast } from '@/features/campaigns/types'
 
@@ -8,9 +9,6 @@ import type { Toast } from '@/features/campaigns/types'
 // a pill at the bottom of the screen for a moment, and the same words in one status region that
 // stays on the page, so that a screen reader is told each without a region coming and going. Each
 // sits beside the page's own confirmation, never in its place.
-
-/** How long a toast shows, in milliseconds, as the design has it. */
-export const TOAST_FOR = 1800
 
 /**
  * The toasts of what's inside: one status region, visually hidden, whose words change with each

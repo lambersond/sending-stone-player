@@ -1,4 +1,5 @@
 import type { RollChoice } from '@/features/rolling/types'
+import type { GmRollView } from '@/types/roll'
 
 /** How long a touch must be held to open the roll's menu, in milliseconds. */
 export const LONG_PRESS = 500
@@ -26,3 +27,6 @@ export const SEND_CHOICES = ['on', 'off'] as const
 
 /** How many of this page's rolls are kept. */
 export const ROLL_HISTORY = 20
+
+/** None of the Gamemaster's rolls, the same each time, for what's worked out from them to keep. */
+export const NO_GM_ROLLS: readonly GmRollView[] = []

@@ -2,8 +2,8 @@ import { useDiceRenderer } from '@lambersond/3d-dice-react'
 import { act, renderHook } from '@testing-library/react'
 import { useSheetRoller } from '../hooks/use-sheet-roller'
 import { BLESS_DIE } from '@/mocks/sending-stone'
-import type { LocalCheck, SheetRoll, TypedRolls } from '../../../types/roll'
 import type { DiceEntry, EnterDice } from '@/types/dice-entry'
+import type { LocalCheck, SheetRoll, TypedRolls } from '@/types/roll'
 import type { SheetEffectDie } from '@/types/sending-stone'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))

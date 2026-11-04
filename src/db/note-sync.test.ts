@@ -374,7 +374,6 @@ describe('db/note-sync', () => {
       })
       expect(prismaMock.journalNote.update).toHaveBeenCalledTimes(1)
       expect(prismaMock.journalNote.update).toHaveBeenCalledWith({
-        // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
         where: { bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.cave } },
         data: expect.objectContaining({
           revision: cave.rev,
@@ -971,7 +970,6 @@ describe('db/note-sync', () => {
 
       expect(prismaMock.journalNote.upsert).toHaveBeenCalledWith({
         where: {
-          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
           bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.cave },
         },
         create: expect.objectContaining({
@@ -1167,9 +1165,7 @@ describe('db/note-sync', () => {
             args.data.place,
           ]),
         ).toEqual([
-          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
           [{ bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.rumour } }, 0],
-          // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
           [{ bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.cave } }, 1],
         ])
         expect(prismaMock.journalBook.update).toHaveBeenCalledWith(
@@ -1533,7 +1529,6 @@ describe('db/note-sync', () => {
           [
             {
               where: {
-                // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
                 bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.rumour },
               },
               data: { place: 0 },
@@ -1542,7 +1537,6 @@ describe('db/note-sync', () => {
           [
             {
               where: {
-                // eslint-disable-next-line camelcase -- Prisma's name for the two-part key
                 bookId_noteId: { bookId: 'book-1', noteId: NOTE_IDS.cave },
               },
               data: { place: 1 },

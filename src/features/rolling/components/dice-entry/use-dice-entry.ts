@@ -34,7 +34,6 @@ export function useDiceEntry(): { enter: EnterDice; dialog: ReactNode } {
       new Promise(resolve => {
         const { signal } = entry
         if (signal?.aborted) {
-          // eslint-disable-next-line unicorn/no-useless-undefined -- nothing typed in
           resolve(undefined)
           return
         }

@@ -83,7 +83,6 @@ describe('app/campaigns/[id]/characters/[actor]/page (#156)', () => {
   })
 
   it("is not found, saying nothing more, for another user's campaign or a character not in its roster", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getGmSeat).mockResolvedValue(undefined)
 
     await expect(GmCharacterPage(props('camp1', 'nobody'))).rejects.toThrow(

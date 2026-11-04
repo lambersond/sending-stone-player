@@ -10,7 +10,7 @@ import {
   potionAction,
 } from '@/mocks/sending-stone'
 import { alonePicks, alonePlan, aloneSelection } from '@/utils/alone-choices'
-import type { AloneRow } from '../../../types/roll'
+import type { AloneRow } from '@/types/roll'
 import type { SheetAction, TableDamagePlan } from '@/types/sending-stone'
 
 const bite = {

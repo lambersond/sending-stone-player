@@ -1,7 +1,7 @@
 import { toTableMessage, toTableMessages } from './table-view'
 import { chatMessage } from '@/mocks/sending-stone'
-import type { Viewer } from '../types/table'
 import type { Dnd5eCheck, SerializedMessage } from '@/types/sending-stone'
+import type { Viewer } from '@/types/table'
 
 // A check, from module 0.30.0, as the chat shows it: its own creature, saying whether it succeeded
 // where the viewer may know, as a save rolled from a card does.

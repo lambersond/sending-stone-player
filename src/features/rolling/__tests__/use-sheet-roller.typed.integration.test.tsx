@@ -11,6 +11,7 @@ import { shownTotal } from '@/features/rolling/utils/brief'
 import { ELVEN_LINE } from '@/features/rolling/utils/typed-dice'
 import { BANE_DIE, BLESS_DIE, INSPIRATION_DIE } from '@/mocks/sending-stone'
 import { MAX_EXTRAS } from '@/schemas/roll-request'
+import type { DiceEntry, EnterDice } from '@/types/dice-entry'
 import type {
   LocalCheck,
   LocalDamage,
@@ -20,8 +21,7 @@ import type {
   SheetRoll,
   TypedRolls,
   SheetOffer,
-} from '../../../types/roll'
-import type { DiceEntry, EnterDice } from '@/types/dice-entry'
+} from '@/types/roll'
 import type { DamagePreview, SheetEffectDie } from '@/types/sending-stone'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))

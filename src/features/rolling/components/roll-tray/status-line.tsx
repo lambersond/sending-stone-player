@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { EyeOff, LoaderCircle, Send, TriangleAlert } from 'lucide-react'
-import type { RollBrief } from '../../utils/tray-words'
+import type { RollBrief } from '../../types'
 import type { ReactNode } from 'react'
 
 /**

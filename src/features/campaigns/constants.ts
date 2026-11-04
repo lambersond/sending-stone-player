@@ -12,3 +12,6 @@ export const DANGER_BUTTON =
 /** Its icon buttons, 36 px square. */
 export const ICON_BUTTON =
   'inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger'
+
+/** How long a toast shows, in milliseconds, as the design has it. */
+export const TOAST_FOR = 1800

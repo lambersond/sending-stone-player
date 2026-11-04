@@ -4003,7 +4003,6 @@ describe('utils/roll-requests for companions, from module 0.36.0', () => {
     ) => checkRoll(alone(fields), sheet ?? undefined, [], 'wolfBrakka')
 
     it('takes an attack’s, as the game plans it, and its critical hit’s', () => {
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       expect(check(undefined)).toBeUndefined()
       expect(
         check({ critical: true, dice: [{ faces: 8, results: [5, 2] }] }),
@@ -4097,7 +4096,6 @@ describe('utils/roll-requests for companions, from module 0.36.0', () => {
     })
 
     it('refuses one of uses that don’t recharge, or aren’t its', () => {
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       expect(check(undefined)).toBe('gone')
       expect(check(breathing({ recharge: undefined }))).toBe('gone')
       expect(check(breathing({}), { item: 'wolfBite' })).toBe('gone')

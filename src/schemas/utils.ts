@@ -7,7 +7,6 @@ import type { z } from 'zod'
  * @returns The lenient schema, as `schema.optional().catch(undefined)`.
  */
 export function leftOut<T extends z.ZodType>(schema: T) {
-  // eslint-disable-next-line unicorn/no-useless-undefined -- left out, as junk, for every field
   return schema.optional().catch(undefined)
 }
 

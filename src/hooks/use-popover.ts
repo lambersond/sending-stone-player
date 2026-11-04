@@ -6,10 +6,9 @@ import {
   size,
   useFloating,
   type Placement,
+  type UseFloatingOptions,
 } from '@floating-ui/react'
-// eslint-disable-next-line import/no-restricted-paths -- a popover opens in the modal it's in
 import { usePortalRoot } from '@/components/modal/use-portal-root'
-// eslint-disable-next-line import/no-restricted-paths -- a popover opens in the modal it's in
 import { useTopmostEscape } from '@/components/modal/use-topmost-escape'
 
 /**
@@ -32,7 +31,7 @@ export function usePopover({
   escape = true,
 }: {
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange: NonNullable<UseFloatingOptions['onOpenChange']>
   anchor?: HTMLElement
   placement: Placement
   gap?: Parameters<typeof offset>[0]

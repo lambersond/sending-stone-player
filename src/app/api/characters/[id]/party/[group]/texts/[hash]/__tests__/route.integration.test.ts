@@ -102,7 +102,6 @@ describe('app/api/characters/[id]/party/[group]/texts/[hash]', () => {
   })
 
   it('asks the signed-out to sign in', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     expect(await statusOf(GROUP_TEXTS.description)).toBe(401)
@@ -125,7 +124,6 @@ describe('app/api/characters/[id]/party/[group]/texts/[hash]', () => {
     ['a player with only Limited on it', () => held({ [PARTY.vex]: 'owner' })],
     [
       "another player's character",
-      // eslint-disable-next-line unicorn/no-useless-undefined
       () => jest.mocked(getCharacter).mockResolvedValue(undefined),
     ],
   ])('gives %s nothing, however real the hash', async (_, arrange) => {

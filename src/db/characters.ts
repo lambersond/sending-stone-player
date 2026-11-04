@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import prisma from '@/clients/prisma'
+import type { ChoiceProblem } from '@/db/types'
 import type { Character } from '@/types/character'
 import type { ConnectedCharacter } from '@/types/sending-stone'
 
@@ -49,9 +50,6 @@ export async function getCharacter(
   })
   return row ? toCharacter(row) : undefined
 }
-
-/** Why a character could not be chosen. */
-export type ChoiceProblem = 'invalid-invite' | 'unknown-character' | 'taken'
 
 /**
  * Join the campaign an invite link is for, as one of its characters.

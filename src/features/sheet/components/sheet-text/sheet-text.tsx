@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { drawDescription } from '../../../../components/description/draw-description'
-import { readDescription } from '../../../../components/description/read-description'
 import { useDescriptionActions } from '../description-actions/use-description-actions'
 import { DescriptionLink } from '../description-link/description-link'
 import { useLinkMenus } from '../description-link/use-link-menus'
+import { drawDescription } from '@/components/description/draw-description'
+import { readDescription } from '@/components/description/read-description'
 import { useTableApi } from '@/hooks/use-table-api'
 import type { SheetTextProps } from './types'
 

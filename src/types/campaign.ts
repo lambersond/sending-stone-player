@@ -93,7 +93,7 @@ export type CampaignRefusal = {
 }
 
 /** One of a campaign's characters, as offered to a player choosing theirs. */
-export type CharacterOption = {
+type CharacterOption = {
   id: string
   name: string
   /** Already chosen: by this player, or by someone else. */

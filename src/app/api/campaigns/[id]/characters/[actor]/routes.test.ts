@@ -178,13 +178,11 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
   it.each(Object.keys(routes) as (keyof typeof routes)[])(
     '%s: not found, saying nothing, for another user’s campaign or a character not in its roster; 401 signed out',
     async name => {
-      // eslint-disable-next-line unicorn/no-useless-undefined
       jest.mocked(getGmSeat).mockResolvedValue(undefined)
       const missing = await routes[name]()
       expect(missing.status).toBe(404)
       await expect(missing.text()).resolves.toBe('')
 
-      // eslint-disable-next-line unicorn/no-useless-undefined
       jest.mocked(getCurrentUser).mockResolvedValue(undefined)
       jest.mocked(getGmSeat).mockClear()
       await expect(routes[name]()).resolves.toHaveProperty('status', 401)
@@ -201,7 +199,6 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
   )
 
   it("is not found for a roll that isn't this Gamemaster's as this character", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getRollRequestView).mockResolvedValue(undefined)
     await expect(routes.roll()).resolves.toHaveProperty('status', 404)
   })

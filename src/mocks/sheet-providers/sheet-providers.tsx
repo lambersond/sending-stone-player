@@ -12,10 +12,8 @@ import { Effecting } from '@/features/sheet/components/effect-controls/effecting
 import { useEffectControls } from '@/features/sheet/components/effect-controls/use-effect-controls'
 import { Enchanting } from '@/features/sheet/components/enchantments/enchanting'
 import { FavoriteMarks } from '@/features/sheet/components/favorite-mark/favorite-marks'
-import {
-  Favoriting,
-  useFavorites,
-} from '@/features/sheet/components/favoriting/favoriting'
+import { Favoriting } from '@/features/sheet/components/favoriting/favoriting'
+import { useFavorites } from '@/features/sheet/components/favoriting/use-favorites'
 import { Preparing } from '@/features/sheet/components/preparing/preparing'
 import { usePreparing } from '@/features/sheet/components/preparing/use-preparing'
 import { useWildShape } from '@/features/sheet/components/wild-shape/use-wild-shape'

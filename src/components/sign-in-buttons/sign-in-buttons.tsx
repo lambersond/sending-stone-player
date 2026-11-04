@@ -6,7 +6,7 @@ import { authClient } from '@/clients/auth-client'
 import { DiscordIcon } from '@/components/icons/discord'
 import { GoogleIcon } from '@/components/icons/google'
 import type { SignInButtonsProps } from './types'
-import type { SocialProviderId } from '@/auth-providers'
+import type { SocialProviderId } from '@/types/auth'
 
 const PROVIDERS: Record<
   SocialProviderId,

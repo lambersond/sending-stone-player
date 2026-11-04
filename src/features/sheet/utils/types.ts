@@ -1,4 +1,5 @@
 import type { DamageModifiers } from '@/types/roll'
+import type { SlotPool } from '@/types/sending-stone'
 
 /**
  * How the player rolls damage on its own: as a critical hit's, changed, as a kind chosen; and from
@@ -19,3 +20,9 @@ export type AloneChoice = {
   /** Spend what using it would, as the Spend switch says. Module 0.41.0. */
   consume?: true
 }
+
+/**
+ * A pool of the character's spell slots, as its dots name it: its spellbook section's id, such as
+ * "spell1" or "pact", and the level a spell is cast at with one, unknown from an older module.
+ */
+export type SpellSlotPool = Pick<SlotPool, 'id' | 'level'>

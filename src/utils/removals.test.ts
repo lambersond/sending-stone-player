@@ -51,7 +51,6 @@ describe('utils/removals', () => {
 
     it('refuses an item not on the sheet, or no sheet at all, as gone', () => {
       expect(checkRemoval(removal('wandOfMagic1', 1), sheet)).toBe('gone')
-      // eslint-disable-next-line unicorn/no-useless-undefined -- a character with no sheet yet
       expect(checkRemoval(removal('ropeThorin01', 1), undefined)).toBe('gone')
       expect(checkRemoval(removal('ropeThorin01', 1), {})).toBe('gone')
     })

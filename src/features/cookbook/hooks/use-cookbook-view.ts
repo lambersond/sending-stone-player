@@ -7,12 +7,9 @@ import {
   readCard,
   subscribe,
 } from './cookbook-store'
-import { COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
+import { COOKBOOK_MOST_DELAY, COOKBOOK_POLL_EVERY } from '@/constants/cookbook'
 import { retryDelay } from '@/utils/polling'
 import type { CookbookView } from '@/types/cookbook'
-
-/** The longest wait between reads while the server can't be reached. */
-const MOST_DELAY = 120_000
 
 /** Forgets every card the page holds, as a reload does. */
 export function forgetCookbook(): void {
@@ -85,7 +82,7 @@ export function useCookbookView(
       if (controller.signal.aborted) return
       timer = setTimeout(
         tick,
-        retryDelay(COOKBOOK_POLL_EVERY, failures, MOST_DELAY),
+        retryDelay(COOKBOOK_POLL_EVERY, failures, COOKBOOK_MOST_DELAY),
       )
     }
 

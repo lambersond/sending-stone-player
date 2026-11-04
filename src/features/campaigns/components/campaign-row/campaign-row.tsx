@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { CircleAlert, Plug } from 'lucide-react'
-import { CampaignStatus, LastHeard } from '../campaign-status/campaign-status'
+import { CampaignStatus } from '../campaign-status/campaign-status'
+import { LastHeard } from '../campaign-status/last-heard'
 import { SeatAvatars } from '../seat-avatars/seat-avatars'
 import type { CampaignRowData } from '@/features/campaigns/types'
 

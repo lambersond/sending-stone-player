@@ -1,5 +1,6 @@
 import { SETTLED } from '@/constants/lifecycle'
 import { needsPlayer } from '@/features/rolling/utils/damage-due'
+import type { RollToast, ToastBook, ToastDraft } from '@/features/rolling/types'
 import type { LocalRoll, TableRollState } from '@/types/roll'
 
 /**
@@ -54,26 +55,6 @@ export function belowTurn(
   turnFoot: number | undefined,
 ): number | undefined {
   return turnFoot === undefined ? own : Math.max(own ?? 0, turnFoot + TOAST_GAP)
-}
-
-/**
- * A roll's toast: its roll's id, when it popped up, and when it goes: never, while its roll waits
- * for the player (`needsPlayer`).
- */
-export type RollToast = { id: string; poppedAt: number; until: number }
-
-/** The toasts showing, and what's known of every roll met, to pop each up only as it should. */
-export type ToastBook = {
-  /** Newest first, at most `TOAST_CAP` but for those that wait for the player, or just popped. */
-  shown: RollToast[]
-  /** Every roll met, by its id, whether it popped up or not. */
-  seen: ReadonlySet<string>
-  /** The rolls met while toasts were off, which never pop up. */
-  quiet: ReadonlySet<string>
-  /** Of each roll, how its way to the game ended, as its toast last said (`settledMark`). */
-  told: ReadonlyMap<string, string>
-  /** Whether the page has met its rolls yet: those it opens with are met as it opens. */
-  opened: boolean
 }
 
 export const NO_TOASTS: ToastBook = {
@@ -137,17 +118,12 @@ export function popToasts(
  * is made to a copy; and the toasts popped up now, which the cap leaves be, so that every roll
  * shows.
  */
-function draftOf(book: ToastBook) {
+function draftOf(book: ToastBook): ToastDraft {
   return { ...book, popped: new Set<RollToast>() }
 }
 
 /** A roll's toast popped up on top, now, to go at `until`. */
-function pop(
-  draft: ReturnType<typeof draftOf>,
-  id: string,
-  now: number,
-  until: number,
-) {
+function pop(draft: ToastDraft, id: string, now: number, until: number) {
   const toast = { id, poppedAt: now, until }
   draft.popped.add(toast)
   draft.shown = [toast, ...draft.shown]
@@ -158,7 +134,7 @@ function pop(
  * the book has met it, how its way to the game ended, and whether it waits for the player.
  */
 function meet(
-  draft: ReturnType<typeof draftOf>,
+  draft: ToastDraft,
   roll: LocalRoll,
   state: TableRollState | undefined,
   now: number,
@@ -199,7 +175,7 @@ function meet(
  * had ended before the page opened, which stays quiet.
  */
 function meetNew(
-  draft: ReturnType<typeof draftOf>,
+  draft: ToastDraft,
   roll: LocalRoll,
   mark: string | undefined,
   { now, until, on }: { now: number; until: number; on: boolean },
@@ -225,7 +201,7 @@ function meetNew(
  * going in its own time, until the next pops up.
  */
 function capped(
-  draft: ReturnType<typeof draftOf>,
+  draft: ToastDraft,
   rolls: readonly LocalRoll[],
   on: boolean,
 ): RollToast[] {

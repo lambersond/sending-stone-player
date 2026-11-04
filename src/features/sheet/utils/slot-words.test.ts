@@ -1,6 +1,6 @@
 import { createElement } from 'react'
 import { render, screen, within } from '@testing-library/react'
-import { slotName, slotWords, type SpellSlotPool } from './slot-words'
+import { slotName, slotWords } from './slot-words'
 import { UsePicker } from '@/features/sheet/components/use-picker/use-picker'
 import {
   aloneSpells,
@@ -8,6 +8,7 @@ import {
   hellishRebukeAction,
   pactSpells,
 } from '@/mocks/sending-stone'
+import type { SpellSlotPool } from './types'
 import type { SheetAction, SheetSpellSection } from '@/types/sending-stone'
 
 /*

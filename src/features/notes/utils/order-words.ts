@@ -1,7 +1,7 @@
-import { seatWords } from '../../../utils/seat-words'
 import { noteRefusalWords } from './note-words'
-import type { SeatRole } from '../../../types/seats'
+import { seatWords } from '@/utils/seat-words'
 import type { NoteBookKind, NoteOrderState, NoteRefusal } from '@/types/notes'
+import type { SeatRole } from '@/types/seats'
 
 /*
  * What the journal says of a group's order and of a note moved to a chapter (round 0.35.0 §9.6), in

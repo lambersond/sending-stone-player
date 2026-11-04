@@ -252,7 +252,7 @@ export function moreNote(count: number): string | undefined {
  * How an action is activated, but where its section of the Actions tab says it already, as one
  * action does under Actions, or a reaction under Reactions.
  */
-export function activationIn(
+function activationIn(
   action: Pick<SheetAction, 'activation' | 'activationType'>,
   section?: string,
 ): string | null | undefined {

@@ -125,7 +125,6 @@ describe('app/api/characters/[id]/party/[group]/notes/[note]', () => {
 
   it('answers 404 for a party the character may not see now, changing nothing', async () => {
     jest.mocked(getCharacter).mockResolvedValue(THORIN)
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
 
     await expect(patch({ title: 'a', stamp: 'n:' })).resolves.toHaveProperty(

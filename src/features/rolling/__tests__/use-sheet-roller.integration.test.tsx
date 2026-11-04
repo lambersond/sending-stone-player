@@ -8,7 +8,7 @@ import type {
   LocalDamage,
   LocalFormula,
   SheetFormulaRoll,
-} from '../../../types/roll'
+} from '@/types/roll'
 
 jest.mock('@lambersond/3d-dice-react', () => ({ useDiceRenderer: jest.fn() }))
 

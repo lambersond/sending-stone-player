@@ -1,7 +1,5 @@
 import clsx from 'clsx'
-import { LocalTime } from '@/components/local-time/local-time'
 import type { FoundryState } from '@/features/campaigns/types'
-import type { OwnedCampaign } from '@/types/campaign'
 
 const CHIPS: Record<
   FoundryState,
@@ -34,18 +32,6 @@ export function CampaignStatus({ state }: Readonly<{ state: FoundryState }>) {
     >
       <span aria-hidden className={clsx('size-2 rounded-full', dot)} />
       {label}
-    </span>
-  )
-}
-
-/** When Foundry was last heard for a campaign, where it isn't live and has been heard. */
-export function LastHeard({
-  campaign,
-}: Readonly<{ campaign: Pick<OwnedCampaign, 'live' | 'lastSeenAt'> }>) {
-  if (campaign.live || !campaign.lastSeenAt) return
-  return (
-    <span className='text-xs whitespace-nowrap text-text-secondary'>
-      Last heard <LocalTime value={campaign.lastSeenAt} />
     </span>
   )
 }

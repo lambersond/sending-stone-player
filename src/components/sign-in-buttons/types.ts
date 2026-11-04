@@ -1,4 +1,4 @@
-import type { SocialProviderId } from '@/auth-providers'
+import type { SocialProviderId } from '@/types/auth'
 
 export type SignInButtonsProps = {
   providers: SocialProviderId[]

@@ -425,7 +425,6 @@ describe('app/api/characters/[id]/table', () => {
   })
 
   it('refuses someone not signed in', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     const response = await get()
@@ -435,7 +434,6 @@ describe('app/api/characters/[id]/table', () => {
   })
 
   it("is not found for a character that isn't the user's", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     const response = await get()

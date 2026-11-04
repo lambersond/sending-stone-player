@@ -66,7 +66,7 @@ export type RollSource =
     } & AttackChoices)
 
 /** What a player chooses an attack is made with; the game's own choice for what they leave out. */
-export type AttackChoices = {
+type AttackChoices = {
   /** The spell slot a spell is cast with, such as "spell3" or "pact". */
   slot?: string | null
   /** The ammunition's item id. */
@@ -106,15 +106,6 @@ export type EnchantChoice = { profile: string; item?: string }
 export type EndEnchantmentSource = {
   kind: 'endEnchantment'
   item: string
-  effect: string
-}
-
-/**
- * A concentration of the character's ended, as dnd5e's Break Concentration ends it, with what
- * depends on it, from module 0.29.0: its effect's id.
- */
-export type EndConcentrationSource = {
-  kind: 'endConcentration'
   effect: string
 }
 
@@ -219,7 +210,7 @@ export type FormulaSource =
   | ({ kind: 'textRoll' } & TextLink)
 
 /** Hit dice of one size spent at once: the size, such as "d10", and how many. */
-export type HitDiceSpent = { denomination: string; count: number }
+type HitDiceSpent = { denomination: string; count: number }
 
 /**
  * A link in one of the character's descriptions the game acts on, by which the game finds what it
@@ -1028,7 +1019,7 @@ export type ExtraDice = {
 }
 
 /** A flat number added to or taken from a roll. */
-export type ExtraFlat = { sign: 1 | -1; flat: number }
+type ExtraFlat = { sign: 1 | -1; flat: number }
 
 export type ExtraTerm = ExtraDice | ExtraFlat
 

@@ -185,7 +185,7 @@ export function checkMenuItems({
  * @param usingTool - For a skill check made using a tool, the tool's key.
  * @param from - What it's rolled for, for the game to make it too; nothing for the player's alone.
  */
-export function checkTarget(
+function checkTarget(
   option: CheckWay,
   name: string,
   actions: DescriptionActions,
@@ -406,7 +406,7 @@ export function modeWord(mode: number): string {
 }
 
 /** A reason as a sentence of its own, such as under a menu item. */
-export function sentence(reason: string): string {
+function sentence(reason: string): string {
   return `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`
 }
 

@@ -201,7 +201,6 @@ describe('db/companions', () => {
           imp,
         ]),
       ).toEqual([wolf, imp])
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       expect(companionRoster(undefined)).toEqual([])
       expect(companionRoster({ wolf })).toEqual([])
     })

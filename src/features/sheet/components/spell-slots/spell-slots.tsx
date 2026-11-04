@@ -5,12 +5,10 @@ import clsx from 'clsx'
 import { useCharging } from '../charging/use-charging'
 import { slotsName, slotsLive, MAX_PIPS } from './utils'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
-import {
-  slotWords,
-  type SpellSlotPool,
-} from '@/features/sheet/utils/slot-words'
+import { slotWords } from '@/features/sheet/utils/slot-words'
 import type { Asked } from './types'
 import type { ChargeActions } from '../charging/types'
+import type { SpellSlotPool } from '@/features/sheet/utils/types'
 import type { SpellSlotOp } from '@/types/sending-stone'
 
 /**

@@ -63,7 +63,6 @@ describe('app/api/campaigns/[id]/party/[group]/texts/[hash]', () => {
     expect(await statusOf(TEXTS.biography)).toBe(404)
     jest.mocked(getCurrentUser).mockResolvedValue({ id: 'gm-2' } as any)
     expect(await statusOf(GROUP_TEXTS.description)).toBe(404)
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
     expect(await statusOf(GROUP_TEXTS.description)).toBe(401)
   })

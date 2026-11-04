@@ -39,6 +39,7 @@ export function useJournalLayout(container: RefObject<HTMLDivElement | null>) {
   }, [container])
   // Grown past it, the contents are a pane again, and no drawer is open.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a commit after it grew, as ever
     if (!narrow) setDrawer(false)
   }, [narrow])
   // Turned short, as a keyboard comes up under the field being typed in, the journal scrolls from

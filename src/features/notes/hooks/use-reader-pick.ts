@@ -22,8 +22,10 @@ export function useReaderPick({
 }) {
   // The reading order as last drawn, to find what follows a note that has left the view.
   const drawn = useRef<NoteEntryView[]>([])
+  // eslint-disable-next-line react-hooks/refs -- the order as the last commit drew it, by design
+  const before = drawn.current
   const shownNow = groups
-    ? showing({ pick, groups, order, before: drawn.current, draft })
+    ? showing({ pick, groups, order, before, draft })
     : undefined
   const note = shownNow?.note
   const group = shownNow?.group

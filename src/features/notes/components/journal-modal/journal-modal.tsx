@@ -105,8 +105,10 @@ export function JournalModal({
   const { root, attach } = useDialogRoot(ref)
   const titleId = useId()
   const inset = useKeyboardInset(open)
-  // Shown once the dialog is, by the effect above that shows it.
+  // Shown once the dialog is, by the effect above that shows it: a commit later, so that its
+  // transition runs.
   const [shown, setShown] = useState(false)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- a commit after it opens
   useEffect(() => setShown(open), [open])
 
   return (

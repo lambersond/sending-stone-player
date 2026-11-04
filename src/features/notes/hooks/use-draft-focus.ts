@@ -24,10 +24,16 @@ export function useDraftFocus({
     body?: RefObject<HTMLTextAreaElement | null>
   }
 }): void {
-  // As the editor mounts, from the draft it mounts with: the effect runs only then.
-  const mounted = useRef(draft)
+  // As the editor mounts, from the draft, fields and setter it mounts with: the effect runs only
+  // then.
+  const mounted = useRef({ draft, setDraft, form, fields })
   useLayoutEffect(() => {
-    const { key } = mounted.current
+    const {
+      draft: { key },
+      setDraft,
+      form,
+      fields,
+    } = mounted.current
     // Where focus was is read from the draft as it's held now, not as this editor was rendered
     // with it: where the editor it replaces unmounted in the same commit, as when the sheet
     // arrives, that one noted it after this one was rendered.

@@ -293,3 +293,6 @@ export type JournalDrawings = { origin: string; html: Map<string, string> }
 
 /** A database transaction's client, as the writes made in one take it. */
 export type Tx = Prisma.TransactionClient
+
+/** Why a character could not be chosen. */
+export type ChoiceProblem = 'invalid-invite' | 'unknown-character' | 'taken'

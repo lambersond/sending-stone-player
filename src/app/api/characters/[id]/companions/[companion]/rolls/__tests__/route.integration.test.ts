@@ -65,7 +65,6 @@ describe('app/api/characters/[id]/companions/[companion]/rolls', () => {
   })
 
   it('answers 401 signed out', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     const response = await post()
@@ -74,7 +73,6 @@ describe('app/api/characters/[id]/companions/[companion]/rolls', () => {
   })
 
   it('answers 404, saying no more, for a character not theirs, another player’s, or a companion not listed', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getCharacter).mockResolvedValue(undefined)
     await expect(post()).resolves.toHaveProperty('status', 404)
 

@@ -8,10 +8,9 @@ import {
   SLOT_REASONS,
   toneOf,
   wayWords,
-  type Creature,
-  type RollBrief,
 } from '@/features/rolling/utils/tray-words'
 import { seatWords } from '@/utils/seat-words'
+import type { Creature, RollBrief } from '@/features/rolling/types'
 import type { TableRollState, LocalGmRoll, RollKindInfo } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 

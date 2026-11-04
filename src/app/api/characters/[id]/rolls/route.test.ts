@@ -137,11 +137,9 @@ describe('app/api/characters/[id]/rolls', () => {
   })
 
   it('refuses someone not signed in, or a character not theirs', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCharacter).mockResolvedValue(undefined)
     await expect(post()).resolves.toHaveProperty('status', 404)
 
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
     await expect(post()).resolves.toHaveProperty('status', 401)
     expect(createRollRequest).not.toHaveBeenCalled()

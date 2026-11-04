@@ -9,11 +9,11 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/constants'
 import { DescriptionLinks } from '../description-actions/description-links'
 import { sheetTools } from '../description-actions/utils'
 import { SheetText } from '../sheet-text/sheet-text'
 import { Modal } from '@/components/modal/modal'
+import { LONG_PRESS } from '@/features/rolling/constants'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { characterSheet, sheetFavorites } from '@/mocks/sending-stone'
 import type { DescriptionActions } from '../description-actions/types'

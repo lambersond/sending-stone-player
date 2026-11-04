@@ -28,7 +28,7 @@ export type NoteReason =
   | 'error'
 
 /** Who wrote or last changed a note, by name: a character, the Gamemaster, or a Foundry user. */
-export type NoteWho = { name: string }
+type NoteWho = { name: string }
 
 export type NoteChapterView = {
   id: string

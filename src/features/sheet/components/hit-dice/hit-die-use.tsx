@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { RollButton } from '../../../rolling/components/roll-button/roll-button'
 import { NONE_LEFT } from './constants'
 import { HitDiceMenu } from './hit-dice-menu'
 import { leftOf, withPool } from './utils'
+import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
 import type { HitDieSpending } from './types'
-import type { MenuPoint } from '../../../rolling/types'
+import type { MenuPoint } from '@/features/rolling/types'
 import type { HitDicePool } from '@/types/roll'
 
 /** Why no hit die is spent at full hit points, as a Use button's title says. */

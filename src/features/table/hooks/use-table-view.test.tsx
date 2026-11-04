@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
-import { POLL_INTERVAL } from '../../../constants/polling'
 import { useTableView } from './use-table-view'
+import { POLL_INTERVAL } from '@/constants/polling'
 import { advance, respond } from '@/utils/test-utils'
 import type { TableView } from '@/types/table'
 

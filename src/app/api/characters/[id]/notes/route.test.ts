@@ -99,7 +99,6 @@ describe('app/api/characters/[id]/notes', () => {
   })
 
   it('answers 404 for another player’s character, saying no more, and never 204', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     for (const response of [await get(), await get('?version=3&live=1')]) {

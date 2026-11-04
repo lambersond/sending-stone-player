@@ -670,7 +670,6 @@ function outcome(result: CommandResult): {
 
 /** A note's key in its book, as Prisma names the pair. */
 function noteKey(bookId: string, noteId: string) {
-  // eslint-disable-next-line camelcase -- Prisma's name for the table's two-part key
   return { bookId_noteId: { bookId, noteId } }
 }
 

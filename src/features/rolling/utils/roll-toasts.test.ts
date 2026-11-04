@@ -9,8 +9,8 @@ import {
   TOAST_FOR,
   TOAST_GAP,
   toastTop,
-  type ToastBook,
 } from './roll-toasts'
+import type { ToastBook } from '../types'
 import type { LocalCheck, LocalUse, TableRollState } from '@/types/roll'
 
 /** A check, thrown at `at`. */

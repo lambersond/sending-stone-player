@@ -1,4 +1,4 @@
-import { reasons } from '../../../../utils/roll-reasons'
+import { reasons } from '@/utils/roll-reasons'
 import { articled, canReturn, isIncapacitated } from '@/utils/wild-shape'
 import {
   attackWords,
@@ -137,7 +137,7 @@ const STEPS: Record<string, 1 | -1> = {
 }
 
 /** The card a roving radiogroup's arrow lands on: the next offered, wrapping, either way. */
-export function nextOffered(
+function nextOffered(
   ids: string[],
   from: string | undefined,
   key: string,

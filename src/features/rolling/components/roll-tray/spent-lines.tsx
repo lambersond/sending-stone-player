@@ -1,5 +1,5 @@
-import { useSpent } from '../../../sheet/components/effect-controls/use-spent'
 import { spentLine } from '../../utils/tray-words'
+import { useSpent } from '@/features/sheet/components/effect-controls/use-spent'
 import type { LocalRoll, TableRollState } from '@/types/roll'
 
 /**

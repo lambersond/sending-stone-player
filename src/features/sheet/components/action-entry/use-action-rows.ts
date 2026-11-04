@@ -1,9 +1,9 @@
 import { createElement, Fragment, useMemo, type ReactNode } from 'react'
-import { useD20Rolls } from '../../../rolling/components/d20-rolls/use-d20-rolls'
 import { useActionInfo } from '../action-info/use-action-info'
 import { useDescriptionActions } from '../description-actions/use-description-actions'
 import { useLinkMenus } from '../description-link/use-link-menus'
 import { useDamageRolls } from './use-damage-rolls'
+import { useD20Rolls } from '@/features/rolling/components/d20-rolls/use-d20-rolls'
 import { castIndex } from '@/utils/casts'
 import type { TableDamage, ActionRows } from './types'
 import type {

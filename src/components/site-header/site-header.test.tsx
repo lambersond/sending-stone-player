@@ -32,7 +32,6 @@ describe('components/site-header', () => {
   })
 
   it('offers sign-in to someone signed out', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
     render(await HeaderAccount())
 

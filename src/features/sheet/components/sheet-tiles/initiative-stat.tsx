@@ -2,11 +2,11 @@
 
 import clsx from 'clsx'
 import { Zap } from 'lucide-react'
-import { RollButton } from '../../../rolling/components/roll-button/roll-button'
 import { Stat } from './stat'
+import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
 import { afterWords } from '@/utils/creature-words'
 import { formatModifier } from '@/utils/format-modifier'
-import type { RollActions } from '../../../rolling/types'
+import type { RollActions } from '@/features/rolling/types'
 
 /**
  * The tile of a character's or a creature's initiative. While its combatant waits to roll, a

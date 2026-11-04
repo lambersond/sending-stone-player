@@ -117,7 +117,6 @@ describe('app/api/characters/[id]/cookbook', () => {
   })
 
   it("answers a bare 404 for another user's character", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getCharacter).mockResolvedValue(undefined)
 
     const response = await get()
@@ -142,7 +141,6 @@ describe('app/api/characters/[id]/cookbook', () => {
   })
 
   it('answers a bare 404 where the campaign is gone', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
     jest.mocked(getCookbookView).mockResolvedValue(undefined)
 
     const response = await get()

@@ -1177,7 +1177,7 @@ function iconUrl(img: string | null, origin: string): string | null {
  * Where an image from the game loads from, such as an icon: Foundry keeps its own files, such as
  * icons/svg/item-bag.svg, relative to the game's address. Only web addresses are kept.
  */
-export function gameAssetUrl(
+function gameAssetUrl(
   img: string | null | undefined,
   origin: string,
 ): string | undefined {

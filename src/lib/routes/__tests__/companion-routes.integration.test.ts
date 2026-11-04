@@ -78,7 +78,6 @@ describe('lib/companion-routes', () => {
 
     it('seats no one at a character that isn’t theirs, or at a companion that isn’t its', async () => {
       held()
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(getCharacter).mockResolvedValue(undefined)
       await expect(
         playerCompanionSeat('user-2', 'char-1', 'wolfBrakka'),
@@ -138,7 +137,6 @@ describe('lib/companion-routes', () => {
       })
 
       // Never for a character not theirs, another campaign's Gamemaster, or a bad key.
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(getCharacter).mockResolvedValue(undefined)
       await expect(
         playerCompanionRollSeat('user-2', 'char-1', 'wolfBrakka'),

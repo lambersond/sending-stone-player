@@ -4,7 +4,7 @@ import { Charging } from '../charging/charging'
 import { SpellSlots } from './spell-slots'
 import { slotsLive } from './utils'
 import type { ChargeActions } from '../charging/types'
-import type { SpellSlotPool } from '@/features/sheet/utils/slot-words'
+import type { SpellSlotPool } from '@/features/sheet/utils/types'
 
 /*
  * A pool's dots, from module 0.42.1 (round 0.42.1 §U.1, §U.6): pictures, as ever, unless the pane

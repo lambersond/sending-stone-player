@@ -42,9 +42,7 @@ let held: NoteDraft | undefined
 type EditorProps = Parameters<typeof NoteEditor>[0]
 
 /** No preview, as a server that can't be reached gives none. */
-const noPreview: EditorProps['preview'] = async () =>
-  // eslint-disable-next-line unicorn/no-useless-undefined -- the preview's none
-  undefined
+const noPreview: EditorProps['preview'] = async () => undefined
 
 /**
  * An editor whose draft is held by its owner, shown or not, as the page's store holds it: a

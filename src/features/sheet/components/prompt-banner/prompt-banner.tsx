@@ -2,8 +2,6 @@
 
 import { type ReactNode, type Ref } from 'react'
 import { BellRing, Check, LoaderCircle, Timer } from 'lucide-react'
-import { useD20Rolls } from '../../../rolling/components/d20-rolls/use-d20-rolls'
-import { RollButton } from '../../../rolling/components/roll-button/roll-button'
 import { useSecondsLeft } from './use-seconds-left'
 import {
   abilitiesOf,
@@ -14,12 +12,14 @@ import {
   midiTitleOf,
   titleOf,
 } from './utils'
+import { useD20Rolls } from '@/features/rolling/components/d20-rolls/use-d20-rolls'
+import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { useTableRole } from '@/hooks/use-table-api'
 import { formatModifier } from '@/utils/format-modifier'
 import { seatWords } from '@/utils/seat-words'
 import type { Ability, Choice } from './types'
-import type { RollActions, RollTarget } from '../../../rolling/types'
+import type { RollActions, RollTarget } from '@/features/rolling/types'
 import type { SheetRoll } from '@/types/roll'
 import type { TablePrompt, TableSheet } from '@/types/table'
 

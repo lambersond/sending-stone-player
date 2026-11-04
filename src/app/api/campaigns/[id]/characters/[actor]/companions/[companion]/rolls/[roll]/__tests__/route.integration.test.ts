@@ -98,7 +98,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls
   })
 
   it('answers 401 signed out', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- signed out
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     const response = await get()

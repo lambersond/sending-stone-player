@@ -134,7 +134,6 @@ describe('app/api/characters/[id]/party/[group]/notes/order', () => {
   })
 
   it('answers 404 for a party the player may not see now, saying no more', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- not theirs to see
     jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
 
     for (const [method, body] of [

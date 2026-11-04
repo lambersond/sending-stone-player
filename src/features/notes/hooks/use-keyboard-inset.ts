@@ -24,6 +24,9 @@ export function useKeyboardInset(active: boolean): CSSProperties | undefined {
   useEffect(() => {
     const viewport = globalThis.visualViewport
     if (!active || !viewport) {
+      // Cleared after the commit that closes it, so that it never opens where the last keyboard
+      // left it.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- after the commit, by design
       setStyle(undefined)
       return
     }

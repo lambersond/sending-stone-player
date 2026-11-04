@@ -127,7 +127,6 @@ describe('app/api/campaigns/[id]/party/[group]', () => {
   })
 
   it('asks the signed-out to sign in', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getCurrentUser).mockResolvedValue(undefined)
 
     expect(await statusOf('company')).toBe(401)

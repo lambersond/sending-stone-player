@@ -166,7 +166,6 @@ describe('hooks/use-spent-offers', () => {
     expect(send).not.toHaveBeenCalled()
 
     // Not waiting by the controls' own word, but turned down as it's sent.
-    // eslint-disable-next-line unicorn/no-useless-undefined -- none sent
     send.mockReturnValueOnce(undefined)
     rerender({ states: new Map([[SAVE.id, state('done')]]) })
     expect(send).toHaveBeenCalledTimes(1)

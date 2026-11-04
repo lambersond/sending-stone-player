@@ -70,7 +70,6 @@ describe('app/join/[code]/page', () => {
   })
 
   it("says when a link doesn't work", async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(findInvite).mockResolvedValue(undefined)
     render(await JoinPage(props('old')))
 

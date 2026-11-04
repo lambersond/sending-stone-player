@@ -140,7 +140,7 @@ import {
   WILD_SHAPE_OPS,
   WILD_SHAPE_SETTLE,
 } from '@/constants/sending-stone'
-import { TOAST_FOR as PAGE_TOAST_FOR } from '@/features/campaigns/components/page-toast/page-toast'
+import { TOAST_FOR as PAGE_TOAST_FOR } from '@/features/campaigns/constants'
 import { TOAST_FOR as ROLL_TOAST_FOR } from '@/features/rolling/utils/roll-toasts'
 import {
   CONDITION_BASICS,

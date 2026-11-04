@@ -146,12 +146,10 @@ describe('app/characters/[id]/party/[group]/page', () => {
   it.each([
     [
       "another player's character",
-      // eslint-disable-next-line unicorn/no-useless-undefined
       () => jest.mocked(getCharacter).mockResolvedValue(undefined),
     ],
     [
       'a party sheet the player may not see',
-      // eslint-disable-next-line unicorn/no-useless-undefined
       () => jest.mocked(getGroupView).mockResolvedValue(undefined),
     ],
   ])(

@@ -7,10 +7,10 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/constants'
 import { HitDieUse } from './hit-die-use'
 import { hitDieSpending } from './utils'
 import { Modal } from '@/components/modal/modal'
+import { LONG_PRESS } from '@/features/rolling/constants'
 import { characterSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { HitDicePool } from '@/types/roll'

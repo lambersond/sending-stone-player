@@ -2,11 +2,11 @@
 
 import clsx from 'clsx'
 import { Dices } from 'lucide-react'
-import { RollButton } from '../../../rolling/components/roll-button/roll-button'
 import { Stat } from './stat'
 import { isShowingDeathSaves } from './utils'
+import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
 import { isDying } from '@/utils/requests/status'
-import type { RollActions } from '../../../rolling/types'
+import type { RollActions } from '@/features/rolling/types'
 import type { TableSheet } from '@/types/table'
 
 /**

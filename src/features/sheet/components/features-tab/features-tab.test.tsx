@@ -7,12 +7,12 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/constants'
 import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
 import { useWildShape } from '../wild-shape/use-wild-shape'
 import { WildShaping } from '../wild-shape/wild-shaping'
 import { FeaturesTab } from './features-tab'
+import { LONG_PRESS } from '@/features/rolling/constants'
 import {
   characterSheet,
   druidSheet,

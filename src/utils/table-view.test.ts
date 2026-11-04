@@ -18,13 +18,13 @@ import {
   sheetFavorites,
   sheetItem,
 } from '@/mocks/sending-stone'
-import type { Viewer } from '../types/table'
 import type {
   CharacterSheet,
   RollSummary,
   SerializedMessage,
   SheetContainer,
 } from '@/types/sending-stone'
+import type { Viewer } from '@/types/table'
 
 const viewer: Viewer = {
   actorId: 'actor-thorin',

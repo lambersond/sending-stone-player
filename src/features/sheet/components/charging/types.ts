@@ -1,4 +1,4 @@
-import type { SpellSlotPool } from '@/features/sheet/utils/slot-words'
+import type { SpellSlotPool } from '@/features/sheet/utils/types'
 import type { SheetCounter, SpellSlotOp } from '@/types/sending-stone'
 
 /**

@@ -2,8 +2,8 @@
 
 import { type ComponentProps, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { RollsButton } from '../../../rolling/components/rolls-button/rolls-button'
 import { SheetSettings } from '../sheet-settings/sheet-settings'
+import { RollsButton } from '@/features/rolling/components/rolls-button/rolls-button'
 import type { SheetTab, TabEntry } from './types'
 import type { SheetSettingsProps } from '../sheet-settings/types'
 

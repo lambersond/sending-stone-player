@@ -7,7 +7,6 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../../rolling/constants'
 import { castNote, verbOf } from '../action-entry/utils'
 import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
@@ -16,6 +15,7 @@ import { usePreparing } from '../preparing/use-preparing'
 import { useWildShape } from '../wild-shape/use-wild-shape'
 import { WildShaping } from '../wild-shape/wild-shaping'
 import { ActionsTab } from './actions-tab'
+import { LONG_PRESS } from '@/features/rolling/constants'
 import { SheetIdPrefix } from '@/features/sheet/hooks/use-sheet-ids'
 import { fireBreath, lightningBreath, spiritSheet } from '@/mocks/alone'
 import {

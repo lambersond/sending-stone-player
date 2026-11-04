@@ -1,6 +1,6 @@
 import { Users, PanelRightOpen } from 'lucide-react'
-import { EntryIcon } from '../../../../components/entry-icon/entry-icon'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
+import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import type { PartySheets } from './types'
 
 /**

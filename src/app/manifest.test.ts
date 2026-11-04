@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable camelcase -- the Web App Manifest's own names */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import manifest from './manifest'

@@ -5,7 +5,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react'
-import type { RollBrief } from '../../utils/tray-words'
+import type { RollBrief } from '../../types'
 
 /** Each kind of total's colours, in the tray and the toasts alike. */
 export const BADGES: Record<RollBrief['badge'], string> = {

@@ -1,3 +1,4 @@
+import type { useCreature } from '@/hooks/use-creature'
 import type {
   SheetDamageRoll,
   RollSource,
@@ -203,3 +204,64 @@ export type GmRolls = {
   rolls: LocalGmRoll[]
   states: ReadonlyMap<string, TableRollState>
 }
+
+/** The creature a pane is for, where it isn't the character (module 0.36.0). */
+export type Creature = NonNullable<ReturnType<typeof useCreature>>
+
+/** A roll in brief, as its toast says it: what it was, what it came to, and its way to the game. */
+export type RollBrief = {
+  label: string
+  /**
+   * How its total shows, as the tray's: a critical, a fumble, damage, healing, a use or an ask; and
+   * for one of the Gamemaster's as the character (#156), hidden, or dice while there's no total.
+   */
+  badge:
+    | 'critical'
+    | 'fumble'
+    | 'plain'
+    | 'damage'
+    | 'healing'
+    | 'use'
+    | 'ask'
+    | 'hidden'
+    | 'dice'
+  /** The colour its toast is edged and tinted in, by how it came out (`accentOf`). */
+  accent: 'warning' | 'gold' | 'ruby' | 'damage' | 'primary'
+  /** None for a use or an ask, which show an icon; "…" while the game's total is awaited. */
+  total?: number | string
+  /** Its dice, in a line; none for a use or an ask. */
+  dice?: string
+  /** Its way to the game, in the tray's words; none for a roll never sent. */
+  table?: { tone: 'pending' | 'made' | 'not'; text: string }
+  /** Made by the Gamemaster as the player's character (#156), marked so. */
+  gm?: true
+}
+
+/**
+ * A command's way to the game, in words (`wayWords`): while it's on its way, once the game has
+ * done it, and where it hasn't.
+ */
+export type WayWords = { doing: string; done: string; not: string }
+
+/**
+ * A roll's toast: its roll's id, when it popped up, and when it goes: never, while its roll waits
+ * for the player (`needsPlayer`).
+ */
+export type RollToast = { id: string; poppedAt: number; until: number }
+
+/** The toasts showing, and what's known of every roll met, to pop each up only as it should. */
+export type ToastBook = {
+  /** Newest first, at most `TOAST_CAP` but for those that wait for the player, or just popped. */
+  shown: RollToast[]
+  /** Every roll met, by its id, whether it popped up or not. */
+  seen: ReadonlySet<string>
+  /** The rolls met while toasts were off, which never pop up. */
+  quiet: ReadonlySet<string>
+  /** Of each roll, how its way to the game ended, as its toast last said (`settledMark`). */
+  told: ReadonlyMap<string, string>
+  /** Whether the page has met its rolls yet: those it opens with are met as it opens. */
+  opened: boolean
+}
+
+/** The toasts as `popToasts` writes them, and the toasts popped up now (`draftOf`). */
+export type ToastDraft = ToastBook & { popped: Set<RollToast> }

@@ -7,11 +7,11 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LONG_PRESS } from '../../rolling/constants'
 import { CharacterPane } from '../components/character-pane/character-pane'
 import { useItemMenu } from '../components/item-menu/use-item-menu'
 import { MOST_MOVED } from '@/constants/sending-stone'
 import { PartySheet } from '@/features/party/components/party-sheet/party-sheet'
+import { LONG_PRESS } from '@/features/rolling/constants'
 import {
   fullerSheet,
   removalInventory,
@@ -268,7 +268,6 @@ describe('components/character-sheet/item-menu, on the character’s Inventory',
     // The game stops taking moves a while, as when the bridge hasn't polled, then takes them again.
     fireEvent.contextMenu(rowOf('Equipment', 'Plain Ring'), { button: 2 })
     expect(screen.getByRole('menu', { name: 'Plain Ring' })).toBeVisible()
-    // eslint-disable-next-line unicorn/no-useless-undefined -- no moves
     rerender(pane(undefined))
     expect(screen.queryByRole('menu')).toBeNull()
     rerender(pane(tableMoves()))

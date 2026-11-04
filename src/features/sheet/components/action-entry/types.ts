@@ -1,6 +1,10 @@
-import type { MenuPoint, DueDamage, RollActions } from '../../../rolling/types'
 import type { ActivityInfo } from '../action-info/types'
 import type { LinkMenus } from '../description-link/types'
+import type {
+  MenuPoint,
+  DueDamage,
+  RollActions,
+} from '@/features/rolling/types'
 import type { AloneChoice } from '@/features/sheet/utils/types'
 import type {
   SheetDamageRoll,
@@ -47,7 +51,7 @@ export type DamageActions = {
 }
 
 /** A spell or feature used in the game, its damage to follow, as its damage chip's menu uses it. */
-export type DamageUse = {
+type DamageUse = {
   /** Such as "Cast". */
   verb: string
   onUse: (modifiers?: DamageModifiers) => void

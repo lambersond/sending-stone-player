@@ -132,7 +132,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/order', () => {
   })
 
   it('answers 404 for another Gamemaster’s campaign, saying no more', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined -- not their campaign
     jest.mocked(getGmSeat).mockResolvedValue(undefined)
 
     for (const [method, body] of [

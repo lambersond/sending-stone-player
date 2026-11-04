@@ -13,7 +13,7 @@ import unicorn from 'eslint-plugin-unicorn'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
-// CLAUDE.md §2-3 as no-restricted-syntax selectors, warnings until the refactor's last lint commit.
+// CLAUDE.md §2-3 as no-restricted-syntax selectors.
 const ONE_EXPORT =
   'A .tsx file exports one thing, its React component (CLAUDE.md §2).'
 const NO_HOOK =
@@ -66,36 +66,123 @@ const HOOK_NAME = '/^use[A-Z0-9]/'
 const utilityName = allowed =>
   `/^(?!(?:${allowed})$)(?!use[A-Z0-9])(?![A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*$)/`
 
-const tsxRules = (exported, allowed) => [
-  'warn',
-  { selector: `Program > ${exported} ~ ${exported}`, message: ONE_EXPORT },
+// Each .tsx's exports; and, but in a test, its named types (a test's file-private fixture types are
+// not reusable, which is what CLAUDE.md §3 asks to go in a types.ts):
+const tsxRules = (exported, allowed, { types = true } = {}) =>
+  [
+    'error',
+    { selector: `Program > ${exported} ~ ${exported}`, message: ONE_EXPORT },
+    {
+      selector:
+        "ExportNamedDeclaration[specifiers.length>1], ExportNamedDeclaration > VariableDeclaration[declarations.length>1], ExportAllDeclaration[exportKind='value']",
+      message: ONE_EXPORT,
+    },
+    { selector: `${EXPORTED_NAME}[name=${HOOK_NAME}]`, message: NO_HOOK },
+    {
+      selector: `${EXPORTED_NAME}[name=${utilityName(allowed)}]`,
+      message: NO_UTILITY,
+    },
+    {
+      selector:
+        "ExportNamedDeclaration[exportKind='type']:not([declaration]), ExportSpecifier[exportKind='type'], ExportAllDeclaration[exportKind='type']",
+      message: NO_TYPE_EXPORT,
+    },
+    types && {
+      selector: 'TSTypeAliasDeclaration, TSInterfaceDeclaration',
+      message: TSX_TYPE,
+    },
+  ].filter(Boolean)
+
+const asErrors = rules =>
+  Object.fromEntries(Object.keys(rules).map(rule => [rule, 'error']))
+
+// The layers of src (CLAUDE.md §4, §5 and §7), each importing only from those beneath it. Features
+// may import each other's public parts; what keeps them apart is that no module cycle forms.
+// Two zones are named for the exceptions below.
+const UTILS_FROM_LIB = {
+  target: ['./src/utils', './src/schemas'],
+  from: './src/lib',
+}
+const COMPONENTS_FROM_LIB = { target: './src/components', from: './src/lib' }
+const LAYERS = [
+  // The client trees never reach server-only code; pages, which are Server Components, may.
   {
-    selector:
-      "ExportNamedDeclaration[specifiers.length>1], ExportNamedDeclaration > VariableDeclaration[declarations.length>1], ExportAllDeclaration[exportKind='value']",
-    message: ONE_EXPORT,
+    target: ['./src/features', './src/components', './src/hooks'],
+    from: [
+      './src/db',
+      './src/lib/routes',
+      './src/clients/prisma.ts',
+      './src/auth.ts',
+    ],
   },
-  { selector: `${EXPORTED_NAME}[name=${HOOK_NAME}]`, message: NO_HOOK },
+  // Types and constants import only types and constants.
+  { target: './src/types', from: './src', except: ['./types', './constants'] },
   {
-    selector: `${EXPORTED_NAME}[name=${utilityName(allowed)}]`,
-    message: NO_UTILITY,
+    target: './src/constants',
+    from: './src',
+    except: ['./types', './constants'],
+  },
+  // Utilities and schemas import neither UI nor server code.
+  {
+    target: ['./src/utils', './src/schemas'],
+    from: [
+      './src/features',
+      './src/components',
+      './src/hooks',
+      './src/app',
+      './src/db',
+    ],
+  },
+  UTILS_FROM_LIB,
+  // App-wide hooks import no feature, page or server code, and of the shared components only the
+  // modal's hooks, which a popover needs to open inside the modal it's in.
+  {
+    target: './src/hooks',
+    from: ['./src/features', './src/app', './src/db', './src/lib'],
   },
   {
-    selector:
-      "ExportNamedDeclaration[exportKind='type']:not([declaration]), ExportSpecifier[exportKind='type'], ExportAllDeclaration[exportKind='type']",
-    message: NO_TYPE_EXPORT,
+    target: './src/hooks',
+    from: './src/components/**',
+    except: ['**/src/components/modal/use-*.ts'],
   },
+  // Shared components import no feature, page or server code.
   {
-    selector: 'TSTypeAliasDeclaration, TSInterfaceDeclaration',
-    message: TSX_TYPE,
+    target: './src/components',
+    from: ['./src/features', './src/app', './src/db'],
+  },
+  COMPONENTS_FROM_LIB,
+  // Features import no page; the database no route code; and the routes' helpers are the API's.
+  { target: './src/features', from: './src/app' },
+  { target: './src/db', from: ['./src/lib/routes', './src/app'] },
+  {
+    target: [
+      './src/*',
+      './src/!(app|lib)/**',
+      './src/app/*',
+      './src/app/!(api)/**',
+      './src/lib/*',
+      './src/lib/!(routes)/**',
+    ],
+    from: './src/lib/routes',
   },
 ]
 
-const asWarnings = rules =>
-  Object.fromEntries(Object.keys(rules).map(rule => [rule, 'warn']))
+// The layers, but for one exception in one zone (a path relative to its `from`), for named files.
+const layersBut = (zone, except) => [
+  'error',
+  {
+    basePath: import.meta.dirname,
+    zones: LAYERS.map(each =>
+      each === zone ? { ...each, except: [except] } : each,
+    ),
+  },
+]
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   { files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'] },
+  // A directive that silences nothing is an error, so none outlives its finding (CLAUDE.md §9).
+  { linterOptions: { reportUnusedDisableDirectives: 'error' } },
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
   {
     settings: {
@@ -111,10 +198,10 @@ export default [
   pluginReact.configs.flat.recommended,
   unicorn.configs.recommended,
   nounsanitized.configs.recommended,
-  // React's hook rules (the plugin's recommended set), as warnings for now:
+  // React's hook rules (the plugin's recommended set, the React Compiler's diagnostics included):
   {
     ...reactHooks.configs.flat.recommended,
-    rules: asWarnings(reactHooks.configs.flat.recommended.rules),
+    rules: asErrors(reactHooks.configs.flat.recommended.rules),
   },
   {
     plugins: {
@@ -127,10 +214,27 @@ export default [
     rules: {
       ...pluginNext.configs.recommended.rules,
       ...pluginNext.configs['core-web-vitals'].rules,
-      '@typescript-eslint/ban-ts-comment': 'off',
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        { 'ts-expect-error': 'allow-with-description' },
+      ],
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      camelcase: 'error',
+      // The names others give, which the app must spell their way: the Web App Manifest's,
+      // next/font's and Prisma's compound key.
+      camelcase: [
+        'error',
+        {
+          allow: [
+            'short_name',
+            'start_url',
+            'background_color',
+            'theme_color',
+            'Geist_Mono',
+            'bookId_noteId',
+          ],
+        },
+      ],
       '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
       '@stylistic/space-before-function-paren': [
         'error',
@@ -162,6 +266,12 @@ export default [
       'react/prop-types': 0,
       'react/react-in-jsx-scope': 'off',
       'unicorn/no-lonely-if': 'error',
+      // An explicit `undefined` argument says "resolves to nothing", `.catch(undefined)` "left
+      // out", and an arrow's `=> undefined` "returns nothing" (decisions Q2):
+      'unicorn/no-useless-undefined': [
+        'error',
+        { checkArguments: false, checkArrowFunctionBody: false },
+      ],
       // The protocol, Prisma and React use null for an absent value (decisions Q2):
       'unicorn/no-null': 'off',
       // unicorn 65 checks folder names too, and CLAUDE.md §8 puts integration tests in __tests__/,
@@ -199,42 +309,15 @@ export default [
         },
       ],
       'import/no-restricted-paths': [
-        'warn',
-        {
-          zones: [
-            {
-              target: './src/types/**/*',
-              from: './src/@(components|app|utils|constants|hooks|db|schemas)/**/*',
-            },
-            {
-              target: './src/constants/**/*',
-              from: './src/@(components|app|utils|hooks|db|schemas)/**/*',
-            },
-            {
-              target: './src/utils/**/*',
-              from: './src/@(components|app|hooks|schemas|db)/**/*',
-            },
-            {
-              target: './src/db/**/*',
-              from: './src/@(components|app|hooks|schemas)/**/*',
-            },
-            {
-              target: './src/schemas/**/*',
-              from: './src/@(components|app|hooks)/**/*',
-            },
-            {
-              target: './src/hooks/**/*',
-              from: './src/@(components|app)/**/*',
-            },
-            { target: './src/components/**/*', from: './src/@(app)/**/*' },
-          ],
-        },
+        'error',
+        { basePath: import.meta.dirname, zones: LAYERS },
       ],
-      'import/no-cycle': 'warn',
+      // Type-only cycles, which this rule skips, fail src/__tests__/import-cycles.test.ts:
+      'import/no-cycle': 'error',
       'import/no-self-import': 'error',
       'import/no-useless-path-segments': 'error',
       // No SonarQube in the repo: sonarjs's complexity limit stands in for it (CLAUDE.md §9).
-      'sonarjs/cognitive-complexity': ['warn', 15],
+      'sonarjs/cognitive-complexity': ['error', 15],
       'prettier/prettier': [
         'error',
         {
@@ -257,6 +340,12 @@ export default [
     rules: { 'no-restricted-syntax': tsxRules(EXPORT, 'default') },
   },
   {
+    files: ['**/*.test.tsx'],
+    rules: {
+      'no-restricted-syntax': tsxRules(EXPORT, 'default', { types: false }),
+    },
+  },
+  {
     files: NEXT_ROUTE_FILES,
     rules: {
       'no-restricted-syntax': tsxRules(
@@ -271,7 +360,7 @@ export default [
     ignores: ['**/types.ts', '**/types/**', '**/*.d.ts'],
     rules: {
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector:
             "ExportNamedDeclaration > :matches(TSTypeAliasDeclaration, TSInterfaceDeclaration), ExportNamedDeclaration[exportKind='type']:not([declaration]):not([source]), ExportNamedDeclaration:not([source]) > ExportSpecifier[exportKind='type']",
@@ -280,12 +369,50 @@ export default [
       ],
     },
   },
-  // The node test kit is held unchanged through the v0.43 refactor, its one unicorn/no-null
-  // line directive included, so the rule stays on for that file alone (else the directive
-  // would be reported as unused):
+  // A Server Component's one read of the session, its account menu's, which the header's test
+  // mocks: these two files may import src/lib/session.ts.
   {
-    files: ['src/utils/test-utils-node.ts'],
-    rules: { 'unicorn/no-null': 'error' },
+    files: [
+      'src/components/site-header/header-account.tsx',
+      'src/components/site-header/site-header.test.tsx',
+    ],
+    rules: {
+      'import/no-restricted-paths': layersBut(
+        COMPONENTS_FROM_LIB,
+        './session.ts',
+      ),
+    },
+  },
+  // The note scanner's test checks it against showdown with the server's own options for Foundry.
+  {
+    files: ['src/utils/note-headings.test.ts'],
+    rules: {
+      'import/no-restricted-paths': layersBut(
+        UTILS_FROM_LIB,
+        './note-markdown.ts',
+      ),
+    },
+  },
+  // Suites whose helpers or harnesses React's hook rules misread: helpers named `use…` that are no
+  // hooks (rules-of-hooks), and harness components that keep what they render in a variable
+  // outside them for the test to read (refs, globals). Every other test keeps the rules.
+  {
+    files: [
+      'src/features/sheet/components/use-picker/use-picker.test.tsx',
+      'src/utils/requests/check-damage.test.ts',
+      'src/utils/requests/checks.test.ts',
+      'src/utils/sheet-actions.test.ts',
+      'src/utils/uses.test.ts',
+    ],
+    rules: { 'react-hooks/rules-of-hooks': 'off' },
+  },
+  {
+    files: [
+      'src/features/notes/components/chapter-form/chapter-form.test.tsx',
+      'src/features/notes/components/note-editor/note-editor.test.tsx',
+      'src/hooks/use-image-fallback.test.tsx',
+    ],
+    rules: { 'react-hooks/refs': 'off', 'react-hooks/globals': 'off' },
   },
   globalIgnores([
     // Default ignores of eslint-config-next:

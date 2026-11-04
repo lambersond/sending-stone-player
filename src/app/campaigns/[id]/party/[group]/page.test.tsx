@@ -93,7 +93,6 @@ describe('app/campaigns/[id]/party/[group]/page', () => {
   })
 
   it('says only that it isn’t open here to anyone else, or of a group no longer there', async () => {
-    // eslint-disable-next-line unicorn/no-useless-undefined
     jest.mocked(getGroupView).mockResolvedValue(undefined)
 
     await expect(GmPartyPage(props('c1', 'hidden'))).rejects.toThrow(

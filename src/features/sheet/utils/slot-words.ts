@@ -1,14 +1,8 @@
 import { ordinal } from '@/utils/action-groups'
-import type { SlotPool } from '@/types/sending-stone'
+import type { SpellSlotPool } from './types'
 
 // How a pool of spell slots is named, as the app says it everywhere; the use picker keeps its own
 // copy (round 0.42.1 §U, so the items revert apart).
-
-/**
- * A pool of the character's spell slots, as its dots name it: its spellbook section's id, such as
- * "spell1" or "pact", and the level a spell is cast at with one, unknown from an older module.
- */
-export type SpellSlotPool = Pick<SlotPool, 'id' | 'level'>
 
 /**
  * One of a pool's slots, in words: "1st-level spell slot", or pact magic's "pact slot (3rd

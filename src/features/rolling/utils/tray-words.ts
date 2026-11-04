@@ -7,9 +7,8 @@ import { prepareReasons, PREPARE_WORDS } from '@/utils/prepare-words'
 import { reasons, listed } from '@/utils/roll-reasons'
 import { seatWords } from '@/utils/seat-words'
 import { wildShapeReasons, WILD_SHAPE_WORDS } from '@/utils/wild-shape-words'
-import type { Spent } from '../../sheet/components/effect-controls/types'
-import type { TableRolls } from '../types'
-import type { useCreature } from '@/hooks/use-creature'
+import type { Creature, RollBrief, TableRolls, WayWords } from '../types'
+import type { Spent } from '@/features/sheet/components/effect-controls/types'
 import type {
   TableRollState,
   LocalCheck,
@@ -22,9 +21,6 @@ import type {
 } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 import type { AloneSpend } from '@/types/sending-stone'
-
-/** The creature a pane is for, where it isn't the character (module 0.36.0). */
-export type Creature = NonNullable<ReturnType<typeof useCreature>>
 
 /**
  * What a pane's rolls are called, as its tray, its rolls' button and its popover name them: the
@@ -307,7 +303,7 @@ export function leastOf({ minimum, times }: LocalFormula): string {
 export function wayWords(
   state: TableRollState | undefined,
   role: SeatRole,
-  words: { doing: string; done: string; not: string },
+  words: WayWords,
   reason?: string,
 ): string {
   switch (state?.status) {
@@ -345,7 +341,7 @@ const FAVORITE_WORDS = {
 function commandWords(
   roll: LocalUse,
   state: TableRollState,
-): { doing: string; done: string; not: string } | undefined {
+): WayWords | undefined {
   // A favorite added or removed, from module 0.37.0.
   if (roll.favorite) return FAVORITE_WORDS[roll.favorite]
   // One of the character's own effects turned off, on or deleted, from module 0.39.0, the same way.
@@ -496,35 +492,6 @@ export function madeOf(
     return { ...logged, form: made.form.name }
   }
   return logged
-}
-
-/** A roll in brief, as its toast says it: what it was, what it came to, and its way to the game. */
-export type RollBrief = {
-  label: string
-  /**
-   * How its total shows, as the tray's: a critical, a fumble, damage, healing, a use or an ask; and
-   * for one of the Gamemaster's as the character (#156), hidden, or dice while there's no total.
-   */
-  badge:
-    | 'critical'
-    | 'fumble'
-    | 'plain'
-    | 'damage'
-    | 'healing'
-    | 'use'
-    | 'ask'
-    | 'hidden'
-    | 'dice'
-  /** The colour its toast is edged and tinted in, by how it came out (`accentOf`). */
-  accent: 'warning' | 'gold' | 'ruby' | 'damage' | 'primary'
-  /** None for a use or an ask, which show an icon; "…" while the game's total is awaited. */
-  total?: number | string
-  /** Its dice, in a line; none for a use or an ask. */
-  dice?: string
-  /** Its way to the game, in the tray's words; none for a roll never sent. */
-  table?: { tone: 'pending' | 'made' | 'not'; text: string }
-  /** Made by the Gamemaster as the player's character (#156), marked so. */
-  gm?: true
 }
 
 /** Whether a roll is on its way to the game, was made there, or wasn't. */

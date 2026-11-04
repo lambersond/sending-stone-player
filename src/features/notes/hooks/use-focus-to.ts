@@ -73,6 +73,8 @@ export function useFocusTo(
     const root = container.current
     const target = root ? findFocus(root, focusTo) : undefined
     target?.focus()
+    // The request is done once focus has moved, after the commit that drew what it goes to.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- after the commit, by design
     setFocusTo(undefined)
   }, [focusTo, draft, deleting, container])
 

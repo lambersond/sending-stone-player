@@ -1,5 +1,4 @@
-import { seatWords } from '../../../utils/seat-words'
-import type { SeatRole } from '../../../types/seats'
+import { seatWords } from '@/utils/seat-words'
 import type {
   NoteBookKind,
   NoteReason,
@@ -7,6 +6,7 @@ import type {
   NoteState,
   NotesView,
 } from '@/types/notes'
+import type { SeatRole } from '@/types/seats'
 
 /*
  * What the journal says of a book and its notes (round 0.34.0 §9.4-§9.7; its card and modal,

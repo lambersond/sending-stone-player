@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PageToasts, TOAST_FOR } from './page-toast'
+import { PageToasts } from './page-toast'
+import { TOAST_FOR } from '@/features/campaigns/constants'
 import { useToast } from '@/features/campaigns/hooks/use-toast'
 
 /** Buttons that toast, each as told. */

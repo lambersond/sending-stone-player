@@ -141,7 +141,7 @@ async function look(
 }
 
 /** Why the app didn't take a roll, as it says. */
-export async function refusal(response: Response): Promise<string> {
+async function refusal(response: Response): Promise<string> {
   if (![409, 422, 429].includes(response.status)) return 'error'
   try {
     const { reason } = (await response.json()) as { reason?: unknown }

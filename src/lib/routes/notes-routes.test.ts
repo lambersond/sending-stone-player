@@ -174,7 +174,6 @@ describe('lib/notes-routes', () => {
       ).resolves.toEqual(gmPlace)
       expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
 
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(getGmSeat).mockResolvedValue(undefined)
       const refused = (await notesSeat({
         kind: 'personal',
@@ -236,7 +235,6 @@ describe('lib/notes-routes', () => {
         }),
       ).resolves.toMatchObject({ book: { private: true } })
 
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
       const refused = (await notesSeat({
         kind: 'party',
@@ -277,7 +275,6 @@ describe('lib/notes-routes', () => {
         'hidden',
       )
 
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
       const refused = (await notesSeat({
         kind: 'party',
@@ -327,9 +324,7 @@ describe('lib/notes-routes', () => {
     })
 
     it('answers 404 where the campaign is gone', async () => {
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(getNotesStatus).mockResolvedValue(undefined)
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(getNotesView).mockResolvedValue(undefined)
 
       await expect(
@@ -626,7 +621,6 @@ describe('lib/notes-routes', () => {
       await expect(
         notePreviewResponse(request({ text: 'a' }), place),
       ).resolves.toHaveProperty('status', 400)
-      // eslint-disable-next-line unicorn/no-useless-undefined -- found nowhere
       jest.mocked(previewNote).mockResolvedValue(undefined)
       await expect(
         notePreviewResponse(request({ body: 'a' }), place),

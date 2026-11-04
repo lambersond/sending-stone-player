@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Shield } from 'lucide-react'
-import { LONG_PRESS } from '../../../rolling/constants'
 import { Charging } from '../charging/charging'
 import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { UsesButton } from '../uses-button/uses-button'
 import { usePressMenu } from './press-menu'
+import { LONG_PRESS } from '@/features/rolling/constants'
 import { counted } from '@/mocks/sending-stone'
-import type { MenuPoint } from '../../../rolling/types'
+import type { MenuPoint } from '@/features/rolling/types'
 
 type OnMenu = (anchor: HTMLElement, point?: MenuPoint) => void
 

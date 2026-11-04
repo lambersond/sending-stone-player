@@ -9,8 +9,8 @@ import {
   useRole,
 } from '@floating-ui/react'
 import { Minus, Plus } from 'lucide-react'
-import { placing } from '../../../rolling/utils/menu-points'
 import { useUsesStep } from './use-uses-step'
+import { placing } from '@/features/rolling/utils/menu-points'
 import { usePopover } from '@/hooks/use-popover'
 
 /**

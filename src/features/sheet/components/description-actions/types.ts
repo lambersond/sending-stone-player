@@ -23,7 +23,7 @@ export type DescriptionOrigin = {
 }
 
 /** What the table is asked for, from a description's link. */
-export type Asking = TextLink & {
+type Asking = TextLink & {
   /** Such as "DC 15 Dexterity saving throw" or "DC 15 Strength (Athletics) check". */
   label: string
 }

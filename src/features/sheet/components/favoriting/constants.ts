@@ -5,6 +5,5 @@ import type { Favorites } from './types'
  * Gamemaster's page, a game that doesn't take them, and any row drawn outside a pane.
  */
 export const NO_FAVORITING: Favorites = {
-  // eslint-disable-next-line unicorn/no-useless-undefined -- none, for every row
   choiceFor: () => undefined,
 }

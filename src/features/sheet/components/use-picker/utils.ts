@@ -202,7 +202,7 @@ export function alonePicksOf(
  * "the Dagger", or in its only mode where that one is thrown, "the Dart". None for a pick that
  * spends nothing, which shows no switch.
  */
-export function spendParts(
+function spendParts(
   action: SheetAction,
   spellbook: SheetSpellSection[],
   picks: AloneSelection,

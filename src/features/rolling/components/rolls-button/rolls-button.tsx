@@ -8,7 +8,6 @@ import {
   useDismiss,
   useInteractions,
   useRole,
-  type OpenChangeReason,
 } from '@floating-ui/react'
 import { History } from 'lucide-react'
 import { rollsName } from '../../utils/tray-words'
@@ -47,7 +46,7 @@ export function RollsButton({
   const { setReference, setFloating, floatingStyles, context, root } =
     usePopover({
       open,
-      onOpenChange: (next: boolean, _?: Event, reason?: OpenChangeReason) => {
+      onOpenChange: (next, _, reason) => {
         // Escape on the damage menu, or the dialog that changes the damage, opened inside closes
         // only that.
         if (

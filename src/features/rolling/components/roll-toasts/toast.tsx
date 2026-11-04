@@ -9,8 +9,7 @@ import { GmPill } from '../roll-tray/gm-pill'
 import { SpentLines } from '../roll-tray/spent-lines'
 import { Badge } from './badge'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
-import type { RollDue } from '../../types'
-import type { RollBrief } from '../../utils/tray-words'
+import type { RollBrief, RollDue } from '../../types'
 import type { LocalRoll, TableRollState } from '@/types/roll'
 
 /**

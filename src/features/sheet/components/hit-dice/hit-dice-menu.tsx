@@ -9,13 +9,13 @@ import {
   useRole,
 } from '@floating-ui/react'
 import { Minus, Plus } from 'lucide-react'
-import { placing, pointOn } from '../../../rolling/utils/menu-points'
 import { HitDieIcon } from './hit-die-icon'
 import { useHitDiceChoice } from './use-hit-dice-choice'
 import { mostOf, spentOf, spentOne } from './utils'
 import { MOST_HIT_DICE } from '@/constants/sending-stone'
+import { placing, pointOn } from '@/features/rolling/utils/menu-points'
 import { usePopover } from '@/hooks/use-popover'
-import type { MenuPoint } from '../../../rolling/types'
+import type { MenuPoint } from '@/features/rolling/types'
 import type { HitDiceCount, HitDicePool } from '@/types/roll'
 
 /** Why no more hit dice are spent at once, as a button for one more says once there are as many. */
