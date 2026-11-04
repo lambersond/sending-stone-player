@@ -62,7 +62,8 @@ export async function follow(
 /**
  * Send a roll to the game: the id the app took it under, as its answer gives it, told to
  * `taken` too; or, where the app didn't take it, or couldn't be reached, nothing, with why told
- * to `update`.
+ * to `update`; or, where it took it but its answer names no id, nothing, and nothing told: it
+ * stays as sent, not yet heard of, with nothing to follow it by.
  */
 async function post(
   api: string,
@@ -82,12 +83,23 @@ async function post(
       update({ status: 'refused', reason: await refusal(response) })
       return
     }
-    const { id } = (await response.json()) as { id: string }
+    const id = await takenId(response)
+    if (id === undefined) return
     taken(id)
     return { id }
   } catch {
     update({ status: 'refused', reason: 'network' })
     return
+  }
+}
+
+/** The id the app took a roll under, as its answer says; none where it isn't read or says none. */
+async function takenId(response: Response): Promise<string | undefined> {
+  try {
+    const { id } = (await response.json()) as { id?: unknown }
+    return typeof id === 'string' ? id : undefined
+  } catch {
+    return undefined
   }
 }
 

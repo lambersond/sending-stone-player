@@ -1054,6 +1054,30 @@ describe('hooks/use-table-rolls', () => {
     })
   })
 
+  it.each([
+    [
+      'not JSON',
+      {
+        status: 202,
+        ok: true,
+        json: () => Promise.reject(new SyntaxError('not JSON')),
+      } as Response,
+    ],
+    ['with no id', respond(202, {})],
+  ])(
+    'tells a roll the app took as sent, its answer %s, with nothing to follow it by',
+    async (_, answer) => {
+      jest.mocked(fetch).mockResolvedValueOnce(answer)
+      const { result } = render()
+
+      act(() => result.current.send(perception, check()))
+      await advance(FOLLOW_FOR + CHECK_EVERY)
+
+      expect(result.current.states.get('r1')).toEqual({ status: 'sending' })
+      expect(fetch).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it("keeps asking through a failed check, and gives up on a roll that's never answered", async () => {
     jest
       .mocked(fetch)
