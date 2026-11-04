@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import clsx from 'clsx'
 import { Minus, Plus } from 'lucide-react'
+import { STEP_BUTTON } from '@/constants/buttons'
 import { DIE_SIZES } from '@/constants/dice'
 import { criticalHint, formulaOf } from '@/features/rolling/utils/damage-words'
 import { useTableRole } from '@/hooks/use-table-api'
@@ -107,7 +108,7 @@ export function ModifyDamage({
                 aria-label='One die fewer'
                 disabled={extra === 0}
                 onClick={() => setExtra(extra - 1)}
-                className={STEP}
+                className={STEP_BUTTON}
               >
                 <Minus aria-hidden className='size-4' />
               </button>
@@ -119,7 +120,7 @@ export function ModifyDamage({
                 aria-label='One die more'
                 disabled={extra >= most}
                 onClick={() => setExtra(extra + 1)}
-                className={STEP}
+                className={STEP_BUTTON}
               >
                 <Plus aria-hidden className='size-4' />
               </button>
@@ -210,9 +211,6 @@ export function ModifyDamage({
     </form>
   )
 }
-
-const STEP =
-  'flex size-10 items-center justify-center rounded-xl border border-border transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-transparent'
 
 /** A switch, with what it does under its label. */
 function Toggle({

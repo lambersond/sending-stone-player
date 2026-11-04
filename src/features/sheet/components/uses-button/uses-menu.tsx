@@ -10,6 +10,7 @@ import {
 } from '@floating-ui/react'
 import { Minus, Plus } from 'lucide-react'
 import { useUsesStep } from './use-uses-step'
+import { STEP_BUTTON } from '@/constants/buttons'
 import { placing } from '@/features/rolling/utils/menu-points'
 import { usePopover } from '@/hooks/use-popover'
 
@@ -86,7 +87,7 @@ export function UsesMenu({
               aria-label='One fewer'
               aria-disabled={chosen <= 1}
               onClick={() => step(-1)}
-              className={STEP}
+              className={STEP_BUTTON}
             >
               <Minus aria-hidden className='size-4' />
             </button>
@@ -103,7 +104,7 @@ export function UsesMenu({
               aria-label='One more'
               aria-disabled={chosen >= most}
               onClick={() => step(1)}
-              className={STEP}
+              className={STEP_BUTTON}
             >
               <Plus aria-hidden className='size-4' />
             </button>
@@ -123,6 +124,3 @@ export function UsesMenu({
     </FloatingPortal>
   )
 }
-
-const STEP =
-  'flex size-10 items-center justify-center rounded-xl border border-border transition-colors hover:border-primary/50 hover:bg-primary/5 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-transparent'

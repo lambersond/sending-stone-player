@@ -12,6 +12,7 @@ import { Minus, Plus } from 'lucide-react'
 import { HitDieIcon } from './hit-die-icon'
 import { useHitDiceChoice } from './use-hit-dice-choice'
 import { mostOf, spentOf, spentOne } from './utils'
+import { STEP_BUTTON } from '@/constants/buttons'
 import { MOST_HIT_DICE } from '@/constants/sending-stone'
 import { placing, pointOn } from '@/features/rolling/utils/menu-points'
 import { usePopover } from '@/hooks/use-popover'
@@ -194,7 +195,7 @@ function Stepper({
         aria-label={`One ${what} fewer`}
         aria-disabled={count <= least}
         onClick={() => onStep(-1)}
-        className={STEP}
+        className={STEP_BUTTON}
       >
         <Minus aria-hidden className='size-4' />
       </button>
@@ -212,13 +213,10 @@ function Stepper({
         aria-disabled={!room}
         title={capped ? AT_MOST : undefined}
         onClick={() => onStep(1)}
-        className={STEP}
+        className={STEP_BUTTON}
       >
         <Plus aria-hidden className='size-4' />
       </button>
     </div>
   )
 }
-
-const STEP =
-  'flex size-10 items-center justify-center rounded-xl border border-border transition-colors hover:border-primary/50 hover:bg-primary/5 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-transparent'
