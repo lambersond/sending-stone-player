@@ -1,5 +1,5 @@
 {
-  "commit": "6fee233",
+  "commit": "5d2ac00",
   "label": "after",
   "command": "eslint . -f json",
   "note": "Warnings per unit (src/features/<feature>, else the top-level folder) per rule; a unit or rule that is missing has 0. Gate 9: no count may rise.",
