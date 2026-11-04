@@ -230,6 +230,21 @@ describe('hooks/use-notes', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('says nothing failed once signed out after a failed read, while the page goes to sign in', async () => {
+    const server = serve()
+    server.status = 500
+    const { result } = renderHook(() => useNotes(API, { active: true }))
+    await pass()
+    expect(result.current.state).toBe('failed')
+
+    server.status = 401
+    await pass(POLL_INTERVAL * 2)
+    expect(mockRefresh).toHaveBeenCalledTimes(1)
+    expect(result.current.state).toBe('loading')
+    await pass(POLL_INTERVAL * 5)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it('backs off while the book can’t be read, as the table does', async () => {
     serve()
     jest.mocked(fetch).mockImplementation(() => respond(500))

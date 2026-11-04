@@ -134,7 +134,7 @@ export function forgetNotes(): void {
  * Reads a book while it's active: at once without a view kept, else after POLL_INTERVAL, then
  * every POLL_INTERVAL while the page is visible, backing off on failures; one read at a time, and
  * one asked for meanwhile once it's done. 404 is gone, and nothing of it stays on the page. 401
- * stops it, and the page is rendered again, as the table's poll does.
+ * stops it, as no failure, and the page is rendered again, as the table's poll does.
  * @returns whether the seat may no longer see the book, whether reading it failed since it was
  * mounted, and `refresh`, which reads it at once while it's polled.
  */
@@ -187,6 +187,7 @@ function useBookReads(
         }
         if (response.status === 401) {
           stopped = true
+          setFailing(false)
           signedOut()
           return
         }
