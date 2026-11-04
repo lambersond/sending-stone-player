@@ -190,6 +190,7 @@ export function GameTable({
           unread={unread}
           combat={view.combat}
           messages={view.messages}
+          chatClearedAt={view.chatClearedAt}
           quiet={turn.quiet}
           onShow={show}
           combatTab={turn.columnCombat}

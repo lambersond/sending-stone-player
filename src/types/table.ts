@@ -296,6 +296,11 @@ export type TableView = {
   /** How far the player has read the chat, on any device: later messages are unread. */
   chatReadAt?: string
   /**
+   * When the campaign's chat was last cleared (v0.44), by its Gamemaster here or by Foundry's Clear
+   * Chat Log, which the log says while it's empty. Unset if it never was.
+   */
+  chatClearedAt?: string
+  /**
    * The rolls the player can have made in the Gamemaster's game from here, with the dice they
    * roll: none unless the Gamemaster lets them, and the game is fetching them.
    */

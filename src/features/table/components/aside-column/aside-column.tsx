@@ -27,6 +27,7 @@ import type { ReactNode, RefObject } from 'react'
  * @param onShow - Shows combat or the chat.
  * @param combatTab - The column's Combat tab, where focus on the turn may go.
  * @param hold - The column's Combat tab held to end the turn.
+ * @param chatClearedAt - When the chat was last cleared, which the log says while it's empty.
  * @param tracker - The combat tracker, the character's view of it.
  * @param chat - The chat's scroller, kept pinned to the newest message, and its scroll handler.
  */
@@ -39,6 +40,7 @@ export function AsideColumn({
   unread,
   combat,
   messages,
+  chatClearedAt,
   quiet,
   onShow,
   combatTab,
@@ -54,6 +56,7 @@ export function AsideColumn({
   unread: number
   combat?: TableCombat
   messages: TableMessage[]
+  chatClearedAt?: string
   quiet: () => boolean
   onShow: (aside: Aside) => void
   combatTab: RefObject<HTMLButtonElement | null>
@@ -140,7 +143,7 @@ export function AsideColumn({
         className={aside === 'chat' ? 'flex' : 'hidden'}
       >
         <Scroller ref={scroller} onScroll={onScroll}>
-          <ChatLog messages={messages} />
+          <ChatLog messages={messages} clearedAt={chatClearedAt} />
         </Scroller>
       </Pane>
     </div>

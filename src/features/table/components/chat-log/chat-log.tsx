@@ -1,11 +1,25 @@
 import { MessageSquare } from 'lucide-react'
 import { ChatMessage } from './chat-message'
 import { EmptyState } from '@/components/empty-state/empty-state'
+import { LocalTime } from '@/components/local-time/local-time'
 import type { TableMessage } from '@/types/table'
 
-export function ChatLog({ messages }: Readonly<{ messages: TableMessage[] }>) {
+/**
+ * The table's chat, oldest first; while it's empty, that nothing has been said yet, or, since its
+ * chat was cleared (v0.44), when, in words true for either seat and either way of clearing.
+ * @param clearedAt - When the campaign's chat was last cleared, if it was.
+ */
+export function ChatLog({
+  messages,
+  clearedAt,
+}: Readonly<{ messages: TableMessage[]; clearedAt?: string }>) {
   if (messages.length === 0) {
-    return (
+    return clearedAt ? (
+      <EmptyState icon={MessageSquare} title='Chat cleared'>
+        The chat was cleared at <LocalTime value={clearedAt} />. Chat and rolls
+        from the table appear here as they happen.
+      </EmptyState>
+    ) : (
       <EmptyState icon={MessageSquare} title='No messages yet'>
         Chat and rolls from the table appear here as they happen.
       </EmptyState>

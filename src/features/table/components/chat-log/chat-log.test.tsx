@@ -123,6 +123,29 @@ describe('components/game-table/chat-log', () => {
     ).toBeInTheDocument()
   })
 
+  it('says when the chat was cleared while it has stayed empty since, for either seat (v0.44 item 8)', () => {
+    const at = '2026-11-04T20:00:00.000Z'
+    const { rerender } = render(<ChatLog messages={[]} clearedAt={at} />)
+
+    const heading = screen.getByRole('heading', { name: 'Chat cleared' })
+    const words = heading.nextElementSibling as HTMLElement
+    const time = words.querySelector('time') as HTMLElement
+    expect(time).toHaveAttribute('datetime', at)
+    expect(time.textContent).not.toBe('')
+    expect(words).toHaveTextContent(
+      `The chat was cleared at ${time.textContent}. Chat and rolls from the table appear here as they happen.`,
+    )
+
+    // A message since: the log, as ever.
+    rerender(<ChatLog messages={[message()]} clearedAt={at} />)
+    expect(screen.queryByRole('heading', { name: 'Chat cleared' })).toBeNull()
+    expect(
+      within(screen.getByRole('list', { name: 'Chat log' })).getByText(
+        'Roll initiative!',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('marks a roll the Gamemaster made as the character, for every reader (#156)', () => {
     render(
       <ChatLog
