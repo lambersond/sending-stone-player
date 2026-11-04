@@ -20,6 +20,16 @@ describe('lib/app-origin', () => {
     await expect(appOrigin()).resolves.toBe('https://stone.example')
   })
 
+  it('takes the first host where proxies are chained', async () => {
+    withHeaders({
+      host: 'internal:3000',
+      'x-forwarded-host': 'stone.example, edge.example',
+      'x-forwarded-proto': 'https',
+    })
+
+    await expect(appOrigin()).resolves.toBe('https://stone.example')
+  })
+
   it('assumes plain http on localhost', async () => {
     withHeaders({ host: 'localhost:3000' })
 
