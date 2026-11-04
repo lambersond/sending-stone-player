@@ -9,7 +9,8 @@ export function useOrdering(groups: JournalGroup[] | undefined) {
     groups?.find(({ chapterId }) => chapterId === ordering.chapterId)
   // A group gone meanwhile, as a chapter deleted in Foundry, takes its Reorder with it.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- a commit after, as ever
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- the Reorder closes a commit
+     * after its group goes, and for that commit the contents stay locked (lockedBy) */
     if (ordering && groups && !ordered) setOrdering(undefined)
   }, [ordering, groups, ordered])
 

@@ -593,14 +593,13 @@ describe('components/game-table/game-table, with companions', () => {
     // A browser focuses nothing inside a hidden element; jsdom does, so here it's refused.
     beforeEach(() => {
       const focus = HTMLElement.prototype.focus
-      /* eslint-disable unicorn/no-this-outside-of-class -- the element focused */
       jest.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
         this: HTMLElement,
         options,
       ) {
+        // eslint-disable-next-line unicorn/no-this-outside-of-class -- the element focused
         if (!this.closest('[hidden]')) focus.call(this, options)
       })
-      /* eslint-enable unicorn/no-this-outside-of-class */
     })
     afterEach(() => jest.restoreAllMocks())
 
