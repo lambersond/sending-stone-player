@@ -128,6 +128,16 @@ describe('hooks/use-spent-offers', () => {
     expect(send).toHaveBeenCalledWith(INSPIRED, 'delete', SAVE.at - 1)
   })
 
+  // v0.44 review: a roll whose answer named no id may not be made, as one that took too long.
+  it('holds its effect spent, and removes nothing, of a roll taken with nothing to follow it by', () => {
+    const { spent, send } = setUp({
+      states: new Map([[SAVE.id, { status: 'done', unfollowed: true }]]),
+    })
+
+    expect([...spent.current]).toEqual(['inspired'])
+    expect(send).not.toHaveBeenCalled()
+  })
+
   it('spends nothing of a roll nothing offered was added to', () => {
     const { spent } = setUp({ rolls: [PLAIN] })
 

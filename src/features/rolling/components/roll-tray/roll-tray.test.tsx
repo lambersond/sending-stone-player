@@ -4874,6 +4874,16 @@ describe('components/character-sheet/roll-tray, a die offered and spent, from mo
     expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
   })
 
+  // v0.44 review: one whose answer named no id may not be made, so its effect is left as it is.
+  it('says nothing spent of a roll taken with nothing to follow it by', () => {
+    render(tray('removable', { status: 'done', unfollowed: true }))
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Sent to your Gamemaster’s game',
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent(/spent/)
+  })
+
   it('names the die by what offered it among the dice, and says its verdict, the offer skipping nothing', () => {
     render(
       <Effecting value={controls('removable')}>
