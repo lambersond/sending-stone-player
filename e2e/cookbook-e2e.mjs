@@ -18,7 +18,10 @@
 // Gamemaster's section and counts, on the campaign the address chooses; phones and both themes. A
 // dish's card is whispered to the Gamemaster and the campaign's players, whose Foundry draws what
 // became of it and no button, and reaches their app's chat as text; Foundry's card in each state as
-// a stand-in chat log draws it with the module's styles. DND5E6=1: dnd5e 6.0.5, dishes off with the
+// a stand-in chat log draws it with the module's styles. Since v0.44 the Gamemaster clears Erebor's
+// chat in the app from its card: the dish's card goes from every player's chat, Foundry's
+// untouched, and comes back to none once served; and Foundry's own Clear Chat Log empties the
+// players' chat too, removing a dish still waiting. DND5E6=1: dnd5e 6.0.5, dishes off with the
 // switch on. SKEW=037 with MODULE=module-0.37.0: no dishes at all, and a dish queued by hand never
 // handed over. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
@@ -181,13 +184,28 @@ async function closeCookbook(who) {
     await cardOf(who).waitFor({ state: 'hidden', timeout: 5_000 })
   }
 }
-/** The table's chat, shown: its tab beside the sheet on a wide page, else its pane. */
-async function chatOf(who) {
+/** The table's chat shown: its tab beside the sheet on a wide page, else its pane. */
+async function showChat(who) {
   if (await who.nav.isVisible()) await who.chat()
   else await who.page.getByRole('tab', { name: /^Chat/ }).click()
+}
+/** The table's chat, shown, once it holds a message. */
+async function chatOf(who) {
+  await showChat(who)
   await who.log.waitFor({ timeout: 15_000 })
   return who.log
 }
+/** New (v0.44 item 8): the chat's empty state once it's cleared, its heading; and its words. */
+const clearedOf = who => who.page.getByRole('heading', { name: 'Chat cleared', exact: true })
+const clearedWords = async who => flat(await clearedOf(who).locator('xpath=following-sibling::div[1]').textContent())
+const CLEARED_WORDS = /^The chat was cleared at .+\. Chat and rolls from the table appear here as they happen\.$/
+/** The page's next answer to its table's poll. */
+const tablePolled = who => who.page.waitForResponse(response => response.request().method() === 'GET'
+  && /\/api\/characters\/[^/]+\/table$/.test(new URL(response.url()).pathname), { timeout: 45_000 })
+/** Whether a page's chat lists an item with these words. */
+const listing = async (who, words) => (await who.log.getByRole('listitem').filter({ hasText: words }).count()) > 0
+/** The app's chat rows for Erebor: all of them, or one message's. */
+const chatRows = messageId => Number(sql(`select count(*) from chat_message where "campaignId" = '${A}'${messageId ? ` and "messageId" = '${messageId}'` : ''}`))
 /** What has focus: its name. */
 const focusedName = who => who.page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent.trim() ?? null)
 const journalOf = who => who.page.getByRole('region', { name: 'Journal', exact: true })
@@ -247,6 +265,9 @@ if (SHOTS_039) mkdirSync(SHOTS_039, { recursive: true })
 const gmCard = who => who.page.getByRole('article', { name: TITLE })
 const gmSection = who => gmCard(who).locator('section').filter({ has: who.page.getByRole('heading', { name: 'Cookbook dishes', exact: true }) })
 const gmLines = async who => (await gmSection(who).locator('p').allTextContents()).map(flat)
+/** New (v0.44 item 8): the card's Chat section, and its line. */
+const gmChat = who => gmCard(who).locator('section').filter({ has: who.page.getByRole('heading', { name: 'Chat', exact: true }) })
+const gmChatLine = async who => flat(await gmChat(who).locator('p').first().textContent())
 const thorinRow = who => gmCard(who).getByRole('listitem').filter({ hasText: 'Thorin Oakenshield' }).first()
 const gmReload = async who => { await who.page.reload(); await gmSection(who).waitFor({ timeout: 15_000 }) }
 
@@ -540,6 +561,48 @@ part('6b. the app\'s chat')
 await newestSays(desk, 'Ember Skewers', 'With your Gamemaster', 'Alice\'s card to say it\'s with her Gamemaster')
 check(same((await shown(desk))[0], { recipe: 'Ember Skewers', chip: 'Boon', state: 'With your Gamemaster' }), 'within a poll, Alice\'s card: Ember Skewers, Boon, "With your Gamemaster"')
 
+// New (v0.44 item 8): the Gamemaster clears Erebor's chat in the app, from its card on the
+// campaigns page. The dish's card goes from every player's chat, while Foundry's still waits for
+// her.
+part('6c. the Gamemaster clears the chat')
+{
+  const gm = await browse({ width: 1280, height: 800, path: GM_PAGE, toasts: false })
+  await gmChat(gm).waitFor({ timeout: 15_000 })
+  const held = chatRows()
+  const counted = held === 1
+    ? '1 message in your players’ chat here. Clearing Foundry’s chat log clears it too.'
+    : `${held} messages in your players’ chat here. Clearing Foundry’s chat log clears them too.`
+  const line = await gmChatLine(gm)
+  check(chatRows(emberCard.id) === 1 && line === counted, `Erebor's Chat section counts what the app holds, the dish's card among it: "${line}"`)
+  await shootBoth(gm, 'cookbook-gm-chat', gmChat(gm))
+  await gmChat(gm).getByRole('button', { name: 'Clear chat', exact: true }).click()
+  const dialog = gm.page.getByRole('dialog', { name: `Clear ${TITLE}’s chat?`, exact: true })
+  await dialog.waitFor()
+  const opened = await focusedName(gm)
+  await dialog.getByRole('button', { name: 'Clear chat', exact: true }).click()
+  await gm.page.locator('[data-page-toast]').filter({ hasText: `${TITLE}’s chat cleared` }).waitFor({ timeout: 15_000 })
+  await until(async () => /^No messages in your players’ chat here\. Last cleared .+\.$/.test(await gmChatLine(gm)), 'the Chat section to say when it was cleared', 15_000)
+  const focused = await gm.page.evaluate(() => document.activeElement?.id ?? null)
+  check(opened === 'Cancel' && focused === `campaign-${A}-chat` && await gmChat(gm).getByRole('button', { name: 'Clear chat' }).count() === 0
+    && chatRows() === 0 && sql(`select "chatClearedAt" is not null from campaign where id = '${A}'`) === 't',
+    `Clear chat: its dialog opens on Cancel (${opened}); then the toast "${TITLE}’s chat cleared", "${await gmChatLine(gm)}", no button, focus on the Chat heading (${focused}), and the app holds none of Erebor's chat`)
+  await shootBoth(gm, 'cookbook-gm-chat-cleared', gmChat(gm))
+  await gm.view.close()
+  // Within a poll, Alice's chat and Bob's are empty, and say so.
+  await closeCookbook(desk)
+  for (const who of [desk, bob]) await showChat(who)
+  await until(async () => (await clearedOf(desk).isVisible()) && (await clearedOf(bob).isVisible()), 'Alice\'s chat and Bob\'s to say "Chat cleared"', 45_000)
+  const said = {}
+  for (const [name, who] of [['alice', desk], ['bob', bob]]) said[name] = { words: await clearedWords(who), card: await listing(who, 'Ember Skewers') }
+  check(Object.values(said).every(each => CLEARED_WORDS.test(each.words) && !each.card),
+    `within a poll, Alice's chat and Bob's are empty, the dish's card gone: "Chat cleared" (${JSON.stringify(said)})`)
+  await shoot(desk, 'cookbook-chat-cleared', clearedOf(desk).locator('xpath=..'))
+  // Foundry's card is untouched: still waiting, its Apply… and Set aside offered.
+  const controls = controlsOf(await drawn(cardFor(EMBER)))
+  check(dishCards().length === 1 && cardFor(EMBER)?.flags['sending-stone'].dish.state === 'waiting' && same(controls, ['Apply…', 'Set aside']),
+    `Foundry's card is untouched: one card, waiting, offering ${JSON.stringify(controls)} to its Gamemaster`)
+}
+
 // =================================================================================================
 // 7. Applied
 // =================================================================================================
@@ -553,6 +616,14 @@ part('7. applied')
     `the app keeps who ate it and what was rolled (${JSON.stringify({ appliedTo: row.appliedTo, rolled: row.rolled })})`)
   await newestSays(desk, 'Ember Skewers', 'Eaten by Thorin Oakenshield and Vex · Max HP +7 (3+1d6)', 'Alice\'s card to say who ate it')
   check(true, 'within a poll, Alice\'s card: "Eaten by Thorin Oakenshield and Vex · Max HP +7 (3+1d6)"')
+  // New (v0.44 item 8): served, its card changes in Foundry, and the change reaches the app; posted
+  // before the Gamemaster cleared the chat, it comes back to no one's, the players' tables polled
+  // since.
+  await until(() => postsOf('chat.message.updated').some(p => p.data?.message?.id === emberCard.id && p.status === 200), 'the card\'s change to reach the app', 20_000)
+  await Promise.all([tablePolled(desk), tablePolled(bob)])
+  const back = { alice: await listing(desk, 'Ember Skewers'), bob: await listing(bob, 'Ember Skewers') }
+  check(chatRows(emberCard.id) === 0 && !back.alice && !back.bob,
+    `its card, changed in Foundry as it's served, comes back to neither Alice's chat nor Bob's, the app holding none of it (${JSON.stringify(back)})`)
   const gmView = await drawn(emberCard)
   check(same(controlsOf(gmView), ['Eaten by Thorin Oakenshield, Vex', 'Thorin Oakenshield regained 7 HP', 'Vex regained 7 HP', 'Apply to others…']),
     `Foundry's card, for a Gamemaster: ${JSON.stringify(controlsOf(gmView))}`)
@@ -623,6 +694,32 @@ for (const who of [phone, tablet, desk]) {
   await shootBoth(who, 'cookbook-modal-dishes', undefined, SHOTS_039)
 }
 await tablet.view.close()
+
+// New (v0.44 item 8): Foundry's own Clear Chat Log, as ever, empties Erebor's chat in the app too,
+// and now marks when, as the Gamemaster's clear does; a dish still waiting goes with its card.
+part('9b. Foundry\'s Clear Chat Log')
+await room(LINK)
+{
+  const answer = await post(code, dishBody({ recipe: 'Plain Porridge' }))
+  check(answer.status === 202, `Plain Porridge again: ${answer.status}`)
+  const waiting = await delivered(answer.body.id, 'Plain Porridge again')
+  await until(() => chatRows(waiting.id) === 1, 'the app to hold its card in Erebor\'s chat', 20_000)
+  const marked = () => Number(sql(`select coalesce(extract(epoch from "chatClearedAt"), 0) from campaign where id = '${A}'`))
+  const before = marked()
+  const from = postsOf('chat.cleared').length
+  await D.deleteCards([...W.messages.values()], { deleteAll: true })
+  await until(() => postsOf('chat.cleared').slice(from).some(p => p.campaign === 'erebor' && p.status === 200), 'Foundry\'s clear to reach the app', 20_000)
+  await until(() => rowOf(answer.body.id).status === 'dismissed', 'the waiting dish to be dismissed', 20_000)
+  check(dishCards().length === 0 && chatRows() === 0 && marked() > before && rowOf(answer.body.id).reason === 'deleted',
+    `Foundry's Clear Chat Log: every card gone, the app holds none of Erebor's chat, marked cleared again, the waiting dish dismissed, deleted (${JSON.stringify({ before, after: marked() })})`)
+  await closeCookbook(desk)
+  for (const who of [desk, bob]) await showChat(who)
+  await until(async () => (await clearedOf(desk).isVisible()) && (await clearedOf(bob).isVisible()), 'Alice\'s chat and Bob\'s to say "Chat cleared" again', 45_000)
+  const said = { alice: await clearedWords(desk), bob: await clearedWords(bob) }
+  check(Object.values(said).every(words => CLEARED_WORDS.test(words)), `within a poll, Alice's chat and Bob's are empty again: "Chat cleared" (${JSON.stringify(said)})`)
+  await newestSays(desk, 'Plain Porridge', 'Removed in Foundry', 'Alice\'s card to say the waiting dish was removed')
+  check(true, 'and Alice\'s card: Plain Porridge "Removed in Foundry"')
+}
 
 // =================================================================================================
 // 10. Refusals
