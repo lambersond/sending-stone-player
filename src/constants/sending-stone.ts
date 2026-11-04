@@ -207,20 +207,6 @@ export const ROLL_FEATURES = [
   'keptRerolls',
 ] as const
 
-/**
- * The rolls a player typing in their dice may type the dice of their effects for too, from module
- * 0.42.0: those of a d20, which is never one of them.
- */
-export const EFFECT_DICE_KINDS = [
-  'skill',
-  'tool',
-  'ability',
-  'save',
-  'death',
-  'initiative',
-  'attack',
-] as const
-
 /** The most dice an effect adds that one roll names, or one sheet lists, from module 0.42.0. */
 export const MOST_EFFECT_DICE = 10
 
