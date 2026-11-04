@@ -7,7 +7,7 @@ import type { LocalRoll, TableRollState } from '@/types/roll'
 /**
  * A roll's way to the game, in brief, among the earlier rolls: for a saving throw or check against
  * a DC a description names that the game didn't make, whether this roll made it, as when it was
- * the latest.
+ * the latest; for one the app took with nothing to follow it by, that it was sent.
  */
 export function TableMark({
   state,
@@ -22,6 +22,7 @@ export function TableMark({
   if (!state) return mine
   // The Gamemaster's as the character (#156) are told as the player's own of their kind.
   const kind = roll.kind === 'gm' ? gmShape(roll) : roll.kind
+  if (state.unfollowed) return <span className='ml-1.5'>· sent</span>
   if (state.status === 'done') {
     return <MadeMark roll={roll} kind={kind} state={state} />
   }

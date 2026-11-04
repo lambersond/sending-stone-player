@@ -77,6 +77,14 @@ describe('utils/move-words', () => {
       expect(moveWords(move, { status }, role)).toBe(words)
     })
 
+    it('says only that it was sent where the app took it with nothing to follow it by', () => {
+      const unfollowed = { status: 'done', unfollowed: true } as const
+      expect(moveWords(give, unfollowed, 'player')).toBe(
+        'Sent to your Gamemaster’s game',
+      )
+      expect(moveWords(take, unfollowed, 'gm')).toBe('Sent to your game')
+    })
+
     it('says who moved it on the Gamemaster’s page', () => {
       expect(
         moveWords({ ...give, mover: 'Thorin' }, { status: 'done' }, 'gm'),

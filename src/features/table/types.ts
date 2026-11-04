@@ -254,13 +254,15 @@ export type PanelEnding = {
 }
 
 /**
- * What the toast shows: a hold past half a second; its End Turn on its way; an End Turn the game
- * made, with Undo while that's offered; one that wasn't made; Undo on its way; or Undo not made.
- * Each card shown is numbered, so that the next is announced, and animates in, as a new one.
+ * What the toast shows: a hold past half a second; its End Turn on its way; one sent that can't be
+ * followed; an End Turn the game made, with Undo while that's offered; one that wasn't made; Undo
+ * on its way; or Undo not made. Each card shown is numbered, so that the next is announced, and
+ * animates in, as a new one.
  */
 export type CardBody =
   | { kind: 'holding'; turn: EndableTurn }
   | { kind: 'sending'; turn: EndableTurn }
+  | { kind: 'sent'; turn: EndableTurn }
   | {
       kind: 'ended'
       id: string

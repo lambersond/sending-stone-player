@@ -184,14 +184,17 @@ function doneWords(move: LocalMove): string {
 
 /**
  * Where a move is on its way to the game, or what became of it, in words: sent, being made, made,
- * as the Gamemaster's page tells it of the character that moved it, or not made, or made in part,
- * and why.
+ * as the Gamemaster's page tells it of the character that moved it, or that it was sent, where it
+ * couldn't be followed; or not made, or made in part, and why.
  * @param fallback - Why a roll wasn't made, in words, for a reason no move has words of its own
  *   for.
  */
 export function moveWords(
   move: LocalMove,
-  state: Pick<TableRollState, 'status' | 'reason' | 'transfer' | 'removed'>,
+  state: Pick<
+    TableRollState,
+    'status' | 'reason' | 'transfer' | 'removed' | 'unfollowed'
+  >,
   role: SeatRole,
   fallback: Readonly<Record<string, string>> = {},
 ): string {
@@ -205,6 +208,7 @@ export function moveWords(
       return `${verb.making} it in ${game}…`
     }
     case 'done': {
+      if (state.unfollowed) return `Sent to ${game}`
       const done = doneWords(move)
       return move.mover
         ? `${move.mover} ${done}`

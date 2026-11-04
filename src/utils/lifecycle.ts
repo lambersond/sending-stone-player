@@ -62,8 +62,8 @@ export async function follow(
 /**
  * Send a roll to the game: the id the app took it under, as its answer gives it, told to
  * `taken` too; or, where the app didn't take it, or couldn't be reached, nothing, with why told
- * to `update`; or, where it took it but its answer names no id, nothing, and nothing told: it
- * stays as sent, not yet heard of, with nothing to follow it by.
+ * to `update`; or, where it took it but its answer names no id, nothing, with it told as made,
+ * unfollowed: it went to the game, and there's no id to follow it by.
  */
 async function post(
   api: string,
@@ -84,7 +84,10 @@ async function post(
       return
     }
     const id = await takenId(response)
-    if (id === undefined) return
+    if (id === undefined) {
+      update({ status: 'done', unfollowed: true })
+      return
+    }
     taken(id)
     return { id }
   } catch {

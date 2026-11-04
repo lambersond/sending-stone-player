@@ -1117,6 +1117,11 @@ export type TableRollState = Omit<
   status: RollStatus | 'refused'
   /** Its id at the table, once the app has taken it. */
   requestId?: string
+  /**
+   * Taken by the app, whose answer named no id to follow it by: it's told as sent to the game, as
+   * `done` with nothing of what the game made of it, which can't be followed here.
+   */
+  unfollowed?: true
   /** For an attack or a use, its item and activity. */
   source?: AttackSource
   /** For a use, what was used, such as "Fireball", which its damage is named after. */

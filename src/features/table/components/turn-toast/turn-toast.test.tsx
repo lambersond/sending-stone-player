@@ -611,6 +611,26 @@ describe('components/game-table/turn-toast', () => {
     },
   )
 
+  it.each(['hold', 'button'] as const)(
+    'says the %s’s End Turn was sent, once, for 5 seconds, where the app took it with nothing to follow it by',
+    via => {
+      const turn = thorins()
+      const { update } = setup({ turn })
+      update({ via, sent: { turn, way: { status: 'sending' } } })
+      update({ sent: { turn, way: { status: 'done', unfollowed: true } } })
+      expect(said()).toEqual([
+        'Ending your turn…',
+        'Sent to your Gamemaster’s game.',
+      ])
+      wait(4999)
+      expect(card()).not.toBeNull()
+      wait(1)
+      expect(card()).toBeNull()
+      update({ sent: { turn, way: { status: 'done', unfollowed: true } } })
+      expect(card()).toBeNull()
+    },
+  )
+
   it('says why the button’s End Turn wasn’t made only where the combat isn’t shown to say it', () => {
     const turn = thorins()
     const { update } = setup({ turn })

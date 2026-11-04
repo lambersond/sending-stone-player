@@ -457,6 +457,11 @@ describe('components/character-sheet/roll-tray', () => {
         'Not made at the table: no answer from your Gamemaster’s game',
       ],
       [
+        'taken with nothing to follow it by',
+        { status: 'done', unfollowed: true },
+        'Sent to your Gamemaster’s game',
+      ],
+      [
         'failed for a reason it does not know',
         { status: 'failed', reason: 'gremlins' },
         'Not made at the table',
@@ -1529,6 +1534,12 @@ describe('components/character-sheet/roll-tray', () => {
           'Cast at the table',
         ],
         [
+          'taken with nothing to follow it by',
+          fireball,
+          { status: 'done', unfollowed: true },
+          'Sent to your Gamemaster’s game',
+        ],
+        [
           'refused',
           fireball,
           { status: 'refused', reason: 'slot' },
@@ -2077,6 +2088,7 @@ describe('components/character-sheet/roll-tray', () => {
       render(
         <RollTray
           rolls={[
+            roll({ id: 'r6' }),
             roll({ id: 'r5' }),
             roll({ id: 'r4' }),
             roll({ id: 'r3' }),
@@ -2085,6 +2097,7 @@ describe('components/character-sheet/roll-tray', () => {
           ]}
           rolling={false}
           table={table([
+            ['r5', { status: 'done', unfollowed: true }],
             [
               'r4',
               { status: 'done', visible: true, total: 19, outcome: 'success' },
@@ -2096,11 +2109,12 @@ describe('components/character-sheet/roll-tray', () => {
         />,
       )
 
-      await user.click(screen.getByText('Earlier rolls (4)'))
+      await user.click(screen.getByText('Earlier rolls (5)'))
 
       expect(
         screen.getAllByRole('listitem').map(item => item.textContent),
       ).toEqual([
+        'Perception check12 +4 = 16· sent',
         'Perception check12 +4 = 16· table 19, saved',
         'Perception check12 +4 = 16· hidden',
         'Perception check12 +4 = 16· sending',

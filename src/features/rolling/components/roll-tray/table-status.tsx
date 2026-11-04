@@ -2,6 +2,7 @@ import {
   onItsWayWords,
   outcomeOf,
   reasonOf,
+  sentWords,
   toneOf,
 } from '../../utils/tray-words'
 import { AreaOutcomes } from './area-outcomes'
@@ -15,6 +16,7 @@ import type { LocalCheck, TableRollState } from '@/types/roll'
 /**
  * Where a roll is on its way to the game, or what the game made of it: for a saving throw or check
  * against a DC a description names, whether it was made, by the game's total where it doesn't say.
+ * One the app took with nothing to follow it by says only that it was sent.
  */
 export function TableStatus({
   state,
@@ -37,6 +39,9 @@ export function TableStatus({
         {state.together && ' Keep this page open until they’re all sent.'}
       </StatusLine>
     )
+  }
+  if (state.unfollowed) {
+    return <StatusLine tone='made'>{sentWords(role)}</StatusLine>
   }
   if (tone === 'made') {
     return state.visible ? (

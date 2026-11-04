@@ -1071,9 +1071,14 @@ describe('hooks/use-table-rolls', () => {
       const { result } = render()
 
       act(() => result.current.send(perception, check()))
-      await advance(FOLLOW_FOR + CHECK_EVERY)
+      await advance(0)
 
-      expect(result.current.states.get('r1')).toEqual({ status: 'sending' })
+      // Settled at once: it went, and nothing on its way is left to wait on.
+      expect(result.current.states.get('r1')).toEqual({
+        status: 'done',
+        unfollowed: true,
+      })
+      await advance(FOLLOW_FOR + CHECK_EVERY)
       expect(fetch).toHaveBeenCalledTimes(1)
     },
   )
@@ -1798,6 +1803,36 @@ describe('hooks/use-table-rolls', () => {
       })
       await advance(CHECK_EVERY * 3)
       expect(fetch).toHaveBeenCalledTimes(7)
+    })
+
+    it('sends each in turn after one the app took with nothing to follow it by, then tells them all as sent', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, {}))
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+        .mockResolvedValueOnce(
+          respond(200, {
+            id: 'req-2',
+            status: 'done',
+            visible: true,
+            total: 5,
+            healed: 5,
+          }),
+        )
+        .mockResolvedValueOnce(respond(202, {}))
+      const { result } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+
+      expect(posted()).toHaveLength(3)
+      // Nothing still promised: what they came to isn't known, only that they went.
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'done',
+        visible: false,
+        unfollowed: true,
+        together: { count: 3, made: 3 },
+      })
     })
 
     it("sends none after one the game didn't take or make, keeping how many it made, and why not the rest", async () => {
