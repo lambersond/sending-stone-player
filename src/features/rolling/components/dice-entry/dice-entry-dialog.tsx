@@ -32,7 +32,14 @@ import type { DiceEntry, DiceEntrySides } from '@/types/dice-entry'
 /** A phone held sideways, or any screen as short: the dice beside the keypad, not above it. */
 const SHORT = '(max-height: 30rem)'
 
-/** Scrolls an element's content down by some pixels, as focus moves past what covers it. */
+/**
+ * Scrolls an element's content down by some pixels, as focus moves past what covers it.
+ *
+ * A function of its own, not an inline `scrollTop +=`, on purpose: it is an imperative scroll of a
+ * DOM node from an event or effect-event handler, and react-hooks/immutability can't tell that
+ * node (found through the `form` ref prop) from a render value being mutated. Written inline, the
+ * rule flags it again, and the react-hooks line disables are at their budget.
+ */
 function scrollDown(scroller: HTMLElement, by: number) {
   scroller.scrollTop += by
 }

@@ -3,7 +3,7 @@ import { CheckResult } from './check-result'
 import { DamageResult } from './damage-result'
 import { FormulaResult } from './formula-result'
 import { GmResult } from './gm-result'
-import { UseResult } from './use-result'
+import { UsedResult } from './used-result'
 import type { TableRolls } from '../../types'
 import type { LocalRoll } from '@/types/roll'
 
@@ -25,7 +25,7 @@ export function LatestResult({
     }
     case 'use': {
       return (
-        <UseResult
+        <UsedResult
           roll={roll}
           state={state}
           onRollDamage={table?.rollDamage}

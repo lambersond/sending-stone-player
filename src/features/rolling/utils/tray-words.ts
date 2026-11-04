@@ -345,7 +345,7 @@ const FAVORITE_WORDS = {
 function commandWords(
   roll: LocalUse,
   state: TableRollState,
-): Parameters<typeof wayWords>[2] | undefined {
+): { doing: string; done: string; not: string } | undefined {
   // A favorite added or removed, from module 0.37.0.
   if (roll.favorite) return FAVORITE_WORDS[roll.favorite]
   // One of the character's own effects turned off, on or deleted, from module 0.39.0, the same way.
