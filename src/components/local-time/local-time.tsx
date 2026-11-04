@@ -1,5 +1,6 @@
 'use client'
 
+import { formatTime } from './utils'
 import { useHydrated } from '@/hooks/use-hydrated'
 import type { LocalTimeProps } from './types'
 
@@ -14,16 +15,4 @@ export function LocalTime({ value, className }: Readonly<LocalTimeProps>) {
       {hydrated ? formatTime(new Date(value)) : ''}
     </time>
   )
-}
-
-function formatTime(date: Date): string {
-  const today = new Date().toDateString() === date.toDateString()
-  return today
-    ? date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : date.toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
 }

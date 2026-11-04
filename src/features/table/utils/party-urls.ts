@@ -1,27 +1,22 @@
-import {
-  gmPartyApi,
-  gmPartyPath,
-  partyApi as playerPartyApi,
-  partyPath,
-} from '@/utils/seat-urls'
+import { gmPartyApi, gmPartyPath, partyApi, partyPath } from '@/utils/seat-urls'
 import type { Character, TableSeat } from '@/types/character'
 
 /**
  * Where a party sheet open at the table is read: through the player's character, or for the
  * Gamemaster's seat, through their campaign.
  */
-export function partyApi(
+export function seatPartyApi(
   seat: TableSeat,
   character: Character,
   group = '',
 ): string {
   return seat.role === 'gm'
     ? gmPartyApi(character.campaignId ?? '', group)
-    : playerPartyApi(character.id, group)
+    : partyApi(character.id, group)
 }
 
 /** A party sheet's own page, as the player or the Gamemaster opens it. */
-export function partyPage(
+export function seatPartyPage(
   seat: TableSeat,
   character: Character,
   group = '',

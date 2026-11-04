@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react'
 import clsx from 'clsx'
 import { ChevronLeft } from 'lucide-react'
 import { CampaignRow } from '../campaign-row/campaign-row'
+import { countWords } from './utils'
 import { SearchField } from '@/components/search-field/search-field'
 import { CAMPAIGN_SEARCH_FROM } from '@/constants/campaign'
 import { PageToasts } from '@/features/campaigns/components/page-toast/page-toast'
@@ -181,7 +182,3 @@ function CampaignList({
     </div>
   )
 }
-
-/** How many campaigns the search shows, as its status line says it. */
-const countWords = (count: number) =>
-  count === 1 ? '1 campaign shown' : `${count} campaigns shown`

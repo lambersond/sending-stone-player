@@ -3,6 +3,7 @@
 import { useActionState, useId, useRef } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Plus, RefreshCw } from 'lucide-react'
+import { randomSecret } from './utils'
 import { CopyField } from '@/components/copy-button/copy-button'
 import {
   CAMPAIGN_TITLE_EXAMPLE,
@@ -164,13 +165,4 @@ function Field({
       )}
     </div>
   )
-}
-
-/** A random secret, as long and URL-safe as the server's. */
-function randomSecret(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(24))
-  return btoa(String.fromCodePoint(...bytes))
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replaceAll('=', '')
 }

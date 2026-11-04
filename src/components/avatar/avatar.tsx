@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { initial } from './utils'
 import type { AvatarProps } from './types'
 
 export function Avatar({ name, image, className }: Readonly<AvatarProps>) {
@@ -31,5 +32,3 @@ export function Avatar({ name, image, className }: Readonly<AvatarProps>) {
     </span>
   )
 }
-
-const initial = (name: string) => name.trim().charAt(0).toUpperCase() || '?'

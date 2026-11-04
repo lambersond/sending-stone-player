@@ -8,7 +8,9 @@ import ts from 'typescript'
 // No module of src imports itself back, through any chain of imports, type-only ones included
 // (CLAUDE.md §7). The linter's import/no-cycle skips `import type`, so this holds the rest.
 
-const ROOT = process.cwd()
+// The repository, from this file's own path (src/__tests__/), which Jest sets before it loads the
+// file: a run started in any folder of it reads the same src.
+const ROOT = path.resolve(path.dirname(expect.getState().testPath!), '../..')
 const SRC = path.join(ROOT, 'src')
 
 /** Every TypeScript module under src/, but declaration files. */

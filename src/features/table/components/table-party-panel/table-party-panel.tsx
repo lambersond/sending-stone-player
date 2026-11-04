@@ -1,7 +1,7 @@
 'use client'
 
 import { PartyPanel } from '@/features/party/components/party-panel/party-panel'
-import { partyApi, partyPage } from '@/features/table/utils/party-urls'
+import { seatPartyApi, seatPartyPage } from '@/features/table/utils/party-urls'
 import type { Character, TableSeat } from '@/types/character'
 import type { TableGroup } from '@/types/party'
 import type { TableView } from '@/types/table'
@@ -28,8 +28,8 @@ export function TablePartyPanel({
   return (
     <PartyPanel
       group={group}
-      api={partyApi(seat, character, group?.id)}
-      pageHref={partyPage(seat, character, group?.id)}
+      api={seatPartyApi(seat, character, group?.id)}
+      pageHref={seatPartyPage(seat, character, group?.id)}
       role={seat.role}
       ownSheetHref={
         seat.role === 'gm' ? undefined : `/characters/${character.id}`
