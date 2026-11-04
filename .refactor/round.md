@@ -63,6 +63,108 @@ disables or a note); a glob row covers the new files a split makes in one folder
    gate 10, 51e82f8 restoring) are history: the PR says so. (e) note-lines.test.tsx's `ago(0)` row races
    the clock about once in 200 L1s (frozen test, base behaviour): a v0.44 tooling line in §4.4.
 
+5. **2026-11-03 ~8:15 PM EST, integration (Phase 3's end).**
+   - **(a) Order and results.** The nine lanes landed in §2.3.7's order. Each was rebased onto the
+     branch head with no conflict: no file is changed by two lanes, and each lane's diff is
+     byte-identical before and after its rebase. So no hunk went to Phase 4, and no integration
+     fix commit was made. L1 and `next build` were green after each landing: 0 red, 0 flaky, tsc 0
+     errors, gates 1-12 ok.
+
+     | lane | its commits on the branch (§2.5 number, then the rest) | L1 at its last commit |
+     |---|---|---|
+     | W-a | a3b222f (12), 2365911 (13), 410051c (fix) | 306 suites, 9,700 tests; 659 warnings; 2 cycle groups |
+     | W-b | 38a17b5 (14), 5ec922f (its moves.d), f1bde09 (fix) | 313, 9,700; 651; 2 |
+     | S | d264d9a (9), e88b05a (10), f7d3890 (11), 8088279 (fix) | 314, 9,709; 598; 1 |
+     | R-a | e173ffc (15), 71cef6c (fix) | 314, 9,709; 584; 1 |
+     | R-b | ef3507a (16), ac31d37 (fix) | 314, 9,709; 547; 1 |
+     | U1 | 4114094 (17), aae075d (type-only follow-up), c9b5be3 (fix) | 315, 9,720; 474; 1 |
+     | U2 | 64172b6 (18), bba5753 (fix) | 315, 9,720; 333; 1 |
+     | V1 | 61de31a (19), c2ca691 (fix) | 315, 9,720; 295; 1 |
+     | V2 | 983b4b4 (20), f4b17f1 (fix) | 316, 9,726; 114; 0 |
+
+     - **Report commits.** Each lane's report commit follows its code: 16108ec, 0f81323, 8f6d3d3,
+       f2c47ab, 3a7981b, 0cd0b44, c821679, 8f8a2ca and ac01b2c. Each message maps the lane's
+       pre-rebase SHAs to the branch's (phase4-items.md P-1).
+     - **Commit numbers.** §2.5's numbers name the commits. On the branch they sit in landing order
+       (12, 13, 14, 9, 10, 11, 15 …), so the L3 replay walks the branch and the PR's table says so.
+     - **The integrated head (ac01b2c):**
+       - 0 cycle groups, so §3.4's "all four after integration" is met, and G's commit 23 check and
+         R1.9.28 start from 0
+       - 114 eslint warnings, 0 errors
+       - the same route table in every build
+     - **e2e:** pass 3 (§2.6) had not run when this was written.
+   - **(b) Ratchet keys raised by moves: none.** Gate 9 was ok at every landing against
+     ratchet-moved.json, which is unchanged since amendment 3. Warnings went 981 → 659 → 651 →
+     598 → 584 → 547 → 474 → 333 → 295 → 114, and no (unit, rule) key rose. No ratchet edit was
+     made, and amendment 3 (b)'s two keys stay the only raised ones.
+   - **(c) The U1 review's contract conflict (U1-m1).**
+     - R1.1.3 asks for one `blockedReason` in character-pane/utils.ts, as map U1.4 does.
+     - §1.10 listed askBlocked/useBlocked among the two-copy merges left out. Map U1 §9 says
+       "merged only if trivially equal".
+     - At a2332a2 the two bodies differ only in the kind literal and one template, so they are
+       trivially equal.
+     - **R1.1.3 wins, and §1.10 is amended:** the pair is struck from its list.
+     - Nothing visible changes. The lane's report and the review byte-checked every string: the base
+       and head string literals are equal, with the curly ’ kept, and the descriptions' key order is
+       unchanged.
+   - **(d) Deviations accepted as landed** (the lanes' fix rounds):
+     - **R1.1.3:** its builders are the plain functions `rollActions` (character-pane/roll-actions.ts)
+       and `linkActions` (link-actions.ts), not hooks named useRollActions and useDescriptionLinks,
+       because they call no React hook (CLAUDE.md §3; U1-m2).
+     - **U1's settle types:** Settling, SettleOptions, Settle and Spending are in FS/hooks/types.ts
+       (U1-m4).
+     - **R1.3.5:** notePresent is in src/lib/routes/seat-routes.ts beside noting, not in http.ts
+       (S-1). R1.3.8's EVENT_HANDLERS was made (S-2), so §0.8 item 8 holds.
+     - **R1.4.9b (amendment 1 (c))** was done in W-a's lane without moving a name (410051c):
+       FavoriteTarget is derived from FavoriteEntry['target'], and EffectAsk is written as a literal.
+       So src/types/base.ts was not made, and W-a's Phase 4 move of 20 import lines is withdrawn
+       (optional: G-26). typedRules reads the kind table (W-a-3).
+     - **R-b:** toneOf is in tray-words.ts and reachOf holds RollHistory's branch (RB-6); the
+       component is UsedResult (RB-4).
+     - **U2:** the component is PlainUseChip (U2-6), and UsesChips takes a `place` (U2-4).
+     - **V1 (V1-RV-6):** places.ts became components/game-table/utils.ts, sameGroup moved to
+       utils/party-groups.ts, and the toast step types moved to turn-toast/types.ts.
+     - **L1s:** V1 and V2 ran no per-item L1 for most items, because of lock contention (V1-RV-7,
+       V2-8). Each commit's L1 and build were green, and the PR says so.
+     - **Extra commits:** beside §2.5's numbered commits there is one fix commit per lane, aae075d
+       beside 17, 5ec922f (W-b's moves.d) beside 14, and the report commits.
+   - **(e) Where Phase 3 put §1.9's Phase 4 sites** (these override §1.9's table):
+     - **R1.9.20:** roll-menu's popover is roll-menu/choice-menu.tsx, and ReturnPopover is
+       wild-shape/return-popover.tsx. usePopover has no `point?` option, although R1.1.16 drafted
+       one: a point-placed menu keeps its own layout effect.
+     - **R1.9.22:** FT/utils/table-query.ts (tableQuery and seenOf). use-table-view.ts only calls it.
+     - **R1.9.23:** FT/utils/party-urls.ts (partyApi and partyPage), called from
+       table-party-panel/table-party-panel.tsx. HEADER_ICON_BUTTON's site is
+       table-header/table-header.tsx.
+     - **R1.9.24:** rollAgainst in description-link/utils.ts.
+     - **R1.9.25:** FavoriteRow in favorites/favorite-row.tsx.
+   - **(f) The Phase 4 list is R/phase4-items.md.** R1.9.26 is no longer "expected empty".
+     - **Contents:** every item the lanes and integrators reported, deduplicated, each with its
+       builder and file: F-a FA-1 to FA-3, F-b FB-1 and FB-2, G G-1 to G-30, the notes for the PR,
+       and the optional review findings.
+     - **Decisions G makes before commit 23:** SocialProviderId (G-8); CampaignStatus and LastHeard
+       (G-9, which needs a gate 11 allowance from the orchestrator if G splits them); the
+       creature-switcher directives (G-10); useFollow (G-12); `due` (G-13).
+     - **The react-hooks budget is full.** The tree has 7 line-level react-hooks disables, the whole
+       ≤ 7 of §1.7.3. So the findings left are fixed, not disabled (G-11).
+     - **useToastSetting and useToastTop** go to FR/hooks/ (RB-3), not to owners.tsv:717's
+       components/roll-toasts/.
+   - **(g) owners.tsv after integration.**
+     - **35 rows added:** every new file a lane made that no row or glob covered (RB-2, U2-1,
+       V1-RV-1, V2-2, U1's FS/hooks/types.ts), the F-a and F-b sites with phase 4 (V1-RV-2), and G's
+       new files.
+     - **42 rows changed:**
+       - a file Phase 3 renamed is named by its new path
+       - a file Phase 3 split is marked `(deleted in 3: …)`, and src/types/base.ts `(not made: …)`
+       - rows 792 and 800 corrected, and phase 3 added to logo.tsx and confirm-modal.tsx (V2-1)
+       - the disables column matched to the tree
+       - G's import lines in the two frozen files noted
+     - **check.mjs** takes `AFTER=3`, the last phase done. Where it compares a row with moves.tsv
+       (checks A, A2 and E), it follows a file that Phase 3 renamed: git must pair the two paths as
+       a rename from a2332a2, and for A2 the name must still be exported there.
+       `AFTER=3 node .refactor/analysis/owners-check/check.mjs` is clean at this head. The default,
+       2b, reproduces commit 8's check.
+
 ## §0 Summary, principles, metrics
 
 ### §0.1 What v0.43 is
@@ -1204,11 +1306,12 @@ F-a ≈ 3 h, F-b ≈ 1.5 h, G ≈ 4 h.
   cookbook stores, use-creature-choice, use-stored), an End Turn state machine, a journal context, sheet
   rows fed from context (`rows: ActionRows` through every row; U1 D5's 13 context + provider + hook trios).
 - **Two-copy merges** (Q1 says three or more): the events/commands module gate; `noting` vs `attempt`;
-  GAMEMASTER ×2; liveState ×2; reasonSentence ×2; askBlocked/useBlocked; FavoritesStrip/Column headings;
+  GAMEMASTER ×2; liveState ×2; reasonSentence ×2; FavoritesStrip/Column headings;
   slotWords ×2 (apart by its comment); the damage kind menu ×2; Choices vs AloneChoices; the activity rows
   list vs table; press-menu vs roll-button long-press; `/ (damage|healing)$/` ×2; WARNS, Waiting, BUTTON,
   OUTLINE, the two primary buttons; randomSecret vs generateSecret; NOT_MADE vs SETTLED; OVER_FOR vs
   SETTLE_FOR; the tests' `posted` ×2, cookbook `reads`, `settle`, `wait`, the 2 notes-route mock variants.
+  (askBlocked/useBlocked left this list by amendment 5 (c): R1.1.3's blockedReason merges them.)
 - **Near copies that differ in meaning:** the six sheet `answering` fakes, `given` ×7, `held` ×22, route
   callers; initials in sheet-tiles and avatar (bug B8); capitalize ×5 (two add a period); the switch track
   ×4 (R1.1.21); the seat's own turn ×3 (Q5); the 6 ResizeObserver measures; the four save titles

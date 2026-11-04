@@ -1,8 +1,17 @@
-// owners.tsv against a tree (round.md §2.2.3: after commit 8, before the Phase 3 worktrees).
+// owners.tsv against a tree (round.md §2.2.3: after commit 8, before the Phase 3 worktrees; and
+// after integration, with AFTER=3, before the Phase 4 worktrees).
 // Not product code; deleted with .refactor/ in commit 28.
 //
 //   node .refactor/analysis/owners-check/check.mjs [<checkout> [<rev>]]   (defaults: APP, HEAD)
 //   OWNERS=<draft owners.tsv> node …/check.mjs                          (check a draft instead)
+//   AFTER=3 node …/check.mjs     (the last phase done; default 2b: a row's new file is made by then
+//                                 when one of its phases is done, and must not exist yet otherwise)
+//
+// After Phase 3 (AFTER=3) a lane may have renamed a file Phase 2 made (a JSX-returning hook's .tsx
+// split into use-*.ts and *-dialogs.tsx, §0.6.4; a component renamed). Its row then names the Phase 3
+// path, and the checks below follow the rename where they compare a row with moves.tsv (A, A2, E):
+// the old path is gone, the new one is in the tree, and `git diff -M5%` from the lanes' base
+// (P3BASE, default a2332a2) to <rev>, over just those two paths, pairs them as a rename.
 //
 // Reads <checkout>/.refactor/{owners.tsv,round.md,tools/moves.tsv} and the tree of <rev> (git
 // ls-tree, so the working tree's state does not matter). Checks:
@@ -33,11 +42,27 @@ const REV = process.argv[3] ?? 'HEAD';
 const BASE = '24f808b';
 const R = `${APP}/.refactor`;
 const OWNERS = process.env.OWNERS ?? `${R}/owners.tsv`; // another matrix to check (a draft)
+const PHASES = ['0', '1', '2a', '2b', '3', '4', '5', '6'];
+const AFTER = process.env.AFTER ?? '2b'; // the last phase done
+if (!PHASES.includes(AFTER)) throw new Error(`AFTER=${AFTER}: not one of ${PHASES.join(' ')}`);
+const doneBy = (phase) => PHASES.includes(phase) && PHASES.indexOf(phase) <= PHASES.indexOf(AFTER);
+const P3BASE = process.env.P3BASE ?? 'a2332a2'; // the Phase 3 lanes' base (commit 8 and its fix rounds)
 
 const git = (...args) => execFileSync('git', ['-C', APP, ...args], { encoding: 'utf8', maxBuffer: 1 << 28 });
 const listTree = (rev) => new Set(git('ls-tree', '-r', '--name-only', rev).split('\n').filter(Boolean));
 const tree = listTree(REV);
 const base = listTree(BASE);
+const pairs = new Map();
+/** Phase 3 renamed `from` (a file Phase 2 made) to `to`: see the header. Never before Phase 3. */
+function renamed(from, to) {
+  if (!from || !to || from === to || !doneBy('3') || tree.has(from) || !tree.has(to)) return false;
+  const key = `${from}\t${to}`;
+  if (!pairs.has(key)) {
+    const out = git('diff', '-M5%', '--name-status', P3BASE, REV, '--', from, to);
+    pairs.set(key, out.split('\n').some((line) => /^R\d+$/.test(line.split('\t')[0]) && line.endsWith(`\t${from}\t${to}`)));
+  }
+  return pairs.get(key);
+}
 const isSrc = (p) => p.startsWith('src/');
 const show = (p) => git('show', `${REV}:${p}`);
 
@@ -88,7 +113,8 @@ function expandBraces(p) {
 
 /**
  * A row's path_after as concrete paths and glob patterns. `=` is the base path; `DELETED …` (a
- * barrel) and `<path> (deleted …)` (a file emptied in 2b) are files that are gone.
+ * barrel), `<path> (deleted …)` (a file emptied in 2b, or split in Phase 3) and `<path> (not made …)`
+ * (a planned file a lane did not need) are files that are gone.
  */
 function targets(pathAtBase, pathAfter) {
   if (pathAfter === '=') return { paths: [pathAtBase], globs: [], deleted: false };
@@ -99,7 +125,7 @@ function targets(pathAtBase, pathAfter) {
   for (const part of splitTop(pathAfter, '; ')) {
     const m = part.match(/^(\S+) \((.*)\)$/);
     const spec = m && !m[1].includes('{') ? m[1] : part;
-    if (spec !== part && /^deleted\b/i.test(m[2])) deleted = true;
+    if (spec !== part && /^(deleted|not made)\b/i.test(m[2])) deleted = true;
     for (const p of expandBraces(spec)) (/[*<]|\.\./.test(p) ? globs : paths).push(p);
   }
   return { paths, globs, deleted };
@@ -126,7 +152,7 @@ function globRegex(g) {
 const globSample = (g) => g.replaceAll('**', 'zz/zz').replaceAll('*', 'zz').replace(/<[^>]*>/g, 'zz').replaceAll('(x)', 'x');
 
 const isLane = (r) => !r.lane.startsWith('-');
-const early = (r) => ['0', '1', '2a', '2b'].some((p) => r.phases.has(p));
+const early = (r) => [...r.phases].some(doneBy); // made by the phases done (2b: Phase 2's)
 const globRows = rows.flatMap((r) => r.globs.map((g) => ({ row: r, glob: g, re: globRegex(g) })));
 const concrete = new Map(); // path → rows whose live path_after is it
 for (const r of rows) {
@@ -163,21 +189,23 @@ const section = (title, findings) => {
   if (findings.length) failing++;
 };
 
-say(`# owners.tsv against ${REV} (${git('rev-parse', '--short', REV).trim()}) of ${APP}`);
+say(`# owners.tsv against ${REV} (${git('rev-parse', '--short', REV).trim()}) of ${APP}, after phase ${AFTER}`);
 say(`rows ${rows.length} (${globRows.length} glob patterns); src files ${[...tree].filter(isSrc).length} (base ${[...base].filter(isSrc).length})`);
 say();
 
 // ---- A. Phase 2's outputs ----------------------------------------------------------------------
 const a = [];
+/** A path a deleted row gave up that a later `-` row made again (a Phase 3 file at a 2b-emptied path). */
+const remade = (p, r) => (concrete.get(p) ?? []).some((x) => x !== r && x.pathAtBase === '-' && early(x));
 for (const r of rows) {
   const where = moved.get(r.pathAtBase);
   if (r.pathAtBase !== '-') {
     if (!base.has(r.pathAtBase)) a.push(`${cite(r)} ${r.pathAtBase}: not a file at ${BASE}`);
     if (where?.deleted && !r.deleted) a.push(`${cite(r)} ${r.pathAtBase}: moves.tsv deletes it (${where.deleted}); the row says ${r.pathAfter}`);
     const to = r.paths[0];
-    if (where?.to && to && where.to !== to) a.push(`${cite(r)} ${r.pathAtBase}: moves.tsv moved it to ${where.to}; the row says ${to}`);
+    if (where?.to && to && where.to !== to && !renamed(where.to, to)) a.push(`${cite(r)} ${r.pathAtBase}: moves.tsv moved it to ${where.to}; the row says ${to}`);
     if (r.deleted) {
-      for (const p of [r.pathAtBase, ...r.paths]) if (tree.has(p)) a.push(`${cite(r)} ${p}: marked deleted, still in the tree`);
+      for (const p of [r.pathAtBase, ...r.paths]) if (tree.has(p) && !remade(p, r)) a.push(`${cite(r)} ${p}: marked deleted, still in the tree`);
       continue;
     }
     if (!tree.has(to)) a.push(`${cite(r)} ${to}: missing (from ${r.pathAtBase})`);
@@ -185,7 +213,7 @@ for (const r of rows) {
     continue;
   }
   if (r.deleted) {
-    for (const p of r.paths) if (tree.has(p)) a.push(`${cite(r)} ${p}: marked deleted, still in the tree`);
+    for (const p of r.paths) if (tree.has(p) && !remade(p, r)) a.push(`${cite(r)} ${p}: marked deleted, still in the tree`);
     continue;
   }
   for (const p of r.paths) {
@@ -197,7 +225,8 @@ for (const r of rows) {
   }
   for (const g of r.globs) {
     const re = globRegex(g);
-    if (r.phases.has('2b') && isSrc(g) && ![...tree].some((p) => re.test(p))) a.push(`${cite(r)} ${g}: a 2b glob that matches nothing`);
+    const made = r.phases.has('2b') || (doneBy('3') && r.phases.has('3'));
+    if (made && isSrc(g) && ![...tree].some((p) => re.test(p))) a.push(`${cite(r)} ${g}: a ${r.phases.has('2b') ? '2b' : 'Phase 3'} glob that matches nothing`);
   }
 }
 section('A. path_after that Phase 2 should have produced, and moves.tsv against the rows', a);
@@ -206,13 +235,23 @@ section('A. path_after that Phase 2 should have produced, and moves.tsv against 
 const { specFromOwners } = createRequire(import.meta.url)(`${R}/tools/export-move.cjs`);
 const a2 = [];
 let specNames = 0;
+const texts = new Map();
+/** Whether <rev>'s file exports the name (a declaration, or a name in an export list). */
+function exports(file, name) {
+  if (!texts.has(file)) texts.set(file, show(file));
+  const n = name.replace(/[$]/g, '\\$&');
+  return new RegExp(`export\\s+(?:default\\s+)?(?:declare\\s+)?(?:async\\s+)?(?:function\\*?|const|let|var|class|type|interface|enum)\\s+${n}\\b|export\\s+(?:type\\s+)?\\{[^}]*\\b${n}\\b[^}]*\\}`).test(texts.get(file));
+}
 for (const [dest, source, list] of specFromOwners(OWNERS)) {
   for (const entry of list.split(/\s+/).filter((x) => x && x !== '*')) {
     specNames++;
     const name = entry.split('=')[0];
     const rec = names.filter((x) => x.basePath === source && x.name.split('=')[0] === name);
-    if (rec.some((x) => x.to === dest)) continue;
-    if (moved.get(source)?.to === dest) continue; // the whole file is the home (use-dice-entry)
+    // A home Phase 3 renamed counts only where the renamed file still exports the name.
+    const there = (from) => renamed(from, dest) && exports(dest, entry.includes('=') ? entry.split('=')[1] : name);
+    if (rec.some((x) => x.to === dest || there(x.to))) continue;
+    const whole = moved.get(source)?.to;
+    if (whole === dest || there(whole)) continue; // the whole file is the home (use-dice-entry)
     a2.push(
       rec.length
         ? `${name} ← ${source}: noted for ${dest}, moved to ${rec.map((x) => x.to).join(', ')}`
@@ -301,8 +340,11 @@ say();
 // ---- E. Phase 3 work of the files Phase 2 deleted ----------------------------------------------
 const e = [];
 let homes = 0;
-for (const r of rows.filter((x) => x.deleted && x.pathAtBase !== '-' && x.paths.length && isLane(x))) {
-  const dests = new Set(names.filter((x) => x.basePath === r.pathAtBase).map((x) => x.to));
+/** Where a home Phase 2 made is now: itself, or the path of its folder a lane renamed it to in Phase 3. */
+const now = (p) => (tree.has(p) ? p : ([...concrete.keys()].find((q) => q.startsWith(p.slice(0, p.lastIndexOf('/') + 1)) && renamed(p, q)) ?? p));
+// The files Phase 2 deleted (moves.tsv's `delete` rows); a file a lane split in Phase 3 is not one.
+for (const r of rows.filter((x) => x.deleted && moved.get(x.pathAtBase)?.deleted && x.paths.length && isLane(x))) {
+  const dests = new Set(names.filter((x) => x.basePath === r.pathAtBase).map((x) => now(x.to)));
   if (dests.size === 0) e.push(`${cite(r)} ${r.pathAtBase}: deleted, and moves.tsv moved no name out of it`);
   for (const p of dests) {
     const cs = claimsOf(p);

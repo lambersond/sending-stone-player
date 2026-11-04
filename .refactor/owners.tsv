@@ -118,10 +118,10 @@ src/components/avatar/avatar.test.tsx	=	V2	2a 3	R1.0.2 R1.5.12 (tests follow)		n
 src/components/avatar/avatar.tsx	=	V2	3	R1.5.21	types:1	@next/next/no-img-element(stays):1
 src/components/avatar/index.ts	DELETED (barrel, commit 5)	V2	2a	R1.0.1 (none: moves only)	barrel→R1.0.1	
 src/components/campaigns/campaign-buttons.test.tsx	src/features/campaigns/components/campaign-buttons/campaign-buttons.test.tsx	V2	2a 3	R1.0.1 R1.5.14 R1.5.18		
-src/components/campaigns/campaign-buttons.tsx	src/features/campaigns/components/campaign-buttons/campaign-buttons.tsx	V2	2a 3	R1.0.1 R1.5.14 R1.5.18	a:1 types:1	
+src/components/campaigns/campaign-buttons.tsx	src/features/campaigns/components/campaign-buttons/campaign-buttons.tsx (deleted in 3: split into new-campaign-button.tsx and connect-foundry-button.tsx, R1.5.18)	V2	2a 3	R1.0.1 R1.5.14 R1.5.18	a:1 types:1	
 src/components/campaigns/campaign-card.test.tsx	src/features/campaigns/components/campaign-card/campaign-card.test.tsx	V2	2a 3	R1.0.1 R1.0.2 R1.5.14 R1.5.18		no-null(R1.0.2):5
 src/components/campaigns/campaign-card.tsx	src/features/campaigns/components/campaign-card/campaign-card.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.14 R1.5.18	types:1	
-src/components/campaigns/campaign-controls.tsx	src/features/campaigns/components/campaign-controls/campaign-controls.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.14 R1.5.18	a:4 types:1	
+src/components/campaigns/campaign-controls.tsx	src/features/campaigns/components/campaign-controls/campaign-controls.tsx (deleted in 3: split into delete-campaign, invite-link, remove-player, reset-link and revoke-cookbook-link .tsx with types.ts and utils.ts, R1.5.18)	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.14 R1.5.18	a:4 types:1	
 src/components/campaigns/campaign-ids.ts	src/features/campaigns/utils/campaign-ids.ts	V2	2a 3	R1.0.1 R1.5.14 R1.5.18		prefer-query-selector(stays):1
 src/components/campaigns/campaign-index.test.tsx	src/features/campaigns/components/campaign-index/campaign-index.test.tsx	V2	2a 3	R1.0.1 R1.5.14 R1.5.18	types:1	react/jsx-key(stays):1
 src/components/campaigns/campaign-index.tsx	src/features/campaigns/components/campaign-index/campaign-index.tsx	V2	2a 3	R1.0.1 R1.5.14 R1.5.18	a:4 types:3	
@@ -171,7 +171,7 @@ src/components/character-sheet/conditions-panel.tsx	src/features/sheet/component
 src/components/character-sheet/conditions-reference.test.tsx	src/features/sheet/components/conditions/conditions-reference.test.tsx	U1	2a 3	R1.0.1 R1.0.2 R1.1.22 (tests follow)		no-null(R1.0.2):1
 src/components/character-sheet/conditions-reference.tsx	src/features/sheet/components/conditions/conditions-reference.tsx	U1	2a 3	R1.0.1 R1.1.7		
 src/components/character-sheet/d20-rolls.tsx	src/features/rolling/components/d20-rolls/d20-rolls.tsx (deleted in commit 7: emptied by the export moves, its Phase 3 items now apply to the files of its folder)	R-b	2a 2b	R1.0.1 R1.9.1 R1.2.10	a:2 types:1	
-src/components/character-sheet/damage-menu.tsx	src/features/rolling/components/damage-menu/damage-menu.tsx	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.10	a:6 types:2	
+src/components/character-sheet/damage-menu.tsx	src/features/rolling/components/modify-roll/modify-damage.tsx	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.10	a:6 types:2	renamed in 3 from damage-menu/damage-menu.tsx (R088, R1.2.10: ModifyDamage), the file row 718 names
 src/components/character-sheet/description-actions.tsx	src/features/sheet/components/description-actions/description-actions.tsx (deleted in commit 7: emptied by the export moves, its Phase 3 items now apply to the files of its folder)	U1	2a 2b	R1.0.1 R1.9.1 R1.1.6 R1.1.10	a:12 types:4	
 src/components/character-sheet/description-html.test.tsx	src/components/description/description-html.test.tsx	U2	2a 2b 3	R1.0.1 R1.9.1 R1.1.17		
 src/components/character-sheet/description-html.tsx	src/components/description/description-html.tsx	U2	2a 2b 3	R1.0.1 R1.9.1 R1.1.18 R1.1.20	a:5 types:3 cc:152=41→R1.1.18	
@@ -252,7 +252,7 @@ src/components/companions/companion-pane.test.tsx	src/features/companions/__test
 src/components/companions/companion-pane.tsx	src/features/companions/components/companion-pane/companion-pane.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.13 R1.5.17	a:2	
 src/components/companions/creature-header.test.tsx	src/features/companions/components/creature-header/creature-header.test.tsx	V2	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.13 R1.5.17		no-null(R1.0.2):1
 src/components/companions/creature-header.tsx	src/features/companions/components/creature-header/creature-header.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.13 R1.5.17	a:3	
-src/components/companions/creature-switcher.test.tsx	src/features/companions/components/creature-switcher/creature-switcher.test.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.13 R1.5.17	types:1	no-this-outside-of-class(line-level+reason):1
+src/components/companions/creature-switcher.test.tsx	src/features/companions/components/creature-switcher/creature-switcher.test.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.13 R1.5.17	types:1	no-this-outside-of-class(a range and a next-line directive, each with its reason, f4b17f1; V2-4: G decides the form in 23):2
 src/components/companions/creature-switcher.tsx	src/features/companions/components/creature-switcher/creature-switcher.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.13 R1.5.17	a:2 types:1 hooks:exhaustive-deps@160,exhaustive-deps@165	@next/next/no-img-element(reason):1
 src/components/cookbook-card/cookbook-card.test.tsx	src/features/cookbook/components/cookbook-card/cookbook-card.test.tsx	V2	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.13 R1.5.20		no-null(R1.0.2):1
 src/components/cookbook-card/cookbook-card.tsx	src/features/cookbook/components/cookbook-card/cookbook-card.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.13 R1.5.20	types:1	
@@ -270,10 +270,10 @@ src/components/dice-entry/dice-keypad.test.tsx	src/features/rolling/components/d
 src/components/dice-entry/dice-keypad.tsx	src/features/rolling/components/dice-entry/dice-keypad.tsx	R-b	2a 3	R1.0.1 R1.2.11	a:1 types:1	
 src/components/dice-entry/index.ts	DELETED (barrel, commit 5)	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.11	barrel→R1.0.1	
 src/components/dice-entry/use-dice-entry.test.tsx	src/features/rolling/components/dice-entry/use-dice-entry.test.tsx	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.11		
-src/components/dice-entry/use-dice-entry.tsx	src/features/rolling/components/dice-entry/use-dice-entry.tsx	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.11	a:1 types:1	no-useless-undefined(§1.7.2):1 receives in 2b: useDiceEntry ← components/dice-entry/use-dice-entry.tsx
+src/components/dice-entry/use-dice-entry.tsx	src/features/rolling/components/dice-entry/use-dice-entry.ts	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.11	a:1 types:1	no-useless-undefined(§1.7.2):1 receives in 2b: useDiceEntry ← components/dice-entry/use-dice-entry.tsx; .tsx → .ts in 3 (R077, R1.2.11), its JSX in dice-entry-dialogs.tsx
 src/components/game-table/chat-log.results.test.tsx	src/features/table/__tests__/chat-results.integration.test.tsx	V1	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.1 (tests follow)		no-null(R1.0.2):1
 src/components/game-table/chat-log.test.tsx	src/features/table/components/chat-log/chat-log.test.tsx	V1	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.1 (tests follow)		no-null(R1.0.2):1
-src/components/game-table/chat-log.tsx	src/features/table/components/chat-log/chat-log.tsx	V1	2a 2b 3	R1.0.1 R1.9.1 R1.5.2 R1.5.3 R1.5.7	a:2	@next/next/no-img-element(reason):1
+src/components/game-table/chat-log.tsx	src/features/table/components/chat-log/chat-log.tsx	V1	2a 2b 3	R1.0.1 R1.9.1 R1.5.2 R1.5.3 R1.5.7	a:2	its no-img-element directive went with the img to chat-message.tsx (R1.5.7)
 src/components/game-table/combat-tracker.test.tsx	src/features/table/components/combat-tracker/combat-tracker.test.tsx	V1	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.1 (tests follow)		no-null(R1.0.2):1
 src/components/game-table/combat-tracker.tsx	src/features/table/components/combat-tracker/combat-tracker.tsx	V1	2a 2b 3	R1.0.1 R1.9.1 R1.5.2 R1.5.3 R1.5.4 R1.5.8	a:3 types:1 cc:234=22→R1.5.8	
 src/components/game-table/empty-state.tsx	src/components/empty-state/empty-state.tsx	V1	2a 3	R1.0.1 R1.5.2 R1.5.3	types:1	
@@ -292,7 +292,7 @@ src/components/game-table/game-table.notes.test.tsx	src/features/table/__tests__
 src/components/game-table/game-table.party.test.tsx	src/features/table/__tests__/game-table.party.integration.test.tsx	V1	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.1 (tests follow)		no-null(R1.0.2):5
 src/components/game-table/game-table.removals.test.tsx	src/features/table/__tests__/game-table.removals.integration.test.tsx	V1	2a 2b 3	R1.0.1 R1.9.1 R1.5.1 (tests follow)		
 src/components/game-table/game-table.test.tsx	src/features/table/__tests__/game-table.integration.test.tsx	V1	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.1 (tests follow)		no-null(R1.0.2):1
-src/components/game-table/game-table.tsx	src/features/table/components/game-table/game-table.tsx	V1	2a 2b 3 4	R1.0.1 R1.0.2 R1.9.1 R1.9.3 R1.5.2 R1.5.3 R1.5.4 R1.5.5 R1.5.11 R1.9.23(F-b)	types:7 cc:159=96→R1.5.5 hooks:set-state-in-effect@245,refs@1126,refs@1129	no-null(R1.0.2):1
+src/components/game-table/game-table.tsx	src/features/table/components/game-table/game-table.tsx	V1	2a 2b 3 4	R1.0.1 R1.0.2 R1.9.1 R1.9.3 R1.5.2 R1.5.3 R1.5.4 R1.5.5 R1.5.11 R1.9.23(F-b)	types:7 cc:159=96→R1.5.5 hooks:set-state-in-effect@245,refs@1126,refs@1129	no-null(R1.0.2):1; R1.9.23's sites left it in Phase 3 (party-urls.ts, table-party-panel.tsx, table-header.tsx)
 src/components/game-table/index.ts	DELETED (barrel, commit 5)	V1	2a	R1.0.1 (none: moves only)	barrel→R1.0.1	
 src/components/game-table/live-status.tsx	src/components/live-status/live-status.tsx	V1	2a 2b 3	R1.0.1 R1.9.1 R1.5.2 R1.5.3	a:1 types:1	
 src/components/game-table/local-time.test.tsx	src/components/local-time/local-time.test.tsx	V1	2a 3	R1.0.1 R1.5.1 (tests follow)		
@@ -312,13 +312,13 @@ src/components/invite-form/invite-form.test.tsx	src/features/characters/componen
 src/components/invite-form/invite-form.tsx	src/features/characters/components/invite-form/invite-form.tsx	V2	2a 3	R1.0.1 R1.5.14 R1.5.21	types:1	
 src/components/logo/index.ts	DELETED (barrel, commit 5)	V2	2a	R1.0.1 (none: moves only)	barrel→R1.0.1	
 src/components/logo/logo.test.tsx	=	V2	3	R1.5.12 (tests follow)		
-src/components/logo/logo.tsx	=	V2	-	(none: moves only)		@next/next/no-img-element(reason):1
+src/components/logo/logo.tsx	=	V2	3	R1.5.23		@next/next/no-img-element(reason):1
 src/components/modal/confirm-dialog.test.tsx	=	V2	2b 3	R1.9.1 R1.5.14 R1.5.21		
 src/components/modal/confirm-dialog.tsx	=	V2	2b 3	R1.9.1 R1.5.14 R1.5.21	a:1 types:2	
 src/components/modal/index.ts	DELETED (barrel, commit 5)	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.14 R1.5.21	barrel→R1.0.1	
 src/components/modal/modal.test.tsx	=	V2	2b 3	R1.9.1 R1.5.14 R1.5.21		
 src/components/modal/modal.tsx	=	V2	2b 3	R1.9.1 R1.5.14 R1.5.21	types:1	
-src/components/modal/portal-root.tsx	=	V2	2a 2b 3	R1.0.2 R1.9.1 R1.5.14 R1.5.21	a:6	no-null(R1.0.2):1
+src/components/modal/portal-root.tsx	src/components/modal/use-dialog-root.ts	V2	2a 2b 3	R1.0.2 R1.9.1 R1.5.14 R1.5.21	a:6	no-null(R1.0.2):1; renamed in 3 (R097, R1.5.21: useDialogRoot to its file), the file row 801 names
 src/components/notes/chapter-form.test.tsx	src/features/notes/components/chapter-form/chapter-form.test.tsx	V2	2a 3	R1.0.1 R1.0.2 R1.5.15	types:1 hooks:refs@45,refs@45,globals@46,refs@47,refs@47,refs@47,refs@47	no-null(R1.0.2):1
 src/components/notes/chapter-form.tsx	src/features/notes/components/chapter-form/chapter-form.tsx	V2	2a 3	R1.0.1 R1.5.15		
 src/components/notes/chapter-pane.test.tsx	src/features/notes/components/chapter-pane/chapter-pane.test.tsx	V2	2a 3	R1.0.1 R1.0.2 R1.5.15	types:1	no-null(R1.0.2):1
@@ -339,7 +339,7 @@ src/components/notes/note-card.tsx	src/features/notes/components/note-card/note-
 src/components/notes/note-editor.test.tsx	src/features/notes/components/note-editor/note-editor.test.tsx	V2	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.15	types:1 hooks:refs@70,refs@70,globals@71,refs@72,refs@72,refs@72,refs@72	no-null(R1.0.2):1 no-useless-undefined(§1.7.2):1
 src/components/notes/note-editor.tsx	src/features/notes/components/note-editor/note-editor.tsx	V2	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.15	a:11 types:2 hooks:exhaustive-deps@536	no-null(R1.0.2):1
 src/components/notes/note-lines.test.tsx	src/features/notes/components/note-lines/note-lines.test.tsx	V2	2a 3	R1.0.1 R1.0.2 R1.5.15		no-null(R1.0.2):1
-src/components/notes/note-lines.tsx	src/features/notes/components/note-lines/note-lines.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.15	a:16	
+src/components/notes/note-lines.tsx	src/features/notes/components/note-lines/note-lines.tsx (deleted in 3: split into chapter-line, last-changed, note-text, state-mark and written .tsx with utils.ts, R1.5.15)	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.15	a:16	
 src/components/notes/note-pane.test.tsx	src/features/notes/components/note-pane/note-pane.test.tsx	V2	2a 3	R1.0.1 R1.0.2 R1.5.15	types:1	no-null(R1.0.2):1
 src/components/notes/note-pane.tsx	src/features/notes/components/note-pane/note-pane.tsx	V2	2a 2b 3	R1.0.1 R1.9.1 R1.5.15	types:1	
 src/components/notes/note-problem.test.tsx	src/features/notes/components/note-problem/note-problem.test.tsx	V2	2a 3	R1.0.1 R1.5.15	types:1	
@@ -473,7 +473,7 @@ src/hooks/use-end-turn.ts	src/features/table/hooks/use-end-turn.ts	V1	2a 2b 3	R1
 src/hooks/use-fullscreen.test.tsx	src/components/fullscreen-button/use-fullscreen.test.tsx	V1	2a 3	R1.0.1 R1.0.2 R1.5.1 (tests follow)		no-null(R1.0.2):1
 src/hooks/use-fullscreen.ts	src/components/fullscreen-button/use-fullscreen.ts	V1	2a	R1.0.1 (none: moves only)		
 src/hooks/use-hold.test.ts	src/features/table/hooks/use-hold.test.ts	V1	2a 3	R1.0.1 R1.5.1 (tests follow)		
-src/hooks/use-hold.ts	src/features/table/hooks/use-hold.ts	V1	2a 3	R1.0.1 R1.5.11	hooks:purity@138,exhaustive-deps@171	
+src/hooks/use-hold.ts	src/features/table/hooks/use-hold.ts	V1	2a 3	R1.0.1 R1.5.11	hooks:purity@138,exhaustive-deps@171	react-hooks/purity(line-level+reason, R1.5.11):1
 src/hooks/use-hydrated.ts	=	V2	-	(none: moves only)		
 src/hooks/use-image-fallback.test.tsx	=	V2	2a 3	R1.0.2 R1.5.12 (tests follow)	hooks:globals@11,refs@14,refs@14	no-null(R1.0.2):1 @next/next/no-img-element(reason):1
 src/hooks/use-image-fallback.ts	=	V2	-	(none: moves only)		
@@ -486,12 +486,12 @@ src/hooks/use-notes.test.ts	src/features/notes/hooks/use-notes.test.ts	V2	2a 2b 
 src/hooks/use-notes.ts	src/features/notes/hooks/use-notes.ts	V2	2a 2b 3	R1.0.1 R1.9.1 R1.9.3 R1.5.15	types:4	
 src/hooks/use-party-sheet.test.tsx	src/features/party/hooks/use-party-sheet.test.tsx	V2	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.5.12 (tests follow)		no-null(R1.0.2):3
 src/hooks/use-party-sheet.ts	src/features/party/hooks/use-party-sheet.ts	V2	2a 2b 3	R1.0.1 R1.9.1 R1.9.3 R1.5.13 R1.5.16	types:1	
-src/hooks/use-roll-toasts.ts	src/features/rolling/hooks/use-roll-toasts.ts	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.9 R1.2.12b	hooks:set-state-in-effect@55	
+src/hooks/use-roll-toasts.ts	src/features/rolling/hooks/use-roll-toasts.ts	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.9 R1.2.12b	hooks:set-state-in-effect@55	react-hooks/set-state-in-effect(line-level+reason, R1.2.12b):1
 src/hooks/use-rolls-locked.ts	=	U1	3	R1.1.8 (moves only)		
 src/hooks/use-sheet-ids.ts	src/features/sheet/hooks/use-sheet-ids.ts	U1	2a 3	R1.0.1 R1.1.8 (moves only)		
 src/hooks/use-sheet-roller.elven-off.test.tsx	src/features/rolling/__tests__/use-sheet-roller.elven-off.integration.test.tsx	R-a	2a 2b 3	R1.0.1 R1.9.1 R1.2.12a (tests follow)		
 src/hooks/use-sheet-roller.test.tsx	src/features/rolling/__tests__/use-sheet-roller.integration.test.tsx	R-a	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.2.12a (tests follow)		no-null(R1.0.2):1
-src/hooks/use-sheet-roller.ts	src/features/rolling/hooks/use-sheet-roller.ts	R-a	2a 2b 3	R1.0.1 R1.9.1 R1.2.1 R1.2.7	types:13 cc:591=32→held (§0.6.8) cc:815=19→held (§0.6.8)	
+src/hooks/use-sheet-roller.ts	src/features/rolling/hooks/use-sheet-roller.ts	R-a	2a 2b 3	R1.0.1 R1.9.1 R1.2.1 R1.2.7	types:13 cc:591=32→held (§0.6.8) cc:815=19→held (§0.6.8)	sonarjs/cognitive-complexity(held §0.6.8, line-level+reason):2
 src/hooks/use-sheet-roller.typed.test.tsx	src/features/rolling/__tests__/use-sheet-roller.typed.integration.test.tsx	R-a	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.2.12a (tests follow)	layer:1→§1.7.4	no-null(R1.0.2):1
 src/hooks/use-spent-offers.test.tsx	src/features/sheet/hooks/use-spent-offers.test.tsx	U1	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.1.22 (tests follow)	types:1 layer:1→§1.7.4	no-null(R1.0.2):1 no-useless-undefined(§1.7.2):1
 src/hooks/use-spent-offers.ts	src/features/sheet/hooks/use-spent-offers.ts	U1	2a 2b 3	R1.0.1 R1.9.1 R1.1.8	cc:92=18→R1.1.8 hooks:immutability@72,immutability@83 layer:1→§1.7.4	
@@ -508,7 +508,7 @@ src/hooks/use-transfers.ts	src/features/transfers/hooks/use-transfers.ts	V2	2a 2
 src/hooks/use-turn-undo.test.tsx	src/features/table/hooks/use-turn-undo.test.tsx	V1	2a 2b 3	R1.0.1 R1.9.1 R1.5.1 (tests follow)	types:1	
 src/hooks/use-turn-undo.ts	src/features/table/hooks/use-turn-undo.ts	V1	2a 2b 3	R1.0.1 R1.9.1 R1.5.9	cc:73=22→R1.5.9	
 src/hooks/use-waiting-prompts.test.tsx	=	V1	3	R1.5.1 (tests follow)		
-src/hooks/use-waiting-prompts.ts	=	V1	2b 3	R1.9.1 R1.5.11	hooks:set-state-in-effect@63	
+src/hooks/use-waiting-prompts.ts	=	V1	2b 3	R1.9.1 R1.5.11	hooks:set-state-in-effect@63	react-hooks/set-state-in-effect(line-level+reason, R1.5.11):1
 src/hooks/use-width.test.tsx	src/features/sheet/hooks/use-width.test.tsx	U1	2a 3	R1.0.1 R1.1.22 (tests follow)		
 src/hooks/use-width.ts	src/features/sheet/hooks/use-width.ts	U1	2a 3	R1.0.1 R1.1.8 (moves only)		
 src/lib/app-origin.test.ts	=	S	3	R1.3.13 (tests follow)		
@@ -529,7 +529,7 @@ src/lib/note-markdown.ts	=	S	-	(none: moves only)
 src/lib/notes-routes.test.ts	src/lib/routes/notes-routes.test.ts	S	2a 3	R1.0.1 R1.0.2 R1.3.13 (tests follow)		no-null(R1.0.2):1 no-useless-undefined(§1.7.2):6
 src/lib/notes-routes.ts	src/lib/routes/notes-routes.ts	S	2a 3	R1.0.1 R1.0.2 R1.3.4 R1.3.5 R1.3.6 R1.3.12	types:2	no-null(R1.0.2):1
 src/lib/party-routes.ts	src/lib/routes/party-routes.ts	S	2a 3	R1.0.1 R1.3.4 R1.3.5 R1.3.6		
-src/lib/seat-routes.ts	src/lib/routes/seat-routes.ts	S	2a 2b 3	R1.0.1 R1.9.1 R1.3.4 R1.3.5 R1.3.6		
+src/lib/seat-routes.ts	src/lib/routes/seat-routes.ts	S	2a 2b 3	R1.0.1 R1.9.1 R1.3.4 R1.3.5 R1.3.6		notePresent beside noting, which is file-private (S-1, R1.3.5)
 src/lib/session.test.ts	=	S	2a 3	R1.0.2 R1.3.13 (tests follow)		no-null(R1.0.2):3
 src/lib/session.ts	=	S	3	R1.3.12	types:1	
 src/lib/sheet-html.test.ts	=	S	3	R1.3.13 (tests follow)		
@@ -545,7 +545,7 @@ src/schemas/campaign.ts	=	W-a	3	R1.4.8
 src/schemas/cookbook.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-null(R1.0.2):1
 src/schemas/cookbook.ts	=	W-a	2b 3	R1.9.1 R1.4.8		
 src/schemas/foundry-settings.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-null(R1.0.2):1
-src/schemas/foundry-settings.ts	=	W-a	2a 3	R1.0.2 R1.4.1		no-null(R1.0.2):1 no-useless-undefined(§1.7.2):1
+src/schemas/foundry-settings.ts	=	W-a	2a 3	R1.0.2 R1.4.1		no-null(R1.0.2):1; its no-useless-undefined directive went with R1.4.1 (leftOut, orNull)
 src/schemas/notes.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-null(R1.0.2):1
 src/schemas/notes.ts	=	W-a	2a 3	R1.0.2 R1.4.8 R1.4.9		no-null(R1.0.2):1 R1.4.8: annotated only (nothing moves); R1.4.9: NOTE_ID re-export dropped
 src/schemas/roll-request.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-null(R1.0.2):1
@@ -553,7 +553,7 @@ src/schemas/roll-request.ts	=	W-a	2b 3	R1.9.1 R1.4.2 R1.4.4 R1.4.7 R1.4.8	cc:164
 src/schemas/sending-stone.groups.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-null(R1.0.2):1
 src/schemas/sending-stone.settings.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-null(R1.0.2):1
 src/schemas/sending-stone.test.ts	=	W-a	2a 3	R1.0.2 R1.4.11 (tests follow)		no-null(R1.0.2):1 no-useless-undefined(§1.7.2):1
-src/schemas/sending-stone.ts	=	W-a	2a 2b 3	R1.0.2 R1.9.1 R1.4.1 R1.4.3 R1.4.8		no-null(R1.0.2):1 no-useless-undefined(§1.7.2):66
+src/schemas/sending-stone.ts	=	W-a	2a 2b 3	R1.0.2 R1.9.1 R1.4.1 R1.4.3 R1.4.8		no-null(R1.0.2):1; its 66 no-useless-undefined directives went with R1.4.1 (leftOut, orNull: one left, in schemas/utils.ts)
 src/types/campaign.ts	=	W-a	-	(none: W-a owns src/types; no Phase 3 item edits it)		
 src/types/character.ts	=	W-a	-	(none: W-a owns src/types; no Phase 3 item edits it)		
 src/types/cookbook.ts	=	W-a	2b	R1.9.1	layer:1→§1.7.4	receives in 2b: CookbookRefusalReason ← constants/cookbook.ts
@@ -631,7 +631,7 @@ src/utils/roll-mode.test.ts	src/features/rolling/utils/roll-mode.test.ts	R-b	2a	
 src/utils/roll-mode.ts	src/features/rolling/utils/roll-mode.ts	R-b	2a	R1.0.1 (none: moves only)		
 src/utils/roll-modifiers.test.ts	=	R-a	2b 3	R1.9.1 R1.2.12a (tests follow)		
 src/utils/roll-modifiers.ts	=	R-a	2b 3	R1.9.1 R1.2.1 R1.2.13	types:4 cc:40=22→R1.2.13	
-src/utils/roll-requests.test.ts	src/utils/roll-requests.test.ts (W.6 splits it into src/utils/requests/)	W-b	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.4.6 (split by describe)	hooks:rules-of-hooks@1659,rules-of-hooks@1662,rules-of-hooks@1668,rules-of-hooks@1730,rules-of-hooks@1733,rules-of-hooks@1736,rules-of-hooks@1739,rules-of-hooks@1769,rules-of-hooks@1771,rules-of-hooks@1773,rules-of-hooks@1776,rules-of-hooks@1989,rules-of-hooks@2064,rules-of-hooks@3541,rules-of-hooks@5685 layer:1→§1.7.4	no-null(R1.0.2):1 no-useless-undefined(§1.7.2):2
+src/utils/roll-requests.test.ts	src/utils/roll-requests.test.ts (W.6 splits it into src/utils/requests/)	W-b	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.4.6 (split by describe)	hooks:rules-of-hooks@1659,rules-of-hooks@1662,rules-of-hooks@1668,rules-of-hooks@1730,rules-of-hooks@1733,rules-of-hooks@1736,rules-of-hooks@1739,rules-of-hooks@1769,rules-of-hooks@1771,rules-of-hooks@1773,rules-of-hooks@1776,rules-of-hooks@1989,rules-of-hooks@2064,rules-of-hooks@3541,rules-of-hooks@5685 layer:1→§1.7.4	no-null(R1.0.2):1; its 2 no-useless-undefined directives moved with their tests to requests/checks.test.ts (R1.4.6)
 src/utils/roll-requests.ts	src/utils/roll-requests.ts (W.6 splits it into src/utils/requests/)	W-b	2a 2b 3	R1.0.1 R1.9.1 R1.4.4 R1.4.6	types:4 cc:305=26→R1.4.6 cc:815=18→R1.4.6 cc:881=16→R1.4.6 cc:1065=49→R1.4.6 cc:1347=23→R1.4.6 cc:1529=20→R1.4.6	
 src/utils/roll-toasts.test.ts	src/features/rolling/utils/roll-toasts.test.ts	R-b	2a 2b 3	R1.0.1 R1.0.2 R1.9.1 R1.2.12b (tests follow)	layer:2→§1.7.4	no-null(R1.0.2):1
 src/utils/roll-toasts.ts	src/features/rolling/utils/roll-toasts.ts	R-b	2a 2b 3	R1.0.1 R1.9.1 R1.2.9	types:2 cc:102=40→R1.2.9 layer:2→§1.7.4	
@@ -667,7 +667,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/utils/test-utils.ts	T(frozen)	1	R3.1 R3.3		jsdom kit; jest.config.ts already ignores it for coverage
 -	src/utils/test-utils.test.ts	T(frozen)	1	R3.1		the kit's own table test
 -	src/utils/test-utils-node.ts	T(frozen)	1	R3.2 R3.3 R3.4		node kit; no-null(amendment 2, G removes it in commit 23):1
--	src/mocks/sheet-providers/sheet-providers.tsx	T(frozen)	1	R3.5		SheetProviders (goldens only); frozen from commit 2 but import lines (gate 10)
+-	src/mocks/sheet-providers/sheet-providers.tsx	T(frozen)	1 4	R3.5 R1.9.26(G)		SheetProviders (goldens only); frozen from commit 2 but import lines (gate 10); Phase 4: G's useFavorites import line (U1-m5)
 -	src/mocks/sheet-providers/types.ts	T(frozen)	1	R3.5		SheetProviders' options type, beside it (not src/mocks/types.ts: W-b's)
 -	src/mocks/types.ts	W-b	3	R1.4.10		ChosenFavorite and the mocks' local types (W-b)
 -	src/mocks/dice-renderer.ts	T(frozen)	1	R3.3		NO_DICE_RENDERER for the 18 identical 3d-dice-react mocks
@@ -679,7 +679,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/__tests__/golden/refusals.golden.test.ts	T(frozen)	1	R3.6		C6 (C-b, commit 3)
 -	src/__tests__/golden/storage.golden.test.tsx	T(frozen)	1	R3.6		C7 (C-a, commit 4)
 -	src/__tests__/golden/dice.golden.test.tsx	T(frozen)	1	R3.6		C8 (C-a, commit 4)
--	src/__tests__/golden/values.golden.test.ts	T(frozen)	1 6	R3.6 R3.10		C9 values and fixtures (T, commit 2; SA F1); retired in commit 26
+-	src/__tests__/golden/values.golden.test.ts	T(frozen)	1 4 6	R3.6 R3.10 R1.9.26(G)		C9 values and fixtures (T, commit 2; SA F1); retired in commit 26; Phase 4: TOAST_FOR's import line, only if G moves it (V2-5)
 -	src/__tests__/golden/__snapshots__/*.snap	T(frozen)	1 6	R3.6		written once, with --ci=false over their own files only, by their authors in commits 2-4; never updated (gate 10)
 -	src/constants/roll-kinds.ts	W-a	1 3	R1.6 R1.4.4		ROLL_KIND_INFO, kindsWhere, ANSWER_KINDS, OWN_KINDS, NO_DICE; written in Phase 1 (new file only); written by W-a in Phase 1, handed to T as files for commit 2 (VA F10)
 -	src/constants/roll-kinds.test.ts	W-a	1	R1.6		every derived list equals today's literal; written by W-a in Phase 1, handed to T as files for commit 2 (VA F10)
@@ -702,8 +702,8 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/rolling/utils/brief.ts	R-b	2b 3	R1.9.1 R1.2.8		briefOf (+ accentOf, madeIt, checkDice, tableLine, toneOf in Phase 3); moved in 2b: briefOf ← components/character-sheet/roll-tray.tsx
 -	src/features/rolling/utils/damage-words.ts	R-b	2b 3	R1.9.1 R1.2.10		formulaOf (+ labelsFor, criticalHint in Phase 3); moved in 2b: formulaOf ← components/character-sheet/damage-menu.tsx
 -	src/features/rolling/components/roll-menu/choice-menu.tsx	R-b	2b 3 4	R1.9.1 R1.2.10 R1.2.12b R1.9.20(F-a)	a:1 types:1 hooks:refs@109	ChoiceMenu; moved in 2b: ChoiceMenu ← components/character-sheet/roll-menu.tsx
--	src/features/rolling/components/d20-rolls/use-d20-rolls.tsx	R-b	2b 3	R1.9.1 R1.2.10		whole in 2b; .ts + d20-dialogs.tsx in Phase 3 (§0.6.4); moved in 2b: useD20Rolls ← components/character-sheet/d20-rolls.tsx
--	src/features/rolling/components/damage-menu/use-damage-menu.tsx	R-b	2b 3	R1.9.1 R1.2.10		as use-d20-rolls; moved in 2b: useDamageMenu ← components/character-sheet/damage-menu.tsx
+-	src/features/rolling/components/d20-rolls/use-d20-rolls.ts	R-b	2b 3	R1.9.1 R1.2.10		whole in 2b; .ts + d20-dialogs.tsx in Phase 3 (§0.6.4); moved in 2b: useD20Rolls ← components/character-sheet/d20-rolls.tsx
+-	src/features/rolling/components/damage-menu/use-damage-menu.ts	R-b	2b 3	R1.9.1 R1.2.10		as use-d20-rolls; moved in 2b: useDamageMenu ← components/character-sheet/damage-menu.tsx
 -	src/utils/roll-reasons.ts	R-b	2b 3	R1.9.1 R1.2.8		reasons, REASONS, listed (+ their private helpers); moved in 2b: REASONS reasons listed ← components/character-sheet/roll-tray.tsx
 -	src/hooks/use-follow.test.ts	R-a	2b	R1.9.4		useFollow (M writes it in commit 8)
 -	src/features/rolling/hooks/use-send-choice.test.ts	R-a	2b	R1.9.4		useSendChoice (M writes it in commit 8)
@@ -714,7 +714,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/rolling/utils/tray-words.ts	R-b	3	R1.2.8		the tray’s words
 -	src/features/rolling/utils/gm-words.ts	R-b	3	R1.2.8		gm* (roll-tray.tsx:1663-1803); §4.5 cites it
 -	src/features/rolling/components/roll-tray/*.ts(x)	R-b	3	R1.2.8		one .tsx per component (map R §4’s 20), the folder’s constants.ts and types.ts
--	src/features/rolling/components/roll-toasts/*.ts(x)	R-b	3	R1.2.9		Toast, Badge, use-toast-setting.ts, use-toast-top.ts
+-	src/features/rolling/components/roll-toasts/*.ts(x)	R-b	3	R1.2.9		Toast, Badge (useToastSetting and useToastTop stay in hooks/use-roll-toasts.ts in Phase 3: G moves them to FR/hooks/ in Phase 4, RB-3)
 -	src/features/rolling/components/modify-roll/modify-damage.tsx	R-b	3	R1.2.10		ModifyDamage
 -	src/features/rolling/components/d20-rolls/d20-dialogs.tsx	R-b	3	R1.2.10		useD20Rolls’ JSX (§0.6.4)
 -	src/features/rolling/components/damage-menu/damage-dialogs.tsx	R-b	3	R1.2.10		useDamageMenu’s JSX (§0.6.4)
@@ -725,7 +725,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/hooks/use-turn-toast-foot.ts	V1	2b	R1.9.1		TurnToastContext + useTurnToastFoot; moved in 2b: TurnToastContext ← components/game-table/turn-toast.tsx
 -	src/types/seats.ts	W-a	2b	R1.9.1		SeatRole, SeatWords; moved in 2b: SeatRole SeatWords ← utils/seat-words.ts
 -	src/types/prompts.ts	W-a	2b	R1.9.1		PromptData, HeldPrompt from utils/prompts.ts; moved in 2b: PromptData HeldPrompt ← utils/prompts.ts
--	src/types/base.ts	W-a	3	R1.4.9b		only if R1.4.9b takes amendment 1 (c)’s second way: the types that close src/types’ last cycle group, split into a base the four import
+-	src/types/base.ts (not made: R1.4.9b was done without it in 410051c, W-a-1)	W-a	3	R1.4.9b		only if R1.4.9b takes amendment 1 (c)’s second way: the types that close src/types’ last cycle group, split into a base the four import
 -	src/db/types.ts	S	2b 3	R1.9.1 R1.3.12		NotePageCommand in 2b; RollSeat, RollRejection, Tx and the rest in Phase 3; moved in 2b: NotePageCommand ← db/note-sync.ts
 -	src/db/constants.ts	S	3	R1.3.14		FOUNDRY_ID
 -	src/db/commands.ts	S	3	R1.3.1 R1.3.2		ago, madeBy, onItsWay (server's), seatBusy, inRoster, commandPayload, holdCommand, createCommand, due
@@ -734,7 +734,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/utils/hello-features.ts	S	3	R1.3.8		helloCampaignData, HELLO_ROLL_FLAGS, kindOn
 -	src/utils/hello-features.test.ts	S	3	R1.3.8		pure tests
 -	src/lib/routes/seat-resolver.ts	S	3	R1.3.4		playerAt, gmAt, companionAt, companionRollAt, partyAt, seatAnswer
--	src/lib/routes/http.ts	S	3	R1.3.5		NO_STORE, bare, textAnswer, seenAs, notePresent
+-	src/lib/routes/http.ts	S	3	R1.3.5		NO_STORE, bare, textAnswer, seenAs (notePresent went to seat-routes.ts beside noting, S-1)
 -	src/lib/routes/body.ts	S	3	R1.3.6		readBody
 -	src/lib/routes/types.ts	S	3	R1.3.12		NotesPlace(server), NotesAddress, Refusal
 -	src/lib/attempt.ts	S	3	R1.3.13		attempt, out of bridge-http.ts
@@ -749,7 +749,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/utils/requests/check-damage.ts	W-b	2b	R1.9.1		checkDamage; moved in 2b: checkDamage ← utils/roll-requests.ts
 -	src/utils/requests/check-turns.ts	W-b	2b	R1.9.1		checkEndTurn, checkUndoTurn; moved in 2b: checkEndTurn checkUndoTurn ← utils/roll-requests.ts
 -	src/utils/requests/*.test.ts	W-b	3	R1.4.6		roll-requests.test.ts split by describe block (assertions untouched; gate 1 follows fullName)
--	src/schemas/utils.ts	W-a	3	R1.4.1		leftOut, orNull
+-	src/schemas/utils.ts	W-a	3	R1.4.1		leftOut, orNull; no-useless-undefined(§1.7.2, line-level+reason):1
 -	src/schemas/utils.test.ts	W-a	3	R1.4.1		helper table
 -	src/schemas/types.ts	W-a	3	R1.4.9		ParsedContainer
 -	src/mocks/results.ts	W-b	3	R1.4.10		DONE_HEAD
@@ -764,7 +764,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/sheet/hooks/use-settle.test.ts	U1	3	R1.1.1		settle matrix
 -	src/features/sheet/components/{mode-chip,favorites,sheet-settings,conditions,character-sheet}/*.ts(x)	U1	3	R1.1.7		what R1.1.7 splits out: ModeChip, the favorites strip/column/list/row, Props, RESULTS, aloneHint, conditions/types.ts
 -	src/features/sheet/hooks/{use-spent-set,use-spent-removals}.ts	U1	3	R1.1.8		useSpentOffers’ layout effect, split in order
--	src/features/sheet/components/character-pane/*.ts(x)	U1	3	R1.1.2 R1.1.3 R1.1.4		use-pane-commands, use-roll-actions, use-slot-waits, use-pane-lock, use-prompt-answers, use-tray-triggers, use-typed-rolls, use-give-remove, use-pane-status, use-picking, use-sheet-tabs, use-favorites-layout, use-due-damage, sheet-tabs, sheet-panel, sheet-context, pane-context, types, constants, utils
+-	src/features/sheet/components/character-pane/*.ts(x)	U1	3	R1.1.2 R1.1.3 R1.1.4		use-pane-commands, roll-actions and link-actions (plain builders since c9b5be3, U1-m2), use-slot-waits, use-pane-lock, use-prompt-answers, use-tray-triggers, use-typed-rolls, use-give-remove, use-pane-status, use-picking, use-sheet-tabs, use-favorites-layout, use-due-damage, sheet-tabs, sheet-panel, sheet-context, pane-context, types, constants, utils
 -	src/features/sheet/components/wild-shape/*.ts(x)	U1	2b 3 4	R1.9.1 R1.1.5 R1.9.20(F-a)		the names other areas import (2b), the rest (Phase 3)
 -	src/features/sheet/components/{favoriting,preparing,effect-controls,enchantments,concentration,conditions,description-actions,favorite-mark,party-sheets}/*.ts(x)	U1	2b 3	R1.9.1 R1.1.6 R1.1.10		the names other areas import (2b), the rest (Phase 3)
 -	src/features/sheet/components/{action-entry,actions-layout,effects-tab,features-tab,hit-dice,inventory-tab,sheet-tiles,spell-slots,spells-tab,use-picker,description-link,item-menu,prompt-banner,sheet-entry,uses-button,press-menu}/*.ts(x)	U2	2b 3	R1.9.1 R1.1.11-R1.1.18 R1.1.20		the names other areas import (2b), the rest (Phase 3)
@@ -774,9 +774,9 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/components/chevron/chevron.tsx	U2	2b	R1.9.1		Chevron; moved in 2b: Chevron ← components/character-sheet/action-entry.tsx
 -	src/components/entry-icon/entry-icon.tsx	U2	2b	R1.9.1		@next/next/no-img-element(reason):1 (with EntryIcon in 2b); EntryIcon; moved in 2b: EntryIcon ← components/character-sheet/sheet-entry.tsx
 -	src/components/description/{types.ts,<the bridge component>.tsx}	U2	3	R1.1.18		description/types.ts and drawDescription's component (draw as a tag → props table)
--	src/hooks/use-popover.ts	U2	3	R1.1.16		usePopover
+-	src/hooks/use-popover.ts	U2	3	R1.1.16		usePopover; import/no-restricted-paths(line-level+reason, G removes both with zone 5 in 23):2
 -	src/features/table/{types,constants}.ts	V1	3	R1.5.2		
--	src/features/table/utils/{header,unread,combat,companion-row-state,creatures,party-urls,table-query}.ts	V1	3	R1.5.4 R1.5.10		pure rules from GameTable, verbatim
+-	src/features/table/utils/{header,unread,combat,companion-row-state,creatures}.ts	V1	3	R1.5.4 R1.5.10		pure rules from GameTable, verbatim (party-urls.ts and table-query.ts have their own rows: F-b in Phase 4)
 -	src/features/table/hooks/use-{table-tabs,party-open,chat-read,typed-dice,turn-ending,companion-row,chat-scroll}.ts	V1	3 4	R1.5.5 R1.9.23(F-b)		GameTable's hooks
 -	src/features/table/components/{table-header,table-nav,aside-column,creature-sheets,no-sheet,gm-note,pane,pane-tab,tab-button,hold-tab}/*.tsx	V1	3 4	R1.5.5 R1.9.23(F-b)		GameTable's parts
 -	src/features/table/components/chat-log/*.ts(x)	V1	3	R1.5.7		chat by kind
@@ -789,7 +789,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/constants/buttons.ts	V2	3	R1.5.14		HEADER_ICON_BUTTON
 -	src/features/notes/constants.ts	V2	3	R1.5.14 R1.5.15		JOURNAL_ICON_BUTTON (R1.5.14) and the notes constants a split leaves shared
 -	src/features/notes/utils/{groups,permissions,reader,answers,editor}.ts	V2	3	R1.5.15		
--	src/features/notes/hooks/{use-draft-save,use-draft-focus,use-journal-layout,use-said,use-focus-to,use-reader-pick,use-ordering,use-sortable-drag,use-book-reads}.ts	V2	3	R1.5.15		
+-	src/features/notes/hooks/{use-draft-save,use-draft-focus,use-journal-layout,use-said,use-focus-to,use-reader-pick,use-ordering,use-sortable-drag}.ts	V2	3	R1.5.15		useBookReads stays local in use-notes.ts, as R1.5.15 words it (V2-2)
 -	src/features/companions/utils.ts	V2	3	R1.5.17		shownName, describe
 -	src/features/companions/hooks/use-switcher-layout.ts	V2	3	R1.5.17		
 -	src/features/campaigns/utils/feature-words.ts	V2	3	R1.5.18		
@@ -797,7 +797,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/{notes,party,companions,campaigns,transfers,cookbook,characters}/components/*/*.ts(x); src/components/{modal,icons}/*.ts(x)	V2	3	R1.5.15-R1.5.21		the pieces V2’s splits create (one component per .tsx, their types.ts, constants.ts, utils.ts)
 -	src/features/transfers/utils.ts	V2	3	R1.5.19		anyCoins, mayHold, the move form state
 -	src/features/transfers/components/*/*-dialogs.tsx	V2	3	R1.5.19		the JSX of use-give-controls and use-remove-controls (§0.6.4); the hooks become .ts in place
--	src/features/cookbook/{hooks/cookbook-store.ts,utils.ts,components/cookbook-entry/*-dialogs.tsx}	V2	3	R1.5.20		the card store, the dish-list helpers, useCookbookEntry's JSX (§0.6.4)
+-	src/features/cookbook/{hooks/cookbook-store.ts,components/cookbook-dish-list/utils.ts,components/cookbook-entry/*-dialogs.tsx}	V2	3	R1.5.20		the card store, the dish-list helpers (beside their one importer, V2-2), useCookbookEntry's JSX (§0.6.4)
 -	src/components/modal/use-dialog-root.ts	V2	3	R1.5.21		useDialogRoot to its file
 -	src/components/icons/types.ts	V2	2b	R1.9.1		DieSides; moved in 2b: DieSides ← components/icons/die.tsx
 -	src/features/characters/components/character-list/delete-character-warning.tsx	V2	2b	R1.9.1		DeleteCharacterWarning; moved in 2b: DeleteCharacterWarning ← components/character-list/remove-character-button.tsx
@@ -813,20 +813,20 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	.refactor/patches/<lane>/*.patch	-(orchestrator)	1 3 4	§2.3.5		builders’ unlanded work saved as text (Phases 1, 3, 4)
 -	.refactor/analysis/e2e/<pass>.md	-(orchestrator)	0 2b 3 4 6	§2.3.8		each pass’s result table (the baseline is base.md, done)
 -	.refactor/**	-(orchestrator 28)	6	commit 28		removed (decisions)
--	src/components/description/draw-description.tsx	U2	2b 3	R1.9.1 R1.1.18		moved in 2b: drawDescription ← components/character-sheet/description-html.tsx
+-	src/components/description/draw-description.ts	U2	2b 3	R1.9.1 R1.1.18		moved in 2b: drawDescription ← components/character-sheet/description-html.tsx; a .ts bridge in 3 (R1.1.18), its component beside it
 -	src/components/description/read-description.ts	U2	2b	R1.9.1		moved in 2b: readDescription ← components/character-sheet/description-html.tsx
--	src/components/modal/confirm-modal.tsx	V2	2b	R1.9.1		moved in 2b: ConfirmModal ← components/modal/confirm-dialog.tsx
+-	src/components/modal/confirm-modal.tsx	V2	2b 3	R1.9.1 R1.5.21		moved in 2b: ConfirmModal ← components/modal/confirm-dialog.tsx; Asked to modal/types.ts in 3 (V2-1)
 -	src/components/modal/in-portal-root.tsx	V2	2b	R1.9.1		moved in 2b: InPortalRoot ← components/modal/portal-root.tsx
 -	src/components/modal/use-portal-root.ts	V2	2b	R1.9.1		moved in 2b: usePortalRoot ← components/modal/portal-root.tsx
 -	src/components/modal/use-topmost-escape.ts	V2	2b	R1.9.1		moved in 2b: useTopmostEscape ← components/modal/portal-root.tsx
 -	src/features/companions/components/creature-header/utils.ts	V2	2b	R1.9.1		moved in 2b: otherSpeeds ← components/companions/creature-header.tsx
 -	src/features/companions/types.ts	V2	2b 3	R1.9.1 R1.5.17		moved in 2b: SwitcherCreature ← components/companions/creature-switcher.tsx
 -	src/features/cookbook/constants.ts	V2	2b 3	R1.9.1 R1.5.20		moved in 2b: CONFIGURE_COOKBOOK ← components/cookbook-card/cookbook-entry.tsx
--	src/features/cookbook/hooks/use-cookbook-entry.tsx	V2	2b 3	R1.9.1 R1.5.20		moved in 2b: useCookbookEntry ← components/cookbook-card/cookbook-entry.tsx
+-	src/features/cookbook/hooks/use-cookbook-entry.ts	V2	2b 3	R1.9.1 R1.5.20		moved in 2b: useCookbookEntry ← components/cookbook-card/cookbook-entry.tsx
 -	src/features/notes/types.ts	V2	2b 3	R1.9.1 R1.5.15		moved in 2b: NotesPlace ← components/notes/index.ts; use-notes' four types (Phase 3)
 -	src/features/sheet/components/action-entry/constants.ts	U2	2b	R1.9.1		moved in 2b: FALLBACKS ← components/character-sheet/action-entry.tsx
 -	src/features/sheet/components/action-entry/types.ts	U2	2b	R1.9.1		moved in 2b: AlonePick TableDamage ActionRows ← components/character-sheet/action-entry.tsx
--	src/features/sheet/components/action-entry/use-action-rows.tsx	U2	2b	R1.9.1		moved in 2b: useActionRows ← components/character-sheet/action-entry.tsx
+-	src/features/sheet/components/action-entry/use-action-rows.ts	U2	2b 3	R1.9.1 R1.1.13		moved in 2b: useActionRows ← components/character-sheet/action-entry.tsx; a .ts bridge in 3 (R1.1.13, §0.6.4)
 -	src/features/sheet/components/action-entry/utils.ts	U2	2b	R1.9.1		moved in 2b: actionTitle verbOf ← components/character-sheet/action-entry.tsx
 -	src/features/sheet/components/actions-layout/constants.ts	U2	2b	R1.9.1		moved in 2b: LAYOUTS ← components/character-sheet/actions-layout.tsx
 -	src/features/sheet/components/actions-layout/layout-picker.tsx	U2	2b	R1.9.1		moved in 2b: LayoutPicker ← components/character-sheet/actions-layout.tsx
@@ -837,10 +837,10 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/sheet/components/charging/use-charging.ts	U1	2b	R1.9.1		moved in 2b: useCharging ← components/character-sheet/uses-button.tsx
 -	src/features/sheet/components/concentration/concentrating.tsx	U1	2b	R1.9.1		moved in 2b: Concentrating ← components/character-sheet/concentration.tsx
 -	src/features/sheet/components/concentration/concentration-chip.tsx	U1	2b	R1.9.1		moved in 2b: ConcentrationChip ← components/character-sheet/concentration.tsx
--	src/features/sheet/components/concentration/concentration-lead.tsx	U1	2b	R1.9.1		moved in 2b: concentrationLead ← components/character-sheet/concentration.tsx
+-	src/features/sheet/components/concentration/concentration-lead.ts	U1	2b 3	R1.9.1 R1.1.10		moved in 2b: concentrationLead ← components/character-sheet/concentration.tsx; .ts + concentration-lead-row.tsx in 3 (R1.1.10, §0.6.4)
 -	src/features/sheet/components/concentration/use-concentrating.ts	U1	2b	R1.9.1		moved in 2b: useConcentrating ← components/character-sheet/concentration.tsx
 -	src/features/sheet/components/conditions/conditions-opener.tsx	U1	2b	R1.9.1		moved in 2b: ConditionsOpener ← components/character-sheet/conditions-panel.tsx
--	src/features/sheet/components/conditions/use-conditions-panel.tsx	U1	2b	R1.9.1		moved in 2b: useConditionsPanel ← components/character-sheet/conditions-panel.tsx
+-	src/features/sheet/components/conditions/use-conditions-panel.ts	U1	2b 3	R1.9.1 R1.1.10		moved in 2b: useConditionsPanel ← components/character-sheet/conditions-panel.tsx; .ts + conditions-panel.tsx in 3 (R1.1.10, §0.6.4)
 -	src/features/sheet/components/conditions/use-show-conditions.ts	U1	2b	R1.9.1		moved in 2b: useShowConditions ← components/character-sheet/conditions-panel.tsx
 -	src/features/sheet/components/conditions/utils.ts	U1	2b	R1.9.1		moved in 2b: rulesOf ← components/character-sheet/conditions-panel.tsx
 -	src/features/sheet/components/description-actions/description-links.tsx	U1	2b	R1.9.1		moved in 2b: DescriptionLinks ← components/character-sheet/description-actions.tsx
@@ -855,7 +855,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/sheet/components/effect-controls/use-effect-controls.ts	U1	2b	R1.9.1		moved in 2b: useEffectControls ← components/character-sheet/effect-controls.tsx
 -	src/features/sheet/components/effect-controls/use-spent.ts	U1	2b	R1.9.1		moved in 2b: useSpent ← components/character-sheet/effect-controls.tsx
 -	src/features/sheet/components/effects-tab/effect-entry.tsx	U2	2b	R1.9.1		moved in 2b: EffectEntry ← components/character-sheet/effects-tab.tsx
--	src/features/sheet/components/enchantments/enchanted-entry.tsx	U1	2b	R1.9.1		moved in 2b: enchantedEntry ← components/character-sheet/enchantments.tsx
+-	src/features/sheet/components/enchantments/enchanted-entry.ts	U1	2b 3	R1.9.1 R1.1.10		moved in 2b: enchantedEntry ← components/character-sheet/enchantments.tsx; .ts + its component in 3 (R1.1.10, §0.6.4)
 -	src/features/sheet/components/enchantments/enchanted-mark.tsx	U1	2b	R1.9.1		moved in 2b: EnchantedMark ← components/character-sheet/enchantments.tsx
 -	src/features/sheet/components/enchantments/enchanting.tsx	U1	2b	R1.9.1		moved in 2b: Enchanting ← components/character-sheet/enchantments.tsx
 -	src/features/sheet/components/enchantments/enchantment-list.tsx	U1	2b	R1.9.1		moved in 2b: EnchantmentList ← components/character-sheet/enchantments.tsx
@@ -879,7 +879,7 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/sheet/components/party-sheets/party-sheet-list.tsx	U1	2b	R1.9.1		moved in 2b: PartySheetList ← components/character-sheet/party-sheets.tsx
 -	src/features/sheet/components/party-sheets/types.ts	U1	2b	R1.9.1		moved in 2b: PartySheets ← components/character-sheet/party-sheets.tsx
 -	src/features/sheet/components/preparing/types.ts	U1	2b	R1.9.1		moved in 2b: PrepareChoice ← components/character-sheet/preparing.tsx
--	src/features/sheet/components/preparing/use-prepare-choice.ts	U1	2b	R1.9.1		no-useless-undefined(§1.7.2):1 (with NO_PREPARING in 2b); moved in 2b: usePrepareChoice ← components/character-sheet/preparing.tsx
+-	src/features/sheet/components/preparing/use-prepare-choice.ts	U1	2b	R1.9.1		its no-useless-undefined directive went with NO_PREPARING to preparing/constants.ts in 3 (R1.1.6); moved in 2b: usePrepareChoice ← components/character-sheet/preparing.tsx
 -	src/features/sheet/components/preparing/use-preparing.ts	U1	2b	R1.9.1		moved in 2b: usePreparing ← components/character-sheet/preparing.tsx
 -	src/features/sheet/components/sheet-tiles/conditions.tsx	U2	2b	R1.9.1		@next/next/no-img-element(reason):1 (with Conditions in 2b); moved in 2b: Conditions ← components/character-sheet/sheet-tiles.tsx
 -	src/features/sheet/components/sheet-tiles/death-saves-stat.tsx	U2	2b	R1.9.1		moved in 2b: DeathSavesStat ← components/character-sheet/sheet-tiles.tsx
@@ -898,13 +898,48 @@ src/utils/wild-shape.ts	=	S	2b 3	R1.9.1 R1.3.3 R1.3.11 R1.3.12	types:1 cc:97=26�
 -	src/features/sheet/components/wild-shape/use-wild-shape.ts	U1	2b	R1.9.1		moved in 2b: useWildShape ← components/character-sheet/wild-shape.tsx
 -	src/features/sheet/components/wild-shape/use-wild-shape-row.ts	U1	2b	R1.9.1		moved in 2b: useWildShapeRow ← components/character-sheet/wild-shape.tsx
 -	src/features/sheet/components/wild-shape/wild-shape-about.tsx	U1	2b	R1.9.1		moved in 2b: WildShapeAbout ← components/character-sheet/wild-shape.tsx
--	src/features/sheet/components/wild-shape/wild-shape-ended.tsx	U1	2b	R1.9.1		moved in 2b: WildShapeEnded ← components/character-sheet/wild-shape.tsx
+-	src/features/sheet/components/wild-shape/wild-shape-ended.tsx	U1	2b	R1.9.1		react-hooks/purity(line-level+reason, R1.1.9):1; moved in 2b: WildShapeEnded ← components/character-sheet/wild-shape.tsx
 -	src/features/sheet/components/wild-shape/wild-shape-note.tsx	U1	2b	R1.9.1		moved in 2b: WildShapeNote ← components/character-sheet/wild-shape.tsx
 -	src/features/sheet/components/wild-shape/wild-shape-row-controls.tsx	U1	2b	R1.9.1		moved in 2b: WildShapeRowControls ← components/character-sheet/wild-shape.tsx
 -	src/features/sheet/components/wild-shape/wild-shape-row-line.tsx	U1	2b	R1.9.1		moved in 2b: WildShapeRowLine ← components/character-sheet/wild-shape.tsx
 -	src/features/sheet/components/wild-shape/wild-shaping.tsx	U1	2b	R1.9.1		moved in 2b: WildShaping ← components/character-sheet/wild-shape.tsx
 -	src/features/transfers/constants.ts	V2	2b 3	R1.9.1 R1.5.19		moved in 2b: NO_TRANSFERS ← components/transfers/transferring.tsx
--	src/features/transfers/hooks/use-give-controls.tsx	V2	2b 3	R1.9.1 R1.5.19		moved in 2b: useGiveControls ← components/transfers/give-controls.tsx; .ts + dialogs in Phase 3 (§0.6.4)
--	src/features/transfers/hooks/use-remove-controls.tsx	V2	2b 3	R1.9.1 R1.5.19		moved in 2b: useRemoveControls ← components/transfers/remove-controls.tsx; .ts + dialogs in Phase 3 (§0.6.4)
+-	src/features/transfers/hooks/use-give-controls.ts	V2	2b 3	R1.9.1 R1.5.19		moved in 2b: useGiveControls ← components/transfers/give-controls.tsx; .ts + dialogs in Phase 3 (§0.6.4)
+-	src/features/transfers/hooks/use-remove-controls.ts	V2	2b 3	R1.9.1 R1.5.19		moved in 2b: useRemoveControls ← components/transfers/remove-controls.tsx; .ts + dialogs in Phase 3 (§0.6.4)
 -	src/features/transfers/hooks/use-transferring.ts	V2	2b	R1.9.1		moved in 2b: useTransferring ← components/transfers/transferring.tsx
 -	src/features/transfers/types.ts	V2	2b 3	R1.9.1 R1.5.19		moved in 2b: TakeInto ← components/transfers/take-controls.tsx; TransferControls ← components/transfers/transferring.tsx
+-	src/features/rolling/components/{d20-rolls,damage-menu,roll-menu}/types.ts	R-b	3	R1.2.10 R1.2.12b		the folders' named types (RB-2)
+-	src/features/sheet/components/action-chips/{attack-chip,check-chip,damage-chip,enchant-chip,enchant-switch,formula-chip,plain-use-chip,save-chip,using-chip}.tsx	U2	3	R1.1.14 R1.1.17		the cluster's chips, one component per file (plain-use-chip.tsx was use-chip.tsx until bba5753, U2-6)
+-	src/features/sheet/components/action-chips/{use-held,utils}.ts	U2	3	R1.1.14		the chips' hook and helpers (U2-1)
+-	src/features/sheet/components/action-info/{facts.tsx,types.ts,use-action-info.ts,utils.ts}	U2	3	R1.1.17		action-info one export per file (U2-1)
+-	src/features/sheet/components/{actions-tab,sheet-text}/types.ts	U2	3	R1.1.17		their named types (U2-1)
+-	src/features/sheet/components/description-link/utils.ts	U2	3 4	R1.1.15 R1.9.24(F-a)		rollAgainst (description-link.tsx:1108 at base) is here: R1.9.24's site
+-	src/features/sheet/hooks/types.ts	U1	3	R1.1.1 R1.1.8		Settling, SettleOptions, Settle, Spending (from FS/types.ts in c9b5be3, U1-m4)
+-	src/features/sheet/components/conditions/conditions-panel.tsx	U1	3	R1.1.6 R1.1.10		useConditionsPanel's JSX (§0.6.4), at the path commit 7 emptied (row 170)
+-	src/features/sheet/components/preparing/constants.ts	U1	3	R1.1.6		no-useless-undefined(§1.7.2):1 (moved with NO_PREPARING from use-prepare-choice.ts)
+-	src/features/sheet/components/wild-shape/use-return-confirm.ts	U1	3	R1.1.5 R1.1.9		react-hooks/set-state-in-effect(line-level+reason):1
+-	src/features/sheet/components/favorites/favorite-row.tsx	U1	3 4	R1.1.7 R1.9.25(F-a)		FavoriteRow (R1.1.7's split of favorites.tsx): R1.9.25's site
+-	src/components/{empty-state,local-time}/types.ts	V1	3	R1.5.2		their named types (V1-RV-1)
+-	src/components/live-status/utils.ts	V1	3	R1.5.3		statesOf (V1-RV-1)
+-	src/features/table/components/{choose-actor,no-campaign,not-connected,table-notices}/*.tsx	V1	3	R1.5.3 R1.5.5		GameTable's parts (V1-RV-1)
+-	src/features/table/components/table-party-panel/table-party-panel.tsx	V1	3 4	R1.5.5 R1.9.23(F-b)		TablePartyPanel: calls R1.9.23's party URLs (partyApi, partyPage)
+-	src/features/table/components/hold-tab/hold-props.ts	V1	3	R1.5.5		holdProps (row 781's glob is *.tsx)
+-	src/features/table/components/game-table/utils.ts	V1	3	R1.5.4 R1.5.5		seatOf, cookbookPlace, sheetPane (FT/utils/places.ts until c2ca691, V1-RV-6)
+-	src/features/table/utils/party-groups.ts	V1	3	R1.5.4		sameGroup (out of party-urls.ts in c2ca691, V1-RV-6)
+-	src/features/table/utils/table-query.ts	V1	3 4	R1.5.10 R1.9.22(F-b)		seenOf, tableQuery: R1.9.22's site (use-table-view.ts only calls it)
+-	src/features/table/utils/party-urls.ts	V1	3 4	R1.5.4 R1.9.23(F-b)		partyApi, partyPage: R1.9.23's encoded party URLs (game-table.tsx:1017-1030 at base)
+-	src/features/table/components/chat-log/chat-message.tsx	V1	3	R1.5.7		@next/next/no-img-element(reason):1
+-	src/features/table/components/turn-toast/use-turn-toast-card.ts	V1	3	R1.5.6 R1.5.11		react-hooks/exhaustive-deps(line-level+reason):1
+-	src/features/table/hooks/use-typed-dice.ts	V1	3	R1.5.5 R1.5.11		react-hooks/set-state-in-effect(line-level+reason):1; row 780 names the file's other work
+-	src/components/{avatar,copy-button,sign-in-buttons}/types.ts	V2	3	R1.5.21		their Props (rule (b))
+-	src/components/side-panel/types.ts	V2	3	R1.5.14 R1.5.21		SidePanelProps
+-	src/features/campaigns/types.ts	V2	3	R1.5.18		FoundryState, CampaignRowData, Attention, Seat, CampaignChoice, Find, Toast
+-	src/features/campaigns/utils/campaigns-view.ts	V2	3	R1.5.18		askedCampaign, campaignsView (the campaigns page's parse and order)
+-	src/features/cookbook/types.ts	V2	3	R1.5.20		the cookbook feature's types
+-	src/features/party/types.ts	V2	3	R1.5.16		PartyState
+-	src/utils/requests/checks.test.ts	W-b	3	R1.4.6		no-useless-undefined(§1.7.2):2 (moved with their tests from roll-requests.test.ts)
+-	src/features/rolling/hooks/{use-toast-setting,use-toast-top}.ts	-(G 23)	4	R1.2.9 R1.9.26(G)		useToastSetting, useToastTop out of hooks/use-roll-toasts.ts (RB-3: FR/hooks/, not row 717's roll-toasts/, since the sheet and the table import them)
+-	src/features/sheet/components/favoriting/use-favorites.ts	-(G 23)	4	R1.1.6 R1.9.26(G)		useFavorites out of favoriting.tsx; the kit's import line follows (U1-m5)
+-	src/constants/sending-stone.test.ts	-(G 23)	4	R1.4.2 R1.9.26(G)		describe('HIT_DIE') from src/utils/dice.test.ts, unchanged (W-a-2)
+-	src/utils/throttle.ts	-(G 23)	4	R1.9.26(G)		only if G takes S-4: due out of db/commands.ts
+-	src/features/campaigns/components/campaign-status/last-heard.tsx	-(G 23)	4	R1.5.18 R1.9.26(G)		only if G splits LastHeard out, with a gate 11 allowance for it (V2-6)
