@@ -1,0 +1,42 @@
+export const meta = {
+  name: 'v043-phase6',
+  description: 'v0.43 Phase 6 by stage: "c26" = commit 26 (refactor-only goldens and the unused kit retired) built and landed; "finish" = commit 27 (e2e bookkeeping), the PR body drafted, commit 28 (.refactor/ removed), checked and pushed',
+  phases: [
+    { title: 'Build', detail: 'commit 26 in its own worktree' },
+    { title: 'Land', detail: 'rebase, L1 with the branch\'s tools, build, fast-forward, push' },
+    { title: 'Finish', detail: 'commit 27, the PR body, commit 28, final checks, push' },
+  ],
+}
+const APP = '/home/user/sending-stone-player'
+const R = APP + '/.refactor'
+const X = '/tmp/claude-0/-home-user/5271a33c-a1ff-5f4e-963f-cdaf6da8c173/scratchpad/v043'
+const BR = 'claude/dazzling-dirac-m8cq54'
+const STAGE = (args && args.stage) || 'c26'
+const WT = APP.replace('sending-stone-player', 'w043/c26/sending-stone-player')
+const READ = 'Read ' + R + '/brief.md first, then ' + R + '/RESUME.md (where the refactor stands, its "Phase 5 findings" and "Left" sections), then the contract ' + R + '/round.md: amendments 1-7 at the top, "How to read this", §1.8, §2.5 rows 26-28, §2.6, §3 and §7. The repo\'s CLAUDE.md is binding. '
+const OUT = { type: 'object', properties: { ok: { type: 'boolean' }, commits: { type: 'array', items: { type: 'string' } }, report: { type: 'string' } }, required: ['ok', 'commits', 'report'] }
+const LANDOUT = { type: 'object', properties: { landed: { type: 'boolean' }, head: { type: 'string' }, commits: { type: 'array', items: { type: 'string' } }, red: { type: 'string' }, report: { type: 'string' } }, required: ['landed', 'head', 'commits', 'red', 'report'] }
+
+if (STAGE === 'c26') {
+  phase('Build')
+  const build = extra => agent(READ + 'You build commit 26, `test: refactor-only goldens retired (markup, composition, values)` (§2.5 row 26, Q4 (a), amendment 7 (c)). Your worktree: if ' + WT + ' does not exist, `git -C ' + APP + ' worktree add -b local/043-c26 ' + WT + ' ' + BR + '`, `npm ci`, `npx prisma generate`; else continue on its branch. Work only there; never write in APP except appending to ' + R + '/bugs-found.md under `flock ' + X + '/bugs.lock`. In ONE commit: (1) delete C1 (src/__tests__/golden/markup.golden.test.tsx and its .snap), C3 (composition.golden.test.tsx and its .snap) and C9 (values.golden.test.ts and its .snap); (2) delete RV3-1\'s unused SheetProviders kit (src/mocks/sheet-providers/, both files; first prove with grep that nothing imports it); (3) EFFECT_DICE_KINDS (src/constants/sending-stone.ts) if C9 was its only reader (G-19; prove it); (4) the kit\'s `markup()` and `normalizeIds()` (src/utils/test-utils.ts) with their own tests in test-utils.test.ts, ONLY if after (1) nothing but those tests uses them (prove it with grep); else keep them and say why; (5) the R/tools rows this needs, in your worktree\'s .refactor/tools (delegated to you for this commit by amendment 7 (c)): counts.conf `retire` rows for each deleted test file and frozen file, gate10.allow lines for any frozen file you change rather than delete; nothing else under R/tools. No other change. Then L1 with YOUR worktree\'s tools (`' + WT + '/.refactor/tools/l1.sh ' + X + '/l1/c26 ' + WT + '`; it takes the locks; the L3 replay may hold them between its commits, so it can wait) and `next build` under `flock ' + X + '/l1-wait.lock flock ' + X + '/checks.lock`, both green; gate 2 must still find every base test that is not a retired golden\'s, gate 3 counts net of the retirements. Commit with §2.5\'s subject, a short body naming what was deleted and why (Q4 (a), RV3-1, G-19, and the markup()/normalizeIds() decision), and the brief\'s trailers. Push nothing. ' + (extra || '') + 'Return ok, commits ("SHA subject"), report (what was deleted, the proofs, L1 and build results, test and suite counts before and after).', { label: 'build:c26' + (extra ? ':fix' : ''), phase: 'Build', schema: OUT })
+  let b = await build()
+  if (!b || !b.ok) return { b }
+  phase('Land')
+  const land = () => agent(READ + 'You are the orchestrator\'s lander for commit 26 on local/043-c26 in ' + WT + '. All inside one `flock ' + X + '/git.lock`: the worktree must be clean; `git -C ' + WT + ' rebase ' + BR + '` (a conflict: abort and report); L1 at the rebased head with the BRANCH\'s tools, because its counts.conf retire rows and gate10.allow lines are part of the commit (amendment 7 (c)): `' + WT + '/.refactor/tools/l1.sh ' + X + '/l1/c26-landing ' + WT + '`; and `next build` in the worktree under the two check locks. If green, `git -C ' + APP + ' merge --ff-only local/043-c26` and `git -C ' + APP + ' push -u origin ' + BR + '` (retry after 2, 4, 8, 16 s). If red, land nothing and return the failures in `red`. Return landed, head, commits, red, report.', { label: 'land:c26', phase: 'Land', schema: LANDOUT })
+  let l = await land()
+  for (let i = 1; i <= 2 && l && !l.landed; i++) {
+    b = await build('THIS IS A LANDING FIX ROUND: the landing L1 or build was red: ' + l.red + ' Fix it with a NEW commit on your branch (never amend), L1 and build green, return. ')
+    if (!b || !b.ok) break
+    l = await land()
+  }
+  return { b, l }
+}
+
+if (STAGE === 'finish') {
+  phase('Finish')
+  const pass5 = (args && args.pass5) || ''
+  const f = await agent(READ + 'Also read ' + R + '/analysis/metrics-after.md, ' + R + '/phase4-items.md (P-1 to P-5), the reports in ' + R + '/reports/ as needed, the e2e records ' + R + '/analysis/e2e/{base,pass2,pass3,pass4,pass5}.md, and the replay summary ' + R + '/analysis/replay-summary.tsv. You are the orchestrator\'s finisher for Phase 6, working in APP (' + APP + ') itself under `flock ' + X + '/git.lock` for each git write (no other builder is running). The final e2e (pass 5) is done: ' + pass5 + ' Steps, in order: (1) Commit 27, `e2e: v0.43 timings and counts (bookkeeping)` (§2.5 row 27): e2e/README.md\'s timings and counts and e2e/lanes/lanes.conf\'s seconds, from pass 5\'s times.tsv (' + X + '/e2e/pass5/times.tsv) and regress-lanes.out; those two files only; read e2e/README.md\'s own rules for how they are kept; commit with the brief\'s trailers, push. (2) Draft the PR at ' + X + '/pr/title.txt and ' + X + '/pr/body.md (OUTSIDE .refactor/, which step 3 deletes): round.md §7\'s title and body items, filled from the records above. The body must cover, plainly and briefly: what changed and why (the user\'s request: one app-only PR, reduce complexity, module untouched); the commit table 1-28 with what a reviewer checks (§2.5), P-1\'s lane-to-branch SHA map and P-2; metrics before and after (metrics-after.md §0.4: rule (a)/(b) violations, complexity, cycles, barrels, disables with the accepted totals of amendment 6 (b), lint warnings 999 to 0, files over 500 lines); how it was verified (jest counts and gate 2: every one of the 8,607 base tests passed with equal or more assertions; the goldens and their retirement in commit 26; the L3 replay results per commit, naming every commit red alone and why; the five e2e passes 104/104 with their reruns explained, pass 5 with RETRY=1 said); deviations from the plan (P-5, amendments 1-7 in one line each, RV1-1, RV3-6); the bugs found and not fixed (ROADMAP.md\'s v0.44 lines, by count, with the file); follow-ups; and end with the line "🤖 Generated with [Claude Code](https://claude.com/claude-code)", a blank line, then "https://claude.ai/code/session_01821Sr9FKASxJn47SNudpbR". Keep it readable for a human reviewer: tables over prose, no planning jargon (say "lane" once and explain it), no model names. (3) Commit 28, `chore(refactor): the planning folder removed` (§2.5 row 28, amendment 7 (d)): `git rm -r -q .refactor` and remove eslint.config.mjs\'s `\'.refactor/**\'` ignore line and its comment line; then the final checks in APP, the gates being gone with the folder: `flock ' + X + '/l1-wait.lock flock ' + X + '/checks.lock sh -c "npx jest --ci --maxWorkers=3 && npx next typegen && npx tsc --noEmit && npx eslint . && npx next build"` — jest green, tsc 0 errors, eslint printing nothing, build green; commit with the trailers, push (retry 2, 4, 8, 16 s); confirm `git status` clean and HEAD equal to origin after a fetch. If any check is red, stop before committing 28 and report. Return ok, commits ("SHA subject"), report (the checks\' results, the PR title, and the body\'s path).', { label: 'finish', phase: 'Finish', schema: OUT })
+  return { f }
+}
+return { error: 'unknown stage ' + STAGE }
