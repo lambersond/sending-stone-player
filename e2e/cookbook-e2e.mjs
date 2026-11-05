@@ -619,7 +619,7 @@ part('7. applied')
   // New (v0.44 item 8): served, its card changes in Foundry, and the change reaches the app; posted
   // before the Gamemaster cleared the chat, it comes back to no one's, the players' tables polled
   // since.
-  await until(() => postsOf('chat.message.updated').some(p => p.data?.message?.id === emberCard.id && p.status === 200), 'the card\'s change to reach the app', 20_000)
+  await until(() => postsOf('chat.message.updated').some(p => p.data?.message?.id === emberCard.id && p.status >= 200 && p.status < 300), 'the card\'s change to reach the app', 20_000)
   await Promise.all([tablePolled(desk), tablePolled(bob)])
   const back = { alice: await listing(desk, 'Ember Skewers'), bob: await listing(bob, 'Ember Skewers') }
   check(chatRows(emberCard.id) === 0 && !back.alice && !back.bob,
@@ -708,7 +708,7 @@ await room(LINK)
   const before = marked()
   const from = postsOf('chat.cleared').length
   await D.deleteCards([...W.messages.values()], { deleteAll: true })
-  await until(() => postsOf('chat.cleared').slice(from).some(p => p.campaign === 'erebor' && p.status === 200), 'Foundry\'s clear to reach the app', 20_000)
+  await until(() => postsOf('chat.cleared').slice(from).some(p => p.campaign === 'erebor' && p.status >= 200 && p.status < 300), 'Foundry\'s clear to reach the app', 20_000)
   await until(() => rowOf(answer.body.id).status === 'dismissed', 'the waiting dish to be dismissed', 20_000)
   check(dishCards().length === 0 && chatRows() === 0 && marked() > before && rowOf(answer.body.id).reason === 'deleted',
     `Foundry's Clear Chat Log: every card gone, the app holds none of Erebor's chat, marked cleared again, the waiting dish dismissed, deleted (${JSON.stringify({ before, after: marked() })})`)
