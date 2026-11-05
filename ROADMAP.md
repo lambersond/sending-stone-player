@@ -150,6 +150,11 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   their players can read the card.
 - A Gamemaster's request for a save posted in chat asks the campaign's characters, not their
   companions.
+- After the Gamemaster clears a campaign's chat in the app, a message posted in Foundry before the
+  clear still shows if it reaches the app only after it, as it can when Foundry was out of touch.
+- Whether a change to a message brings it back after a clear is told by Foundry's time for the
+  message against the app's: where the Gamemaster's computer clock is well off, a message posted
+  just before the clear can come back, or one posted just after it stay out.
 - Companions show while on the active scene; a linked NPC its player owns shows always.
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.

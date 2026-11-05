@@ -632,6 +632,18 @@ describe('components/game-table/game-table', () => {
     )
   })
 
+  // v0.44 item 8: the view's chatClearedAt reaches the chat log through the column beside the
+  // sheet.
+  it('says the chat was cleared while a cleared chat is empty', () => {
+    renderTable(
+      view({ messages: [], chatClearedAt: '2026-10-04T19:05:00.000Z' }),
+    )
+
+    expect(screen.getByRole('region', { name: 'Chat' })).toContainElement(
+      screen.getByRole('heading', { name: 'Chat cleared' }),
+    )
+  })
+
   describe('on a wide screen', () => {
     beforeEach(() => {
       jest.spyOn(globalThis, 'matchMedia').mockImplementation(
