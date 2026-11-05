@@ -182,17 +182,50 @@ describe('hooks/use-companion-view', () => {
     await advance(POLL_INTERVAL * 3)
 
     expect(fetch).toHaveBeenCalledTimes(1)
-    expect(result.current).toEqual({ gone: false })
+    expect(result.current).toEqual({ gone: false, connection: 'live' })
   })
 
-  it('asks again next time when the server cannot be reached', async () => {
-    jest.mocked(fetch).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  it('backs off while the server cannot be reached, saying it is reconnecting, then recovers', async () => {
+    jest
+      .mocked(fetch)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(respond(503))
+      .mockResolvedValueOnce(respond(200, mockCompanionView()))
     const { result } = renderHook(() => useCompanionView(API, { active: true }))
     await advance(0)
+    expect(result.current.connection).toBe('reconnecting')
     expect(result.current.view).toBeUndefined()
 
-    jest.mocked(fetch).mockResolvedValueOnce(respond(200, mockCompanionView()))
-    await advance(POLL_INTERVAL)
+    await advance(POLL_INTERVAL * 2 - 1)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await advance(1)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(result.current.connection).toBe('reconnecting')
+
+    await advance(POLL_INTERVAL * 4)
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(result.current.connection).toBe('live')
     expect(result.current.view?.version).toBe(7)
   })
+
+  it.each([404, 401])(
+    'is live again, asking no more, when a failed read is followed by a %i',
+    async status => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(500))
+        .mockResolvedValueOnce(respond(status))
+      const { result } = renderHook(() =>
+        useCompanionView(API, { active: true }),
+      )
+      await advance(0)
+      expect(result.current.connection).toBe('reconnecting')
+
+      await advance(POLL_INTERVAL * 20)
+
+      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(result.current.connection).toBe('live')
+      expect(result.current.gone).toBe(status === 404)
+    },
+  )
 })

@@ -7,6 +7,12 @@ import { characterSheet, fullerSheet, TEXTS } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet, SheetDetails } from '@/types/sending-stone'
 
+// The journal's poll refreshes the page once signed out, as the table's does.
+jest.mock('next/navigation', () => ({
+  ...jest.requireActual('next/navigation'),
+  useRouter: () => ({ refresh: jest.fn() }),
+}))
+
 const renderTab = (sheet: CharacterSheet = fullerSheet()) =>
   render(
     <BiographyTab

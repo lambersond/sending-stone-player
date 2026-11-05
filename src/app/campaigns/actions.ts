@@ -9,6 +9,7 @@ import {
   resetInviteCode,
   setUpCampaign,
 } from '@/db/campaigns'
+import { clearCampaignChat } from '@/db/chat'
 import { revokeCampaignCookbookLink } from '@/db/cookbook'
 import { requireUser } from '@/lib/session'
 import { campaignSetupSchema, secretSchema } from '@/schemas/campaign'
@@ -103,6 +104,16 @@ export async function revokeCookbookLinkAction(
 ): Promise<void> {
   const user = await requireUser(PAGE)
   await revokeCampaignCookbookLink(user.id, campaignId, characterId)
+  refresh()
+}
+
+/**
+ * Clear the campaign's chat in the app, for every player (v0.44): Foundry's own chat log stays as
+ * it is.
+ */
+export async function clearChatAction(campaignId: string): Promise<void> {
+  const user = await requireUser(PAGE)
+  await clearCampaignChat(user.id, campaignId)
   refresh()
 }
 

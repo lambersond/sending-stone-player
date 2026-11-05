@@ -440,7 +440,8 @@ exports[`the pages name their sheets, and say which are not open here, for the G
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "chatClearedAt": true
    }
   }
  },
@@ -862,7 +863,8 @@ exports[`the pages name their sheets, and say which are not open here, for the p
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "chatClearedAt": true
    }
   }
  },
@@ -7280,7 +7282,8 @@ exports[`the routes of a sheet table GET, gm, unchanged: table GET, gm, unchange
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "chatClearedAt": true
    }
   }
  },
@@ -7436,7 +7439,8 @@ exports[`the routes of a sheet table GET, gm: table GET, gm 1`] = `
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "chatClearedAt": true
    }
   }
  },
@@ -7649,7 +7653,8 @@ exports[`the routes of a sheet table GET, player, its sheet known: table GET, pl
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "chatClearedAt": true
    }
   }
  },
@@ -7932,7 +7937,8 @@ exports[`the routes of a sheet table GET, player: table GET, player 1`] = `
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "chatClearedAt": true
    }
   }
  },
@@ -8117,7 +8123,9 @@ exports[`the routes of a sheet text GET, another’s: text GET, another’s 1`] 
   }
  }
 ]",
-  "headers": {},
+  "headers": {
+    "cache-control": "no-store",
+  },
   "status": 404,
 }
 `;
@@ -8126,7 +8134,9 @@ exports[`the routes of a sheet text GET, bad hash: text GET, bad hash 1`] = `
 {
   "body": "",
   "calls": "[]",
-  "headers": {},
+  "headers": {
+    "cache-control": "no-store",
+  },
   "status": 404,
 }
 `;
@@ -8387,7 +8397,9 @@ exports[`the routes of a sheet text GET, signed out: text GET, signed out 1`] = 
 {
   "body": "",
   "calls": "[]",
-  "headers": {},
+  "headers": {
+    "cache-control": "no-store",
+  },
   "status": 401,
 }
 `;

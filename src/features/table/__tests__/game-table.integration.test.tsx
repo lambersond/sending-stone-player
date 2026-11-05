@@ -632,6 +632,18 @@ describe('components/game-table/game-table', () => {
     )
   })
 
+  // v0.44 item 8: the view's chatClearedAt reaches the chat log through the column beside the
+  // sheet.
+  it('says the chat was cleared while a cleared chat is empty', () => {
+    renderTable(
+      view({ messages: [], chatClearedAt: '2026-10-04T19:05:00.000Z' }),
+    )
+
+    expect(screen.getByRole('region', { name: 'Chat' })).toContainElement(
+      screen.getByRole('heading', { name: 'Chat cleared' }),
+    )
+  })
+
   describe('on a wide screen', () => {
     beforeEach(() => {
       jest.spyOn(globalThis, 'matchMedia').mockImplementation(
@@ -682,6 +694,22 @@ describe('components/game-table/game-table', () => {
       expect(screen.getByRole('region', { name: 'Chat' })).not.toHaveClass(
         'hidden',
       )
+    })
+
+    // Beside the sheet nothing moves focus to combat or the chat, so neither takes it: a click in
+    // the chat's log leaves focus where it was, as on a phone it may go to the one shown alone.
+    it('gives combat and the chat beside the sheet no focus, a click in the log leaving it be', async () => {
+      const user = userEvent.setup()
+      renderTable(view({ sheet }))
+      await user.click(screen.getByRole('tab', { name: 'Chat' }))
+
+      await user.click(screen.getByText('message m1'))
+      expect(document.body).toHaveFocus()
+      for (const name of ['Combat', 'Chat']) {
+        expect(screen.getByRole('region', { name })).not.toHaveAttribute(
+          'tabindex',
+        )
+      }
     })
 
     it("names the class and subclass after the character's name, cut short before it is", () => {
@@ -1482,6 +1510,18 @@ describe('components/game-table/game-table, Wild Shape, from module 0.40.0', () 
     await user.click(within(banner).getByRole('button', { name: 'Dismiss' }))
     expect(screen.queryByText(/Wild Shape ended in your game/)).toBeNull()
     expect(document.querySelector('#sheet-panel')).toHaveFocus()
+  })
+
+  it('gives focus to the pane shown as it is dismissed, the chat on a phone, never the hidden sheet', async () => {
+    const user = userEvent.setup()
+    renderTable(view({ sheet: ended('hp'), combat: undefined }))
+
+    await user.click(screen.getByRole('button', { name: 'Chat' }))
+    const banner = screen
+      .getAllByRole('status')
+      .find(each => each.textContent?.includes('Wild Shape')) as HTMLElement
+    await user.click(within(banner).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.getByRole('region', { name: 'Chat' })).toHaveFocus()
   })
 
   it('says nothing of one ended from the app', () => {

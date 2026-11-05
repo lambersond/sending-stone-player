@@ -71,7 +71,7 @@ describe('components/character-sheet/spell-slots', () => {
     expect(container.querySelector('dialog, .contents')).toBeNull()
   })
 
-  it('makes each dot a button, named for what it does, with a title of the same words', () => {
+  it('makes each dot a button, named for what it does, with a title of the same words, a finger’s height on a phone and a tablet alike (v0.44)', () => {
     const { container } = renderSlots(3, 4)
 
     const group = screen.getByRole('group', { name: '1st-level spell slots' })
@@ -97,8 +97,9 @@ describe('components/character-sheet/spell-slots', () => {
         'hover:bg-primary/10',
         'focus-visible:outline-2',
         'focus-visible:outline-primary',
-        'sm:size-6',
       )
+      // As big on a tablet (v0.44): none smaller from sm.
+      expect(dot).not.toHaveClass('sm:size-6')
       expect(dot).toHaveTextContent('')
     }
     // The ring inside each, as the picture's, filled for each left.

@@ -200,7 +200,12 @@ describe('db/table', () => {
     })
 
     it('shows the chat the player may read, oldest first, and the encounter', async () => {
-      prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+      // Changed on purpose (v0.44 item 8): its chat cleared once, and later messages since.
+      const cleared = new Date('2026-10-04T19:00:00.000Z')
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        ...campaign,
+        chatClearedAt: cleared,
+      } as any)
       prismaMock.chatMessage.findMany.mockResolvedValue([
         { data: chatMessage({ id: 'm2', text: 'second' }) },
         { data: chatMessage({ id: 'm1', text: 'first' }) },
@@ -239,6 +244,8 @@ describe('db/table', () => {
           // Changed on purpose (round 0.40.0 §10.3): whether the campaign lets its players use Wild
           // Shape.
           wildShapeEnabled: true,
+          // Changed on purpose (v0.44 item 8): when its chat was last cleared.
+          chatClearedAt: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -265,6 +272,7 @@ describe('db/table', () => {
         },
         connected: true,
         messages: [{ id: 'm1' }, { id: 'm2' }],
+        chatClearedAt: cleared.toISOString(),
         combat: { id: 'cmbt1', currentId: 'c-boss' },
       })
     })

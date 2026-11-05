@@ -552,6 +552,72 @@ describe('components/character-sheet/sheet-settings', () => {
       }
     })
   })
+
+  describe('favorites on the Character tab (v0.44)', () => {
+    const LABEL = 'Favorites on the Character tab'
+
+    /** The switch for the Character tab's favorites, among the settings. */
+    const favoritesSwitch = () =>
+      within(settings()).getByRole('switch', { name: LABEL })
+
+    it('shows only with `characterFavorites`, a switch described by its hint, staying open as it turns', async () => {
+      const user = userEvent.setup()
+      const onChange = jest.fn()
+      const { rerender } = render(<SheetSettings />)
+      await user.click(cog())
+      expect(
+        within(settings()).queryByRole('switch', { name: LABEL }),
+      ).toBeNull()
+
+      rerender(<SheetSettings characterFavorites={{ on: false, onChange }} />)
+      expect(favoritesSwitch()).not.toBeChecked()
+      expect(favoritesSwitch()).toHaveAccessibleDescription(
+        'Shows the character’s favorites between Skills and Traits.',
+      )
+      await user.click(favoritesSwitch())
+      expect(onChange).toHaveBeenLastCalledWith(true)
+      expect(settings()).toBeInTheDocument()
+
+      rerender(<SheetSettings characterFavorites={{ on: true, onChange }} />)
+      expect(favoritesSwitch()).toBeChecked()
+      await user.click(favoritesSwitch())
+      expect(onChange).toHaveBeenLastCalledWith(false)
+      expect(onChange).toHaveBeenCalledTimes(2)
+    })
+
+    it('comes after the theme and before the Actions layout, Send to the table still taking focus', async () => {
+      const user = userEvent.setup()
+      render(
+        <SheetSettings
+          send={{ on: true, onChange: jest.fn() }}
+          characterFavorites={{ on: false, onChange: jest.fn() }}
+          layouts={{
+            offered: LAYOUTS.filter(({ id }) => id !== 'columns'),
+            layout: 'list',
+            choose: jest.fn(),
+          }}
+        />,
+      )
+      await user.click(cog())
+
+      const send = within(settings()).getByRole('switch', {
+        name: 'Send to the table',
+      })
+      await waitFor(() => expect(send).toHaveFocus())
+      const theme = within(settings()).getByRole('radiogroup', {
+        name: 'Theme',
+      })
+      expect(theme.compareDocumentPosition(favoritesSwitch())).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      expect(
+        favoritesSwitch().compareDocumentPosition(
+          within(settings()).getByRole('group', { name: 'Actions layout' }),
+        ),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+  })
+
   describe('Configure Magical Cookbook (round 0.39.0)', () => {
     it('is offered with `cookbook` alone, last among the settings, so the first still takes focus', async () => {
       const user = userEvent.setup()

@@ -20,6 +20,12 @@ describe('components/avatar', () => {
     expect(container.querySelector('img')).toBeNull()
   })
 
+  it('keeps a first letter beyond one UTF-16 unit whole, as an emoji', () => {
+    const { container } = render(<Avatar name='🐉 Ember' />)
+
+    expect(container).toHaveTextContent('🐉')
+  })
+
   it('copes with a blank name', () => {
     const { container } = render(<Avatar name='' />)
 

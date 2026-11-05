@@ -183,7 +183,8 @@ export type EffectRoll = { source?: RollSource; ask?: EffectAsk }
 /**
  * A change to the ways of the rolls sent to the game (`rollStates`): one's way as the game tells
  * it, with what was kept of it as it was sent; rolls sent one after another, as one, as each is
- * made; an attack's or use's damage on its way; or a use's damage left for the player to roll.
+ * made; an attack's or use's damage on its way, or not made by the game after all; or a use's
+ * damage left for the player to roll.
  */
 export type RollStateAction =
   | {
@@ -194,6 +195,7 @@ export type RollStateAction =
     }
   | { type: 'together'; id: string; each: TableRollState[]; count: number }
   | { type: 'damaged'; use: string }
+  | { type: 'undamaged'; use: string }
   | { type: 'offer'; id: string }
 
 /**

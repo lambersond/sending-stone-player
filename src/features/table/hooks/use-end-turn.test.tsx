@@ -406,6 +406,23 @@ describe('hooks/use-end-turn', () => {
     },
   )
 
+  it('offers a turn again once a newer view still shows it, where the app took its End Turn with nothing to follow it by', async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, {}))
+    const { result, rerender } = render()
+    await advance(END_TURN_ARMS_AFTER)
+
+    await ending(() => result.current.end(thorins))
+    await advance(0)
+    // Sent, and taken as ending the turn, as the game will: nothing left on its way.
+    expect(result.current.way).toEqual({ status: 'done', unfollowed: true })
+    expect(result.current.offered).toBe(false)
+
+    rerender({ combat: mockTurnCombat() })
+    await advance(END_TURN_ARMS_AFTER)
+    expect(result.current.offered).toBe(true)
+    expect(posted()).toHaveLength(1)
+  })
+
   it.each(['moved', 'not-turn'])(
     'offers that turn no more once the app refuses it %p',
     async reason => {

@@ -5,12 +5,14 @@ import {
   endTurnWords,
   HOLD_HINT,
   newlyNotMade,
+  newlySent,
   reasonSentence,
   refusalKey,
   TURN_TOAST_FOR,
   TURN_UNDO_FOR,
   turnFragment,
   turnSendingLine,
+  turnSentLine,
 } from '@/features/table/utils/end-turn'
 import type { CardNext, CardStep, ToastInputs, ToastSeen } from './types'
 import type { Card, CardBody, Sent } from '@/features/table/types'
@@ -56,7 +58,7 @@ function actingOf(
 /** How long a card shows, from when it's shown; none for one that follows a press or a way. */
 export function lastsOf(card: Card): number | undefined {
   if (card.kind === 'ended') return card.undo ? TURN_UNDO_FOR : TURN_TOAST_FOR
-  if (card.kind === 'refused' || card.kind === 'kept') return TURN_TOAST_FOR
+  if (['sent', 'refused', 'kept'].includes(card.kind)) return TURN_TOAST_FOR
   return undefined
 }
 
@@ -77,6 +79,9 @@ export function wordsOf(
         words: words.ending,
         line: turnSendingLine(way ?? { status: 'sending' }, role),
       }
+    }
+    case 'sent': {
+      return { words: words.ending, line: turnSentLine(role) }
     }
     case 'ended': {
       return { words: words.ended, line: card.line }
@@ -144,9 +149,10 @@ function holdStep(
 }
 
 /**
- * What the End Turn sent last says: a hold's on its way; the game made it, with who acts now, or
- * with Undo while that's offered, told once, as the page shows the combat moved on; or it wasn't
- * made, which the toast says for a hold's, or for the button's where the combat isn't shown.
+ * What the End Turn sent last says: a hold's on its way; that it was sent, told once, where the
+ * app took it with nothing to follow it by; the game made it, with who acts now, or with Undo while
+ * that's offered, told once, as the page shows the combat moved on; or it wasn't made, which the
+ * toast says for a hold's, or for the button's where the combat isn't shown.
  * @param told - The End Turns whose ending has been told, by their ids.
  */
 function wayStep(
@@ -159,6 +165,9 @@ function wayStep(
   let step: { next: CardNext; tell?: string } = { next }
   if (sent && sent.turn !== was.sent?.turn && via === 'hold') {
     step = { next: { make: { kind: 'sending', turn: sent.turn } } }
+  }
+  if (newlySent(was.sent, sent)) {
+    step = { next: { make: { kind: 'sent', turn: sent.turn } } }
   }
   const id = sent?.way.status === 'done' ? sent.way.requestId : undefined
   if (sent && id && !told.has(id) && !showsTurn(combat, sent.turn)) {

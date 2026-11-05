@@ -757,6 +757,76 @@ describe('enchant activities at the table, from module 0.21.0', () => {
       )
     })
 
+    // The Effects tab shows the rolls only where a favorite rolls, or once something there was
+    // done: an end from a favorite that rolls nothing says how it went, as a concentration's does.
+    it('says on the Effects tab how an end from a favorite that rolls nothing went, refused', async () => {
+      const user = userEvent.setup()
+      const posted = answering({
+        'req-1': { status: 'failed', reason: 'enchantment' },
+      })
+      const sheet = ariSheet()
+      sheet.inventory.sections.push({
+        id: 'equipment',
+        label: 'Equipment',
+        items: [
+          sheetItem({
+            id: 'leather',
+            name: 'Leather Armor',
+            type: 'equipment',
+            enchantments: [
+              enchantment({
+                id: 'defense00001',
+                name: 'Enhanced Defense, +1',
+                source: 'Enhanced Defense',
+              }),
+            ],
+          }),
+        ],
+      })
+      render(
+        pane({
+          ...sheet,
+          favorites: [
+            {
+              type: 'item',
+              id: 'leather',
+              itemType: 'equipment',
+              name: 'Leather Armor',
+              img: null,
+            },
+          ],
+        }),
+      )
+      await show(user, 'Effects')
+      expect(screen.queryByRole('status')).toBeNull()
+
+      const favorites = within(
+        screen.getByRole('region', { name: 'Favorites' }),
+      )
+      await user.click(favorites.getByText('Leather Armor'))
+      await user.click(
+        favorites.getByRole('button', {
+          name: 'End Enhanced Defense, +1 on Leather Armor',
+        }),
+      )
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'End' }),
+      )
+      expect(posted[0]).toEqual(
+        expect.objectContaining({
+          kind: 'endEnchantment',
+          enchantment: { item: 'leather', effect: 'defense00001' },
+        }),
+      )
+      await waitFor(
+        () =>
+          expect(screen.getByRole('status')).toHaveTextContent(
+            'Enhanced Defense, +1Not ended at the table: that enchantment can’t be ended from here',
+          ),
+        { timeout: 5000 },
+      )
+    })
+
     it('offers no End where the game doesn’t take it', async () => {
       const user = userEvent.setup()
       answering({})

@@ -181,11 +181,14 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
       jest.mocked(getGmSeat).mockResolvedValue(undefined)
       const missing = await routes[name]()
       expect(missing.status).toBe(404)
+      expect(missing.headers.get('Cache-Control')).toBe('no-store')
       await expect(missing.text()).resolves.toBe('')
 
       jest.mocked(getCurrentUser).mockResolvedValue(undefined)
       jest.mocked(getGmSeat).mockClear()
-      await expect(routes[name]()).resolves.toHaveProperty('status', 401)
+      const signedOut = await routes[name]()
+      expect(signedOut.status).toBe(401)
+      expect(signedOut.headers.get('Cache-Control')).toBe('no-store')
       expect(getGmSeat).not.toHaveBeenCalled()
       for (const reader of [
         getTableView,

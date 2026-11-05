@@ -6,12 +6,6 @@ import type { Seen } from '@/lib/routes/types'
 /** The header of every seat route's answer but a description's: never cached. */
 export const NO_STORE = { 'Cache-Control': 'no-store' }
 
-/**
- * The headers of an answer that has none: the two description routes' 401, and the player's 404s
- * (bug B16), which carry no `Cache-Control`, unlike their siblings'.
- */
-export const NO_HEADERS = {}
-
 /** An answer saying nothing more than its status. */
 export function bare(status: number, headers: HeadersInit = NO_STORE) {
   return new Response(undefined, { status, headers })

@@ -23,6 +23,7 @@ import {
 import {
   answeringOf,
   busy,
+  damageUnmade,
   dueOf,
   rollStates,
 } from '@/features/rolling/utils/roll-states'
@@ -113,6 +114,7 @@ export function useTableRolls(
    * Send a roll to the game, and follow it, keeping its way under the local roll's id. The
    * Gamemaster's page (#156) says what it calls it, for the character's player to be shown it by.
    * @param label - What this page calls it, such as "Perception check".
+   * @param heard - Told each way it goes, as it's kept.
    */
   const start = useCallback(
     (
@@ -120,12 +122,14 @@ export function useTableRolls(
       sent: RollRequestInput,
       kept: Partial<TableRollState>,
       label: string,
+      heard?: (state: TableRollState) => void,
     ) => {
       const input = latest.current.gm ? labelled(sent, label) : sent
       const update = (state: TableRollState) => {
         setStates(held =>
           rollStates(held, { type: 'way', id: localId, kept, state }),
         )
+        heard?.(state)
       }
       update({ status: 'sending' })
       followRoll(latest.current.api, input, update, id => {
@@ -268,9 +272,20 @@ export function useTableRolls(
         return
       }
       if (!use || !takes(latest.current, 'damage')) return
-      // Its attack's or use's damage is on its way: it isn't offered again.
+      // Its attack's or use's damage is on its way: it isn't offered again, unless the game doesn't
+      // make it after all.
       setStates(held => rollStates(held, { type: 'damaged', use }))
-      start(damage.id, toDamageRequest(roll, damage, use), {}, roll.label)
+      start(
+        damage.id,
+        toDamageRequest(roll, damage, use),
+        {},
+        roll.label,
+        state => {
+          if (damageUnmade(state)) {
+            setStates(held => rollStates(held, { type: 'undamaged', use }))
+          }
+        },
+      )
     },
     [start],
   )

@@ -53,7 +53,10 @@ export function useSpentRemovals({
   const handled = useRef(new Set<string>())
   useLayoutEffect(() => {
     for (const [roll, { spends, at }] of spending.current) {
-      if (states.get(roll)?.status !== 'done') continue
+      // Not one taken with nothing to follow it by, which the game may not have made: its effect
+      // is held spent (`useSpentSet`), as for one that took too long.
+      const state = states.get(roll)
+      if (state?.status !== 'done' || state.unfollowed) continue
       for (const { effect: id } of spends) {
         removeSpent(effecting, handled.current, roll, id, at)
       }

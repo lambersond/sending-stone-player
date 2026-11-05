@@ -182,6 +182,7 @@ describe('components/dice-entry/dice-entry-dialog', () => {
 
       const dialog = screen.getByRole('dialog', { name: 'Perception check' })
       expect(dialog).toHaveTextContent('Type in what your dice show')
+      expect(within(dialog).getByText('Manual Dice')).toBeVisible()
       const d20s = screen.getByRole('group', { name: 'd20, advantage' })
       expect(
         within(d20s)

@@ -148,6 +148,14 @@ export function onItsWayWords(
 }
 
 /**
+ * That a roll, a use or an ask went to the game, where the app took it with nothing to follow it
+ * by (`unfollowed`), so what the game made of it isn't known here.
+ */
+export function sentWords(role: SeatRole): string {
+  return `Sent to ${seatWords(role).game}`
+}
+
+/**
  * What came at the table of an attack, or a save the game asked for or made against a DC, or a
  * check made against one, as the game shows players: against a DC it doesn't say of, by its total.
  * From module 0.36.0, a recharge's, whose outcome is never a save's, and damage on its own's, for
@@ -298,7 +306,8 @@ export function leastOf({ minimum, times }: LocalFormula): string {
 
 /**
  * A command's way to the game, in words: sent, then being done there, as `doing` says it; `done`
- * once the game has done it; else `not`, and why (`reason`), where the player is told why.
+ * once the game has done it, or that it was sent, where it couldn't be followed; else `not`, and
+ * why (`reason`), where the player is told why.
  */
 export function wayWords(
   state: TableRollState | undefined,
@@ -312,12 +321,24 @@ export function wayWords(
       return onItsWayWords(state, role, words.doing)
     }
     case 'done': {
-      return words.done
+      return state.unfollowed ? sentWords(role) : words.done
     }
     default: {
       return `${words.not}${reason ? `: ${reason}` : ''}`
     }
   }
+}
+
+/**
+ * That a roll wasn't made, before why: of hit dice spent at once, how many the game made before
+ * one it didn't, and the hit points they gave back.
+ */
+export function notMadeAtTable(state: TableRollState): string {
+  const { together, healed } = state
+  const healing = healed === undefined ? '' : ` · ${healed} HP regained`
+  return together?.made
+    ? `${together.made} of ${together.count} made at the table${healing}. Not the rest`
+    : 'Not made at the table'
 }
 
 /** A favorite added or removed, from module 0.37.0, on its way, done, and not. */

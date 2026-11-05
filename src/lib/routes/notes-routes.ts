@@ -149,7 +149,11 @@ export async function notesResponse(
 
 /** A request's JSON body, read within the limit; or why it can't be read. */
 async function noteBody(request: NextRequest): Promise<unknown> {
-  const body = await readBody(request, { limit: MAX_NOTE_BYTES, type: 'exact' })
+  const body = await readBody(request, {
+    limit: MAX_NOTE_BYTES,
+    type: 'exact',
+    declared: true,
+  })
   if (body.ok) return body.value
   if (body.why === 'type') throw bare(415)
   throw refused(body.why === 'size' ? 413 : 400, { reason: 'invalid' })

@@ -576,8 +576,10 @@ for (const [width, height, labelled] of [[1440, 900, true], [1024, 768, false]])
   const wideSheet = wide.getByRole('region', { name: 'Character' })
   await wideSheet.getByRole('button', { name: /^Intelligence check/ }).waitFor()
   const wideTabs = wideSheet.getByRole('tablist', { name: 'Character sheet' })
-  const wideWidths = await wideTabs.getByRole('tab').evaluateAll(all => all.map(tab => Math.round(tab.getBoundingClientRect().width)))
-  check(labelled ? wideWidths.every(w => w > 50) : wideWidths.slice(1).every(w => w <= 34), `at ${width} pixels, ${labelled ? 'every tab is labelled' : 'the sheet is narrow beside the chat, so only the chosen tab is'} (${wideWidths})`)
+  // Each tab's width and height: 44-pixel icons beside the chat from sm (v0.44), compact where labelled.
+  const wideBoxes = await wideTabs.getByRole('tab').evaluateAll(all => all.map(tab => [Math.round(tab.getBoundingClientRect().width), Math.round(tab.getBoundingClientRect().height)]))
+  check(labelled ? wideBoxes.every(([w, h]) => w > 50 && h < 44) : wideBoxes.slice(1).every(([w]) => w === 44),
+    `at ${width} pixels, ${labelled ? 'every tab is labelled, at its compact height' : 'beside the chat only the chosen tab is labelled, the others 44-pixel icons'} (${wideBoxes.map(([w, h]) => `${w}×${h}`)})`)
   check(await wideTabs.evaluate(list => list.scrollWidth <= list.clientWidth), `and the tabs fit at ${width} pixels`)
   check(await wide.evaluate(() => document.scrollingElement.scrollHeight === document.scrollingElement.clientHeight), `the page itself does not scroll at ${width} pixels`)
   if (SHOTS) await shoot(wide, `laptop-${width}-character`)

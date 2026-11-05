@@ -9,6 +9,7 @@ import { GmPill } from '../roll-tray/gm-pill'
 import { SpentLines } from '../roll-tray/spent-lines'
 import { Badge } from './badge'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
+import { ICON_TARGET } from '@/constants/buttons'
 import type { RollBrief, RollDue } from '../../types'
 import type { LocalRoll, TableRollState } from '@/types/roll'
 
@@ -132,7 +133,7 @@ export function Toast({
           aria-label='Dismiss'
           title='Dismiss'
           onClick={onDismiss}
-          className='flex size-8 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-text-primary/5 hover:text-text-primary'
+          className={`${ICON_TARGET} size-8 rounded-lg text-text-secondary transition-colors hover:bg-text-primary/5 hover:text-text-primary`}
         >
           <X aria-hidden className='size-4' />
         </button>

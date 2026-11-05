@@ -32,7 +32,7 @@ run conditions 22 X=1
 run late-setup 4 EXPECT_FIX=1
 run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
 run layout 12 EXPECT=fixed
-run favorites 52 X=1
+run favorites 59 X=1
 run rolls 74 SHOTS=$O/shots-rolls
 run attacks 84 SHOTS=$O/shots-attacks
 run attacks 86 MIDI=1 SHOTS=$O/shots-attacks
@@ -47,7 +47,7 @@ run links 119 SHOTS=$O/shots-links
 run links 143 MIDI=1 SHOTS=$O/shots-links
 run activities 100 SHOTS=$O/shots-activities
 run activities 105 MIDI=1 SHOTS=$O/shots-activities
-run phone 95 SHOTS=$O/shots-phone
+run phone 97 SHOTS=$O/shots-phone
 run rolling 45 SHOTS=$O/shots-022
 run rolling 47 MIDI=1 SHOTS=$O/shots-022
 run sync 62 SHOTS=$O/shots-022
@@ -149,7 +149,7 @@ run favoriting 8 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
 # code, a card for the Gamemaster in Foundry and an effect on each character chosen; dnd5e 6.0.5
 # (off); and module 0.37.0 (none).
-run cookbook 92 TIMEOUT=600 SHOTS=$O/shots-038
+run cookbook 102 TIMEOUT=600 SHOTS=$O/shots-038
 run cookbook 10 DND5E6=1 SHOTS=$O/shots-038
 run cookbook 10 SKEW=037 MODULE=$O/module-0.37.0 SHOTS=$O/shots-038
 # Module 0.39.0: a player's own effects turned off, on and deleted from the app, by the campaign's
@@ -158,7 +158,7 @@ run effects 38 SHOTS=$O/shots-039
 run effects 18 DND5E6=1 SHOTS=$O/shots-039
 run effects 7 SKEW=038 MODULE=$O/module-0.38.1 SHOTS=$O/shots-039
 # The campaign page, option A (v0.39): the Gamemaster's campaigns as a list and the chosen one.
-run campaigns 52 SHOTS=$O/shots-039
+run campaigns 54 SHOTS=$O/shots-039
 # Module 0.40.0: Wild Shape from the app, a 2024 druid's known forms, the shaped seat; dnd5e 6.0.5;
 # and module 0.39.0 (none).
 run wildshape 93 TIMEOUT=900 SHOTS=$O/shots-040

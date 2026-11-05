@@ -35,6 +35,9 @@ const ORIGIN = 'https://my-game.forge-vtt.com'
 
 /** The dish count's mock: Prisma's groupBy is typed past what the deep mock's types can follow. */
 const groupBy = () => prismaMock.cookbookDish.groupBy as unknown as jest.Mock
+/** The chat's count's mock, likewise (v0.44 item 8). */
+const messageCount = () =>
+  prismaMock.chatMessage.groupBy as unknown as jest.Mock
 const ref = { id: 'camp-a', title: 'The Lonely Mountain' }
 
 /** What clears a campaign's recorded refusal. */
@@ -122,6 +125,8 @@ const game = (ours: string[] = []) => {
 // the Magical Recipe Book, none unless a test says; the deep mock answers nothing otherwise.
 beforeEach(() => {
   groupBy().mockResolvedValue([] as any)
+  // Changed on purpose (v0.44 item 8): and their chat's messages, none unless a test says.
+  messageCount().mockResolvedValue([] as any)
 })
 
 describe('db/campaigns', () => {
@@ -139,6 +144,8 @@ describe('db/campaigns', () => {
   describe('for Gamemasters', () => {
     it('lists their campaigns, with who plays each character', async () => {
       const seen = new Date()
+      // Changed on purpose (v0.44 item 8): their chat's messages, counted at once for every one.
+      messageCount().mockResolvedValue([{ campaignId: 'c1', _count: 42 }])
       prismaMock.campaign.findMany.mockResolvedValue([
         {
           id: 'c1',
@@ -214,6 +221,8 @@ describe('db/campaigns', () => {
           effects: { enabled: true },
           // Changed on purpose (round 0.40.0 §10.3): its players may use Wild Shape.
           wildShape: { enabled: true },
+          // Changed on purpose (v0.44 item 8): its players' chat, never cleared.
+          chat: { messages: 42 },
           characters: [
             {
               id: 'actor-thorin',
@@ -258,6 +267,7 @@ describe('db/campaigns', () => {
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           effects: { enabled: false },
           wildShape: { enabled: false },
+          chat: { messages: 0 },
           characters: [],
           groups: [],
         },
@@ -265,6 +275,12 @@ describe('db/campaigns', () => {
       expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { ownerId: 'gm-1' } }),
       )
+      expect(messageCount()).toHaveBeenCalledTimes(1)
+      expect(messageCount()).toHaveBeenCalledWith({
+        by: ['campaignId'],
+        where: { campaignId: { in: ['c1', 'c2'] } },
+        _count: true,
+      })
     })
 
     it('lists their party sheets, each saying whether any player may see it, never who (module 0.30.0)', async () => {
@@ -486,7 +502,22 @@ describe('db/campaigns', () => {
 
         await expect(listOwnedCampaigns('gm-1')).resolves.toEqual([])
         expect(groupBy()).not.toHaveBeenCalled()
+        // Changed on purpose (v0.44 item 8): nor their chat.
+        expect(messageCount()).not.toHaveBeenCalled()
       })
+    })
+
+    it('says when its chat was last cleared (v0.44 item 8)', async () => {
+      const at = new Date('2026-11-04T20:00:00.000Z')
+
+      await expect(listed({ chatClearedAt: at })).resolves.toMatchObject({
+        chat: { messages: 0, clearedAt: at.toISOString() },
+      })
+      expect(prismaMock.campaign.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ chatClearedAt: true }),
+        }),
+      )
     })
 
     it('sets up a campaign, keeping only a hash of its secret', async () => {
@@ -765,6 +796,40 @@ describe('db/campaigns', () => {
         data: { ...setUp, ...NO_REFUSAL },
       })
     })
+
+    it.each([
+      ['waiting for Foundry', null, 'c1'],
+      ['followed before Gamemasters set them up', 'earlier', 'earlier'],
+    ])(
+      'binds nothing on a connection test of a campaign %s; its first event binds it',
+      async (_, earlierId, boundId) => {
+        prismaMock.$transaction.mockImplementation((run: any) =>
+          run(prismaMock),
+        )
+        prismaMock.campaign.findUnique.mockResolvedValue(
+          earlierId && ({ id: earlierId, secretHash: null } as any),
+        )
+        prismaMock.campaign.findMany.mockResolvedValue([
+          { id: 'c1', secretHash: 'hash:right' },
+        ] as any)
+        prismaMock.campaign.delete.mockResolvedValue({} as any)
+
+        await expect(
+          findEventCampaign(ORIGIN, ref, 'right', { record: false }),
+        ).resolves.toEqual({ id: boundId })
+        expect(prismaMock.$transaction).not.toHaveBeenCalled()
+        expect(prismaMock.campaign.update).not.toHaveBeenCalled()
+        expect(prismaMock.campaign.updateMany).not.toHaveBeenCalled()
+        expect(prismaMock.campaign.delete).not.toHaveBeenCalled()
+
+        await expect(findEventCampaign(ORIGIN, ref, 'right')).resolves.toEqual({
+          id: boundId,
+        })
+        expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: boundId } }),
+        )
+      },
+    )
 
     it('knows no campaign that was never set up, and refuses the wrong secret', async () => {
       prismaMock.campaign.findUnique.mockResolvedValue(null)

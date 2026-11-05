@@ -135,9 +135,10 @@ function LiveSlots({
  * The dots, from module 0.42.1, in a group named as the pool's heading names it: a button for each
  * slot, filled for each left, which spends one, hollow for each used, which restores one; with
  * more left than the pool's maximum, as dnd5e's temporary slots, each filled. Each a finger's
- * height on a phone, smaller from `sm`. Dimmed while what was sent waits for the game, when a tap
- * does nothing. Where there isn't room for them all, as nine beneath a favorite's name on a narrow
- * phone, they wrap onto another line, the count beside them, rather than running past the card.
+ * height, 28 by 44 pixels, on a tablet too (v0.44). Dimmed while what was sent waits for the game,
+ * when a tap does nothing. Where there isn't room for them all, as nine beneath a favorite's name
+ * on a narrow phone or in a tablet's list, they wrap onto another line, the count beside them,
+ * rather than running past the card.
  */
 function SlotDots({
   value,
@@ -172,7 +173,7 @@ function SlotDots({
             aria-disabled={waiting || undefined}
             onClick={() => onTap(filled ? 'spend' : 'restore')}
             className={clsx(
-              'inline-flex h-11 w-7 items-center justify-center rounded-md transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary sm:size-6',
+              'inline-flex h-11 w-7 items-center justify-center rounded-md transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary',
               waiting && 'opacity-60',
             )}
           >

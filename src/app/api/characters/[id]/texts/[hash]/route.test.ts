@@ -53,6 +53,7 @@ describe('app/api/characters/[id]/texts/[hash]', () => {
     const response = await get()
 
     expect(response.status).toBe(401)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
   })
 
   it.each([
@@ -73,6 +74,7 @@ describe('app/api/characters/[id]/texts/[hash]', () => {
     const response = await get(hash)
 
     expect(response.status).toBe(404)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
   })
 
   it('lets a browser ask again for one not yet arrived', async () => {

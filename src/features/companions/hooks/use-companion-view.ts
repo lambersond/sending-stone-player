@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { POLL_INTERVAL } from '@/constants/polling'
+import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
+import { retryDelay } from '@/utils/polling'
 import { rollsKey } from '@/utils/requests/availability'
 import { seenQuery } from '@/utils/seen-query'
-import type { CompanionView } from '@/types/table'
+import type { CompanionView, Connection } from '@/types/table'
 
 /** What a pane has of a companion's view, which the server compares to say nothing is new. */
 function queryOf(view: CompanionView | undefined): URLSearchParams {
@@ -27,18 +28,21 @@ function queryOf(view: CompanionView | undefined): URLSearchParams {
  * Keep a companion's view current for its pane (module 0.36.0), as a character's table view is
  * kept: asked for once as the pane mounts, at once whenever the pane is shown again, then every few
  * seconds while it's shown, and never while it's hidden, nor while the page is in the background.
- * A sheet left out is the one the pane has already. Once its API answers 404, the companion is no
- * longer the seat's character's, or the seat's own: it's gone, and asked for no more, its last view
- * kept with nothing to roll and not connected.
+ * While the server can't be reached it says it's reconnecting, and backs off as the table's poll
+ * does. A sheet left out is the one the pane has already. Once its API answers 404, the companion
+ * is no longer the seat's character's, or the seat's own: it's gone, and asked for no more, its
+ * last view kept with nothing to roll and not connected. A 404 or a 401 is the server's answer, so
+ * neither leaves it reconnecting.
  * @param api - The companion's API base: the seat's own API and `/companions/<key>`.
  * @param active - Whether its pane is the one shown.
  */
 export function useCompanionView(
   api: string,
   { active }: { active: boolean },
-): { view?: CompanionView; gone: boolean } {
+): { view?: CompanionView; gone: boolean; connection: Connection } {
   const [view, setView] = useState<CompanionView>()
   const [gone, setGone] = useState(false)
+  const [connection, setConnection] = useState<Connection>('live')
   // As the latest answer has them, for what's asked next.
   const held = useRef<CompanionView | undefined>(undefined)
   const stopped = useRef(false)
@@ -50,6 +54,7 @@ export function useCompanionView(
     if (stopped.current || (!active && answered.current)) return
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
+    let failures = 0
 
     const poll = async () => {
       try {
@@ -61,6 +66,7 @@ export function useCompanionView(
         answered.current = true
         if (response.status === 404) {
           stopped.current = true
+          setConnection('live')
           setGone(true)
           setView(
             last =>
@@ -71,18 +77,26 @@ export function useCompanionView(
         // Signed out: the character's own page says why.
         if (response.status === 401) {
           stopped.current = true
+          setConnection('live')
           return
         }
-        if (response.status !== 200) return
-        const next = (await response.json()) as CompanionView
-        const kept =
-          next.sheet === undefined && next.sheetVersion !== undefined
-            ? { ...next, sheet: held.current?.sheet }
-            : next
-        held.current = kept
-        setView(kept)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        if (response.status === 200) {
+          const next = (await response.json()) as CompanionView
+          const kept =
+            next.sheet === undefined && next.sheetVersion !== undefined
+              ? { ...next, sheet: held.current?.sheet }
+              : next
+          held.current = kept
+          setView(kept)
+        }
+        failures = 0
+        setConnection('live')
       } catch {
-        // Unreachable for now, or the pane went: asked again next time.
+        // The pane went; or unreachable for now: asked again, later each time.
+        if (controller.signal.aborted) return
+        failures += 1
+        setConnection('reconnecting')
       }
     }
 
@@ -90,7 +104,10 @@ export function useCompanionView(
       timer = undefined
       if (document.visibilityState !== 'hidden') await poll()
       if (!active || stopped.current || controller.signal.aborted) return
-      timer = setTimeout(tick, POLL_INTERVAL)
+      timer = setTimeout(
+        tick,
+        retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY),
+      )
     }
 
     const onVisibilityChange = () => {
@@ -109,5 +126,5 @@ export function useCompanionView(
     }
   }, [api, active])
 
-  return { view, gone }
+  return { view, gone, connection }
 }

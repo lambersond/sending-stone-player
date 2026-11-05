@@ -82,6 +82,19 @@ const DISHES_FROM = [0, 38, 0] as const
 const DISHES_SHOWN_FROM = [0, 39, 0] as const
 
 /**
+ * What the campaign's players' chat here holds (v0.44), which its Gamemaster may clear; and that
+ * Foundry's own Clear Chat Log clears it too.
+ */
+export function chatText({ chat }: OwnedCampaign): string {
+  if (chat.messages === 0) return 'No messages in your players’ chat here.'
+  const [count, them] =
+    chat.messages === 1
+      ? ['1 message', 'it']
+      : [`${chat.messages} messages`, 'them']
+  return `${count} in your players’ chat here. Clearing Foundry’s chat log clears ${them} too.`
+}
+
+/**
  * Whether the campaign lets its players turn off and delete their own characters' effects from
  * here, from module 0.39.0, and if not, why: a module before that has no such switch; under
  * another system than D&D Fifth Edition the switch does nothing, which the hello's own system says.

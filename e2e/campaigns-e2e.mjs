@@ -7,12 +7,12 @@
 // chosen, Frostmaiden was last heard a week ago, its seven characters none chosen; then eight more,
 // each heard a day apart, for the search. The order and its labels, the chips, flags and seats; the
 // choice at 1280, a reload keeping it, and the list scrolling within itself; the search; at 390, 768
-// and 1024, a tap, All campaigns, and the browser's Back; Copy, Reset link, Remove, Change secret on
-// the refused campaign and Delete, their dialogs opening on Cancel, their toasts and focus, the
-// campaign shown staying shown; New campaign's Done; the Gamemaster's sheet's way back; the footer's
-// Help links and the header's current page (item 3); and the page at 360, 390, 768 and 1280 in both
-// themes. Synthetic campaigns only. Run with --import ./fvtt/unref-timers.mjs --import
-// ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// and 1024, a tap, All campaigns, and the browser's Back; Copy, Reset link, Clear chat (v0.44),
+// Remove, Change secret on the refused campaign and Delete, their dialogs opening on Cancel, their
+// toasts and focus, the campaign shown staying shown; New campaign's Done; the Gamemaster's sheet's
+// way back; the footer's Help links and the header's current page (item 3); and the page at 360,
+// 390, 768 and 1280 in both themes. Synthetic campaigns only. Run with --import
+// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { mkdirSync } from 'node:fs'
 import { actor, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
@@ -393,6 +393,37 @@ await erebor.waitFor()
   check(opened.name === 'Cancel' && (await toastsOn(page)).includes('A new invite link is ready') && await shownTitle(page) === 'Erebor'
     && await erebor.getByRole('button', { name: 'Copied' }).count() === 0 && await copyAgain.count() === 1 && flat(await copyAgain.textContent()) === 'Copy',
     `Reset link: its dialog opens on Cancel (${opened.name}); then "A new invite link is ready", a new code whose button says Copy again, Erebor still shown`)
+  // New (v0.44 item 8): Clear chat, offered once the campaign's chat holds a message, one seeded
+  // here as the module's post would keep it.
+  const chat = erebor.locator('section').filter({ has: page.getByRole('heading', { name: 'Chat', exact: true }) })
+  const chatLine = async () => flat(await chat.locator('p').first().textContent())
+  const clearButton = chat.getByRole('button', { name: 'Clear chat', exact: true })
+  const empty = await chatLine()
+  const offeredEmpty = await clearButton.count()
+  sql(`insert into chat_message (id, "campaignId", "messageId", "sentAt", public, readers, data, "updatedAt")
+    values ('chat-erebor-e2e', '${ID.erebor}', 'erebor-message', now(), true, '{}', '{"id": "erebor-message", "text": "Well met"}', now())`)
+  await page.reload()
+  await clearButton.waitFor({ timeout: 15_000 })
+  const held = await chatLine()
+  check(empty === 'No messages in your players’ chat here.' && offeredEmpty === 0
+    && held === '1 message in your players’ chat here. Clearing Foundry’s chat log clears it too.',
+    `Erebor's Chat section: "${empty}", no Clear chat; with a message, "${held}" beside Clear chat`)
+  await shootBoth(desk, 'campaigns-chat', chat)
+  await clearButton.click()
+  const clear = page.getByRole('dialog', { name: 'Clear Erebor’s chat?' })
+  await clear.waitFor()
+  const asked = await focusOf(page)
+  await clear.getByRole('button', { name: 'Clear chat', exact: true }).click()
+  await clear.waitFor({ state: 'hidden', timeout: 15_000 })
+  await clearButton.waitFor({ state: 'detached', timeout: 15_000 })
+  await until(async () => (await toastsOn(page)).includes('Erebor’s chat cleared'), 'the toast', 5_000).catch(() => {})
+  await until(async () => (await focusOf(page)).id === `campaign-${ID.erebor}-chat`, 'focus on the Chat heading', 10_000).catch(() => {})
+  const cleared = await chatLine()
+  check(asked.name === 'Cancel' && (await toastsOn(page)).includes('Erebor’s chat cleared') && /^No messages in your players’ chat here\. Last cleared .+\.$/.test(cleared)
+    && (await focusOf(page)).id === `campaign-${ID.erebor}-chat` && await shownTitle(page) === 'Erebor'
+    && sql(`select count(*) from chat_message where "campaignId" = '${ID.erebor}'`) === '0',
+    `Clear chat: its dialog opens on Cancel (${asked.name}); then "Erebor’s chat cleared", "${cleared}", focus on the Chat heading, Erebor still shown, its chat gone (${JSON.stringify(await focusOf(page))})`)
+  await shootBoth(desk, 'campaigns-chat-cleared', chat)
   // Remove Bob.
   await erebor.getByRole('button', { name: 'Remove Bob as Vex' }).click()
   const remove = page.getByRole('dialog', { name: 'Remove Bob as Vex?' })

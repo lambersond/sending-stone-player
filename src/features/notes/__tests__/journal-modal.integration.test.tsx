@@ -26,6 +26,12 @@ import {
 import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NotesView } from '@/types/notes'
 
+// The journal's poll refreshes the page once signed out, as the table's does.
+jest.mock('next/navigation', () => ({
+  ...jest.requireActual('next/navigation'),
+  useRouter: () => ({ refresh: jest.fn() }),
+}))
+
 jest.mock('@/features/notes/hooks/use-keyboard-inset', () => ({
   useKeyboardInset: jest.fn(),
 }))

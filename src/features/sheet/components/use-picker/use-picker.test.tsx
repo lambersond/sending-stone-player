@@ -474,7 +474,7 @@ describe('components/character-sheet/use-picker', () => {
     })
   })
 
-  it('ticks who an area catches, with no limit, and casts at none', async () => {
+  it('ticks who an area catches, with no limit of its own, and casts at none', async () => {
     const user = userEvent.setup()
     const fireball = spell('fireball', 'Fireball', 3, {
       activity: use('save', { area: true }),
@@ -482,7 +482,7 @@ describe('components/character-sheet/use-picker', () => {
     const { onPick } = renderPicker(using(fireball))
 
     expect(
-      screen.getByText('Tick who is caught in the area.'),
+      screen.getByText('Tick who is caught in the area. Up to 20.'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cast' }))
@@ -563,7 +563,7 @@ describe('components/character-sheet/use-picker', () => {
       )
 
       expect(
-        screen.getByText('Tick who is caught in the area.'),
+        screen.getByText('Tick who is caught in the area. Up to 20.'),
       ).toBeInTheDocument()
       for (const index of Array.from({ length: 20 }, (_, at) => at)) {
         await user.click(
@@ -573,6 +573,20 @@ describe('components/character-sheet/use-picker', () => {
       expect(screen.getByRole('checkbox', { name: /^Foe 20$/ })).toBeDisabled()
       expect(
         screen.getByRole('button', { name: 'Attack 20 targets' }),
+      ).toBeInTheDocument()
+    })
+
+    it('says no more than the game takes at once where an area takes more', () => {
+      renderPicker(
+        attacking({
+          ...breath,
+          attackArea: { count: 24, perLevel: null, affects: 'creature' },
+        }),
+        { areas: true },
+      )
+
+      expect(
+        screen.getByText('Tick who is caught in the area. Up to 20.'),
       ).toBeInTheDocument()
     })
 

@@ -1,3 +1,4 @@
+import { firstLetter } from '@/utils/initials'
 import type { TableSheet } from '@/types/table'
 
 /**
@@ -21,6 +22,6 @@ export function initials(name: string): string {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map(word => word[0].toUpperCase())
+    .map(word => firstLetter(word).toUpperCase())
     .join('')
 }

@@ -2029,11 +2029,56 @@ describe('db/campaign-events', () => {
     })
   })
 
-  it('chat.cleared removes every message', async () => {
+  // Changed on purpose (v0.44 item 8): Foundry's Clear Chat Log clears what's held as of now, and
+  // marks when, as the Gamemaster's clear on the campaign's card does.
+  it('chat.cleared removes every message held, and marks when', async () => {
     await apply({ type: 'chat.cleared', data: {} })
 
-    expect(prismaMock.chatMessage.deleteMany).toHaveBeenCalledWith({
-      where: { campaignId: 'c1' },
+    const [[{ where }]] = prismaMock.chatMessage.deleteMany.mock.calls as any
+    const at = where.createdAt.lte
+    expect(where).toEqual({
+      campaignId: 'c1',
+      createdAt: { lte: expect.any(Date) },
+    })
+    expect(prismaMock.campaign.update).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { chatClearedAt: at },
+    })
+  })
+
+  describe('after the chat was cleared (v0.44 item 8)', () => {
+    const message = chatMessage()
+    const clearedAt = (offset: number) =>
+      prismaMock.campaign.findUnique.mockResolvedValue({
+        chatClearedAt: new Date(message.timestamp + offset),
+      } as any)
+
+    it('chat.message.updated changes a message posted before it only where still held, never bringing back a dish card served after it', async () => {
+      clearedAt(1000)
+      await apply({ type: 'chat.message.updated', data: { message } })
+
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        select: { chatClearedAt: true },
+      })
+      expect(prismaMock.chatMessage.updateMany).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', messageId: 'm1' },
+        data: chatFields(message),
+      })
+      expect(prismaMock.chatMessage.upsert).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['chat.message.updated', 'posted after it', -1000],
+      // A new message, whose time is its posting browser's, never set against the server's.
+      ['chat.message.created', 'posted before it', 1000],
+    ] as const)('%s keeps a message %s as ever', async (type, _, offset) => {
+      clearedAt(offset)
+
+      await expect(saving(type, message)).resolves.toMatchObject({
+        create: { campaignId: 'c1', messageId: 'm1', ...chatFields(message) },
+      })
+      expect(prismaMock.chatMessage.updateMany).not.toHaveBeenCalled()
     })
   })
 

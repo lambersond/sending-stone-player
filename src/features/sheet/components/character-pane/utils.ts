@@ -173,14 +173,17 @@ function hasFor(sheet: TableSheet, tab: SheetTab): boolean {
  * What the sheet's settings, behind its cog, offer: Send to the table, while the game takes any of
  * the player's rolls; where the game takes damage on its own, from module 0.36.0, this device's
  * switch, and from module 0.41.0 whether it takes its choices, which its hint says; where the game
- * lets the player type in their own dice, from module 0.32.0; toasts; the Actions tab's layouts,
- * where the sheet is wide enough for more than one and has actions; and the player's Magical
- * Recipe Book, at their own seat (`cookbookOn`), read again as the cog opens.
+ * lets the player type in their own dice, from module 0.32.0; toasts; from v0.44, whether the
+ * Character tab shows the favorites too, where the character has any (`hasFavorites`); the Actions
+ * tab's layouts, where the sheet is wide enough for more than one and has actions; and the
+ * player's Magical Recipe Book, at their own seat (`cookbookOn`), read again as the cog opens.
  */
 export function paneSettings({
   table,
   manualDice,
   toasts,
+  characterFavorites,
+  hasFavorites,
   actionsLayout,
   hasActions,
   cookbookOn,
@@ -189,6 +192,8 @@ export function paneSettings({
   table: PaneTable
   manualDice?: SheetSettingsProps['manualDice']
   toasts: NonNullable<SheetSettingsProps['toasts']>
+  characterFavorites: NonNullable<SheetSettingsProps['characterFavorites']>
+  hasFavorites: boolean
   actionsLayout: NonNullable<SheetSettingsProps['layouts']>
   hasActions: boolean
   cookbookOn: boolean
@@ -211,6 +216,7 @@ export function paneSettings({
       : undefined,
     manualDice,
     toasts,
+    characterFavorites: hasFavorites ? characterFavorites : undefined,
     layouts:
       actionsLayout.offered.length > 1 && hasActions
         ? actionsLayout

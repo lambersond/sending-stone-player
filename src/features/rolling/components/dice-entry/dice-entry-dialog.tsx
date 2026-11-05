@@ -747,7 +747,8 @@ function Entry({
  * Asks the player for a roll's dice, typed in from their own physical dice (module 0.32.0): a box
  * for every die, each checked against its die's faces, a keypad of its own so the phone's keyboard
  * never opens, and the total as it will be kept. For an answer to what the game asks, it shows the
- * time left and closes itself once it's up, or once it's answered elsewhere.
+ * time left and closes itself once it's up, or once it's answered elsewhere. Its header says Manual
+ * Dice every time (v0.44): only typed dice ever open it.
  */
 export function DiceEntryDialog({
   entry,
@@ -787,6 +788,7 @@ export function DiceEntryDialog({
       }}
       title={entry?.title ?? ''}
       subtitle='Type in what your dice show'
+      chip='Manual Dice'
       fullOnPhone
     >
       {entry && (

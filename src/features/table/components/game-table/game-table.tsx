@@ -14,7 +14,7 @@ import { TableNav } from '../table-nav/table-nav'
 import { TableNotices } from '../table-notices/table-notices'
 import { TablePartyPanel } from '../table-party-panel/table-party-panel'
 import { TurnToast } from '../turn-toast/turn-toast'
-import { cookbookPlace, seatOf, sheetPane } from './utils'
+import { cookbookPlace, seatOf, sheetPane, shownPanels } from './utils'
 import { Scroller } from '@/components/scroller/scroller'
 import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
 import { useChatRead } from '@/features/table/hooks/use-chat-read'
@@ -26,6 +26,7 @@ import { useTableView } from '@/features/table/hooks/use-table-view'
 import { useTurnEnding } from '@/features/table/hooks/use-turn-ending'
 import { useTypedDice } from '@/features/table/hooks/use-typed-dice'
 import { isMyTurn } from '@/features/table/utils/combat'
+import { pageConnection } from '@/features/table/utils/header'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { TurnToastContext } from '@/hooks/use-turn-toast-foot'
 import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
@@ -93,6 +94,8 @@ export function GameTable({
   }
 
   const playing = view.campaign !== undefined && character.actorId !== null
+  // The panel shown under the notices, where focus goes as one is dismissed.
+  const panels = shownPanels(tabs.characterInView, tabs.tab, companions.chosen)
   // The character's own journal notes (module 0.34.0), on the sheet's Biography tab, or under why
   // there's no sheet: polled while the Character pane is in view, as it is on a wide screen or as
   // its tab, and no party sheet is open over it. On one pane it stays mounted, hidden, behind
@@ -182,10 +185,12 @@ export function GameTable({
           tab={tabs.tab}
           aside={tabs.aside}
           paneShown={paneShown}
+          focusable={!tabs.characterInView}
           myTurn={myTurn}
           unread={unread}
           combat={view.combat}
           messages={view.messages}
+          chatClearedAt={view.chatClearedAt}
           quiet={turn.quiet}
           onShow={show}
           combatTab={turn.columnCombat}
@@ -221,7 +226,7 @@ export function GameTable({
             playing={playing}
             view={view}
             tab={tabs.tab}
-            connection={connection}
+            connection={pageConnection(connection, companions.reconnecting)}
             deleteCharacter={deleteCharacter}
           />
           <TableNotices
@@ -231,6 +236,7 @@ export function GameTable({
             character={character}
             seatKey={seat.key}
             addBack={words.addBack}
+            panels={panels}
           />
           <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
         </div>

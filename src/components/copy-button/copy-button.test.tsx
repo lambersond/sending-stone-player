@@ -33,15 +33,15 @@ describe('components/copy-button', () => {
     ).toBeInTheDocument()
   })
 
-  it('cuts the value to one line', () => {
+  it('cuts the value to one line, its icon button small on a phone and 44 pixels square from sm (v0.44)', () => {
     render(<CopyField value={url} label='invite link' />)
 
     const code = screen.getByText(url)
     expect(code).toHaveClass('truncate')
     expect(code).not.toHaveClass('break-all', 'select-all')
-    expect(
-      screen.getByRole('button', { name: 'Copy invite link' }),
-    ).not.toHaveClass('min-h-11')
+    const button = screen.getByRole('button', { name: 'Copy invite link' })
+    expect(button).not.toHaveClass('min-h-11')
+    expect(button).toHaveClass('p-1.5', 'sm:size-11')
   })
 
   it('shows the whole value over as many lines as it takes, to select by hand, with a button easy to tap, where it wraps (round 0.38.0)', () => {

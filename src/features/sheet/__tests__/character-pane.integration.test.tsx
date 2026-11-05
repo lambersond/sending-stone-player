@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CharacterPane } from '../components/character-pane/character-pane'
+import { CHARACTER_FAVORITES_KEY } from '../components/character-pane/use-favorites-layout'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'
 import { ALONE_KEY, SEND_KEY } from '@/features/rolling/constants'
@@ -2008,7 +2009,7 @@ describe('components/character-sheet/character-pane', () => {
       // Nothing is used until its targets are picked: anyone in the area but its user.
       expect(fetch).not.toHaveBeenCalled()
       expect(
-        within(picker).getByText('Tick who is caught in the area.'),
+        within(picker).getByText('Tick who is caught in the area. Up to 20.'),
       ).toBeInTheDocument()
       expect(within(picker).queryByText('Thorin Oakenshield')).toBeNull()
       await user.click(within(picker).getByRole('checkbox', { name: 'Goblin' }))
@@ -4203,13 +4204,13 @@ describe('components/character-sheet/character-pane', () => {
       ).toBeGreaterThan(layer(region))
     })
 
-    it("P6 tightens the row of tabs on a phone narrower than 390 pixels, for a caster's to fit beside the rolls' button and the cog", () => {
+    it("P6 tightens the row of tabs on a phone narrower than 390 pixels, for a caster's to fit beside the rolls' button and the cog; from sm, makes each a 44-pixel icon (v0.44)", () => {
       renderPane(castingSheet())
 
       // The row's width inside its padding, 366 pixels on a 390-pixel screen, as measured in a
       // browser: the tabs take 277 pixels of the 280 left on a 360-pixel one.
       const row = screen.getByRole('tablist').parentElement as HTMLElement
-      expect(row).toHaveClass('@container', 'px-3')
+      expect(row).toHaveClass('@container', 'px-3', 'h-11', 'sm:h-12')
       const tabs = screen.getAllByRole('tab')
       expect(tabs).toHaveLength(7)
       for (const tab of tabs.filter(
@@ -4219,11 +4220,15 @@ describe('components/character-sheet/character-pane', () => {
       }
       expect(tabs[0]).toHaveClass('px-2')
       expect(tabs[0]).not.toHaveClass('@max-[366px]:px-1')
+      // From sm, while the row has no room for their labels (under 768 pixels, @3xl).
+      for (const tab of tabs) {
+        expect(tab).toHaveClass('sm:@max-3xl:min-h-11', 'sm:@max-3xl:min-w-11')
+      }
       for (const button of [
         rollsButton() as HTMLElement,
         screen.getByRole('button', { name: 'Settings' }),
       ]) {
-        expect(button).toHaveClass('p-2', '@max-[366px]:p-1.5')
+        expect(button).toHaveClass('p-2', '@max-[366px]:p-1.5', 'sm:size-11')
       }
     })
   })
@@ -4259,6 +4264,54 @@ describe('components/character-sheet/character-pane', () => {
         expect(screen.queryByRole('complementary')).toBeNull()
       },
     )
+
+    it('shows them between Skills and Traits on Character once Favorites on the Character tab is on, however wide, for every character on this device', async () => {
+      const user = userEvent.setup()
+      wide(1200)
+      const { unmount } = renderPane(favored())
+      await show('Character')
+      const settings = await openSettings(user)
+      await user.click(
+        within(settings).getByRole('switch', {
+          name: 'Favorites on the Character tab',
+        }),
+      )
+
+      const panel = screen.getByRole('tabpanel')
+      const favorites = within(panel).getByRole('region', { name: 'Favorites' })
+      expect(within(favorites).getAllByRole('listitem')).toHaveLength(7)
+      expect(
+        within(panel)
+          .getByRole('region', { name: 'Skills' })
+          .compareDocumentPosition(favorites),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(
+        favorites.compareDocumentPosition(
+          within(panel).getByRole('region', { name: 'Traits' }),
+        ),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(screen.queryByRole('complementary')).toBeNull()
+      expect(localStorage.getItem(CHARACTER_FAVORITES_KEY)).toBe('on')
+
+      unmount()
+      renderPane(favored())
+      await show('Character')
+      expect(
+        screen.getByRole('region', { name: 'Favorites' }),
+      ).toBeInTheDocument()
+    })
+
+    it('offers no such switch for a sheet without favorites', async () => {
+      const user = userEvent.setup()
+      renderPane()
+      const settings = await openSettings(user)
+
+      expect(
+        within(settings).queryByRole('switch', {
+          name: 'Favorites on the Character tab',
+        }),
+      ).toBeNull()
+    })
 
     it('shows them in a column beside those tabs where the sheet is wide enough for both', async () => {
       wide(936)

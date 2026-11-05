@@ -46,7 +46,7 @@ export function PartyPage({
             <Link
               href={back.href}
               aria-label={back.label}
-              className={`-ml-1.5 shrink-0 ${HEADER_ICON_BUTTON}`}
+              className={`-ml-1.5 sm:-ml-3 ${HEADER_ICON_BUTTON}`}
             >
               <ArrowLeft aria-hidden className='size-5' />
             </Link>

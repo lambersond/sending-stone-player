@@ -8,6 +8,11 @@ import { mockNotesView } from '@/mocks/sending-stone'
 import type { NoteDraft } from '@/features/notes/types'
 import type { NotesView } from '@/types/notes'
 
+const mockRefresh = jest.fn()
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: mockRefresh }),
+}))
+
 const API = '/api/characters/char-1'
 const OTHER = '/api/characters/char-2/party/company'
 
@@ -212,6 +217,32 @@ describe('hooks/use-notes', () => {
     const again = renderHook(() => useNotes(API, { active: false }))
     expect(again.result.current.state).toBe('loading')
     expect(again.result.current.view).toBeUndefined()
+  })
+
+  it('refreshes the page once signed out, as the table does, and asks no more', async () => {
+    serve().status = 401
+    const { result } = renderHook(() => useNotes(API, { active: true }))
+    await pass()
+    expect(mockRefresh).toHaveBeenCalledTimes(1)
+    expect(result.current.state).toBe('loading')
+
+    await pass(POLL_INTERVAL * 5)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('says nothing failed once signed out after a failed read, while the page goes to sign in', async () => {
+    const server = serve()
+    server.status = 500
+    const { result } = renderHook(() => useNotes(API, { active: true }))
+    await pass()
+    expect(result.current.state).toBe('failed')
+
+    server.status = 401
+    await pass(POLL_INTERVAL * 2)
+    expect(mockRefresh).toHaveBeenCalledTimes(1)
+    expect(result.current.state).toBe('loading')
+    await pass(POLL_INTERVAL * 5)
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('backs off while the book can’t be read, as the table does', async () => {

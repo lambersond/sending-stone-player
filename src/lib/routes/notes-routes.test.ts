@@ -12,6 +12,7 @@ import {
   notesResponse,
   notesSeat,
 } from './notes-routes'
+import { MAX_NOTE_BYTES } from '@/constants/notes'
 import { getCharacter } from '@/db/characters'
 import {
   changeNote,
@@ -410,6 +411,26 @@ describe('lib/notes-routes', () => {
         body: { reason: 'invalid', field: 'title' },
         cached: false,
       })
+      expect(createNote).not.toHaveBeenCalled()
+    })
+
+    it('refuses a declared oversized note without reading it', async () => {
+      const oversized = new NextRequest(URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(MAX_NOTE_BYTES + 1),
+        },
+        body: JSON.stringify({ role: 'entry', title: 'a' }),
+      })
+      const text = jest.spyOn(oversized, 'text')
+
+      expect(await read(await notesPostResponse(oversized, place))).toEqual({
+        status: 413,
+        body: { reason: 'invalid' },
+        cached: false,
+      })
+      expect(text).not.toHaveBeenCalled()
       expect(createNote).not.toHaveBeenCalled()
     })
 

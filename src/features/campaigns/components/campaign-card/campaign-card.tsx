@@ -4,12 +4,17 @@ import {
   CookingPot,
   Dices,
   KeyRound,
+  MessageSquare,
   PawPrint,
   Sparkles,
 } from 'lucide-react'
 import Link from 'next/link'
 import { QUIET_BUTTON } from '../../constants'
-import { campaignHeadingId, sheetLinkId } from '../../utils/campaign-ids'
+import {
+  campaignHeadingId,
+  chatHeadingId,
+  sheetLinkId,
+} from '../../utils/campaign-ids'
 import { CampaignParties } from '../campaign-parties/campaign-parties'
 import { CampaignStatus } from '../campaign-status/campaign-status'
 import { LastHeard } from '../campaign-status/last-heard'
@@ -17,6 +22,7 @@ import { statusOf } from '../campaign-status/utils'
 import { FoundrySettingsSection } from '../foundry-settings/foundry-settings'
 import { SecretForm } from '../secret-form/secret-form'
 import { LocalTime } from '@/components/local-time/local-time'
+import { ClearChat } from '@/features/campaigns/components/campaign-controls/clear-chat'
 import { DeleteCampaign } from '@/features/campaigns/components/campaign-controls/delete-campaign'
 import { InviteLink } from '@/features/campaigns/components/campaign-controls/invite-link'
 import { RemovePlayer } from '@/features/campaigns/components/campaign-controls/remove-player'
@@ -24,6 +30,7 @@ import { ResetLink } from '@/features/campaigns/components/campaign-controls/res
 import { RevokeCookbookLink } from '@/features/campaigns/components/campaign-controls/revoke-cookbook-link'
 import { subOf } from '@/features/campaigns/components/campaign-row/utils'
 import {
+  chatText,
   companionsLine,
   dishesText,
   effectsText,
@@ -48,6 +55,7 @@ export function CampaignCard({
   resetInvite,
   removePlayer,
   revokeCookbookLink,
+  clearChat,
   remove,
 }: Readonly<CampaignCardProps>) {
   return (
@@ -105,6 +113,8 @@ export function CampaignCard({
               <ResetLink title={campaign.title} reset={resetInvite} />
             </div>
           </section>
+
+          <ChatSection campaign={campaign} clear={clearChat} />
 
           <section className='grid gap-1'>
             <h3 className='flex items-center gap-1.5 text-sm font-medium'>
@@ -288,6 +298,48 @@ function Characters({
             : 'The campaign’s characters appear here once Foundry sends them. Reloading the game in Foundry sends them at once.'}
         </p>
       )}
+    </section>
+  )
+}
+
+/**
+ * The campaign's players' chat here (v0.44): how many messages it holds, with Clear chat while it
+ * holds any; else that it holds none, and when it was last cleared, if it was.
+ */
+function ChatSection({
+  campaign,
+  clear,
+}: Readonly<{ campaign: OwnedCampaign; clear: () => Promise<void> }>) {
+  const { messages, clearedAt } = campaign.chat
+  return (
+    <section className='grid gap-1.5'>
+      <h3
+        id={chatHeadingId(campaign.id)}
+        // Focused once the chat is cleared, its button gone.
+        tabIndex={-1}
+        className='flex items-center gap-1.5 text-sm font-medium outline-none'
+      >
+        <MessageSquare aria-hidden className='size-4 text-text-secondary' />
+        Chat
+      </h3>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <p className='text-sm text-text-secondary'>
+          {chatText(campaign)}
+          {messages === 0 && clearedAt && (
+            <>
+              {' '}
+              Last cleared <LocalTime value={clearedAt} />.
+            </>
+          )}
+        </p>
+        {messages > 0 && (
+          <ClearChat
+            campaignId={campaign.id}
+            title={campaign.title}
+            clear={clear}
+          />
+        )}
+      </div>
     </section>
   )
 }

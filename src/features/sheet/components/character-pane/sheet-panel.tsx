@@ -18,7 +18,8 @@ import type { CreatureFacts, TableCombat, TableSheet } from '@/types/table'
 
 /**
  * The tab shown, beside the favorites' column where the sheet is wide enough for one (`column`),
- * the favorites at its top where not (`strip`), on the tabs they're shown with.
+ * the favorites at its top where not (`strip`), on the tabs they're shown with; and from v0.44, on
+ * the Character tab where this browser shows them there, between its skills and traits.
  * @param onShowConditions - A condition's chip: its rules, where the app has them; else Effects.
  */
 export function SheetPanel({
@@ -83,6 +84,7 @@ export function SheetPanel({
               creature={creature}
               follows={follows}
               idPrefix={idPrefix}
+              favorites={strip}
             />
           )}
           {tab === 'actions' && (

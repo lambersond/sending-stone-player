@@ -290,6 +290,32 @@ const measure = page => page.evaluate(() => {
     tabsScroll: tablist.scrollWidth - tablist.clientWidth, cogInRow: tablist.parentElement.contains(cog) && !tablist.contains(cog),
   }
 })
+/**
+ * The icon-only controls in the table's header and the sheet's row of tabs, as each is named and
+ * as big as it shows: a button, link or tab with no visible text, each word of it in a box clipped
+ * to a pixel, as sr-only is.
+ */
+const iconOnly = page => page.evaluate(() => {
+  const row = document.querySelector('[role=tablist][aria-label="Character sheet"]').parentElement
+  const controls = [document.querySelector('main header'), row].flatMap(scope => [...scope.querySelectorAll('button, a[href], [role=tab]')])
+  const unseen = (control, node) => {
+    for (let el = node.parentElement; el && el !== control; el = el.parentElement) if (el.getBoundingClientRect().width <= 1) return true
+    return false
+  }
+  const words = control => {
+    const walker = document.createTreeWalker(control, NodeFilter.SHOW_TEXT)
+    const found = []
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent.trim()) found.push(node)
+    return found
+  }
+  return [...new Set(controls)]
+    .filter(control => { const b = control.getBoundingClientRect(); return b.width > 0 && b.height > 0 })
+    .filter(control => words(control).every(node => unseen(control, node)))
+    .map(control => {
+      const b = control.getBoundingClientRect()
+      return { name: control.getAttribute('aria-label') ?? control.getAttribute('title') ?? control.textContent.trim(), width: b.width, height: b.height }
+    })
+})
 /** Where the open settings are, and whether what has focus is in them. */
 const popover = settings => settings.evaluate(el => {
   const b = el.getBoundingClientRect()
@@ -327,11 +353,21 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
 
   // ---- The cog: after the sheet's tabs, on their row, on the screen ----
   const named = await tabs.getByRole('tab').evaluateAll(all => all.map(tab => tab.textContent))
-  check(named.length === 7 && /^Effects, 1 conditions$/.test(named[5].replace(/\s+/g, ' ').trim()),
+  check(named.length === 7 && /^Effects, 1 condition$/.test(named[5].replace(/\s+/g, ' ').trim()),
     `${at}, the sheet has its seven tabs, Effects with its condition's dot (${named.join(' | ')})`)
   check(m.cogInRow && m.cog.left >= m.tablist.right - 0.5 && Math.abs((m.cog.top + m.cog.bottom) / 2 - (m.tablist.top + m.tablist.bottom) / 2) < 2
     && m.cog.left >= 0 && m.cog.right <= Math.min(m.width, m.sheet.right) && m.tabsScroll <= 0,
     `${at}, the settings' cog is after the tabs, outside their list, on their row and on the sheet (${Math.round(m.tablist.right)} → ${Math.round(m.cog.left)}–${Math.round(m.cog.right)} of ${m.width})`)
+  if (width >= 640) {
+    // ---- From sm, every icon-only control in the table's header and the tabs' row is 44 pixels square (v0.44) ----
+    const icons = await iconOnly(page)
+    const names = icons.map(icon => icon.name)
+    const wanted = ['All characters', 'Full screen', 'Settings', ...named.slice(1).map(tab => tab.replace(/,.*/s, '').trim())]
+    const missed = wanted.filter(name => !names.includes(name))
+    const small = icons.filter(icon => icon.width < 43.5 || icon.height < 43.5)
+    check(missed.length === 0 && small.length === 0,
+      `${at}, every icon-only control in the header and the tabs' row, the back arrow, Full screen, the six tabs not chosen and the cog among them, is at least 44 pixels square (${names.join(' | ')})${missed.length ? `; not found: ${missed.join(', ')}` : ''}${small.length ? `; smaller: ${small.map(icon => `${icon.name} ${Math.round(icon.width)}×${Math.round(icon.height)}`).join(', ')}` : ''}`)
+  }
   if (width <= 390) {
     const scrolled = []
     for (let index = 0; index < named.length; index++) {
@@ -352,9 +388,12 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
   await page.waitForTimeout(300)
   let p = await popover(settings)
   m = await measure(page)
+  // From sm, the Theme choices are icon buttons a finger wide (v0.44).
+  const themes = await settings.getByRole('radiogroup', { name: 'Theme' }).getByRole('radio')
+    .evaluateAll(all => all.map(el => { const b = el.getBoundingClientRect(); return [b.width, b.height] }))
   check(await cog.getAttribute('aria-expanded') === 'true' && p.left >= 0 && p.right <= m.width && p.top >= 0 && p.bottom <= m.height && m.pageX === 0 && m.pageY === 0
-    && p.focusIn && p.focused === 'switch',
-    `${at}, a tap on the cog opens the settings on the screen, its switch first and focused, nothing scrolling (${JSON.stringify(p)})`)
+    && p.focusIn && p.focused === 'switch' && (width < 640 || (themes.length === 3 && themes.every(([w, h]) => w >= 43.5 && h >= 43.5))),
+    `${at}, a tap on the cog opens the settings on the screen, its switch first and focused, nothing scrolling${width < 640 ? '' : `, its three Theme choices at least 44 pixels square (${themes.map(([w, h]) => `${Math.round(w)}×${Math.round(h)}`)})`} (${JSON.stringify(p)})`)
   await shoot(page, `${width}-settings`)
   await page.keyboard.press('Escape')
   await settings.waitFor({ state: 'detached' })

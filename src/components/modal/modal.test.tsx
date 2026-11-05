@@ -156,15 +156,44 @@ describe('components/modal', () => {
     expect(
       within(dialog).getByText('Cantrip · From Bardic Flame'),
     ).toBeVisible()
+    expect(dialog).toHaveAccessibleDescription('Cantrip · From Bardic Flame')
 
     rerender(
       <Modal open onClose={jest.fn()} title='Help'>
         <p>Steps</p>
       </Modal>,
     )
+    const help = screen.getByRole('dialog', { name: 'Help' })
+    expect(help.querySelector('header')).toHaveTextContent(/^Help$/)
+    expect(help).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('starts the line under its title with its chip, in its description but never its name', () => {
+    render(
+      <Modal
+        open
+        onClose={jest.fn()}
+        title='Perception check'
+        subtitle='Type in what your dice show'
+        chip='Manual Dice'
+      >
+        <p>Boxes</p>
+      </Modal>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Perception check' })
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(
+      /^Perception check$/,
+    )
+    const chip = within(dialog).getByText('Manual Dice')
+    expect(chip).toBeVisible()
     expect(
-      screen.getByRole('dialog', { name: 'Help' }).querySelector('header'),
-    ).toHaveTextContent(/^Help$/)
+      chip.compareDocumentPosition(
+        within(dialog).getByText('Type in what your dice show'),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(dialog).toHaveAccessibleDescription(
+      'Manual Dice Type in what your dice show',
+    )
   })
 
   it('is as wide as a phone’s screen only where it asks to be, and leaves a gutter otherwise', () => {
@@ -193,6 +222,24 @@ describe('components/modal', () => {
       'rounded-2xl',
     )
   })
+
+  it.each(['center', 'sheet'] as const)(
+    'makes its Close a 44-pixel square from sm, its glyph where it was, placed %s (v0.44)',
+    placement => {
+      render(
+        <Modal open onClose={jest.fn()} title='Help' placement={placement}>
+          <p>Steps</p>
+        </Modal>,
+      )
+      const close = within(
+        screen.getByRole('dialog', { name: 'Help' }),
+      ).getByRole('button', { name: 'Close' })
+
+      expect(close).toHaveClass('sm:size-11', '-mr-1.5', 'sm:-mr-3')
+      // None smaller from sm, as a sheet's once was.
+      expect(close.className).not.toMatch(/sm:min-[hw]-9/)
+    },
+  )
 
   it('gives focus to what it is told to as it opens, after the browser has focused its first control (round 0.39.0)', () => {
     function Asking({ open }: Readonly<{ open: boolean }>) {

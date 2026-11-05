@@ -22,9 +22,8 @@ import type { TableSheet } from '@/types/table'
 
 /**
  * The commands a pane sends the game, each logged among its rolls as it's sent: once one is, the
- * tray shows its line whichever tab it's on (`acted`), but for Heroic Inspiration and an
- * enchantment's end, which never did. Each is the same steps: the tray told, its line logged, the
- * line sent, its local id returned.
+ * tray shows its line whichever tab it's on (`acted`), Effects and Biography among them. Each is
+ * the same steps: the tray told, its line logged, the line sent, its local id returned.
  */
 export function usePaneCommands({
   table,
@@ -115,7 +114,6 @@ export function usePaneCommands({
         command(
           () => logEnd(ended),
           logged => table.sendEnd(logged, { item, effect: id }, source),
-          { acts: false },
         ),
     }),
   }
@@ -153,7 +151,6 @@ export function usePaneCommands({
         command(
           () => logCharge('Heroic Inspiration', { inspiration }),
           logged => table.sendInspiration(logged, inspiration),
-          { acts: false },
         )
       },
     }),

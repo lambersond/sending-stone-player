@@ -6,9 +6,11 @@ import { useTableView } from '@/features/table/hooks/use-table-view'
 import {
   biteAction,
   characterSheet,
+  druidSheet,
   mockCompanionSheet,
   mockCompanionView,
   sheetAction,
+  wildShapeBlock,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
@@ -165,10 +167,10 @@ const showing = (next: TableView) => {
 }
 
 /**
- * The routes: each companion's view by its key (404 for none), its rolls and the character's,
- * answered by id as `answers` says at the time. Everything asked, in order.
+ * The routes: each companion's view by its key (404 for none, or the error it's set to), its rolls
+ * and the character's, answered by id as `answers` says at the time. Everything asked, in order.
  */
-let companionViews: Map<string, CompanionView | 404>
+let companionViews: Map<string, CompanionView | 404 | 500>
 let answers: Record<string, Record<string, unknown>>
 let asked: { url: string; method: string }[]
 const route = () => {
@@ -180,8 +182,9 @@ const route = () => {
     const table = /\/companions\/([^/]+)\/table/.exec(path)
     if (table) {
       const found = companionViews.get(table[1])
-      if (!found || found === 404) {
-        return { ok: false, status: 404, json: async () => ({}) } as Response
+      if (!found || found === 404 || found === 500) {
+        const status = found || 404
+        return { ok: false, status, json: async () => ({}) } as Response
       }
       return { ok: true, status: 200, json: async () => found } as Response
     }
@@ -242,6 +245,9 @@ const toasted = (words: string) =>
   screen
     .queryAllByRole('log', { name: 'Roll results' })
     .some(log => log.textContent?.includes(words))
+
+/** The page's live status, in the table's header, the first on the page. */
+const live = () => within(screen.getAllByRole('banner')[0]).getByRole('status')
 
 const panelOf = (key: string) =>
   document.querySelector<HTMLElement>(`#creature-panel-${key}`)
@@ -632,6 +638,19 @@ describe('components/game-table/game-table, with companions', () => {
     )
   })
 
+  it('says the page is reconnecting while the shown companion’s view can’t be read', async () => {
+    const user = userEvent.setup()
+    companionViews.set(BRAKKA.key, 500)
+    renderTable(view({ companions: [BRAKKA] }))
+    expect(live()).toHaveTextContent('Live')
+
+    await user.click(creatureTab('Brakka'))
+    await waitFor(() => expect(live()).toHaveTextContent('Reconnecting'))
+
+    await user.click(creatureTab('Thorin'))
+    expect(live()).toHaveTextContent('Live')
+  })
+
   it('mounts afresh a companion listed again after its route said it was gone', async () => {
     const user = userEvent.setup()
     companionViews.set(BRAKKA.key, 404)
@@ -803,6 +822,36 @@ describe('components/game-table/game-table, with companions', () => {
     expect(creatureTab(/^Thorin/)).toHaveAccessibleName(
       'Thorin, your Gamemaster asks for a roll',
     )
+  })
+
+  // The bug log's reproduction (round 0.44): the banner is under the header above every pane, and
+  // the character's own panel is hidden while a companion's is chosen.
+  it('gives focus to the companion’s pane shown as "Wild Shape ended" is dismissed, never the hidden sheet', async () => {
+    const user = userEvent.setup()
+    companionViews.set(BRAKKA.key, companionView(BRAKKA))
+    const ended = druidSheet({
+      wildShape: wildShapeBlock({
+        ended: {
+          form: 'Wolf',
+          why: 'hp',
+          at: Date.now() - 60_000,
+          formId: 'formWolf00000001',
+        },
+      }),
+    })
+    renderTable(
+      view({ sheet: toTableSheet(ended, GAME), companions: [BRAKKA] }),
+    )
+    await user.click(creatureTab('Brakka'))
+    await sheetOf('wolfBrakka')
+
+    const banner = screen
+      .getAllByRole('status')
+      .find(each => each.textContent?.includes('Wild Shape')) as HTMLElement
+    await user.click(within(banner).getByRole('button', { name: 'Dismiss' }))
+    expect(
+      document.querySelector('#creature-wolfBrakka-sheet-panel'),
+    ).toHaveFocus()
   })
 
   describe('on a wide screen', () => {

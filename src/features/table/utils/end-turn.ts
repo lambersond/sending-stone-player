@@ -248,6 +248,14 @@ export function turnSendingLine(state: TableRollState, role: SeatRole): string {
     : `Ending it in ${game}…`
 }
 
+/**
+ * That an End Turn went to the game, where the app took it with nothing to follow it by
+ * (`unfollowed`), as a roll's way says it.
+ */
+export function turnSentLine(role: SeatRole): string {
+  return `Sent to ${seatWords(role).game}.`
+}
+
 /** What the Combat tab is described as while a hold may end the turn. */
 export function holdDescription(turn: EndableTurn): string {
   const name = turn.companion?.name
@@ -281,4 +289,17 @@ export function newlyNotMade(
 ): now is Sent {
   if (!now || !NOT_MADE.has(now.way.status)) return false
   return was?.turn !== now.turn || !NOT_MADE.has(was.way.status)
+}
+
+/**
+ * Whether the End Turn sent last has just been taken by the app with nothing to follow it by
+ * (`unfollowed`), as it wasn't when last seen, or it's another End Turn: told once.
+ * @param was - The End Turn sent last as it was seen before.
+ */
+export function newlySent(
+  was: Sent | undefined,
+  now: Sent | undefined,
+): now is Sent {
+  if (!now?.way.unfollowed) return false
+  return was?.turn !== now.turn || !was.way.unfollowed
 }

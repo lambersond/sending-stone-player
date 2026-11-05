@@ -15,6 +15,7 @@ import { DamageDue } from '../roll-tray/damage-due'
 import { RollHistory } from '../roll-tray/roll-history'
 import { offersDamage } from '../roll-tray/utils'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
+import { ICON_TARGET } from '@/constants/buttons'
 import { needsPlayer } from '@/features/rolling/utils/damage-due'
 import { useCreature } from '@/hooks/use-creature'
 import { usePopover } from '@/hooks/use-popover'
@@ -99,13 +100,14 @@ export function RollsButton({
         ref={setReference}
         type='button'
         title={named}
-        className='relative rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary'
+        className={`${ICON_TARGET} relative rounded-lg p-2 text-text-secondary transition-colors @max-[366px]:p-1.5 hover:bg-primary/5 hover:text-text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary`}
         {...getReferenceProps()}
       >
         <History aria-hidden className='size-4' />
         <span className='sr-only'>{named}</span>
         {waiting.length > 0 && (
-          <span className='absolute top-1 right-1 size-1.5 rounded-full bg-primary'>
+          // At the icon's corner, in the 44-pixel square from sm too.
+          <span className='absolute top-1 right-1 size-1.5 rounded-full bg-primary sm:top-2.5 sm:right-2.5'>
             <span className='sr-only'>, damage to roll</span>
           </span>
         )}

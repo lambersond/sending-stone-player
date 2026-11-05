@@ -20,6 +20,8 @@ const campaign = (fields: Partial<OwnedCampaign> = {}): OwnedCampaign => ({
     prompts: false,
   },
   transfers: { enabled: false, reaching: false },
+  // Changed on purpose (v0.44 item 8): its players' chat here.
+  chat: { messages: 0 },
   characters: [],
   groups: [],
   ...fields,
@@ -30,6 +32,7 @@ const renderCard = (fields: Partial<OwnedCampaign> = {}) => {
     changeSecret: jest.fn().mockResolvedValue({ saved: true }),
     resetInvite: jest.fn(async () => {}),
     removePlayer: jest.fn<Promise<void>, [string]>(async () => {}),
+    clearChat: jest.fn(async () => {}),
     remove: jest.fn(async () => {}),
   }
   render(
@@ -153,6 +156,7 @@ describe('components/campaigns/campaign-card', () => {
           changeSecret={jest.fn()}
           resetInvite={jest.fn()}
           removePlayer={jest.fn()}
+          clearChat={jest.fn()}
           remove={jest.fn()}
         />,
       )
@@ -260,6 +264,7 @@ describe('components/campaigns/campaign-card', () => {
           changeSecret={jest.fn()}
           resetInvite={jest.fn()}
           removePlayer={jest.fn()}
+          clearChat={jest.fn()}
           remove={jest.fn()}
         />,
       )
@@ -301,6 +306,79 @@ describe('components/campaigns/campaign-card', () => {
     )
 
     expect(remove).toHaveBeenCalledTimes(1)
+  })
+
+  describe("its players' chat (v0.44 item 8)", () => {
+    const CLEARED = '2026-11-04T20:00:00.000Z'
+    const MANY =
+      '42 messages in your players’ chat here. Clearing Foundry’s chat log clears them too.'
+    const ONE =
+      '1 message in your players’ chat here. Clearing Foundry’s chat log clears it too.'
+    const NONE = 'No messages in your players’ chat here.'
+
+    it.each([
+      ['many', { messages: 42 }, MANY, undefined, true],
+      // When it was last cleared is said only once it's empty.
+      [
+        'one, since a clear',
+        { messages: 1, clearedAt: CLEARED },
+        ONE,
+        undefined,
+        true,
+      ],
+      ['none', { messages: 0 }, NONE, undefined, false],
+      [
+        'none, since a clear',
+        { messages: 0, clearedAt: CLEARED },
+        NONE,
+        CLEARED,
+        false,
+      ],
+    ])(
+      'says what it holds, %s, with Clear chat only while it holds any',
+      (_, chat, words, cleared, offered) => {
+        renderCard({ chat })
+
+        const section = screen.getByRole('heading', { name: 'Chat' })
+          .parentElement as HTMLElement
+        const line = section.querySelector('p') as HTMLElement
+        const time = line.querySelector('time')
+        expect(time?.getAttribute('datetime') ?? undefined).toBe(cleared)
+        expect(line).toHaveTextContent(
+          time ? `${words} Last cleared ${time.textContent}.` : words,
+          { normalizeWhitespace: true },
+        )
+        if (time) expect(time.textContent).not.toBe('')
+        expect(
+          within(section).queryByRole('button', { name: 'Clear chat' }) !==
+            null,
+        ).toBe(offered)
+      },
+    )
+
+    it('asks before clearing it', async () => {
+      const user = userEvent.setup()
+      const { clearChat } = renderCard({ chat: { messages: 3 } })
+
+      await user.click(screen.getByRole('button', { name: 'Clear chat' }))
+      let dialog = screen.getByRole('dialog', {
+        name: 'Clear The Lonely Mountain’s chat?',
+      })
+      expect(dialog).toHaveTextContent(
+        'Every message in the app’s chat for this campaign goes, for every player: rolls, whispers and the cookbook’s dish cards too. Foundry’s chat log stays as it is, and so does each player’s list of the dishes they sent. This can’t be undone.',
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(clearChat).not.toHaveBeenCalled()
+
+      await user.click(screen.getByRole('button', { name: 'Clear chat' }))
+      dialog = screen.getByRole('dialog', {
+        name: 'Clear The Lonely Mountain’s chat?',
+      })
+      const confirm = within(dialog).getByRole('button', { name: 'Clear chat' })
+      expect(confirm).toHaveClass('bg-danger')
+      await user.click(confirm)
+      expect(clearChat).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('links each character to its sheet, claimed or not, for the Gamemaster to roll as it (#156)', () => {
@@ -777,6 +855,7 @@ describe('components/campaigns/campaign-card', () => {
           resetInvite={jest.fn()}
           removePlayer={jest.fn()}
           revokeCookbookLink={revokeCookbookLink}
+          clearChat={jest.fn()}
           remove={jest.fn()}
         />,
       )
@@ -891,6 +970,8 @@ describe('components/campaigns/campaign-card', () => {
         'Characters',
         'Party sheets',
         'Invite link',
+        // Changed on purpose (v0.44 item 8): its players' chat, after the invite link.
+        'Chat',
         // The straight apostrophe four end-to-end suites read.
         "Players' rolls",
         'Items and coins',
@@ -932,6 +1013,8 @@ describe('components/campaigns/campaign-card', () => {
         ),
       ).toEqual([
         'Invite link',
+        // Changed on purpose (v0.44 item 8): its players' chat, after the invite link.
+        'Chat',
         "Players' rolls",
         'Items and coins',
         'Cookbook dishes',
@@ -1016,8 +1099,9 @@ describe('components/campaigns/campaign-card', () => {
       ).toHaveAttribute('id', 'campaign-c1-sheet-thorin')
     })
 
-    it('makes its buttons easy to tap: 40 px, its icon buttons 36', () => {
+    it('makes its buttons easy to tap: 40 px, its icon buttons 36 on a phone and 44 from sm (v0.44)', () => {
       renderCard({
+        chat: { messages: 3 },
         characters: [
           {
             id: 'thorin',
@@ -1028,13 +1112,14 @@ describe('components/campaigns/campaign-card', () => {
         ],
       })
 
-      for (const name of ['Reset link', 'Delete campaign']) {
+      // Changed on purpose (v0.44 item 8): Clear chat too.
+      for (const name of ['Reset link', 'Clear chat', 'Delete campaign']) {
         expect(screen.getByRole('button', { name })).toHaveClass('min-h-10')
       }
       expect(screen.getByText('Change secret')).toHaveClass('min-h-10')
       expect(
         screen.getByRole('button', { name: 'Remove Alice as Thorin' }),
-      ).toHaveClass('size-9')
+      ).toHaveClass('size-9', 'sm:size-11')
     })
 
     describe('its dialogs, each opening on Cancel', () => {
@@ -1054,12 +1139,15 @@ describe('components/campaigns/campaign-card', () => {
           'Revoke Alice’s cookbook link for Thorin',
           'Revoke Alice’s cookbook link for Thorin?',
         ],
+        // Changed on purpose (v0.44 item 8).
+        ['Clear chat', 'Clear The Lonely Mountain’s chat?'],
         ['Delete campaign', 'Delete The Lonely Mountain?'],
       ])('%s', async (trigger, title) => {
         const user = userEvent.setup()
         render(
           <CampaignCard
             campaign={campaign({
+              chat: { messages: 3 },
               characters: [
                 {
                   id: 'thorin',
@@ -1075,6 +1163,7 @@ describe('components/campaigns/campaign-card', () => {
             resetInvite={jest.fn()}
             removePlayer={jest.fn()}
             revokeCookbookLink={jest.fn()}
+            clearChat={jest.fn()}
             remove={jest.fn()}
           />,
         )

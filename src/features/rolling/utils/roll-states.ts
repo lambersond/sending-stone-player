@@ -9,8 +9,9 @@ import type { TableRollState } from '@/types/roll'
 /**
  * The rolls' ways, changed: one's way as the game tells it, kept with what was kept of it when it
  * was sent (`way`); rolls sent one after another, as one (`together`); an attack's or use's damage
- * on its way, not offered again (`damaged`); or a use's damage left for the player to roll, while
- * they type in their own dice, once (`offer`).
+ * on its way, not offered again (`damaged`), or offered again as the game didn't make it after all
+ * (`undamaged`); or a use's damage left for the player to roll, while they type in their own dice,
+ * once (`offer`).
  */
 export function rollStates(
   held: ReadonlyMap<string, TableRollState>,
@@ -30,6 +31,13 @@ export function rollStates(
         if (state.requestId === action.use) {
           next.set(id, { ...state, damaged: true })
         }
+      }
+      return next
+    }
+    case 'undamaged': {
+      const next = new Map(held)
+      for (const [id, { damaged, ...state }] of held) {
+        if (damaged && state.requestId === action.use) next.set(id, state)
       }
       return next
     }
@@ -85,6 +93,44 @@ export function dueOf(
     : undefined
 }
 
+/**
+ * Why damage the game failed may have been made all the same, or was made already: damage that
+ * took too long may still be made, and is told so once it is; one that failed with an error may
+ * have failed after it was rolled; and damage already rolled for its attack or use, from the app
+ * or in Foundry, is refused again, whatever is sent.
+ */
+const MAYBE_MADE: ReadonlySet<string> = new Set([
+  'timeout',
+  'error',
+  'damaged',
+  'not-waiting',
+])
+
+/**
+ * Whether the game didn't make an attack's or use's damage, so that it's offered again: the app
+ * refused it, or couldn't be reached, but not as damage for it already on its way or made, as from
+ * another device; the game never fetched it (`expired`), as the app hands over none that's waited
+ * too long; or it failed before any of it was rolled. Never where it may have been made: fetched
+ * and never answered for (`lost`), as an answer that comes late still counts; taken with nothing
+ * to follow it by; or failed as `MAYBE_MADE` says.
+ */
+export function damageUnmade(state: TableRollState): boolean {
+  switch (state.status) {
+    case 'refused': {
+      return state.reason !== 'damaged'
+    }
+    case 'expired': {
+      return true
+    }
+    case 'failed': {
+      return state.reason !== undefined && !MAYBE_MADE.has(state.reason)
+    }
+    default: {
+      return false
+    }
+  }
+}
+
 /** Whether the app turned a roll away as one too many at once, to send again a moment later. */
 export function busy(state: TableRollState): boolean {
   return state.status === 'refused' && state.reason === 'busy'
@@ -92,8 +138,9 @@ export function busy(state: TableRollState): boolean {
 
 /**
  * Rolls sent one after another, as one: where the latest sent is on its way; or, once each is made,
- * what the game made of them all, their totals and the hit points they gave back added up; or that
- * one of them wasn't made, and why, after how many were.
+ * what the game made of them all, their totals and the hit points they gave back added up, or only
+ * that they were sent, where any couldn't be followed; or that one of them wasn't made, and why,
+ * after how many were.
  */
 function together(each: TableRollState[], count: number): TableRollState {
   const made = each.filter(({ status }) => status === 'done')
@@ -109,6 +156,8 @@ function together(each: TableRollState[], count: number): TableRollState {
     ...(made.length > 0 && { visible }),
     ...(visible && known(totals) && { total: added(totals) }),
     ...(visible && known(healed) && { healed: added(healed) }),
+    ...(status === 'done' &&
+      made.some(state => state.unfollowed) && { unfollowed: true as const }),
     together: { count, made: made.length },
   }
 }

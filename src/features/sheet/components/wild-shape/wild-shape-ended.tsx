@@ -10,20 +10,24 @@ import type { TableSheet } from '@/types/table'
 
 /**
  * The banner when the game ends a Wild Shape (round 0.40.0 §5.11): why, and that the character is
- * itself again, under the page's header, with Dismiss. Shown while the sheet has no form and its
- * last ending wasn't from here, where it's within the last twelve hours or came while this page
- * was open, and newer than the last this browser dismissed for the seat. Nothing before the page
- * has hydrated, as what's dismissed is known only in the browser.
+ * itself again, under the page's header, with Dismiss, which gives focus to the panel shown under
+ * it. Shown while the sheet has no form and its last ending wasn't from here, where it's within the
+ * last twelve hours or came while this page was open, and newer than the last this browser
+ * dismissed for the seat. Nothing before the page has hydrated, as what's dismissed is known only
+ * in the browser.
  */
 export function WildShapeEnded({
   sheet,
   name,
   seat,
+  panels,
 }: Readonly<{
   sheet?: TableSheet
   name: string
   /** The seat's key, which what's dismissed is kept by. */
   seat: string
+  /** The panel shown under the banner, as ids to look for in turn: the first found takes focus. */
+  panels: readonly string[]
 }>) {
   const hydrated = useHydrated()
   const [dismissed, keep] = useStoredText(`${ENDED_KEY}:${seat}`)
@@ -56,9 +60,14 @@ export function WildShapeEnded({
         title='Dismiss'
         onClick={() => {
           keep(String(ended.at))
-          document.querySelector<HTMLElement>('#sheet-panel')?.focus()
+          panels
+            .map(id =>
+              document.querySelector<HTMLElement>(`#${CSS.escape(id)}`),
+            )
+            .find(panel => panel !== null)
+            ?.focus()
         }}
-        className='-my-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-text-primary/5 hover:text-text-primary sm:size-9'
+        className='-my-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-text-primary/5 hover:text-text-primary'
       >
         <X aria-hidden className='size-4' />
       </button>

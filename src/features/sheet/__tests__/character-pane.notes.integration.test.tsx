@@ -11,6 +11,12 @@ import { emptyBook, serveNotes } from '@/mocks/notes-server'
 import { fullerSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 
+// The journal's poll refreshes the page once signed out, as the table's does.
+jest.mock('next/navigation', () => ({
+  ...jest.requireActual('next/navigation'),
+  useRouter: () => ({ refresh: jest.fn() }),
+}))
+
 // The character's own journal on the sheet's Biography tab: its card (module 0.35.0).
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.

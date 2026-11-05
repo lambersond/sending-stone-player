@@ -1,5 +1,4 @@
 import { getPlayerSeat } from '@/db/seats'
-import { NO_HEADERS } from '@/lib/routes/http'
 import { seatAnswer } from '@/lib/routes/seat-resolver'
 import { textResponse } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
@@ -19,6 +18,5 @@ export async function GET(
     async (userId, { id, hash }) =>
       TEXT_HASH.test(hash) ? getPlayerSeat(userId, id) : undefined,
     (seat, { hash }) => textResponse(seat, hash),
-    { headers: NO_HEADERS },
   )
 }

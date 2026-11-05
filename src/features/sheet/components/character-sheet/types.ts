@@ -1,5 +1,6 @@
 import type { SheetFormulaRoll, SheetRoll } from '@/types/roll'
 import type { CreatureFacts, TableCombat, TableSheet } from '@/types/table'
+import type { ReactNode } from 'react'
 
 /** What a character's sheet is given (CharacterSheet). */
 export type CharacterSheetProps = {
@@ -24,4 +25,9 @@ export type CharacterSheetProps = {
   follows?: string
   /** What the ids of its pane begin with, as a companion's pane's do (module 0.36.0). */
   idPrefix?: string
+  /**
+   * Between the skills and the traits, such as the character's favorites, where this browser
+   * shows them on the Character tab (v0.44).
+   */
+  favorites?: ReactNode
 }

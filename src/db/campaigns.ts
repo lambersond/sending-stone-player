@@ -122,6 +122,7 @@ export async function listOwnedCampaigns(
       dishesEnabled: true,
       effectsEnabled: true,
       wildShapeEnabled: true,
+      chatClearedAt: true,
       refusedAt: true,
       refusalReason: true,
       refusalStatus: true,
@@ -138,7 +139,11 @@ export async function listOwnedCampaigns(
       },
     },
   })
-  const dishes = await countDishes(campaigns.map(({ id }) => id))
+  const ids = campaigns.map(({ id }) => id)
+  const [dishes, messages] = await Promise.all([
+    countDishes(ids),
+    countMessages(ids),
+  ])
   return campaigns.map(campaign => {
     const players = new Map(
       campaign.players.map(player => [player.actorId, player]),
@@ -185,6 +190,13 @@ export async function listOwnedCampaigns(
       // Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, as
       // its last hello said.
       wildShape: { enabled: campaign.wildShapeEnabled },
+      // Its players' chat here, and when it was last cleared (v0.44).
+      chat: {
+        messages: messages.get(campaign.id) ?? 0,
+        ...(campaign.chatClearedAt && {
+          clearedAt: campaign.chatClearedAt.toISOString(),
+        }),
+      },
       characters: rosterOf(campaign.characters).map(({ id, name }) => {
         const player = players.get(id)
         const link = player?.cookbookLink
@@ -242,6 +254,19 @@ async function countDishes(campaignIds: string[]): Promise<DishCounts> {
 
 const countOf = (counts: DishCounts, campaignId: string, status: string) =>
   counts.get(`${campaignId} ${status}`) ?? 0
+
+/** Their campaigns' chat messages held here, counted by campaign, in one query: none for none. */
+async function countMessages(
+  campaignIds: string[],
+): Promise<Map<string, number>> {
+  if (campaignIds.length === 0) return new Map()
+  const groups = await prisma.chatMessage.groupBy({
+    by: ['campaignId'],
+    where: { campaignId: { in: campaignIds } },
+    _count: true,
+  })
+  return new Map(groups.map(group => [group.campaignId, group._count]))
+}
 
 /**
  * Set up a campaign for its Gamemaster. Its secret is kept only as a hash.
@@ -350,7 +375,8 @@ export async function removeCampaign(
  * @param origin - The game's origin, from the request's Origin header.
  * @param campaign - The module's campaign, as the envelope names it.
  * @param secret - The secret the request carried.
- * @param options.record - Record a refusal: not for a connection test, whose title and secret are
+ * @param options.record - Store what the post tells: a refusal, or the binding of a campaign
+ *   waiting for Foundry. Not for a connection test, which stores nothing: its title and secret are
  *   as typed, perhaps not saved.
  * @returns The campaign; 'unknown' when none is set up for it; 'refused' for the wrong secret.
  */
@@ -397,6 +423,8 @@ export async function findEventCampaign(
   }
   for (const candidate of candidates) {
     if (await verifySecret(secret, candidate.secretHash ?? '')) {
+      // A connection test binds nothing; it is told of the campaign an event would bind.
+      if (!record) return { id: bound?.id ?? candidate.id }
       // Bound only now, so it holds no state from the module's session.
       return { id: await bind(candidate.id, campaign.id, bound?.id) }
     }

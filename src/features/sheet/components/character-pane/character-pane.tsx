@@ -261,11 +261,8 @@ function RollingSheet({
     () => favoriteKeys(sheet.favorites, entries),
     [sheet.favorites, entries],
   )
-  const { showsFavorites, beside, actionsLayout } = useFavoritesLayout(
-    tab,
-    entries,
-    width,
-  )
+  const { showsFavorites, beside, actionsLayout, characterFavorites } =
+    useFavoritesLayout(tab, entries, width)
   const favorites = { characterId, sheet, entries, ...actions }
   // The rolls' way to the game, and their damage to roll, as the banner, the toasts and the rolls'
   // button all offer it.
@@ -330,6 +327,8 @@ function RollingSheet({
             table,
             manualDice,
             toasts: { on: toasting, onChange: setToasting },
+            characterFavorites,
+            hasFavorites: entries.length > 0,
             actionsLayout,
             hasActions: sheet.actions.length > 0,
             cookbookOn: !!cookbookPlace,

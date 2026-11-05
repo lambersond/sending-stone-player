@@ -18,7 +18,8 @@ Released: module v0.42.1 and its app.
    settle hook and one seat resolver; no import cycles or barrels; CLAUDE.md's rules enforced by the
    linter. No behaviour changed: the module and its protocol are untouched, and the bugs found are
    below, under v0.44.
-2. **Supported versions:** a breakdown of which module versions each app version supports.
+2. **Supported versions (done in v0.44's PR):** a breakdown of which module versions each app
+   version supports.
 
 ## v0.44 (release candidate)
 
@@ -28,61 +29,22 @@ From the table's first session with v0.42.1, after the refactor:
    its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry, as
    Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
    homebrew and custom ones included, never a handler per spell.
-2. **Favorites on the Character tab:** a setting to show the favorites between skills and traits.
-3. **Larger icon buttons on tablets:** icon-only buttons grow above a small screen, and can shrink
-   again where the screen is wide enough for their words.
+2. **Favorites on the Character tab (done in v0.44's PR):** a setting to show the favorites between
+   skills and traits.
+3. **Larger icon buttons on tablets (done in v0.44's PR):** icon-only buttons grow above a small
+   screen, and can shrink again where the screen is wide enough for their words.
 4. **Hit points from the app:** players adjust their own character's hit points.
-5. **Manual dice said in the dice dialog:** a note, or a "Manual Dice" chip in its header, that the
-   die results are typed in.
+5. **Manual dice said in the dice dialog (done in v0.44's PR):** a note, or a "Manual Dice" chip in
+   its header, that the die results are typed in.
 6. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
    dice), what each long press offers (damage, attack and other rolls), the settings, how manual
    dice work, and that the Gamemaster applies short and long rests.
 7. **A plain die roll:** d4, d6, d8, d10, d12, d20 or d100, with advantage or disadvantage and any
    modifier, not tied to the character, for what the Gamemaster asks.
-8. **The Gamemaster clears a campaign's chat:** including messages from the cookbook, whose
-   whispers now stay.
+8. **The Gamemaster clears a campaign's chat (done in v0.44's PR):** including messages from the
+   cookbook, whose whispers now stay.
 9. Remaining bugs, and the known limits chosen to close before v1.0. Found in the v0.43 refactor
    (not fixed there):
-   - **A connection test binds a campaign:** a Test from the module (`bridge.ping`) whose typed
-     title and secret match a campaign waiting for Foundry binds it to the tester's module campaign,
-     though the protocol says a ping stores nothing; a Test from another campaign of the same game
-     then leaves the real campaign refused as not set up (`src/db/campaigns.ts`, `bind` from
-     `findEventCampaign`).
-   - **Damage not offered again after a failed send:** an attack's or use's damage that the app
-     couldn't send (offline, busy, refused) is marked as sent, so its Roll damage button is gone
-     (`src/features/rolling/hooks/use-table-rolls.ts`, `sendDamage`).
-   - **The Gamemaster's partly-made hit dice** don't say the hit points regained, as the player's do
-     (`src/features/rolling/utils/gm-words.ts`, `gmLine`).
-   - **A roll the app took told as unreached** when its 202 answer isn't JSON
-     (`src/utils/lifecycle.ts`, `follow`; unlikely).
-   - **"Effects, 1 conditions":** the Effects tab's hidden count has no singular (the phone suite's
-     check changes with it).
-   - **The target list promises more than it takes:** "Up to 24." where at most 20 can be ticked,
-     and nothing said for "any number" (`use-picker`'s `leadFor`).
-   - **The same uses named two ways:** an activity's uses in the table layout are named after the
-     activity, in the list layout after the item (to confirm with the module).
-   - **Ending an enchantment says nothing** on the Effects tab when no favorite rolls (to confirm),
-     and Heroic Inspiration likewise: intended?
-   - **Dismissing "Wild Shape ended"** sends keyboard focus to a hidden panel when a companion's
-     pane or another phone tab is shown.
-   - **Health bars:** a living combatant under half a percent of its hit points shows an empty red
-     bar.
-   - **Chat times after midnight:** an idle table keeps showing yesterday's times without their
-     date.
-   - **Initials of a name starting with an emoji** show a broken glyph on the sheet and in the chat
-     (the campaigns page gets them right).
-   - **A companion pane's reads** never back off or say they are reconnecting while the server is
-     down.
-   - **The journal after signing out elsewhere** says it failed instead of asking to sign in (to
-     confirm).
-   - **Large bodies:** a roll's or a note's body is read whole before its size is checked; the
-     module's and the cookbook's routes refuse a declared oversize first.
-   - **Two sheet-text routes** answer 401/404 without `Cache-Control: no-store` (to confirm it
-     matters).
-   - **Chained proxies:** the app's own address takes a comma-separated `X-Forwarded-Host` whole
-     (latent on Vercel).
-   - **Throttle memory:** three per-server throttles keep one entry per campaign or character
-     forever.
    - **Rules in the database modules:** `src/db/roll-requests.ts` still holds a roll's pure refusal
      rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
      `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
@@ -103,6 +65,14 @@ From the table's first session with v0.42.1, after the refactor:
    the table, party and module polls; the overlapping route and table tests; the five
    `console.error` logs; and whether the favorites' resource and check rows should draw the sheet's
    own uses chips and row names, which would change their markup.
+
+   Small ones left from v0.44's fixes, for a request taken with no id to follow:
+   - **The Beast list blames the game** when its forms read is taken with no id to follow: no forms
+     come back, and the list says the game failed (`use-table-rolls.ts`, `readWildShapeForms`).
+   - **A hit die told as made that may not be:** in a one-at-a-time hit-dice run (a module before
+     0.20.0), a die taken with no id to follow counts as made when a later die is not.
+   - **Focus left on End Turn:** after an End Turn taken with no id to follow, keyboard focus stays
+     on the End Turn button when the panel moves to another of the seat's turns.
 
 v0.44 is the release candidate for v1.0: it runs at the table for a while before v1.0 is tagged.
 
@@ -180,6 +150,11 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   their players can read the card.
 - A Gamemaster's request for a save posted in chat asks the campaign's characters, not their
   companions.
+- After the Gamemaster clears a campaign's chat in the app, a message posted in Foundry before the
+  clear still shows if it reaches the app only after it, as it can when Foundry was out of touch.
+- Whether a change to a message brings it back after a clear is told by Foundry's time for the
+  message against the app's: where the Gamemaster's computer clock is well off, a message posted
+  just before the clear can come back, or one posted just after it stay out.
 - Companions show while on the active scene; a linked NPC its player owns shows always.
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.
@@ -192,6 +167,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Damage on its own's Spend switch calls a charge or a potion "a use of" its row, such as "Spend a
   use of Potion of Healing", where "a charge of" the item, or "a Potion of Healing", would read
   better (polish).
+- Damage whose request was lost (the module's answer never came) isn't offered again from the app,
+  so it's never rolled twice: the Gamemaster rolls it in Foundry.
 - Undo takes a turn back only from the app that ended it, for a few seconds, while Foundry's
   tracker is where it left it; what happened as the turn changed stays done (uses recovered, a
   recharge rolled, effects that ended with the turn, Midi-QOL's saves and damage over time,

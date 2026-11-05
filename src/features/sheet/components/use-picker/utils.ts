@@ -405,12 +405,14 @@ export function spendLabel(
   return parts.length > 0 ? `Spend ${listed(parts)}` : undefined
 }
 
-/** What to tick, and how many. */
+/**
+ * What to tick, and how many.
+ * @param most - As many as can be ticked: what it takes, as the game takes them (`tickedOf`).
+ */
 export function leadFor(area: boolean, most: number): string {
-  const limit = Number.isFinite(most) ? ` Up to ${most}.` : ''
   return area
-    ? `Tick who is caught in the area.${limit}`
-    : `Tick who to target.${limit}`
+    ? `Tick who is caught in the area. Up to ${most}.`
+    : `Tick who to target. Up to ${most}.`
 }
 
 /** A pool of slots, as a screen reader is told: such as "3rd Level, 2 slots left". */

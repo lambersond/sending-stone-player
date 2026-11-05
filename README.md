@@ -1,1 +1,81 @@
+# Sending Stone
+
+Players follow and play their Foundry game from this app, through the
+[fvtt-sending-stone](https://github.com/lambersond/fvtt-sending-stone) module; what's planned is in
+[ROADMAP.md](ROADMAP.md), and the end-to-end suites are in [e2e/README.md](e2e/README.md).
+
+## Supported module versions
+
+Sending Stone ships in pairs: each version is one release of this app and one of the module, the
+app deployed first. The app has no version number of its own, so a release of it goes by its pair:
+app v0.42.1 is the app released with module v0.42.1. As each release deploys the app first, this
+section is about the app as it is now.
+
+- **Everything works with the newest module release**, the top row below that has one.
+- **Any module release from 0.2.0 on connects.** The app refuses release 0.1.0, which speaks
+  protocol 1, and no module for its version.
+- **What an older module can't do is left out.** The app offers only what the module says it takes.
+  In places it names the version that would bring it: on the campaign page, at a character's sheet
+  and in the journal. The table says what else differs.
+- **Tested** end to end against the older modules in [e2e/skew.conf](e2e/skew.conf): today 0.22.0,
+  0.24.0, 0.26.0 to 0.37.0, 0.38.1 and 0.39.0 to 0.41.0, each from just before a feature
+  ([Older modules](e2e/README.md#older-modules-skew)). Older ones aren't run.
+- **Connect Foundry asks for 0.24.0 or later**, as the app's help names that version's settings
+  window and its tabs.
+
+A campaign's **Foundry settings**, on its card on the campaign page, show the module version its
+game last reported, which each release stamps into the module it ships. A module installed from a
+checkout of its repository reports 0.1.0, the version its committed `module.json` keeps between
+releases: the app takes it at its word, so the campaign page may ask for an update it doesn't need,
+but it still connects, as it speaks protocol 2. Foundry and The Forge offer each new release
+through the module's manifest URL, which names the latest, for the Gamemaster to install. The
+module needs Foundry v14 and is built for dnd5e 5.3
+([its README](https://github.com/lambersond/fvtt-sending-stone#readme)); this app takes games on
+The Forge only.
+
+The app meets a newer module only once it's rolled back behind it, which isn't tested: the module
+sends an app its newer events only where that app says it reads them, but from 0.40.0 it refuses
+an app before v0.40.0 a favorite, effect, move or removal while the character is in Wild Shape,
+for a reason that app can't put into words.
+
+A module older than a row's version lacks that row and every row above it. For a range, the last
+column is for a module older than its first version.
+
+| Release            | What the app uses this module for                                                                                                                                      | With an older module                                                                                                                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v0.43              | Nothing new: v0.43 changed only the app, with no module release                                                                                                        | —                                                                                                                                                                                                                   |
+| v0.42.1            | Spell slots spent and restored from their dots; spells prepared and unprepared from their menus; a 2024 Bardic Inspiration offered when typing in dice                 | The dots show the count only, and spells' menus lack Prepare and Unprepare, both with no word why; no Bardic Inspiration offered                                                                                    |
+| v0.42.0            | When typing in dice: the dice effects add, such as Bless's d4, and rerolls made at the table kept                                                                      | Foundry rolls the dice effects add, and rerolls a typed die the player rerolled at the table                                                                                                                        |
+| v0.41.0            | Damage on its own at a spell's level, in a weapon's mode or with its ammunition, spending what its use would; companions asked the saves the game asks of them         | Damage on its own without those choices; companions aren't asked                                                                                                                                                    |
+| v0.40.0            | Wild Shape                                                                                                                                                             | Not offered; the campaign page says 0.40.0 or later takes it                                                                                                                                                        |
+| v0.39.0            | Players turning off, turning on and deleting their own effects; a dish's card shown to players too                                                                     | Not offered, and the campaign page says 0.39.0 or later lets them; a dish's card is for Gamemasters only, as the campaign page says                                                                                 |
+| v0.38.0, v0.38.1   | Dishes from the Magical Recipe Book (0.38.1 fixed their cards in Foundry)                                                                                              | Not taken; the campaign page says 0.38.0 or later takes them                                                                                                                                                        |
+| v0.37.0            | Favorites added and removed                                                                                                                                            | Not offered                                                                                                                                                                                                         |
+| v0.36.0            | Companions beside their character; damage on its own and recharges; End turn, with Undo                                                                                | None of them                                                                                                                                                                                                        |
+| v0.35.0            | A group's notes put in order, kept in Foundry's order; who last changed the journal                                                                                    | A new order is saved and waits; the journal says it reaches Foundry with 0.35.0 or later                                                                                                                            |
+| v0.34.0            | Journal notes kept in Foundry                                                                                                                                          | Notes are kept in the app, waiting for the game; the journal says they reach Foundry with 0.34.0 or later                                                                                                           |
+| v0.33.0            | Removing an item; a critical hit's damage doubling only its dice                                                                                                       | No Remove; a critical hit's damage from the app may double its numbers too, as the game's critical damage settings say                                                                                              |
+| v0.32.0            | Typing in what your own dice show, with Manual Dice; a party's Owner sending its things and sharing its coin                                                           | Neither: the app shows no switch for typing in dice                                                                                                                                                                 |
+| v0.31.0            | Moving items and coins; Hit/miss and save results in the app                                                                                                           | No moves, and the campaign page says 0.31.0 or later lets them; results told only where Foundry shows them to players                                                                                               |
+| v0.30.0            | Party sheets; the campaign's Foundry settings; chat results as Foundry shows them to players                                                                           | No party sheets; the campaign's card says to update to 0.30.0 or later to see its settings                                                                                                                          |
+| v0.29.0            | Ending a concentration, spending charges, Heroic Inspiration; hits, misses and saves on chat cards                                                                     | Not offered, and not shown                                                                                                                                                                                          |
+| v0.28.0            | Each chat roll's part in its message's damage                                                                                                                          | Damage told apart by each roll's own marks                                                                                                                                                                          |
+| v0.27.0            | Midi-QOL's own saves, concentration and turn saves, asked in the app                                                                                                   | Asked in Foundry, as Midi-QOL does                                                                                                                                                                                  |
+| v0.25.0, v0.26.0   | The messages each of the Gamemaster's rolls made (0.25.0); 0.26.0 readied typed dice, which need 0.32.0                                                                | A message is taken as the Gamemaster's roll's from what it says, while the roll is made                                                                                                                             |
+| v0.24.0            | The settings window the app's help names: Open Settings, with its General, Connection, Players and Player actions tabs                                                 | The help names windows and labels that module doesn't have                                                                                                                                                          |
+| v0.23.0            | The Gamemaster rolling as a character, marked GM; a resource favorite shown as its feature's row; the module saying why the app refused a post                         | At a character's sheet the Gamemaster is told their rolls stay in the app until 0.23.0; a resource matched to its feature by name; a refusal told by its status alone                                               |
+| v0.22.0            | Sheets sent one by one, slim; a use made at its user (Self)                                                                                                            | Every sheet comes whole in the hello, and a hello over 4 MB is refused as too large; no Self target                                                                                                                 |
+| v0.21.0            | Check, forward and enchant activities; ending an enchantment                                                                                                           | Not offered                                                                                                                                                                                                         |
+| v0.17.0 to v0.20.0 | Links in descriptions that roll, their checks and critical hits too; criticals that add dice; an item's spell cast at a higher level; several hit dice at once         | Not offered, but several hit dice are spent one at a time                                                                                                                                                           |
+| v0.13.0 to v0.16.0 | What spells, features and items roll; damage changed before it's rolled; the saves the game asks; an item's activities; hit dice, a feature's formula and area attacks | Not offered                                                                                                                                                                                                         |
+| v0.10.0 to v0.12.0 | Players' rolls made in Foundry with their dice: checks, saves, initiative and death saves (0.10.0), attacks and damage (0.11.0), spells and features (0.12.0)          | Rolls stay in the app, which tells players only they see them                                                                                                                                                       |
+| v0.5.0 to v0.9.0   | The character's sheet (0.5.0), then its features, effects and conditions (0.6.0), inventory, spells and traits (0.7.0), actions (0.8.0) and favorites (0.9.0)          | No sheet, and the sheet page says which version sends it                                                                                                                                                            |
+| v0.4.0             | Each campaign's own secret; a connection test naming its campaign; the hello sent again when the app asks                                                              | Every campaign of the world is set up here with the one secret that module sends; Test passes with any of the game's campaigns' secrets; a campaign set up while the game is open waits for the module's next hello |
+| v0.3.0             | Heartbeats, so a quiet game stays Live                                                                                                                                 | The game shows Offline after two minutes without an event                                                                                                                                                           |
+| v0.2.0             | Protocol 2: events sent campaign by campaign                                                                                                                           | Release 0.1.0, on protocol 1, is refused                                                                                                                                                                            |
+
+Each module release's changes, in full, are in the module's
+[PROTOCOL.md](https://github.com/lambersond/fvtt-sending-stone/blob/main/PROTOCOL.md#additions-within-protocol-2).
+Each release adds its row here.
+
 TODO

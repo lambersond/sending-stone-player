@@ -20,10 +20,14 @@ import type { ReactNode, RefObject } from 'react'
  * the sheet, or beside why there's none and the notes, with tabs of their own to choose between
  * them, which mark the seat's turn and unread messages, and say what's happening in the one shown.
  * @param paneShown - Whether the sheet's pane shows beside the column on a wide screen.
+ * @param focusable - Whether combat and the chat may take focus: where one is the pane shown, on a
+ *   phone or tablet, as a notice above it is dismissed; never beside the sheet, where nothing moves
+ *   focus to them, and a click in one would.
  * @param quiet - Whether the tabs ignore clicks now, just after a hold has ended the turn.
  * @param onShow - Shows combat or the chat.
  * @param combatTab - The column's Combat tab, where focus on the turn may go.
  * @param hold - The column's Combat tab held to end the turn.
+ * @param chatClearedAt - When the chat was last cleared, which the log says while it's empty.
  * @param tracker - The combat tracker, the character's view of it.
  * @param chat - The chat's scroller, kept pinned to the newest message, and its scroll handler.
  */
@@ -31,10 +35,12 @@ export function AsideColumn({
   tab,
   aside,
   paneShown,
+  focusable,
   myTurn,
   unread,
   combat,
   messages,
+  chatClearedAt,
   quiet,
   onShow,
   combatTab,
@@ -45,10 +51,12 @@ export function AsideColumn({
   tab: Tab
   aside: Aside
   paneShown: boolean
+  focusable: boolean
   myTurn: boolean
   unread: number
   combat?: TableCombat
   messages: TableMessage[]
+  chatClearedAt?: string
   quiet: () => boolean
   onShow: (aside: Aside) => void
   combatTab: RefObject<HTMLButtonElement | null>
@@ -71,7 +79,7 @@ export function AsideColumn({
           'lg:w-[clamp(320px,40%,500px)] lg:flex-none lg:border-l lg:border-border',
       )}
     >
-      <div className='hidden h-11 shrink-0 items-center gap-3 border-b border-border px-3 lg:flex'>
+      <div className='hidden h-12 shrink-0 items-center gap-3 border-b border-border px-3 lg:flex'>
         <div
           role='tablist'
           aria-label='Combat or chat'
@@ -120,6 +128,7 @@ export function AsideColumn({
       <Pane
         id='combat-pane'
         label='Combat'
+        focusable={focusable}
         className={aside === 'combat' ? 'flex' : 'hidden'}
       >
         <Scroller>
@@ -130,10 +139,11 @@ export function AsideColumn({
       <Pane
         id='chat-pane'
         label='Chat'
+        focusable={focusable}
         className={aside === 'chat' ? 'flex' : 'hidden'}
       >
         <Scroller ref={scroller} onScroll={onScroll}>
-          <ChatLog messages={messages} />
+          <ChatLog messages={messages} clearedAt={chatClearedAt} />
         </Scroller>
       </Pane>
     </div>

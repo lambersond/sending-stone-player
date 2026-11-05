@@ -37,6 +37,7 @@ export function CompanionPane({
   gone,
   onPending,
   onBusy,
+  onReconnecting,
   onLost,
   header,
   manualDice,
@@ -49,6 +50,8 @@ export function CompanionPane({
   gone: boolean
   onPending?: (pending: boolean) => void
   onBusy?: (busy: boolean) => void
+  /** Told whether its view can't be read, so the page says it's reconnecting while it's shown. */
+  onReconnecting?: (reconnecting: boolean) => void
   /**
    * Told once its route says it's gone (404), which the row may still list, as one that left and
    * came back between two of the page's polls: its view is asked for no more after.
@@ -66,12 +69,20 @@ export function CompanionPane({
     () => ({ role: seat.role, api, key: characterId }),
     [seat.role, api, characterId],
   )
-  const { view, gone: lost } = useCompanionView(api, { active: shown })
+  const {
+    view,
+    gone: lost,
+    connection,
+  } = useCompanionView(api, { active: shown })
   const left = gone || lost || view?.connected === false
   // So that the page mounts it afresh, where its next view still lists the companion.
   useEffect(() => {
     if (lost) onLost?.()
   }, [lost, onLost])
+  const reconnecting = connection === 'reconnecting'
+  useEffect(() => {
+    onReconnecting?.(reconnecting)
+  }, [reconnecting, onReconnecting])
   const { game } = seatWords(seat.role)
   // Whose it is, for its header and the words its tray says.
   const { kind, from } = companion

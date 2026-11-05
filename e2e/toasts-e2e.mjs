@@ -648,10 +648,13 @@ for (const { width, height } of [{ width: 390, height: 844 }, { width: 768, heig
       name, banner: await banner.count(), statuses: await sheet.locator('[role=status]').count(),
       rolls: await rollsButton.isVisible() && Math.abs(rollsBox.x + rollsBox.width - cogBox.x) <= 1 && Math.abs(rollsBox.y - cogBox.y) <= 1
         && Math.round(rollsBox.width) === Math.round(cogBox.width) && Math.round(rollsBox.height) === Math.round(cogBox.height),
+      // 32 pixels square on a phone, 44 from sm (v0.44).
+      cog: [Math.round(cogBox.width), Math.round(cogBox.height)],
     })
   }
-  check(tabNames.length === 7 && everyTab.every(t => t.banner === 0 && t.statuses === 0 && t.rolls),
-    `${at}, on each of the seven tabs there's no banner and no roll status in the sheet, and the Rolls button sits just left of the cog, the cog's size (${JSON.stringify(everyTab)})`)
+  const cogSide = width < 640 ? 32 : 44
+  check(tabNames.length === 7 && everyTab.every(t => t.banner === 0 && t.statuses === 0 && t.rolls && t.cog.every(side => side === cogSide)),
+    `${at}, on each of the seven tabs there's no banner and no roll status in the sheet, and the Rolls button sits just left of the cog, the cog's size, ${cogSide} pixels square (${JSON.stringify(everyTab)})`)
   const button = await rollsButton.evaluate(el => ({ title: el.title, name: el.textContent, icon: !!el.querySelector('svg.lucide-history'), dot: !!el.querySelector('.rounded-full'), classes: el.className }))
   const cogClasses = await cog.getAttribute('class')
   check(button.title === 'Your rolls' && button.name === 'Your rolls' && button.icon && !button.dot && ['rounded-lg', 'p-2', 'text-text-secondary'].every(c => button.classes.split(' ').includes(c) && cogClasses.split(' ').includes(c)),

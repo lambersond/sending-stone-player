@@ -382,6 +382,7 @@ const TABLE_CAMPAIGN = {
   favoritesEnabled: true,
   effectsEnabled: true,
   wildShapeEnabled: true,
+  chatClearedAt: true,
 } as const
 
 /**
@@ -458,6 +459,10 @@ export async function getTableView(
     sheetWithheld: withheld(roster.find(({ id }) => id === viewer.actorId)),
     // The player's own; the Gamemaster's seat never reads nor moves it.
     chatReadAt: seat.role === 'gm' ? undefined : seat.chatReadAt,
+    // When the chat was last cleared, here or in Foundry, which its empty log says (v0.44).
+    ...(campaign.chatClearedAt && {
+      chatClearedAt: campaign.chatClearedAt.toISOString(),
+    }),
     rollsToTable: rolls.rollsToTable,
     rollFeatures: rolls.rollFeatures,
     prompts: toTablePrompts(prompts, now),

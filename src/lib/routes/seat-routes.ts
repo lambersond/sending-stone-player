@@ -130,7 +130,11 @@ export async function rollPostResponse(
   request: NextRequest,
   seat: SheetSeat,
 ): Promise<Response> {
-  const body = await readBody(request, { limit: MAX_ROLL_BYTES, type: 'exact' })
+  const body = await readBody(request, {
+    limit: MAX_ROLL_BYTES,
+    type: 'exact',
+    declared: true,
+  })
   if (!body.ok) return bare(BODY_REFUSED[body.why])
   let input
   try {

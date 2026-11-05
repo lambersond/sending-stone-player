@@ -4,16 +4,13 @@ import { useId } from 'react'
 import clsx from 'clsx'
 import { Minus, Plus } from 'lucide-react'
 import { amountOf, typedCount } from './utils'
+import { STEP_BUTTON } from '@/constants/buttons'
 
 /*
  * How many of a stack to move (module 0.31.0): typed, as a stack may be far more than a stepper
  * reaches, or stepped by one, or all of it at a tap. Only plain digits count, so that "1,000" or
  * "+3" is never read as some other number than the one meant.
  */
-
-/** As UsesMenu's steppers. */
-const STEP =
-  'flex size-10 shrink-0 items-center justify-center rounded-xl border border-border transition-colors hover:border-primary/50 hover:bg-primary/5 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-transparent'
 
 /**
  * How many of a stack to move: one fewer, the number, of how many, one more, and all of them.
@@ -51,7 +48,7 @@ export function AmountField({
           aria-label='One fewer'
           aria-disabled={fewest}
           onClick={() => step(-1)}
-          className={STEP}
+          className={STEP_BUTTON}
         >
           <Minus aria-hidden className='size-4' />
         </button>
@@ -81,7 +78,7 @@ export function AmountField({
           aria-label='One more'
           aria-disabled={most}
           onClick={() => step(1)}
-          className={STEP}
+          className={STEP_BUTTON}
         >
           <Plus aria-hidden className='size-4' />
         </button>

@@ -103,8 +103,15 @@ export type RowState = {
 /** The switch for whether the player types in their own dice (module 0.32.0), where offered. */
 export type DiceSwitch = { on: boolean; onChange: (on: boolean) => void }
 
-/** What a companion's pane says of itself: damage to roll, and a roll on its way. */
-export type PaneMarks = { pending?: boolean; busy?: boolean }
+/**
+ * What a companion's pane says of itself: damage to roll, a roll on its way, and that its view
+ * can't be read.
+ */
+export type PaneMarks = {
+  pending?: boolean
+  busy?: boolean
+  reconnecting?: boolean
+}
 
 /**
  * How a companion's pane tells the page so, and that its route said it's gone, the same each time
@@ -113,6 +120,7 @@ export type PaneMarks = { pending?: boolean; busy?: boolean }
 export type PaneReporters = {
   onPending: (pending: boolean) => void
   onBusy: (busy: boolean) => void
+  onReconnecting: (reconnecting: boolean) => void
   onLost: () => void
 }
 
@@ -123,8 +131,9 @@ export type WaitingCompanion = { key: string; label: string; name: string }
  * The row of the character's companions above the sheet, as `useCompanionRow` keeps it (module
  * 0.36.0): the row, each one's name and number, how many times each has come back, and their keys;
  * those the game asks a save of, and their keys; the one chosen, and `choose`; what each mounted
- * pane says of itself, how it says so, and the panes mounted; and `openCompanion`, which chooses
- * one, shows the Character tab and focuses its tab.
+ * pane says of itself, how it says so, and the panes mounted; whether the chosen one's pane can't
+ * read its view; and `openCompanion`, which chooses one, shows the Character tab and focuses its
+ * tab.
  */
 export type CompanionRow = {
   row: RowCompanion[]
@@ -139,6 +148,7 @@ export type CompanionRow = {
   paneMarks: ReadonlyMap<string, PaneMarks>
   reportersOf: (key: string) => PaneReporters
   panes: string[]
+  reconnecting: boolean
   openCompanion: (key: string) => void
 }
 
@@ -244,13 +254,15 @@ export type PanelEnding = {
 }
 
 /**
- * What the toast shows: a hold past half a second; its End Turn on its way; an End Turn the game
- * made, with Undo while that's offered; one that wasn't made; Undo on its way; or Undo not made.
- * Each card shown is numbered, so that the next is announced, and animates in, as a new one.
+ * What the toast shows: a hold past half a second; its End Turn on its way; one sent that can't be
+ * followed; an End Turn the game made, with Undo while that's offered; one that wasn't made; Undo
+ * on its way; or Undo not made. Each card shown is numbered, so that the next is announced, and
+ * animates in, as a new one.
  */
 export type CardBody =
   | { kind: 'holding'; turn: EndableTurn }
   | { kind: 'sending'; turn: EndableTurn }
+  | { kind: 'sent'; turn: EndableTurn }
   | {
       kind: 'ended'
       id: string

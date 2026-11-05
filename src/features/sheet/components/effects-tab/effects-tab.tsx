@@ -9,6 +9,7 @@ import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { WildShapeNote } from '../wild-shape/wild-shape-note'
 import { EffectEntry } from './effect-entry'
 import { conditionDetail } from './utils'
+import { ICON_TARGET } from '@/constants/buttons'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import type { TableSheet } from '@/types/table'
 
@@ -47,7 +48,7 @@ export function EffectsTab({
             aria-label='Every condition and its rules'
             title='Every condition and its rules'
             onClick={() => showConditions()}
-            className='-my-1 rounded-full p-1 text-text-secondary transition-colors hover:bg-primary/10 hover:text-primary'
+            className={`${ICON_TARGET} -my-1 rounded-full p-1 text-text-secondary transition-colors hover:bg-primary/10 hover:text-primary`}
           >
             <Info aria-hidden className='size-4' />
           </button>

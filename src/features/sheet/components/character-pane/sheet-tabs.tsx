@@ -14,7 +14,9 @@ import type { SheetSettingsProps } from '../sheet-settings/types'
  * margin and their own padding keep them apart: a caster's seven tabs, with a condition's dot on
  * Effects, take 301 pixels, of the 302 beside both on a 390-pixel screen. Narrower, the tabs and
  * the buttons are a little tighter, so that they take 277 of the 280 on a 360-pixel one; narrower
- * still, the tabs scroll.
+ * still, the tabs scroll. From `sm` (v0.44), a finger wide on a tablet: the icons, the rolls'
+ * button and the cog are 44-pixel squares, in a row 48 pixels tall; where the labels show, the
+ * tabs are compact again.
  * @param conditions - How many conditions the character has, which Effects' dot says.
  * @param cookbookModal - The player's Magical Recipe Book, beside the cog, never in its settings,
  *   which close as it opens.
@@ -43,7 +45,7 @@ export function SheetTabs({
   return (
     <div
       ref={rowRef}
-      className='@container flex h-11 shrink-0 items-center border-b border-border px-3 md:px-6 lg:px-7'
+      className='@container flex h-11 shrink-0 items-center border-b border-border px-3 sm:h-12 md:px-6 lg:px-7'
     >
       <div
         role='tablist'
@@ -61,7 +63,9 @@ export function SheetTabs({
             aria-controls={`${idPrefix}sheet-panel`}
             onClick={() => onShow(id)}
             className={clsx(
-              'flex shrink-0 items-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors',
+              'flex shrink-0 items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors',
+              // From sm, 44-pixel icons while the row has no room for their labels.
+              'sm:@max-3xl:min-h-11 sm:@max-3xl:min-w-11',
               // Seven tabs' icons, Effects' dot, the chosen one's label, the rolls' button and
               // the settings' cog fit a 360-pixel screen; on a narrower one the tabs scroll.
               // Tighter under 366 pixels inside the row's padding, a screen under 390.
@@ -77,7 +81,12 @@ export function SheetTabs({
             </span>
             {id === 'effects' && conditions > 0 && (
               <span className='size-1.5 rounded-full bg-ruby'>
-                <span className='sr-only'>, {conditions} conditions</span>
+                <span className='sr-only'>
+                  ,{' '}
+                  {conditions === 1
+                    ? '1 condition'
+                    : `${conditions} conditions`}
+                </span>
               </span>
             )}
           </button>
