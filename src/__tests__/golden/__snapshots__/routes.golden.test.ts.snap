@@ -441,6 +441,7 @@ exports[`the pages name their sheets, and say which are not open here, for the G
     "favoritesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "chatClearedAt": true
    }
   }
@@ -864,6 +865,7 @@ exports[`the pages name their sheets, and say which are not open here, for the p
     "favoritesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "chatClearedAt": true
    }
   }
@@ -5003,6 +5005,7 @@ exports[`the routes of a companion companion table GET, gm: companion table GET,
     "companions": true,
     "companionKinds": true,
     "companionInitiative": true,
+    "hitPointsEnabled": true,
     "rollsEnabled": true,
     "rollKinds": true,
     "rollFeatures": true,
@@ -5159,6 +5162,7 @@ exports[`the routes of a companion companion table GET, player, unchanged: compa
     "companions": true,
     "companionKinds": true,
     "companionInitiative": true,
+    "hitPointsEnabled": true,
     "rollsEnabled": true,
     "rollKinds": true,
     "rollFeatures": true,
@@ -5208,6 +5212,7 @@ exports[`the routes of a companion companion table GET, player, unchanged: compa
     "companions": true,
     "companionKinds": true,
     "companionInitiative": true,
+    "hitPointsEnabled": true,
     "rollsEnabled": true,
     "rollKinds": true,
     "rollFeatures": true,
@@ -5346,6 +5351,7 @@ exports[`the routes of a companion companion table GET, player: companion table 
     "companions": true,
     "companionKinds": true,
     "companionInitiative": true,
+    "hitPointsEnabled": true,
     "rollsEnabled": true,
     "rollKinds": true,
     "rollFeatures": true,
@@ -7253,7 +7259,8 @@ exports[`the routes of a sheet table GET, gm, unchanged: table GET, gm, unchange
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -7283,6 +7290,7 @@ exports[`the routes of a sheet table GET, gm, unchanged: table GET, gm, unchange
     "favoritesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "chatClearedAt": true
    }
   }
@@ -7440,6 +7448,7 @@ exports[`the routes of a sheet table GET, gm: table GET, gm 1`] = `
     "favoritesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "chatClearedAt": true
    }
   }
@@ -7599,7 +7608,8 @@ exports[`the routes of a sheet table GET, player, its sheet known: table GET, pl
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -7654,6 +7664,7 @@ exports[`the routes of a sheet table GET, player, its sheet known: table GET, pl
     "favoritesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "chatClearedAt": true
    }
   }
@@ -7845,7 +7856,8 @@ exports[`the routes of a sheet table GET, player, unchanged: table GET, player, 
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -7938,6 +7950,7 @@ exports[`the routes of a sheet table GET, player: table GET, player 1`] = `
     "favoritesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "chatClearedAt": true
    }
   }
@@ -8930,6 +8943,7 @@ exports[`the routes of the module commands POST, cold: commands POST, cold 1`] =
     "dishesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "playersSeenAt": true
    }
   }
@@ -9149,7 +9163,8 @@ exports[`the routes of the module commands POST, cold: commands POST, cold 1`] =
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -9168,7 +9183,8 @@ exports[`the routes of the module commands POST, cold: commands POST, cold 1`] =
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -9181,7 +9197,8 @@ exports[`the routes of the module commands POST, cold: commands POST, cold 1`] =
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -9261,6 +9278,7 @@ exports[`the routes of the module commands POST, held, a roll waiting: commands 
     "dishesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "playersSeenAt": true
    }
   }
@@ -9480,7 +9498,8 @@ exports[`the routes of the module commands POST, held, a roll waiting: commands 
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -9499,7 +9518,8 @@ exports[`the routes of the module commands POST, held, a roll waiting: commands 
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -9512,7 +9532,8 @@ exports[`the routes of the module commands POST, held, a roll waiting: commands 
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -9641,6 +9662,7 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "dishesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "playersSeenAt": true
    }
   }
@@ -9860,7 +9882,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -9879,7 +9902,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -9892,7 +9916,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10132,7 +10157,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10151,7 +10177,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10164,7 +10191,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10404,7 +10432,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10423,7 +10452,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10436,7 +10466,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10676,7 +10707,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10695,7 +10727,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10708,7 +10741,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10948,7 +10982,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10967,7 +11002,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -10980,7 +11016,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -11220,7 +11257,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -11239,7 +11277,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -11252,7 +11291,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -11492,7 +11532,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -11511,7 +11552,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -11524,7 +11566,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -11764,7 +11807,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -11783,7 +11827,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -11796,7 +11841,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12036,7 +12082,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -12055,7 +12102,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12068,7 +12116,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12308,7 +12357,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -12327,7 +12377,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12340,7 +12391,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12580,7 +12632,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -12599,7 +12652,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12612,7 +12666,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12852,7 +12907,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -12871,7 +12927,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -12884,7 +12941,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13124,7 +13182,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13143,7 +13202,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13156,7 +13216,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13396,7 +13457,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13415,7 +13477,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13428,7 +13491,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13668,7 +13732,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13687,7 +13752,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13700,7 +13766,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13940,7 +14007,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13959,7 +14027,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -13972,7 +14041,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -14212,7 +14282,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -14231,7 +14302,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -14244,7 +14316,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -14484,7 +14557,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -14503,7 +14577,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -14516,7 +14591,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -14756,7 +14832,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -14775,7 +14852,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -14788,7 +14866,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -15028,7 +15107,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -15047,7 +15127,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -15060,7 +15141,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -15300,7 +15382,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "removalsEnabled": true,
     "favoritesEnabled": true,
     "effectsEnabled": true,
-    "wildShapeEnabled": true
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -15319,7 +15402,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
       "role": "player",
       "kind": {
        "notIn": [
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -15332,7 +15416,8 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
         "remove",
         "favorite",
         "effect",
-        "wildShape"
+        "wildShape",
+        "hitPoints"
        ]
       }
      },
@@ -15446,6 +15531,7 @@ exports[`the routes of the module commands POST, off: commands POST, off 1`] = `
     "dishesEnabled": true,
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": true,
     "playersSeenAt": true
    }
   }
@@ -15888,7 +15974,7 @@ exports[`the routes of the module events POST, declared too large: events POST, 
 
 exports[`the routes of the module events POST, heartbeat of another session: events POST, heartbeat of another session 1`] = `
 {
-  "body": "{"resend":"hello","features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":2,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1}}",
+  "body": "{"resend":"hello","features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":2,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1}}",
   "calls": "[
  {
   "model": "campaign",
@@ -15934,7 +16020,7 @@ exports[`the routes of the module events POST, heartbeat of another session: eve
 
 exports[`the routes of the module events POST, heartbeat: events POST, heartbeat 1`] = `
 {
-  "body": "{"features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":2,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1}}",
+  "body": "{"features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":2,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1}}",
   "calls": "[
  {
   "model": "campaign",
