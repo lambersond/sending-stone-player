@@ -9,13 +9,13 @@
 // flagged with the request, dnd5e 5's generic roll), the tray's "At the table" the card's total, the
 // card in the app's chat above the tray, the dice kept, and one dice renderer on the page. At
 // 1280 × 800, in the chat column beside the sheet: the seven sizes in one row; 1d100 + 2, one die
-// from 1 to 100, its card "1d100 + 2"; 20 dice the most, every way to add one saying so; Clear. With
-// Manual Dice on, at 390: Roll asks the tray's own dialog for "2d6" and "+1d8", typed 3, 5 and 7,
-// sent typed, the card flagged typed, its total 15. The Gamemaster's page for Thorin, at 1280: the
-// tray rolls 1d20 as Thorin, the request the Gamemaster's, labelled, the card flagged GM. Send to the
-// table off at 1280: rolled on the app's dice alone, nothing sent, the footer saying why. Synthetic
-// characters only. Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
-// Screenshots to SHOTS.
+// from 1 to 100, its card "1d100 + 2"; 20 dice the most, every way to add one saying so; Clear. Send
+// to the table off at 1280: rolled on the app's dice alone, nothing sent, the footer saying why;
+// before Manual Dice is on, which Thorin's every device takes up. With Manual Dice on, at 390: Roll
+// asks the tray's own dialog for "2d6" and "+1d8", typed 3, 5 and 7, sent typed, the card flagged
+// typed, its total 15. The Gamemaster's page for Thorin, at 1280: the tray rolls 1d20 as Thorin, the
+// request the Gamemaster's, labelled, the card flagged GM. Synthetic characters only. Run with
+// --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   W, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, part, same, sameJson,
   settled, shoot, sideways, sql, startModule, until, wait,
@@ -85,14 +85,20 @@ async function rollTray(who, name, what) {
   const made = rollRow(sent.id)
   return { made, message: madeFor(made.id), shown: await said(latestOf(who)) }
 }
-/** The page's settings, behind the sheet's cog: opened, then the switch named so clicked, then closed. */
+/**
+ * The page's settings, behind the sheet's cog: opened, then the switch named so tapped, by its label
+ * as a finger does (the switch's own box is drawn over, too small to tap), until it shows the other
+ * way, then closed.
+ */
 async function toggleSetting(who, name) {
   const dialog = who.page.getByRole('dialog', { name: 'Settings' })
   await who.page.getByRole('button', { name: 'Settings', exact: true }).click()
   await dialog.waitFor()
   const control = dialog.getByRole('switch', { name, exact: true })
   await control.waitFor({ timeout: 15_000 })
-  await control.click()
+  const was = await control.isChecked()
+  await control.locator('xpath=ancestor::label[1]').click()
+  await until(async () => (await control.isChecked()) !== was, `${name} ${was ? 'off' : 'on'}`, 5_000)
   await who.page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'hidden' })
 }
@@ -106,6 +112,7 @@ await toggleOf(phone).waitFor({ timeout: 20_000 })
 check((await toggleOf(phone).getAttribute('aria-expanded')) === 'false' && (await sizesOf(phone).count()) === 0,
   'the Chat tab has the dice tray’s bar under the chat, closed')
 await toggleOf(phone).click()
+await chatOf(phone).getByRole('group', { name: 'Add a die' }).waitFor()
 const sizes = await sizesOf(phone).evaluateAll(buttons => buttons.map(b => {
   const box = b.getBoundingClientRect()
   return { text: b.textContent.trim(), name: b.getAttribute('aria-label'), shape: !!b.querySelector('svg path'), w: Math.round(box.width), h: Math.round(box.height) }
@@ -168,7 +175,21 @@ check((await chatOf(desk).getByRole('button', { name: 'Pick dice to roll', exact
   && (await chatOf(desk).getByRole('group', { name: 'Modifier' }).locator('output').textContent()) === '+0',
   'Clear empties the tray, its modifier +0 again, and Roll waits for dice')
 
-part('3. typed in, with Manual Dice on')
+part('3. Send to the table off')
+// Before Manual Dice is turned on for Thorin, which every device of his then takes up, this one too.
+await toggleSetting(desk, 'Send to the table')
+await chatOf(desk).getByText('Only you see these dice: Send to the table is off in Settings.', { exact: true }).waitFor({ timeout: 5_000 })
+const beforeOff = requests()
+await addOf(desk, 'd20').click()
+await chatOf(desk).getByRole('button', { name: 'Roll 1d20', exact: true }).click()
+await latestOf(desk).getByText('Dice (1d20)', { exact: true }).waitFor({ timeout: 30_000 })
+await wait(2_000)
+const offShown = await said(latestOf(desk))
+check(requests() === beforeOff && !offShown.includes('At the table'),
+  `with Send to the table off, the tray rolls on the app's dice alone, sends nothing, and says why the game makes none: "${offShown}"`)
+await shoot(desk, 'dice-tray-send-off', chatOf(desk))
+
+part('4. typed in, with Manual Dice on')
 await phone.character()
 await toggleSetting(phone, 'Enter dice results manually')
 await until(() => sql(`select "manualDice" from "character" where id = 'sheet-thorin'`) === 't', 'Manual Dice on, kept for Thorin', 10_000)
@@ -198,7 +219,7 @@ check(typed.payload.typed === true && sameJson(typed.payload.dice, [{ faces: 6, 
   && typedShown.includes('At the table: 15'),
   `typed 3, 5 and 7, it's sent typed, the card flagged typed with those dice, 15, and the tray says so: "${typedShown}"`)
 
-part('4. the Gamemaster’s page')
+part('5. the Gamemaster’s page')
 const gmPage = await browse({ width: 1280, height: 800, path: `/campaigns/${A}/characters/thorin`, toasts: false })
 await gmPage.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
 await openTray(gmPage)
@@ -208,18 +229,5 @@ check(gmRoll.made.role === 'gm' && gmRoll.made.label === 'Dice (1d20)' && gmRoll
   && gmRoll.message?.flags['sending-stone'].by === 'gm' && gmRoll.message.speaker.actor === 'thorin' && gmRoll.message.rolls[0].formula === '1d20'
   && gmRoll.shown.includes(`At the table: ${gmRoll.message.rolls[0].total}`),
   `the Gamemaster's page has the tray too: 1d20 as Thorin, the request the Gamemaster's and labelled, the card flagged GM (${gmRoll.made.role} ${gmRoll.made.label}: "${gmRoll.shown}")`)
-
-part('5. Send to the table off')
-await toggleSetting(desk, 'Send to the table')
-await chatOf(desk).getByText('Only you see these dice: Send to the table is off in Settings.', { exact: true }).waitFor({ timeout: 5_000 })
-const beforeOff = requests()
-await addOf(desk, 'd20').click()
-await chatOf(desk).getByRole('button', { name: 'Roll 1d20', exact: true }).click()
-await latestOf(desk).getByText('Dice (1d20)', { exact: true }).waitFor({ timeout: 30_000 })
-await wait(2_000)
-const offShown = await said(latestOf(desk))
-check(requests() === beforeOff && !offShown.includes('At the table'),
-  `with Send to the table off, the tray rolls on the app's dice alone, sends nothing, and says why the game makes none: "${offShown}"`)
-await shoot(desk, 'dice-tray-send-off', chatOf(desk))
 
 await finish()
