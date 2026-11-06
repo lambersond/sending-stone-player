@@ -3,8 +3,10 @@ import type { PlainRollInput, RollKind } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 
 // How a plain roll of the dice the player picks (module 0.44.0) is told, in English: what it
-// throws, what it's called, its way to the game, and whether the game makes it at all, and why
-// not. Why one wasn't made is a roll's, as the roll reasons say it.
+// throws, what it's called, and whether the game makes it at all, and why not. Its way to the game
+// once sent, and why one wasn't made, are a roll's, as any roll's are worded for its tray and toast
+// (`briefOf`, features/rolling/utils/brief.ts): "Rolling", "At the table: 17", "Not made at the
+// table".
 
 /** What a plain roll throws, as a formula: "2d6 + 1d8 + 2", "1d20 − 1", "1d100". */
 export function plainRollFormula({ terms, bonus }: PlainRollInput): string {
@@ -20,13 +22,6 @@ export function plainRollFormula({ terms, bonus }: PlainRollInput): string {
 export function plainRollLabel(plainRoll: PlainRollInput): string {
   return `Dice (${plainRollFormula(plainRoll)})`
 }
-
-/** A plain roll's way to the game, in words: on its way, made there, and not. */
-export const PLAIN_ROLL_WORDS = {
-  doing: 'Rolling',
-  done: 'Made at the table',
-  not: 'Not made at the table',
-} as const
 
 /** Whose Sending Stone module makes the game's rolls, as each seat reads it. */
 const MODULE_OF: Record<SeatRole, string> = {
