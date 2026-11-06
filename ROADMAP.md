@@ -43,10 +43,10 @@ From the table's first session with v0.42.1, after the refactor:
 6. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
    dice), what each long press offers (damage, attack and other rolls), the settings, how manual
    dice work, and that the Gamemaster applies short and long rests.
-7. **A plain die roll:** a dice tray under the chat, for what the Gamemaster asks: dice of any of
-   d4, d6, d8, d10, d12, d20 and d100 added and removed, several sizes at once, with a modifier and
-   no advantage or disadvantage, made in the game where the rolls are on; its dice tumble over the
-   whole character page.
+7. **A plain die roll (done in v0.44's PR):** a dice tray under the chat, for what the Gamemaster
+   asks: dice of any of d4, d6, d8, d10, d12, d20 and d100 added and removed, several sizes at
+   once, with a modifier and no advantage or disadvantage, made in the game where the rolls are on;
+   its dice tumble over the whole character page.
 8. **The Gamemaster clears a campaign's chat (done in v0.44's PR):** including messages from the
    cookbook, whose whispers now stay.
 9. Remaining bugs, and the known limits chosen to close before v1.0. Found in the v0.43 refactor
