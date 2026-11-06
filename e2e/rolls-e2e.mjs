@@ -156,9 +156,14 @@ const stored = () => sql(`select "rollsEnabled", array_to_string("rollKinds", ',
 // From module 0.29.0, ending a concentration too, wherever players' rolls are made.
 // Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn too, wherever players' rolls are made.
 // Changed on purpose (round 0.36.0 §13.4, v6): and taking back a turn ended, right after it.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,textRoll|t', `the app keeps that the game takes players' rolls, hit dice and formulas among them, and the module is fetching them (${stored()})`)
+// Changed on purpose (v0.44): from module 0.44.0, a plain roll, right after a formula.
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,plainRoll,endConcentration,endTurn,undoEndTurn,textRoll|t', `the app keeps that the game takes players' rolls, hit dice and formulas among them, and the module is fetching them (${stored()})`)
 const hello = posted.find(p => p.type === 'bridge.hello')
 check(JSON.parse(hello.body).features?.commands === true, 'the app tells the module, answering its hello, that it has rolls to fetch')
+// From module 0.44.0: the app says it takes hit points set from the app, and keeps the campaign's own
+// switch for them, on for a campaign saved before it, apart from the rolls.
+check(JSON.parse(hello.body).features?.hitPoints === 1, 'the app tells the module, answering its hello, that it takes hit points set from the app (module 0.44.0)')
+check(sql(`select "hitPointsEnabled" from campaign where title = 'Ashlands'`) === 't', 'the app keeps that the campaign lets its players set hit points, on for one saved without the switch (module 0.44.0)')
 
 // The Gamemaster's card says so.
 await gm.reload()
@@ -545,7 +550,7 @@ const requestsBeforeEach = requests()
 await watchKeepOpen()
 // Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn too, wherever players' rolls are made.
 // Changed on purpose (round 0.36.0 §13.4, v6): and taking back a turn ended, right after it.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,formula,endConcentration,endTurn,undoEndTurn,textRoll|t', `the app has it the game takes a hit die at a time, not several at once (${stored()})`)
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,formula,plainRoll,endConcentration,endTurn,undoEndTurn,textRoll|t', `the app has it the game takes a hit die at a time, not several at once (${stored()})`)
 // The game takes three seconds over each, as a busy one may: the tray asks to keep the page open
 // only while it waits on the game once its own dice have settled, which a game making both within
 // half a second never has it do.
@@ -569,7 +574,7 @@ check(eachText.includes('Hit dice (1d10 + 1d8)') && (await saidKeepOpen()), `the
 sql(`update campaign set "rollKinds" = string_to_array('${kindsHeld}', ',') where title = 'Ashlands'`)
 // Changed on purpose (round 0.36.0 §13.4): from module 0.36.0, ending a turn too, wherever players' rolls are made.
 // Changed on purpose (round 0.36.0 §13.4, v6): and taking back a turn ended, right after it.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,textRoll|t', `the app has it again that the game takes several at once (${stored()})`)
+check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,plainRoll,endConcentration,endTurn,undoEndTurn,textRoll|t', `the app has it again that the game takes several at once (${stored()})`)
 
 // ---- No more than twenty at once ----
 // A barbarian's level gives Thorin a d12, and a boon twenty more besides, as dnd5e counts a class's
@@ -654,6 +659,26 @@ core.forceBlind = false
 check(made.status === 'done' && made.result.visible === false && made.result.rolls.length === 0 && message.blind, 'a roll the game made blind is reported without its roll')
 check(text.includes('Rolled at the table, hidden by your Gamemaster') && !text.includes('At the table:'), `the tray says it was rolled, hidden: "${text}"`)
 await shoot(page, 'phone-hidden')
+
+// ---- A plain roll, from module 0.44.0, as the dice tray sends it: through the rolls' gate ----
+const plain = {
+  kind: 'plainRoll',
+  plainRoll: { terms: [{ faces: 6, count: 2 }, { faces: 8, count: 1 }], bonus: 2 },
+  mode: 0, explicit: false, extras: [],
+  dice: [{ faces: 6, results: [3, 5] }, { faces: 8, results: [7] }],
+}
+// The rolls made so far are let out of the seat's last minute, which takes twenty at most.
+sql(`update roll_request set "createdAt" = "createdAt" - interval '2 minutes' where status in ('done', 'failed')`)
+const plainSent = await page.evaluate(async body => (await fetch('/api/characters/sheet-thorin/rolls', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+})).status, plain)
+if (plainSent === 202) {
+  await until(() => latestRequest().payload?.kind === 'plainRoll' && ['done', 'failed'].includes(latestRequest().status), 'the game to make the plain roll')
+}
+const plainMade = latestRequest()
+const plainCard = messageFor(plainMade.id)
+check(plainSent === 202 && plainMade.status === 'done' && plainCard?.rolls[0].total === 17,
+  `the app takes a plain roll of 2d6 + 1d8 + 2, and the game makes it with Alice's dice (${plainSent}, ${plainMade.status} ${plainMade.result?.reason ?? ''}: ${plainCard?.rolls[0].formula} = ${plainCard?.rolls[0].total})`)
 
 // ---- Turned off by the Gamemaster ----
 const count = requests()

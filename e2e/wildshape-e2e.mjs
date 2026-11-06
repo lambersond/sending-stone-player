@@ -363,8 +363,8 @@ part('1. the hello and the answer')
 {
   const features = hello().data.features
   check(same(features.wildShape, { enabled: true, kinds: ['wildShape'], reason: null })
-    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape']),
-  `the hello takes Wild Shape, by the campaign's switch, its key last, after effects (${JSON.stringify({ wildShape: features.wildShape, keys: Object.keys(features) })})`)
+    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints']),
+  `the hello takes Wild Shape, by the campaign's switch, after effects, before hit points (module 0.44.0) (${JSON.stringify({ wildShape: features.wildShape, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.wildShape === 1, `the app answers wildShape: 1 (${hello().body})`)
   await until(() => wildShapeEnabled() === 't', 'the app to keep Wild Shape on', 15_000)
   check(wildShapeEnabled() === 't', 'the campaign row keeps wildShapeEnabled on')

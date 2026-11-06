@@ -33,7 +33,8 @@ run late-setup 4 EXPECT_FIX=1
 run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
 run layout 12 EXPECT=fixed
 run favorites 59 X=1
-run rolls 74 SHOTS=$O/shots-rolls
+# v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate.
+run rolls 77 SHOTS=$O/shots-rolls
 run attacks 84 SHOTS=$O/shots-attacks
 run attacks 86 MIDI=1 SHOTS=$O/shots-attacks
 # Round 0.42.1: spells prepared from the row menus (§P).
