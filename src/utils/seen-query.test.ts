@@ -34,6 +34,7 @@ describe('utils/seen-query', () => {
       'every one, given in another order, sent in the table’s',
       {
         sheet: 's1',
+        hitpoints: true,
         wildshape: true,
         effects: true,
         favorites: true,
@@ -46,7 +47,8 @@ describe('utils/seen-query', () => {
         live: true,
         version: 12,
       },
-      'version=12&live=1&rolls=r3&gm=made&gmrolls=g2&moves=1&typed=1&removes=1&favorites=1&effects=1&wildshape=1&sheet=s1',
+      // Changed on purpose (v0.44): hit points, from module 0.44.0, after Wild Shape.
+      'version=12&live=1&rolls=r3&gm=made&gmrolls=g2&moves=1&typed=1&removes=1&favorites=1&effects=1&wildshape=1&hitpoints=1&sheet=s1',
     ],
   ])('%s', (_, seen, query) => {
     expect(seenQuery(seen).toString()).toBe(query)

@@ -64,6 +64,7 @@ describe('app/api/characters/[id]/table', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     })
     jest.mocked(getTableView).mockResolvedValue(view)
   })
@@ -109,6 +110,7 @@ describe('app/api/characters/[id]/table', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     })
     const withRolls = await get('?version=7&live=1&rolls=skill,save')
     expect(withRolls.status).toBe(204)
@@ -127,6 +129,7 @@ describe('app/api/characters/[id]/table', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     })
     const withFeatures = await get(
       `?version=7&live=1&rolls=${encodeURIComponent('skill,damage;modifiers')}`,
@@ -152,6 +155,7 @@ describe('app/api/characters/[id]/table', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -197,6 +201,7 @@ describe('app/api/characters/[id]/table', () => {
         effects: false,
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
+        hitPoints: false,
       })
       const response = await get(query)
 
@@ -218,6 +223,7 @@ describe('app/api/characters/[id]/table', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     }
     jest.mocked(getCampaignStatus).mockResolvedValue({ ...status, moves: true })
     const answers = [
@@ -251,6 +257,7 @@ describe('app/api/characters/[id]/table', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -285,6 +292,7 @@ describe('app/api/characters/[id]/table', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -318,6 +326,7 @@ describe('app/api/characters/[id]/table', () => {
       favorites: false,
       // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
       wildShape: false,
+      hitPoints: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -350,6 +359,7 @@ describe('app/api/characters/[id]/table', () => {
       removes: false,
       favorites: false,
       effects: false,
+      hitPoints: false,
     }
     jest
       .mocked(getCampaignStatus)
@@ -366,6 +376,39 @@ describe('app/api/characters/[id]/table', () => {
       await get('?version=7&live=1'),
       // Its module stopped fetching: the page would go on offering Change and Return.
       await get('?version=7&live=1&wildshape=1'),
+    )
+
+    expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
+  })
+
+  it('sends the view to a viewer who missed the game taking hit points, or no longer taking them (module 0.44.0)', async () => {
+    const status = {
+      version: 7,
+      live: true,
+      rollsToTable: [],
+      rollFeatures: [],
+      moves: false,
+      typed: false,
+      removes: false,
+      favorites: false,
+      effects: false,
+      wildShape: false,
+    }
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, hitPoints: true })
+    const answers = [
+      await get('?version=7&live=1&hitpoints=1'),
+      // Its campaign let its players, and its module began fetching, with no new version.
+      await get('?version=7&live=1'),
+    ]
+    jest
+      .mocked(getCampaignStatus)
+      .mockResolvedValue({ ...status, hitPoints: false })
+    answers.push(
+      await get('?version=7&live=1'),
+      // Its module stopped fetching: the page would go on offering the hit points' editor.
+      await get('?version=7&live=1&hitpoints=1'),
     )
 
     expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
@@ -456,6 +499,7 @@ describe('app/api/characters/[id]/table, typing in their own dice, from module 0
     effects: false,
     // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
     wildShape: false,
+    hitPoints: false,
   }
 
   beforeEach(() => {

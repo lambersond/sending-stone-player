@@ -16,6 +16,7 @@ import {
 } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
+import { hitPointsAvailable } from '@/utils/hit-points'
 import { toTablePrompts } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
 import {
@@ -201,6 +202,7 @@ export async function getCampaignStatus(
       favorites: false,
       effects: false,
       wildShape: false,
+      hitPoints: false,
     }
   }
   const now = Date.now()
@@ -215,6 +217,7 @@ export async function getCampaignStatus(
         favoritesEnabled: true,
         effectsEnabled: true,
         wildShapeEnabled: true,
+        hitPointsEnabled: true,
       },
     }),
     gmRolls
@@ -260,6 +263,13 @@ export async function getCampaignStatus(
       !!seat.actorId &&
       !!campaign &&
       wildShapeAvailable(campaign, now),
+    // Whether the player may set its character's hit points, from module 0.44.0, by the campaign's
+    // switch: theirs alone, as Wild Shape, with the rolls off too.
+    hitPoints:
+      seat.role === 'player' &&
+      !!seat.actorId &&
+      !!campaign &&
+      hitPointsAvailable(campaign, now),
   }
 }
 
@@ -382,6 +392,7 @@ const TABLE_CAMPAIGN = {
   favoritesEnabled: true,
   effectsEnabled: true,
   wildShapeEnabled: true,
+  hitPointsEnabled: true,
   chatClearedAt: true,
 } as const
 
@@ -632,8 +643,10 @@ function gmRollParts(
  * remove its items, from module 0.33.0, with no switch, with moves off too; and its player alone,
  * at their own seat, whether they may add to and remove from its favorites, from module 0.37.0,
  * with no switch; turn off, turn on and delete its own effects, from module 0.39.0, by the
- * campaign's switch, as favorites; and use Wild Shape, from module 0.40.0, by the campaign's
- * switch, as effects. What the character is, and what Wild Shape gives, are on its sheet.
+ * campaign's switch, as favorites; use Wild Shape, from module 0.40.0, by the campaign's switch, as
+ * effects; and set its hit points and temporary hit points, its form's while shaped, from module
+ * 0.44.0, by the campaign's switch, as Wild Shape. What the character is, and what Wild Shape
+ * gives, are on its sheet.
  */
 function seatAllows(
   seat: SheetSeat,
@@ -657,5 +670,7 @@ function seatAllows(
     ...(own && effectsAvailable(campaign, now) && { effects: true as const }),
     ...(own &&
       wildShapeAvailable(campaign, now) && { wildShape: true as const }),
+    ...(own &&
+      hitPointsAvailable(campaign, now) && { hitPoints: true as const }),
   }
 }

@@ -37,10 +37,11 @@ const BODY_REFUSED = { type: 415, size: 413, json: 400 } as const
  * 0.33.0, `&removes=1` where the view last seen let the seat remove items; from module 0.37.0
  * `&favorites=1` where the view last seen let the seat change the character's favorites; from
  * module 0.39.0 `&effects=1` where it let the player change the character's own effects; from
- * module 0.40.0 `&wildshape=1` where it let the player use Wild Shape; and the sheet's version as
- * `&sheet=` to have an unchanged sheet left out. Without the favorites', effects' and Wild Shape's
- * keys, a page answered 204 would keep offering them once its Gamemaster's Foundry stopped
- * fetching, as nothing bumps the version then.
+ * module 0.40.0 `&wildshape=1` where it let the player use Wild Shape; from module 0.44.0
+ * `&hitpoints=1` where it let the player set the character's hit points; and the sheet's version
+ * as `&sheet=` to have an unchanged sheet left out. Without the favorites', effects', Wild Shape's
+ * and hit points' keys, a page answered 204 would keep offering them once its Gamemaster's Foundry
+ * stopped fetching, as nothing bumps the version then.
  */
 export async function tableResponse(
   request: NextRequest,
@@ -75,6 +76,7 @@ export async function tableResponse(
       favorites,
       effects,
       wildShape,
+      hitPoints,
     } = await getCampaignStatus(seat)
     const seen = seenAs(
       known,
@@ -88,6 +90,7 @@ export async function tableResponse(
         favorites,
         effects,
         wildshape: wildShape,
+        hitpoints: hitPoints,
       },
       { gm: gm?.rolls, gmrolls: gmRollsKey },
     )

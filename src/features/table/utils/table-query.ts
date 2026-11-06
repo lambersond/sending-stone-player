@@ -27,6 +27,8 @@ export function seenOf(view: TableView): ViewSeen {
     effects: view.effects === true,
     // From module 0.40.0: whether the player may use Wild Shape.
     wildShape: view.wildShape === true,
+    // From module 0.44.0: whether the player may set its character's hit points.
+    hitPoints: view.hitPoints === true,
   }
 }
 
@@ -47,6 +49,7 @@ export function tableQuery({
   favorites,
   effects,
   wildShape,
+  hitPoints,
 }: ViewSeen): URLSearchParams {
   return seenQuery({
     version,
@@ -60,6 +63,7 @@ export function tableQuery({
     favorites,
     effects,
     wildshape: wildShape,
+    hitpoints: hitPoints,
     sheet: sheetVersion,
   })
 }

@@ -237,8 +237,10 @@ export type PartySeat =
  * What tells a companion's pane whether anything is new: as a character's view, the campaign's
  * version, whether it's live, the rolls the game takes for it and what else it does with them,
  * where the Gamemaster's rolls go at their seat, what changes whenever any of the Gamemaster's
- * rolls as it does, at its player's, and whether its player types in their own dice. A change of
- * how companions enter initiative comes in a hello, which moves the version.
+ * rolls as it does, at its player's, and whether its player types in their own dice; and from
+ * module 0.44.0 whether its player may set its hit points, which its module's fetching or not
+ * changes with no new version. A change of how companions enter initiative comes in a hello, which
+ * moves the version.
  */
 export type CompanionStatus = {
   version: number
@@ -248,6 +250,7 @@ export type CompanionStatus = {
   gm?: { rolls: GmRolls }
   gmRollsKey?: string
   typed: boolean
+  hitPoints: boolean
 }
 
 /**
@@ -263,7 +266,8 @@ export type CompanionStatus = {
  * character's favorites, which likewise changes with no new version; and from module 0.39.0
  * whether the player may change its character's own effects, which likewise changes with no new
  * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
- * with no new version.
+ * with no new version; and from module 0.44.0 whether the player may set its character's hit
+ * points, which likewise changes with no new version.
  */
 export type CampaignStatus = {
   version: number
@@ -278,6 +282,7 @@ export type CampaignStatus = {
   favorites: boolean
   effects: boolean
   wildShape: boolean
+  hitPoints: boolean
 }
 
 /**

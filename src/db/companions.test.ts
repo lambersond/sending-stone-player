@@ -359,6 +359,8 @@ describe('db/companions', () => {
           companions: true,
           companionKinds: true,
           companionInitiative: true,
+          // Changed on purpose (v0.44): whether its player may set its hit points.
+          hitPointsEnabled: true,
           rollsEnabled: true,
           rollKinds: true,
           rollFeatures: true,
@@ -633,6 +635,8 @@ describe('db/companions', () => {
         rollsToTable: ['initiative', 'attack', 'use', 'damage'],
         rollFeatures: ['modifiers', 'manualDice'],
         typed: true,
+        // Changed on purpose (v0.44): whether its player may set its hit points.
+        hitPoints: false,
       })
     })
 
@@ -688,6 +692,41 @@ describe('db/companions', () => {
         rollsToTable: [],
         rollFeatures: [],
         typed: false,
+        hitPoints: false,
+      })
+    })
+
+    // Module 0.44.0: its character's player sets its hit points from its pane, with the rolls off
+    // too, while it's still listed as the character's; the Gamemaster's seat never does.
+    it('lets its character’s player set its hit points while the campaign lets them, the rolls off', async () => {
+      const seat = await seatAt(thorin, 'wolfBrakka')
+      held({ rollsEnabled: false, hitPointsEnabled: true })
+
+      expect(await getCompanionView(seat)).toMatchObject({
+        rollsToTable: [],
+        hitPoints: true,
+      })
+      await expect(getCompanionStatus(seat)).resolves.toMatchObject({
+        hitPoints: true,
+      })
+    })
+
+    it.each([
+      ['the Gamemaster’s seat', gm, {}],
+      ['a companion no longer listed', thorin, { companions: [imp] }],
+      ['a campaign that lets none', thorin, { hitPointsEnabled: false }],
+      [
+        'a module not fetching',
+        thorin,
+        { bridgePolledAt: new Date(Date.now() - 46_000) },
+      ],
+    ])('lets no one set them at %s', async (_name, from, fields) => {
+      const seat = await seatAt(from, 'wolfBrakka')
+      held({ hitPointsEnabled: true, ...fields })
+
+      expect(await getCompanionView(seat)).not.toHaveProperty('hitPoints')
+      await expect(getCompanionStatus(seat)).resolves.toMatchObject({
+        hitPoints: false,
       })
     })
   })

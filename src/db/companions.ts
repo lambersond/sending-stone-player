@@ -16,6 +16,7 @@ import {
   companionsByKey,
   tableCompanion,
 } from '@/utils/companions'
+import { hitPointsAvailable } from '@/utils/hit-points'
 import { toTablePrompts } from '@/utils/prompts'
 import { toGmRollView } from '@/utils/requests/views'
 import { sheetTextRefs } from '@/utils/sheet-texts'
@@ -112,6 +113,7 @@ const companionSelect = {
   companions: true,
   companionKinds: true,
   companionInitiative: true,
+  hitPointsEnabled: true,
   ...rollsSelect,
 } as const
 
@@ -195,6 +197,7 @@ export async function getCompanionStatus(
       rollsToTable: [],
       rollFeatures: [],
       typed: false,
+      hitPoints: false,
     }
   }
   const connected = !!listedNow(seat, campaign.companions)
@@ -205,7 +208,32 @@ export async function getCompanionStatus(
     ...companionRolls(seat, campaign, connected),
     ...(key && { gmRollsKey: key }),
     typed: seat.role === 'player' && seat.manualDice === true,
+    // Whether its player may set its hit points, from module 0.44.0, as its view says.
+    hitPoints: setsHitPoints(seat, campaign, connected, now),
   }
+}
+
+/**
+ * Whether the seat may set a companion's hit points and temporary hit points, from module 0.44.0:
+ * its character's player's alone, never the Gamemaster's, while it's still listed as its
+ * character's and the campaign lets its players, its module fetching; with the rolls off too.
+ */
+function setsHitPoints(
+  seat: SheetSeat,
+  campaign: { hitPointsEnabled: boolean; bridgePolledAt: Date | null },
+  connected: boolean,
+  now: number,
+): boolean {
+  return (
+    seat.role === 'player' && connected && hitPointsAvailable(campaign, now)
+  )
+}
+
+/** The view's flag that its player may set its hit points (module 0.44.0), only where they may. */
+function hitPointsFlag(...args: Parameters<typeof setsHitPoints>): {
+  hitPoints?: true
+} {
+  return setsHitPoints(...args) ? { hitPoints: true } : {}
 }
 
 /**
@@ -213,8 +241,9 @@ export async function getCompanionStatus(
  * it, so that its own combatant is the viewer's and its character the party's, and theirs; the
  * rolls it can have made; from module 0.41.0, the saves the game asks of it, by its key, never its
  * character's; the Gamemaster's rolls as it, at its player's seat; whether its dice are typed in,
- * as its character's are; and how it enters initiative. Its chat is its character's, which its
- * character's view has. The caller must already have resolved the companion seat.
+ * as its character's are; from module 0.44.0, whether its player may set its hit points; and how
+ * it enters initiative. Its chat is its character's, which its character's view has. The caller
+ * must already have resolved the companion seat.
  * @param known - What the pane already has: the sheet of this version is left out.
  */
 export async function getCompanionView(
@@ -331,6 +360,7 @@ export async function getCompanionView(
         on: seat.manualDice === true,
       },
     }),
+    ...hitPointsFlag(seat, campaign, connected, now),
     initiative: initiativeOf(
       campaign.companionInitiative,
       entry?.of ?? [of],
