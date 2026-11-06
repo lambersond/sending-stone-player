@@ -1,23 +1,25 @@
 // The dice tray under the chat (v0.44, ROADMAP item 7, the user's placement D), end to end against
-// module 0.44.0's plain roll, in the world of world-030.mjs with dnd5e 5.3.3's dice. Alice plays
-// Thorin, a Trusted player, whom Make Manual Rolls is given to, in Dice Tray, whose players roll in
-// the app and may type in their dice (Manual Dice active). At 390 × 844, on the Chat tab: the tray's
-// bar under the chat, closed, then opened; a button for each size, d4 to d100, its shape and its
-// size, 44 px at least; d6, d6, d8 and d20 added, the d20 taken away; the footer saying the game
-// makes these; Roll 2d6 + 1d8: the request a plain roll of the dice thrown, the module's card in
-// Foundry (Alice's, spoken by Thorin, "Dice roll", "2d6 + 1d8", Foundry's total of the app's dice,
-// flagged with the request, dnd5e 5's generic roll), the tray's "At the table" the card's total, the
-// card in the app's chat above the tray, the dice kept, and one dice renderer on the page. At
-// 1280 × 800, in the chat column beside the sheet: the seven sizes in one row; 1d100 + 2, one die
-// from 1 to 100, its card "1d100 + 2"; 20 dice the most, every way to add one saying so; Clear. Send
-// to the table off at 1280: rolled on the app's dice alone, nothing sent, the footer saying why;
-// before Manual Dice is on, which Thorin's every device takes up. With Manual Dice on, at 390: Roll
-// asks the tray's own dialog for "2d6" and "+1d8", typed 3, 5 and 7, sent typed, the card flagged
-// typed, its total 15. The Gamemaster's page for Thorin, at 1280: the tray rolls 1d20 as Thorin, the
-// request the Gamemaster's, labelled, the card flagged GM. Synthetic characters only. Run with
-// --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// module 0.44.0's plain roll, in the world of world-030.mjs with dnd5e 5.3.3's dice, or with
+// DND5E6=1 dnd5e 6.0.5 and its dice. Alice plays Thorin, a Trusted player, whom Make Manual Rolls
+// is given to, in Dice Tray, whose players roll in the app and may type in their dice (Manual Dice
+// active). At 390 × 844, on the Chat tab: the tray's bar under the chat, closed, then opened; a
+// button for each size, d4 to d100, its shape and its size, 44 px at least; d6, d6, d8 and d20
+// added, the d20 taken away; the footer saying the game makes these; Roll 2d6 + 1d8: the request a
+// plain roll of the dice thrown, the module's card in Foundry (Alice's, spoken by Thorin, "Dice
+// roll", "2d6 + 1d8", Foundry's total of the app's dice, flagged with the request, dnd5e 5's
+// generic roll or dnd5e 6's generic message), the tray's "At the table" the card's total, the card
+// in the app's chat above the tray, the dice kept, and one dice renderer on the page. At 1280 ×
+// 800, in the chat column beside the sheet: the seven sizes in one row; 1d100 + 2, one die from 1
+// to 100, its card "1d100 + 2"; 20 dice the most, every way to add one saying so; Clear. At 1024 ×
+// 768, the column beside the sheet narrower: four sizes a row, then three. Send to the table off at
+// 1280: rolled on the app's dice alone, nothing sent, the footer saying why; before Manual Dice is
+// on, which Thorin's every device takes up. With Manual Dice on, at 390: Roll asks the tray's own
+// dialog for "2d6" and "+1d8", typed 3, 5 and 7, sent typed, the card flagged typed, its total 15.
+// The Gamemaster's page for Thorin, at 1280: the tray rolls 1d20 as Thorin, the request the
+// Gamemaster's, labelled, the card flagged GM. Synthetic characters only. Run with --import
+// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
-  W, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, part, same, sameJson,
+  DND5E6, W, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, part, same, sameJson,
   settled, shoot, sideways, sql, startModule, until, wait,
 } from './world-030.mjs'
 
@@ -26,7 +28,7 @@ const SECRET = 'dice-tray-secret-44'
 const TITLE = 'Dice Tray'
 await launch(GAME)
 const { id: A } = await newCampaign({ title: TITLE, address: 'dice-tray.forge-vtt.com', secret: SECRET })
-await foundryWorld()
+await foundryWorld({ dice6: DND5E6 })
 // A checkout's module.json says 0.1.0: the version the release stamps.
 game.modules.get('sending-stone').version = '0.44.0'
 manualDice('active')
@@ -51,6 +53,8 @@ const madeFor = id => W.messages.contents.find(m => m.flags?.['sending-stone']?.
 /** Each of a roll's dice terms' results, in order. */
 const facesOf = roll => (roll?.dice ?? []).map(die => die.results.map(r => r.result))
 const sum = values => values.flat().reduce((total, value) => total + value, 0)
+/** A card's kind of roll: dnd5e 5's in its flags, dnd5e 6's its message's type. */
+const kindOf = message => (DND5E6 ? message?.type : message?.flags?.dnd5e?.roll?.type)
 
 part('0. the game takes plain rolls')
 await until(() => kinds().includes('plainRoll'), 'the app to keep that the game takes plain rolls', 15_000)
@@ -135,8 +139,8 @@ check(first.made.kind === 'plainRoll' && first.made.role === 'player' && first.m
 const card = first.message
 check(card && card.author.id === 'alice' && card.speaker.actor === 'thorin' && card.flavor === 'Dice roll' && card.rolls[0].formula === '2d6 + 1d8'
   && same(facesOf(card.rolls[0]), thrown.map(die => die.results)) && card.rolls[0].total === sum(thrown.map(die => die.results))
-  && card.flags['sending-stone'].request === first.made.id && card.flags.dnd5e?.roll?.type === 'generic',
-  `the module's card in Foundry: Alice's, spoken by Thorin, "Dice roll", 2d6 + 1d8 of the app's dice, Foundry's total theirs, flagged with the request, dnd5e 5's generic roll (${card?.flavor} ${card?.rolls[0]?.formula} = ${card?.rolls[0]?.total} ${JSON.stringify(facesOf(card?.rolls[0]))})`)
+  && card.flags['sending-stone'].request === first.made.id && kindOf(card) === 'generic',
+  `the module's card in Foundry: Alice's, spoken by Thorin, "Dice roll", 2d6 + 1d8 of the app's dice, Foundry's total theirs, flagged with the request, ${DND5E6 ? "dnd5e 6's generic message" : "dnd5e 5's generic roll"} (${card?.flavor} ${card?.rolls[0]?.formula} = ${card?.rolls[0]?.total} ${JSON.stringify(facesOf(card?.rolls[0]))})`)
 check(first.shown.includes('Dice (2d6 + 1d8)') && first.shown.includes(`At the table: ${card?.rolls[0].total}`),
   `the tray says the roll, and that the game made it, its total the card's: "${first.shown}"`)
 await phone.log.getByRole('listitem').filter({ hasText: 'Dice roll' }).first().waitFor({ timeout: 20_000 })
@@ -175,7 +179,22 @@ check((await chatOf(desk).getByRole('button', { name: 'Pick dice to roll', exact
   && (await chatOf(desk).getByRole('group', { name: 'Modifier' }).locator('output').textContent()) === '+0',
   'Clear empties the tray, its modifier +0 again, and Roll waits for dice')
 
-part('3. Send to the table off')
+part('3. at 1024, in a narrower column beside the sheet')
+const narrow = await browse({ width: 1024, height: 768, path: '/characters/sheet-thorin', toasts: false })
+await narrow.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+await openTray(narrow)
+const boxes = await sizesOf(narrow).evaluateAll(buttons => buttons.map(b => {
+  const box = b.getBoundingClientRect()
+  return { top: Math.round(box.top), w: Math.round(box.width), h: Math.round(box.height) }
+}))
+const perRow = [...new Set(boxes.map(box => box.top))].map(top => boxes.filter(box => box.top === top).length)
+check(same(perRow, [4, 3]) && boxes.every(box => box.w >= 44 && box.h >= 44)
+  && (await narrow.page.getByRole('region', { name: 'Character', exact: true }).isVisible()) && (await sideways(narrow.page)) === 0,
+  `at 1024 the column beside the sheet is narrower: four sizes a row, then three, each 44 px at least, and nothing scrolls sideways (${perRow}: ${JSON.stringify(boxes)})`)
+await shoot(narrow, 'dice-tray-narrow', chatOf(narrow))
+await narrow.view.close()
+
+part('4. Send to the table off')
 // Before Manual Dice is turned on for Thorin, which every device of his then takes up, this one too.
 await toggleSetting(desk, 'Send to the table')
 await chatOf(desk).getByText('Only you see these dice: Send to the table is off in Settings.', { exact: true }).waitFor({ timeout: 5_000 })
@@ -189,7 +208,7 @@ check(requests() === beforeOff && !offShown.includes('At the table'),
   `with Send to the table off, the tray rolls on the app's dice alone, sends nothing, and says why the game makes none: "${offShown}"`)
 await shoot(desk, 'dice-tray-send-off', chatOf(desk))
 
-part('4. typed in, with Manual Dice on')
+part('5. typed in, with Manual Dice on')
 await phone.character()
 await toggleSetting(phone, 'Enter dice results manually')
 await until(() => sql(`select "manualDice" from "character" where id = 'sheet-thorin'`) === 't', 'Manual Dice on, kept for Thorin', 10_000)
@@ -219,7 +238,7 @@ check(typed.payload.typed === true && sameJson(typed.payload.dice, [{ faces: 6, 
   && typedShown.includes('At the table: 15'),
   `typed 3, 5 and 7, it's sent typed, the card flagged typed with those dice, 15, and the tray says so: "${typedShown}"`)
 
-part('5. the Gamemaster’s page')
+part('6. the Gamemaster’s page')
 const gmPage = await browse({ width: 1280, height: 800, path: `/campaigns/${A}/characters/thorin`, toasts: false })
 await gmPage.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
 await openTray(gmPage)

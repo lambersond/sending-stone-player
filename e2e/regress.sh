@@ -35,9 +35,10 @@ run layout 12 EXPECT=fixed
 run favorites 59 X=1
 # v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate.
 run rolls 77 SHOTS=$O/shots-rolls
-# v0.44: the dice tray under the chat (module 0.44.0's plain roll): at 390 and 1280, a d100 and a
-# modifier, 20 dice the most, typed in, the Gamemaster's page, and Send to the table off.
-run dice 20 SHOTS=$O/shots-044
+# v0.44: the dice tray under the chat (module 0.44.0's plain roll): at 390, 1280 and 1024, a d100
+# and a modifier, 20 dice the most, Send to the table off, typed in, and the Gamemaster's page.
+run dice 21 SHOTS=$O/shots-dice
+run dice 21 DND5E6=1 SHOTS=$O/shots-dice
 run attacks 84 SHOTS=$O/shots-attacks
 run attacks 86 MIDI=1 SHOTS=$O/shots-attacks
 # Round 0.42.1: spells prepared from the row menus (§P).
