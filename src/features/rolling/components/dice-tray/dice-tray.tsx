@@ -4,6 +4,7 @@ import { useId, useState } from 'react'
 import clsx from 'clsx'
 import { ChevronDown, Dices } from 'lucide-react'
 import { FormulaResult } from '../roll-tray/formula-result'
+import { RollingLine } from '../roll-tray/rolling-line'
 import { BonusStepper } from './bonus-stepper'
 import { DieButtons } from './die-buttons'
 import { TrayChips } from './tray-chips'
@@ -15,9 +16,10 @@ import type { RollFeature, RollKind } from '@/types/roll'
  * The dice tray (v0.44), a bar under the chat, for what the Gamemaster asks: Roll dice opens it,
  * and closes it again. In it, a button for each size of die, d4 to d100, a tap adding one; the dice
  * picked, a chip each size with one fewer and one more; the number added; Clear; and Roll, which
- * throws them over the page and keeps them for the next roll. The latest roll shows beneath, as the
- * game made it too, or not, its card coming in the chat above; and whether the game makes these at
- * all, and why not. It rolls as the character, whichever creature the sheet shows.
+ * throws them over the page and keeps them for the next roll. Beneath, "Rolling…" as they tumble,
+ * then the latest roll, as the game made it too, or not, its card coming in the chat above; and
+ * whether the game makes these at all, and why not. It rolls as the character, whichever creature
+ * the sheet shows.
  * @param characterId - The character it rolls as, or for the Gamemaster's seat its key.
  * @param kinds - The rolls the game takes from the seat now.
  * @param features - What else the game does with them.
@@ -99,9 +101,11 @@ export function DiceTray({
           >
             {rollName(tray.dice, tray.bonus)}
           </button>
-          {/* The latest roll, said as it lands and as the game makes it, or not. */}
+          {/* The dice tumbling, then the latest roll, said as it lands and as the game makes it, or
+              not. */}
           <div role='status' aria-label='Latest roll'>
-            {tray.latest && (
+            {tray.rolling && <RollingLine />}
+            {!tray.rolling && tray.latest && (
               <FormulaResult
                 roll={tray.latest.roll}
                 state={tray.latest.state}

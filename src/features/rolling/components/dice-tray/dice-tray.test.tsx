@@ -1,13 +1,15 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DiceTray } from './dice-tray'
 import { rollServer } from '@/utils/test-utils'
 
-// No WebGL here: the renderer is never ready, so each roll lands at once, on the app's own dice.
-jest.mock(
-  '@lambersond/3d-dice-react',
-  () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
-)
+// No WebGL here: the renderer is never ready, so each roll lands at once, on the app's own dice;
+// but for a suite's renderer made ready, whose dice land when it says.
+const mockRenderer = { isReady: false, roll: jest.fn() }
+jest.mock('@lambersond/3d-dice-react', () => ({
+  ...jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
+  useDiceRenderer: () => mockRenderer,
+}))
 
 const SIZES = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100']
 
@@ -26,6 +28,8 @@ const add = (size: string) =>
 
 beforeEach(() => {
   localStorage.clear()
+  mockRenderer.isReady = false
+  mockRenderer.roll.mockReset()
   rollServer()
 })
 
@@ -128,5 +132,27 @@ describe('features/rolling/components/dice-tray', () => {
     expect(
       screen.getByRole('button', { name: 'Roll 1d100' }),
     ).toBeInTheDocument()
+  })
+
+  it('says "Rolling…" while its dice tumble over the page, then the roll once they land', async () => {
+    const user = userEvent.setup()
+    const dice: { land?: () => void } = {}
+    mockRenderer.isReady = true
+    mockRenderer.roll.mockReturnValue(
+      new Promise<void>(resolve => {
+        dice.land = resolve
+      }),
+    )
+    tray()
+    await user.click(toggle())
+    await user.click(add('d20'))
+    await user.click(screen.getByRole('button', { name: 'Roll 1d20' }))
+
+    const latest = screen.getByRole('status', { name: 'Latest roll' })
+    await waitFor(() => expect(latest).toHaveTextContent('Rolling…'))
+    expect(latest).not.toHaveTextContent('Dice (1d20)')
+    act(() => dice.land?.())
+    await waitFor(() => expect(latest).toHaveTextContent('Dice (1d20)'))
+    expect(latest).not.toHaveTextContent('Rolling…')
   })
 })

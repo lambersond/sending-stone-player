@@ -21,8 +21,9 @@ import type { DieSides } from '@lambersond/3d-dice-core'
  * @param kinds - The rolls the game takes from the seat now.
  * @param typing - Whether the player types in what their own dice show.
  * @returns The dice, smallest first, and the number added; whether one more die may be added; the
- *   ways to change them and to roll; the latest roll and its way to the game; whether the game
- *   makes these, and if not why; and the tray's dice dialog, to put on the page.
+ *   ways to change them and to roll; whether dice tumble now, before they land; the latest roll and
+ *   its way to the game; whether the game makes these, and if not why; and the tray's dice dialog,
+ *   to put on the page.
  */
 export function useDiceTray({
   characterId,
@@ -38,7 +39,7 @@ export function useDiceTray({
   const tray = useTray()
   const table = useTableRolls(characterId, kinds, features)
   const entry = useDiceEntry()
-  const { rollFormula, rolls } = useSheetRoller(
+  const { rollFormula, rolls, rolling } = useSheetRoller(
     undefined,
     undefined,
     table.sendFormula,
@@ -68,6 +69,7 @@ export function useDiceTray({
     roll: () => {
       if (dice.length > 0) void rollFormula(toPlainRoll(dice, bonus))
     },
+    rolling,
     latest: latest && { roll: latest, state: table.states.get(latest.id) },
     reach: plainRollReach(kinds, table.sending, role),
     dialog: entry.dialog,

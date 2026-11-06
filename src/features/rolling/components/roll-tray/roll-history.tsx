@@ -6,6 +6,7 @@ import { reachOf, rechargeTitle } from '../../utils/tray-words'
 import { DamageDue } from './damage-due'
 import { GmPill } from './gm-pill'
 import { LatestResult } from './latest-result'
+import { RollingLine } from './rolling-line'
 import { TableMark } from './table-mark'
 import { earlierTotal, movesAlone, offersDamage } from './utils'
 import { damageDue } from '@/features/rolling/utils/damage-due'
@@ -50,15 +51,7 @@ export function RollHistory({
     </p>
   )
   if (rolling) {
-    status = (
-      <p className='flex items-center gap-2 text-sm font-semibold'>
-        <Dices
-          aria-hidden
-          className='size-5 shrink-0 text-primary motion-safe:animate-spin'
-        />
-        Rolling…
-      </p>
-    )
+    status = <RollingLine />
   } else if (latest) {
     status = <LatestResult roll={latest} table={table} />
   }
