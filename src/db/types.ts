@@ -66,9 +66,10 @@ export type RollRejection = {
 /**
  * A command a seat sends that rides to the game as a roll does but is none, each with a switch of
  * the campaign's own, as `createCommand` takes it: an item removed, a favorite, an effect changed,
- * Wild Shape. A move has gates of its own.
+ * Wild Shape, and from module 0.44.0 hit points set. A move has gates of its own.
  */
-export type CommandKind = 'remove' | 'favorite' | 'effect' | 'wildShape'
+export type CommandKind =
+  'remove' | 'favorite' | 'effect' | 'wildShape' | 'hitPoints'
 
 /** What a command does, as its input holds it under its kind. */
 export type CommandValue<K extends CommandKind> = NonNullable<
@@ -76,12 +77,23 @@ export type CommandValue<K extends CommandKind> = NonNullable<
 >
 
 /** One of a seat's rows on its way, as a command is checked against it. */
-export type WaitingRow = { kind?: string; payload: Prisma.JsonValue }
+export type WaitingRow = {
+  kind?: string
+  actorId?: string
+  payload: Prisma.JsonValue
+}
 
-/** What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster. */
+/**
+ * What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster, and at a
+ * companion's seat (module 0.44.0) its companions.
+ */
 export type CommandCampaign = Partial<
   Record<NonNullable<RollKindInfo['own']>, boolean>
-> & { bridgePolledAt: Date | null; characters: Prisma.JsonValue }
+> & {
+  bridgePolledAt: Date | null
+  characters: Prisma.JsonValue
+  companions?: Prisma.JsonValue
+}
 
 /** How `createCommand` takes one kind of command. */
 export type CommandSpec<K extends CommandKind> = {
@@ -93,7 +105,7 @@ export type CommandSpec<K extends CommandKind> = {
    */
   waiting: {
     kind: Prisma.RollRequestWhereInput['kind']
-    select: { kind?: true; payload: true }
+    select: { kind?: true; actorId?: true; payload: true }
     skip?: (value: CommandValue<K>) => boolean
   }
   /** Why the sheet, as last sent, refuses it, if it does. */

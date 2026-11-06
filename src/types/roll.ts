@@ -23,6 +23,7 @@ import type {
   TransferMoved,
   RemovedItem,
   FavoriteEntry,
+  HitPointsNow,
 } from '@/types/sending-stone'
 import type { DieSides, Advantage } from '@lambersond/3d-dice-core'
 
@@ -486,6 +487,10 @@ export type RollRequestView = {
    * what the game spent, and whether concentration began.
    */
   alone?: AloneOutcome
+  /**
+   * For hit points set, from module 0.44.0, once made: the actor's after it, as the game says.
+   */
+  hitPoints?: HitPointsNow
 }
 
 /**
@@ -1155,7 +1160,7 @@ export type AttackSource = { item: string; activity: string }
  */
 export type TableRollState = Omit<
   RollRequestView,
-  'id' | 'status' | 'effect' | 'wildShape' | 'alone'
+  'id' | 'status' | 'effect' | 'wildShape' | 'alone' | 'hitPoints'
 > & {
   status: RollStatus | 'refused'
   /** Its id at the table, once the app has taken it. */
@@ -1249,6 +1254,13 @@ export type TableRollState = Omit<
    * Beast learned, kept apart from what was asked, as an effect's is.
    */
   wildShaped?: WildShapeOutcome
+  /** Hit points set (module 0.44.0), whose refusals have words of their own. */
+  hitPoints?: true
+  /**
+   * The actor's hit points once set, as the game says (the view's `hitPoints`), kept apart from
+   * the marker, as Wild Shape's are.
+   */
+  hitPointsNow?: HitPointsNow
 }
 
 /**

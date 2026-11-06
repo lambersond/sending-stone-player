@@ -26,6 +26,7 @@ import { FOUNDRY_ID } from '@/db/constants'
 import { recordDishResult } from '@/db/cookbook'
 import { createEffectRequest } from '@/db/effects'
 import { createFavoriteRequest } from '@/db/favorites'
+import { createHitPointsRequest } from '@/db/hit-points'
 import { recordNoteResult } from '@/db/note-sync'
 import { createRemoveRequest } from '@/db/removals'
 import { createTransferRequest } from '@/db/transfers'
@@ -81,6 +82,7 @@ const OWN_CREATORS: Partial<Record<RollKind, CommandCreator>> = {
   favorite: createFavoriteRequest,
   effect: createEffectRequest,
   wildShape: createWildShapeRequest,
+  hitPoints: createHitPointsRequest,
 }
 
 const heldSelect = {
@@ -106,17 +108,21 @@ const heldSelect = {
  * `createRemoveRequest` alone. A favorite added or removed, from module 0.37.0, likewise:
  * `createFavoriteRequest` alone, its player's only. One of the character's own effects turned off,
  * on or deleted, from module 0.39.0, likewise: `createEffectRequest` alone, its player's only. Wild
- * Shape, from module 0.40.0, likewise: `createWildShapeRequest` alone, its player's only. And from
+ * Shape, from module 0.40.0, likewise: `createWildShapeRequest` alone, its player's only. Hit
+ * points set, from module 0.44.0, likewise: `createHitPointsRequest` alone, its player's only, of
+ * the character, its form while shaped, or at a companion's seat the companion. And from
  * module 0.40.0, while the character is transformed, as its sheet says, a favorite, an effect, a
  * removal, or a move with a transformed character at either end, waits until it's back in its own
  * form (`shapedRefusal`), before each kind's own checks. From module 0.36.0, at a companion's seat:
  * of the kinds the game takes for companions, never a move, a removal, from module 0.37.0 a
- * favorite, which a companion has none of, from module 0.39.0 a change to its effects, or from
- * module 0.40.0 Wild Shape, nor an answer to what the game asks, which it asks of no companion
- * before module 0.41.0, which says `companionPrompts`; a death saving throw only where it's an
- * important NPC; and its initiative not where it acts right after its character, who's in that
- * combat. It's checked against its own sheet, typed in as its character's player types theirs,
- * and kept as its key, with its character's id, for the module to make it as the companion. And a
+ * favorite, which a companion has none of, from module 0.39.0 a change to its effects, from
+ * module 0.40.0 Wild Shape, or from module 0.44.0 a plain roll, which is the character's own, but
+ * from module 0.44.0 its hit points set; nor an answer to what the game asks, which it asks of no
+ * companion before module 0.41.0, which says `companionPrompts`; a death saving throw only
+ * where it's an important NPC; and its initiative not where it acts right after its character,
+ * who's in that combat. It's checked against its own sheet, typed in as its character's player
+ * types theirs, and kept as its key, with its character's id, for the module to make it as the
+ * companion. And a
  * turn ended, from module 0.36.0, only by the character's player at its own seat, never at a
  * companion's or the Gamemaster's, is checked against the combat it names alone, as last heard
  * of, with or without a sheet, and counted with the seat's rolls; and so is a turn ended taken
@@ -133,9 +139,15 @@ export async function createRollRequest(
   // A companion's seat moves, removes, favorites, changes no effects and uses no Wild Shape: it has
   // no items of the character's to move, nor favorites, its effects are no player's to change, it
   // has no Wild Shape of a character's, and the schema takes the kinds, so they're refused here
-  // first, before any is looked at.
+  // first, before any is looked at. Its hit points, from module 0.44.0, are its player's to set,
+  // as its kind's row says, past this to their own creator. The other kinds no companion's roll is
+  // are refused by the rolls' gate, as the game takes none of them for companions.
   const { companion } = seat
-  if (companion && OWN_KINDS.includes(input.kind)) {
+  if (
+    companion &&
+    OWN_KINDS.includes(input.kind) &&
+    'companion' in ROLL_KIND_INFO[input.kind]
+  ) {
     return { status: 422, reason: 'unknown' }
   }
   // While the character is transformed, what would change its own actor's things waits.
@@ -595,7 +607,8 @@ export async function getRollRequestView(
  * only to the session whose hello said it takes them. From module 0.37.0, a favorite likewise, a
  * player's only. From module 0.39.0, a change to a character's own effects likewise, a player's
  * only, to the session whose hello said its campaign lets them. From module 0.40.0, Wild Shape
- * likewise, a player's only, to the session whose hello said its campaign lets them.
+ * likewise, a player's only, to the session whose hello said its campaign lets them; and from
+ * module 0.44.0 hit points set likewise, a companion's among them.
  * @param session - The module session that fetched them.
  */
 export async function claimRollRequests(

@@ -568,6 +568,26 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('toRollRequestView for hit points set, from module 0.44.0', () => {
+    it('passes on the hit points the game says the actor has now, apart from any roll', () => {
+      const hitPoints = { value: 21, temp: 0, max: 30 }
+      expect(changed({ hitPoints }, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: undefined,
+        rolls: [],
+        hitPoints,
+      })
+    })
+
+    it('says nothing of them on a refusal, which the game sends none with', () => {
+      expect(
+        changed({ status: 'failed', reason: 'changed' }, 'failed'),
+      ).toEqual({ id: 'req-1', status: 'failed', reason: 'changed' })
+    })
+  })
+
   describe('toRollRequestView for hit dice spent at once, from module 0.20.0', () => {
     it('shows what every die the game made came to, added up, and gave back, and how many it made', () => {
       const view = spentAtOnce(true, 3)

@@ -3769,6 +3769,64 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
   })
 
+  // Module 0.44.0: the companion gate refuses only the own kinds no companion takes, before any is
+  // looked at; the kinds no companion's roll is are refused by the rolls' gate; and hit points set,
+  // an own kind a companion takes, go on to their own creator, which reads their own switch.
+  it.each([
+    ['an effect changed', 'effect', refusal(422, 'unknown')],
+    ['a favorite', 'favorite', refusal(422, 'unknown')],
+    ['Wild Shape', 'wildShape', refusal(422, 'unknown')],
+    ['charges spent', 'spend', refusal(409, 'unavailable')],
+    ['a spell slot', 'spellSlot', refusal(409, 'unavailable')],
+    ['a spell prepared', 'prepare', refusal(409, 'unavailable')],
+    ['a plain roll', 'plainRoll', refusal(409, 'unavailable')],
+  ])('keeps refusing %s at a companion’s seat', async (_name, kind, answer) => {
+    given({
+      campaign: companionCampaign({
+        rollKinds: ['attack', 'spend', 'spellSlot', 'prepare', 'plainRoll'],
+      }),
+    })
+    await expect(
+      createRollRequest(atWolf, {
+        kind,
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      } as RollRequestInput),
+    ).resolves.toEqual(answer)
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('lets a companion’s hit points through to their own creator, its switch read, never the rolls’', async () => {
+    given({
+      campaign: companionCampaign({
+        rollsEnabled: false,
+        hitPointsEnabled: true,
+        companions: [wolf],
+      }),
+    })
+    prismaMock.rollRequest.findMany.mockResolvedValue([])
+    await expect(
+      createRollRequest(atWolf, {
+        kind: 'hitPoints',
+        hitPoints: { op: 'set', value: 7, from: { value: 11 } },
+        mode: 0,
+        explicit: false,
+        extras: [],
+        dice: [],
+      }),
+    ).resolves.toEqual({ id: 'req-1' })
+    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          hitPointsEnabled: true,
+          companions: true,
+        }),
+      }),
+    )
+  })
+
   // Changed on purpose (round 0.41.0 §8.3): refused only where the game doesn't ask companions.
   it('refuses an answer to what the game asks of a companion before module 0.41.0, which asks it of none', async () => {
     given({ campaign: companionCampaign({ rollFeatures: ['prompts'] }) })
@@ -5287,5 +5345,113 @@ describe('db/roll-requests, a spell prepared or unprepared, from module 0.42.1',
     ])
     const [[{ where }]] = prismaMock.rollRequest.findMany.mock.calls as any
     expect(JSON.stringify(where)).not.toContain('prepare')
+  })
+})
+
+/**
+ * A game that takes these kinds, by default as module 0.44.0 lists them where players roll, the
+ * Gamemaster's rolls and typed dice too, holding Thorin's sheet.
+ */
+const givenPlain = ({
+  kinds = ['skill', 'formula', 'plainRoll'],
+  features = ['gmRolls', 'manualDice'],
+  rollsEnabled = true,
+} = {}) => {
+  prismaMock.campaign.findUnique.mockResolvedValue({
+    ...takingRolls,
+    rollsEnabled,
+    rollKinds: kinds,
+    rollFeatures: features,
+    characters: [{ id: 'actor-thorin', name: 'Thorin', manualDice: true }],
+  } as any)
+  prismaMock.actorSheet.findUnique.mockResolvedValue({
+    data: fullerSheet(),
+  } as any)
+  prismaMock.rollRequest.count.mockResolvedValue(0)
+  prismaMock.rollRequest.create.mockResolvedValue({ id: 'req-plain' } as any)
+}
+
+/** What the latest roll stored for the module to fetch was. */
+const heldPlain = () => prismaMock.rollRequest.create.mock.calls[0][0].data
+
+describe('db/roll-requests, a plain roll, from module 0.44.0', () => {
+  /** 2d6 + 1d8 + 2, as the dice tray sends it, with the dice it threw. */
+  const dice: RollRequestInput = {
+    kind: 'plainRoll',
+    plainRoll: {
+      terms: [
+        { faces: 6, count: 2 },
+        { faces: 8, count: 1 },
+      ],
+      bonus: 2,
+    },
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [
+      { faces: 6, results: [3, 5] },
+      { faces: 8, results: [7] },
+    ],
+  }
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    fresh()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('takes one the game lists, through the rolls’ gate, as the module is sent it', async () => {
+    givenPlain()
+
+    await expect(createRollRequest(character, dice)).resolves.toEqual({
+      id: 'req-plain',
+    })
+    expect(heldPlain()).toMatchObject({
+      actorId: 'actor-thorin',
+      role: 'player',
+      kind: 'plainRoll',
+      payload: dice,
+    })
+  })
+
+  it('keeps one typed where its player types their dice, as any roll', async () => {
+    givenPlain()
+
+    await createRollRequest(
+      { ...character, manualDice: true },
+      { ...dice, typed: true, label: 'Dice (2d6 + 1d8 + 2)' },
+    )
+    expect(heldPlain().payload).toEqual({ ...dice, typed: true })
+  })
+
+  it.each([
+    [
+      'a module before 0.44.0, which lists none',
+      { kinds: ['skill', 'formula'] },
+    ],
+    ['rolls off', { rollsEnabled: false }],
+  ])('refuses one with %s', async (_name, campaign) => {
+    givenPlain(campaign)
+
+    await expect(createRollRequest(character, dice)).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('takes the Gamemaster’s as the character, marked as theirs, where the game makes their rolls', async () => {
+    givenPlain()
+    await expect(createRollRequest(gm(), dice)).resolves.toEqual({
+      id: 'req-plain',
+    })
+    expect(heldPlain()).toMatchObject({ role: 'gm', kind: 'plainRoll' })
+
+    fresh()
+    givenPlain({ features: ['manualDice'] })
+    await expect(createRollRequest(gm(), dice)).resolves.toEqual(
+      refusal(409, 'unavailable'),
+    )
   })
 })
