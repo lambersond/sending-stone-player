@@ -93,6 +93,7 @@ describe('utils/hello-features', () => {
     [{ enabled: true, kinds: ['hitPoints'], reason: null }, true],
     [{ enabled: false, kinds: ['hitPoints'], reason: 'off' }, false],
     [{ enabled: false, kinds: [], reason: 'system' }, false],
+    [{ enabled: true, kinds: [], reason: null }, false],
     [undefined, false],
   ])('keeps hit points on from features.hitPoints %j: %s', (hitPoints, on) => {
     expect(helloCampaignData({ hitPoints }).hitPointsEnabled).toBe(on)

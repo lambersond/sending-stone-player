@@ -3087,6 +3087,16 @@ describe('schemas/roll-request, hit points set, from module 0.44.0', () => {
       { op: 'set', value: 21, from: { value: 22, temp: 3 } },
       'from',
     ],
+    [
+      'hit points set saying nothing of what they were',
+      { op: 'set', value: 18, from: {} },
+      'from',
+    ],
+    [
+      'what hit points not set were',
+      { op: 'set', temp: 5, from: { value: 22, temp: 0 } },
+      'from',
+    ],
   ])('refuses %s, at its field', (_name, fields, path) => {
     expect(issuesOf(setting, { hitPoints: fields })).toEqual([
       [`hitPoints.${path}`, expect.any(String)],
@@ -3285,6 +3295,15 @@ describe('schemas/roll-request, a plain roll, from module 0.44.0', () => {
         dice: [
           { faces: 8, results: [7] },
           { faces: 6, results: [3, 5] },
+        ],
+      },
+    ],
+    [
+      'the sizes swapped, each as many as the other’s',
+      {
+        dice: [
+          { faces: 8, results: [3, 5] },
+          { faces: 6, results: [3] },
         ],
       },
     ],
