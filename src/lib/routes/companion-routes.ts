@@ -90,9 +90,11 @@ export async function gmCompanionRollSeat(
  * `?version=7&live=1&rolls=attack,damage;modifiers` to get 204 No Content while none has changed;
  * for the Gamemaster's seat where their rolls go, as `&gm=made`; for the player's, the
  * Gamemaster's rolls as it as last seen, as `&gmrolls=`, and `&typed=1` where their typed dice were
- * on; and the sheet's version as `&sheet=` to have an unchanged sheet left out. The seat was
- * resolved first, so a companion no longer listed is never told nothing changed. Whoever is at it
- * may roll, so the Gamemaster's module waits for their rolls; its character's page notes it open.
+ * on; from module 0.44.0 `&hitpoints=1` where the view last seen let the player set its hit points,
+ * which its Gamemaster's Foundry stopping fetching changes with no new version; and the sheet's
+ * version as `&sheet=` to have an unchanged sheet left out. The seat was resolved first, so a
+ * companion no longer listed is never told nothing changed. Whoever is at it may roll, so the
+ * Gamemaster's module waits for their rolls; its character's page notes it open.
  */
 export async function companionTableResponse(
   request: NextRequest,
@@ -105,11 +107,25 @@ export async function companionTableResponse(
 
   const known = request.nextUrl.searchParams
   if (known.has('version')) {
-    const { version, live, rollsToTable, rollFeatures, gm, gmRollsKey, typed } =
-      await getCompanionStatus(seat)
+    const {
+      version,
+      live,
+      rollsToTable,
+      rollFeatures,
+      gm,
+      gmRollsKey,
+      typed,
+      hitPoints,
+    } = await getCompanionStatus(seat)
     const seen = seenAs(
       known,
-      { version, live, rolls: rollsKey(rollsToTable, rollFeatures), typed },
+      {
+        version,
+        live,
+        rolls: rollsKey(rollsToTable, rollFeatures),
+        typed,
+        hitpoints: hitPoints,
+      },
       { gm: gm?.rolls, gmrolls: gmRollsKey },
     )
     if (seen) return bare(204)

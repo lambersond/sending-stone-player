@@ -122,6 +122,7 @@ export async function listOwnedCampaigns(
       dishesEnabled: true,
       effectsEnabled: true,
       wildShapeEnabled: true,
+      hitPointsEnabled: true,
       chatClearedAt: true,
       refusedAt: true,
       refusalReason: true,
@@ -190,6 +191,9 @@ export async function listOwnedCampaigns(
       // Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, as
       // its last hello said.
       wildShape: { enabled: campaign.wildShapeEnabled },
+      // Whether the campaign lets its players set hit points from here, from module 0.44.0, as its
+      // last hello said.
+      hitPoints: { enabled: campaign.hitPointsEnabled },
       // Its players' chat here, and when it was last cleared (v0.44).
       chat: {
         messages: messages.get(campaign.id) ?? 0,

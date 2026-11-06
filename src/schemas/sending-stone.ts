@@ -1635,6 +1635,17 @@ const featuresSchema = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.44.0: whether the campaign lets its players set hit points and temporary hit
+    // points here, by its own switch, on by default, under dnd5e.
+    hitPoints: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        kinds: z.array(z.string()).catch([]),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -2012,6 +2023,15 @@ const commandResultSchema = z.object({
     z.object({
       spent: z.array(z.enum(ALONE_SPENDS)).catch([]),
       concentrating: leftOut(z.literal(true)),
+    }),
+  ),
+  // From module 0.44.0, for hit points set: the actor's after it, as its sheet says them. Anything
+  // else is left out, and the rest still read.
+  hitPoints: leftOut(
+    z.object({
+      value: z.number(),
+      temp: z.number(),
+      max: z.number().nullable(),
     }),
   ),
   // From module 0.34.0, for a note command: the note, and its page's revision now, never its text.

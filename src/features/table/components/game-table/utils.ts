@@ -41,8 +41,7 @@ export function cookbookPlace(
  * The Character pane: the party sheets it may open, from the sheet's Inventory tab, or, with no
  * sheet, from under why there's none: either way the Character pane shows on a wide screen too.
  * So it does at a character, with no sheet, for its notes there, and with companions to switch
- * between (module 0.36.0). With a sheet or companions, every creature's pane throws its dice on
- * one renderer.
+ * between (module 0.36.0).
  * @param playing - Whether the character plays one of its campaign's characters.
  * @param switching - Whether the character has companions, each with a tab above the sheet.
  */
@@ -57,8 +56,17 @@ export function sheetPane(
   return {
     parties,
     paneShown: hasSheet || parties !== undefined || playing || switching,
-    sharedDice: hasSheet || switching,
   }
+}
+
+/**
+ * The rolls the game takes from the seat now, and what else it does with them: none while the
+ * character isn't in its campaign's game.
+ */
+export function rollsInGame(view: TableView) {
+  return view.connected
+    ? { kinds: view.rollsToTable, features: view.rollFeatures }
+    : {}
 }
 
 /**

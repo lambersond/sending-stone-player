@@ -979,6 +979,8 @@ describe('components/campaigns/campaign-card', () => {
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows the players' effects.
         "Players' effects",
         'Wild Shape',
+        // Changed on purpose (v0.44): the players' hit points follow Wild Shape (module 0.44.0).
+        "Players' hit points",
       ])
       expect(screen.queryByRole('heading', { level: 4 })).toBeNull()
     })
@@ -1022,6 +1024,8 @@ describe('components/campaigns/campaign-card', () => {
         // the Foundry settings.
         "Players' effects",
         'Wild Shape',
+        // Changed on purpose (v0.44): the players' hit points follow Wild Shape (module 0.44.0).
+        "Players' hit points",
         'Foundry settings',
       ])
     })
@@ -1262,8 +1266,10 @@ describe('components/campaigns/campaign-card', () => {
         expect(section.nextElementSibling).toBe(
           screen.getByRole('heading', { name: 'Wild Shape' }).parentElement,
         )
-        expect(section.nextElementSibling?.nextElementSibling?.tagName).toBe(
-          'DETAILS',
+        // Changed on purpose (v0.44): the players' hit points follow Wild Shape (module 0.44.0).
+        expect(section.nextElementSibling?.nextElementSibling).toBe(
+          screen.getByRole('heading', { name: "Players' hit points" })
+            .parentElement,
         )
         expect(section.querySelector('svg')).toHaveAttribute(
           'aria-hidden',
@@ -1345,12 +1351,37 @@ describe('components/campaigns/campaign-card', () => {
           screen.getByRole('heading', { name: "Players' effects" })
             .parentElement,
         )
-        expect(section.nextElementSibling?.tagName).toBe('DETAILS')
+        // Changed on purpose (v0.44): the players' hit points follow it (module 0.44.0).
+        expect(section.nextElementSibling).toBe(
+          screen.getByRole('heading', { name: "Players' hit points" })
+            .parentElement,
+        )
         expect(section.querySelector('svg')).toHaveAttribute(
           'aria-hidden',
           'true',
         )
       },
     )
+  })
+
+  // Each of its words is pinned in feature-words.test.ts: here, where they go.
+  it('says whether players set hit points from here (module 0.44.0), after Wild Shape, before the Foundry settings', () => {
+    renderCard({
+      hitPoints: { enabled: true },
+      foundry: effectsFoundry('0.44.0', dnd5e('5.3.3')),
+    })
+
+    const section = screen.getByRole('heading', { name: "Players' hit points" })
+      .parentElement as HTMLElement
+    expect(
+      [...section.querySelectorAll('p')].map(({ textContent }) => textContent),
+    ).toEqual([
+      'On in Foundry. Your players set their characters’, forms’ and companions’ hit points and temporary hit points from here.',
+    ])
+    expect(section.previousElementSibling).toBe(
+      screen.getByRole('heading', { name: 'Wild Shape' }).parentElement,
+    )
+    expect(section.nextElementSibling?.tagName).toBe('DETAILS')
+    expect(section.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
   })
 })

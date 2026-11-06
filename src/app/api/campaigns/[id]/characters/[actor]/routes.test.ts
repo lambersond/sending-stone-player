@@ -116,6 +116,7 @@ describe('app/api/campaigns/[id]/characters/[actor] (#156)', () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): nor Wild Shape.
       wildShape: false,
+      hitPoints: false,
     })
     jest.mocked(createRollRequest).mockResolvedValue({ id: 'req-gm' })
     jest

@@ -33,7 +33,12 @@ run late-setup 4 EXPECT_FIX=1
 run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
 run layout 12 EXPECT=fixed
 run favorites 59 X=1
-run rolls 74 SHOTS=$O/shots-rolls
+# v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate.
+run rolls 77 SHOTS=$O/shots-rolls
+# v0.44: the dice tray under the chat (module 0.44.0's plain roll): at 390, 1280 and 1024, a d100
+# and a modifier, 20 dice the most, Send to the table off, typed in, and the Gamemaster's page.
+run dice 21 SHOTS=$O/shots-dice
+run dice 21 DND5E6=1 SHOTS=$O/shots-dice
 run attacks 84 SHOTS=$O/shots-attacks
 run attacks 86 MIDI=1 SHOTS=$O/shots-attacks
 # Round 0.42.1: spells prepared from the row menus (§P).
@@ -170,3 +175,7 @@ run companionsaves 44 SHOTS=$O/shots-041
 run companionsaves 46 MIDI=1 SHOTS=$O/shots-041
 run companionsaves 38 DND5E6=1 SHOTS=$O/shots-041
 run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041
+# Module 0.44.0: hit points and temporary hit points set from the app, the character's and a
+# companion's, the rolls off; the editor reset as the game changes them; a stale view refused; never
+# the Gamemaster's page nor another seat; the campaign card, and the switch off.
+run hitpoints 36 SHOTS=$O/shots-044

@@ -14,9 +14,16 @@ import { TableNav } from '../table-nav/table-nav'
 import { TableNotices } from '../table-notices/table-notices'
 import { TablePartyPanel } from '../table-party-panel/table-party-panel'
 import { TurnToast } from '../turn-toast/turn-toast'
-import { cookbookPlace, seatOf, sheetPane, shownPanels } from './utils'
+import {
+  cookbookPlace,
+  rollsInGame,
+  seatOf,
+  sheetPane,
+  shownPanels,
+} from './utils'
 import { Scroller } from '@/components/scroller/scroller'
 import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
+import { DiceTray } from '@/features/rolling/components/dice-tray/dice-tray'
 import { useChatRead } from '@/features/table/hooks/use-chat-read'
 import { useChatScroll } from '@/features/table/hooks/use-chat-scroll'
 import { useCompanionRow } from '@/features/table/hooks/use-companion-row'
@@ -136,15 +143,9 @@ export function GameTable({
   } else {
     // From module 0.36.0, the character's companions, each with a tab above the sheet.
     const switching = companions.row.length > 0
-    const { parties, paneShown, sharedDice } = sheetPane(
-      view,
-      playing,
-      switching,
-    )
+    const { parties, paneShown } = sheetPane(view, playing, switching)
     beside = paneShown
-    // The character's own pane, and the companions' mounted, in the row's order; dice thrown on
-    // one renderer for them all, which stays as companions come and go, so that the character's
-    // pane keeps its tray and its damage to roll.
+    // The character's own pane, and the companions' mounted, in the row's order.
     const sheets = (
       <CreatureSheets
         character={character}
@@ -163,53 +164,65 @@ export function GameTable({
         playing={playing}
       />
     )
+    // The page's one renderer (v0.44), whose canvas lies over the whole viewport: every creature's
+    // pane throws its dice on it, and so does the chat's dice tray, so that the dice tumble over
+    // whichever is shown. It stays as companions come and go, so that the character's pane keeps
+    // its tray and its damage to roll.
     table = (
-      <div className='flex min-h-0 flex-1'>
-        {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
-        <Pane
-          id='character-pane'
-          label='Character'
-          className={clsx(
-            tabs.tab === 'character' ? 'flex' : 'hidden',
-            paneShown ? 'lg:flex' : 'lg:hidden',
-          )}
-        >
-          {/* The sheet's renderer, which every creature's pane throws its dice on. */}
-          {sharedDice ? (
-            <DiceRendererProvider>{sheets}</DiceRendererProvider>
-          ) : (
-            sheets
-          )}
-        </Pane>
-        <AsideColumn
-          tab={tabs.tab}
-          aside={tabs.aside}
-          paneShown={paneShown}
-          focusable={!tabs.characterInView}
-          myTurn={myTurn}
-          unread={unread}
-          combat={view.combat}
-          messages={view.messages}
-          chatClearedAt={view.chatClearedAt}
-          quiet={turn.quiet}
-          onShow={show}
-          combatTab={turn.columnCombat}
-          hold={turn.holdOf('combat-hold-pane', tabs.sideBySide)}
-          tracker={
-            <CombatTracker
-              combat={view.combat}
-              onOpen={companions.openCompanion}
-              keys={new Set(companions.rowKeys)}
-              ending={turn.ending}
-              via={turn.via}
-              refused={turn.refused}
-              onEnd={endable => turn.endTurn(endable, 'button')}
-              focusTurn={turn.focusTurn}
-            />
-          }
-          chat={chat}
-        />
-      </div>
+      <DiceRendererProvider>
+        <div className='flex min-h-0 flex-1'>
+          {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
+          <Pane
+            id='character-pane'
+            label='Character'
+            className={clsx(
+              tabs.tab === 'character' ? 'flex' : 'hidden',
+              paneShown ? 'lg:flex' : 'lg:hidden',
+            )}
+          >
+            {sheets}
+          </Pane>
+          <AsideColumn
+            tab={tabs.tab}
+            aside={tabs.aside}
+            paneShown={paneShown}
+            focusable={!tabs.characterInView}
+            myTurn={myTurn}
+            unread={unread}
+            combat={view.combat}
+            messages={view.messages}
+            chatClearedAt={view.chatClearedAt}
+            quiet={turn.quiet}
+            onShow={show}
+            combatTab={turn.columnCombat}
+            hold={turn.holdOf('combat-hold-pane', tabs.sideBySide)}
+            tracker={
+              <CombatTracker
+                combat={view.combat}
+                onOpen={companions.openCompanion}
+                keys={new Set(companions.rowKeys)}
+                ending={turn.ending}
+                via={turn.via}
+                refused={turn.refused}
+                onEnd={endable => turn.endTurn(endable, 'button')}
+                focusTurn={turn.focusTurn}
+              />
+            }
+            chat={chat}
+            // The dice tray under the chat (v0.44), while the character plays in the game: always
+            // the character's, whichever creature the sheet shows, as the game takes its rolls.
+            dice={
+              playing && (
+                <DiceTray
+                  characterId={seat.key}
+                  {...rollsInGame(view)}
+                  typing={diceSwitch?.on === true}
+                />
+              )
+            }
+          />
+        </div>
+      </DiceRendererProvider>
     )
   }
 

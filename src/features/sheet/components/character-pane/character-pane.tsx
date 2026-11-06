@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import { useConditionsPanel } from '../conditions/use-conditions-panel'
 import { rulesOf } from '../conditions/utils'
 import { useEffectControls } from '../effect-controls/use-effect-controls'
@@ -48,21 +47,12 @@ import type { CharacterPaneProps } from './types'
 import type { TableRolls } from '@/features/rolling/types'
 
 /**
- * The character's sheet, rolling 3D dice across the screen. The dice and their textures load
- * once the sheet is shown, and leave with it. Where its page shows a companion's pane beside it,
- * every pane throws its dice on the page's one renderer (`sharedDice`), so they land over whichever
- * is shown (module 0.36.0).
+ * The character's sheet, rolling 3D dice across the screen, or a companion's (module 0.36.0). Its
+ * dice are thrown on its page's one renderer, which a DiceRendererProvider above it gives: every
+ * pane on the page throws on it, and so does the chat's dice tray (v0.44), so the dice land over
+ * whichever is shown.
  */
-export function CharacterPane(props: Readonly<CharacterPaneProps>) {
-  if (props.sharedDice) return <RollingSheet {...props} />
-  return (
-    <DiceRendererProvider>
-      <RollingSheet {...props} />
-    </DiceRendererProvider>
-  )
-}
-
-function RollingSheet({
+export function CharacterPane({
   characterId,
   name,
   sheet,
@@ -77,6 +67,7 @@ function RollingSheet({
   favorites: favoritesOn,
   effects: effectsOn,
   wildShape: wildShapeOn,
+  hitPoints: hitPointsOn,
   actorId,
   parties,
   manualDice,
@@ -165,22 +156,24 @@ function RollingSheet({
   const width = useWidth(body)
   // What the character has that an enchantment may be put on.
   const belongings = useMemo(() => belongingsOf(sheet), [sheet])
+  const offers = paneOffers({
+    favorites: favoritesOn,
+    prepares: table.lists('prepare'),
+    effects: effectsOn,
+    wildShape: wildShapeOn,
+    hitPoints: hitPointsOn,
+    creature,
+    role,
+    shaped,
+  })
   const commands = usePaneCommands({
     table,
     roller,
     sheet,
     shaped,
     belongings,
+    hitPoints: offers.hitPoints,
     setActed: triggers.setActed,
-  })
-  const offers = paneOffers({
-    favorites: favoritesOn,
-    prepares: table.lists('prepare'),
-    effects: effectsOn,
-    wildShape: wildShapeOn,
-    creature,
-    role,
-    shaped,
   })
   // Favorites added and removed from a row's menu, from module 0.37.0: never at a creature's pane,
   // whose NPC has none.

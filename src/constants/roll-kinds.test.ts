@@ -25,7 +25,8 @@ function byKind(field: 'gmLabel' | 'check' | 'own') {
 const dice = (group: string) =>
   kindsWhere(kind => ROLL_KIND_INFO[kind].dice === group)
 
-// Each list as the code said it by hand when the table was made (24f808b), copied once.
+// Each list as the code said it by hand when the table was made (24f808b), copied once; with the
+// kinds of module 0.44.0 since, a plain roll and hit points set (v0.44).
 describe('constants/roll-kinds, the request-kind table', () => {
   it('has a row for each kind, in ROLL_KINDS’ order', () => {
     expect(Object.keys(ROLL_KIND_INFO)).toEqual([...ROLL_KINDS])
@@ -44,7 +45,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
     [
       'OWN_KINDS',
       OWN_KINDS,
-      ['transfer', 'remove', 'favorite', 'effect', 'wildShape'],
+      ['transfer', 'remove', 'favorite', 'effect', 'wildShape', 'hitPoints'],
     ],
   ])('%s, in order', (_, derived, literal) => {
     expect(derived).toEqual(literal)
@@ -67,6 +68,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
       dice('recharge'),
       ['recharge'],
     ],
+    ['a plain roll’s dice, as it names them', dice('plain'), ['plainRoll']],
     [
       'their own dice (schemas/roll-request.ts:896)',
       dice('free'),
@@ -89,6 +91,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
         'effect',
         'wildShape',
         'prepare',
+        'hitPoints',
         'endTurn',
         'undoEndTurn',
       ],
@@ -135,6 +138,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
         'effect',
         'wildShape',
         'prepare',
+        'hitPoints',
       ],
     ],
     [
@@ -144,6 +148,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
         'inspiration',
         'hitDie',
         'hitDice',
+        'plainRoll',
         'spend',
         'spellSlot',
         'transfer',
@@ -182,6 +187,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
         hitDie: 'Hit dice',
         hitDice: 'Hit dice',
         formula: 'A roll',
+        plainRoll: 'A dice roll',
         textRoll: 'A roll',
         textDamage: 'Damage',
         itemDamage: 'Damage',
@@ -198,6 +204,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
         effect: 'An effect changed',
         wildShape: 'Wild Shape',
         prepare: 'A spell prepared or unprepared',
+        hitPoints: 'Hit points set',
         endTurn: 'A turn ended',
         undoEndTurn: 'A turn taken back',
       },
@@ -216,6 +223,7 @@ describe('constants/roll-kinds, the request-kind table', () => {
         favorite: 'favoritesEnabled',
         effect: 'effectsEnabled',
         wildShape: 'wildShapeEnabled',
+        hitPoints: 'hitPointsEnabled',
       },
     ],
   ])('%s, by kind', (_, derived, literal) => {

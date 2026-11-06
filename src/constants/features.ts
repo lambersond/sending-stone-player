@@ -7,6 +7,7 @@ import {
   FAVORITES,
   FOUNDRY_SETTINGS,
   GROUPS,
+  HIT_POINTS,
   MAX_ENVELOPE_BYTES,
   MIDI_PROMPTS,
   NOTES,
@@ -19,8 +20,8 @@ import {
 /**
  * The campaign's switches the module's fetches are answered by, in the order they're read: its
  * players' rolls; from module 0.31.0 moves of items and coins; 0.33.0 removals; 0.34.0 journal
- * notes; 0.37.0 favorites; 0.38.0 dishes from the Magical Recipe Book; 0.39.0 effects changed; and
- * 0.40.0 Wild Shape. While any is on, the module's fetches are taken.
+ * notes; 0.37.0 favorites; 0.38.0 dishes from the Magical Recipe Book; 0.39.0 effects changed;
+ * 0.40.0 Wild Shape; and 0.44.0 hit points set. While any is on, the module's fetches are taken.
  */
 export const BRIDGE_SWITCHES = [
   'rollsEnabled',
@@ -31,6 +32,7 @@ export const BRIDGE_SWITCHES = [
   'dishesEnabled',
   'effectsEnabled',
   'wildShapeEnabled',
+  'hitPointsEnabled',
 ] as const
 
 /**
@@ -51,7 +53,8 @@ export const BRIDGE_SWITCHES = [
  * which the module sends and fetches for only then; and from module 0.41.0 the saves the game asks
  * of companions (`companions` 2), and the plans of damage on its own at each level, in each attack
  * mode and with each ammunition, and what it would spend (`aloneChoices`), which the module sends
- * only then.
+ * only then; and from module 0.44.0 hit points and temporary hit points set from here, of the
+ * characters, their Wild Shape forms and their companions, which the module fetches for only then.
  */
 export const FEATURES = {
   commands: true,
@@ -69,6 +72,7 @@ export const FEATURES = {
   effects: EFFECTS,
   wildShape: WILD_SHAPE,
   aloneChoices: ALONE_CHOICES,
+  hitPoints: HIT_POINTS,
 }
 
 /**

@@ -196,6 +196,9 @@ describe('lib/companion-routes', () => {
         '?version=7&live=1&rolls=attack,damage&gmrolls=x',
       ],
       ['typed dice', '?version=7&live=1&rolls=attack,damage&typed=1'],
+      // Changed on purpose (v0.44): from module 0.44.0, whether its player may set its hit
+      // points, which its module's fetching or not changes with no new version.
+      ['its hit points', '?version=7&live=1&rolls=attack,damage&hitpoints=1'],
     ])('sends the view, not 204, when %s changed', async (_, query) => {
       const seat = await seatNow()
 

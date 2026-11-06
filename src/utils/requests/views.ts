@@ -47,6 +47,8 @@ function outcomesOf(result: CommandResult | null) {
   // What damage on its own that asked to spend spent, from module 0.41.0, as the game says, and
   // whether concentration began.
   const alone = result?.alone ? { alone: result.alone } : {}
+  // The hit points set, from module 0.44.0, as the game says they are after it.
+  const hitPoints = result?.hitPoints ? { hitPoints: result.hitPoints } : {}
   return {
     ...moved,
     ...removed,
@@ -54,6 +56,7 @@ function outcomesOf(result: CommandResult | null) {
     ...effect,
     ...wildShape,
     ...alone,
+    ...hitPoints,
   }
 }
 

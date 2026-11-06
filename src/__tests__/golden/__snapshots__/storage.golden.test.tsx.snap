@@ -872,6 +872,7 @@ exports[`golden C7: storage the campaign row a hello writes a full hello from mo
     ],
     "effectsEnabled": true,
     "wildShapeEnabled": true,
+    "hitPointsEnabled": false,
     "notesEnabled": true,
     "noteFeatures": [
      "orders"
@@ -1086,6 +1087,7 @@ exports[`golden C7: storage the campaign row a hello writes a hello from before 
     "dishVersions": [],
     "effectsEnabled": false,
     "wildShapeEnabled": false,
+    "hitPointsEnabled": false,
     "notesEnabled": false,
     "noteFeatures": [],
     "companions": [],

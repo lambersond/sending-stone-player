@@ -180,6 +180,7 @@ export type ViewSeen = {
   favorites: boolean
   effects: boolean
   wildShape: boolean
+  hitPoints: boolean
 }
 
 /**

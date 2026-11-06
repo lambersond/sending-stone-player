@@ -369,6 +369,12 @@ export type TableView = {
    */
   wildShape?: true
   /**
+   * From module 0.44.0: whether the seat may set the character's hit points and temporary hit
+   * points, its form's while shaped, its player's alone: set only while the campaign lets them,
+   * its module is fetching, and the character is in its roster.
+   */
+  hitPoints?: true
+  /**
    * For the player's seat only, from module 0.32.0: whether they may type in their own dice for
    * this character here, and whether they chose to. Unset for the Gamemaster's seat.
    */
@@ -431,6 +437,12 @@ export type CompanionView = {
   gmRollsKey?: string
   /** Its character's: the companion's dice are typed in as the character's are. */
   manualDice?: { offered: boolean; on: boolean }
+  /**
+   * From module 0.44.0: whether the seat may set its hit points and temporary hit points, its
+   * character's player's alone: set only while the campaign lets them, its module is fetching, and
+   * it's still listed as its character's.
+   */
+  hitPoints?: true
   /**
    * How it enters initiative, as its campaign's Gamemaster sets it in Foundry (module 0.36.0): its
    * own roll, or right after its character. `after` names that character while it's in the combat

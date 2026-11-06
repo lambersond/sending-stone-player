@@ -1,3 +1,4 @@
+import { DIE_SIDES } from '@lambersond/3d-dice-core'
 import { z } from 'zod'
 import { DIE_SIZES } from '@/constants/dice'
 import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
@@ -16,8 +17,10 @@ import {
   MOST_AMONG,
   MOST_EFFECT_DICE,
   MOST_HIT_DICE,
+  MOST_HIT_POINTS,
   MOST_MOVED,
   MOST_MOVED_ITEMS,
+  MOST_PLAIN_DICE,
   PREPARE_OPS,
   PROFILE_ID,
   PROMPT_ID,
@@ -35,6 +38,8 @@ import type { Issue, RequestRule } from '@/schemas/types'
 import type {
   DieSize,
   ExtraTerm,
+  HitPointsInput,
+  PlainRollInput,
   RollKind,
   RollKindInfo,
   RollRequestInput,
@@ -276,6 +281,76 @@ const wildShapeSchema = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('forms') }),
 ])
 
+/** Hit points, or temporary hit points, as a player sets them from module 0.44.0. */
+const hitPointCount = z.int().min(0).max(MOST_HIT_POINTS)
+
+/**
+ * Hit points and temporary hit points set, from module 0.44.0: the only op, `set`, with the
+ * numbers wanted, one or both, and what the page showed of each it sets (`from`), those fields and
+ * no others, each 0 to 9999. Nothing else.
+ */
+const hitPointsSchema = z
+  .strictObject({
+    op: z.literal('set'),
+    value: hitPointCount.optional(),
+    temp: hitPointCount.optional(),
+    from: z.strictObject({
+      value: hitPointCount.optional(),
+      temp: hitPointCount.optional(),
+    }),
+  })
+  .superRefine((hitPoints, context) => {
+    const issue = issuesTo(context)
+    if (hitPoints.value === undefined && hitPoints.temp === undefined) {
+      issue('value', 'Hit points set name hit points, temporary ones, or both')
+    }
+    if (!fromMatches(hitPoints)) {
+      issue('from', 'Each number set says what it was, and only those do')
+    }
+  })
+
+/** Does what a change of hit points says they were name exactly the fields it sets? */
+function fromMatches({ value, temp, from }: HitPointsInput): boolean {
+  return (
+    (value === undefined) === (from.value === undefined) &&
+    (temp === undefined) === (from.temp === undefined)
+  )
+}
+
+/**
+ * A plain roll, from module 0.44.0: one to seven sizes of die, each once, of the sizes the dice
+ * throw, how many of each, no more than 20 dice in all; and a whole number added or taken away,
+ * where there is one, as a number added to a roll may be. Nothing else.
+ */
+const plainRollSchema = z
+  .strictObject({
+    terms: z
+      .array(
+        z.strictObject({
+          faces: z.int().refine(faces => isDieSides(faces)),
+          count: z.int().min(1).max(MOST_PLAIN_DICE),
+        }),
+      )
+      .min(1)
+      .max(DIE_SIDES.length),
+    bonus: z.int().min(-MAX_FLAT).max(MAX_FLAT).optional(),
+  })
+  .superRefine((plainRoll, context) => {
+    if (!plainOnce(plainRoll)) {
+      issuesTo(context)(
+        'terms',
+        `Each size is rolled once, and no more than ${MOST_PLAIN_DICE} dice in all`,
+      )
+    }
+  })
+
+/** Does a plain roll name each of its sizes once, no more than the most dice in all? */
+function plainOnce({ terms }: PlainRollInput): boolean {
+  const sizes = new Set(terms.map(({ faces }) => faces))
+  const count = terms.reduce((all, { count }) => all + count, 0)
+  return sizes.size === terms.length && count <= MOST_PLAIN_DICE
+}
+
 /**
  * What names each of the kinds from module 0.29.0 that aren't rolls, and only it: a concentration
  * ended its effect, charges spent their counter, and Heroic Inspiration whether it's used; from
@@ -285,7 +360,8 @@ const wildShapeSchema = z.discriminatedUnion('op', [
  * module 0.39.0, one of the character's own effects turned off, on or deleted which; and from
  * module 0.40.0, Wild Shape its op and form; and from module 0.42.1, a spell slot spent or restored
  * its pool, which, and the count it was made from; and from module 0.42.1 a spell prepared or
- * unprepared which spell, and which of those. A field more than one kind names lists them all,
+ * unprepared which spell, and which of those; and from module 0.44.0 hit points set the numbers
+ * and what they were, and a plain roll its dice. A field more than one kind names lists them all,
  * `kinds`.
  */
 const OWN_FIELDS: Readonly<
@@ -341,6 +417,15 @@ const OWN_FIELDS: Readonly<
     message:
       'A spell prepared or unprepared, and only that, names the spell and which',
   },
+  hitPoints: {
+    field: 'hitPoints',
+    message:
+      'Hit points set, and only those, name the numbers and what they were',
+  },
+  plainRoll: {
+    field: 'plainRoll',
+    message: 'A dice roll, and only that, names its dice',
+  },
   endTurn: {
     field: 'turn',
     kinds: ['endTurn', 'undoEndTurn'],
@@ -367,6 +452,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   effect: 'Changing an effect throws no dice',
   wildShape: 'Wild Shape throws no dice',
   prepare: 'Preparing a spell throws no dice',
+  hitPoints: 'Setting hit points throws no dice',
   endTurn: 'Ending a turn throws no dice',
   undoEndTurn: 'Taking a turn back throws no dice',
 }
@@ -439,7 +525,11 @@ const effectDieSchema = z.strictObject({
  * a roll not typed in. From module 0.42.1, a spell slot spent or restored names which, its pool, as
  * a cast's slot is named, and the count of that pool the page showed, 0 to 999, and nothing else,
  * and throws no dice. From module 0.42.1 too, a spell prepared or unprepared names the spell, by
- * its id, and the state wanted, and nothing else, and throws no dice.
+ * its id, and the state wanted, and nothing else, and throws no dice. From module 0.44.0, hit
+ * points set name the hit points or temporary hit points wanted, or both, and what the page showed
+ * of each, and nothing else, and throw no dice; and a plain roll names the dice picked, each size
+ * once, and the number added, and nothing else, and throws those dice, each size's together, in
+ * the same order, typed in or not.
  */
 export const rollRequestSchema: z.ZodType<RollRequestInput> = z
   .strictObject({
@@ -519,6 +609,9 @@ export const rollRequestSchema: z.ZodType<RollRequestInput> = z
         id: z.string().regex(FOUNDRY_ID),
       })
       .optional(),
+    // From module 0.44.0: hit points set, from what the page showed; and a plain roll's dice.
+    hitPoints: hitPointsSchema.optional(),
+    plainRoll: plainRollSchema.optional(),
     turn: turnSchema.optional(),
     undo: z.string().regex(REQUEST_ID).optional(),
     label: z.string().min(1).max(MAX_ROLL_LABEL).optional(),
@@ -798,7 +891,8 @@ function enchantRules(request: RollRequestInput, issue: Issue) {
  * favorite from module 0.37.0, an effect changed from module 0.39.0, Wild Shape from module 0.40.0
  * and a spell slot spent or restored from module 0.42.1, each name what they're of, and nothing
  * else does; charges, how many, which nothing else says. And from module 0.42.1, a spell prepared
- * or unprepared names its spell, and nothing else does.
+ * or unprepared names its spell, and nothing else does; and from module 0.44.0, hit points set
+ * their numbers, and a plain roll its dice.
  */
 function ownFieldRules(request: RollRequestInput, issue: Issue) {
   for (const [kind, { field, kinds, message }] of Object.entries(OWN_FIELDS)) {
@@ -817,6 +911,7 @@ const DICE_RULES: Record<RollKindInfo['dice'], RequestRule> = {
   recharge: rechargeRules,
   free: ownDiceRules,
   d20: d20Rules,
+  plain: plainDiceRules,
 }
 
 /** A use, an ask, an enchantment ended and each kind with a field of its own throws no dice. */
@@ -840,6 +935,27 @@ function hitDiceThrownRules(request: RollRequestInput, issue: Issue) {
       'dice',
       'Hit dice are rolled as they are, a die each, and nothing more',
     )
+  }
+}
+
+/**
+ * A plain roll, from module 0.44.0, throws the dice it names as they are: each size's together, in
+ * the same order, as many of each as it names, each result one of its faces; and nothing more.
+ */
+function plainDiceRules(request: RollRequestInput, issue: Issue) {
+  const plain =
+    request.mode === 0 && !request.explicit && request.extras.length === 0
+  const terms = request.plainRoll?.terms ?? []
+  const thrown =
+    request.dice.length === terms.length &&
+    request.dice.every(
+      ({ faces, results }, index) =>
+        faces === terms[index].faces &&
+        results.length === terms[index].count &&
+        inFaces(results, faces),
+    )
+  if (!plain || !thrown) {
+    issue('dice', 'A dice roll throws the dice it names, and nothing more')
   }
 }
 

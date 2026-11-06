@@ -7,6 +7,7 @@ import {
   ROLLS_KEPT_FOR,
   ROLLS_PER_MINUTE,
 } from '@/constants/sending-stone'
+import { companionRoster } from '@/utils/companions'
 import { switchOn } from '@/utils/features'
 import type {
   CommandCampaign,
@@ -86,6 +87,35 @@ function inRoster(characters: Prisma.JsonValue, actorId: string): boolean {
 }
 
 /**
+ * Whether the seat's actor is listed now: its character in the campaign's roster; or at a
+ * companion's seat (module 0.44.0), the companion by its key, as its character's still.
+ */
+function listedNow(seat: SheetSeat, campaign: CommandCampaign): boolean {
+  const { actorId, companion } = seat
+  if (!actorId) return false
+  if (!companion) return inRoster(campaign.characters, actorId)
+  return companionRoster(campaign.companions).some(
+    entry => entry.key === actorId && entry.of.includes(companion.of),
+  )
+}
+
+/**
+ * The sheet a command is checked against, as last sent: the character's, or at a companion's seat
+ * (module 0.44.0) the companion's own, kept apart from the characters'.
+ */
+function sheetOf(seat: SheetSeat, campaignId: string, actorId: string) {
+  return seat.companion
+    ? prisma.companionSheet.findUnique({
+        where: { campaignCompanion: { campaignId, key: actorId } },
+        select: { data: true },
+      })
+    : prisma.actorSheet.findUnique({
+        where: { campaignActor: { campaignId, actorId } },
+        select: { data: true },
+      })
+}
+
+/**
  * What the module is sent of a command: what it's called is the app's alone, as for a roll; and
  * nothing is typed in for one, so nothing says so, nor that its rerolls were kept (module 0.42.0).
  */
@@ -140,12 +170,15 @@ export async function holdCommand(
 
 /**
  * Take a command that rides to the game as a roll does but is none, for the Gamemaster's game to
- * make: an item removed (module 0.33.0), a favorite (0.37.0), an effect changed (0.39.0) or Wild
- * Shape (0.40.0). From its player, or the campaign's Gamemaster at its page where the kind is
- * theirs to send too; while the campaign's own switch for it is on and its module is fetching;
- * where the seat isn't sending too many, of rolls and every other kind together; where the
- * character is in the campaign's roster; where the sheet, as last sent, lets it be done (`check`);
- * and where nothing of the seat's on its way clashes with it, as from a second tap (`clashes`).
+ * make: an item removed (module 0.33.0), a favorite (0.37.0), an effect changed (0.39.0), Wild
+ * Shape (0.40.0) or hit points set (0.44.0). From its player, or the campaign's Gamemaster at its
+ * page where the kind is theirs to send too; while the campaign's own switch for it is on and its
+ * module is fetching; where the seat isn't sending too many, of rolls and every other kind
+ * together; where the character is in the campaign's roster, or at a companion's seat, where the
+ * kind lets one through, the companion is listed as its character's now; where the sheet, as last
+ * sent, its own at a companion's, lets it be done (`check`); and where nothing of the seat's on its
+ * way clashes with it, as from a second tap (`clashes`). A companion's is kept as its key, with its
+ * character's id, for the module to make it on the companion.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The command's id, or why it wasn't taken.
  */
@@ -165,9 +198,15 @@ export async function createCommand<K extends CommandKind>(
   if ('gm' in info && seat.role === 'gm') {
     return { status: 409, reason: 'unavailable' }
   }
+  const { companion } = seat
   const campaign = (await prisma.campaign.findUnique({
     where: { id: campaignId },
-    select: { [info.own]: true, bridgePolledAt: true, characters: true },
+    select: {
+      [info.own]: true,
+      bridgePolledAt: true,
+      characters: true,
+      ...(companion && { companions: true }),
+    },
   })) as CommandCampaign | null
   if (!campaign || !switchOn(campaign, info.own)) {
     return { status: 409, reason: 'unavailable' }
@@ -175,16 +214,13 @@ export async function createCommand<K extends CommandKind>(
 
   const now = Date.now()
   if (await seatBusy(seat, now)) return { status: 429, reason: 'busy' }
-  if (!inRoster(campaign.characters, actorId)) {
+  if (!listedNow(seat, campaign)) {
     return { status: 422, reason: 'unknown' }
   }
 
   const { waiting } = spec
   const [sheet, rows] = await Promise.all([
-    prisma.actorSheet.findUnique({
-      where: { campaignActor: { campaignId, actorId } },
-      select: { data: true },
-    }),
+    sheetOf(seat, campaignId, actorId),
     waiting.skip?.(value)
       ? Promise.resolve([])
       : prisma.rollRequest.findMany({
@@ -206,6 +242,8 @@ export async function createCommand<K extends CommandKind>(
     {
       campaignId,
       actorId,
+      // A companion's, made on it, names its character (module 0.44.0).
+      ...(companion && { ofActorId: companion.of }),
       kind: spec.kind,
       ...keptLabel(seat, input.label),
       payload: commandPayload(input),

@@ -49,6 +49,7 @@ describe('utils/hello-features', () => {
         dishVersions: [],
         effectsEnabled: false,
         wildShapeEnabled: false,
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         companionKinds: [],
@@ -61,7 +62,15 @@ describe('utils/hello-features', () => {
     const data = helloCampaignData({
       rolls: {
         enabled: true,
-        kinds: ['skill', 'transfer', 'favorite', 'wildShape', 'nonsense'],
+        kinds: [
+          'skill',
+          'transfer',
+          'favorite',
+          'wildShape',
+          'hitPoints',
+          'plainRoll',
+          'nonsense',
+        ],
         reason: null,
       },
       transfers: {
@@ -72,8 +81,31 @@ describe('utils/hello-features', () => {
         distribute: true,
       },
     })
-    expect(data.rollKinds).toEqual(['skill'])
+    expect(data.rollKinds).toEqual(['skill', 'plainRoll'])
     expect(data.transfersEnabled).toBe(false)
     expect(data.transferFeatures).toEqual([])
+  })
+
+  // Module 0.44.0: hit points have a switch of their own, apart from the rolls, and are taken at a
+  // companion's seat wherever that is on, never as one of the companions' rolls; a plain roll is
+  // the character's own.
+  it.each([
+    [{ enabled: true, kinds: ['hitPoints'], reason: null }, true],
+    [{ enabled: false, kinds: ['hitPoints'], reason: 'off' }, false],
+    [{ enabled: false, kinds: [], reason: 'system' }, false],
+    [{ enabled: true, kinds: [], reason: null }, false],
+    [undefined, false],
+  ])('keeps hit points on from features.hitPoints %j: %s', (hitPoints, on) => {
+    expect(helloCampaignData({ hitPoints }).hitPointsEnabled).toBe(on)
+  })
+
+  it('takes neither hit points nor a plain roll as a companion’s roll', () => {
+    const { companionKinds } = helloCompanionData({
+      companions: {
+        kinds: ['attack', 'hitPoints', 'plainRoll'],
+        initiative: 'own',
+      },
+    })
+    expect(companionKinds).toEqual(['attack'])
   })
 })

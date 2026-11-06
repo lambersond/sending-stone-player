@@ -66,9 +66,10 @@ export type RollRejection = {
 /**
  * A command a seat sends that rides to the game as a roll does but is none, each with a switch of
  * the campaign's own, as `createCommand` takes it: an item removed, a favorite, an effect changed,
- * Wild Shape. A move has gates of its own.
+ * Wild Shape, and from module 0.44.0 hit points set. A move has gates of its own.
  */
-export type CommandKind = 'remove' | 'favorite' | 'effect' | 'wildShape'
+export type CommandKind =
+  'remove' | 'favorite' | 'effect' | 'wildShape' | 'hitPoints'
 
 /** What a command does, as its input holds it under its kind. */
 export type CommandValue<K extends CommandKind> = NonNullable<
@@ -76,12 +77,23 @@ export type CommandValue<K extends CommandKind> = NonNullable<
 >
 
 /** One of a seat's rows on its way, as a command is checked against it. */
-export type WaitingRow = { kind?: string; payload: Prisma.JsonValue }
+export type WaitingRow = {
+  kind?: string
+  actorId?: string
+  payload: Prisma.JsonValue
+}
 
-/** What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster. */
+/**
+ * What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster, and at a
+ * companion's seat (module 0.44.0) its companions.
+ */
 export type CommandCampaign = Partial<
   Record<NonNullable<RollKindInfo['own']>, boolean>
-> & { bridgePolledAt: Date | null; characters: Prisma.JsonValue }
+> & {
+  bridgePolledAt: Date | null
+  characters: Prisma.JsonValue
+  companions?: Prisma.JsonValue
+}
 
 /** How `createCommand` takes one kind of command. */
 export type CommandSpec<K extends CommandKind> = {
@@ -93,7 +105,7 @@ export type CommandSpec<K extends CommandKind> = {
    */
   waiting: {
     kind: Prisma.RollRequestWhereInput['kind']
-    select: { kind?: true; payload: true }
+    select: { kind?: true; actorId?: true; payload: true }
     skip?: (value: CommandValue<K>) => boolean
   }
   /** Why the sheet, as last sent, refuses it, if it does. */
@@ -225,8 +237,10 @@ export type PartySeat =
  * What tells a companion's pane whether anything is new: as a character's view, the campaign's
  * version, whether it's live, the rolls the game takes for it and what else it does with them,
  * where the Gamemaster's rolls go at their seat, what changes whenever any of the Gamemaster's
- * rolls as it does, at its player's, and whether its player types in their own dice. A change of
- * how companions enter initiative comes in a hello, which moves the version.
+ * rolls as it does, at its player's, and whether its player types in their own dice; and from
+ * module 0.44.0 whether its player may set its hit points, which its module's fetching or not
+ * changes with no new version. A change of how companions enter initiative comes in a hello, which
+ * moves the version.
  */
 export type CompanionStatus = {
   version: number
@@ -236,6 +250,7 @@ export type CompanionStatus = {
   gm?: { rolls: GmRolls }
   gmRollsKey?: string
   typed: boolean
+  hitPoints: boolean
 }
 
 /**
@@ -251,7 +266,8 @@ export type CompanionStatus = {
  * character's favorites, which likewise changes with no new version; and from module 0.39.0
  * whether the player may change its character's own effects, which likewise changes with no new
  * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
- * with no new version.
+ * with no new version; and from module 0.44.0 whether the player may set its character's hit
+ * points, which likewise changes with no new version.
  */
 export type CampaignStatus = {
   version: number
@@ -266,6 +282,7 @@ export type CampaignStatus = {
   favorites: boolean
   effects: boolean
   wildShape: boolean
+  hitPoints: boolean
 }
 
 /**

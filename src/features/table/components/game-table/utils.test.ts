@@ -1,4 +1,5 @@
-import { shownPanels } from './utils'
+import { rollsInGame, shownPanels } from './utils'
+import { mockTableView } from '@/mocks/sending-stone'
 
 describe('features/table/game-table/utils', () => {
   it.each([
@@ -19,4 +20,16 @@ describe('features/table/game-table/utils', () => {
       expect(shownPanels(characterInView, tab, chosen)).toEqual(panels)
     },
   )
+
+  it('hands on the rolls the game takes from the seat while the character is in its game, and none once it isn’t', () => {
+    const view = mockTableView({
+      rollsToTable: ['formula', 'plainRoll'],
+      rollFeatures: ['modifiers'],
+    })
+    expect(rollsInGame(view)).toEqual({
+      kinds: ['formula', 'plainRoll'],
+      features: ['modifiers'],
+    })
+    expect(rollsInGame({ ...view, connected: false })).toEqual({})
+  })
 })

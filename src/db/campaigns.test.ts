@@ -168,6 +168,8 @@ describe('db/campaigns', () => {
           effectsEnabled: true,
           // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0.
           wildShapeEnabled: true,
+          // Changed on purpose (v0.44): from module 0.44.0.
+          hitPointsEnabled: true,
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -191,6 +193,7 @@ describe('db/campaigns', () => {
           dishesEnabled: false,
           effectsEnabled: false,
           wildShapeEnabled: false,
+          hitPointsEnabled: false,
           players: [],
         },
       ] as any)
@@ -221,6 +224,8 @@ describe('db/campaigns', () => {
           effects: { enabled: true },
           // Changed on purpose (round 0.40.0 §10.3): its players may use Wild Shape.
           wildShape: { enabled: true },
+          // Changed on purpose (v0.44): its players may set their hit points.
+          hitPoints: { enabled: true },
           // Changed on purpose (v0.44 item 8): its players' chat, never cleared.
           chat: { messages: 42 },
           characters: [
@@ -267,6 +272,7 @@ describe('db/campaigns', () => {
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           effects: { enabled: false },
           wildShape: { enabled: false },
+          hitPoints: { enabled: false },
           chat: { messages: 0 },
           characters: [],
           groups: [],
@@ -380,6 +386,14 @@ describe('db/campaigns', () => {
       })
       const { select } = prismaMock.campaign.findMany.mock.calls[0][0] as any
       expect(select).toMatchObject({ wildShapeEnabled: true })
+    })
+
+    it('says whether the campaign lets its players set hit points, from module 0.44.0, as its hello said', async () => {
+      await expect(listed({ hitPointsEnabled: true })).resolves.toMatchObject({
+        hitPoints: { enabled: true },
+      })
+      const { select } = prismaMock.campaign.findMany.mock.calls[0][0] as any
+      expect(select).toMatchObject({ hitPointsEnabled: true })
     })
 
     it("says whether the campaign lets its players change their own effects, from module 0.39.0, as its hello said, and draws no player's picture", async () => {

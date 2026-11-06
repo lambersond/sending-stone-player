@@ -20,6 +20,8 @@ function queryOf(view: CompanionView | undefined): URLSearchParams {
     gmrolls: view.gmRollsKey,
     // Whether the player types in their own dice, which another of their devices may change.
     typed: view.manualDice?.on,
+    // From module 0.44.0: whether the player may set its hit points.
+    hitpoints: view.hitPoints,
     sheet: view.sheetVersion,
   })
 }

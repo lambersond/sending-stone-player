@@ -182,6 +182,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -237,6 +239,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -293,6 +297,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -333,6 +339,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -448,6 +456,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -487,6 +497,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -534,6 +546,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -573,6 +587,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -625,6 +641,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -666,6 +684,8 @@ describe('db/campaign-events', () => {
           effectsEnabled: false,
           // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
           wildShapeEnabled: false,
+          // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+          hitPointsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -710,6 +730,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -1003,6 +1025,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -1049,6 +1073,8 @@ describe('db/campaign-events', () => {
         effectsEnabled: false,
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
         wildShapeEnabled: false,
+        // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -1093,6 +1119,8 @@ describe('db/campaign-events', () => {
           effectsEnabled: false,
           // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
           wildShapeEnabled: false,
+          // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+          hitPointsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
@@ -2514,6 +2542,8 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
   ])('is off where the module %s', async (_name, wildShape) => {
     await expect(stored({ rolls, wildShape })).resolves.toMatchObject({
       wildShapeEnabled: false,
+      // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+      hitPointsEnabled: false,
     })
   })
 
@@ -2524,6 +2554,8 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
     ).resolves.toMatchObject({ wildShapeEnabled: false, effectsEnabled: true })
     await expect(stored(null)).resolves.toMatchObject({
       wildShapeEnabled: false,
+      // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+      hitPointsEnabled: false,
     })
   })
 

@@ -32,6 +32,8 @@ describe('hooks/use-companion-view', () => {
           gm: { rolls: 'update' },
           gmRollsKey: 'r1:done',
           manualDice: { offered: true, on: true },
+          // Changed on purpose (v0.44): from module 0.44.0, its player may set its hit points.
+          hitPoints: true,
           sheetVersion: '2026-10-25T09:00:00.000Z',
         }),
       ),
@@ -57,6 +59,7 @@ describe('hooks/use-companion-view', () => {
       gm: 'update',
       gmrolls: 'r1:done',
       typed: '1',
+      hitpoints: '1',
       sheet: '2026-10-25T09:00:00.000Z',
     })
   })

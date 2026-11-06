@@ -6008,3 +6008,55 @@ describe('schemas/sending-stone, how many spells each class has prepared, from m
     expect(slim.spellcasting.classes[0].prepared).toEqual({ value: 5, max: 6 })
   })
 })
+
+/** What a hello's features say of hit points, as read. */
+const hitPointsFeature = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { hitPoints: sent },
+    })?.data as { features?: { hitPoints?: unknown } }
+  ).features?.hitPoints
+/** A hit points command's result, as read. */
+const hitPointsOf = (hitPoints: unknown) =>
+  (
+    parseGameEvent(
+      'command.result',
+      wildShapeResult({ wildShape: undefined, hitPoints } as any),
+    )?.data as { hitPoints?: unknown; status: string }
+  ).hitPoints
+
+describe('schemas/sending-stone, hit points set from the app, from module 0.44.0', () => {
+  it('reads whether the campaign lets its players set them, and why not', () => {
+    expect(
+      hitPointsFeature({ enabled: true, kinds: ['hitPoints'], reason: null }),
+    ).toEqual({ enabled: true, kinds: ['hitPoints'], reason: null })
+    expect(
+      hitPointsFeature({ enabled: false, kinds: [], reason: 'off' }),
+    ).toEqual({ enabled: false, kinds: [], reason: 'off' })
+    // Junk reads as none, and the rest of the hello still reads.
+    expect(hitPointsFeature('on')).toBeNull()
+    expect(hitPointsFeature({ enabled: 'yes', kinds: 'hitPoints' })).toEqual({
+      enabled: false,
+      kinds: [],
+      reason: null,
+    })
+  })
+
+  it('reads the hit points a result says the actor has once set, leaving out what it can’t', () => {
+    expect(hitPointsOf({ value: 21, temp: 0, max: 30 })).toEqual({
+      value: 21,
+      temp: 0,
+      max: 30,
+    })
+    expect(hitPointsOf({ value: 12, temp: 3, max: null })).toEqual({
+      value: 12,
+      temp: 3,
+      max: null,
+    })
+    for (const junk of [{ value: '21', temp: 0, max: 30 }, { value: 21 }, 21]) {
+      expect(hitPointsOf(junk)).toBeUndefined()
+    }
+  })
+})

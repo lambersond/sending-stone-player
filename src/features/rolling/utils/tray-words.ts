@@ -2,6 +2,7 @@ import { NOT_MADE } from '@/constants/lifecycle'
 import { choicesOf } from '@/features/rolling/utils/damage-due'
 import { favoriteReasons } from '@/features/rolling/utils/favorite-words'
 import { effectReasons, EFFECT_WORDS } from '@/utils/effect-words'
+import { hitPointsReasons, hitPointsWords } from '@/utils/hit-point-words'
 import { moveReasons, moveWords } from '@/utils/move-words'
 import { prepareReasons, PREPARE_WORDS } from '@/utils/prepare-words'
 import { reasons, listed } from '@/utils/roll-reasons'
@@ -102,6 +103,9 @@ export function reasonOf(
     (state.effect ? effectReasons(role)[key] : undefined) ??
     // A spell prepared or unprepared, from module 0.42.1.
     (state.prepare ? prepareReasons(role)[key] : undefined) ??
+    // Hit points set, from module 0.44.0: a companion's no longer its character's keeps a
+    // creature's words, below.
+    (state.hitPoints ? hitPointsReasons(role)[key] : undefined) ??
     // And Wild Shape from here, from module 0.40.0.
     (state.wildShape
       ? wildShapeReasons(role, state.wildShape)[key]
@@ -357,11 +361,13 @@ const FAVORITE_WORDS = {
 
 /**
  * The words of a command with words of its own, where it is on its way, then whether it's done, as
- * the game said, or why not: none for a use, or items and coins moved.
+ * the game said, or why not: none for a use, or items and coins moved. At a creature's pane, its
+ * own, by its name.
  */
 function commandWords(
   roll: LocalUse,
   state: TableRollState,
+  creature?: Creature,
 ): WayWords | undefined {
   // A favorite added or removed, from module 0.37.0.
   if (roll.favorite) return FAVORITE_WORDS[roll.favorite]
@@ -372,6 +378,9 @@ function commandWords(
   }
   // A spell prepared or unprepared, from module 0.42.1, the same way.
   if (roll.prepare) return PREPARE_WORDS[roll.prepare]
+  // Hit points set, from module 0.44.0, made as the game says they are now: the character's, or
+  // at its own pane a creature's.
+  if (roll.hitPoints) return hitPointsWords(state.hitPointsNow, creature?.name)
   // Wild Shape from here, from module 0.40.0: a change, a return or a Beast learned, the same way.
   if (roll.wildShape) {
     const words = WILD_SHAPE_WORDS[roll.wildShape.op]
@@ -426,7 +435,7 @@ export function usedWords(
   role: SeatRole,
   creature?: Creature,
 ): string {
-  const own = commandWords(roll, state)
+  const own = commandWords(roll, state, creature)
   if (own) return wayWords(state, role, own, reasonOf(state, role, creature))
   if (roll.move) return moveWords(roll.move, state, role, reasons(role))
   const [verb, doing] = verbsOf(roll)

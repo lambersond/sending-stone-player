@@ -97,9 +97,9 @@ export function activityCheck(
 
 /**
  * A hit die spent, or a formula rolled, as the game is asked to make it: the hit die's size, the
- * formula's item and activity, or the description's link it's in, and the dice of each of its
- * terms, in order, each term's first throw, as Foundry throws again itself any die it rerolls or
- * explodes.
+ * formula's item and activity, or the description's link it's in, or from module 0.44.0 a plain
+ * roll's dice by size and its number added; and the dice of each of its terms, in order, each
+ * term's first throw, as Foundry throws again itself any die it rerolls or explodes.
  */
 export function toFormulaRequest(
   roll: SheetFormulaRoll,
@@ -303,6 +303,10 @@ function formulaOrigin(
     }
     case 'textRoll': {
       return { text: source.text, link: source.link }
+    }
+    // From module 0.44.0: the dice picked, by size, and the number added.
+    case 'plainRoll': {
+      return { plainRoll: source.plainRoll }
     }
   }
 }

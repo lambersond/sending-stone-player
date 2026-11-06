@@ -1,8 +1,8 @@
 import { Shield } from 'lucide-react'
 import { otherSpeeds } from './utils'
+import { HitPointsTile } from '@/features/sheet/components/hit-points-editor/hit-points-tile'
 import { Conditions } from '@/features/sheet/components/sheet-tiles/conditions'
 import { DeathSavesStat } from '@/features/sheet/components/sheet-tiles/death-saves-stat'
-import { HitPoints } from '@/features/sheet/components/sheet-tiles/hit-points'
 import { InitiativeStat } from '@/features/sheet/components/sheet-tiles/initiative-stat'
 import { Portrait } from '@/features/sheet/components/sheet-tiles/portrait'
 import { Stat } from '@/features/sheet/components/sheet-tiles/stat'
@@ -19,8 +19,9 @@ import type { ReactNode } from 'react'
  * rating, and whether it's in its lair; its conditions; then its numbers, with every speed it has,
  * and under them the creature's own: its legendary actions and resistances, its hit dice, and its
  * lair's initiative. Its hit dice are read only, never spent here, and it has no Heroic
- * Inspiration. Each line its facts don't give is left out, so a wild-shaped form can add one of
- * its own later.
+ * Inspiration; from module 0.44.0 its hit points are set from their tile, where the game takes
+ * them. Each line its facts don't give is left out, so a wild-shaped form can add one of its own
+ * later.
  * @param name - Its name as its tab says it, such as "Bat 2".
  * @param combatId - The combat it waits to roll initiative in.
  * @param follows - The character it acts right after in initiative, while that one's in it.
@@ -83,7 +84,8 @@ export function CreatureHeader({
       <dl className='grid grid-cols-2 gap-2 @min-[560px]:grid-cols-3 @min-[860px]:grid-cols-5'>
         {sheet.hp && (
           <Stat label='Hit points' short='HP'>
-            <HitPoints hp={sheet.hp} />
+            {/* Set from here at its own pane, where the game takes it, from module 0.44.0. */}
+            <HitPointsTile hp={sheet.hp} />
           </Stat>
         )}
         {/* An important NPC makes death saving throws, as a character does: shown as its are. */}

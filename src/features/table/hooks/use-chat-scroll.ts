@@ -3,7 +3,8 @@ import type { Tab } from '@/features/table/types'
 import type { TableMessage } from '@/types/table'
 
 /**
- * Keep the chat pinned to the newest message unless the player has scrolled up to read.
+ * Keep the chat pinned to the newest message unless the player has scrolled up to read: as
+ * messages come, and as the chat grows or shrinks, as when the dice tray beneath it opens (v0.44).
  * @param chatInView - Whether the chat is in view now.
  * @param messages - The chat's messages, as the table's view has them.
  * @returns The chat's scroller and its scroll handler; and `pinFor`, which starts the chat from the
@@ -21,6 +22,15 @@ export function useChatScroll(
       element.scrollTop = element.scrollHeight
     }
   }, [chatInView, messages])
+  useLayoutEffect(() => {
+    const element = scroller.current
+    if (!element || !chatInView) return
+    const observer = new ResizeObserver(() => {
+      if (pinned.current) element.scrollTop = element.scrollHeight
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [chatInView])
   const onScroll = () => {
     const element = scroller.current
     if (element && chatInView) {

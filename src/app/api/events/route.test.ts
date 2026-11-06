@@ -76,6 +76,9 @@ const FEATURES = {
   // Changed on purpose (round 0.41.0 §8.3): from module 0.41.0, the plans of damage on its own at
   // each level, in each attack mode and with each ammunition, and what it would spend.
   aloneChoices: 1,
+  // Changed on purpose (v0.44): from module 0.44.0, hit points and temporary hit points set from
+  // the app, fetched for with everything else off.
+  hitPoints: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -816,20 +819,22 @@ describe('app/api/events', () => {
 
         const { features } = await response.json()
         // Changed on purpose (round 0.39.0 §1.10): effects follow them; (round 0.40.0 §10.3)
-        // Wild Shape follows those; and (round 0.41.0 §8.3) damage on its own's choices follow it.
-        expect(Object.keys(features).slice(-5)).toEqual([
+        // Wild Shape follows those; (round 0.41.0 §8.3) damage on its own's choices follow it; and
+        // (v0.44) hit points follow those.
+        expect(Object.keys(features).slice(-6)).toEqual([
           'favorites',
           'dishes',
           'effects',
           'wildShape',
           'aloneChoices',
+          'hitPoints',
         ])
         expect(features.dishes).toBe(1)
       })
     })
 
-    // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows effects; and (round 0.41.0
-    // §8.3) damage on its own's choices follow it, last.
+    // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows effects; (round 0.41.0 §8.3)
+    // damage on its own's choices follow it; and (v0.44) hit points follow those, last.
     it("says it takes a player's own effects, from module 0.39.0, after dishes", async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
@@ -838,7 +843,7 @@ describe('app/api/events', () => {
       )
 
       const { features } = await response.json()
-      expect(Object.keys(features).slice(0, -2)).toEqual([
+      expect(Object.keys(features).slice(0, -3)).toEqual([
         'commands',
         'slimSheets',
         'maxBytes',
@@ -856,7 +861,8 @@ describe('app/api/events', () => {
       expect(features.effects).toBe(1)
     })
 
-    // Changed on purpose (round 0.41.0 §8.3): damage on its own's choices follow it, last.
+    // Changed on purpose (round 0.41.0 §8.3): damage on its own's choices follow it; and (v0.44)
+    // hit points follow those, last.
     it('says it takes Wild Shape from the app and a shaped sheet, from module 0.40.0, after effects', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
@@ -865,7 +871,7 @@ describe('app/api/events', () => {
           envelope(type, { characters: [], combats: [] }),
         )
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-3, -1)).toEqual([
+        expect(Object.keys(features).slice(-4, -2)).toEqual([
           'effects',
           'wildShape',
         ])
@@ -875,7 +881,8 @@ describe('app/api/events', () => {
       }
     })
 
-    it("says it takes damage on its own's choices and companions' saves, from module 0.41.0, after Wild Shape, last", async () => {
+    // Changed on purpose (v0.44): hit points follow them, last.
+    it("says it takes damage on its own's choices and companions' saves, from module 0.41.0, after Wild Shape", async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       for (const type of ['bridge.hello', 'bridge.heartbeat']) {
@@ -883,7 +890,7 @@ describe('app/api/events', () => {
           envelope(type, { characters: [], combats: [] }),
         )
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-2)).toEqual([
+        expect(Object.keys(features).slice(-3, -1)).toEqual([
           'wildShape',
           'aloneChoices',
         ])
@@ -893,6 +900,23 @@ describe('app/api/events', () => {
         expect(features.companions).toBe(2)
         expect(Number.isInteger(features.aloneChoices)).toBe(true)
         expect(Number.isInteger(features.companions)).toBe(true)
+      }
+    })
+
+    it('says it takes hit points set from the app, from module 0.44.0, after damage on its own’s choices, last', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      for (const type of ['bridge.hello', 'bridge.heartbeat']) {
+        const response = await post(
+          envelope(type, { characters: [], combats: [] }),
+        )
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-2)).toEqual([
+          'aloneChoices',
+          'hitPoints',
+        ])
+        // The module reads it as a whole number, 1 or more, as it reads Wild Shape's.
+        expect(features.hitPoints).toBe(1)
       }
     })
 

@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   CookingPot,
   Dices,
+  Heart,
   KeyRound,
   MessageSquare,
   PawPrint,
@@ -34,6 +35,7 @@ import {
   companionsLine,
   dishesText,
   effectsText,
+  hitPointsText,
   movesText,
   rollsText,
   wildShapeText,
@@ -170,6 +172,16 @@ export function CampaignCard({
             </h3>
             <p className='text-sm text-text-secondary'>
               {wildShapeText(campaign)}
+            </p>
+          </section>
+
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <Heart aria-hidden className='size-4 text-text-secondary' />
+              Players&apos; hit points
+            </h3>
+            <p className='text-sm text-text-secondary'>
+              {hitPointsText(campaign)}
             </p>
           </section>
 

@@ -60,9 +60,10 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
     // Whether its players may roll in the game from here. A module before 0.10.0 can't make their
     // rolls, and says nothing of them.
     rollsEnabled: features?.rolls?.enabled === true,
-    // A move of items and coins, a removal, a favorite, from module 0.39.0 an effect changed, or
-    // from module 0.40.0 Wild Shape, is never one of the rolls, even where a module says so: each
-    // has its own feature.
+    // A move of items and coins, a removal, a favorite, from module 0.39.0 an effect changed, from
+    // module 0.40.0 Wild Shape, or from module 0.44.0 hit points set, is never one of the rolls,
+    // even where a module says so: each has its own feature. A plain roll, from module 0.44.0, is
+    // one of them.
     rollKinds: (features?.rolls?.kinds ?? []).filter(
       kind =>
         (ROLL_KINDS as readonly string[]).includes(kind) &&
@@ -102,6 +103,10 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
     // Whether the campaign lets its players use Wild Shape from here, from module 0.40.0, by its
     // own switch under dnd5e: a module before it says nothing of it, which clears it.
     wildShapeEnabled: kindOn(features?.wildShape, 'wildShape'),
+    // Whether the campaign lets its players set hit points and temporary hit points from here, of
+    // their characters, forms and companions, from module 0.44.0, by its own switch under dnd5e,
+    // apart from the rolls: a module before it says nothing of them, which clears it.
+    hitPointsEnabled: kindOn(features?.hitPoints, 'hitPoints'),
     // Whether the module keeps journal notes for the app, from module 0.34.0, with no switch: a
     // module before it says nothing of them, which clears it.
     notesEnabled: kindOn(features?.notes, 'personal'),
@@ -116,9 +121,11 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
 
 /**
  * How its characters' companions roll, as a hello says it (module 0.36.0): the kinds a companion's
- * rolls may be, never one no companion's is, nor one this app doesn't know; and how they enter
- * initiative, each its own roll unless the module says otherwise. A module before it says nothing
- * of them, which clears the first and sets the second back to its own roll.
+ * rolls may be, never one no companion's is, nor one this app doesn't know, nor one with a switch
+ * of its own, as hit points set from module 0.44.0, which a companion takes wherever its own
+ * feature does; and how they enter initiative, each its own roll unless the module says otherwise.
+ * A module before it says nothing of them, which clears the first and sets the second back to its
+ * own roll.
  */
 export function helloCompanionData(
   features: BridgeFeatures | null | undefined,
@@ -127,7 +134,8 @@ export function helloCompanionData(
     companionKinds: (features?.companions?.kinds ?? []).filter(
       kind =>
         (ROLL_KINDS as readonly string[]).includes(kind) &&
-        !(COMPANION_UNTAKEN as readonly string[]).includes(kind),
+        !(COMPANION_UNTAKEN as readonly string[]).includes(kind) &&
+        !(OWN_KINDS as readonly string[]).includes(kind),
     ),
     companionInitiative:
       features?.companions?.initiative === 'after' ? 'after' : 'own',

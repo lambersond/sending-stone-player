@@ -71,6 +71,7 @@ describe('db/table', () => {
         effects: false,
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
+        hitPoints: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -91,6 +92,8 @@ describe('db/table', () => {
           // Changed on purpose (round 0.40.0 §10.3): whether the campaign lets its players use Wild
           // Shape.
           wildShapeEnabled: true,
+          // Changed on purpose (v0.44): whether the campaign lets its players set hit points.
+          hitPointsEnabled: true,
         },
       })
     })
@@ -115,6 +118,7 @@ describe('db/table', () => {
         effects: false,
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
+        hitPoints: false,
       })
     })
 
@@ -135,6 +139,7 @@ describe('db/table', () => {
         effects: false,
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
+        hitPoints: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -153,6 +158,7 @@ describe('db/table', () => {
         effects: false,
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
+        hitPoints: false,
       })
     })
 
@@ -244,6 +250,8 @@ describe('db/table', () => {
           // Changed on purpose (round 0.40.0 §10.3): whether the campaign lets its players use Wild
           // Shape.
           wildShapeEnabled: true,
+          // Changed on purpose (v0.44): whether the campaign lets its players set hit points.
+          hitPointsEnabled: true,
           // Changed on purpose (v0.44 item 8): when its chat was last cleared.
           chatClearedAt: true,
         },
@@ -732,6 +740,7 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       effects: false,
       // Changed on purpose (round 0.40.0 §10.3): nor Wild Shape.
       wildShape: false,
+      hitPoints: false,
     })
   })
 
@@ -1862,6 +1871,7 @@ describe('db/table, Wild Shape, from module 0.40.0', () => {
     expect(await getTableView(gm)).not.toHaveProperty('wildShape')
     await expect(getCampaignStatus(gm)).resolves.toMatchObject({
       wildShape: false,
+      hitPoints: false,
     })
   })
 
@@ -1881,6 +1891,7 @@ describe('db/table, Wild Shape, from module 0.40.0', () => {
     expect(await getTableView(character)).not.toHaveProperty('wildShape')
     await expect(getCampaignStatus(character)).resolves.toMatchObject({
       wildShape: false,
+      hitPoints: false,
     })
   })
 
@@ -1918,6 +1929,75 @@ describe('db/table, Wild Shape, from module 0.40.0', () => {
         },
       }),
     )
+  })
+})
+
+/** The campaign, letting its players set hit points as given, and fetching as lately. */
+const settingHitPoints = (
+  hitPointsEnabled = true,
+  bridgePolledAt: Date | null = new Date(Date.now() - 5000),
+) =>
+  givenCampaign({
+    ...campaign,
+    groups: [],
+    rollsEnabled: false,
+    rollKinds: [],
+    rollFeatures: [],
+    transfersEnabled: false,
+    removalsEnabled: false,
+    favoritesEnabled: false,
+    effectsEnabled: false,
+    wildShapeEnabled: false,
+    hitPointsEnabled,
+    bridgePolledAt,
+  })
+
+describe('db/table, hit points, from module 0.44.0', () => {
+  it('lets the player set them while the campaign lets them, the rolls and everything else off', async () => {
+    settingHitPoints()
+
+    const view = await getTableView(character)
+    expect(view.hitPoints).toBe(true)
+    expect(view.rollsToTable).toEqual([])
+    expect(view).not.toHaveProperty('wildShape')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      wildShape: false,
+      hitPoints: true,
+    })
+  })
+
+  it.each([
+    [
+      'at the Gamemaster’s seat, which would leave no mark of theirs',
+      () => settingHitPoints(),
+      { ...character, role: 'gm' as const, userId: 'gm-1', characterId: null },
+    ],
+    [
+      'while the campaign lets none, as before module 0.44.0',
+      () => settingHitPoints(false),
+      character,
+    ],
+    [
+      'while its module isn’t fetching',
+      () => settingHitPoints(true, new Date(Date.now() - 46_000)),
+      character,
+    ],
+  ])('lets no one set them %s', async (_name, arrange, seat) => {
+    arrange()
+
+    expect(await getTableView(seat)).not.toHaveProperty('hitPoints')
+    await expect(getCampaignStatus(seat)).resolves.toMatchObject({
+      hitPoints: false,
+    })
+  })
+
+  // The status reads the switch alone, as for Wild Shape: a character gone from the roster moves
+  // the version.
+  it('lets no one set those of a character no longer in the roster', async () => {
+    settingHitPoints()
+
+    const gone = await getTableView({ ...character, actorId: 'actor-gone' })
+    expect(gone).not.toHaveProperty('hitPoints')
   })
 })
 

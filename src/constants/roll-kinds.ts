@@ -36,6 +36,9 @@ export const ROLL_KIND_INFO = {
     companion: false,
   },
   formula: { gmLabel: 'A roll', dice: 'free' },
+  // From module 0.44.0: the dice the player picks, the Gamemaster's too, as the character's own,
+  // never a companion's.
+  plainRoll: { gmLabel: 'A dice roll', dice: 'plain', companion: false },
   ask: { gmLabel: 'A roll asked of the table', dice: 'none', fromText: true },
   textDamage: {
     gmLabel: 'Damage',
@@ -115,6 +118,14 @@ export const ROLL_KIND_INFO = {
     gm: false,
     companion: false,
   },
+  // From module 0.44.0, by a switch of its own: the player's alone, posting nothing, of their
+  // character, its form while shaped, or a companion of theirs.
+  hitPoints: {
+    gmLabel: 'Hit points set',
+    dice: 'none',
+    gm: false,
+    own: 'hitPointsEnabled',
+  },
 } as const satisfies Record<RollKind, RollKindInfo>
 
 /** The kinds `pred` holds for, in ROLL_KINDS' order: as `kindsWhere(kind => …)`. */
@@ -134,7 +145,8 @@ export const ANSWER_KINDS = [
 
 /**
  * The kinds with a switch of the campaign's own, never one of the rolls, in ROLL_KINDS' order, as
- * the server withholds them: a move, a removal, a favorite, an effect changed and Wild Shape.
+ * the server withholds them: a move, a removal, a favorite, an effect changed, Wild Shape and from
+ * module 0.44.0 hit points set.
  */
 export const OWN_KINDS: readonly RollKind[] = kindsWhere(
   kind => 'own' in ROLL_KIND_INFO[kind],

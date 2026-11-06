@@ -87,7 +87,8 @@ const UNAVAILABLE = {
  * journal notes, from module 0.37.0 their characters' favorites, from module 0.38.0 dishes from
  * the Magical Recipe Book, from module 0.39.0 their characters' own effects, and from module
  * 0.40.0 Wild Shape. Changed on purpose (round 0.38.0 §D9): dishes too. Changed on purpose (round
- * 0.39.0 §1.10): effects too. Changed on purpose (round 0.40.0 §10.3): Wild Shape too.
+ * 0.39.0 §1.10): effects too. Changed on purpose (round 0.40.0 §10.3): Wild Shape too. And from
+ * module 0.44.0, hit points set.
  */
 const given = (
   rollsEnabled: boolean,
@@ -99,6 +100,7 @@ const given = (
   dishesEnabled = false,
   effectsEnabled = false,
   wildShapeEnabled = false,
+  hitPointsEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
@@ -109,6 +111,7 @@ const given = (
     dishesEnabled,
     effectsEnabled,
     wildShapeEnabled,
+    hitPointsEnabled,
     playersPresent,
   })
 
@@ -368,6 +371,31 @@ describe('app/api/bridge/commands', () => {
       commands: [shaping],
       open: ['thorin'],
     })
+  })
+
+  it('hands over hit points set with everything else off, from module 0.44.0, a companion’s naming its character', async () => {
+    const setting: RollCommand = {
+      id: 'req-hitpoints',
+      actorId: 'wolf',
+      of: 'thorin',
+      kind: 'hitPoints',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      hitPoints: { op: 'set', value: 7, from: { value: 11 } },
+    }
+    given(false, false, false, false, false, false, false, false, false, true)
+    jest.mocked(claimRollRequests).mockResolvedValue([setting])
+
+    const cold = await post()
+
+    await expect(cold.json()).resolves.toEqual({
+      commands: [setting],
+      wait: 10_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
   })
 
   describe('journal notes, from module 0.34.0', () => {

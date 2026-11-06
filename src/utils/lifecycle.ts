@@ -128,11 +128,12 @@ async function look(
     if (!response.ok) return 'again'
     // What became of an effect (module 0.39.0), or of Wild Shape (module 0.40.0), is kept apart
     // from what was asked; and so is what damage on its own spent (module 0.41.0), apart from the
-    // hit dice a request spent.
+    // hit dice a request spent, and the hit points set (module 0.44.0), apart from the marker.
     const {
       effect: changed,
       wildShape: wildShaped,
       alone: made,
+      hitPoints: hitPointsNow,
       ...view
     } = (await response.json()) as RollRequestView
     update({
@@ -141,6 +142,7 @@ async function look(
       ...(wildShaped && { wildShaped }),
       ...(made && { aloneSpent: made.spent }),
       ...(made?.concentrating && { concentrating: true as const }),
+      ...(hitPointsNow && { hitPointsNow }),
       requestId: id,
     })
     // A roll that took too long may still be made, once the Gamemaster answers; but not hit dice

@@ -6,6 +6,7 @@ const FLAGS = [
   'favorites',
   'effects',
   'wildshape',
+  'hitpoints',
 ] as const
 
 /**
@@ -29,6 +30,7 @@ export function seenQuery(seen: {
   favorites?: boolean
   effects?: boolean
   wildshape?: boolean
+  hitpoints?: boolean
   sheet?: string
 }): URLSearchParams {
   const query = new URLSearchParams()

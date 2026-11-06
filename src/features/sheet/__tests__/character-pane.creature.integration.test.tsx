@@ -2,7 +2,7 @@ import { DiceRendererProvider } from '@lambersond/3d-dice-react'
 import {
   act,
   fireEvent,
-  render,
+  render as renderAlone,
   screen,
   waitFor,
   within,
@@ -25,11 +25,13 @@ import { toTableSheet } from '@/utils/table-view'
 import type { RollKind } from '@/types/roll'
 import type { CharacterSheet, SheetActionSection } from '@/types/sending-stone'
 import type { CreatureFacts, TableCombat } from '@/types/table'
+import type { ReactElement } from 'react'
 
 /*
  * A creature's pane (module 0.36.0): its tabs, its header, and how it behaves while another pane is
  * shown. The 3D dice need WebGL, so the renderer is a stand-in, counted as it's made, with no dice
  * ever ready, so that rolls resolve at once; or, where a case says so, ready, each throw counted.
+ * Each pane is rendered under the page's renderer, as GameTable gives it (v0.44).
  */
 const mockRenderers = jest.fn()
 const mockThrows = jest.fn(async () => {})
@@ -150,6 +152,10 @@ const answering = (answers: Record<string, Record<string, unknown>>) => {
 }
 
 type Pane = Partial<Parameters<typeof CharacterPane>[0]>
+
+/** What's rendered, under the page's renderer, as a page has it; rendered again, still so. */
+const render = (ui: ReactElement) =>
+  renderAlone(ui, { wrapper: DiceRendererProvider })
 
 const pane = (props: Pane = {}) => (
   <CharacterPane
@@ -686,28 +692,14 @@ describe('a creature’s pane', () => {
     })
   })
 
-  it('throws its dice on the page’s renderer where it shares one, never one of its own', () => {
-    render(
-      <DiceRendererProvider>
-        {pane({ sharedDice: true })}
-        {pane({
-          sharedDice: true,
-          characterId: 'seat-1:c:bat',
-          idPrefix: 'creature-bat-',
-        })}
-      </DiceRendererProvider>,
-    )
-    expect(mockRenderers).toHaveBeenCalledTimes(1)
-  })
-
-  it('has a renderer of its own where it shares none', () => {
+  it('throws its dice on the page’s renderer, as every pane on the page does, with none of its own', () => {
     render(
       <>
         {pane()}
         {pane({ characterId: 'seat-1:c:bat', idPrefix: 'creature-bat-' })}
       </>,
     )
-    expect(mockRenderers).toHaveBeenCalledTimes(2)
+    expect(mockRenderers).toHaveBeenCalledTimes(1)
   })
 
   it('stays quiet as it settles, for a page that keeps it', async () => {
