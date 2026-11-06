@@ -18,7 +18,7 @@
 // --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BOB, activeScene, browse, call, character, check, companion, finish, foundryWorld, launch, newCampaign, note, part,
-  place, posted, postsOf, relay, same, sceneWorld, settled, shootBoth, sideways, sql, startModule, until, wait,
+  place, posted, postsOf, relay, same, sameJson, sceneWorld, settled, shootBoth, sideways, sql, startModule, until, wait,
 } from './world-030.mjs'
 
 const GAME = 'https://ashlands-hitpoints.forge-vtt.com'
@@ -225,7 +225,7 @@ part('3. the GM\'s fall')
   await until(() => commands().length === 1, 'the command', 10_000)
   await until(() => same(hpOf(thorin), { value: 21, temp: 0 }), 'Thorin set in Foundry', 20_000)
   const row = commands()[0]
-  check(same(row.payload.hitPoints, { op: 'set', value: 21, temp: 0, from: { value: 22, temp: 3 } }) && row.actorId === 'thorin' && row.ofActorId === null && row.label === null && row.role === 'player',
+  check(sameJson(row.payload.hitPoints, { op: 'set', value: 21, temp: 0, from: { value: 22, temp: 3 } }) && row.actorId === 'thorin' && row.ofActorId === null && row.label === null && row.role === 'player',
     `one command, its numbers from what the tile showed, no label kept (${JSON.stringify({ hitPoints: row.payload.hitPoints, actorId: row.actorId, of: row.ofActorId, label: row.label })})`)
   // On its way: the tile waits, and a second post meanwhile clashes.
   await until(() => storedHp()?.value === 21, 'the sheet ahead of the result', 20_000)
@@ -240,7 +240,7 @@ part('3. the GM\'s fall')
   const made = await answered(1, 'the fall')
   const resultIndex = posted.findIndex(p => (p.type === 'command.result') && (p.data?.id === made.id))
   const sheetIndex = posted.findIndex(p => (p.type === 'character.updated') && (p.data?.character?.id === 'thorin') && (p.data.character.sheet?.hp?.value === 21))
-  check(made.status === 'done' && same(resultOf(made)?.hitPoints, { value: 21, temp: 0, max: 30 }) && (sheetIndex >= 0) && (sheetIndex < resultIndex),
+  check(made.status === 'done' && sameJson(resultOf(made)?.hitPoints, { value: 21, temp: 0, max: 30 }) && (sheetIndex >= 0) && (sheetIndex < resultIndex),
     `done, the result saying the numbers now, the sheet posted ahead of it (${JSON.stringify({ result: resultOf(made), sheetIndex, resultIndex })})`)
   await trayShows(desk, 'Hit points now 21 / 30')
   check(true, 'the tray says "Hit points now 21 / 30", as the game says')
@@ -317,7 +317,7 @@ part('6. a companion\'s')
   await editorOf(desk).getByRole('button', { name: 'Save', exact: true }).click()
   const made = await answered(3, 'Brakka\'s change')
   check(made.status === 'done' && made.actorId === 'brakka' && made.ofActorId === 'thorin'
-    && same(made.payload.hitPoints, { op: 'set', value: 26, temp: 5, from: { value: 30, temp: 0 } })
+    && sameJson(made.payload.hitPoints, { op: 'set', value: 26, temp: 5, from: { value: 30, temp: 0 } })
     && same(hpOf(brakka), { value: 26, temp: 5 }) && same(hpOf(thorin), thorinWas),
   `made on Brakka, as Thorin's companion, her own actor written, Thorin's untouched (${JSON.stringify({ actorId: made.actorId, of: made.ofActorId, brakka: hpOf(brakka), thorin: hpOf(thorin) })})`)
   await trayShows(desk, 'Hit points 30 → 26 · temporary 0 → 5', 'Brakka’s hit points now 26 / 30 · 5 temporary')
