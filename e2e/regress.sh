@@ -171,3 +171,7 @@ run companionsaves 44 SHOTS=$O/shots-041
 run companionsaves 46 MIDI=1 SHOTS=$O/shots-041
 run companionsaves 38 DND5E6=1 SHOTS=$O/shots-041
 run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041
+# Module 0.44.0: hit points and temporary hit points set from the app, the character's and a
+# companion's, the rolls off; the editor reset as the game changes them; a stale view refused; never
+# the Gamemaster's page nor another seat; the campaign card, and the switch off.
+run hitpoints 36 SHOTS=$O/shots-044
