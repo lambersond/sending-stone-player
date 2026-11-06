@@ -55,6 +55,12 @@ export type OwnedCampaign = {
    */
   wildShape?: { enabled: boolean }
   /**
+   * Whether the campaign lets its players set their characters', forms' and companions' hit points
+   * and temporary hit points from here, from module 0.44.0, as its last hello said. None reads as
+   * off.
+   */
+  hitPoints?: { enabled: boolean }
+  /**
    * Its players' chat here (v0.44): how many messages it holds, and when it was last cleared, by
    * its Gamemaster here or by Foundry's Clear Chat Log, as an ISO date; unset if it never was.
    */
