@@ -122,11 +122,10 @@ const heldSelect = {
  * where it's an important NPC; and its initiative not where it acts right after its character,
  * who's in that combat. It's checked against its own sheet, typed in as its character's player
  * types theirs, and kept as its key, with its character's id, for the module to make it as the
- * companion. And a
- * turn ended, from module 0.36.0, only by the character's player at its own seat, never at a
- * companion's or the Gamemaster's, is checked against the combat it names alone, as last heard
- * of, with or without a sheet, and counted with the seat's rolls; and so is a turn ended taken
- * back, only from the seat that ended it, and only for a moment after (`checkUndoTurn`). From
+ * companion. And a turn ended, from module 0.36.0, only by the character's player at its own seat,
+ * never at a companion's or the Gamemaster's, is checked against the combat it names alone, as last
+ * heard of, with or without a sheet, and counted with the seat's rolls; and so is a turn ended
+ * taken back, only from the seat that ended it, and only for a moment after (`checkUndoTurn`). From
  * module 0.41.0, damage on its own names its slot, attack mode or ammunition, or spends what its
  * use would, only where the game takes them (`aloneChoices`).
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
