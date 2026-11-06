@@ -33,14 +33,19 @@ From the table's first session with v0.42.1, after the refactor:
    skills and traits.
 3. **Larger icon buttons on tablets (done in v0.44's PR):** icon-only buttons grow above a small
    screen, and can shrink again where the screen is wide enough for their words.
-4. **Hit points from the app:** players adjust their own character's hit points.
+4. **Hit points from the app:** players set their own character's hit points and temporary hit
+   points as numbers, its Wild Shape form's and its companions' too, for what the rolls don't do
+   ("you fall through the floor and take 4 damage"), by a switch on the Player actions tab of the
+   module's settings, on by default; a drop asks a concentration save, and no chat line is posted.
 5. **Manual dice said in the dice dialog (done in v0.44's PR):** a note, or a "Manual Dice" chip in
    its header, that the die results are typed in.
 6. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
    dice), what each long press offers (damage, attack and other rolls), the settings, how manual
    dice work, and that the Gamemaster applies short and long rests.
-7. **A plain die roll:** d4, d6, d8, d10, d12, d20 or d100, with advantage or disadvantage and any
-   modifier, not tied to the character, for what the Gamemaster asks.
+7. **A plain die roll:** a dice tray under the chat, for what the Gamemaster asks: dice of any of
+   d4, d6, d8, d10, d12, d20 and d100 added and removed, several sizes at once, with a modifier and
+   no advantage or disadvantage, made in the game where the rolls are on; its dice tumble over the
+   whole character page.
 8. **The Gamemaster clears a campaign's chat (done in v0.44's PR):** including messages from the
    cookbook, whose whispers now stay.
 9. Remaining bugs, and the known limits chosen to close before v1.0. Found in the v0.43 refactor
