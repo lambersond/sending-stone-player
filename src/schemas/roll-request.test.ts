@@ -3026,3 +3026,308 @@ describe('schemas/roll-request, a spell prepared or unprepared, from module 0.42
     )
   })
 })
+
+describe('schemas/roll-request, hit points set, from module 0.44.0', () => {
+  /** The GM's fall: 4 damage taken from 22 and 3 temporary, as the editor's Save sends it. */
+  const setting = {
+    kind: 'hitPoints',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    hitPoints: { op: 'set', value: 21, temp: 0, from: { value: 22, temp: 3 } },
+  }
+  /** Hit points as given, the rest as `setting` has them. */
+  const hitPoints = (fields: unknown) =>
+    parseKind(setting, { hitPoints: fields })
+  const message =
+    'Hit points set, and only those, name the numbers and what they were'
+
+  it.each([
+    [
+      'both, as the editor saves them',
+      { op: 'set', value: 21, temp: 0, from: { value: 22, temp: 3 } },
+    ],
+    ['hit points alone', { op: 'set', value: 18, from: { value: 22 } }],
+    ['temporary ones alone', { op: 'set', temp: 5, from: { temp: 0 } }],
+    ['0, and from 0', { op: 'set', value: 0, from: { value: 0 } }],
+    ['the most', { op: 'set', value: 9999, from: { value: 9999 } }],
+  ])('takes %s, as they are', (_name, fields) => {
+    const parsed = hitPoints(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...setting, hitPoints: fields })
+  })
+
+  it.each([
+    ['no op', { value: 21, from: { value: 22 } }],
+    ['an op of its own', { op: 'damage', value: 4, from: { value: 22 } }],
+    ['a number below 0', { op: 'set', value: -1, from: { value: 22 } }],
+    ['a number over 9999', { op: 'set', value: 10_000, from: { value: 22 } }],
+    ['a part of one', { op: 'set', value: 1.5, from: { value: 22 } }],
+    ['a number as text', { op: 'set', value: '21', from: { value: 22 } }],
+    ['a from out of range', { op: 'set', value: 21, from: { value: -2 } }],
+    ['no from', { op: 'set', value: 21 }],
+    ['a maximum', { op: 'set', max: 40, from: { max: 30 } }],
+    ['a key more', { op: 'set', value: 21, from: { value: 22 }, by: 'gm' }],
+    ['not an object', 21],
+    ['null', null],
+  ])('refuses %s', (_name, fields) => {
+    expect(hitPoints(fields).success).toBe(false)
+  })
+
+  it.each([
+    ['neither number', { op: 'set', from: {} }, 'value'],
+    [
+      'a number set saying nothing of what it was',
+      { op: 'set', value: 21, temp: 0, from: { value: 22 } },
+      'from',
+    ],
+    [
+      'what a number not set was',
+      { op: 'set', value: 21, from: { value: 22, temp: 3 } },
+      'from',
+    ],
+  ])('refuses %s, at its field', (_name, fields, path) => {
+    expect(issuesOf(setting, { hitPoints: fields })).toEqual([
+      [`hitPoints.${path}`, expect.any(String)],
+    ])
+  })
+
+  it('takes hit points set only as themselves, and only naming their numbers', () => {
+    expect(issuesOf(perception, { hitPoints: setting.hitPoints })).toEqual([
+      ['hitPoints', message],
+    ])
+    expect(issuesOf(spending, { hitPoints: setting.hitPoints })).toEqual([
+      ['hitPoints', message],
+    ])
+    expect(issuesOf(setting, { hitPoints: undefined })).toEqual([
+      ['hitPoints', message],
+    ])
+  })
+
+  it.each([
+    [
+      'an effect',
+      { effect: { op: 'disable', id: 'blessed' } },
+      [
+        'effect',
+        'An effect turned off, on or deleted, and only that, names the effect',
+      ],
+    ],
+    [
+      'a spell slot',
+      { spellSlot: { op: 'spend', id: 'spell1', from: 3 } },
+      [
+        'spellSlot',
+        'A spell slot spent or restored, and only that, names the pool, which, and the count it was made from',
+      ],
+    ],
+    [
+      'an item',
+      { item: 'potion', activity: 'drink' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])(
+    'refuses hit points naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(setting, fields)).toContainEqual(issue)
+    },
+  )
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses hit points with %s, as they throw no dice', (_name, fields) => {
+    expect(issuesOf(setting, fields)).toEqual([
+      ['dice', 'Setting hit points throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(setting, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(setting, { of: 'actorThorin1' }).success).toBe(false)
+  })
+})
+
+describe('schemas/roll-request, a plain roll, from module 0.44.0', () => {
+  /** 2d6 + 1d8 + 2, as the dice tray sends it, with the dice it threw. */
+  const rolling = {
+    kind: 'plainRoll',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    plainRoll: {
+      terms: [
+        { faces: 6, count: 2 },
+        { faces: 8, count: 1 },
+      ],
+      bonus: 2,
+    },
+    dice: [
+      { faces: 6, results: [3, 5] },
+      { faces: 8, results: [7] },
+    ],
+  }
+  /** A plain roll of these terms, each die thrown as its first face, with the number given. */
+  const rolled = (terms: { faces: number; count: number }[], bonus?: number) =>
+    parseKind(rolling, {
+      plainRoll: { terms, ...(bonus !== undefined && { bonus }) },
+      dice: terms.map(({ faces, count }) => ({
+        faces,
+        results: Array.from({ length: count }, () => 1),
+      })),
+    })
+  const message = 'A dice roll, and only that, names its dice'
+  const thrown = 'A dice roll throws the dice it names, and nothing more'
+
+  it.each([
+    [
+      'two sizes and a number',
+      [
+        { faces: 6, count: 2 },
+        { faces: 8, count: 1 },
+      ],
+      2,
+    ],
+    ['a d20 less 1', [{ faces: 20, count: 1 }], -1],
+    ['a d100, one die of 100 faces', [{ faces: 100, count: 1 }], undefined],
+    [
+      'every size at once, 20 dice in all',
+      [4, 6, 8, 10, 12, 20, 100].map((faces, index) => ({
+        faces,
+        count: index === 0 ? 14 : 1,
+      })),
+      undefined,
+    ],
+    ['the most added', [{ faces: 4, count: 1 }], 100],
+    ['the most taken away', [{ faces: 4, count: 1 }], -100],
+  ])('takes %s', (_name, terms, bonus) => {
+    expect(rolled(terms, bonus).success).toBe(true)
+  })
+
+  it('takes one typed in, its rerolls kept, as any roll with dice', () => {
+    expect(parseKind(rolling, { typed: true, rerolls: 'kept' }).success).toBe(
+      true,
+    )
+  })
+
+  it.each([
+    ['no dice', []],
+    ['a d3', [{ faces: 3, count: 1 }]],
+    ['no die of a size', [{ faces: 6, count: 0 }]],
+    [
+      'a size twice',
+      [
+        { faces: 6, count: 1 },
+        { faces: 6, count: 1 },
+      ],
+    ],
+    [
+      '21 dice in all',
+      [
+        { faces: 6, count: 20 },
+        { faces: 8, count: 1 },
+      ],
+    ],
+    ['21 of one size', [{ faces: 6, count: 21 }]],
+  ])('refuses %s', (_name, terms) => {
+    expect(rolled(terms).success).toBe(false)
+  })
+
+  it.each([
+    ['a number over 100', 101],
+    ['a part of one', 1.5],
+  ])('refuses %s added', (_name, bonus) => {
+    expect(rolled([{ faces: 6, count: 1 }], bonus).success).toBe(false)
+  })
+
+  it('refuses a term naming anything more, or a roll naming anything more of its dice', () => {
+    expect(
+      parseKind(rolling, {
+        plainRoll: { terms: [{ faces: 6, count: 2, sign: 1 }] },
+      }).success,
+    ).toBe(false)
+    expect(
+      parseKind(rolling, {
+        plainRoll: { ...rolling.plainRoll, label: 'Luck' },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('takes a plain roll only as itself, and one only naming its dice', () => {
+    expect(issuesOf(perception, { plainRoll: rolling.plainRoll })).toEqual([
+      ['plainRoll', message],
+    ])
+    expect(
+      issuesOf(rolling, { plainRoll: undefined }).map(([path]) => path),
+    ).toContain('plainRoll')
+  })
+
+  it.each([
+    ['dice not one a size', { dice: [{ faces: 6, results: [3, 5] }] }],
+    [
+      'a size’s dice too few',
+      {
+        dice: [
+          { faces: 6, results: [3] },
+          { faces: 8, results: [7] },
+        ],
+      },
+    ],
+    [
+      'the sizes out of order',
+      {
+        dice: [
+          { faces: 8, results: [7] },
+          { faces: 6, results: [3, 5] },
+        ],
+      },
+    ],
+    [
+      'a result off its die',
+      {
+        dice: [
+          { faces: 6, results: [3, 7] },
+          { faces: 8, results: [7] },
+        ],
+      },
+    ],
+    ['advantage', { mode: 1 }],
+    ['how it was rolled chosen', { explicit: true }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+  ])('refuses one with %s', (_name, fields) => {
+    expect(issuesOf(rolling, fields)).toEqual([['dice', thrown]])
+  })
+
+  it.each([
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+    [
+      'an item',
+      { item: 'potion', activity: 'drink' },
+      [
+        'activity',
+        'An attack, a use, a formula or damage on its own, and only those or a check an activity asks for, is made with an item; a recharge, with its item',
+      ],
+    ],
+    [
+      'a hit die’s size',
+      { denomination: 'd8' },
+      ['denomination', 'A hit die, and only a hit die, has a size'],
+    ],
+    [
+      'the dice its effects add',
+      { typed: true, effectDice: [{ faces: 4, sign: 1, results: [2] }] },
+      ['effectDice', 'Only a typed d20 roll names the dice its effects add'],
+    ],
+  ])(
+    'refuses a plain roll naming %s, another kind’s field',
+    (_n, fields, issue) => {
+      expect(issuesOf(rolling, fields)).toContainEqual(issue)
+    },
+  )
+})

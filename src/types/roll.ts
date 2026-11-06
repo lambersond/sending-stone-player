@@ -132,6 +132,34 @@ export type InspirationSource = {
 export type SpellSlotInput = { op: SpellSlotOp; id: string; from: number }
 
 /**
+ * Hit points and temporary hit points set from the app, from module 0.44.0: the only op, `set`,
+ * with the numbers wanted, either or both, and what the app showed of each it sets (`from`), the
+ * same fields, made only where the game still has those.
+ */
+export type HitPointsInput = {
+  op: 'set'
+  value?: number
+  temp?: number
+  from: { value?: number; temp?: number }
+}
+
+/**
+ * Hit points set, as a page keeps the change for its words (module 0.44.0): the fields set, what
+ * each was, and what each is set to.
+ */
+export type HitPointsLogged = Pick<HitPointsInput, 'value' | 'temp' | 'from'>
+
+/**
+ * A plain roll of the dice the player picks, from module 0.44.0: each size once, by its faces and
+ * how many, smallest first, no more than 20 dice in all; and a flat number added, or taken away,
+ * where there is one.
+ */
+export type PlainRollInput = {
+  terms: { faces: DieSides; count: number }[]
+  bonus?: number
+}
+
+/**
  * Items and coins moved, from module 0.31.0: the two ends by their Foundry actor ids, one of them
  * the character's, and what moves, each item by its id and how many of it, and each coin by its
  * key, such as "gp", and how many.
@@ -201,13 +229,15 @@ export type PrepareInput = { op: PrepareOp; id: string }
 /**
  * A roll with no d20 that the game makes too: a hit die spent, by its size, such as "d10", or
  * several spent at once, how many of each size, the largest first; an item's activity's own
- * formula, such as a light's radius; or a description's own roll, by its link.
+ * formula, such as a light's radius; or a description's own roll, by its link; or from module
+ * 0.44.0 a plain roll of the dice the player picked.
  */
 export type FormulaSource =
   | { kind: 'hitDie'; denomination: string }
   | { kind: 'hitDice'; hitDice: HitDiceSpent[] }
   | { kind: 'formula'; item: string; activity: string }
   | ({ kind: 'textRoll' } & TextLink)
+  | { kind: 'plainRoll'; plainRoll: PlainRollInput }
 
 /** Hit dice of one size spent at once: the size, such as "d10", and how many. */
 type HitDiceSpent = { denomination: string; count: number }
@@ -307,6 +337,12 @@ export type RollRequestInput = {
    * its id on the sheet.
    */
   prepare?: PrepareInput
+  /**
+   * For hit points set, from module 0.44.0: the numbers wanted, and what the app showed of each.
+   */
+  hitPoints?: HitPointsInput
+  /** For a plain roll, from module 0.44.0: the dice picked, by size, and the number added. */
+  plainRoll?: PlainRollInput
   /**
    * For a turn ended, from module 0.36.0: which; and for one taken back, the turn that End Turn
    * left, as the page shows it now.
@@ -511,9 +547,10 @@ export type RollKindInfo = {
   gmLabel: string
   /**
    * The dice it throws: a d20 roll's, hit dice spent as they are, a recharge's one d6, a formula's
-   * or damage's own dice (`free`), or none.
+   * or damage's own dice (`free`), from module 0.44.0 a plain roll's, as its sizes say (`plain`),
+   * or none.
    */
-  dice: 'd20' | 'hitDice' | 'recharge' | 'free' | 'none'
+  dice: 'd20' | 'hitDice' | 'recharge' | 'free' | 'plain' | 'none'
   /** Damage or healing: from module 0.36.0, an action's on its own too. */
   damage?: true
   /** Its total is all of its rolls' added up, as dnd5e's card adds damage up, or hit dice's. */
@@ -537,6 +574,7 @@ export type RollKindInfo = {
     | 'favoritesEnabled'
     | 'effectsEnabled'
     | 'wildShapeEnabled'
+    | 'hitPointsEnabled'
   /** It waits while the character is transformed: it would change its own actor's things. */
   shaped?: true
 }
@@ -833,6 +871,11 @@ export type LocalUse = {
    * known form, a return, or a Beast learned, and of which; "Wild Shape" is the label.
    */
   wildShape?: WildShapeLogged
+  /**
+   * Hit points set, rather than anything used, from module 0.44.0: the fields set, from what and
+   * to what; "Hit points" is the label.
+   */
+  hitPoints?: HitPointsLogged
   at: number
 }
 

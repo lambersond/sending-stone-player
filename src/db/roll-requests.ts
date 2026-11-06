@@ -614,6 +614,7 @@ export async function claimRollRequests(
       favoritesEnabled: true,
       effectsEnabled: true,
       wildShapeEnabled: true,
+      hitPointsEnabled: true,
     },
   })
   const ownerId = campaign?.ownerId
@@ -624,8 +625,9 @@ export async function claimRollRequests(
   // `gmRolls`, which the module says only while rolls are on. Removals, from module 0.33.0, as
   // moves do. Favorites, from module 0.37.0, as removals, but a player's alone: no Gamemaster's is
   // ever taken, so none is handed over. A character's own effects changed, from module 0.39.0, as
-  // favorites, by the campaign's own switch; and Wild Shape, from module 0.40.0, likewise, so a
-  // module before it, which says nothing of it, is never handed one.
+  // favorites, by the campaign's own switch; and Wild Shape, from module 0.40.0, and hit points
+  // set, from module 0.44.0, likewise, so a module before it, which says nothing of them, is never
+  // handed one.
   const takes = (kind: RollKind) => {
     const field = (ROLL_KIND_INFO[kind] as RollKindInfo).own
     return current && !!field && campaign?.[field] === true
@@ -788,9 +790,9 @@ async function closeAnsweredPrompt(
  * @returns Whether the campaign takes players' rolls, from module 0.31.0 their moves of items and
  * coins, from module 0.33.0 removals of their characters' items, from module 0.34.0 journal
  * notes, from module 0.37.0 their characters' favorites, from module 0.38.0 dishes from the
- * Magical Recipe Book, from module 0.39.0 changes to their characters' own effects, and from
- * module 0.40.0 Wild Shape, and whether any of its players have their table open, so that one may
- * be coming.
+ * Magical Recipe Book, from module 0.39.0 changes to their characters' own effects, from module
+ * 0.40.0 Wild Shape, and from module 0.44.0 hit points set, and whether any of its players have
+ * their table open, so that one may be coming.
  */
 export async function markBridgePolled(
   campaignId: string,

@@ -570,7 +570,7 @@ describe('db/roll-requests', () => {
           // session not known to take them; changed on purpose (round 0.37.0 §7.15): nor a
           // favorite, from module 0.37.0; changed on purpose (round 0.39.0 §1.10): nor an effect
           // changed, from module 0.39.0; changed on purpose (round 0.40.0 §10.3): nor Wild Shape,
-          // from module 0.40.0.
+          // from module 0.40.0; changed on purpose (v0.44): nor hit points set, from module 0.44.0.
           OR: [
             {
               role: 'player',
@@ -581,6 +581,7 @@ describe('db/roll-requests', () => {
                   'favorite',
                   'effect',
                   'wildShape',
+                  'hitPoints',
                 ],
               },
             },
@@ -2059,9 +2060,9 @@ describe('db/roll-requests', () => {
           effectsEnabled: true,
           // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
           wildShapeEnabled: true,
-          playersSeenAt: true,
           // Changed on purpose (v0.44): hit points set, from module 0.44.0.
           hitPointsEnabled: true,
+          playersSeenAt: true,
         },
       })
     })
@@ -3170,6 +3171,20 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       requestedById: 'gm-1',
       kind: 'wildShape',
     },
+    // From module 0.44.0: a player's hit points set, and one the Gamemaster's seat should never
+    // have sent.
+    {
+      id: 'hitpoints-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'hitPoints',
+    },
+    {
+      id: 'hitpoints-gm',
+      role: 'gm',
+      requestedById: 'gm-1',
+      kind: 'hitPoints',
+    },
   ].map((row, index) => ({
     ...row,
     campaignId: 'c1',
@@ -3402,6 +3417,34 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       'favorite-player',
       'effect-player',
       'wildshape-player',
+    ])
+  })
+
+  it("hands hit points set over only to the hello's session, and only a player's, from module 0.44.0", async () => {
+    const setting = { ...removing, hitPointsEnabled: true }
+    await expect(fetched(setting)).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'remove-gm',
+      'hitpoints-player',
+    ])
+    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      select: expect.objectContaining({ hitPointsEnabled: true }),
+    })
+    // A session the hello didn't come from is handed none: a module before 0.44.0 never is.
+    await expect(fetched(setting, 'session-old')).resolves.toEqual([
+      'roll-player',
+    ])
+    // Never the Gamemaster's, whose rolls go to the game.
+    await expect(
+      fetched({ ...setting, rollFeatures: ['gmRolls'] }),
+    ).resolves.toEqual([
+      'roll-player',
+      'remove-player',
+      'roll-gm',
+      'remove-gm',
+      'hitpoints-player',
     ])
   })
 

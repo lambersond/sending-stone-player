@@ -110,6 +110,9 @@ export const EVENTS = {
  * known form, a return, a form learned, or the Beasts to learn listed, no roll either; and from
  * module 0.42.1, one of the character's spell slots spent or restored, no roll either.
  * And from module 0.42.1, one of the character's spells prepared or unprepared, no roll either.
+ * And from module 0.44.0, a plain roll of the dice the player picks, any mix of sizes with a flat
+ * number, made as any roll is; and the hit points and temporary hit points of the character, its
+ * Wild Shape form or a companion set to the numbers the player entered, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -124,6 +127,7 @@ export const ROLL_KINDS = [
   'hitDie',
   'hitDice',
   'formula',
+  'plainRoll',
   'ask',
   'textDamage',
   'textRoll',
@@ -142,6 +146,7 @@ export const ROLL_KINDS = [
   'effect',
   'wildShape',
   'prepare',
+  'hitPoints',
 ] as const
 
 /**
@@ -326,11 +331,6 @@ export const PREPARE_OPS = ['prepare', 'unprepare'] as const
 export const WILD_SHAPE = 1
 
 /**
- * What a player asks of their druid's Wild Shape from here, from module 0.40.0's `wildShape`
- * command: a change into one of her known forms, a return to herself, a Beast learned as a known
- * form, or the Beasts she may learn listed, which writes nothing.
- */
-/**
  * The format of hit points set from the app this app takes, as it tells the module (`hitPoints`):
  * from module 0.44.0, the `hitPoints` command, its result's `hitPoints` and the hello's
  * `features.hitPoints`, which the module fetches for only then.
@@ -343,6 +343,11 @@ export const HIT_POINTS = 1
  */
 export const MOST_HIT_POINTS = 9999
 
+/**
+ * What a player asks of their druid's Wild Shape from here, from module 0.40.0's `wildShape`
+ * command: a change into one of her known forms, a return to herself, a Beast learned as a known
+ * form, or the Beasts she may learn listed, which writes nothing.
+ */
 export const WILD_SHAPE_OPS = ['transform', 'revert', 'learn', 'forms'] as const
 
 /**
@@ -428,13 +433,15 @@ export const MOST_COMPANIONS = 50
  * none of, nor from module 0.39.0 a change to its effects, which only a character's player makes,
  * nor from module 0.40.0 Wild Shape, which only a character uses, nor from module 0.42.1 a spell
  * slot spent or restored, which an NPC's sheet changes in Foundry, nor from module 0.42.1 a spell
- * prepared, which an NPC has prepared already. The module's list has `note` and `dish` too, which
- * aren't rolls here.
+ * prepared, which an NPC has prepared already, nor from module 0.44.0 a plain roll, which is the
+ * character's own. But not hit points, which from module 0.44.0 a player sets for their companion
+ * as they could on its sheet. The module's list has `note` and `dish` too, which aren't rolls here.
  */
 export const COMPANION_UNTAKEN = [
   'inspiration',
   'hitDie',
   'hitDice',
+  'plainRoll',
   'spend',
   'spellSlot',
   'transfer',
@@ -498,6 +505,12 @@ export const HIT_DIE = new RegExp(`^d(${DIE_SIZES.join('|')})$`)
  * left, as dnd5e's extra hit dice may give, spends the rest in another go.
  */
 export const MOST_HIT_DICE = 20
+
+/**
+ * The most dice a plain roll throws at once, from module 0.44.0, of every size together, as the
+ * module takes them: as many as hit dice spent at once, and as one of a die the player adds.
+ */
+export const MOST_PLAIN_DICE = 20
 
 /** A spell slot's pool, as dnd5e keys it, such as "spell3" or "pact". */
 export const SPELL_SLOT = /^(spell[1-9]|pact)$/
