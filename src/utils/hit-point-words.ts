@@ -5,8 +5,8 @@ import type { HitPointsNow } from '@/types/sending-stone'
 
 // How hit points and temporary hit points set from the app (module 0.44.0) are told, in English:
 // the change asked, on its way, made, as the game says the numbers are, and refused, with why it
-// wasn't made where that differs from a roll's. A companion's name its creature; the character's
-// say "your".
+// wasn't made where that differs from a roll's. A companion's say its name; the character's say
+// "your".
 
 /**
  * What was asked, as the tray's line says it, each field set from what to what: "Hit points 22 →
@@ -35,7 +35,7 @@ function whose(name?: string): string {
  * @param name - A companion's name, at its own pane; none for the character's.
  */
 export function hitPointsNowWords(now?: HitPointsNow, name?: string): string {
-  if (!now) return name ? `${name}’s hit points set` : 'Hit points set'
+  if (!now) return `${whose(name)} set`
   const max = now.max === null ? '' : ` / ${now.max}`
   const temp = now.temp > 0 ? ` · ${now.temp} temporary` : ''
   return `${whose(name)} now ${now.value}${max}${temp}`
