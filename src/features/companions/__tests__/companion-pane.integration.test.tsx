@@ -643,4 +643,68 @@ describe('CompanionPane, the saves the game asks of it, from module 0.41.0 (roun
       await screen.findByRole('region', { name: 'Your game asks' }),
     ).toBeInTheDocument()
   })
+
+  describe('hit points set from its header’s tile, from module 0.44.0', () => {
+    const NAME = 'Hit points: 11 of 11. Change hit points'
+
+    it('sends the change through its own routes, the rolls off, and says it’s made by its name', async () => {
+      const user = userEvent.setup()
+      const answers: Record<string, Record<string, unknown>> = {}
+      const asked = routes(
+        [brakkaView({ rollsToTable: [], hitPoints: true })],
+        answers,
+      )
+      render(pane())
+
+      await user.click(await screen.findByRole('button', { name: NAME }))
+      const dialog = await screen.findByRole('dialog', { name: 'Hit points' })
+      for (let tap = 0; tap < 4; tap += 1) {
+        await user.click(
+          within(dialog).getByRole('button', { name: 'One hit point fewer' }),
+        )
+      }
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+      expect(posts(asked)).toEqual([
+        {
+          url: `${API}/rolls`,
+          method: 'POST',
+          body: {
+            kind: 'hitPoints',
+            hitPoints: { op: 'set', value: 7, from: { value: 11 } },
+            mode: 0,
+            explicit: false,
+            extras: [],
+            dice: [],
+          },
+        },
+      ])
+      answers['req-1'] = {
+        status: 'done',
+        visible: true,
+        rolls: [],
+        hitPoints: { value: 7, temp: 0, max: 11 },
+      }
+      expect(
+        await screen.findByText(
+          'Brakka’s hit points now 7 / 11',
+          {},
+          { timeout: 5000 },
+        ),
+      ).toBeVisible()
+    })
+
+    it('offers none where its view doesn’t let the player, or once it has left', async () => {
+      routes([brakkaView({ hitPoints: undefined })])
+      const { unmount } = render(pane())
+      await screen.findByRole('tablist', { name: 'Character sheet' })
+      expect(screen.queryByRole('button', { name: NAME })).toBeNull()
+      unmount()
+
+      routes([brakkaView({ hitPoints: true })])
+      render(pane({ gone: true }))
+      await screen.findByRole('tablist', { name: 'Character sheet' })
+      expect(screen.queryByRole('button', { name: NAME })).toBeNull()
+    })
+  })
 })
