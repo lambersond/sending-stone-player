@@ -46,6 +46,7 @@ import {
   EVERY_DIE_TWICE,
   withModifiers,
 } from '@/utils/damage-modifiers'
+import { hitPointsLine } from '@/utils/hit-point-words'
 import { formatExtraTerm } from '@/utils/roll-modifiers'
 import type { TypedEffect, TypedOffer } from '@/features/rolling/types'
 import type { DiceEntryTerm, EnterDice } from '@/types/dice-entry'
@@ -62,6 +63,7 @@ import type {
   LocalMove,
   LocalAsk,
   WildShapeLogged,
+  HitPointsLogged,
   SheetOffer,
   RollKind,
 } from '@/types/roll'
@@ -623,6 +625,14 @@ export function useSheetRoller(
     [keep],
   )
 
+  // Keeps hit points set from here, from module 0.44.0, first among the rolls, as a use is, its
+  // line the change: "Hit points 22 → 21 · temporary 3 → 0".
+  const logHitPoints = useCallback(
+    (hitPoints: HitPointsLogged): LocalUse =>
+      keep('use', { label: hitPointsLine(hitPoints), spell: false, hitPoints }),
+    [keep],
+  )
+
   // Keeps the table asked for a saving throw or check, first among the rolls.
   const logAsk = useCallback(
     (label: string): LocalAsk => keep('ask', { label }),
@@ -641,6 +651,7 @@ export function useSheetRoller(
     logPrepare,
     logEffect,
     logWildShape,
+    logHitPoints,
     logAsk,
     rolls,
     rolling: inFlight > 0,

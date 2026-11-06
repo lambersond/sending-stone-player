@@ -122,6 +122,8 @@ export function CompanionPane({
         rollFeatures={left ? undefined : view.rollFeatures}
         // The saves the game asks of it, from module 0.41.0, on its own banner, answered here.
         prompts={left ? undefined : view.prompts}
+        // Its hit points set from here, from module 0.44.0, its player's alone, whatever the rolls.
+        hitPoints={left ? undefined : view.hitPoints}
         gmRolls={view.gmRolls}
         header={header}
         manualDice={view.manualDice?.offered ? manualDice : undefined}

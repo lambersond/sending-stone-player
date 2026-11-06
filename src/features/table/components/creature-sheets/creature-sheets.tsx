@@ -221,6 +221,9 @@ function OwnSheet({
       // Wild Shape from here (module 0.40.0): the player's alone, at the character's own
       // pane, never a companion's.
       wildShape={view.wildShape}
+      // Its hit points set from here (module 0.44.0): the player's alone, whatever the rolls, its
+      // form's while shaped.
+      hitPoints={view.connected ? view.hitPoints : undefined}
       actorId={character.actorId ?? undefined}
       // The party sheets it may open, on its Inventory tab (module 0.30.0).
       parties={view.groups && { groups: view.groups, onOpen: onOpenParty }}

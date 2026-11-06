@@ -7,11 +7,11 @@ import { useCharging } from '../charging/use-charging'
 import { useFavorite } from '../favorite-mark/use-favorite'
 import { HitDiceList } from '../hit-dice/hit-dice-list'
 import { hitDieSpending } from '../hit-dice/utils'
+import { HitPointsTile } from '../hit-points-editor/hit-points-tile'
 import { ModeChip } from '../mode-chip/mode-chip'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { Conditions } from '../sheet-tiles/conditions'
 import { DeathSavesStat } from '../sheet-tiles/death-saves-stat'
-import { HitPoints } from '../sheet-tiles/hit-points'
 import { InitiativeStat } from '../sheet-tiles/initiative-stat'
 import { Portrait } from '../sheet-tiles/portrait'
 import { Stat } from '../sheet-tiles/stat'
@@ -266,7 +266,8 @@ function SheetHeader({
       >
         {sheet.hp && (
           <Stat label='Hit points' wide={pools.length > 0 ? 'pair' : 'double'}>
-            <HitPoints hp={sheet.hp} />
+            {/* Set from here where the game takes it, from module 0.44.0. */}
+            <HitPointsTile hp={sheet.hp} />
           </Stat>
         )}
         {/* Spent any time, a tap a die of that size, for the hit points it gives back; or more at

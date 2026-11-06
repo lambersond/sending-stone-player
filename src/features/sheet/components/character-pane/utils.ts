@@ -265,7 +265,8 @@ export function showsRolls({
  * campaign lets them: never at a creature's pane, and none of favorites, spells prepared and
  * effects changed while the character is transformed (`shaped`), as by Wild Shape (module 0.40.0),
  * whose form's sheet can't keep them; spells, effects and Wild Shape the player's alone, never the
- * Gamemaster's page's.
+ * Gamemaster's page's. But from module 0.44.0 hit points set at a creature's pane too, the
+ * companion's own, and while shaped, the form's, which the game sets them on: the player's alone.
  * @param prepares - Whether the game takes spells prepared from here (module 0.42.1).
  */
 export function paneOffers({
@@ -273,6 +274,7 @@ export function paneOffers({
   prepares,
   effects,
   wildShape,
+  hitPoints,
   creature,
   role,
   shaped,
@@ -281,6 +283,7 @@ export function paneOffers({
   prepares: boolean
   effects?: true
   wildShape?: true
+  hitPoints?: true
   creature?: CreatureFacts
   role: SeatRole
   shaped: boolean
@@ -291,5 +294,6 @@ export function paneOffers({
     prepare: prepares && player && !shaped,
     effects: effects === true && player && !shaped,
     wildShape: wildShape === true && player,
+    hitPoints: hitPoints === true && role === 'player',
   }
 }

@@ -9,6 +9,7 @@ import type { TableMoves } from '@/types/party'
 import type {
   DamageModifiers,
   GmRollView,
+  HitPointsInput,
   RollFeature,
   RollKind,
   SheetDamageRoll,
@@ -27,6 +28,12 @@ import type { ReactNode } from 'react'
 
 /** A spell slot sent from the dots (module 0.42.1): its line's id, which, and its count then. */
 export type SentSlot = { id: string; op: SpellSlotOp; from: number }
+
+/**
+ * Hit points sent from their tile (module 0.44.0): its line's id, and what the tile showed of each
+ * number set.
+ */
+export type SentHitPoints = { id: string; from: HitPointsInput['from'] }
 
 /** The pane's rolls' way to the game, as `useTableRolls` gives it. */
 export type PaneTable = ReturnType<typeof useTableRolls>
@@ -112,6 +119,13 @@ export type CharacterPaneProps = {
    * them and the game takes it: never at a creature's pane, nor the Gamemaster's page.
    */
   wildShape?: true
+  /**
+   * Whether the seat's player may set the hit points and temporary hit points there, from module
+   * 0.44.0, as the campaign lets them, whatever the rolls and this device's Send to the table: the
+   * character's, its form's while shaped, or at a companion's pane the companion's; never the
+   * Gamemaster's page, nor a companion no longer the character's.
+   */
+  hitPoints?: true
   /** The character's Foundry actor, which what's given is given from. */
   actorId?: string
   /** The party sheets the seat may open from the Inventory tab, from module 0.30.0. */

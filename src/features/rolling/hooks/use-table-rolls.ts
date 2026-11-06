@@ -39,6 +39,7 @@ import type {
   DamageModifiers,
   EndEnchantmentSource,
   FavoriteInput,
+  HitPointsInput,
   InspirationSource,
   PrepareInput,
   RemoveInput,
@@ -547,6 +548,25 @@ export function useTableRolls(
   )
 
   /**
+   * Set the hit points and temporary hit points of the character, its form's while shaped, or at
+   * a companion's own pane the companion's, from module 0.44.0, from the numbers the page showed.
+   * No switch of this device's holds it back, as with an effect: it throws no dice, and has no
+   * version made here instead; nor do the rolls, as the campaign has a switch of its own for it.
+   */
+  const sendHitPoints = useCallback(
+    (logged: LocalUse, hitPoints: HitPointsInput) => {
+      if (!logged.hitPoints) return
+      start(
+        logged.id,
+        { kind: 'hitPoints', hitPoints, ...NO_DICE },
+        { hitPoints: true },
+        logged.label,
+      )
+    },
+    [start],
+  )
+
+  /**
    * The Beasts the druid may learn, from module 0.40.0, as the game lists them now: asked and
    * followed as any request is, but apart from the rolls, logging nothing and drawing no line in
    * the tray. Given up on as the page is left.
@@ -641,6 +661,7 @@ export function useTableRolls(
     sendEffect,
     sendPrepare,
     sendWildShape,
+    sendHitPoints,
     readWildShapeForms,
     sendAsk,
     sendRecharge,

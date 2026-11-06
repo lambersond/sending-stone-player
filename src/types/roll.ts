@@ -878,7 +878,7 @@ export type LocalUse = {
   wildShape?: WildShapeLogged
   /**
    * Hit points set, rather than anything used, from module 0.44.0: the fields set, from what and
-   * to what; "Hit points" is the label.
+   * to what; the label says the change, "Hit points 22 → 21 · temporary 3 → 0".
    */
   hitPoints?: HitPointsLogged
   at: number

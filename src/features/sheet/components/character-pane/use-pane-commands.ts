@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useHitPointWaits } from './use-hit-point-waits'
 import { useSlotWaits } from './use-slot-waits'
 import { slotName } from '@/features/sheet/utils/slot-words'
 import { capitalized } from '@/utils/wild-shape-words'
@@ -31,6 +32,7 @@ export function usePaneCommands({
   sheet,
   shaped,
   belongings,
+  hitPoints,
   setActed,
 }: Readonly<{
   table: PaneTable
@@ -40,6 +42,8 @@ export function usePaneCommands({
   shaped: boolean
   /** What the character has that an enchantment may be put on. */
   belongings: ReadonlyMap<string, Belonging>
+  /** Whether the player may set the hit points here (module 0.44.0), as `paneOffers` says. */
+  hitPoints: boolean
   setActed: (acted: boolean) => void
 }>) {
   const command = useCallback<Command>(
@@ -58,6 +62,7 @@ export function usePaneCommands({
     logWildShape,
     logEnd,
     logCharge,
+    logHitPoints,
   } = roller
   // Favorites added and removed from a row's menu, from module 0.37.0: a line among the rolls says
   // how it went, on whichever tab it was chosen, Effects among them.
@@ -135,6 +140,10 @@ export function usePaneCommands({
   // the game takes it from here, never while transformed, as the slots wait then: a line among the
   // rolls says how it went, on whichever tab, and each pool waits for the game once one is sent.
   const slotWaits = useSlotWaits(table.states, sheet.spells)
+  // From module 0.44.0, the hit points and temporary hit points set from their tile, where the
+  // campaign lets the player, whatever the rolls and this device's Send to the table: a line among
+  // the rolls says how it went, on whichever tab, and the tile waits for the game once one is sent.
+  const hitPointWaits = useHitPointWaits(table.states, sheet.hp)
   // A counter's charges spent directly, and Heroic Inspiration used or gained, while the game takes
   // them from here: each posts a line in the game's chat, the Gamemaster's marked as theirs.
   const charging: ChargeActions = {
@@ -168,6 +177,19 @@ export function usePaneCommands({
         },
         slotWaiting: slotWaits.waiting,
       }),
+    ...(hitPoints && {
+      hitPoints: change => {
+        if (hitPointWaits.waiting) return
+        command(
+          () => logHitPoints(change),
+          logged => {
+            table.sendHitPoints(logged, change)
+            hitPointWaits.sent({ id: logged.id, from: change.from })
+          },
+        )
+      },
+      hitPointsWaiting: hitPointWaits.waiting,
+    }),
   }
   return {
     command,

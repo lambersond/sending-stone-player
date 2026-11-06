@@ -77,6 +77,7 @@ function RollingSheet({
   favorites: favoritesOn,
   effects: effectsOn,
   wildShape: wildShapeOn,
+  hitPoints: hitPointsOn,
   actorId,
   parties,
   manualDice,
@@ -165,22 +166,24 @@ function RollingSheet({
   const width = useWidth(body)
   // What the character has that an enchantment may be put on.
   const belongings = useMemo(() => belongingsOf(sheet), [sheet])
+  const offers = paneOffers({
+    favorites: favoritesOn,
+    prepares: table.lists('prepare'),
+    effects: effectsOn,
+    wildShape: wildShapeOn,
+    hitPoints: hitPointsOn,
+    creature,
+    role,
+    shaped,
+  })
   const commands = usePaneCommands({
     table,
     roller,
     sheet,
     shaped,
     belongings,
+    hitPoints: offers.hitPoints,
     setActed: triggers.setActed,
-  })
-  const offers = paneOffers({
-    favorites: favoritesOn,
-    prepares: table.lists('prepare'),
-    effects: effectsOn,
-    wildShape: wildShapeOn,
-    creature,
-    role,
-    shaped,
   })
   // Favorites added and removed from a row's menu, from module 0.37.0: never at a creature's pane,
   // whose NPC has none.
