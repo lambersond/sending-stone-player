@@ -266,7 +266,15 @@ describe('components/campaigns/foundry-settings', () => {
     expect(wildShape.parentElement?.previousElementSibling).toBe(
       effects.parentElement,
     )
-    expect(details?.previousElementSibling).toBe(wildShape.parentElement)
+    // Changed on purpose (v0.44): from module 0.44.0 the players' hit points come between Wild
+    // Shape and the Foundry settings.
+    const hitPoints = screen.getByRole('heading', {
+      name: "Players' hit points",
+    })
+    expect(hitPoints.parentElement?.previousElementSibling).toBe(
+      wildShape.parentElement,
+    )
+    expect(details?.previousElementSibling).toBe(hitPoints.parentElement)
     expect(details?.nextElementSibling).toBeNull()
     const column = details?.parentElement as HTMLElement
     expect(column.firstElementChild).toHaveTextContent(/^Invite link/)
