@@ -330,6 +330,19 @@ export const WILD_SHAPE = 1
  * command: a change into one of her known forms, a return to herself, a Beast learned as a known
  * form, or the Beasts she may learn listed, which writes nothing.
  */
+/**
+ * The format of hit points set from the app this app takes, as it tells the module (`hitPoints`):
+ * from module 0.44.0, the `hitPoints` command, its result's `hitPoints` and the hello's
+ * `features.hitPoints`, which the module fetches for only then.
+ */
+export const HIT_POINTS = 1
+
+/**
+ * The most hit points, or temporary hit points, a player sets from here, from module 0.44.0's
+ * `hitPoints` command, as the module takes them: well above any pool a sheet has.
+ */
+export const MOST_HIT_POINTS = 9999
+
 export const WILD_SHAPE_OPS = ['transform', 'revert', 'learn', 'forms'] as const
 
 /**

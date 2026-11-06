@@ -87,7 +87,8 @@ const UNAVAILABLE = {
  * journal notes, from module 0.37.0 their characters' favorites, from module 0.38.0 dishes from
  * the Magical Recipe Book, from module 0.39.0 their characters' own effects, and from module
  * 0.40.0 Wild Shape. Changed on purpose (round 0.38.0 §D9): dishes too. Changed on purpose (round
- * 0.39.0 §1.10): effects too. Changed on purpose (round 0.40.0 §10.3): Wild Shape too.
+ * 0.39.0 §1.10): effects too. Changed on purpose (round 0.40.0 §10.3): Wild Shape too. And from
+ * module 0.44.0, hit points set.
  */
 const given = (
   rollsEnabled: boolean,
@@ -99,6 +100,7 @@ const given = (
   dishesEnabled = false,
   effectsEnabled = false,
   wildShapeEnabled = false,
+  hitPointsEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
@@ -109,6 +111,7 @@ const given = (
     dishesEnabled,
     effectsEnabled,
     wildShapeEnabled,
+    hitPointsEnabled,
     playersPresent,
   })
 

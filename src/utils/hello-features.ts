@@ -103,6 +103,10 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
     // own switch under dnd5e: a module before it says nothing of it, which clears it.
     wildShapeEnabled: kindOn(features?.wildShape, 'wildShape'),
     // Whether the module keeps journal notes for the app, from module 0.34.0, with no switch: a
+    // Whether the campaign lets its players set hit points and temporary hit points from here, of
+    // their characters, forms and companions, from module 0.44.0, by its own switch under dnd5e,
+    // apart from the rolls: a module before it says nothing of them, which clears it.
+    hitPointsEnabled: kindOn(features?.hitPoints, 'hitPoints'),
     // module before it says nothing of them, which clears it.
     notesEnabled: kindOn(features?.notes, 'personal'),
     // What else the module does with journal notes, from module 0.35.0: 'orders' where it takes

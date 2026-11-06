@@ -49,6 +49,7 @@ describe('utils/hello-features', () => {
         dishVersions: [],
         effectsEnabled: false,
         wildShapeEnabled: false,
+        hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
         companionKinds: [],

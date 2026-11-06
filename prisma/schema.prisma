@@ -271,6 +271,11 @@ model Campaign {
   // bridge.hello: by the campaign's own switch, under dnd5e. A module before it says nothing,
   // which clears it.
   wildShapeEnabled    Boolean          @default(false)
+  // Whether the campaign lets its players set hit points and temporary hit points from the app, of
+  // their characters, their Wild Shape forms and their companions, from module 0.44.0's
+  // bridge.hello: by the campaign's own switch, on by default, under dnd5e. A module before it
+  // says nothing, which clears it.
+  hitPointsEnabled    Boolean          @default(false)
   // When the campaign's chat was last cleared (v0.44): by its Gamemaster on its card here, or by
   // Foundry's Clear Chat Log. A later change to a message posted before then and no longer held
   // brings nothing back, so a dish card cleared stays cleared once it's served. Unset until then.

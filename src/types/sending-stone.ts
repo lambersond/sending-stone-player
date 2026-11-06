@@ -1592,6 +1592,17 @@ export type BridgeFeatures = {
     kinds: string[]
     reason: string | null
   } | null
+  /**
+   * Whether the campaign lets its players set hit points and temporary hit points from here, of
+   * their characters, their Wild Shape forms and their companions, `"hitPoints"` among its kinds,
+   * by its own switch under dnd5e, on by default, apart from the rolls; or not, and why (`"off"`,
+   * `"system"`). Module 0.44.0.
+   */
+  hitPoints?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+  } | null
 }
 
 /** The campaign's characters' companions, whole, whenever they change (module 0.36.0). */
@@ -1779,6 +1790,11 @@ export type CommandResult = {
    */
   alone?: AloneOutcome
   /**
+   * For hit points set, on "done": the actor's after it, as its sheet says them, the character's,
+   * its form's while shaped, or the companion's. Module 0.44.0.
+   */
+  hitPoints?: HitPointsNow
+  /**
    * For a note command, the note and its page's revision now: none for a delete, which says so,
    * or where the page is hidden from the app. Module 0.34.0.
    */
@@ -1789,6 +1805,13 @@ export type CommandResult = {
    */
   order?: { chapter: string | null; ids: string[] }
 }
+
+/**
+ * Hit points as a sheet has them, and as module 0.44.0's `hitPoints` result says them once set:
+ * what's left, the temporary ones, and the maximum dnd5e heals up to, with any temporary change to
+ * it, null where it has none.
+ */
+export type HitPointsNow = { value: number; temp: number; max: number | null }
 
 /** What became of one of the character's own effects, from module 0.39.0. */
 export type EffectChange = {

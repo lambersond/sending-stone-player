@@ -2060,6 +2060,8 @@ describe('db/roll-requests', () => {
           // Changed on purpose (round 0.40.0 §10.3): Wild Shape, from module 0.40.0.
           wildShapeEnabled: true,
           playersSeenAt: true,
+          // Changed on purpose (v0.44): hit points set, from module 0.44.0.
+          hitPointsEnabled: true,
         },
       })
     })
