@@ -139,14 +139,19 @@ const editorSays = async who => {
 async function step(who, name, times = 1) {
   for (let tap = 0; tap < times; tap += 1) await editorOf(who).getByRole('button', { name, exact: true }).click()
 }
-/** The roll tray, as its banner shows it. */
-const tray = who => who.page.getByRole('region', { name: 'Your rolls' })
-const trayText = who => tray(who).evaluate(el => el.innerText.replace(/\s+/g, ' '))
-/** Until the tray says all of these. */
-const trayShows = (who, ...words) => until(async () => {
-  const text = await trayText(who).catch(() => '')
+/**
+ * A pane's roll tray, as its banner names it: the player's own, "Your rolls", or at a companion's
+ * pane its own, "Brakka’s rolls" (the character's pane hidden meanwhile).
+ */
+const tray = (who, name = 'Your rolls') => who.page.getByRole('region', { name, exact: true })
+const trayText = (who, name) => tray(who, name).evaluate(el => el.innerText.replace(/\s+/g, ' '))
+/** Until a pane's tray says all of these. */
+const paneTrayShows = (who, name, ...words) => until(async () => {
+  const text = await trayText(who, name).catch(() => '')
   return words.every(word => text.includes(word))
-}, `the tray to say ${JSON.stringify(words)}`, 20_000)
+}, `${name} to say ${JSON.stringify(words)}`, 20_000)
+/** Until the player's own tray says all of these. */
+const trayShows = (who, ...words) => paneTrayShows(who, 'Your rolls', ...words)
 /** What has focus: its tag and its accessible name, as the page names it. */
 const focusOf = who => who.page.evaluate(() => {
   const el = document.activeElement
@@ -278,7 +283,9 @@ part('4. changed in the game while it\'s open')
 part('5. a stale view')
 {
   await until(async () => (await tileOf(desk).getAttribute('aria-label')) === 'Hit points: 21 of 30, 5 temporary. Change hit points', 'the tile at 21 and 5', 20_000)
-  // The sheet held from the app: the page still shows 21 while the game has 15.
+  // The sheet held from the app: the page still shows 21 while the game has 15. `relay.lose` answers
+  // it 400 on the app's behalf, so the module's log says the app couldn't read it, and dropped it:
+  // the loss, not a bug; built the same, the refusal's sheet ahead of it isn't sent again.
   relay.lose = sent => (sent.type === 'character.updated') && (sent.data?.character?.id === 'thorin')
   await thorin.update({ 'system.attributes.hp.value': 15 })
   await wait(1500)
@@ -320,7 +327,7 @@ part('6. a companion\'s')
     && sameJson(made.payload.hitPoints, { op: 'set', value: 26, temp: 5, from: { value: 30, temp: 0 } })
     && same(hpOf(brakka), { value: 26, temp: 5 }) && same(hpOf(thorin), thorinWas),
   `made on Brakka, as Thorin's companion, her own actor written, Thorin's untouched (${JSON.stringify({ actorId: made.actorId, of: made.ofActorId, brakka: hpOf(brakka), thorin: hpOf(thorin) })})`)
-  await trayShows(desk, 'Hit points 30 → 26 · temporary 0 → 5', 'Brakka’s hit points now 26 / 30 · 5 temporary')
+  await paneTrayShows(desk, 'Brakka’s rolls', 'Hit points 30 → 26 · temporary 0 → 5', 'Brakka’s hit points now 26 / 30 · 5 temporary')
   check(true, 'her pane\'s tray says "Brakka’s hit points now 26 / 30 · 5 temporary"')
   await shootBoth(desk, 'hitpoints-companion', panelOf(desk, 'brakka').locator('section').first())
   await desk.page.locator('#creature-tab-self').click()
