@@ -30,6 +30,7 @@ import type { ReactNode, RefObject } from 'react'
  * @param chatClearedAt - When the chat was last cleared, which the log says while it's empty.
  * @param tracker - The combat tracker, the character's view of it.
  * @param chat - The chat's scroller, kept pinned to the newest message, and its scroll handler.
+ * @param dice - Under the chat, its dice tray (v0.44), where the character plays in the game.
  */
 export function AsideColumn({
   tab,
@@ -47,6 +48,7 @@ export function AsideColumn({
   hold,
   tracker,
   chat,
+  dice,
 }: Readonly<{
   tab: Tab
   aside: Aside
@@ -66,6 +68,7 @@ export function AsideColumn({
     scroller: RefObject<HTMLDivElement | null>
     onScroll: () => void
   }
+  dice?: ReactNode
 }>) {
   // The chat's ref taken out first: read off the props in place, the compiler takes it for a ref
   // read during render.
@@ -145,6 +148,7 @@ export function AsideColumn({
         <Scroller ref={scroller} onScroll={onScroll}>
           <ChatLog messages={messages} clearedAt={chatClearedAt} />
         </Scroller>
+        {dice}
       </Pane>
     </div>
   )

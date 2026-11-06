@@ -60,6 +60,16 @@ export function sheetPane(
 }
 
 /**
+ * The rolls the game takes from the seat now, and what else it does with them: none while the
+ * character isn't in its campaign's game.
+ */
+export function rollsInGame(view: TableView) {
+  return view.connected
+    ? { kinds: view.rollsToTable, features: view.rollFeatures }
+    : {}
+}
+
+/**
  * The panel shown under the table's notices, where focus goes as one is dismissed, as the ids to
  * look for in turn: where the Character pane is in view, the sheet's panel of the creature it
  * shows, the character's own or a companion's, or that companion's own panel while it has no

@@ -14,9 +14,16 @@ import { TableNav } from '../table-nav/table-nav'
 import { TableNotices } from '../table-notices/table-notices'
 import { TablePartyPanel } from '../table-party-panel/table-party-panel'
 import { TurnToast } from '../turn-toast/turn-toast'
-import { cookbookPlace, seatOf, sheetPane, shownPanels } from './utils'
+import {
+  cookbookPlace,
+  rollsInGame,
+  seatOf,
+  sheetPane,
+  shownPanels,
+} from './utils'
 import { Scroller } from '@/components/scroller/scroller'
 import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
+import { DiceTray } from '@/features/rolling/components/dice-tray/dice-tray'
 import { useChatRead } from '@/features/table/hooks/use-chat-read'
 import { useChatScroll } from '@/features/table/hooks/use-chat-scroll'
 import { useCompanionRow } from '@/features/table/hooks/use-companion-row'
@@ -202,6 +209,17 @@ export function GameTable({
               />
             }
             chat={chat}
+            // The dice tray under the chat (v0.44), while the character plays in the game: always
+            // the character's, whichever creature the sheet shows, as the game takes its rolls.
+            dice={
+              playing && (
+                <DiceTray
+                  characterId={seat.key}
+                  {...rollsInGame(view)}
+                  typing={diceSwitch?.on === true}
+                />
+              )
+            }
           />
         </div>
       </DiceRendererProvider>
