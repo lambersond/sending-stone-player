@@ -33,10 +33,11 @@ From the table's first session with v0.42.1, after the refactor:
    skills and traits.
 3. **Larger icon buttons on tablets (done in v0.44's PR):** icon-only buttons grow above a small
    screen, and can shrink again where the screen is wide enough for their words.
-4. **Hit points from the app:** players set their own character's hit points and temporary hit
-   points as numbers, its Wild Shape form's and its companions' too, for what the rolls don't do
-   ("you fall through the floor and take 4 damage"), by a switch on the Player actions tab of the
-   module's settings, on by default; a drop asks a concentration save, and no chat line is posted.
+4. **Hit points from the app (done in v0.44's PR):** players set their own character's hit points
+   and temporary hit points as numbers, its Wild Shape form's and its companions' too, for what the
+   rolls don't do ("you fall through the floor and take 4 damage"), by a switch on the Player
+   actions tab of the module's settings, on by default; a drop asks a concentration save, and no
+   chat line is posted. The Hit points tile, and each companion's, opens an editor of the two.
 5. **Manual dice said in the dice dialog (done in v0.44's PR):** a note, or a "Manual Dice" chip in
    its header, that the die results are typed in.
 6. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
