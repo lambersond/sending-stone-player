@@ -199,7 +199,6 @@ function OwnSheet({
   return (
     <CharacterPane
       shown={shown}
-      sharedDice
       characterId={seat.key}
       name={character.name}
       sheet={sheet}

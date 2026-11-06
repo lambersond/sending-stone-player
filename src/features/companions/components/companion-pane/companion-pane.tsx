@@ -131,7 +131,6 @@ export function CompanionPane({
         shown={shown}
         onPending={onPending}
         onBusy={onBusy}
-        sharedDice
         follows={view.initiative.after}
         locked={left}
         idPrefix={`creature-${key}-`}

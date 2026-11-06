@@ -136,15 +136,9 @@ export function GameTable({
   } else {
     // From module 0.36.0, the character's companions, each with a tab above the sheet.
     const switching = companions.row.length > 0
-    const { parties, paneShown, sharedDice } = sheetPane(
-      view,
-      playing,
-      switching,
-    )
+    const { parties, paneShown } = sheetPane(view, playing, switching)
     beside = paneShown
-    // The character's own pane, and the companions' mounted, in the row's order; dice thrown on
-    // one renderer for them all, which stays as companions come and go, so that the character's
-    // pane keeps its tray and its damage to roll.
+    // The character's own pane, and the companions' mounted, in the row's order.
     const sheets = (
       <CreatureSheets
         character={character}
@@ -163,53 +157,54 @@ export function GameTable({
         playing={playing}
       />
     )
+    // The page's one renderer (v0.44), whose canvas lies over the whole viewport: every creature's
+    // pane throws its dice on it, and so does the chat's dice tray, so that the dice tumble over
+    // whichever is shown. It stays as companions come and go, so that the character's pane keeps
+    // its tray and its damage to roll.
     table = (
-      <div className='flex min-h-0 flex-1'>
-        {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
-        <Pane
-          id='character-pane'
-          label='Character'
-          className={clsx(
-            tabs.tab === 'character' ? 'flex' : 'hidden',
-            paneShown ? 'lg:flex' : 'lg:hidden',
-          )}
-        >
-          {/* The sheet's renderer, which every creature's pane throws its dice on. */}
-          {sharedDice ? (
-            <DiceRendererProvider>{sheets}</DiceRendererProvider>
-          ) : (
-            sheets
-          )}
-        </Pane>
-        <AsideColumn
-          tab={tabs.tab}
-          aside={tabs.aside}
-          paneShown={paneShown}
-          focusable={!tabs.characterInView}
-          myTurn={myTurn}
-          unread={unread}
-          combat={view.combat}
-          messages={view.messages}
-          chatClearedAt={view.chatClearedAt}
-          quiet={turn.quiet}
-          onShow={show}
-          combatTab={turn.columnCombat}
-          hold={turn.holdOf('combat-hold-pane', tabs.sideBySide)}
-          tracker={
-            <CombatTracker
-              combat={view.combat}
-              onOpen={companions.openCompanion}
-              keys={new Set(companions.rowKeys)}
-              ending={turn.ending}
-              via={turn.via}
-              refused={turn.refused}
-              onEnd={endable => turn.endTurn(endable, 'button')}
-              focusTurn={turn.focusTurn}
-            />
-          }
-          chat={chat}
-        />
-      </div>
+      <DiceRendererProvider>
+        <div className='flex min-h-0 flex-1'>
+          {/* The sheet: a tab on a narrower screen, and the main column on a wide one. */}
+          <Pane
+            id='character-pane'
+            label='Character'
+            className={clsx(
+              tabs.tab === 'character' ? 'flex' : 'hidden',
+              paneShown ? 'lg:flex' : 'lg:hidden',
+            )}
+          >
+            {sheets}
+          </Pane>
+          <AsideColumn
+            tab={tabs.tab}
+            aside={tabs.aside}
+            paneShown={paneShown}
+            focusable={!tabs.characterInView}
+            myTurn={myTurn}
+            unread={unread}
+            combat={view.combat}
+            messages={view.messages}
+            chatClearedAt={view.chatClearedAt}
+            quiet={turn.quiet}
+            onShow={show}
+            combatTab={turn.columnCombat}
+            hold={turn.holdOf('combat-hold-pane', tabs.sideBySide)}
+            tracker={
+              <CombatTracker
+                combat={view.combat}
+                onOpen={companions.openCompanion}
+                keys={new Set(companions.rowKeys)}
+                ending={turn.ending}
+                via={turn.via}
+                refused={turn.refused}
+                onEnd={endable => turn.endTurn(endable, 'button')}
+                focusTurn={turn.focusTurn}
+              />
+            }
+            chat={chat}
+          />
+        </div>
+      </DiceRendererProvider>
     )
   }
 

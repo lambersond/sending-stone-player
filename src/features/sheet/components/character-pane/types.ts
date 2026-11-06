@@ -163,11 +163,6 @@ export type CharacterPaneProps = {
    */
   onBusy?: (busy: boolean) => void
   /**
-   * Whether the pane throws its dice with a renderer its page provides, shared by every creature's
-   * pane, rather than one of its own (module 0.36.0). Its own when absent.
-   */
-  sharedDice?: boolean
-  /**
    * At a companion's pane under "Right after its character", while its character is in the combat
    * (module 0.36.0): that character's name. Its Initiative tile then says it acts after it, and
    * offers no roll (§8.10).

@@ -892,13 +892,15 @@ describe('components/game-table/game-table, with companions', () => {
     })
   })
 
-  it('has no row, roles or renderer without companions or a sheet', () => {
+  // Changed on purpose (v0.44): the page's renderer is there without a sheet too, for the chat's
+  // dice tray.
+  it('has no row or roles without companions or a sheet, and the page’s one renderer still', () => {
     renderTable(view({ sheet: undefined, companions: undefined }))
     expect(
       screen.queryByRole('tablist', { name: 'Character and companions' }),
     ).toBeNull()
     expect(panelOf('self')).not.toHaveAttribute('role')
-    expect(mockRenderers).not.toHaveBeenCalled()
+    expect(mockRenderers).toHaveBeenCalledTimes(1)
   })
 })
 
