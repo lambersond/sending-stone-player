@@ -14,7 +14,7 @@ import type { FavoritesProps } from './types'
  * How wide the favorites' card must be, in pixels, for them to be in two lists side by side, each
  * about as wide as a phone's.
  */
-const SPLIT_FROM = 592
+const SPLIT_FROM = 720
 
 /**
  * The favorites, in the player's order, each shown as the sheet shows it elsewhere: an action

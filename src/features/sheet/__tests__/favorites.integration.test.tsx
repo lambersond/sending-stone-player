@@ -532,7 +532,7 @@ describe('components/character-sheet/favorites', () => {
   })
 
   it('lays them out in two lists side by side where they are wide enough, the first half first', () => {
-    wide(600)
+    wide(720)
     render(<FavoritesStrip {...propsFor(withFavorites())} />)
 
     const [first, second] = screen.getAllByRole('list')
@@ -545,7 +545,7 @@ describe('components/character-sheet/favorites', () => {
   })
 
   it('keeps them in one list where they are narrower, or when there is only one', () => {
-    wide(591)
+    wide(719)
     render(<FavoritesStrip {...propsFor(withFavorites())} />)
     expect(screen.getAllByRole('list')).toHaveLength(1)
 
