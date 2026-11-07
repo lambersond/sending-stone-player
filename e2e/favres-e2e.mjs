@@ -518,8 +518,10 @@ await view.close()
 strip = panel.getByRole('region', { name: 'Favorites' })
 const lists = strip.getByRole('list')
 const first = await namesIn(lists.first())
-check(await lists.count() === 2 && same(first, NAMES.slice(0, 7)) && same(await namesIn(lists.last()), NAMES.slice(7)),
-  `on a tablet, in two lists side by side, both features the resources stand for in the first: ${first.join(', ')}`)
+// Changed on purpose (v0.44): one list on a portrait tablet, as the favorites split into two only
+// from a 720-pixel card.
+check(await lists.count() === 1 && same(first, NAMES),
+  `on a tablet, in one list, both features the resources stand for in order: ${first.join(', ')}`)
 const counts = await lists.first().locator('li').evaluateAll(rows => rows.filter(row => !row.parentElement.closest('li'))
   .map(row => [row.querySelector('.font-medium')?.textContent, [...row.querySelectorAll('.sr-only')].map(span => span.textContent).find(text => / of \d+ uses left$/.test(text)) ?? null]))
 check(same(counts.slice(0, 3), [['Arcane Recovery', '1 of 1 uses left'], ["Hexblade's Curse", '0 of 1 uses left'], ['Fey Step', '1 of 2 uses left']]),

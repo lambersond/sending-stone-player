@@ -580,10 +580,12 @@ await view.close()
 ;({ view, page, sheet, panel, showTab } = await openSheet({ width: 768, height: 1024, mobile: true, name: 'tablet' }))
 strip = panel.getByRole('region', { name: 'Favorites' })
 const lists = strip.getByRole('list')
-check(await lists.count() === 2 && same(await namesIn(lists.first()), NAMES.slice(0, 6)) && same(await namesIn(lists.last()), NAMES.slice(6)),
-  'on a tablet, they are in two lists side by side, half in each, so that they take half the height')
-const [left, right] = await Promise.all([lists.first().boundingBox(), lists.last().boundingBox()])
-check(Math.abs(left.y - right.y) < 1 && right.x > left.x + left.width && Math.abs(left.width - right.width) < 1, `side by side and as wide (${Math.round(left.width)} and ${Math.round(right.width)} pixels)`)
+// Changed on purpose (v0.44): the favorites split into two lists only from a 720-pixel card, and a
+// portrait tablet's is about 640, so they are in one list here, as wide as the card.
+check(await lists.count() === 1 && same(await namesIn(lists.first()), NAMES),
+  'on a tablet, they are in one list, every favorite in order')
+const [card, list] = await Promise.all([strip.boundingBox(), lists.first().boundingBox()])
+check(list.width > card.width - 32, `the one list as wide as its card (${Math.round(list.width)} of ${Math.round(card.width)} pixels)`)
 check(same(await overflowing(sheet), []), 'nothing runs past the edge')
 if (SHOTS) await shoot(page, 'tablet-actions')
 await showTab('Inventory')
