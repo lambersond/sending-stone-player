@@ -1579,16 +1579,16 @@ if (NEW) {
     const tabletShown = await dotsRead(dotsOf(tabletPact, 'Pact Magic slots (3rd level)'), slotNames(PACT, 2, 4))
     await tabletPact.scrollIntoViewIfNeeded()
     const wide = await slotsLayout(tablet)
-    // Its Favorites strip in two lists side by side, Bardic Inspiration's, an old-style resource,
-    // in the first and the spell slots' in the second: the slots row's name keeps room to be read
-    // beside its nine dots, or above them.
+    // Its Favorites strip in one list (changed on purpose, v0.44: two only from a 720-pixel card),
+    // Bardic Inspiration's, an old-style resource, and the spell slots' in it: the slots row's name
+    // keeps room to be read beside its nine dots, or above them.
     const tabletStrip = tablet.panel.getByRole('region', { name: 'Favorites', exact: true })
     const tabletName = await dotsOf(tabletStrip, '1st-level spell slots').locator('xpath=ancestor::li[1]/div[1]')
       .evaluate(el => el.querySelector(':scope > span.min-w-0.flex-1').getBoundingClientRect().width, undefined, { timeout: 5000 }).catch(() => 0)
     const tabletLists = await tabletStrip.getByRole('list').count()
     check(tabletShown && wide.dots.length === 25 && wide.dots.every(dot => Math.round(dot.width) === 28 && Math.round(dot.height) === 44) && wide.sideways <= 0
-      && tabletLists === 2 && tabletName >= 48,
-      `on the tablet, 768 px, dark, every dot is 28 × 44 px, as on the phone (${JSON.stringify([...new Set(wide.dots.map(dot => `${Math.round(dot.width)}×${Math.round(dot.height)}`))])}); in the Favorites strip's ${tabletLists} lists, the spell-slots row's name at least 48 px wide (${Math.round(tabletName)} px)`)
+      && tabletLists === 1 && tabletName >= 48,
+      `on the tablet, 768 px, dark, every dot is 28 × 44 px, as on the phone (${JSON.stringify([...new Set(wide.dots.map(dot => `${Math.round(dot.width)}×${Math.round(dot.height)}`))])}); in the Favorites strip's ${tabletLists} list, the spell-slots row's name at least 48 px wide (${Math.round(tabletName)} px)`)
     await shoot(tablet, 'slots')
     await tablet.tab('Character')
   }
