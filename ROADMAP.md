@@ -108,7 +108,13 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
    case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
    offline as it connects.
-8. Bug fixes and polish.
+8. **Tidy 5e Sheets' journal** (to be planned): the character-specific journal notes Tidy 5e
+   Sheets adds to a character, which aren't part of dnd5e's own character data (its
+   [`documentJournal` flag](https://kgar.github.io/foundry-vtt-tidy-5e-sheets/classes/TidyFlags.html#documentjournal)),
+   merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
+   with in the campaign's settings, as the others are. Where entries can be deconflicted by when
+   each was created, the app shows a chip on the journal pages that come from Tidy 5e Sheets.
+9. Bug fixes and polish.
 
 ## v2.0
 
