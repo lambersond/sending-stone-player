@@ -1279,13 +1279,17 @@ export type RollSummary = {
   attack?: true
 }
 
-type Dnd5eMessageData = {
+export type Dnd5eMessageData = {
   messageType: string | null
+  /**
+   * What dnd5e recorded of the roll, such as `{ type: 'skill', skillId: 'ath' }`: kept as sent,
+   * never checked, so each field is read as whatever it may be.
+   */
   roll: {
-    type?: string
-    skillId?: string
-    toolId?: string
-    ability?: string
+    type?: unknown
+    skillId?: unknown
+    toolId?: unknown
+    ability?: unknown
   } | null
   item: { name: string | null; type?: string | null } | null
   activity: { name: string | null; type: string | null } | null
@@ -1387,8 +1391,11 @@ export type SerializedMessage = {
   audience: { public: boolean; characters: string[] }
   rolls: RollSummary[]
   dnd5e: Dnd5eMessageData | null
-  /** The message's HTML, as Foundry holds it: read, never shown. */
-  content?: string
+  /**
+   * The message's HTML, as Foundry holds it: read, never shown. Kept as sent, never checked, so
+   * it's read as whatever it may be.
+   */
+  content?: unknown
   /**
    * The saving throw it asks the table for, if it's a roll request card; null for any other
    * message. Module 0.17.0; absent before. The check one asks for, from module 0.18.0.
