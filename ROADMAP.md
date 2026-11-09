@@ -50,35 +50,35 @@ Left, in two batches. Pick from the list by number.
 
 **Batch 1: what's left from the refactor, the fixes and the last two PRs**
 
-1. **Rules out of the database modules:** `src/db/roll-requests.ts` still holds a roll's pure
+1. **Rules out of the database modules (done):** `src/db/roll-requests.ts` still holds a roll's pure
    refusal rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
    `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
    `seatAllows`) and `src/db/notes.ts` the notes' view overlay; move them to `src/utils/`, where
    they can be tested without the database's mocks.
-2. **Coverage:** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
-3. **Test tooling:** a chapter line's test can race the clock, about once in 200 runs: its "just
-   added" case reads the time twice (`note-lines.test.tsx`, and the same case in
+2. **Coverage (done):** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
+3. **Test tooling (done):** a chapter line's test can race the clock, about once in 200 runs: its
+   "just added" case reads the time twice (`note-lines.test.tsx`, and the same case in
    `chapter-pane.test.tsx`); the `@test-utils` path alias in `tsconfig.json` has no match in
    `jest.config.ts`, so a suite importing the kit by it fails in Jest only; and unicorn's
    `prefer-native-coercion-functions` autofix turns a type-guard filter into `.filter(Boolean)`,
    which no longer typechecks.
-4. **The Beast list blames the game** when its forms read is taken with no id to follow: no forms
-   come back, and the list says the game failed (`use-table-rolls.ts`, `readWildShapeForms`).
-5. **A hit die told as made that may not be:** in a one-at-a-time hit-dice run (a module before
-   0.20.0), a die taken with no id to follow counts as made when a later die is not.
-6. **Focus left on End Turn:** after an End Turn taken with no id to follow, keyboard focus stays on
-   the End Turn button when the panel moves to another of the seat's turns.
-7. **The dice tray's accessibility:** keyboard focus kept when the last die of a size is removed
-   (today it's lost with that chip); the formula announced as dice are added and removed; and the
-   open tray's height capped by the chat pane, not the screen, on short landscape screens.
-8. **e2e's known races,** written into `e2e/README.md`: transfers under dnd5e 6 ("the module
+4. **The Beast list blames the game (done)** when its forms read is taken with no id to follow: no
+   forms come back, and the list says the game failed (`use-table-rolls.ts`, `readWildShapeForms`).
+5. **A hit die told as made that may not be (done):** in a one-at-a-time hit-dice run (a module
+   before 0.20.0), a die taken with no id to follow counts as made when a later die is not.
+6. **Focus left on End Turn (done):** after an End Turn taken with no id to follow, keyboard focus
+   stays on the End Turn button when the panel moves to another of the seat's turns.
+7. **The dice tray's accessibility (done):** keyboard focus kept when the last die of a size is
+   removed (today it's lost with that chip); the formula announced as dice are added and removed;
+   and the open tray's height capped by the chat pane, not the screen, on short landscape screens.
+8. **e2e's known races (done),** written into `e2e/README.md`: transfers under dnd5e 6 ("the module
    fetches for moves with rolls off"), companions under dnd5e 6 (a broken portrait shown for two
    frames), toasts T7 (a toast pushed out by the three-toast cap pops back when the game answers
    late), and alone's Fire Breath recharge at 768 and its spell picker's first focus under dnd5e 6.
    Each has failed only under three lanes' load and passed alone.
-9. **e2e coverage gaps:** runs against module 0.42.0 (`SKEW=042`); the dice tray at 768 pixels,
-   with the campaign's rolls turned off, and against an older module; and hit points under dnd5e 6
-   and Midi-QOL.
+9. **e2e coverage gaps (done):** runs against module 0.42.0 (`SKEW=042`); the dice tray at 768
+   pixels, with the campaign's rolls turned off, and against an older module; and hit points under
+   dnd5e 6 and Midi-QOL.
 10. **Questions to settle** (decisions, then any work they lead to):
     - a companion's refusals for its own-switch kinds: 409 or 422;
     - whether a list in the module's settings is cut to its limit before or after its malformed
