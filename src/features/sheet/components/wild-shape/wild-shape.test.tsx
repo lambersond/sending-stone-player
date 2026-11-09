@@ -1171,7 +1171,18 @@ describe('components/character-sheet/wild-shape: the Known forms manager, from m
     ).toHaveFocus()
   })
 
-  it('says why the game couldn’t list them, and tries again', async () => {
+  it.each([
+    [
+      'why the game couldn’t list them',
+      'unavailable',
+      'Your Gamemaster’s game couldn’t list the Beasts: your Gamemaster’s game isn’t taking Wild Shape now.',
+    ],
+    [
+      'that they couldn’t be read back, where the read was taken with nothing to follow it by',
+      'unfollowed',
+      'The Beasts couldn’t be read back this time. Try again in a moment.',
+    ],
+  ])('says %s, and tries again', async (_, reason, words) => {
     const user = userEvent.setup()
     const listed = beastsResult().wildShape
     if (listed?.op !== 'forms') throw new Error('Beasts expected')
@@ -1185,7 +1196,7 @@ describe('components/character-sheet/wild-shape: the Known forms manager, from m
       },
       async () =>
         ++times === 1
-          ? { reason: 'unavailable' }
+          ? { reason }
           : { forms: listed.forms, more: false, limits: listed.limits },
     )
 
@@ -1198,9 +1209,7 @@ describe('components/character-sheet/wild-shape: the Known forms manager, from m
       })[0],
     )
     const learn = dialog('Learn a form')
-    expect(await within(learn).findByRole('alert')).toHaveTextContent(
-      'Your Gamemaster’s game couldn’t list the Beasts: your Gamemaster’s game isn’t taking Wild Shape now.',
-    )
+    expect(await within(learn).findByRole('alert')).toHaveTextContent(words)
     await user.click(within(learn).getByRole('button', { name: 'Try again' }))
     expect(await within(learn).findByText('9 Beasts')).toBeVisible()
     expect(reads).toHaveBeenCalledTimes(2)

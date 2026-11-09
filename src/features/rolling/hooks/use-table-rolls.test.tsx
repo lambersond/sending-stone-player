@@ -4020,6 +4020,18 @@ describe('hooks/use-table-rolls, Wild Shape from the app, from module 0.40.0', (
     await expect(read).resolves.toEqual({ reason: 'unavailable' })
     expect(result.current.states.size).toBe(0)
   })
+
+  it('says the list couldn’t be read back, not that the game failed, where the app took the read with nothing to follow it by', async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, {}))
+    const { result } = render([])
+    let read: Promise<unknown> = Promise.resolve()
+    act(() => {
+      read = result.current.readWildShapeForms()
+    })
+    await advance(0)
+    await expect(read).resolves.toEqual({ reason: 'unfollowed' })
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
 })
 
 /** Burning Hands' damage thrown, 4d6 fire. */

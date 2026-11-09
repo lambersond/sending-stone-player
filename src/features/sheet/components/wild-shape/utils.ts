@@ -4,6 +4,8 @@ import {
   attackWords,
   badgeName,
   badgeOf,
+  LIST_UNREAD_WORDS,
+  listFailedWords,
   ROW_WORDS,
   sizeCrWords,
   wildShapeReasons,
@@ -175,6 +177,17 @@ export function reasonWords(
   key: string,
 ): string | undefined {
   return wildShapeReasons(role, op)[key] ?? reasons(role)[key]
+}
+
+/**
+ * Why the Beasts to learn aren't listed, as the seat reads it: why the game couldn't list them; or,
+ * where the app took the read with no id to follow it by (`unfollowed`), that they couldn't be read
+ * back this time.
+ */
+export function beastsFailedWords(role: SeatRole, key: string): string {
+  if (key === 'unfollowed') return LIST_UNREAD_WORDS
+  const reason = reasonWords(role, 'learn', key) ?? 'something went wrong'
+  return listFailedWords(role, reason)
 }
 
 /**

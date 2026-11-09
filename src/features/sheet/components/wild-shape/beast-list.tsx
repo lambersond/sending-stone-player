@@ -5,10 +5,10 @@ import { BeastCard } from './beast-card'
 import { PLAIN } from './constants'
 import { WildShapeContext } from './context'
 import { Spinner } from './spinner'
-import { arrows, reasonWords } from './utils'
+import { arrows, beastsFailedWords } from './utils'
 import { SearchField } from '@/components/search-field/search-field'
 import { matchesSearch } from '@/utils/search'
-import { beastCountWords, listFailedWords } from '@/utils/wild-shape-words'
+import { beastCountWords } from '@/utils/wild-shape-words'
 
 /**
  * The Beasts to learn (round 0.40.0 §5.8), as the game lists them now, from the campaign's
@@ -31,12 +31,10 @@ export function BeastList() {
     )
   }
   if (beasts.status === 'failed') {
-    const reason =
-      reasonWords(ws.role, 'learn', beasts.reason) ?? 'something went wrong'
     return (
       <div className='flex flex-col items-start gap-3'>
         <p role='alert' className='text-sm text-warning'>
-          {listFailedWords(ws.role, reason)}
+          {beastsFailedWords(ws.role, beasts.reason)}
         </p>
         <button type='button' onClick={ws.loadBeasts} className={PLAIN}>
           Try again
