@@ -85,12 +85,12 @@ export function toPlainRoll(
 }
 
 /**
- * What's said as the tray's dice are added and taken away: their formula, "2d6 + 1d8", the number
- * added left to the modifier, which says its own; or once none are left, "No dice".
+ * What's said as the tray's dice are added and taken away: their whole formula, the number added
+ * in it, "2d6 + 1d8 + 2"; or once none are left, "No dice".
  */
-export function diceSaid(dice: readonly TrayDie[]): string {
+export function diceSaid(dice: readonly TrayDie[], bonus: number): string {
   if (dice.length === 0) return 'No dice'
-  return plainRollFormula(plainRollOf(dice, 0))
+  return plainRollFormula(plainRollOf(dice, bonus))
 }
 
 /** What the tray's Roll says: "Roll 2d6 + 1d8 + 2", or with no dice yet, "Pick dice to roll". */

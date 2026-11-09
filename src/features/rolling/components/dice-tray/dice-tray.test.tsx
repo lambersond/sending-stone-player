@@ -118,7 +118,7 @@ describe('features/rolling/components/dice-tray', () => {
     expect(add('d6')).toHaveFocus()
   })
 
-  it('says its dice politely as they are added and taken away, and at nothing else', async () => {
+  it('says its whole formula politely as its dice are added and taken away, and at nothing else', async () => {
     const user = userEvent.setup()
     tray()
     await user.click(toggle())
@@ -132,18 +132,26 @@ describe('features/rolling/components/dice-tray', () => {
     )
 
     await user.click(add('d8'))
+    // The number added is said by the modifier as it steps, and with the dice once they change.
+    await user.click(screen.getByRole('button', { name: 'Raise the modifier' }))
     await user.click(add('d6'))
     await user.click(screen.getByRole('button', { name: 'One d6 more' }))
-    // The number added is said by the modifier, and a roll by the latest roll's line.
-    await user.click(screen.getByRole('button', { name: 'Raise the modifier' }))
+    // A roll is said by the latest roll's line.
     await user.click(screen.getByRole('button', { name: 'Roll 2d6 + 1d8 + 1' }))
     await waitFor(() =>
       expect(
         screen.getByRole('status', { name: 'Latest roll' }),
       ).toHaveTextContent('Dice (2d6 + 1d8 + 1)'),
     )
+    await user.click(screen.getByRole('button', { name: 'One d6 fewer' }))
     await user.click(screen.getByRole('button', { name: 'Clear' }))
-    expect(heard).toEqual(['1d8', '1d6 + 1d8', '2d6 + 1d8', 'No dice'])
+    expect(heard).toEqual([
+      '1d8',
+      '1d6 + 1d8 + 1',
+      '2d6 + 1d8 + 1',
+      '1d6 + 1d8 + 1',
+      'No dice',
+    ])
   })
 
   it('caps its height by the pane it sits in, not the screen, leaving the chat above room, its dice scrolling within', async () => {
