@@ -138,7 +138,8 @@ export type RollRejection = {
 
 /**
  * What a roll reads of its campaign (`ROLL_CAMPAIGN`, src/db/roll-requests.ts): whether the
- * game takes it, how, and its roster.
+ * game takes it, how, and its roster. Tied to that select both ways there: a field added here
+ * must be read there, and one read there must be added here.
  */
 export type RollCampaign = {
   rollsEnabled: boolean

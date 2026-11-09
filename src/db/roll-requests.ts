@@ -195,7 +195,11 @@ export async function createRollRequest(
   )
 }
 
-/** What a roll reads of its campaign: whether the game takes it, how, and its roster. */
+/**
+ * What a roll reads of its campaign: whether the game takes it, how, and its roster. Exactly
+ * RollCampaign's fields, each way: one added to or taken from either is flagged here, and each
+ * field's type where the campaign read is handed on as one.
+ */
 const ROLL_CAMPAIGN = {
   rollsEnabled: true,
   rollKinds: true,
@@ -205,7 +209,10 @@ const ROLL_CAMPAIGN = {
   companions: true,
   companionKinds: true,
   companionInitiative: true,
-} as const satisfies Prisma.CampaignSelect
+} as const satisfies Prisma.CampaignSelect satisfies Record<
+  keyof RollCampaign,
+  true
+>
 
 /**
  * What a roll is checked against, read at once: its sheet, its combat, for damage the attack or use
