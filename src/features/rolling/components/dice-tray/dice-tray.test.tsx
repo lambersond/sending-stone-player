@@ -100,6 +100,24 @@ describe('features/rolling/components/dice-tray', () => {
     ).toBeInTheDocument()
   })
 
+  it('keeps keyboard focus as the last die of a size goes with its chip: on the next chip, else the one before, else that size’s add', async () => {
+    const user = userEvent.setup()
+    tray()
+    await user.click(toggle())
+    for (const size of ['d6', 'd8', 'd20']) await user.click(add(size))
+    const fewer = (size: string) =>
+      screen.getByRole('button', { name: `One ${size} fewer` })
+
+    fewer('d8').focus()
+    await user.keyboard('{Enter}')
+    expect(fewer('d20')).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(fewer('d6')).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.queryByRole('list', { name: 'Dice to roll' })).toBeNull()
+    expect(add('d6')).toHaveFocus()
+  })
+
   it('says, at 20 dice, that it takes no more, on every way to add one', async () => {
     const user = userEvent.setup()
     tray()

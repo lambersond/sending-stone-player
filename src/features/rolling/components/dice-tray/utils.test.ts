@@ -3,6 +3,7 @@
  */
 import {
   canStep,
+  focusOnRemoving,
   iconSides,
   roomFor,
   rollName,
@@ -43,6 +44,33 @@ describe('features/rolling/components/dice-tray/utils', () => {
   ] as const)('steps %i by %i: %s', (bonus, by, may) => {
     expect(canStep(bonus, by)).toBe(may)
   })
+
+  it.each([
+    [
+      'a middle size: the next chip',
+      [d(6, 1), d(8, 1), d(20, 1)],
+      8,
+      { button: 'fewer', sides: 20 },
+    ],
+    [
+      'the last chip: the one before',
+      [d(6, 1), d(8, 1)],
+      8,
+      { button: 'fewer', sides: 6 },
+    ],
+    [
+      'the only chip: its size’s add',
+      [d(6, 1)],
+      6,
+      { button: 'add', sides: 6 },
+    ],
+    ['a size keeping a die: nowhere', [d(6, 2), d(8, 1)], 6, undefined],
+  ] as const)(
+    'moves focus, taking away the last die of %s',
+    (_name, dice, sides, to) => {
+      expect(focusOnRemoving(dice, sides)).toEqual(to)
+    },
+  )
 
   it('draws a d100 as a d10, every other die as itself', () => {
     expect(

@@ -2,22 +2,26 @@ import { Minus, Plus } from 'lucide-react'
 import { AT_MOST, TRAY_STEP } from './constants'
 import type { TrayDie } from './types'
 import type { DieSides } from '@lambersond/3d-dice-core'
+import type { Ref } from 'react'
 
 /**
  * The dice picked, a chip each size, smallest first, "2d6", with one fewer and one more of it: the
  * last one fewer takes the size away; none more once the tray holds as many dice as it may.
  * @param room - Whether one more die may be added.
+ * @param fewerRef - The ref of a size's One fewer, which focus may be moved to.
  */
 export function TrayChips({
   dice,
   room,
   onAdd,
   onRemove,
+  fewerRef,
 }: Readonly<{
   dice: readonly TrayDie[]
   room: boolean
   onAdd: (sides: DieSides) => void
   onRemove: (sides: DieSides) => void
+  fewerRef: (sides: DieSides) => Ref<HTMLButtonElement>
 }>) {
   return (
     <ul aria-label='Dice to roll' className='flex flex-wrap gap-2'>
@@ -27,6 +31,7 @@ export function TrayChips({
           className='flex items-center rounded-full border border-border bg-page'
         >
           <button
+            ref={fewerRef(sides)}
             type='button'
             aria-label={`One d${sides} fewer`}
             onClick={() => onRemove(sides)}

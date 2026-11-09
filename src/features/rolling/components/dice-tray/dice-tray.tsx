@@ -9,6 +9,7 @@ import { BonusStepper } from './bonus-stepper'
 import { DieButtons } from './die-buttons'
 import { TrayChips } from './tray-chips'
 import { useDiceTray } from './use-dice-tray'
+import { useTrayFocus } from './use-tray-focus'
 import { rollName } from './utils'
 import type { RollFeature, RollKind } from '@/types/roll'
 
@@ -39,6 +40,7 @@ export function DiceTray({
   const [open, setOpen] = useState(false)
   const panel = useId()
   const tray = useDiceTray({ characterId, kinds, features, typing })
+  const focus = useTrayFocus(tray.dice, tray.remove)
   const empty = tray.dice.length === 0
   return (
     <div className='@container shrink-0 border-t border-border bg-card'>
@@ -79,7 +81,7 @@ export function DiceTray({
         className='max-h-[60dvh] overflow-y-auto px-4 pb-4'
       >
         <div className='flex flex-col gap-3'>
-          <DieButtons room={tray.room} onAdd={tray.add} />
+          <DieButtons room={tray.room} onAdd={tray.add} addRef={focus.addRef} />
           {empty ? (
             <p className='text-sm text-text-secondary'>
               Tap a die to add it. Add as many as you need, of any size.
@@ -89,7 +91,8 @@ export function DiceTray({
               dice={tray.dice}
               room={tray.room}
               onAdd={tray.add}
-              onRemove={tray.remove}
+              onRemove={focus.remove}
+              fewerRef={focus.fewerRef}
             />
           )}
           <BonusStepper bonus={tray.bonus} onStep={tray.step} />
