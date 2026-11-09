@@ -14,9 +14,13 @@
 // numbers while it's open; a stale view refused "changed" by the module, nothing written; Brakka's
 // header tile, her own actor written, Thorin's untouched; never the Gamemaster's page nor another
 // player's seat; the campaign card; the switch off in Foundry, the tile read-only within a poll and a
-// crafted post answered 409; phones, the tablet and both themes. DND5E6=1: the same on dnd5e 6.0.5,
-// its dice and its handling of a change of hit points (hp-core.mjs's generation 6). MIDI=1: the same
-// with the stand-in Midi-QOL in the world (fvtt/midi-fake.mjs), which runs no workflow for it.
+// crafted post answered 409; phones, the tablet and both themes. DND5E6=1 and MIDI=1 run the same
+// and show that this plain path holds in those worlds; neither exercises a path that differs by
+// world, since the module's command has none by dnd5e's version or for Midi-QOL. DND5E6=1: on dnd5e
+// 6.0.5, its dice and its handling of a change of hit points (hp-core.mjs's generation 6), whose one
+// addition, updateDowned, does nothing here: the suite leaves autoApplyDowned unset, which reads
+// "none". MIDI=1: with the stand-in Midi-QOL in the world (fvtt/midi-fake.mjs); nothing here makes a
+// Midi workflow, so part 3's "no Midi-QOL workflow" fails only if the module's command starts one.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
