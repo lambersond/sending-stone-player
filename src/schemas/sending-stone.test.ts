@@ -4529,6 +4529,25 @@ const usesOf = (recharge: unknown) =>
     uses: { value: 0, max: 1, recovery: 'Recharge [5+]', recharge },
   }).uses
 
+/** A feature's uses, as its sheet's Features tab reads them. */
+const featureUsesOf = (uses: object) => {
+  const sheet = fullerSheet()
+  const [section] = sheet.features
+  return (
+    parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          features: [
+            { ...section, features: [{ ...section.features[0], uses }] },
+          ],
+        },
+      },
+    }) as any
+  ).data.character.sheet.features[0].features[0].uses
+}
+
 const combatantOf = (companion: unknown) =>
   (
     parseGameEvent('combat.combatant.added', {
@@ -4749,6 +4768,26 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
       expect(uses.recharge).toBeUndefined()
       expect(uses.value).toBe(0)
     }
+  })
+
+  it("reads a feature's uses as an item's, leaving out a counter, spendable or recharge it can't read", () => {
+    const uses = { value: 0, max: 1, recovery: 'Recharge [5+]' }
+    const kept = {
+      ...uses,
+      counter: { item: 'breath' },
+      spendable: true,
+      recharge: 5,
+    }
+
+    expect(featureUsesOf(kept)).toEqual(kept)
+    expect(
+      featureUsesOf({
+        ...uses,
+        counter: { item: 'fire breath' },
+        spendable: 'yes',
+        recharge: 7,
+      }),
+    ).toEqual(uses)
   })
 
   it('reads damage on its own wherever a row has damage, leaving out a plan it can’t read', () => {

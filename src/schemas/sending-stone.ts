@@ -573,13 +573,9 @@ const featureSchema = z.looseObject({
   requirements: nullableString,
   activation: nullableString,
   passive: z.boolean().catch(false),
-  uses: orNull(
-    z.looseObject({
-      value: z.number(),
-      max: z.number(),
-      recovery: nullableString,
-    }),
-  ),
+  // As an item's: from module 0.29.0 its counter and whether it's spendable, and from 0.36.0 the d6
+  // that recharges it, each left out where it can't be read.
+  uses: usesSchema,
   ...usageFields,
   // From module 0.21.0.
   enchantments: enchantmentsSchema,
