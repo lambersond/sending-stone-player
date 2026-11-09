@@ -98,5 +98,6 @@ describe('app/api/characters/[id]/party/[group]/notes/preview', () => {
       },
       'company',
     )
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 })

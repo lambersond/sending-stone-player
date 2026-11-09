@@ -92,6 +92,7 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/[note]', () => {
       title: 'Wolves',
       stamp: 'n:abc',
     })
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 
   it('deletes the note in the seat’s book, from the stamp its page saw', async () => {
@@ -99,5 +100,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/[note]', () => {
 
     expect(response.status).toBe(200)
     expect(deleteNote).toHaveBeenCalledWith(GM, BOOK, NOTE, 'n:abc')
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 })

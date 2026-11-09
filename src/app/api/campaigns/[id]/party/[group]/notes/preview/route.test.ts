@@ -76,5 +76,9 @@ describe('app/api/campaigns/[id]/party/[group]/notes/preview', () => {
       headings: [],
     })
     expect(previewNote).toHaveBeenCalledWith(BOOK, '### Loot')
+    expect(partyNotesAccess).toHaveBeenCalledWith(
+      { role: 'gm', campaignId: 'c1', userId: 'gm-1' },
+      'company',
+    )
   })
 })

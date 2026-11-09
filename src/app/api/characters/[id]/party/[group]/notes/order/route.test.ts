@@ -73,6 +73,15 @@ const CHOICE = {
   stamp: 'g:0123456789abcdef',
 }
 
+/** Thorin's seat at the party, as the party's book is asked for at his address. */
+const PARTY_SEAT = {
+  role: 'player',
+  campaignId: 'c1',
+  actorId: 'thorin',
+  characterId: 'char-1',
+  name: 'Thorin',
+}
+
 const URL =
   'https://player.example/api/characters/char-1/party/company/notes/order'
 const context = { params: Promise.resolve({ id: 'char-1', group: 'company' }) }
@@ -112,6 +121,8 @@ describe('app/api/characters/[id]/party/[group]/notes/order', () => {
       stamp: 'g:fedcba9876543210',
     })
     expect(reorderNotes).toHaveBeenCalledWith(SEAT, BOOK, ORDER)
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+    expect(partyNotesAccess).toHaveBeenCalledWith(PARTY_SEAT, 'company')
   })
 
   it('settles an order the game didn’t take, as the seat chose', async () => {
@@ -124,6 +135,8 @@ describe('app/api/characters/[id]/party/[group]/notes/order', () => {
     })
     expect(resolveOrder).toHaveBeenCalledWith(SEAT, BOOK, CHOICE)
     expect(reorderNotes).not.toHaveBeenCalled()
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+    expect(partyNotesAccess).toHaveBeenCalledWith(PARTY_SEAT, 'company')
   })
 
   it('answers 415 for anything but JSON, 413 for too much, 400 for what isn’t an order or a choice', async () => {

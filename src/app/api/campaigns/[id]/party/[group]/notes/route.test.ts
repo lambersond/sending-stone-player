@@ -78,6 +78,10 @@ describe('app/api/campaigns/[id]/party/[group]/notes', () => {
       'status',
       204,
     )
+    expect(partyNotesAccess).toHaveBeenCalledWith(
+      { role: 'gm', campaignId: 'c1', userId: 'gm-1' },
+      'company',
+    )
   })
 
   it('adds a note to the seat’s book, 201 with its id', async () => {
@@ -96,5 +100,9 @@ describe('app/api/campaigns/[id]/party/[group]/notes', () => {
       role: 'chapter',
       title: 'Session 1',
     })
+    expect(partyNotesAccess).toHaveBeenCalledWith(
+      { role: 'gm', campaignId: 'c1', userId: 'gm-1' },
+      'company',
+    )
   })
 })

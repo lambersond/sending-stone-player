@@ -86,6 +86,7 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes', () => {
       'status',
       204,
     )
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 
   it('adds a note to the seat’s book, 201 with its id', async () => {
@@ -104,5 +105,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes', () => {
       role: 'chapter',
       title: 'Session 1',
     })
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 })

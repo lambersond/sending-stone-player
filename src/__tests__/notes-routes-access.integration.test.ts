@@ -94,6 +94,8 @@ const CHOICE = {
   stamp: 'g:0123456789abcdef',
 }
 const PREVIEW = { body: 'a' }
+/** A book's page polling it, as last seen. */
+const POLL = '?version=3&live=1'
 
 /**
  * A request to one route, named by its method and its address as its file names it, and called as
@@ -112,6 +114,7 @@ const request = <Params extends Record<string, string>>(
   )
   return {
     name: `${method} ${route}${query}`,
+    polls: query === POLL,
     call: () =>
       routeCall(handler, {
         method,
@@ -139,7 +142,7 @@ const SEATS = [
     requests: [
       request('GET', '/api/characters/[id]/notes', notes.GET, PLAYER),
       request('GET', '/api/characters/[id]/notes', notes.GET, PLAYER, {
-        query: '?version=3&live=1',
+        query: POLL,
       }),
       request('POST', '/api/characters/[id]/notes', notes.POST, PLAYER, {
         body: ENTRY,
@@ -200,7 +203,7 @@ const SEATS = [
         gmNotes.GET,
         GM,
         {
-          query: '?version=3&live=1',
+          query: POLL,
         },
       ),
       request(
@@ -263,7 +266,7 @@ const SEATS = [
         '/api/characters/[id]/party/[group]/notes',
         partyNotes.GET,
         PLAYER_PARTY,
-        { query: '?version=3&live=1' },
+        { query: POLL },
       ),
       request(
         'POST',
@@ -325,7 +328,7 @@ const SEATS = [
         '/api/campaigns/[id]/party/[group]/notes',
         gmPartyNotes.GET,
         GM_PARTY,
-        { query: '?version=3&live=1' },
+        { query: POLL },
       ),
       request(
         'POST',
@@ -375,8 +378,13 @@ const SEATS = [
 
 /** Each request, at its seat. */
 const CASES = SEATS.flatMap(({ requests, ...seat }) =>
-  requests.map(({ name, call }) => ({ ...seat, name, call })),
+  requests.map(({ name, polls, call }) => ({ ...seat, name, polls, call })),
 )
+/**
+ * Each but a poll, which is turned away signed out before its query is read, by the same handler
+ * as the plain GET: its 401 is that GET's.
+ */
+const SIGNED_OUT = CASES.filter(({ polls }) => !polls)
 
 /** What of the book was read or written, or its player noted present, by function: nothing. */
 const touched = () =>
@@ -426,7 +434,7 @@ describe('the routes of a book of notes, at each of its four seats', () => {
       .mockResolvedValue({ html: '<p>a</p>', headings: [] })
   })
 
-  it.each(CASES)(
+  it.each(SIGNED_OUT)(
     '$name answers 401 signed out, saying no more',
     async ({ call }) => {
       jest.mocked(getCurrentUser).mockResolvedValue(undefined as any)

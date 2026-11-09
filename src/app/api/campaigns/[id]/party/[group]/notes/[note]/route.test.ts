@@ -84,6 +84,10 @@ describe('app/api/campaigns/[id]/party/[group]/notes/[note]', () => {
       title: 'Wolves',
       stamp: 'n:abc',
     })
+    expect(partyNotesAccess).toHaveBeenCalledWith(
+      { role: 'gm', campaignId: 'c1', userId: 'gm-1' },
+      'company',
+    )
   })
 
   it('deletes the note in the seat’s book, from the stamp its page saw', async () => {
@@ -91,5 +95,9 @@ describe('app/api/campaigns/[id]/party/[group]/notes/[note]', () => {
 
     expect(response.status).toBe(200)
     expect(deleteNote).toHaveBeenCalledWith(GM, BOOK, NOTE, 'n:abc')
+    expect(partyNotesAccess).toHaveBeenCalledWith(
+      { role: 'gm', campaignId: 'c1', userId: 'gm-1' },
+      'company',
+    )
   })
 })

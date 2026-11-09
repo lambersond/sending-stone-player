@@ -84,5 +84,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/preview', () => {
       headings: [],
     })
     expect(previewNote).toHaveBeenCalledWith(BOOK, '### Loot')
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 })

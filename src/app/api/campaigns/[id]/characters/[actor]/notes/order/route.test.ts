@@ -110,6 +110,7 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/order', () => {
       stamp: 'g:fedcba9876543210',
     })
     expect(reorderNotes).toHaveBeenCalledWith(SEAT, BOOK, ORDER)
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 
   it('settles an order the game didn’t take, as the seat chose', async () => {
@@ -122,6 +123,7 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/order', () => {
     })
     expect(resolveOrder).toHaveBeenCalledWith(SEAT, BOOK, CHOICE)
     expect(reorderNotes).not.toHaveBeenCalled()
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 
   it('answers 415 for anything but JSON, 413 for too much, 400 for what isn’t an order or a choice', async () => {

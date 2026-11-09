@@ -78,5 +78,6 @@ describe('app/api/characters/[id]/notes/preview', () => {
       headings: [],
     })
     expect(previewNote).toHaveBeenCalledWith(BOOK, '### Loot')
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 })

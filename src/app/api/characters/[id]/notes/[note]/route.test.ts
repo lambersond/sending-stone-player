@@ -89,6 +89,7 @@ describe('app/api/characters/[id]/notes/[note]', () => {
       title: 'Wolves',
       stamp: 'n:abc',
     })
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 
   it('deletes the note in the seat’s book, from the stamp its page saw', async () => {
@@ -96,5 +97,6 @@ describe('app/api/characters/[id]/notes/[note]', () => {
 
     expect(response.status).toBe(200)
     expect(deleteNote).toHaveBeenCalledWith(PLAYER, BOOK, NOTE, 'n:abc')
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 })

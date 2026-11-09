@@ -61,6 +61,15 @@ const BOOK = {
 }
 
 const NOTE = 'goblinCaveNote01'
+/** Thorin's seat at the party, as the party's book is asked for at his address. */
+const PARTY_SEAT = {
+  role: 'player',
+  campaignId: 'c1',
+  actorId: 'thorin',
+  characterId: 'char-1',
+  name: 'Thorin',
+}
+
 const URL =
   'https://player.example/api/characters/char-1/party/company/notes/' + NOTE
 const context = {
@@ -104,6 +113,8 @@ describe('app/api/characters/[id]/party/[group]/notes/[note]', () => {
       title: 'Wolves',
       stamp: 'n:abc',
     })
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+    expect(partyNotesAccess).toHaveBeenCalledWith(PARTY_SEAT, 'company')
   })
 
   it('deletes the note in the seat’s book, from the stamp its page saw', async () => {
@@ -111,5 +122,7 @@ describe('app/api/characters/[id]/party/[group]/notes/[note]', () => {
 
     expect(response.status).toBe(200)
     expect(deleteNote).toHaveBeenCalledWith(PLAYER, BOOK, NOTE, 'n:abc')
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+    expect(partyNotesAccess).toHaveBeenCalledWith(PARTY_SEAT, 'company')
   })
 })
