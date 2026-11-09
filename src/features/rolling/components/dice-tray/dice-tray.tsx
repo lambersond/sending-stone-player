@@ -104,15 +104,15 @@ export function DiceTray({
               fewerRef={focus.fewerRef}
             />
           )}
-          {/* The whole formula, said as the dice are added and taken away, and only then: the
-              region's words change with them alone. Placed in the panel, which holds it as it
+          {/* The whole formula, said as the dice are added and taken away, and only then: a
+              modifier's step changes its words unsaid. Placed in the panel, which holds it as it
               scrolls. */}
           <output
-            aria-live='polite'
+            aria-live={said.live}
             aria-label='Dice picked'
             className='sr-only'
           >
-            {said}
+            {said.words}
           </output>
           <BonusStepper bonus={tray.bonus} onStep={tray.step} />
           <button

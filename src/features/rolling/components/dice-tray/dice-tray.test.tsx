@@ -124,16 +124,25 @@ describe('features/rolling/components/dice-tray', () => {
     await user.click(toggle())
     const picked = screen.getByRole('status', { name: 'Dice picked' })
     expect(picked).toHaveAttribute('aria-live', 'polite')
-    // What a screen reader hears: each change to the region, as the page commits it.
+    // What a screen reader hears: each change to the region's words while it's live, as the page
+    // commits it.
     const heard: string[] = []
-    new MutationObserver(() => heard.push(picked.textContent ?? '')).observe(
-      picked,
-      { childList: true, characterData: true, subtree: true },
-    )
+    new MutationObserver(() => {
+      if (picked.getAttribute('aria-live') === 'polite') {
+        heard.push(picked.textContent ?? '')
+      }
+    }).observe(picked, { childList: true, characterData: true, subtree: true })
+    const modifier = within(
+      screen.getByRole('group', { name: 'Modifier' }),
+    ).getByRole('status')
 
     await user.click(add('d8'))
-    // The number added is said by the modifier as it steps, and with the dice once they change.
+    // The number added is said by the modifier, its own output, as it steps, and with the dice once
+    // they change; the region's words follow a step unsaid, so it never reads a formula gone by.
     await user.click(screen.getByRole('button', { name: 'Raise the modifier' }))
+    expect(modifier).toHaveAttribute('aria-live', 'polite')
+    expect(modifier.textContent).toBe('+1')
+    expect(picked.textContent).toBe('1d8 + 1')
     await user.click(add('d6'))
     await user.click(screen.getByRole('button', { name: 'One d6 more' }))
     // A roll is said by the latest roll's line.
@@ -144,6 +153,9 @@ describe('features/rolling/components/dice-tray', () => {
       ).toHaveTextContent('Dice (2d6 + 1d8 + 1)'),
     )
     await user.click(screen.getByRole('button', { name: 'One d6 fewer' }))
+    await user.click(screen.getByRole('button', { name: 'Lower the modifier' }))
+    expect(modifier.textContent).toBe('+0')
+    expect(picked.textContent).toBe('1d6 + 1d8')
     await user.click(screen.getByRole('button', { name: 'Clear' }))
     expect(heard).toEqual([
       '1d8',
