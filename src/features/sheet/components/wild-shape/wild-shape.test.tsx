@@ -1209,7 +1209,9 @@ describe('components/character-sheet/wild-shape: the Known forms manager, from m
       })[0],
     )
     const learn = dialog('Learn a form')
-    expect(await within(learn).findByRole('alert')).toHaveTextContent(words)
+    const alert = await within(learn).findByRole('alert')
+    // The whole alert: no sentence blaming the game before the words, or after them.
+    expect(alert.textContent).toBe(words)
     await user.click(within(learn).getByRole('button', { name: 'Try again' }))
     expect(await within(learn).findByText('9 Beasts')).toBeVisible()
     expect(reads).toHaveBeenCalledTimes(2)
