@@ -1195,9 +1195,11 @@ export type TableRollState = Omit<
   /**
    * For rolls sent one after another as one, as hit dice spent at once are to a game before module
    * 0.20.0, a request a die: how many there are, and how many of them the game has made. From
-   * 0.20.0, sent as one, the same, once the game stopped part way through them.
+   * 0.20.0, sent as one, the same, once the game stopped part way through them. Where the app took
+   * any of those made with no id to follow it by (`unfollowed`), they're told as sent, not made, as
+   * what the game made of it isn't known.
    */
-  together?: { count: number; made: number }
+  together?: { count: number; made: number; unfollowed?: true }
   /**
    * For a roll of a d20 the Gamemaster made as the character (#156), whether the game says it came
    * up a critical or a fumble, as there are no dice of it here to say.

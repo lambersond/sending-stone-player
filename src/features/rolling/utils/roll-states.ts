@@ -140,7 +140,7 @@ export function busy(state: TableRollState): boolean {
  * Rolls sent one after another, as one: where the latest sent is on its way; or, once each is made,
  * what the game made of them all, their totals and the hit points they gave back added up, or only
  * that they were sent, where any couldn't be followed; or that one of them wasn't made, and why,
- * after how many were.
+ * after how many were, or were sent, where any of those couldn't be followed.
  */
 function together(each: TableRollState[], count: number): TableRollState {
   const made = each.filter(({ status }) => status === 'done')
@@ -150,15 +150,19 @@ function together(each: TableRollState[], count: number): TableRollState {
   const healed = made.map(state => state.healed)
   const status =
     latest.status === 'done' && made.length < count ? 'sending' : latest.status
+  const unfollowed = made.some(state => state.unfollowed)
   return {
     status,
     ...(latest.reason !== undefined && { reason: latest.reason }),
     ...(made.length > 0 && { visible }),
     ...(visible && known(totals) && { total: added(totals) }),
     ...(visible && known(healed) && { healed: added(healed) }),
-    ...(status === 'done' &&
-      made.some(state => state.unfollowed) && { unfollowed: true as const }),
-    together: { count, made: made.length },
+    ...(status === 'done' && unfollowed && { unfollowed: true as const }),
+    together: {
+      count,
+      made: made.length,
+      ...(unfollowed && { unfollowed: true as const }),
+    },
   }
 }
 

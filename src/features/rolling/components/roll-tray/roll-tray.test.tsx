@@ -1873,6 +1873,28 @@ describe('components/character-sheet/roll-tray', () => {
         )
       })
 
+      it('says how many were sent, not made, before one was not, where one was taken with nothing to follow it by', async () => {
+        const user = userEvent.setup()
+        renderState({
+          status: 'refused',
+          reason: 'no-hit-dice',
+          visible: false,
+          together: { count: 3, made: 1, unfollowed: true },
+        })
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+          new RegExp(
+            String.raw`\+91 of 3 sent to your Gamemaster’s game\. ` +
+              'Not the rest: you have no hit dice of that size left$',
+          ),
+        )
+        expectOneRun(screen.getByText(/sent to your Gamemaster’s game/))
+        await user.click(screen.getByText('Earlier rolls (1)'))
+        expect(screen.getByRole('listitem')).toHaveTextContent(
+          /= 22· 1 of 3 sent$/,
+        )
+      })
+
       it('says none was made where the first was not', () => {
         renderState({
           status: 'failed',
@@ -3177,6 +3199,33 @@ describe('components/character-sheet/roll-tray, in brief for its toast', () => {
         },
       ],
       '1 of 3 made at the table · 9 HP regained. Not the rest: you’re at full hit points',
+    ],
+    [
+      'three hit dice, one sent with nothing to follow it by',
+      [
+        hitDie(),
+        {
+          status: 'failed',
+          reason: 'full-hp',
+          visible: false,
+          together: { count: 3, made: 1, unfollowed: true },
+        },
+      ],
+      '1 of 3 sent to your Gamemaster’s game. Not the rest: you’re at full hit points',
+    ],
+    [
+      'three hit dice, one sent with nothing to follow it by, at the Gamemaster’s seat',
+      [
+        hitDie(),
+        {
+          status: 'failed',
+          reason: 'full-hp',
+          visible: false,
+          together: { count: 3, made: 1, unfollowed: true },
+        },
+        'gm',
+      ],
+      '1 of 3 sent to your game. Not the rest: you’re at full hit points',
     ],
     [
       'hit dice sent one by one',

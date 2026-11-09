@@ -83,7 +83,7 @@ export function gmLine(
   const words = {
     doing: gmDoing(roll, shape),
     done: gmDone(roll, shape, state, role),
-    not: gmNotMade(roll, shape, state),
+    not: gmNotMade(roll, shape, state, role),
   }
   const reason = gmReason(roll, state, role, creature)
   return { tone: toneOf(state), text: wayWords(state, role, words, reason) }
@@ -125,8 +125,9 @@ function gmNotMade(
   roll: LocalGmRoll,
   shape: ReturnType<typeof gmShape>,
   state: TableRollState,
+  role: SeatRole,
 ): string {
-  if (state.together?.made) return notMadeAtTable(state)
+  if (state.together?.made) return notMadeAtTable(state, role)
   if (shape === 'use') {
     return `Not ${gmVerbs(roll).done.toLowerCase()} at the table`
   }

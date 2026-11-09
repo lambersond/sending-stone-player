@@ -1893,8 +1893,27 @@ describe('hooks/use-table-rolls', () => {
         status: 'done',
         visible: false,
         unfollowed: true,
-        together: { count: 3, made: 3 },
+        together: { count: 3, made: 3, unfollowed: true },
       })
+    })
+
+    it('keeps one the app took with nothing to follow it by as sent, not made, once a later one is not made', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, {}))
+        .mockResolvedValueOnce(respond(422, { reason: 'no-hit-dice' }))
+      const { result } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'refused',
+        reason: 'no-hit-dice',
+        visible: false,
+        together: { count: 3, made: 1, unfollowed: true },
+      })
+      expect(posted()).toHaveLength(2)
     })
 
     it("sends none after one the game didn't take or make, keeping how many it made, and why not the rest", async () => {
