@@ -260,10 +260,7 @@ export function GameTable({
           myTurn={myTurn}
           unread={unread}
           quiet={turn.quiet}
-          onShow={next => {
-            turn.clearRefused()
-            show(next)
-          }}
+          onShow={show}
           combatTab={turn.barCombat}
           hold={turn.holdOf('combat-hold-bar', !tabs.sideBySide)}
         />
