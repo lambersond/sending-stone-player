@@ -1,6 +1,5 @@
 import {
   byQueue,
-  commandId,
   orderCommand,
   orderOutcome,
   outcome,
@@ -78,11 +77,7 @@ describe('utils/notes/commands', () => {
     })
   })
 
-  describe('commandId and byQueue', () => {
-    it('names a command by its change and which change of it this is', () => {
-      expect(commandId({ id: W1, seq: 3 })).toBe(`${W1}.3`)
-    })
-
+  describe('byQueue', () => {
     it('hands over the oldest first, a note’s change before an order queued at the same time, then by id', () => {
       const at = journalAgo(1000)
       const due = [

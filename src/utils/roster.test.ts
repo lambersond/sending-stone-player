@@ -1,7 +1,6 @@
 import {
   characterRoster,
   groupRoster,
-  inRoster,
   listedCompanion,
   listedIn,
   seatListed,
@@ -16,26 +15,25 @@ const atWolf = {
 }
 
 describe('utils/roster', () => {
-  describe('inRoster', () => {
-    it('finds a character in the roster its module last listed, and in nothing else', () => {
-      const characters = [{ id: PARTY.thorin }, { id: PARTY.vex }]
-      expect(inRoster(characters, PARTY.vex)).toBe(true)
-      expect(inRoster(characters, PARTY.balin)).toBe(false)
-      expect(inRoster(null, PARTY.vex)).toBe(false)
-      expect(inRoster({ id: PARTY.vex }, PARTY.vex)).toBe(false)
-    })
-  })
-
   describe('seatListed', () => {
     const campaign = {
       characters: [{ id: PARTY.thorin }],
       companions: [wolf],
     }
 
-    it("lists a character's seat while its character is in the roster", () => {
+    it("lists a character's seat while its character is in the roster its module last listed", () => {
       expect(seatListed({ actorId: PARTY.thorin }, campaign)).toBe(true)
       expect(seatListed({ actorId: PARTY.vex }, campaign)).toBe(false)
       expect(seatListed({ actorId: null }, campaign)).toBe(false)
+      expect(seatListed({ actorId: PARTY.thorin }, { characters: null })).toBe(
+        false,
+      )
+      expect(
+        seatListed(
+          { actorId: PARTY.thorin },
+          { characters: { id: PARTY.thorin } },
+        ),
+      ).toBe(false)
     })
 
     it("lists a companion's seat while the companion is listed as its character's", () => {

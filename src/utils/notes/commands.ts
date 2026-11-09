@@ -32,7 +32,7 @@ export function placesOf(pages: JournalPage[]): Map<string, number> {
 }
 
 /** A change's command id: the change's own, then which change of it this is. */
-export function commandId(write: { id: string; seq: number }): string {
+function commandId(write: { id: string; seq: number }): string {
   return `${write.id}.${write.seq}`
 }
 

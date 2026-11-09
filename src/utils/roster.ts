@@ -11,7 +11,7 @@ import type {
 // groups, from module 0.30.0; and its characters' companions, from module 0.36.0.
 
 /** Whether a character is in the campaign's roster, as its module last listed it. */
-export function inRoster(characters: unknown, actorId: string): boolean {
+function inRoster(characters: unknown, actorId: string): boolean {
   const roster = Array.isArray(characters)
     ? (characters as unknown as { id: string }[])
     : []
