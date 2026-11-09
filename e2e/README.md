@@ -2,7 +2,7 @@
 
 The real Sending Stone module, in a stand-in Foundry (the module's own `test/fvtt`), posting from a
 game's page in Chromium to this app, built and served for real over its own Postgres database, with
-players and a Gamemaster in their own browsers. 51 suites, 109 runs (`regress.sh`), each on fresh data,
+players and a Gamemaster in their own browsers. 51 suites, 112 runs (`regress.sh`), each on fresh data,
 and each run's `ok` lines counted against the number it wants.
 
 They run locally, on Linux, from this checkout and the module's. Nothing here runs in CI yet.

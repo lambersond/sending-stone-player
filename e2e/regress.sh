@@ -44,6 +44,8 @@ run attacks 86 MIDI=1 SHOTS=$O/shots-attacks
 # Round 0.42.1: spells prepared from the row menus (§P).
 run uses 146 SHOTS=$O/shots-uses
 run uses 149 MIDI=1 SHOTS=$O/shots-uses
+# Module 0.42.0: all but the spells prepared from the menus, none offered and one posted turned down.
+run uses 126 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-uses
 run prompts 23 SHOTS=$O/shots-prompts
 run prompts 25 MIDI=1 SHOTS=$O/shots-prompts
 run midi 65 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-027
@@ -75,6 +77,8 @@ run typed 7 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 # Module 0.42.0: the dice effects add, typed or skipped, and rerolls kept at the table;
 # and module 0.41.0 (none of it; since app 0.42.1, Elven Accuracy's Skip, and no offer).
 run typed 15 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
+# And module 0.42.0: Bless's die typed, the greatsword's typed 1 kept, and no Bardic Inspiration offered.
+run typed 12 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-042
 run theme 15 SHOTS=$O/shots-026
 # One damage card (module 0.28.0): plain dnd5e, Midi-QOL's card, and module 0.27.0 under Midi.
 run damagecard 31 SHOTS=$O/shots-028
@@ -87,6 +91,8 @@ run damagecard 42 SKEW=027 MODULE=$O/module-0.27.0 SHOTS=$O/shots-028
 run feedback 144 SHOTS=$O/shots-029
 run feedback 153 MIDI=1 SHOTS=$O/shots-029
 run feedback 48 SKEW=028 MODULE=$O/module-0.28.0 SHOTS=$O/shots-029
+# And module 0.42.0: all but the spell slots from the dots, pictures as before.
+run feedback 115 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-029
 # Module 0.30.0: party sheets, full screen, the Foundry settings section and chat results matching
 # Foundry; plain dnd5e, Midi-QOL, dnd5e 6.0.5, and module 0.29.0 (no Party list on Inventory, no settings, 0.29.0 results).
 run party 64 SHOTS=$O/shots-030
