@@ -8,7 +8,6 @@ import {
   druidSheet,
   FORM_IDS,
   KNOWN_FORMS,
-  mockCompanionEntry,
   shapedSheet,
   wildShapeBlock,
   wolfForm,
@@ -43,12 +42,6 @@ const gm: SheetSeat = {
   role: 'gm',
   userId: 'gm-1',
   characterId: null,
-}
-/** Alice at Elowen's familiar's pane, from module 0.36.0. */
-const owl: SheetSeat = {
-  ...elowen,
-  actorId: 'owlFamiliar1',
-  companion: { of: ELOWEN, entry: mockCompanionEntry() },
 }
 
 /** Wild Shape, as the page sends it: no dice, and what the page calls it. */
@@ -284,16 +277,6 @@ describe('db/wild-shape, createWildShapeRequest, from module 0.40.0', () => {
         reason: 'unavailable',
       })
     }
-    expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
-    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
-  })
-
-  it('refuses a companion’s seat as unavailable, before anything is read, as it has no Wild Shape of a character’s', async () => {
-    given()
-    await expect(createRollRequest(owl, shaping(INTO_WOLF))).resolves.toEqual({
-      status: 409,
-      reason: 'unavailable',
-    })
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })

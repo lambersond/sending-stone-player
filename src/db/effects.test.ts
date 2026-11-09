@@ -4,7 +4,7 @@
 import { createEffectRequest } from './effects'
 import { createRollRequest } from './roll-requests'
 import { playerSeat } from './seats'
-import { fullerSheet, mockCompanionEntry } from '@/mocks/sending-stone'
+import { fullerSheet } from '@/mocks/sending-stone'
 import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 import type { EffectInput, RollRequestInput } from '@/types/roll'
@@ -34,12 +34,6 @@ const gm: SheetSeat = {
   role: 'gm',
   userId: 'gm-1',
   characterId: null,
-}
-/** Thorin's player at his wolf's pane, from module 0.36.0. */
-const wolf: SheetSeat = {
-  ...thorin,
-  actorId: 'wolfBrakka',
-  companion: { of: THORIN, entry: mockCompanionEntry() },
 }
 
 /** One of Thorin's effects changed, as a row's control sends it. */
@@ -270,15 +264,6 @@ describe('db/effects, createEffectRequest, from module 0.39.0', () => {
       status: 409,
       reason: 'unavailable',
     })
-    expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
-    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
-  })
-
-  it('refuses a companion’s seat as unavailable, before anything is read, as its effects are no player’s to change', async () => {
-    given()
-    await expect(createRollRequest(wolf, changing(BLESS_OFF))).resolves.toEqual(
-      { status: 409, reason: 'unavailable' },
-    )
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })

@@ -25,6 +25,7 @@ export function orNull<T extends z.ZodType>(schema: T) {
  * reads as none.
  * @param entry - What each entry holds when it can be read.
  * @param most - The most entries kept; every one read, where none is given.
+ * @returns The lenient schema, reading a list of what `entry` reads.
  */
 export function listOf<T extends z.ZodType>(entry: T, most?: number) {
   return z
