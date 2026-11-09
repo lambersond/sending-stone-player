@@ -1210,6 +1210,9 @@ const sheetWithheldSchema = leftOut(
 const characterSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
+  // Its portrait's path, or none where it can't be read, never kept as sent: every page that draws
+  // the roster reads it as a string.
+  img: nullableString.optional(),
   // From module 0.22.0, a sheet may come slim, which is made whole before it's read, so that it's
   // read, and kept, as the module built it. Absent from that module's hello, and kept absent.
   sheet: z.preprocess(expandSheet, sheetSchema),

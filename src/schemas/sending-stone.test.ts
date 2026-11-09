@@ -471,6 +471,30 @@ describe('schemas/sending-stone', () => {
     expect(characters[3]).not.toHaveProperty('manualDice')
   })
 
+  it("reads a character's portrait as a path, or none where it can't be read", () => {
+    const [thorin] = roster
+    const portraits = (
+      parseGameEvent('bridge.hello', {
+        characters: [
+          { ...thorin, img: 'worlds/thorin.webp' },
+          { ...thorin, img: null },
+          { ...thorin, img: 7 },
+          { ...thorin, img: { src: 'thorin.webp' } },
+          thorin,
+        ],
+        combats: [],
+      })?.data as any
+    ).characters.map(({ img }: any) => img)
+
+    expect(portraits).toEqual([
+      'worlds/thorin.webp',
+      null,
+      null,
+      null,
+      undefined,
+    ])
+  })
+
   it('reads the saves the game asks for, in its hello and as they open and close, from module 0.13.0', () => {
     const prompt = {
       id: 'msg1-thorin',
