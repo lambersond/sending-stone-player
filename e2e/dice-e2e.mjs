@@ -120,21 +120,35 @@ async function toggleSetting(who, name) {
   await dialog.waitFor({ state: 'hidden' })
 }
 const MADE_THERE = 'Made in your Gamemaster’s game too, with the same dice.'
+/** A page's POST to its seat's rolls route: a roll sent to the game, whether the app keeps or refuses it. */
+const isRollPost = request => (request.method() === 'POST') && /\/rolls$/.test(new URL(request.url()).pathname)
 /**
  * Roll, named as the tray names it, where the game makes none: until the tray says the roll, then two
- * seconds more, what it says and whether anything was sent, typed or posted meanwhile.
+ * seconds more, what it says and whether anything was sent, typed or posted meanwhile. Sent counts
+ * the page's POSTs to its rolls route as well as the requests kept and the cards made, since the app
+ * refuses a roll the game doesn't take before it keeps a request (409, "Not made at the table").
  */
 async function rollHere(who, name, label) {
   const before = { requests: requests(), cards: W.messages.size }
-  await chatOf(who).getByRole('button', { name, exact: true }).click()
-  await latestOf(who).getByText(label, { exact: true }).waitFor({ timeout: 30_000 })
-  await wait(2_000)
-  return {
-    shown: await said(latestOf(who)),
-    sent: requests() > before.requests || W.messages.size > before.cards,
-    asked: (await who.page.getByRole('dialog', { name: label }).count()) > 0,
+  let posted = 0
+  const heard = request => { if (isRollPost(request)) posted++ }
+  who.page.on('request', heard)
+  try {
+    await chatOf(who).getByRole('button', { name, exact: true }).click()
+    await latestOf(who).getByText(label, { exact: true }).waitFor({ timeout: 30_000 })
+    await wait(2_000)
+    return {
+      shown: await said(latestOf(who)),
+      posted,
+      sent: posted > 0 || requests() > before.requests || W.messages.size > before.cards,
+      asked: (await who.page.getByRole('dialog', { name: label }).count()) > 0,
+    }
+  } finally {
+    who.page.off('request', heard)
   }
 }
+/** Whether the tray says anything of the table: made there, or not made there. */
+const saysTable = shown => /at the table/i.test(shown)
 
 if (SKEW042) {
   // =================================================================================================
@@ -149,8 +163,8 @@ if (SKEW042) {
   await until(() => footerSays(player, OLD), 'the tray to say the game makes none of these', 20_000).catch(() => {})
   check(await footerSays(player, OLD) && !(await footerSays(player, MADE_THERE)), `with module 0.42.0, the tray's footer says "${OLD}"`)
   const here = await rollHere(player, 'Roll 2d6 + 1d8', 'Dice (2d6 + 1d8)')
-  check(!here.sent && !here.asked && !here.shown.includes('At the table') && same(await chipsOf(player), ['2d6', '1d8']),
-    `Roll 2d6 + 1d8 throws the app's dice alone: nothing sent, no card in Foundry, nothing to wait for, the dice kept: "${here.shown}"`)
+  check(!here.sent && !here.asked && !saysTable(here.shown) && same(await chipsOf(player), ['2d6', '1d8']),
+    `Roll 2d6 + 1d8 throws the app's dice alone: nothing sent, no card in Foundry, nothing to wait for, the dice kept: "${here.shown}" (${here.posted} posted)`)
   await shoot(player, 'dice-tray-old-module', chatOf(player))
   const gmSide = await browse({ width: 1280, height: 800, path: `/campaigns/${A}/characters/thorin`, toasts: false })
   await gmSide.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
@@ -341,8 +355,8 @@ await until(() => sql(`select "rollsEnabled" from campaign where id = '${A}'`) =
   await until(() => footerSays(phone, NOT_SENT), 'the phone’s tray to say why', 20_000).catch(() => {})
   const footer = await footerSays(phone, NOT_SENT)
   const here = await rollHere(phone, 'Roll 2d6 + 1d8', 'Dice (2d6 + 1d8)')
-  check(footer && !here.sent && !here.asked && !here.shown.includes('At the table'),
-    `with the campaign's rolls off in Foundry, the tray says "${NOT_SENT}", and Roll 2d6 + 1d8 throws the app's dice alone, nothing typed, nothing sent: "${here.shown}"`)
+  check(footer && !here.sent && !here.asked && !saysTable(here.shown),
+    `with the campaign's rolls off in Foundry, the tray says "${NOT_SENT}", and Roll 2d6 + 1d8 throws the app's dice alone, nothing typed, nothing sent: "${here.shown}" (${here.posted} posted)`)
   await shoot(phone, 'dice-tray-rolls-off', chatOf(phone))
   const GM_NOT_SENT = "Only you see these rolls for now. They aren't sent to your game."
   await until(() => footerSays(gmPage, GM_NOT_SENT), 'the Gamemaster’s tray to say why', 20_000).catch(() => {})
