@@ -573,48 +573,57 @@ describe('components/game-table/combat-tracker', () => {
       expect(focusTurn).toHaveBeenCalledTimes(1)
     })
 
-    it('moves focus to the heading once the button’s End Turn has moved the turn on, though the next is the seat’s too', () => {
-      const combat = encounter({
-        currentId: 'thorin',
-        combatants: [
-          ...fight().combatants.filter(({ id }) => id !== 'brakka'),
-          fight().combatants[0],
-        ],
-      })
-      const turn = endableTurn(combat, ['endTurn']) as EndableTurn
-      const view = render(
-        <CombatTracker combat={combat} ending={endingOf(combat)} />,
-      )
-      const button = screen.getByRole('button', { name: 'End turn' })
-      act(() => button.focus())
-      view.rerender(
-        <CombatTracker
-          combat={combat}
-          ending={endingOf(combat, {
-            offered: false,
-            way: { status: 'sending' },
-            sent: { turn, way: { status: 'sending' } },
-          })}
-          via='button'
-        />,
-      )
-      expect(button).toHaveFocus()
-      const next = { ...combat, currentId: 'brakka' }
-      view.rerender(
-        <CombatTracker
-          combat={next}
-          ending={endingOf(next, {
-            offered: false,
-            sent: { turn, way: { status: 'done', requestId: 'req-1' } },
-          })}
-          via='button'
-        />,
-      )
-      // The button stays, for Brakka's turn; focus doesn't rest on it.
-      expect(screen.getByRole('button', { name: 'End turn' })).toBe(button)
-      expect(turnPanel()).toHaveTextContent('Brakka’s turn')
-      expect(turnPanel()).toHaveFocus()
-    })
+    it.each<[string, TableRollState]>([
+      ['made', { status: 'done', requestId: 'req-1' }],
+      [
+        'taken with nothing to follow it by',
+        { status: 'done', unfollowed: true },
+      ],
+    ])(
+      'moves focus to the heading once the button’s End Turn, %s, has moved the turn on, though the next is the seat’s too',
+      (_, way) => {
+        const combat = encounter({
+          currentId: 'thorin',
+          combatants: [
+            ...fight().combatants.filter(({ id }) => id !== 'brakka'),
+            fight().combatants[0],
+          ],
+        })
+        const turn = endableTurn(combat, ['endTurn']) as EndableTurn
+        const view = render(
+          <CombatTracker combat={combat} ending={endingOf(combat)} />,
+        )
+        const button = screen.getByRole('button', { name: 'End turn' })
+        act(() => button.focus())
+        view.rerender(
+          <CombatTracker
+            combat={combat}
+            ending={endingOf(combat, {
+              offered: false,
+              way: { status: 'sending' },
+              sent: { turn, way: { status: 'sending' } },
+            })}
+            via='button'
+          />,
+        )
+        expect(button).toHaveFocus()
+        const next = { ...combat, currentId: 'brakka' }
+        view.rerender(
+          <CombatTracker
+            combat={next}
+            ending={endingOf(next, {
+              offered: false,
+              sent: { turn, way },
+            })}
+            via='button'
+          />,
+        )
+        // The button stays, for Brakka's turn; focus doesn't rest on it.
+        expect(screen.getByRole('button', { name: 'End turn' })).toBe(button)
+        expect(turnPanel()).toHaveTextContent('Brakka’s turn')
+        expect(turnPanel()).toHaveFocus()
+      },
+    )
 
     it('leaves focus where it is once a hold’s End Turn has moved the turn on', () => {
       const combat = encounter({ currentId: 'thorin' })
