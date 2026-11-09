@@ -274,10 +274,10 @@ describe('db/effects, createEffectRequest, from module 0.39.0', () => {
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 
-  it('refuses a companion’s seat as unknown, before anything is read, as its effects are no player’s to change', async () => {
+  it('refuses a companion’s seat as unavailable, before anything is read, as its effects are no player’s to change', async () => {
     given()
     await expect(createRollRequest(wolf, changing(BLESS_OFF))).resolves.toEqual(
-      { status: 422, reason: 'unknown' },
+      { status: 409, reason: 'unavailable' },
     )
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()

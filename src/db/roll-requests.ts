@@ -131,16 +131,17 @@ export async function createRollRequest(
   // A companion's seat moves, removes, favorites, changes no effects and uses no Wild Shape: it has
   // no items of the character's to move, nor favorites, its effects are no player's to change, it
   // has no Wild Shape of a character's, and the schema takes the kinds, so they're refused here
-  // first, before any is looked at. Its hit points, from module 0.44.0, are its player's to set,
-  // as its kind's row says, past this to their own creator. The other kinds no companion's roll is
-  // are refused by the rolls' gate, as the game takes none of them for companions.
+  // first, before any is looked at, as kinds the game isn't taking: as the rolls' gate refuses the
+  // other kinds no companion's roll is, which the game takes none of for companions. Its hit
+  // points, from module 0.44.0, are its player's to set, as its kind's row says, past this to
+  // their own creator.
   const { companion } = seat
   if (
     companion &&
     OWN_KINDS.includes(input.kind) &&
     'companion' in ROLL_KIND_INFO[input.kind]
   ) {
-    return { status: 422, reason: 'unknown' }
+    return { status: 409, reason: 'unavailable' }
   }
   // While the character is transformed, what would change its own actor's things waits.
   if ('shaped' in ROLL_KIND_INFO[input.kind]) {

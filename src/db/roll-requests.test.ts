@@ -12,6 +12,13 @@ import {
   recordCommandResult,
 } from './roll-requests'
 import { playerSeat } from './seats'
+import {
+  kindsWhere,
+  NO_DICE,
+  OWN_KINDS,
+  ROLL_KIND_INFO,
+} from '@/constants/roll-kinds'
+import { ROLL_KINDS } from '@/constants/sending-stone'
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
 import {
   characterSheet,
@@ -3644,6 +3651,13 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
     name: 'Wolf',
     companion: { of: 'actor-thorin', entry: wolf },
   }
+  /** The campaign's Gamemaster at the wolf's sheet, at Thorin's page. */
+  const gmAtWolf: SheetSeat = {
+    ...atWolf,
+    role: 'gm',
+    userId: 'gm-1',
+    characterId: null,
+  }
 
   /** The wolf's Bite on its own: 1d8 + 3. */
   const alone: RollRequestInput = {
@@ -3737,66 +3751,119 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 
-  it('refuses a companion’s moves and removals before any is looked at', async () => {
-    const transfer = {
+  /** Each kind no companion takes, as the character's page sends it. */
+  const characterOnly: Record<string, RollRequestInput> = {
+    hitDie: {
+      kind: 'hitDie',
+      denomination: 'd8',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [5] }],
+    },
+    hitDice: {
+      kind: 'hitDice',
+      hitDice: [{ denomination: 'd8', count: 1 }],
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 8, results: [4] }],
+    },
+    plainRoll: {
+      kind: 'plainRoll',
+      plainRoll: { terms: [{ faces: 6, count: 2 }] },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [{ faces: 6, results: [3, 5] }],
+    },
+    endTurn: {
+      ...NO_DICE,
+      kind: 'endTurn',
+      turn: { combatId: 'cmbt1', round: 1, combatantId: 'cWolf' },
+    },
+    undoEndTurn: {
+      ...NO_DICE,
+      kind: 'undoEndTurn',
+      undo: 'req-0',
+      turn: { combatId: 'cmbt1', round: 1, combatantId: 'cWolf' },
+    },
+    spend: { ...NO_DICE, kind: 'spend', counter: { item: 'bone' }, count: 1 },
+    inspiration: { ...NO_DICE, kind: 'inspiration', inspiration: 'use' },
+    spellSlot: {
+      ...NO_DICE,
+      kind: 'spellSlot',
+      spellSlot: { op: 'spend', id: 'spell1', from: 1 },
+    },
+    transfer: {
+      ...NO_DICE,
       kind: 'transfer',
       transfer: {
         from: 'wolfBrakka',
-        to: 'actor-vex',
+        to: 'actorVex',
         items: [{ id: 'bone', quantity: 1 }],
       },
-      mode: 0,
-      explicit: false,
-      extras: [],
-      dice: [],
-    } as RollRequestInput
-    const remove = {
+    },
+    remove: {
+      ...NO_DICE,
       kind: 'remove',
       remove: { item: 'bone', quantity: 1, held: 1 },
-      mode: 0,
-      explicit: false,
-      extras: [],
-      dice: [],
-    } as RollRequestInput
+    },
+    favorite: {
+      ...NO_DICE,
+      kind: 'favorite',
+      favorite: { op: 'add', type: 'item', id: 'bone' },
+    },
+    effect: {
+      ...NO_DICE,
+      kind: 'effect',
+      effect: { op: 'disable', id: 'a8LkT3wPz0QcN5vB' },
+    },
+    wildShape: {
+      ...NO_DICE,
+      kind: 'wildShape',
+      wildShape: { op: 'transform', form: 'Kp3vQ8mZr2LdW0aB' },
+    },
+    prepare: {
+      ...NO_DICE,
+      kind: 'prepare',
+      prepare: { op: 'prepare', id: 'witch' },
+    },
+  }
 
-    await expect(createRollRequest(atWolf, transfer)).resolves.toEqual(
-      refusal(422, 'unknown'),
-    )
-    await expect(createRollRequest(atWolf, remove)).resolves.toEqual(
-      refusal(422, 'unknown'),
-    )
-    // Neither a move's nor a removal's checks read the campaign.
-    expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
-  })
-
-  // Module 0.44.0: the companion gate refuses only the own kinds no companion takes, before any is
-  // looked at; the kinds no companion's roll is are refused by the rolls' gate; and hit points set,
-  // an own kind a companion takes, go on to their own creator, which reads their own switch.
-  it.each([
-    ['an effect changed', 'effect', refusal(422, 'unknown')],
-    ['a favorite', 'favorite', refusal(422, 'unknown')],
-    ['Wild Shape', 'wildShape', refusal(422, 'unknown')],
-    ['charges spent', 'spend', refusal(409, 'unavailable')],
-    ['a spell slot', 'spellSlot', refusal(409, 'unavailable')],
-    ['a spell prepared', 'prepare', refusal(409, 'unavailable')],
-    ['a plain roll', 'plainRoll', refusal(409, 'unavailable')],
-  ])('keeps refusing %s at a companion’s seat', async (_name, kind, answer) => {
-    given({
-      campaign: companionCampaign({
-        rollKinds: ['attack', 'spend', 'spellSlot', 'prepare', 'plainRoll'],
-      }),
-    })
-    await expect(
-      createRollRequest(atWolf, {
-        kind,
-        mode: 0,
-        explicit: false,
-        extras: [],
-        dice: [],
-      } as RollRequestInput),
-    ).resolves.toEqual(answer)
-    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
-  })
+  // Changed on purpose (v0.44, decision Q1): every kind no companion takes is refused as the
+  // game not taking it, 409 unavailable, at its player's seat and the Gamemaster's alike, though
+  // the game takes it of the character; those with a switch of their own before anything is read.
+  // Hit points set, an own kind a companion takes, go on to their own creator, below.
+  it.each(kindsWhere(kind => 'companion' in ROLL_KIND_INFO[kind]))(
+    'refuses %s at a companion’s seat as unavailable',
+    async kind => {
+      given({
+        campaign: companionCampaign({
+          rollKinds: [...ROLL_KINDS],
+          rollFeatures: ['gmRolls'],
+          companionKinds: kindsWhere(
+            each => !('companion' in ROLL_KIND_INFO[each]),
+          ),
+          companions: [wolf],
+          transfersEnabled: true,
+          removalsEnabled: true,
+          favoritesEnabled: true,
+          effectsEnabled: true,
+          wildShapeEnabled: true,
+        }),
+      })
+      for (const seat of [atWolf, gmAtWolf]) {
+        await expect(
+          createRollRequest(seat, characterOnly[kind]),
+        ).resolves.toEqual(refusal(409, 'unavailable'))
+      }
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledTimes(
+        OWN_KINDS.includes(kind) ? 0 : 2,
+      )
+      expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    },
+  )
 
   it('lets a companion’s hit points through to their own creator, its switch read, never the rolls’', async () => {
     given({

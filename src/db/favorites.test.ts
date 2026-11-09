@@ -232,11 +232,11 @@ describe('db/favorites, createFavoriteRequest', () => {
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 
-  it('refuses a companion’s seat as unknown, as an NPC has no favorites', async () => {
+  it('refuses a companion’s seat as unavailable, as an NPC has no favorites', async () => {
     given()
     await expect(
       createRollRequest(wolf, favoriting(ADD_ROPE)),
-    ).resolves.toEqual({ status: 422, reason: 'unknown' })
+    ).resolves.toEqual({ status: 409, reason: 'unavailable' })
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })

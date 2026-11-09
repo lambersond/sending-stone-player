@@ -288,11 +288,11 @@ describe('db/wild-shape, createWildShapeRequest, from module 0.40.0', () => {
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 
-  it('refuses a companion’s seat as unknown, before anything is read, as it has no Wild Shape of a character’s', async () => {
+  it('refuses a companion’s seat as unavailable, before anything is read, as it has no Wild Shape of a character’s', async () => {
     given()
     await expect(createRollRequest(owl, shaping(INTO_WOLF))).resolves.toEqual({
-      status: 422,
-      reason: 'unknown',
+      status: 409,
+      reason: 'unavailable',
     })
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
