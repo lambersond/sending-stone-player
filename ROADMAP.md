@@ -80,17 +80,31 @@ Left, in two batches. Pick from the list by number.
    pixels, with the campaign's rolls turned off, and against an older module; and hit points under
    dnd5e 6 and Midi-QOL.
 10. **Questions to settle** (decisions, then any work they lead to):
-    - a companion's refusals for its own-switch kinds: 409 or 422;
+    - a companion's refusals for its own-switch kinds: 409 or 422 (decided: all answer 409
+      'unavailable'; done);
     - whether a list in the module's settings is cut to its limit before or after its malformed
-      entries are dropped (the two readers differ);
-    - where the turn's refusal line clears;
-    - "the seat's own turn" for an empty companion key;
-    - the hand-written types that differ from their schemas;
-    - the double reads on the table, party and module polls;
-    - the overlapping route and table tests;
-    - the five `console.error` logs;
+      entries are dropped (the two readers differ) (decided: both drop what they can't read, then
+      cut, in one shared helper; done);
+    - where the turn's refusal line clears (decided: in both layouts it stays until the turn moves
+      on or End Turn is pressed again; not built yet);
+    - "the seat's own turn" for an empty companion key (decided: one shared rule in all three
+      places, an empty key meaning no companion, as End Turn has it; not built yet);
+    - the hand-written types that differ from their schemas (decided: each schema checked against
+      its hand-written type, not derived from it, and those that differ corrected or explained;
+      the three real mismatches found are fixed as bugs; done);
+    - the double reads on the table, party and module polls (measured: while a table is open, the
+      module's command wait makes about 636 queries a minute per campaign, half of the ~223,000 in
+      a 3-hour session with four players; reading the campaign once per check would save about
+      10%, also trimming the table and party double reads 3% more, and remembering the module
+      secret no queries; the owner decides from the numbers);
+    - the overlapping route and table tests (decided: the notes routes' repeats trimmed, one table
+      checking 401 and 404 for all 16 routes and each route's file keeping its wiring check, done;
+      the other three overlaps trimmed when those areas next change);
+    - the five `console.error` logs (decided: kept as they are; error tracking revisited after
+      v1.0 if failures go unnoticed);
     - whether the favorites' resource and check rows should draw the sheet's own uses chips and
-      row names, which would change their markup.
+      row names, which would change their markup (decided: kept as they are; revisited if players
+      ask for a Recharge button in Favorites).
 
 **Batch 2, last: typed dice and Help**
 
@@ -101,6 +115,15 @@ Left, in two batches. Pick from the list by number.
 12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
     dice), what each long press offers (damage, attack and other rolls), the settings, how manual
     dice work (item 11 included), and that the Gamemaster applies short and long rests.
+
+**Found in Batch 1's item 10 work**
+
+13. **A chat line's roll label can name a function:** the table view looks up a message's ability
+    and skill, and a sheet skill's id, in plain objects (`rollLabel` and `toTableSheet` in
+    `src/utils/table-view.ts`), so a key every object inherits, such as `constructor`, is found,
+    and the chat line reads "function Object() { [native code] } save". dnd5e only sends its own
+    keys, so only a broken or hand-made message shows it; the lookup should check the key is the
+    table's own, as the schemas' `abilityId` does.
 
 Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
