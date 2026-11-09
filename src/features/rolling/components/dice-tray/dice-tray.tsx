@@ -22,7 +22,7 @@ import type { RollFeature, RollKind } from '@/types/roll'
  * then the latest roll, as the game made it too, or not, its card coming in the chat above; and
  * whether the game makes these at all, and why not. It rolls as the character, whichever creature
  * the sheet shows. Open, it's no taller than the pane it's put at the foot of, less room for the
- * chat above, and its dice scroll within.
+ * chat above, and its dice scroll within; open or closed, its bar always fits in the pane.
  * @param characterId - The character it rolls as, or for the Gamemaster's seat its key.
  * @param kinds - The rolls the game takes from the seat now.
  * @param features - What else the game does with them.
@@ -47,8 +47,10 @@ export function DiceTray({
   const empty = tray.dice.length === 0
   return (
     // A column at the foot of the chat pane, held to its height less 6rem, so that on a short
-    // screen it's never taller than the pane and the chat above keeps room: its panel scrolls.
-    <div className='@container flex max-h-[calc(100%-6rem)] shrink-0 flex-col border-t border-border bg-card'>
+    // screen it's never taller than the pane and the chat above keeps room: its panel scrolls. But
+    // never below its bar, 3.5rem and its 1px border, which in a very short pane would otherwise
+    // reach below the pane's foot, open or closed.
+    <div className='@container flex max-h-[max(calc(100%-6rem),calc(3.5rem+1px))] shrink-0 flex-col border-t border-border bg-card'>
       <div className='flex items-center gap-2 px-3 py-1.5'>
         <h2 className='min-w-0 flex-1'>
           <button
@@ -80,12 +82,14 @@ export function DiceTray({
           </button>
         )}
       </div>
+      {/* Its space below in its content, which scrolls, so that the panel can shrink to nothing
+          in a very short pane, its bar alone shown. */}
       <div
         id={panel}
         hidden={!open}
-        className='relative max-h-[60dvh] overflow-y-auto px-4 pb-4'
+        className='relative max-h-[60dvh] overflow-y-auto px-4'
       >
-        <div className='flex flex-col gap-3'>
+        <div className='flex flex-col gap-3 pb-4'>
           <DieButtons room={tray.room} onAdd={tray.add} addRef={focus.addRef} />
           {empty ? (
             <p className='text-sm text-text-secondary'>
