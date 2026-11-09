@@ -13,14 +13,16 @@ const createJestConfig = nextJest({
 const config: Config = {
   coverageProvider: 'v8',
   collectCoverageFrom: ['src/**/*.{ts,tsx}'],
+  // Each is a regular expression found anywhere in a file's path, so a file's name is anchored to
+  // its folder and its end: a bare `index.ts` also left out `campaign-index.tsx`.
   coveragePathIgnorePatterns: [
     'src/app/api/auth/(.*)',
     'src/clients/*',
     'auth-providers.ts',
-    'auth.ts',
-    'index.ts',
+    String.raw`/auth\.ts$`,
+    String.raw`/index\.ts$`,
     'mocks/',
-    'types.ts',
+    String.raw`/types\.ts$`,
     'types/',
     'utils/test-utils-node.ts',
     'utils/test-utils.ts',
