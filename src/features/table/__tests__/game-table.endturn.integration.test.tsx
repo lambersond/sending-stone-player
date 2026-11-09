@@ -894,6 +894,22 @@ describe('components/game-table/game-table, End Turn', () => {
     onColumn(/^Combat/)
   })
 
+  it('keeps the panel’s line through a visit to the column’s Chat tab, on a wide screen', async () => {
+    wideScreen()
+    renderTable()
+    await advance(600)
+    refuse = { status: 429, reason: 'busy' }
+    fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
+    await advance(0)
+    fireEvent.click(columnTab('Chat'))
+    onColumn('Chat')
+    fireEvent.click(columnTab(/^Combat/))
+    onColumn(/^Combat/)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Your turn wasn’t ended: too many rolls at once\. Try again in a moment\.$/,
+    )
+  })
+
   it('keeps the panel’s line for Combat opened after a hold on the Character tab, its toast gone', async () => {
     renderTable()
     await advance(600)
