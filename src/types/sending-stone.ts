@@ -248,7 +248,7 @@ export type AloneSpend = (typeof ALONE_SPENDS)[number]
  * slot's level above the spell's own, a weapon's attack mode, its ammunition's id, as many as it
  * picks; its dice, and a critical hit's where one is allowed.
  */
-type AloneChoicePlan = {
+export type AloneChoicePlan = {
   level?: number
   attackMode?: string
   ammunition?: string
@@ -562,7 +562,7 @@ export type SheetSpellSection = {
 /** Such as Senses: Darkvision 60 ft. */
 type SheetTrait = { id: string; label: string; values: string[] }
 
-type SheetDetail = { id: string; label: string; value: string }
+export type SheetDetail = { id: string; label: string; value: string }
 
 export type SheetDetails = {
   /** Alignment, age and the like. */
@@ -860,7 +860,7 @@ export type SheetCheck = {
  * One way a check an activity asks for may be made: an ability check, or a skill's or a tool's,
  * each with the ability it's made with, as dnd5e's card's button has it.
  */
-type SheetCheckOption = {
+export type SheetCheckOption = {
   type: 'check' | 'skill' | 'tool'
   /** dnd5e's id, such as "dex". */
   ability: string
@@ -2193,7 +2193,7 @@ export type GroupEntry = {
 }
 
 /** One of a group's members: its name and portrait, and nothing else of it, for anyone. */
-type GroupMember = {
+export type GroupMember = {
   id: string
   name: string
   img: string | null

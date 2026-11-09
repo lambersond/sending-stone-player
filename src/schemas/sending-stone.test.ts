@@ -5710,7 +5710,7 @@ describe('schemas/sending-stone, Wild Shape, from module 0.40.0', () => {
     // without one.
     expect(source).not.toMatch(/\*\/\s*\n\s*\/\*\*/)
     expect(source).toMatch(
-      /\/\*\*\n \* What became of a command;[^/]*\*\/\nconst commandResultSchema = /,
+      /\/\*\*\n \* What became of a command;[^/]*\*\/\nconst commandResultSchema\b/,
     )
   })
 })

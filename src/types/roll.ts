@@ -241,7 +241,7 @@ export type FormulaSource =
   | { kind: 'plainRoll'; plainRoll: PlainRollInput }
 
 /** Hit dice of one size spent at once: the size, such as "d10", and how many. */
-type HitDiceSpent = { denomination: string; count: number }
+export type HitDiceSpent = { denomination: string; count: number }
 
 /**
  * A link in one of the character's descriptions the game acts on, by which the game finds what it

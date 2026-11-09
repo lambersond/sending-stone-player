@@ -36,15 +36,24 @@ import { isDieSides } from '@/utils/dice'
 import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
 import type { Issue, RequestRule } from '@/schemas/types'
 import type {
+  AttackTarget,
+  DamageModifiers,
   DieSize,
+  EndedTurn,
   ExtraTerm,
+  FavoriteInput,
+  HitDiceSpent,
   HitPointsInput,
   PlainRollInput,
+  RemoveInput,
+  RolledDice,
   RollKind,
   RollKindInfo,
   RollRequestInput,
   TransferInput,
+  WildShapeInput,
 } from '@/types/roll'
+import type { SheetCounter } from '@/types/sending-stone'
 
 /** The most terms a player may add to one roll. */
 export const MAX_EXTRAS = 10
@@ -61,7 +70,7 @@ const REQUEST_ID = /^[\w-]{1,64}$/
 const sign = z.union([z.literal(1), z.literal(-1)])
 
 /** A term the player added, as the app's Modify roll reads it: dice, or a number. */
-const extraTermSchema = z.union([
+const extraTermSchema: z.ZodType<ExtraTerm> = z.union([
   z.strictObject({
     sign,
     count: z.int().min(1).max(MAX_DICE),
@@ -71,7 +80,7 @@ const extraTermSchema = z.union([
 ])
 
 /** A combatant picked, in a combat its player sees. */
-const targetSchema = z.strictObject({
+const targetSchema: z.ZodType<AttackTarget> = z.strictObject({
   combatId: z.string().regex(FOUNDRY_ID),
   combatantId: z.string().regex(FOUNDRY_ID),
 })
@@ -80,14 +89,14 @@ const targetSchema = z.strictObject({
  * A turn ended, from module 0.36.0, as its player was shown it: its combat, its round and its
  * current combatant, never a turn index, which the app isn't sent.
  */
-const turnSchema = z.strictObject({
+const turnSchema: z.ZodType<EndedTurn> = z.strictObject({
   combatId: z.string().regex(FOUNDRY_ID),
   round: z.int().min(1).max(100_000),
   combatantId: z.string().regex(FOUNDRY_ID),
 })
 
 /** How a player changed damage: more of its first die, another size of it, its highest. */
-const modifiersSchema = z.strictObject({
+const modifiersSchema: z.ZodType<DamageModifiers> = z.strictObject({
   extra: z.int().min(0).max(MOST_DICE).optional(),
   faces: z
     .int()
@@ -99,7 +108,7 @@ const modifiersSchema = z.strictObject({
 })
 
 /** Hit dice of one size spent at once: the size, and how many. */
-const hitDiceSchema = z.strictObject({
+const hitDiceSchema: z.ZodType<HitDiceSpent> = z.strictObject({
   denomination: z.string().regex(HIT_DIE),
   count: z.int().min(1).max(MOST_HIT_DICE),
 })
@@ -111,7 +120,7 @@ const HIT_DIE_SIZES = DIE_SIZES.length
  * A counter charges are spent from directly, from module 0.29.0: an item's own uses, or one of its
  * activities', or an old-style resource, exactly as the sheet names it.
  */
-const counterSchema = z.union([
+const counterSchema: z.ZodType<SheetCounter> = z.union([
   z.strictObject({
     item: z.string().regex(FOUNDRY_ID),
     activity: z.string().regex(FOUNDRY_ID).optional(),
@@ -131,7 +140,7 @@ const MOST_COINS = 10
  * coin, or both. A coin of none isn't sent. From module 0.32.0, or a distribution: one kind of a
  * party's coin shared among its characters, `among`, in place of `to`.
  */
-const transferSchema = z
+const transferSchema: z.ZodType<TransferInput> = z
   .strictObject({
     from: z.string().regex(FOUNDRY_ID),
     to: z.string().regex(FOUNDRY_ID).optional(),
@@ -212,7 +221,7 @@ function moveRules(transfer: TransferInput, issue: Issue) {
  * stack, from 1 to all of it, and how many the sheet showed, which the game checks it still has;
  * 0 only of a stack of none, which removes it whole.
  */
-const removeSchema = z
+const removeSchema: z.ZodType<RemoveInput> = z
   .strictObject({
     item: z.string().regex(FOUNDRY_ID),
     quantity: z.int().min(0).max(MOST_MOVED),
@@ -237,7 +246,7 @@ const favoriteOp = z.enum(['add', 'remove'])
  * no favorite ever names one of the old resources, whose removal in dnd5e zeroes its maximum.
  * Nothing else: no other type, and no field its type doesn't name.
  */
-const favoriteSchema = z.discriminatedUnion('type', [
+const favoriteSchema: z.ZodType<FavoriteInput> = z.discriminatedUnion('type', [
   z.strictObject({
     op: favoriteOp,
     type: z.enum(['item']),
@@ -267,7 +276,7 @@ const favoriteSchema = z.discriminatedUnion('type', [
  * compendiums, never a world actor's, into an empty place or in place of a known form; or the
  * Beasts to learn listed. Nothing else.
  */
-const wildShapeSchema = z.discriminatedUnion('op', [
+const wildShapeSchema: z.ZodType<WildShapeInput> = z.discriminatedUnion('op', [
   z.strictObject({
     op: z.literal('transform'),
     form: z.string().regex(PROFILE_ID),
@@ -289,7 +298,7 @@ const hitPointCount = z.int().min(0).max(MOST_HIT_POINTS)
  * numbers wanted, one or both, and what the page showed of each it sets (`from`), those fields and
  * no others, each 0 to 9999. Nothing else.
  */
-const hitPointsSchema = z
+const hitPointsSchema: z.ZodType<HitPointsInput> = z
   .strictObject({
     op: z.literal('set'),
     value: hitPointCount.optional(),
@@ -322,7 +331,7 @@ function fromMatches({ value, temp, from }: HitPointsInput): boolean {
  * throw, how many of each, no more than 20 dice in all; and a whole number added or taken away,
  * where there is one, as a number added to a roll may be. Nothing else.
  */
-const plainRollSchema = z
+const plainRollSchema: z.ZodType<PlainRollInput> = z
   .strictObject({
     terms: z
       .array(
@@ -457,7 +466,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   undoEndTurn: 'Taking a turn back throws no dice',
 }
 
-const rolledDiceSchema = z.strictObject({
+const rolledDiceSchema: z.ZodType<RolledDice> = z.strictObject({
   faces: z.int().min(2).max(100),
   results: z
     .array(z.int())

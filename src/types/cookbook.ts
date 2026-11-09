@@ -30,6 +30,10 @@ export type CookbookDishBody = {
  * One of a dish's changes: a kind this app knows, by its own keys alone, or another kept as sent.
  */
 export type CookbookChange =
+  KnownCookbookChange | { type: string; [key: string]: unknown }
+
+/** A change of a kind this app knows, by its own keys alone. */
+export type KnownCookbookChange =
   | { type: 'abilityScore'; ability: string; value: number }
   | {
       type: 'rollMode'
@@ -53,7 +57,6 @@ export type CookbookChange =
   | { type: 'conditionImmunity'; condition: string }
   | { type: 'sense'; sense: string; range: number }
   | { type: 'exhaustion'; levels: number }
-  | { type: string; [key: string]: unknown }
 
 /** A dish as the module fetches it, from module 0.38.0. */
 export type DishCommand = {
