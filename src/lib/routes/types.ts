@@ -1,4 +1,4 @@
-import type { NotesSeat, NotesBook } from '@/db/types'
+import type { NotesSeat, NotesBook } from '@/types/notes'
 import type { RefusalReason } from '@/types/sending-stone'
 
 /** What a page last saw, by its query's key, as `seenAs` compares it with what's current. */

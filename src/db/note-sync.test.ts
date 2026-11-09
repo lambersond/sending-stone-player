@@ -12,11 +12,11 @@ import {
   claimNoteWrites,
   drawJournal,
   MADE_KEPT_FOR,
-  placesOf,
   reconcileJournals,
   recordNoteResult,
 } from './note-sync'
 import { mockJournalUpdated, NOTE_IDS, PARTY } from '@/mocks/sending-stone'
+import { placesOf } from '@/utils/notes/commands'
 import { prismaMock } from '@/utils/test-utils-node'
 import type { CommandResult, JournalPage } from '@/types/sending-stone'
 
@@ -188,19 +188,6 @@ const waitingRows = (rows: Partial<JournalWrite>[]) =>
         book: { kind: 'personal', actorId: PARTY.thorin },
       })) as any,
     )
-
-/** A page of a journal, by id, role and chapter, for its place in its group. */
-const pageOf = (
-  id: string,
-  role: 'chapter' | 'entry',
-  chapter: string | null = null,
-) =>
-  ({
-    ...mockJournalUpdated('personal').journal!.notes[0],
-    id,
-    role,
-    chapter,
-  }) as JournalPage
 
 /** The personal mock's notes as the mirror holds them, drawn as they would be. */
 const mirrored = (event = mockJournalUpdated('personal')) =>
@@ -1123,28 +1110,6 @@ describe('db/note-sync', () => {
   })
 
   describe('the order of a group’s notes, from module 0.35.0', () => {
-    it('places each note in its group as Foundry sends the journal: the chapters, and each group’s notes, counted apart', () => {
-      const places = placesOf([
-        pageOf('looseNote0000001', 'entry'),
-        pageOf('chapterOne000001', 'chapter'),
-        pageOf('inOne00000000001', 'entry', 'chapterOne000001'),
-        pageOf('looseNote0000002', 'entry'),
-        pageOf('chapterTwo000001', 'chapter'),
-        pageOf('inOne00000000002', 'entry', 'chapterOne000001'),
-        pageOf('inTwo00000000001', 'entry', 'chapterTwo000001'),
-      ])
-
-      expect(Object.fromEntries(places)).toEqual({
-        looseNote0000001: 0,
-        chapterOne000001: 0,
-        inOne00000000001: 0,
-        looseNote0000002: 1,
-        chapterTwo000001: 1,
-        inOne00000000002: 1,
-        inTwo00000000001: 0,
-      })
-    })
-
     describe('kept from journal.updated', () => {
       beforeEach(() => {
         eventCampaign()

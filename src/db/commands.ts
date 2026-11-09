@@ -7,21 +7,22 @@ import {
   ROLLS_KEPT_FOR,
   ROLLS_PER_MINUTE,
 } from '@/constants/sending-stone'
-import { companionRoster } from '@/utils/companions'
 import { switchOn } from '@/utils/features'
+import { commandPayload, keptLabel } from '@/utils/requests/payloads'
+import { seatListed } from '@/utils/roster'
 import type {
   CommandCampaign,
   CommandKind,
   CommandRow,
   CommandSpec,
   CommandValue,
-  RollRejection,
   RollSeat,
   WaitingRow,
 } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 import type { CharacterSheet } from '@/types/sending-stone'
+import type { RollRejection } from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
 // What every command a seat sends rides on: a RollRequest held for the module to fetch, the seat's
@@ -78,27 +79,6 @@ export async function seatBusy(seat: RollSeat, now: number): Promise<boolean> {
   return inFlight >= ROLLS_IN_FLIGHT || lastMinute >= ROLLS_PER_MINUTE
 }
 
-/** Whether a character is in the campaign's roster, as its module last listed it. */
-function inRoster(characters: Prisma.JsonValue, actorId: string): boolean {
-  const roster = Array.isArray(characters)
-    ? (characters as unknown as { id: string }[])
-    : []
-  return roster.some(({ id }) => id === actorId)
-}
-
-/**
- * Whether the seat's actor is listed now: its character in the campaign's roster; or at a
- * companion's seat (module 0.44.0), the companion by its key, as its character's still.
- */
-function listedNow(seat: SheetSeat, campaign: CommandCampaign): boolean {
-  const { actorId, companion } = seat
-  if (!actorId) return false
-  if (!companion) return inRoster(campaign.characters, actorId)
-  return companionRoster(campaign.companions).some(
-    entry => entry.key === actorId && entry.of.includes(companion.of),
-  )
-}
-
 /**
  * The sheet a command is checked against, as last sent: the character's, or at a companion's seat
  * (module 0.44.0) the companion's own, kept apart from the characters'.
@@ -113,29 +93,6 @@ function sheetOf(seat: SheetSeat, campaignId: string, actorId: string) {
         where: { campaignActor: { campaignId, actorId } },
         select: { data: true },
       })
-}
-
-/**
- * What the module is sent of a command: what it's called is the app's alone, as for a roll; and
- * nothing is typed in for one, so nothing says so, nor that its rerolls were kept (module 0.42.0).
- */
-export function commandPayload(input: RollRequestInput): Prisma.InputJsonValue {
-  const command = { ...input }
-  delete command.label
-  delete command.typed
-  delete command.rerolls
-  return command as unknown as Prisma.InputJsonValue
-}
-
-/**
- * What the Gamemaster's page called what it sent, kept for the character's player to be shown it
- * by; a player's own page never asks for theirs.
- */
-export function keptLabel(
-  seat: RollSeat,
-  label: string | undefined,
-): { label?: string } {
-  return seat.role === 'gm' && label !== undefined ? { label } : {}
 }
 
 /**
@@ -214,7 +171,7 @@ export async function createCommand<K extends CommandKind>(
 
   const now = Date.now()
   if (await seatBusy(seat, now)) return { status: 429, reason: 'busy' }
-  if (!listedNow(seat, campaign)) {
+  if (!seatListed(seat, campaign)) {
     return { status: 422, reason: 'unknown' }
   }
 
@@ -246,7 +203,7 @@ export async function createCommand<K extends CommandKind>(
       ...(companion && { ofActorId: companion.of }),
       kind: spec.kind,
       ...keptLabel(seat, input.label),
-      payload: commandPayload(input),
+      payload: commandPayload(input) as unknown as Prisma.InputJsonValue,
     },
     now,
   )

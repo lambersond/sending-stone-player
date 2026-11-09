@@ -2,6 +2,7 @@ import {
   checkAmong,
   checkEnds,
   checkHoldings,
+  overlaps,
   transfersAvailable,
 } from './transfers'
 import { ironCompany, partyStash, sheetItem } from '@/mocks/sending-stone'
@@ -535,5 +536,39 @@ describe('utils/transfers, from module 0.32.0', () => {
         'short',
       )
     })
+  })
+})
+
+describe('utils/transfers overlaps', () => {
+  const from = { from: THORIN, to: COMPANY }
+
+  it('finds a move on its way from the same end with any of the same items, or coins as both move', () => {
+    const earlier = {
+      ...from,
+      items: [{ id: 'rope', quantity: 1 }],
+      currency: { gp: 5 },
+    }
+    expect(
+      overlaps(earlier, { ...from, items: [{ id: 'rope', quantity: 2 }] }),
+    ).toBe(true)
+    expect(overlaps(earlier, { ...from, currency: { sp: 3 } })).toBe(true)
+    expect(
+      overlaps(earlier, { ...from, items: [{ id: 'torch', quantity: 1 }] }),
+    ).toBe(false)
+  })
+
+  it('finds none from another end, or with none on its way', () => {
+    const earlier = { ...from, items: [{ id: 'rope', quantity: 1 }] }
+    expect(
+      overlaps(earlier, {
+        from: VEX,
+        to: COMPANY,
+        items: [{ id: 'rope', quantity: 1 }],
+      }),
+    ).toBe(false)
+    expect(
+      overlaps(undefined, { ...from, items: [{ id: 'rope', quantity: 1 }] }),
+    ).toBe(false)
+    expect(overlaps({ ...from, currency: { gp: 1 } }, from)).toBe(false)
   })
 })

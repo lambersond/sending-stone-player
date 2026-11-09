@@ -1,6 +1,5 @@
 import prisma from '@/clients/prisma'
 import {
-  BRIDGE_TIMEOUT,
   REFUSAL,
   REFUSAL_RECORD_EVERY,
   REFUSAL_SHOWN_FOR,
@@ -12,8 +11,10 @@ import {
   hashSecret,
   verifySecret,
 } from '@/lib/campaign-secret'
+import { toChoice } from '@/utils/campaign-choice'
 import { companionRoster } from '@/utils/companions'
 import { literalPattern } from '@/utils/literal-pattern'
+import { isLive } from '@/utils/live'
 import { availableRollKinds } from '@/utils/requests/availability'
 import { transfersAvailable } from '@/utils/transfers'
 import type { EventCampaign } from './types'
@@ -29,11 +30,6 @@ import type {
   ConnectedCharacter,
   GroupEntry,
 } from '@/types/sending-stone'
-
-/** Is a Gamemaster's game sending, judging by when its campaign last heard anything? */
-export function isLive(lastSeenAt: Date | null | undefined, now = Date.now()) {
-  return !!lastSeenAt && now - lastSeenAt.getTime() < BRIDGE_TIMEOUT
-}
 
 const rosterOf = (characters: unknown) =>
   characters as unknown as ConnectedCharacter[]
@@ -596,45 +592,6 @@ const choiceSelect = {
   owner: { select: { name: true } },
   players: { select: { id: true, actorId: true, userId: true } },
 } as const
-
-/**
- * A campaign's characters, as offered to a player choosing one.
- * @param userId - The player.
- * @param exceptCharacterId - A character of theirs choosing again, whose own choice is not a claim.
- */
-function toChoice(
-  campaign: {
-    id: string
-    title: string
-    worldTitle: string | null
-    origin: string
-    characters: unknown
-    owner: { name: string } | null
-    players: { id: string; actorId: string | null; userId: string }[]
-  },
-  userId: string,
-  exceptCharacterId?: string,
-): CampaignChoice {
-  const claims = new Map(
-    campaign.players
-      .filter(({ id, actorId }) => actorId && id !== exceptCharacterId)
-      .map(player => [player.actorId, player]),
-  )
-  return {
-    id: campaign.id,
-    title: campaign.title,
-    worldTitle: campaign.worldTitle ?? undefined,
-    gameUrl: campaign.origin,
-    gamemaster: campaign.owner?.name,
-    characters: rosterOf(campaign.characters).map(({ id, name }) => {
-      const claim = claims.get(id)
-      if (!claim) return { id, name }
-      return claim.userId === userId
-        ? { id, name, claimedBy: 'you', characterId: claim.id }
-        : { id, name, claimedBy: 'someone' }
-    }),
-  }
-}
 
 /** The campaign an invite link is for, or undefined if the link is not (or no longer) valid. */
 export async function findInvite(

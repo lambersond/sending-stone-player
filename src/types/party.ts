@@ -6,6 +6,17 @@ import type { SheetCurrency, SheetInventory } from '@/types/sending-stone'
  * sees a group only where their Foundry user has Observer or Owner on it, as Foundry shows it them.
  */
 
+/** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
+export type PartySeat =
+  | {
+      role: 'player'
+      campaignId: string | null
+      actorId: string | null
+      characterId: string
+      name: string
+    }
+  | { role: 'gm'; campaignId: string; userId: string }
+
 /** An entry point on the table view: a group this seat may open. Never its access. */
 export type TableGroup = {
   id: string

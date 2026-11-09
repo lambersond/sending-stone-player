@@ -1,10 +1,9 @@
 import { NO_DICE } from '@/constants/roll-kinds'
 import { DONE_HEAD } from '@/mocks/results'
 import { switchedOff, switchedOn, tableViewOf } from '@/mocks/switches'
-import type { NotePageCommand } from '@/db/types'
 import type { ChosenFavorite } from '@/mocks/types'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
-import type { NotesView } from '@/types/notes'
+import type { NotePageCommand, NotesView } from '@/types/notes'
 import type { PartyView, TableMoves } from '@/types/party'
 import type { FavoriteTarget } from '@/types/roll'
 import type {

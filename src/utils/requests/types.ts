@@ -125,6 +125,32 @@ export type RollRefusal =
   | 'shaped'
   | 'prepare'
 
+/**
+ * Why a roll wasn't taken, with the HTTP status that says so; for a move of items and coins, from
+ * module 0.31.0, also that the seat has a move of the same on its way already (`moving`), and for
+ * a removal, from module 0.33.0, a move or removal of the item, of anything in it, or of a
+ * container it's in.
+ */
+export type RollRejection = {
+  status: 409 | 422 | 429
+  reason: RollRefusal | 'busy' | 'moving'
+}
+
+/**
+ * What a roll reads of its campaign (`ROLL_CAMPAIGN`, src/db/roll-requests.ts): whether the
+ * game takes it, how, and its roster.
+ */
+export type RollCampaign = {
+  rollsEnabled: boolean
+  rollKinds: string[]
+  rollFeatures: string[]
+  bridgePolledAt: Date | null
+  characters: unknown
+  companions: unknown
+  companionKinds: string[]
+  companionInitiative: string
+}
+
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
   id: string

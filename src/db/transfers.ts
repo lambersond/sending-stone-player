@@ -1,25 +1,21 @@
 import prisma from '@/clients/prisma'
 import { ROLLS_IN_FLIGHT } from '@/constants/sending-stone'
-import {
-  commandPayload,
-  holdCommand,
-  keptLabel,
-  madeBy,
-  onItsWay,
-  seatBusy,
-} from '@/db/commands'
-import { groupRoster } from '@/db/party'
+import { holdCommand, madeBy, onItsWay, seatBusy } from '@/db/commands'
 import { relatedItems } from '@/utils/removals'
+import { commandPayload, keptLabel } from '@/utils/requests/payloads'
+import { groupRoster } from '@/utils/roster'
 import {
   checkAmong,
   checkEnds,
   checkHoldings,
+  overlaps,
   transfersAvailable,
 } from '@/utils/transfers'
-import type { RollRejection } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
-import type { RollRequestInput, TransferInput } from '@/types/roll'
+import type { RollRequestInput } from '@/types/roll'
 import type { SheetInventory, GroupSheet } from '@/types/sending-stone'
+import type { RollRejection } from '@/utils/requests/types'
+import type { Prisma } from '@prisma/client'
 
 // A move of items and coins (module 0.31.0) rides the same way to the game as a roll: held here as
 // a RollRequest of the kind `transfer`, for the seat's character, which the module fetches at most
@@ -146,22 +142,8 @@ export async function createTransferRequest(
       actorId,
       kind: 'transfer',
       ...keptLabel(seat, input.label),
-      payload: commandPayload(input),
+      payload: commandPayload(input) as unknown as Prisma.InputJsonValue,
     },
     now,
   )
-}
-
-/**
- * Whether a move on its way moves any of the same from the same end: one of the same items, or
- * coins, as both do.
- */
-function overlaps(
-  earlier: TransferInput | undefined,
-  transfer: TransferInput,
-): boolean {
-  if (!earlier || earlier.from !== transfer.from) return false
-  const ids = new Set((earlier.items ?? []).map(({ id }) => id))
-  const items = (transfer.items ?? []).some(({ id }) => ids.has(id))
-  return items || (!!earlier.currency && !!transfer.currency)
 }

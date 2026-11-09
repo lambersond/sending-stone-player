@@ -1,8 +1,9 @@
 import { createCommand } from '@/db/commands'
 import { checkHitPoints } from '@/utils/hit-points'
-import type { CommandSpec, RollRejection } from '@/db/types'
+import type { CommandSpec } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
+import type { RollRejection } from '@/utils/requests/types'
 
 // Hit points and temporary hit points set from the app (module 0.44.0) ride to the game as an
 // effect does: held here as a RollRequest of the kind `hitPoints`, for the seat's character, or at

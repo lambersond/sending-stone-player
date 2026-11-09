@@ -20,8 +20,8 @@ import { readBody } from '@/lib/routes/body'
 import { cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
-import type { NoteCommand } from '@/db/types'
 import type { DishCommand } from '@/types/cookbook'
+import type { NoteCommand } from '@/types/notes'
 import type { RollCommand } from '@/utils/requests/types'
 
 // Where the Gamemaster's module fetches what players ask its game to do: for now, rolls made here,

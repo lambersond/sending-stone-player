@@ -13,9 +13,9 @@ import {
 } from '@/constants/cookbook'
 import { NO_DICE } from '@/constants/roll-kinds'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
-import { isLive } from '@/db/campaigns'
 import { due as pruneDue } from '@/db/commands'
 import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
+import { isLive } from '@/utils/live'
 import type {
   CookbookLinkFound,
   DishAccepted,

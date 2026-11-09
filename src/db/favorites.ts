@@ -1,8 +1,9 @@
 import { createCommand } from '@/db/commands'
 import { checkFavorite, targetKey } from '@/utils/favorite-commands'
-import type { CommandSpec, RollRejection } from '@/db/types'
+import type { CommandSpec } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
+import type { RollRejection } from '@/utils/requests/types'
 
 // A favorite added to or removed from a character's (module 0.37.0) rides to the game as a removal
 // does: held here as a RollRequest of the kind `favorite`, for the seat's character, which the

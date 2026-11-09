@@ -1,8 +1,9 @@
 import { createCommand } from '@/db/commands'
 import { checkRemoval, relatedItems } from '@/utils/removals'
-import type { CommandSpec, RollRejection } from '@/db/types'
+import type { CommandSpec } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
+import type { RollRejection } from '@/utils/requests/types'
 
 // A removal of a character's item (module 0.33.0) rides the same way to the game as a move: held
 // here as a RollRequest of the kind `remove`, for the seat's character, which the module fetches at

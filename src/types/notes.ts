@@ -212,3 +212,80 @@ export type NoteWriteAnswer =
       field?: string
       lines?: number[]
     }
+
+/**
+ * Who is at a book of notes, as its route resolved them from the session and the address alone:
+ * the character's player, as their character, or the campaign's Gamemaster, as no character.
+ */
+export type NotesSeat = {
+  role: 'player' | 'gm'
+  userId: string
+  /** The player's character's actor, which they write as; null for the Gamemaster. */
+  actorId: string | null
+  /** The character's name, as their seat knows it; the Gamemaster's is "Gamemaster". */
+  name: string
+}
+
+/** The book a seat is at: a character's or a party's, in one campaign. */
+export type NotesBook = {
+  campaignId: string
+  kind: NoteBookKind
+  /** The character's actor, or the party's Group actor. */
+  actorId: string
+  /** A party no campaign character may see in Foundry, which only its Gamemaster reaches. */
+  private: boolean
+}
+
+/** What a seat may do in a book, and with a note in it (§8.5). */
+export type NoteRights = {
+  canAdd: boolean
+  canRename: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canReorder: boolean
+}
+
+/** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
+export type NotePageCommand = {
+  id: string
+  actorId: string
+  kind: 'note'
+  by?: 'gm'
+  note: {
+    book: NoteBookKind
+    op: 'create' | 'update' | 'delete'
+    id: string
+    role: NoteRole
+    base: string | null
+    writer: string | null
+    at: number
+    title?: string
+    markdown?: string
+    chapter?: string | null
+    createdAt?: number
+  }
+  mode: 0
+  explicit: false
+  extras: []
+  dice: []
+}
+
+/**
+ * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
+ * ids in the new order, and in Foundry's order it was made from.
+ */
+export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
+  note: {
+    book: NoteBookKind
+    op: 'order'
+    /** The group: a chapter's page, or null for the notes in no chapter. */
+    chapter: string | null
+    ids: string[]
+    was: string[]
+    writer: string | null
+    at: number
+  }
+}
+
+/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
+export type NoteCommand = NotePageCommand | NoteOrderCommand
