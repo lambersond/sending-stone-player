@@ -92,10 +92,12 @@ describe('components/notes/chapter-pane', () => {
     ).toBeInTheDocument()
   })
 
+  // Read once: two reads a millisecond apart would make an added chapter a renamed one.
+  const justNow = ago(0)
   it.each([
     [
       'added',
-      { createdAt: ago(0), modifiedAt: ago(0) },
+      { createdAt: justNow, modifiedAt: justNow },
       'Added by Thorin, just now',
     ],
     [

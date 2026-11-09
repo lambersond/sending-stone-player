@@ -96,6 +96,28 @@ const tsxRules = (exported, allowed, { types = true } = {}) =>
 const asErrors = rules =>
   Object.fromEntries(Object.keys(rules).map(rule => [rule, 'error']))
 
+// unicorn's prefer-native-coercion-functions, but for type guards. It takes a type guard such as
+// `(note): note is NoteEntryView => Boolean(note)` for `Boolean`, and its autofix writes
+// `.filter(Boolean)`, which narrows nothing, so tsc fails on what typechecked before the fix
+// (unicorn 65 spares a type predicate only in an identity callback, `(x): x is T => x`). This copy
+// reports all that unicorn's does but a function whose return type is a type predicate.
+const nativeCoercion = unicorn.rules['prefer-native-coercion-functions']
+const isTypeGuard = node =>
+  node.returnType?.typeAnnotation.type === 'TSTypePredicate'
+const nativeCoercionButTypeGuards = {
+  meta: nativeCoercion.meta,
+  create: context =>
+    nativeCoercion.create(
+      Object.create(context, {
+        report: {
+          value: problem => {
+            if (!isTypeGuard(problem.node)) context.report(problem)
+          },
+        },
+      }),
+    ),
+}
+
 // The layers of src (CLAUDE.md §4, §5 and §7), each importing only from those beneath it. Features
 // may import each other's public parts; what keeps them apart is that no module cycle forms.
 // Two zones are named for the exceptions below.
@@ -210,6 +232,11 @@ export default [
       import: importX,
       prettier,
       sonarjs,
+      app: {
+        rules: {
+          'prefer-native-coercion-functions': nativeCoercionButTypeGuards,
+        },
+      },
     },
     rules: {
       ...pluginNext.configs.recommended.rules,
@@ -281,6 +308,9 @@ export default [
         { case: 'kebabCase', ignore: ['^__tests__$', '^__snapshots__$'] },
       ],
       'unicorn/prevent-abbreviations': 'off',
+      // Its fix drops a type guard's narrowing: the copy above, which spares type guards, instead.
+      'unicorn/prefer-native-coercion-functions': 'off',
+      'app/prefer-native-coercion-functions': 'error',
       'import/no-unresolved': 'off',
       'import/no-duplicates': ['error', { considerQueryString: true }],
       'import/newline-after-import': 'error',
