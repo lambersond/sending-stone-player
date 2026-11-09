@@ -29,7 +29,7 @@ import {
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import { foundrySettingsSchema } from '@/schemas/foundry-settings'
-import { leftOut, orNull } from '@/schemas/utils'
+import { leftOut, listOf, orNull } from '@/schemas/utils'
 import { MAX_CHECKS } from '@/utils/description-links'
 import { NOTE_ID } from '@/utils/note-id'
 import { MAX_DICE } from '@/utils/roll-modifiers'
@@ -74,18 +74,6 @@ export const LONGEST_TEXT = 200_000
 
 /** A description's hash, or null; anything else is taken as no description. */
 const textRef = orNull(z.string().regex(TEXT_HASH))
-
-/** A list whose malformed entries are dropped, rather than failing the whole list. */
-const listOf = <T extends z.ZodType>(entry: T) =>
-  z
-    .array(z.unknown())
-    .catch([])
-    .transform(entries =>
-      entries.flatMap(value => {
-        const parsed = entry.safeParse(value)
-        return parsed.success ? [parsed.data as z.output<T>] : []
-      }),
-    )
 
 /** One of dnd5e's abilities, never a name any object answers to. */
 const abilityId = z.string().refine(id => Object.hasOwn(ABILITIES, id))
@@ -2111,10 +2099,6 @@ const cut = (most: number) =>
 /** As `cut`, or null for none. */
 const cutOrNull = (most: number) => orNull(cut(most))
 
-/** A list whose malformed entries are dropped, cut to its first `count`. */
-const mostOf = <T extends z.ZodType>(entry: T, count: number) =>
-  listOf(entry).transform(entries => entries.slice(0, count))
-
 /**
  * This app's id for a dish from the Magical Recipe Book, from the command's: the one field of a
  * dish event that refuses it. The module never re-sends a refused event, so every other field is
@@ -2134,7 +2118,7 @@ const dishAppliedSchema = z.looseObject({
   id: cut(64),
   card: cutOrNull(64),
   outcome: cut(16),
-  characters: mostOf(
+  characters: listOf(
     z.looseObject({
       actorId: z.string().min(1).max(64),
       name: cut(200),
@@ -2142,11 +2126,11 @@ const dishAppliedSchema = z.looseObject({
       replaced: orNull(z.looseObject({ id: cut(64), recipe: cut(200) })),
       healed: z.number().int().catch(0),
       exhaustion: z.number().int().catch(0),
-      skipped: mostOf(z.looseObject({ type: cut(64), reason: cut(32) }), 100),
+      skipped: listOf(z.looseObject({ type: cut(64), reason: cut(32) }), 100),
     }),
     200,
   ),
-  rolled: mostOf(
+  rolled: listOf(
     z.looseObject({
       type: cut(64),
       value: z.number().int(),
