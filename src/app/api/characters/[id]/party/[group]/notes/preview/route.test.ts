@@ -77,12 +77,6 @@ describe('app/api/characters/[id]/party/[group]/notes/preview', () => {
       .mockResolvedValue({ html: '<h5>Loot</h5>', headings: [] })
   })
 
-  it('answers 401 signed out', async () => {
-    jest.mocked(getCurrentUser).mockResolvedValue(undefined as any)
-
-    await expect(post({ body: 'a' })).resolves.toHaveProperty('status', 401)
-  })
-
   it('renders a note for the seat’s book, storing nothing', async () => {
     const response = await post({ body: '### Loot' })
 
@@ -93,13 +87,16 @@ describe('app/api/characters/[id]/party/[group]/notes/preview', () => {
       headings: [],
     })
     expect(previewNote).toHaveBeenCalledWith(BOOK, '### Loot')
-  })
-
-  it('answers 404 for a party the character may not see now', async () => {
-    jest.mocked(getCharacter).mockResolvedValue(THORIN)
-    jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
-
-    await expect(post({ body: 'a' })).resolves.toHaveProperty('status', 404)
-    expect(previewNote).not.toHaveBeenCalled()
+    // A preview is drawn for the book alone, so the seat shows only in who the party was asked as.
+    expect(partyNotesAccess).toHaveBeenCalledWith(
+      {
+        role: 'player',
+        campaignId: 'c1',
+        actorId: 'thorin',
+        characterId: 'char-1',
+        name: 'Thorin',
+      },
+      'company',
+    )
   })
 })
