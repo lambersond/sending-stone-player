@@ -277,6 +277,11 @@ describe('utils/notes/view', () => {
       expect(overlay(note, failed, false, true, vex)?.state).toBe('synced')
     })
 
+    it('hides a note that failed to be made from a seat that may not change it, even where its page is mirrored', () => {
+      const made = journalWrite({ status: 'failed', op: 'create' })
+      expect(overlay(note, made, false, true, vex)).toBeUndefined()
+    })
+
     it("marks a deletion the module refused as the seat's own deleting", () => {
       const refused = journalWrite({
         op: 'delete',

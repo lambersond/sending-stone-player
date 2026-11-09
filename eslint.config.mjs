@@ -127,7 +127,8 @@ const UTILS_FROM_LIB = {
 }
 const COMPONENTS_FROM_LIB = { target: './src/components', from: './src/lib' }
 const LAYERS = [
-  // The client trees never reach server-only code; pages, which are Server Components, may.
+  // The client trees never reach server-only code; pages, which are Server Components, may. Of
+  // the utilities, those whose digests are node:crypto's, and what imports them, are server-only.
   {
     target: ['./src/features', './src/components', './src/hooks'],
     from: [
@@ -135,6 +136,9 @@ const LAYERS = [
       './src/lib/routes',
       './src/clients/prisma.ts',
       './src/auth.ts',
+      './src/utils/gm-rolls.ts',
+      './src/utils/notes/view.ts',
+      './src/utils/notes/book.ts',
     ],
   },
   // Types and constants import only types and constants.
