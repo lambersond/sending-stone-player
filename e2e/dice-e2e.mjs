@@ -354,9 +354,11 @@ await until(() => sql(`select "rollsEnabled" from campaign where id = '${A}'`) =
   await openTray(phone)
   await until(() => footerSays(phone, NOT_SENT), 'the phone’s tray to say why', 20_000).catch(() => {})
   const footer = await footerSays(phone, NOT_SENT)
-  const here = await rollHere(phone, 'Roll 2d6 + 1d8', 'Dice (2d6 + 1d8)')
+  // A d4 more, so that part 5's "Dice (2d6 + 1d8)", still the tray's latest, can't pass for this roll.
+  await addOf(phone, 'd4').click()
+  const here = await rollHere(phone, 'Roll 1d4 + 2d6 + 1d8', 'Dice (1d4 + 2d6 + 1d8)')
   check(footer && !here.sent && !here.asked && !saysTable(here.shown),
-    `with the campaign's rolls off in Foundry, the tray says "${NOT_SENT}", and Roll 2d6 + 1d8 throws the app's dice alone, nothing typed, nothing sent: "${here.shown}" (${here.posted} posted)`)
+    `with the campaign's rolls off in Foundry, the tray says "${NOT_SENT}", and Roll 1d4 + 2d6 + 1d8 throws the app's dice alone, nothing typed, nothing sent: "${here.shown}" (${here.posted} posted)`)
   await shoot(phone, 'dice-tray-rolls-off', chatOf(phone))
   const GM_NOT_SENT = "Only you see these rolls for now. They aren't sent to your game."
   await until(() => footerSays(gmPage, GM_NOT_SENT), 'the Gamemaster’s tray to say why', 20_000).catch(() => {})
