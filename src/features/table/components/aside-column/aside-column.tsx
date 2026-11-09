@@ -148,6 +148,7 @@ export function AsideColumn({
         <Scroller ref={scroller} onScroll={onScroll}>
           <ChatLog messages={messages} clearedAt={chatClearedAt} />
         </Scroller>
+        {/* The tray's open height is capped by this pane's, so it's put here with no wrapper. */}
         {dice}
       </Pane>
     </div>

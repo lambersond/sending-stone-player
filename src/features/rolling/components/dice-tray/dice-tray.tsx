@@ -20,7 +20,8 @@ import type { RollFeature, RollKind } from '@/types/roll'
  * throws them over the page and keeps them for the next roll. Beneath, "Rolling…" as they tumble,
  * then the latest roll, as the game made it too, or not, its card coming in the chat above; and
  * whether the game makes these at all, and why not. It rolls as the character, whichever creature
- * the sheet shows.
+ * the sheet shows. Open, it's no taller than the pane it's put at the foot of, less room for the
+ * chat above, and its dice scroll within.
  * @param characterId - The character it rolls as, or for the Gamemaster's seat its key.
  * @param kinds - The rolls the game takes from the seat now.
  * @param features - What else the game does with them.
@@ -43,7 +44,9 @@ export function DiceTray({
   const focus = useTrayFocus(tray.dice, tray.remove)
   const empty = tray.dice.length === 0
   return (
-    <div className='@container shrink-0 border-t border-border bg-card'>
+    // A column at the foot of the chat pane, held to its height less 6rem, so that on a short
+    // screen it's never taller than the pane and the chat above keeps room: its panel scrolls.
+    <div className='@container flex max-h-[calc(100%-6rem)] shrink-0 flex-col border-t border-border bg-card'>
       <div className='flex items-center gap-2 px-3 py-1.5'>
         <h2 className='min-w-0 flex-1'>
           <button

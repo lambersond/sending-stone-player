@@ -146,6 +146,23 @@ describe('features/rolling/components/dice-tray', () => {
     expect(heard).toEqual(['1d8', '1d6 + 1d8', '2d6 + 1d8', 'No dice'])
   })
 
+  it('caps its height by the pane it sits in, not the screen, leaving the chat above room, its dice scrolling within', async () => {
+    const user = userEvent.setup()
+    tray()
+    await user.click(toggle())
+    const panel = document.querySelector(
+      `#${CSS.escape(toggle().getAttribute('aria-controls') ?? '')}`,
+    )
+    // Its own bar and its panel, a column held to the pane's height less 6rem; jsdom lays nothing
+    // out, so the classes stand for what a browser draws (measured at 844 × 390 in Chromium).
+    expect(panel?.parentElement).toHaveClass(
+      'flex',
+      'flex-col',
+      'max-h-[calc(100%-6rem)]',
+    )
+    expect(panel).toHaveClass('overflow-y-auto')
+  })
+
   it('says, at 20 dice, that it takes no more, on every way to add one', async () => {
     const user = userEvent.setup()
     tray()
