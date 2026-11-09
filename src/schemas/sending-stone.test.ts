@@ -2832,6 +2832,32 @@ describe('schemas/sending-stone', () => {
     expect(rollWith({})).toEqual({ formula: '1d6', total: 4, dice: [] })
   })
 
+  it("reads a roll's advantage, disadvantage, critical, fumble and damage type, leaving out those that don't hold up", () => {
+    const marks = {
+      advantage: true,
+      disadvantage: false,
+      critical: true,
+      fumble: false,
+      damageType: 'fire',
+    }
+
+    expect(rollWith(marks)).toEqual({
+      formula: '1d6',
+      total: 4,
+      dice: [],
+      ...marks,
+    })
+    expect(
+      rollWith({
+        advantage: 'yes',
+        disadvantage: 1,
+        critical: 'no',
+        fumble: null,
+        damageType: 7,
+      }),
+    ).toEqual({ formula: '1d6', total: 4, dice: [] })
+  })
+
   it('reads what marks a combat roll, and drops a malformed armor class', () => {
     expect(
       messageWith({

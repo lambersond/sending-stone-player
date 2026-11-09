@@ -1327,8 +1327,14 @@ export const rollSchema = z.looseObject({
     )
     .catch([]),
   // What marks a roll, each left out where it doesn't apply, or can't be read: the class it has
-  // always had, and from module 0.28.0, what it says of damage and attacks.
+  // always had, with dnd5e's advantage, disadvantage, critical, fumble and damage type, and from
+  // module 0.28.0, what it says of damage and attacks.
   class: leftOut(z.string().max(100)),
+  advantage: leftOut(z.boolean()),
+  disadvantage: leftOut(z.boolean()),
+  critical: leftOut(z.boolean()),
+  fumble: leftOut(z.boolean()),
+  damageType: leftOut(z.string()),
   damage: leftOut(z.literal(true)),
   damageLabel: leftOut(z.string().trim().min(1).max(64)),
   section: leftOut(z.enum(['damage', 'bonus', 'other'])),
