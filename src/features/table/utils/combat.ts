@@ -1,3 +1,4 @@
+import type { SeatTurn } from '@/features/table/types'
 import type { TableCombat, TableCombatant } from '@/types/table'
 
 /** Who acts in the combat now: its current combatant, where it lists one. */
@@ -8,15 +9,22 @@ export function currentCombatant(
 }
 
 /**
- * Whether it's the player's turn: their character's, or from module 0.36.0 one of its companions',
- * as the combat names it. Not a gone companion's, which no longer has its key.
+ * Whether this combatant's turn is the seat's own, the one rule for the Combat tab's dot, the turn
+ * panel's outline and End Turn (v0.44): its character's, or from module 0.36.0 one of its
+ * companions', by the key the combat names it by. None for anyone else's, nor for a companion
+ * whose key is empty, which names none, nor a gone one's, which no longer has its key.
  */
+export function seatTurn(combatant: TableCombatant): SeatTurn | undefined {
+  if (combatant.side === 'me') return {}
+  if (combatant.yours === true && combatant.companion) {
+    return { companion: combatant.companion }
+  }
+  return undefined
+}
+
+/** Whether it's the player's turn, as `seatTurn` has it, in a combat that has started. */
 export function isMyTurn(combat?: TableCombat): boolean {
-  return isTurnOf(
-    combat,
-    ({ side, yours, companion }) =>
-      side === 'me' || (yours === true && companion !== undefined),
-  )
+  return isTurnOf(combat, combatant => seatTurn(combatant) !== undefined)
 }
 
 /** Whether the combat has started and its current combatant is one that `is` picks. */
