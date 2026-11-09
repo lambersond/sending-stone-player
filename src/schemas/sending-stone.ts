@@ -98,8 +98,14 @@ import type {
 // rejected. Fields this app only displays fall back to a default rather than failing the event.
 //
 // Each schema is tied to the hand-written type it reads into (`: z.ZodType<Type>`), so the
-// compiler flags one whose output no longer fits. A loose object's unknown keys satisfy any of its
-// type's optional fields unseen, so every field a type names is named in its schema too.
+// compiler flags one whose output no longer fits its type: a required field the type names and the
+// schema doesn't read (added to the type, or dropped from the schema), or a field the schema reads
+// as a value its type doesn't allow. The tie can't flag an optional field the type names and the
+// schema doesn't (added to the type, or dropped from the schema): a loose object's unknown keys
+// (`[k: string]: unknown`) satisfy any optional field unseen, so the data could hold anything
+// there. So every optional field a type names is named in its schema too, by hand, as nothing
+// checks it; only one typed `unknown`, kept as sent and never checked, is left unnamed (a
+// message's `content`, and its dnd5e roll's `type`, `skillId`, `toolId` and `ability`).
 
 const nullableString = orNull(z.string())
 
@@ -1293,11 +1299,11 @@ const groupEntryFields = {
   access: z
     .record(z.string().regex(DOCUMENT_ID), z.enum(['observer', 'owner']))
     .catch({}),
+  // Sent in group.updated only, never in a hello's groups (the module's groupEntry), and read
+  // wherever a group comes, so that none is kept as sent.
+  sheetWithheld: sheetWithheldSchema,
 }
 
-// GroupEntry's `sheetWithheld` isn't read here: a hello's groups never carry one (the module's
-// groupEntry), so one would be kept as sent. group.updated, which does, reads it with
-// sheetWithheldSchema, and the party page reads the roster's defensively (`partyTooLarge`).
 const groupEntrySchema: z.ZodType<GroupEntry> = z.looseObject(groupEntryFields)
 
 /**
@@ -2306,11 +2312,7 @@ const EVENT_SCHEMAS: {
     reason: z.string().max(32).catch('gone'),
   }),
   [EVENTS.GROUP_UPDATED]: z.looseObject({
-    group: z.looseObject({
-      ...groupEntryFields,
-      sheet: groupSheetSchema,
-      sheetWithheld: sheetWithheldSchema,
-    }),
+    group: z.looseObject({ ...groupEntryFields, sheet: groupSheetSchema }),
   }),
   [EVENTS.GROUP_REMOVED]: z.looseObject({ id: z.string().regex(DOCUMENT_ID) }),
   [EVENTS.BRIDGE_SETTINGS]: z.looseObject({
