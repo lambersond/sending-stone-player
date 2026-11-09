@@ -10,7 +10,7 @@ import { DieButtons } from './die-buttons'
 import { TrayChips } from './tray-chips'
 import { useDiceTray } from './use-dice-tray'
 import { useTrayFocus } from './use-tray-focus'
-import { rollName } from './utils'
+import { diceSaid, rollName } from './utils'
 import type { RollFeature, RollKind } from '@/types/roll'
 
 /**
@@ -78,7 +78,7 @@ export function DiceTray({
       <div
         id={panel}
         hidden={!open}
-        className='max-h-[60dvh] overflow-y-auto px-4 pb-4'
+        className='relative max-h-[60dvh] overflow-y-auto px-4 pb-4'
       >
         <div className='flex flex-col gap-3'>
           <DieButtons room={tray.room} onAdd={tray.add} addRef={focus.addRef} />
@@ -95,6 +95,15 @@ export function DiceTray({
               fewerRef={focus.fewerRef}
             />
           )}
+          {/* The dice, said as they're added and taken away, and only then: the region's words
+              change with them alone. Placed in the panel, which holds it as it scrolls. */}
+          <output
+            aria-live='polite'
+            aria-label='Dice picked'
+            className='sr-only'
+          >
+            {diceSaid(tray.dice)}
+          </output>
           <BonusStepper bonus={tray.bonus} onStep={tray.step} />
           <button
             type='button'

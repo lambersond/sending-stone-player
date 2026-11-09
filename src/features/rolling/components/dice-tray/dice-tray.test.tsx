@@ -118,6 +118,34 @@ describe('features/rolling/components/dice-tray', () => {
     expect(add('d6')).toHaveFocus()
   })
 
+  it('says its dice politely as they are added and taken away, and at nothing else', async () => {
+    const user = userEvent.setup()
+    tray()
+    await user.click(toggle())
+    const picked = screen.getByRole('status', { name: 'Dice picked' })
+    expect(picked).toHaveAttribute('aria-live', 'polite')
+    // What a screen reader hears: each change to the region, as the page commits it.
+    const heard: string[] = []
+    new MutationObserver(() => heard.push(picked.textContent ?? '')).observe(
+      picked,
+      { childList: true, characterData: true, subtree: true },
+    )
+
+    await user.click(add('d8'))
+    await user.click(add('d6'))
+    await user.click(screen.getByRole('button', { name: 'One d6 more' }))
+    // The number added is said by the modifier, and a roll by the latest roll's line.
+    await user.click(screen.getByRole('button', { name: 'Raise the modifier' }))
+    await user.click(screen.getByRole('button', { name: 'Roll 2d6 + 1d8 + 1' }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('status', { name: 'Latest roll' }),
+      ).toHaveTextContent('Dice (2d6 + 1d8 + 1)'),
+    )
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(heard).toEqual(['1d8', '1d6 + 1d8', '2d6 + 1d8', 'No dice'])
+  })
+
   it('says, at 20 dice, that it takes no more, on every way to add one', async () => {
     const user = userEvent.setup()
     tray()
