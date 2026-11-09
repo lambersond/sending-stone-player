@@ -558,6 +558,26 @@ describe('components/game-table/game-table, End Turn', () => {
     onTab('Combat')
   })
 
+  it('takes a companion’s turn whose key is empty for none of the seat’s, by one rule: no dot, no outline, no End Turn', async () => {
+    const combat = turnOf('c-brakka')
+    renderTable(
+      view({
+        combat: {
+          ...combat,
+          combatants: combat.combatants.map(combatant =>
+            combatant.id === 'c-brakka'
+              ? { ...combatant, companion: '' }
+              : combatant,
+          ),
+        },
+      }),
+    )
+    await advance(600)
+    expect(combatTab()).toHaveAccessibleName('Combat')
+    expect(turnHeading()?.closest('section')).toHaveClass('border-border')
+    expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
+  })
+
   it('ends the turn from the button with no toast until the game has and the page shows it, then offers Undo, focus on the heading', async () => {
     const { poll } = renderTable()
     fireEvent.click(combatTab())
