@@ -93,7 +93,11 @@ const commands = () => JSON.parse(sql(`select coalesce(json_agg(r order by r."cr
 /** The `count`th hit points command, once the module has answered it and posted its result. */
 async function answered(count, what) {
   await until(() => commands().length >= count && ['done', 'failed'].includes(commands()[count - 1].status), what, 30_000)
-  return commands()[count - 1]
+  const row = commands()[count - 1]
+  // The app keeps the result as the module posts it, a moment before its answer is back and the post
+  // noted here: under load, long enough for a check reading the post to find none.
+  await until(() => resultOf(row), `${what}: its result as the module posted it`, 15_000)
+  return row
 }
 /** What the module posted as a command's result. */
 const resultOf = row => postsOf('command.result').find(p => p.data?.id === row.id)?.data
