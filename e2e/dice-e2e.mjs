@@ -301,7 +301,7 @@ await chatOf(desk).getByRole('button', { name: 'Roll 1d20', exact: true }).click
 await latestOf(desk).getByText('Dice (1d20)', { exact: true }).waitFor({ timeout: 30_000 })
 await wait(2_000)
 const offShown = await said(latestOf(desk))
-check(requests() === beforeOff && !offShown.includes('At the table'),
+check(requests() === beforeOff && !saysTable(offShown),
   `with Send to the table off, the tray rolls on the app's dice alone, sends nothing, and says why the game makes none: "${offShown}"`)
 await shoot(desk, 'dice-tray-send-off', chatOf(desk))
 
