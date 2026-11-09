@@ -86,9 +86,9 @@ Left, in two batches. Pick from the list by number.
       entries are dropped (the two readers differ) (decided: both drop what they can't read, then
       cut, in one shared helper; done);
     - where the turn's refusal line clears (decided: in both layouts it stays until the turn moves
-      on or End Turn is pressed again; not built yet);
+      on or End Turn is pressed again; done);
     - "the seat's own turn" for an empty companion key (decided: one shared rule in all three
-      places, an empty key meaning no companion, as End Turn has it; not built yet);
+      places, an empty key meaning no companion, as End Turn has it; done);
     - the hand-written types that differ from their schemas (decided: each schema checked against
       its hand-written type, not derived from it, and those that differ corrected or explained;
       the three real mismatches found are fixed as bugs; done);
