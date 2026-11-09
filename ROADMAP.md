@@ -160,7 +160,12 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
    with in the campaign's settings, as the others are. Where entries can be deconflicted by when
    each was created, the app shows a chip on the journal pages that come from Tidy 5e Sheets.
-9. Bug fixes and polish.
+9. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
+   player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
+   (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
+   signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
+   until the cache expires, so its lifetime is chosen with that in mind.
+10. Bug fixes and polish.
 
 ## v2.0
 
