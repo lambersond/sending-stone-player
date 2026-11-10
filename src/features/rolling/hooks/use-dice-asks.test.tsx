@@ -152,6 +152,15 @@ describe('features/rolling/hooks/use-dice-asks (module 0.45.0)', () => {
     expect(other.result.current.offered).toEqual([])
   })
 
+  it('answers once where Let the game roll is tapped twice before the banner redraws', () => {
+    const { result } = render({ states: sentNowhere })
+    act(() => {
+      result.current.leave(ask)
+      result.current.leave(ask)
+    })
+    expect(sendAnswer).toHaveBeenCalledTimes(1)
+  })
+
   it.each<[string, TableRollState, boolean]>([
     [
       'refused, as where the network dropped',
