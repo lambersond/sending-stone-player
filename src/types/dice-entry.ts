@@ -57,6 +57,16 @@ export type DiceEntry = {
    * which no game rolls.
    */
   skippedWords?: (skipped: number[]) => string
+  /**
+   * In place of the dialog's own subtitle, "Type in what your dice show": such as "The game asks
+   * for these dice", for the dice the game rolls later, from module 0.45.0.
+   */
+  subtitle?: string
+  /**
+   * In place of Cancel's words, for what closing it does: such as "Let the game roll", where the
+   * game rolls the dice of what it asked, from module 0.45.0.
+   */
+  cancelLabel?: string
 }
 
 /**

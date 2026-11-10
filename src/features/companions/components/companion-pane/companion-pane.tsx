@@ -75,6 +75,8 @@ export function CompanionPane({
     connection,
   } = useCompanionView(api, { active: shown })
   const left = gone || lost || view?.connected === false
+  // What a companion still its character's has made in the game; nothing once it's left.
+  const live = left ? undefined : view
   // So that the page mounts it afresh, where its next view still lists the companion.
   useEffect(() => {
     if (lost) onLost?.()
@@ -118,12 +120,14 @@ export function CompanionPane({
         sheet={view.sheet}
         combat={view.combat}
         // A companion no longer the character's has nothing made in the game.
-        rollsToTable={left ? undefined : view.rollsToTable}
-        rollFeatures={left ? undefined : view.rollFeatures}
+        rollsToTable={live?.rollsToTable}
+        rollFeatures={live?.rollFeatures}
         // The saves the game asks of it, from module 0.41.0, on its own banner, answered here.
-        prompts={left ? undefined : view.prompts}
+        prompts={live?.prompts}
+        // The dice the game asks for later in its own typed rolls' runs, from module 0.45.0.
+        diceAsks={live?.diceAsks}
         // Its hit points set from here, from module 0.44.0, its player's alone, whatever the rolls.
-        hitPoints={left ? undefined : view.hitPoints}
+        hitPoints={live?.hitPoints}
         gmRolls={view.gmRolls}
         header={header}
         manualDice={view.manualDice?.offered ? manualDice : undefined}

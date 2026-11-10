@@ -134,13 +134,18 @@ function askReasons(
 
 /**
  * Where a roll, a use or an ask is on its way to the game, in words: sent, then being made there,
- * which a use or an ask says as what's done with it, such as "Casting it" or "Posting it".
+ * which a use or an ask says as what's done with it, such as "Casting it" or "Posting it"; and
+ * from module 0.45.0, while the game asks the player for the dice of a later roll in its run,
+ * that it waits for them.
  */
 export function onItsWayWords(
   state: TableRollState,
   role: SeatRole,
   doing = 'Rolling',
 ): string {
+  if (state.status === 'rolling' && state.diceAsked) {
+    return 'Waiting for your dice…'
+  }
   // Of dice sent one after another, as hit dice spent at once, which is on its way.
   const die = state.together
     ? ` die ${state.together.made + 1} of ${state.together.count}`
@@ -149,6 +154,14 @@ export function onItsWayWords(
   return state.status === 'sending'
     ? `Sending${die} to ${game}…`
     : `${doing}${die} in ${game}…`
+}
+
+/**
+ * A term of the dice the game asked for that the player left to it, from module 0.45.0, as the
+ * tray writes its terms: such as "+1d6 Fire, left to the game".
+ */
+export function leftToTheGame(term: string): string {
+  return `${term}, left to the game`
 }
 
 /**

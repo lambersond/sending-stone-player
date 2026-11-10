@@ -17,7 +17,7 @@ import type {
   DamagePreview,
   SheetEffectDie,
 } from '@/types/sending-stone'
-import type { TablePrompt } from '@/types/table'
+import type { TableDiceAsk, TablePrompt } from '@/types/table'
 import type { DieSides } from '@lambersond/3d-dice-core'
 import type { LucideIcon } from 'lucide-react'
 
@@ -267,3 +267,18 @@ export type ToastBook = {
 
 /** The toasts as `popToasts` writes them, and the toasts popped up now (`draftOf`). */
 export type ToastDraft = ToastBook & { popped: Set<RollToast> }
+
+/**
+ * One of the terms of the dice the game asks for, from module 0.45.0, as the dice dialog asks for
+ * it: by its roll's place among the ask's rolls and its own among that roll's terms.
+ */
+export type AskTerm = {
+  roll: number
+  term: number
+  faces: TableDiceAsk['rolls'][number]['terms'][number]['faces']
+  count: number
+  /** As its group is headed, and the tray writes it: such as "2d6 Cold". */
+  label: string
+  /** What its Skip names it by: its roll's kind of damage, its flavor, or the ask's label. */
+  name: string
+}

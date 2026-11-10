@@ -724,7 +724,7 @@ function Entry({
               'border border-border font-medium hover:border-primary/50 hover:bg-primary/5',
             )}
           >
-            Cancel
+            {entry.cancelLabel ?? 'Cancel'}
           </button>
           <button
             ref={done}
@@ -748,7 +748,9 @@ function Entry({
  * for every die, each checked against its die's faces, a keypad of its own so the phone's keyboard
  * never opens, and the total as it will be kept. For an answer to what the game asks, it shows the
  * time left and closes itself once it's up, or once it's answered elsewhere. Its header says Manual
- * Dice every time (v0.44): only typed dice ever open it.
+ * Dice every time (v0.44): only typed dice ever open it. From module 0.45.0, the dice the game
+ * asks for later say so in its subtitle, and its Cancel says what closing it does, as its entry
+ * gives them.
  */
 export function DiceEntryDialog({
   entry,
@@ -787,7 +789,7 @@ export function DiceEntryDialog({
         if (entry) onCancel()
       }}
       title={entry?.title ?? ''}
-      subtitle='Type in what your dice show'
+      subtitle={entry?.subtitle ?? 'Type in what your dice show'}
       chip='Manual Dice'
       fullOnPhone
     >

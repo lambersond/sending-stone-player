@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useConditionsPanel } from '../conditions/use-conditions-panel'
 import { rulesOf } from '../conditions/utils'
+import { DiceAskBanner } from '../dice-ask-banner/dice-ask-banner'
 import { useEffectControls } from '../effect-controls/use-effect-controls'
 import { FavoritesStrip } from '../favorites/favorites'
 import { FavoritesColumn } from '../favorites/favorites-column'
@@ -35,6 +36,7 @@ import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
 import { useDiceEntry } from '@/features/rolling/components/dice-entry/use-dice-entry'
 import { RollToasts } from '@/features/rolling/components/roll-toasts/roll-toasts'
 import { RollTray } from '@/features/rolling/components/roll-tray/roll-tray'
+import { useDiceAsks } from '@/features/rolling/hooks/use-dice-asks'
 import { useTableRolls } from '@/features/rolling/hooks/use-table-rolls'
 import { useToastSetting } from '@/features/rolling/hooks/use-toast-setting'
 import { useSpentOffers } from '@/features/sheet/hooks/use-spent-offers'
@@ -60,6 +62,7 @@ export function CharacterPane({
   rollsToTable,
   rollFeatures,
   prompts,
+  diceAsks,
   gmRolls,
   header,
   moves,
@@ -102,6 +105,16 @@ export function CharacterPane({
     entry,
   })
   const { rolls, rolling } = roller
+  // The dice the game asks for later in the player's typed rolls' runs, from module 0.45.0: their
+  // dialog at once on the device that sent the roll, else a banner.
+  const diceAsking = useDiceAsks({
+    asks: diceAsks,
+    states: table.states,
+    sending: table.sending,
+    enter: entry.enter,
+    logAnswer: roller.logDiceAnswer,
+    sendAnswer: table.sendDiceAnswer,
+  })
   // While the character is transformed, as by Wild Shape (module 0.40.0), what its form's sheet
   // can't keep, or its gear isn't on, isn't offered: favorites added or removed, effects changed,
   // and its items given, removed or taken into it.
@@ -153,6 +166,8 @@ export function CharacterPane({
   // start below, so as not to cover the prompts' only buttons.
   const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null)
   const [promptBanner, setPromptBanner] = useState<HTMLElement | null>(null)
+  // And the dice the game asks for beneath them, from module 0.45.0, which the toasts start below.
+  const [diceBanner, setDiceBanner] = useState<HTMLElement | null>(null)
   const width = useWidth(body)
   // What the character has that an enchantment may be put on.
   const belongings = useMemo(() => belongingsOf(sheet), [sheet])
@@ -345,6 +360,14 @@ export function CharacterPane({
             }}
           />
         )}
+        {diceAsking.offered.length > 0 && (
+          <DiceAskBanner
+            ref={setDiceBanner}
+            asks={diceAsking.offered}
+            onTypeIn={diceAsking.typeIn}
+            onLeave={diceAsking.leave}
+          />
+        )}
         <SheetPanel
           bodyRef={body}
           scrollerRef={scroller}
@@ -388,7 +411,7 @@ export function CharacterPane({
           rollDamage={rollDue}
           modifies={table.modifies}
           tabs={tabRow}
-          prompts={promptBanner}
+          prompts={diceBanner ?? promptBanner}
           header={header}
         />
         <UsePicker
