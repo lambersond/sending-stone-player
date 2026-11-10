@@ -8,6 +8,9 @@ import {
   notesBanner,
   noteStateWords,
   savedWords,
+  tidyChipWords,
+  tidyNoticeWords,
+  tidyWhereWords,
   whoSeesNotes,
   whoSeesShort,
 } from './note-words'
@@ -308,6 +311,59 @@ describe('utils/note-words', () => {
   ])('counts %i chapters and %i notes', (chapters, notes, words) => {
     expect(journalCounts(chapters, notes)).toBe(words)
   })
+
+  // Module 0.45.0: the character's Tidy 5e Sheets entries, beside its own notes.
+  it.each([
+    [0, 0, 3, '3 from Tidy 5e Sheets'],
+    [1, 2, 1, '1 chapter · 2 notes · 1 from Tidy 5e Sheets'],
+    [0, 0, 0, 'No notes yet'],
+  ])(
+    'counts %i chapters, %i notes and %i Tidy entries',
+    (chapters, notes, tidy, words) => {
+      expect(journalCounts(chapters, notes, tidy)).toBe(words)
+    },
+  )
+
+  it('chips a Tidy entry by its sheet', () => {
+    expect(tidyChipWords('journal')).toBe('Tidy 5e')
+    expect(tidyChipWords('classic')).toBe('Tidy 5e Classic')
+  })
+
+  it.each([
+    [
+      { active: true, installed: true, classicGone: false },
+      undefined,
+      'journal',
+    ],
+    [
+      { active: false, installed: true, classicGone: false },
+      'Tidy 5e Sheets is turned off in Foundry: these are kept on Thorin, but can’t be changed until it’s back on.',
+      undefined,
+    ],
+    [
+      { active: false, installed: false, classicGone: false },
+      'Tidy 5e Sheets isn’t installed in Foundry: these are kept on Thorin, but can’t be changed until it’s back.',
+      undefined,
+    ],
+    [
+      { active: true, installed: true, classicGone: true },
+      undefined,
+      'journal',
+    ],
+  ] as const)(
+    'says why Tidy entries can’t be changed, or where they can, for %j',
+    (tidy, notice, changed) => {
+      expect(tidyNoticeWords(tidy, 'Thorin')).toBe(notice)
+      const where = 'Change it on Thorin’s Journal tab in Foundry.'
+      expect(tidyWhereWords(tidy, { from: 'journal' }, 'Thorin')).toBe(
+        changed ? where : undefined,
+      )
+      // A Classic box is changed only where Tidy still shows it.
+      expect(tidyWhereWords(tidy, { from: 'classic' }, 'Thorin')).toBe(
+        changed && !tidy.classicGone ? where : undefined,
+      )
+    },
+  )
 
   it('counts what waits on a choice', () => {
     expect(choicesWords(1)).toBe('1 needs a choice')

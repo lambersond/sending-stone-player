@@ -1,5 +1,10 @@
 import type { Answer, Sent } from '@/mocks/types'
-import type { NoteChapterView, NoteEntryView, NotesView } from '@/types/notes'
+import type {
+  NoteChapterView,
+  NoteEntryView,
+  NotesTidyView,
+  NotesView,
+} from '@/types/notes'
 
 /*
  * The journal notes' routes as the app answers them (round 0.34.0 §8.6), for the page's tests:
@@ -75,6 +80,42 @@ export function noteEntry(fields: Partial<NoteEntryView> = {}): NoteEntryView {
     canEdit: true,
     canDelete: true,
     stamp: 'n:0000000000000c',
+    ...fields,
+  }
+}
+
+/**
+ * Thorin's Tidy 5e Sheets journal as a book shows it (module 0.45.0): an entry of Tidy's current
+ * sheet, first seen and changed since, and a box of its Classic sheet there before the app could
+ * see it; Tidy active.
+ */
+export function tidyJournal(
+  fields: Partial<NotesTidyView> = {},
+): NotesTidyView {
+  return {
+    active: true,
+    installed: true,
+    classicGone: false,
+    entries: [
+      {
+        key: 'journal:tidyRavenhill01',
+        from: 'journal',
+        title: 'Ravenhill',
+        html: '<p>The ravens speak of the old watch.</p>',
+        secret: false,
+        firstSeenAt: '2026-11-03T18:00:00.000Z',
+        changedAt: '2026-11-05T18:00:00.000Z',
+      },
+      {
+        key: 'classic:notes3',
+        from: 'classic',
+        title: 'Quests',
+        html: '<p>Return the key to Dale.</p>',
+        secret: false,
+        firstSeenAt: null,
+        changedAt: null,
+      },
+    ],
     ...fields,
   }
 }

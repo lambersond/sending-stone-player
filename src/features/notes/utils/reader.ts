@@ -6,13 +6,27 @@ import type {
   NotePick,
   Ordering,
 } from '@/features/notes/types'
-import type { NoteEntryView } from '@/types/notes'
+import type { NoteEntryView, NotesTidyView, NoteTidyView } from '@/types/notes'
+
+/** What the reader settles on, and whether that's to be kept as the pick. */
+type Shown = {
+  pick: NotePick
+  note?: NoteEntryView
+  group?: JournalGroup
+  /** One of the character's Tidy 5e Sheets entries (module 0.45.0). */
+  tidy?: NoteTidyView
+  /** The Tidy entries' own page. */
+  tidySection?: true
+  keep: boolean
+}
 
 /**
  * What the reader shows (round 0.35.0 §8.7): the note or group picked; for a note picked that has
  * left the view, the next in reading order as it was, else the one before, else its group's page;
  * with nothing picked, the draft's note where the draft is a change to one, else the most recently
- * changed note, else the last group listed. `keep` where that's to be kept as the pick.
+ * changed note, else the last group listed. `keep` where that's to be kept as the pick. From module
+ * 0.45.0, likewise a Tidy 5e Sheets entry picked, or their page, to which one deleted in Foundry
+ * gives way while any is left; and with nothing else to show, the first of them.
  */
 export function showing({
   pick,
@@ -20,21 +34,26 @@ export function showing({
   order,
   before,
   draft,
+  tidy = [],
 }: {
   pick?: NotePick
   groups: JournalGroup[]
   order: NoteEntryView[]
   before: NoteEntryView[]
   draft?: NoteDraft
-}):
-  | {
-      pick: NotePick
-      note?: NoteEntryView
-      group?: JournalGroup
-      keep: boolean
+  /** The character's Tidy entries, in Tidy's order. */
+  tidy?: NoteTidyView[]
+}): Shown | undefined {
+  const at = (next: NotePick, keep: boolean): Shown | undefined => {
+    if ('tidy' in next) {
+      if (next.tidy === null) {
+        return tidy.length > 0
+          ? { pick: next, tidySection: true, keep }
+          : undefined
+      }
+      const entry = tidy.find(({ key }) => key === next.tidy)
+      return entry && { pick: next, tidy: entry, keep }
     }
-  | undefined {
-  const at = (next: NotePick, keep: boolean) => {
     if ('note' in next) {
       const note = order.find(({ id }) => id === next.note)
       return note && { pick: next, note, keep }
@@ -50,18 +69,24 @@ export function showing({
       const instead = near(pick.note, order, before, groups)
       if (instead) return at(instead, true)
       // Never drawn, as a note saved here whose read hasn't come: it's shown once it comes.
-      const first = fallback(groups, order, draft)
+      const first = fallback(groups, order, tidy, draft)
       return first && at(first, false)
     }
+    // A Tidy entry deleted in Foundry gives way to their page, while any is left.
+    if ('tidy' in pick && tidy.length > 0) return at({ tidy: null }, true)
   }
-  const first = fallback(groups, order, draft)
+  const first = fallback(groups, order, tidy, draft)
   return first && at(first, true)
 }
 
-/** With nothing picked: the draft's note, the most recently changed note, or the last group. */
+/**
+ * With nothing picked: the draft's note, the most recently changed note, the last group, or the
+ * first Tidy entry.
+ */
 function fallback(
   groups: JournalGroup[],
   order: NoteEntryView[],
+  tidy: NoteTidyView[],
   draft?: NoteDraft,
 ): NotePick | undefined {
   if (draft?.role === 'entry' && order.some(({ id }) => id === draft.key)) {
@@ -81,7 +106,8 @@ function fallback(
     ({ chapterId, entries }) => chapterId !== null || entries.length > 0,
   )
   const last = listed.at(-1)
-  return last && { group: last.chapterId }
+  if (last) return { group: last.chapterId }
+  return tidy[0] && { tidy: tidy[0].key }
 }
 
 /** What follows a note gone from the view: the next as it was, the one before, or its group. */
@@ -134,6 +160,37 @@ export function isNew(made: NoteDraft): boolean {
 export function searchText(entry: NoteEntryView): string {
   if (entry.body !== undefined) return entry.body
   return readDescription(entry.html)?.textContent ?? ''
+}
+
+/** The character's Tidy entries, where the reader shows one of them or their page; else none. */
+export function tidyShown(
+  shown: Pick<Shown, 'tidy' | 'tidySection'> | undefined,
+  tidy: NotesTidyView | undefined,
+): NotesTidyView | undefined {
+  return shown?.tidy !== undefined || shown?.tidySection === true
+    ? tidy
+    : undefined
+}
+
+/** A Tidy entry's text as it's searched, and its card shows it: what it draws, as plain text. */
+export function tidyText(entry: NoteTidyView): string {
+  return readDescription(entry.html)?.textContent ?? ''
+}
+
+/** The Tidy entries a search finds, by key, by title and text; none while nothing is searched. */
+export function tidyHitsOf(
+  tidy: NoteTidyView[],
+  texts: ReadonlyMap<string, string>,
+  query: string,
+): Set<string> | undefined {
+  if (query.trim() === '') return undefined
+  return new Set(
+    tidy
+      .filter(entry =>
+        matchesSearch([entry.title, texts.get(entry.key) ?? ''], query),
+      )
+      .map(({ key }) => key),
+  )
 }
 
 /** The notes a search finds, by id, by title and text; none while nothing is searched. */

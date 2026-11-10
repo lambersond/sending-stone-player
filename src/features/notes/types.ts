@@ -56,8 +56,13 @@ export type DraftChange =
 
 export type NotesState = 'loading' | 'ready' | 'gone' | 'failed'
 
-/** What the journal's reader shows: a note, or a group's page, the loose group's as null. */
-export type NotePick = { note: string } | { group: string | null }
+/**
+ * What the journal's reader shows: a note, or a group's page, the loose group's as null; or, from
+ * module 0.45.0, one of the character's Tidy 5e Sheets entries, by its key, or their section's page
+ * as null.
+ */
+export type NotePick =
+  { note: string } | { group: string | null } | { tidy: string | null }
 
 /**
  * What a page holds of one book: what it last saw of it, what's being written in it, and whether

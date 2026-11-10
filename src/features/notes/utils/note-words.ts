@@ -4,7 +4,10 @@ import type {
   NoteReason,
   NoteRefusal,
   NoteState,
+  NotesTidyView,
   NotesView,
+  NoteTidyView,
+  TidySource,
 } from '@/types/notes'
 import type { SeatRole } from '@/types/seats'
 
@@ -262,10 +265,73 @@ export function whoSeesShort({
   return role === 'gm' ? `${name}’s player and you` : 'You and your Gamemaster'
 }
 
-/** How much a journal holds, on its card: "No notes yet", or "2 chapters · 1 note". */
-export function journalCounts(chapters: number, notes: number): string {
-  if (chapters === 0 && notes === 0) return 'No notes yet'
-  return `${chapters} ${chapters === 1 ? 'chapter' : 'chapters'} · ${notes} ${notes === 1 ? 'note' : 'notes'}`
+/**
+ * How much a journal holds, on its card: "No notes yet", or "2 chapters · 1 note"; and from module
+ * 0.45.0 how many of its character's Tidy 5e Sheets entries show beside them, "· 3 from Tidy 5e
+ * Sheets", alone where it holds nothing else.
+ */
+export function journalCounts(
+  chapters: number,
+  notes: number,
+  tidy = 0,
+): string {
+  const fromTidy = `${tidy} from Tidy 5e Sheets`
+  if (chapters === 0 && notes === 0) return tidy > 0 ? fromTidy : 'No notes yet'
+  const own = `${chapters} ${chapters === 1 ? 'chapter' : 'chapters'} · ${notes} ${notes === 1 ? 'note' : 'notes'}`
+  return tidy > 0 ? `${own} · ${fromTidy}` : own
+}
+
+/*
+ * A character's Tidy 5e Sheets entries (module 0.45.0), shown read only beside its own notes: what
+ * each is chipped, and why it can't be changed in Foundry now, or where it can.
+ */
+
+/** What a character's Tidy entries' page says of them, under its title. */
+export function tidySectionWords(count: number, name: string): string {
+  return `${count} ${count === 1 ? 'entry' : 'entries'} kept on ${name}’s Journal tab in Foundry, read only here.`
+}
+
+/** A Tidy entry's chip: Tidy's current sheet's, or its Classic sheet's. */
+export function tidyChipWords(from: TidySource): string {
+  return from === 'classic' ? 'Tidy 5e Classic' : 'Tidy 5e'
+}
+
+/** Why none of a character's Tidy entries can be changed now: Tidy is off, or not installed. */
+export function tidyNoticeWords(
+  tidy: Pick<NotesTidyView, 'active' | 'installed'>,
+  name: string,
+): string | undefined {
+  if (!tidy.installed) {
+    return `Tidy 5e Sheets isn’t installed in Foundry: these are kept on ${name}, but can’t be changed until it’s back.`
+  }
+  if (!tidy.active) {
+    return `Tidy 5e Sheets is turned off in Foundry: these are kept on ${name}, but can’t be changed until it’s back on.`
+  }
+  return undefined
+}
+
+/** A Classic box under Tidy 14 or later, which no longer shows them. */
+export function tidyClassicGoneWords(name: string): string {
+  return `Tidy 5e Sheets no longer shows this: it was written on its Classic sheet, and is kept on ${name}.`
+}
+
+/** A Tidy entry sent without its secrets, as no player owns the character in Foundry. */
+export function tidySecretWords(name: string): string {
+  return `Its secrets aren’t shown: no player owns ${name} in Foundry.`
+}
+
+/**
+ * Where a Tidy entry is changed, while it can be: on the character's Journal tab in Foundry, with
+ * Tidy on, and never a Classic box once Tidy no longer shows them.
+ */
+export function tidyWhereWords(
+  tidy: Pick<NotesTidyView, 'active' | 'installed' | 'classicGone'>,
+  entry: Pick<NoteTidyView, 'from'>,
+  name: string,
+): string | undefined {
+  if (!tidy.active || !tidy.installed) return undefined
+  if (entry.from === 'classic' && tidy.classicGone) return undefined
+  return `Change it on ${name}’s Journal tab in Foundry.`
 }
 
 /** How many notes, chapters and orders wait on the seat's choice, on the journal's card. */

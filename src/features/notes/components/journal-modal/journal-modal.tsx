@@ -34,6 +34,7 @@ import { NotePane } from '../note-pane/note-pane'
 import { NoteTime } from '../note-time/note-time'
 import { Pane } from '../pane/pane'
 import { ReorderPane } from '../reorder-pane/reorder-pane'
+import { TidyReader } from '../tidy-reader/tidy-reader'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
 import { useDialogRoot } from '@/components/modal/use-dialog-root'
@@ -45,6 +46,7 @@ import { useKeyboardInset } from '@/features/notes/hooks/use-keyboard-inset'
 import { useOrdering } from '@/features/notes/hooks/use-ordering'
 import { useReaderPick } from '@/features/notes/hooks/use-reader-pick'
 import { useSaid } from '@/features/notes/hooks/use-said'
+import { useTidySearch } from '@/features/notes/hooks/use-tidy-search'
 import { changeOf, inputOf } from '@/features/notes/utils/editor'
 import { groupsOf, keyOf } from '@/features/notes/utils/groups'
 import {
@@ -66,6 +68,7 @@ import {
   draftNoteOf,
   hitEntries,
   lockedBy,
+  tidyShown,
 } from '@/features/notes/utils/reader'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
 import { seatWords } from '@/utils/seat-words'
@@ -195,13 +198,23 @@ function Journal({
     [order],
   )
   const hits = hitsOf(order, texts, query)
+  // The character's Tidy 5e Sheets entries, read only, last (module 0.45.0).
+  const tidy = view?.tidy
+  const {
+    entries: tidyEntries,
+    texts: tidyTexts,
+    hits: tidyHits,
+  } = useTidySearch(tidy, query)
   const { shownNow, note, group } = useReaderPick({
     pick,
     groups,
     order,
+    tidy: tidyEntries,
     draft,
     setPick,
   })
+  // The Tidy entries, where the reader shows one of them, or their page.
+  const reading = tidyShown(shownNow, tidy)
 
   const chapters = view?.chapters ?? []
   const canAdd = view?.canAdd === true
@@ -222,6 +235,12 @@ function Journal({
   const choose = (next: NotePick) => {
     setPick(next)
     if (drawer) closeDrawer()
+  }
+  // A pick from the reader's own controls: focus stays on the arrow it was made from, else goes to
+  // what it shows.
+  const pickFrom = (next: NotePick, from?: 'previous' | 'next') => {
+    setPick(next)
+    setFocusTo(from ? { arrow: from } : { heading: true })
   }
   const begin = (next: Omit<NoteDraft, 'started' | 'focus'>) => {
     setDrawer(false)
@@ -365,7 +384,10 @@ function Journal({
     />
   )
   const empty =
-    view !== undefined && view.entries.length === 0 && chapters.length === 0
+    view !== undefined &&
+    view.entries.length === 0 &&
+    chapters.length === 0 &&
+    !tidy
   const editor = draft && (
     // Keyed by the draft, so another one opened starts afresh.
     <Editor
@@ -422,6 +444,18 @@ function Journal({
         }}
       />
     )
+  } else if (reading) {
+    reader = (
+      <TidyReader
+        entry={shownNow?.tidy}
+        tidy={reading}
+        texts={tidyTexts}
+        hits={tidyHits}
+        name={name}
+        contents={contentsButton}
+        onPick={pickFrom}
+      />
+    )
   } else if (note && groups) {
     const held = groupOfNote(groups, note)
     reader = held && (
@@ -436,10 +470,7 @@ function Journal({
         canAdd={canAdd}
         tooLarge={tooLarge}
         contents={contentsButton}
-        onPick={(next, from) => {
-          setPick(next)
-          setFocusTo(from ? { arrow: from } : { heading: true })
-        }}
+        onPick={pickFrom}
         onEdit={opener => edit(note, opener)}
         onDelete={() => setDeleting(note)}
         onMove={chapterId => void move(note, chapterId)}
@@ -545,6 +576,8 @@ function Journal({
               query={query}
               onQuery={setQuery}
               hits={hits}
+              tidy={tidy}
+              tidyHits={tidyHits}
               shown={shownNow?.pick}
               draftNote={draftNoteOf(draft)}
               locked={locked}

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { showing } from '@/features/notes/utils/reader'
 import type { JournalGroup, NoteDraft, NotePick } from '@/features/notes/types'
-import type { NoteEntryView } from '@/types/notes'
+import type { NoteEntryView, NoteTidyView } from '@/types/notes'
 
 /**
  * What the journal's reader shows (`showing`), from what's picked; and what it settled on, kept as
@@ -11,12 +11,15 @@ export function useReaderPick({
   pick,
   groups,
   order,
+  tidy,
   draft,
   setPick,
 }: {
   pick?: NotePick
   groups?: JournalGroup[]
   order: NoteEntryView[]
+  /** The character's Tidy 5e Sheets entries, in Tidy's order (module 0.45.0). */
+  tidy: NoteTidyView[]
   draft?: NoteDraft
   setPick: (pick: NotePick) => void
 }) {
@@ -25,7 +28,7 @@ export function useReaderPick({
   // eslint-disable-next-line react-hooks/refs -- the order as the last commit drew it, by design
   const before = drawn.current
   const shownNow = groups
-    ? showing({ pick, groups, order, before, draft })
+    ? showing({ pick, groups, order, before, draft, tidy })
     : undefined
   const note = shownNow?.note
   const group = shownNow?.group

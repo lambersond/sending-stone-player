@@ -1,4 +1,5 @@
 import type { NotePick, JournalGroup } from '@/features/notes/types'
+import type { NotesTidyView } from '@/types/notes'
 
 export type ContentsProps = {
   /** Its element's id, for the reader's Contents button to name what it opens. */
@@ -9,6 +10,9 @@ export type ContentsProps = {
   onQuery: (query: string) => void
   /** The notes the search finds; none while nothing is searched. */
   hits?: Set<string>
+  /** The character's Tidy 5e Sheets entries, listed last (module 0.45.0), and those it finds. */
+  tidy?: NotesTidyView
+  tidyHits?: Set<string>
   /** What the reader shows. */
   shown?: NotePick
   /** The note the book's draft is a change to, marked as not saved yet. */

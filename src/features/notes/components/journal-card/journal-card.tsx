@@ -50,7 +50,11 @@ export function JournalCard({
   if (view) {
     counts = (
       <>
-        {journalCounts(view.chapters.length, view.entries.length)}
+        {journalCounts(
+          view.chapters.length,
+          view.entries.length,
+          view.tidy?.entries.length,
+        )}
         {view.lastChange && (
           <>
             {' '}

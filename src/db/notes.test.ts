@@ -456,6 +456,51 @@ describe('db/notes', () => {
       expect(prismaMock.journalBook.upsert).not.toHaveBeenCalled()
     })
 
+    // Module 0.45.0: a personal book's Tidy 5e Sheets entries are read with it for a seat, and
+    // only then: no change here reads them, and a party's book has none.
+    it('reads a personal book’s Tidy entries, with Tidy’s state, and a party’s never', async () => {
+      heldCampaign({ tidyActive: false, tidyVersion: '13.10.5' })
+      prismaMock.journalBook.findUnique.mockResolvedValue({
+        id: 'book-1',
+        version: 2,
+        journalName: null,
+        withheld: null,
+        changedAt: null,
+        changedBy: null,
+        notes: [],
+        writes: [],
+        orders: [],
+        tidy: [
+          {
+            source: 'classic',
+            entryId: 'notes3',
+            title: '',
+            html: '<p>Return the key.</p>',
+            sort: 3,
+            secret: false,
+            firstSeenAt: null,
+            changedAt: null,
+          },
+        ],
+      } as any)
+
+      await expect(getNotesView(thorin, personal)).resolves.toMatchObject({
+        tidy: {
+          active: false,
+          installed: true,
+          entries: [{ key: 'classic:notes3', title: 'Quests' }],
+        },
+      })
+      const read = () =>
+        prismaMock.journalBook.findUnique.mock.calls.at(-1)?.[0].select?.tidy
+      expect(read()).toEqual({
+        select: expect.objectContaining({ html: true }),
+      })
+
+      await getNotesView(thorin, party)
+      expect(read()).toBe(false)
+    })
+
     it('says whether the game takes notes now, and whether its module keeps them', async () => {
       heldCampaign({ bridgePolledAt: ago(60_000) })
       await expect(getNotesView(thorin, personal)).resolves.toMatchObject({
