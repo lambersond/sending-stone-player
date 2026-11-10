@@ -28,6 +28,7 @@ export function TidyPane({
   entry,
   tidy,
   name,
+  form,
   contents,
   onPick,
 }: Readonly<TidyPaneProps>) {
@@ -95,7 +96,7 @@ export function TidyPane({
           <span>From Tidy 5e Sheets in Foundry</span>
           <TidyDates entry={entry} />
         </div>
-        <TidyNotice tidy={tidy} name={name} />
+        <TidyNotice tidy={tidy} name={name} form={form} />
         {gone && <p className={LINE}>{tidyClassicGoneWords(name)}</p>}
         {entry.secret && (
           <p className={LINE}>

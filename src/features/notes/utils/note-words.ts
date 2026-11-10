@@ -10,6 +10,7 @@ import type {
   TidySource,
 } from '@/types/notes'
 import type { SeatRole } from '@/types/seats'
+import type { SheetForm } from '@/types/sending-stone'
 
 /*
  * What the journal says of a book and its notes (round 0.34.0 §9.4-§9.7; its card and modal,
@@ -308,6 +309,18 @@ export function tidyNoticeWords(
     return `Tidy 5e Sheets is turned off in Foundry: these are kept on ${name}, but can’t be changed until it’s back on.`
   }
   return undefined
+}
+
+/**
+ * While the character is transformed, as Wild Shape: its Tidy entries are read off the character,
+ * and what's changed on its form's own Journal tab in Foundry is gone when the form ends, as dnd5e
+ * doesn't carry the form's flags back.
+ */
+export function tidyFormWords(form: SheetForm['kind'], name: string): string {
+  if (form === 'wildShape') {
+    return `${name} is in Wild Shape: entries changed on the beast’s Journal tab in Foundry are lost when Wild Shape ends.`
+  }
+  return `${name} is transformed: entries changed on its form’s Journal tab in Foundry are lost when it changes back.`
 }
 
 /** A Classic box under Tidy 14 or later, which no longer shows them. */

@@ -1,21 +1,40 @@
-import { CircleOff } from 'lucide-react'
-import { tidyNoticeWords } from '@/features/notes/utils/note-words'
+import { CircleOff, PawPrint } from 'lucide-react'
+import {
+  tidyFormWords,
+  tidyNoticeWords,
+} from '@/features/notes/utils/note-words'
 import type { NotesTidyView } from '@/types/notes'
+import type { SheetForm } from '@/types/sending-stone'
+
+const LINE = 'inline-flex items-start gap-1.5 text-sm text-text-secondary'
 
 /**
- * Why none of a character's Tidy 5e Sheets entries can be changed now, Tidy turned off or not
- * installed in Foundry (module 0.45.0): a line under their title; nothing while Tidy is on.
+ * Why a character's Tidy 5e Sheets entries can't be changed now, or not for good (module 0.45.0):
+ * Tidy turned off or not installed in Foundry; and while the character is transformed, as its
+ * sheet says, that what's changed on its form's Journal tab is lost when the form ends, as they're
+ * read off the character, never the form. Lines under their title; nothing otherwise.
  */
 export function TidyNotice({
   tidy,
   name,
-}: Readonly<{ tidy: NotesTidyView; name: string }>) {
-  const words = tidyNoticeWords(tidy, name)
-  if (!words) return
+  form,
+}: Readonly<{ tidy: NotesTidyView; name: string; form?: SheetForm['kind'] }>) {
+  const off = tidyNoticeWords(tidy, name)
+  const transformed = form && tidyFormWords(form, name)
   return (
-    <p className='inline-flex items-start gap-1.5 text-sm text-text-secondary'>
-      <CircleOff aria-hidden className='mt-0.5 size-3.5 shrink-0' />
-      {words}
-    </p>
+    <>
+      {off && (
+        <p className={LINE}>
+          <CircleOff aria-hidden className='mt-0.5 size-3.5 shrink-0' />
+          {off}
+        </p>
+      )}
+      {transformed && (
+        <p className={LINE}>
+          <PawPrint aria-hidden className='mt-0.5 size-3.5 shrink-0' />
+          {transformed}
+        </p>
+      )}
+    </>
   )
 }

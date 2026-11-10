@@ -1,9 +1,15 @@
 import { act, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BiographyTab } from './biography-tab'
 import { forgetCookbook } from '@/features/cookbook/hooks/use-cookbook-view'
 import { forgetNotes } from '@/features/notes/hooks/use-notes'
-import { emptyBook, serveNotes } from '@/mocks/notes-server'
-import { characterSheet, fullerSheet, TEXTS } from '@/mocks/sending-stone'
+import { emptyBook, serveNotes, tidyJournal } from '@/mocks/notes-server'
+import {
+  characterSheet,
+  fullerSheet,
+  TEXTS,
+  wolfForm,
+} from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { CharacterSheet, SheetDetails } from '@/types/sending-stone'
 
@@ -201,6 +207,26 @@ describe('components/character-sheet/biography-tab, with the character’s journ
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1)
+  })
+
+  // Module 0.45.0: Tidy 5e Sheets' entries are read off the character, never its form.
+  it('says, while the character is in Wild Shape, that its Tidy entries changed on the beast are lost', async () => {
+    const user = userEvent.setup()
+    serveNotes(
+      { [notes.api]: emptyBook({ tidy: tidyJournal() }) },
+      () => new Promise<Response>(() => {}),
+    )
+    renderWithNotes(fullerSheet({ form: wolfForm() }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Open My Journal' }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'My Journal' })
+
+    expect(
+      within(dialog).getByText(
+        'Thorin Oakenshield is in Wild Shape: entries changed on the beast’s Journal tab in Foundry are lost when Wild Shape ends.',
+      ),
+    ).toBeInTheDocument()
   })
 })
 

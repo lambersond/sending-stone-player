@@ -29,6 +29,7 @@ export function JournalCard({
   name,
   active,
   look,
+  form,
 }: Readonly<JournalCardProps>) {
   const notes = useNotes(api, { active: active || journalOpen(api) })
   const { view, state, draft, open, setDraft, setOpen } = notes
@@ -150,6 +151,7 @@ export function JournalCard({
         role={role}
         kind={kind}
         name={name}
+        form={form}
         open={isOpen}
         onClose={() => setOpen(false)}
       />

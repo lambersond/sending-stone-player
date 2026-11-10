@@ -15,6 +15,7 @@ export function TidyReader({ entry, ...section }: Readonly<TidyReaderProps>) {
       entry={entry}
       tidy={section.tidy}
       name={section.name}
+      form={section.form}
       contents={section.contents}
       onPick={section.onPick}
     />

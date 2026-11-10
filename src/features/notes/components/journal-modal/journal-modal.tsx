@@ -101,6 +101,7 @@ export function JournalModal({
   role,
   kind,
   name,
+  form,
   open,
   onClose,
 }: Readonly<JournalModalProps>) {
@@ -137,6 +138,7 @@ export function JournalModal({
             role={role}
             kind={kind}
             name={name}
+            form={form}
             titleId={titleId}
             onClose={onClose}
           />
@@ -156,6 +158,7 @@ function Journal({
   role,
   kind,
   name,
+  form,
   titleId,
   onClose,
 }: Readonly<Omit<JournalModalProps, 'open'> & { titleId: string }>) {
@@ -452,6 +455,7 @@ function Journal({
         texts={tidyTexts}
         hits={tidyHits}
         name={name}
+        form={form}
         contents={contentsButton}
         onPick={pickFrom}
       />

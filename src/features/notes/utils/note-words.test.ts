@@ -9,6 +9,7 @@ import {
   noteStateWords,
   savedWords,
   tidyChipWords,
+  tidyFormWords,
   tidyNoticeWords,
   tidyWhereWords,
   whoSeesNotes,
@@ -362,6 +363,22 @@ describe('utils/note-words', () => {
       expect(tidyWhereWords(tidy, { from: 'classic' }, 'Thorin')).toBe(
         changed && !tidy.classicGone ? where : undefined,
       )
+    },
+  )
+
+  it.each([
+    [
+      'wildShape',
+      'Thorin is in Wild Shape: entries changed on the beast’s Journal tab in Foundry are lost when Wild Shape ends.',
+    ],
+    [
+      'other',
+      'Thorin is transformed: entries changed on its form’s Journal tab in Foundry are lost when it changes back.',
+    ],
+  ] as const)(
+    'says Tidy entries changed on a %s form are lost when it ends',
+    (form, words) => {
+      expect(tidyFormWords(form, 'Thorin')).toBe(words)
     },
   )
 

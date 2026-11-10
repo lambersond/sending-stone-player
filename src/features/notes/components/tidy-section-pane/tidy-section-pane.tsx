@@ -19,6 +19,7 @@ export function TidySectionPane({
   texts,
   hits,
   name,
+  form,
   contents,
   onPick,
 }: Readonly<TidySectionPaneProps>) {
@@ -47,7 +48,7 @@ export function TidySectionPane({
         <p className='-mt-2 text-sm text-text-secondary'>
           {tidySectionWords(tidy.entries.length, name)}
         </p>
-        <TidyNotice tidy={tidy} name={name} />
+        <TidyNotice tidy={tidy} name={name} form={form} />
         <ul className='flex flex-col gap-3'>
           {entries.map(entry => (
             <li key={entry.key}>
