@@ -4194,7 +4194,7 @@ describe('components/character-sheet/character-pane', () => {
           name='Thorin Oakenshield'
           sheet={toTableSheet(fullerSheet(), GAME)}
           rollsToTable={['save', 'dice']}
-          rollFeatures={['manualDice', 'diceAsks']}
+          rollFeatures={['manualDice']}
           // Sent from another of the player's devices: on the banner here.
           diceAsks={[
             tableIceKnife({
