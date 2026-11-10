@@ -131,7 +131,7 @@ describe('db/tidy-sync', () => {
       expect(prismaMock.journalTidyEntry.update).toHaveBeenCalledTimes(1)
       expect(prismaMock.journalTidyEntry.update).toHaveBeenCalledWith({
         where: {
-          bookId_source_entryId: {
+          bookEntry: {
             bookId: 'book-1',
             source: 'journal',
             entryId: ravenhill.id,

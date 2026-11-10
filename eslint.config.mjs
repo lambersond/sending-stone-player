@@ -263,7 +263,6 @@ export default [
             'theme_color',
             'Geist_Mono',
             'bookId_noteId',
-            'bookId_source_entryId',
           ],
         },
       ],

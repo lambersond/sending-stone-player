@@ -471,6 +471,12 @@ exports[`foundrySettingsSchema the settings: settings the settings 1`] = `
     "title": "Manual Dice",
     "version": null,
     "active": false
+   },
+   {
+    "id": "tidy5e-sheet",
+    "title": "Tidy 5e Sheets",
+    "version": "13.10.5",
+    "active": true
    }
   ],
   "sections": [
@@ -935,6 +941,12 @@ exports[`parseGameEvent reads bridge.settings: bridge.settings read 1`] = `
       "title": "Manual Dice",
       "version": null,
       "active": false
+     },
+     {
+      "id": "tidy5e-sheet",
+      "title": "Tidy 5e Sheets",
+      "version": "13.10.5",
+      "active": true
      }
     ],
     "sections": [

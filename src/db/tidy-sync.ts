@@ -195,7 +195,7 @@ async function mirrorTidy(
     changed = true
     await tx.journalTidyEntry.update({
       where: {
-        bookId_source_entryId: {
+        bookEntry: {
           bookId: book.id,
           source: page.from,
           entryId: page.id,
@@ -220,14 +220,14 @@ async function mirrorTidy(
 /**
  * On each hello (module 0.45.0): the Tidy entries of every character the hello's
  * `features.notes.tidy` doesn't list as holding some go, as do those of every character where it
- * says nothing of Tidy, as a module before 0.45.0, which never sends them. Only the app's copy goes:
- * a character that has entries after all sends them in the `journal.tidy` that follows.
+ * says nothing of Tidy, as a module before 0.45.0, which never sends them. Only the app's copy
+ * goes: a character that has entries after all sends them in the `journal.tidy` that follows.
  *
  * And what the app knows of each journal, which its entries' dates rest on: a character the hello
  * doesn't list holds none, so each entry it's sent later is new, and dated, as its first, written
- * while no Gamemaster was in Foundry, is when the next hello brings it. Where the hello says nothing
- * of Tidy, the app knows none: once a module says again, what it sends is as new as at first, and
- * undated, never dated by when it came back.
+ * while no Gamemaster was in Foundry, is when the next hello brings it. Where the hello says
+ * nothing of Tidy, the app knows none: once a module says again, what it sends is as new as at
+ * first, and undated, never dated by when it came back.
  * @param characters - The hello's characters, by their actors' ids.
  * @param actors - Those it lists as holding Tidy entries; none where it says nothing of Tidy.
  */

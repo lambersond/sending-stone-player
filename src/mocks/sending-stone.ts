@@ -1984,6 +1984,13 @@ export function foundrySettings(
         active: true,
       },
       { id: 'manual-dice', title: 'Manual Dice', version: null, active: false },
+      // Since module 0.45.0, last: Tidy 5e Sheets, whose journal the app shows.
+      {
+        id: 'tidy5e-sheet',
+        title: 'Tidy 5e Sheets',
+        version: '13.10.5',
+        active: true,
+      },
     ],
     sections: [
       {

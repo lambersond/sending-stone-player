@@ -25,11 +25,11 @@ const held = (
 ): HeldTidy => ({ entries, active: true, version: '13.10.5', ...fields })
 
 describe('utils/notes/tidy', () => {
-  it('lists the current sheet’s entries by their place, then the Classic boxes, under Tidy’s titles', () => {
+  it('lists the current sheet’s entries by their place, then the Classic boxes, under Tidy’s titles, each marked where its secrets were left out', () => {
     const view = tidyViewOf(
       held([
         entry({ source: 'classic', entryId: 'notes', title: '', sort: 5 }),
-        entry({ entryId: 'second', title: ' ', sort: 2 }),
+        entry({ entryId: 'second', title: ' ', sort: 2, secret: true }),
         entry({ source: 'classic', entryId: 'notes1', title: '', sort: 1 }),
         entry({
           source: 'classic',
@@ -41,12 +41,14 @@ describe('utils/notes/tidy', () => {
       ]),
     )
 
-    expect(view?.entries.map(({ key, title }) => [key, title])).toEqual([
-      ['journal:tidyRavenhill01', 'Ravenhill'],
-      ['journal:second', 'Journal Entry 2'],
-      ['classic:notes1', 'Persons of Interest'],
-      ['classic:notes3', 'Errands'],
-      ['classic:notes', 'Journal Entries'],
+    expect(
+      view?.entries.map(({ key, title, secret }) => [key, title, secret]),
+    ).toEqual([
+      ['journal:tidyRavenhill01', 'Ravenhill', false],
+      ['journal:second', 'Journal Entry 2', true],
+      ['classic:notes1', 'Persons of Interest', false],
+      ['classic:notes3', 'Errands', false],
+      ['classic:notes', 'Journal Entries', false],
     ])
     expect(view?.entries[0]).toEqual({
       key: 'journal:tidyRavenhill01',

@@ -115,6 +115,7 @@ describe('components/campaigns/foundry-settings', () => {
       'Sending Stone: 0.30.0',
       'libWrapper: 1.13.2.0',
       'Manual Dice: — (not enabled)',
+      'Tidy 5e Sheets: 13.10.5',
     ])
     const results = within(listAfter('What players see in chat')).getAllByRole(
       'listitem',

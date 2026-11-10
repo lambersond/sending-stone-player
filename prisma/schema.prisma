@@ -608,7 +608,7 @@ model JournalTidyEntry {
   firstSeenAt DateTime?
   changedAt   DateTime?
 
-  @@id([bookId, source, entryId])
+  @@id([bookId, source, entryId], name: "bookEntry")
   @@map("journal_tidy_entry")
 }
 
