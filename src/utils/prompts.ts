@@ -3,7 +3,7 @@ import { rollStatus } from '@/utils/requests/status'
 import type { HeldPrompt, PromptData } from '@/types/prompts'
 import type { RollRequestInput } from '@/types/roll'
 import type { PromptNotice, TablePrompt } from '@/types/table'
-import type { HeldRollRequest, RollRefusal } from '@/utils/requests/types'
+import type { OtherRoll, RollRefusal } from '@/utils/requests/types'
 
 /*
  * Saving throws the Gamemaster's game asks of a player's character, such as a concentration check
@@ -134,14 +134,15 @@ export function offers(
  * what Midi-QOL asks, which may be an ability or skill check, it must be of that kind, and rolled
  * as Midi-QOL has it rolled, never with advantage the player chose, nor anything added.
  * @param prompt - The save the game asked for, if held.
- * @param answers - The character's other answers to it.
+ * @param answers - The character's other answers to it, each with the time its dice asks held it,
+ *   where they may have (module 0.45.0).
  * @returns Why not, or nothing when it can.
  */
 export function checkPrompt(
   input: RollRequestInput,
   prompt: Omit<HeldPrompt, 'promptId'> | null | undefined,
   actorId: string,
-  answers: Pick<HeldRollRequest, 'status' | 'createdAt' | 'claimedAt'>[],
+  answers: OtherRoll[],
   now = Date.now(),
 ): RollRefusal | undefined {
   if (!prompt || prompt.actorId !== actorId || prompt.closedAt) return 'prompt'
@@ -152,7 +153,9 @@ export function checkPrompt(
     return 'prompt'
   }
   const answering = answers.some(answer =>
-    ['sending', 'rolling', 'done'].includes(rollStatus(answer, now)),
+    ['sending', 'rolling', 'done'].includes(
+      rollStatus(answer, now, answer.held),
+    ),
   )
   return answering ? 'prompt' : undefined
 }

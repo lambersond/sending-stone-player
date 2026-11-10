@@ -21,6 +21,7 @@ import {
 } from '@/constants/roll-kinds'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import { sanitizeSheetHtml } from '@/lib/sheet-html'
+import { heldIceKnife } from '@/mocks/dice-asks'
 import {
   characterSheet,
   chargingSheet,
@@ -435,7 +436,7 @@ describe('db/roll-requests', () => {
         })
         expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
           where: { useId: 'req-0', characterId: 'char-1' },
-          select: { status: true, createdAt: true, claimedAt: true },
+          select: { id: true, status: true, createdAt: true, claimedAt: true },
         })
         expect(prismaMock.rollRequest.create).toHaveBeenCalledWith({
           data: expect.objectContaining({
@@ -444,6 +445,41 @@ describe('db/roll-requests', () => {
             useId: 'req-0',
           }),
           select: { id: true },
+        })
+      })
+
+      it('refuses damage while another for its use, typed, is held past its own time by the dice the game asks for (module 0.45.0)', async () => {
+        given()
+        prismaMock.rollRequest.findFirst.mockResolvedValue(madeSwing() as any)
+        // Fetched 90 s ago: lost by its own time, but for the 60 s its ask held it.
+        prismaMock.rollRequest.findMany.mockResolvedValue([
+          {
+            id: 'req-d',
+            status: 'claimed',
+            createdAt: ago(91_000),
+            claimedAt: ago(90_000),
+          },
+        ] as any)
+        prismaMock.diceAsk.findMany.mockResolvedValue([
+          heldIceKnife({
+            commandId: 'req-d',
+            askedAt: ago(70_000),
+            closedAt: ago(10_000),
+          }),
+        ] as any)
+
+        await expect(createRollRequest(character, smash)).resolves.toEqual({
+          status: 422,
+          reason: 'damaged',
+        })
+        expect(prismaMock.diceAsk.findMany).toHaveBeenCalledWith({
+          where: { campaignId: 'c1', commandId: { in: ['req-d'] } },
+          select: {
+            commandId: true,
+            askedAt: true,
+            expiresAt: true,
+            closedAt: true,
+          },
         })
       })
 
@@ -471,6 +507,8 @@ describe('db/roll-requests', () => {
           reason,
         })
         expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+        // No other damage lost by its own time, so no dice asks are read for one (module 0.45.0).
+        expect(prismaMock.diceAsk.findMany).not.toHaveBeenCalled()
       })
 
       it('takes damage the player changed, with the changed dice, only where the game takes it so', async () => {
@@ -666,7 +704,10 @@ describe('db/roll-requests', () => {
       prompt = asked() as object | null,
       answers = [] as object[],
       features = ['prompts'],
+      held = [] as object[],
     } = {}) => {
+      // The dice asks of answers the game holds for their runs' later dice (module 0.45.0).
+      prismaMock.diceAsk.findMany.mockResolvedValue(held as any)
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...takingRolls,
         rollKinds: ['save', 'ability', 'skill'],
@@ -701,7 +742,7 @@ describe('db/roll-requests', () => {
           kind: { in: ['save', 'ability', 'skill'] },
           payload: { path: ['prompt'], equals: 'msg1-thorin' },
         },
-        select: { status: true, createdAt: true, claimedAt: true },
+        select: { id: true, status: true, createdAt: true, claimedAt: true },
       })
       expect(prismaMock.rollRequest.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -729,6 +770,26 @@ describe('db/roll-requests', () => {
         {
           answers: [
             { status: 'claimed', createdAt: ago(2000), claimedAt: ago(1000) },
+          ],
+        },
+      ],
+      [
+        'one answered already, typed, the game holding it past its own time for its run’s later dice (module 0.45.0)',
+        {
+          answers: [
+            {
+              id: 'req-s',
+              status: 'claimed',
+              createdAt: ago(91_000),
+              claimedAt: ago(90_000),
+            },
+          ],
+          held: [
+            heldIceKnife({
+              commandId: 'req-s',
+              askedAt: ago(70_000),
+              closedAt: ago(10_000),
+            }),
           ],
         },
       ],
@@ -2507,7 +2568,7 @@ describe("db/roll-requests, the Gamemaster's rolls as a character (#156)", () =>
     })
     expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
       where: { useId: 'req-0', ...gmMade },
-      select: { status: true, createdAt: true, claimedAt: true },
+      select: { id: true, status: true, createdAt: true, claimedAt: true },
     })
     // And the player's damage never follows the Gamemaster's attack.
     await expect(createRollRequest(character, smash)).resolves.toEqual({

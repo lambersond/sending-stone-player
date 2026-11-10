@@ -156,6 +156,16 @@ export type RollCampaign = {
   companionInitiative: string
 }
 
+/**
+ * Another roll a check reads to see whether it's on its way or made, as another damage for the
+ * same use or another answer to the same ask: with, from module 0.45.0, how long its dice asks
+ * held it (`held`), where they may have, which isn't counted against it.
+ */
+export type OtherRoll = Pick<
+  HeldRollRequest,
+  'status' | 'createdAt' | 'claimedAt'
+> & { held?: number }
+
 /** A roll request as it's held: what to roll, and how far it has got. */
 export type HeldRollRequest = {
   id: string

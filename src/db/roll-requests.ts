@@ -17,7 +17,7 @@ import { closePrompt } from '@/db/campaign-events'
 import { ago, COUNTED, due, holdCommand, madeBy, onItsWay } from '@/db/commands'
 import { FOUNDRY_ID } from '@/db/constants'
 import { recordDishResult } from '@/db/cookbook'
-import { rollDiceAsks } from '@/db/dice-asks'
+import { rollDiceAsks, withHeldTime } from '@/db/dice-asks'
 import { createEffectRequest } from '@/db/effects'
 import { createFavoriteRequest } from '@/db/favorites'
 import { createHitPointsRequest } from '@/db/hit-points'
@@ -285,7 +285,7 @@ async function readRollContext(
     damage
       ? prisma.rollRequest.findMany({
           where: { useId: damage, ...madeBy(seat) },
-          select: { status: true, createdAt: true, claimedAt: true },
+          select: { id: true, status: true, createdAt: true, claimedAt: true },
         })
       : [],
     prisma.rollRequest.count({
@@ -319,7 +319,7 @@ async function readRollContext(
             kind: { in: [...ANSWER_KINDS] },
             payload: { path: ['prompt'], equals: prompt },
           },
-          select: { status: true, createdAt: true, claimedAt: true },
+          select: { id: true, status: true, createdAt: true, claimedAt: true },
         })
       : [],
     text
@@ -378,6 +378,12 @@ async function readRollContext(
         })
       : [],
   ])
+  // From module 0.45.0, a typed damage or answer the game holds asking for its run's later dice is
+  // still on its way, past its own time.
+  const [othersHeld, answersHeld] = await Promise.all([
+    withHeldTime(campaignId, others, now),
+    withHeldTime(campaignId, answers, now),
+  ])
   return {
     actorId,
     now,
@@ -387,11 +393,11 @@ async function readRollContext(
     sheet: sheet?.data as unknown as CharacterSheet | undefined,
     fights: combats.map(({ data }) => data as unknown as CombatSnapshot),
     use,
-    others,
+    others: othersHeld,
     inFlight,
     lastMinute,
     asked,
-    answers,
+    answers: answersHeld,
     described,
     asks,
     ended,

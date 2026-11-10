@@ -2,12 +2,19 @@ import prisma from '@/clients/prisma'
 import { ROLLS_KEPT_FOR } from '@/constants/sending-stone'
 import { due as pruneDue } from '@/db/commands'
 import { PRUNE_EVERY } from '@/db/constants'
-import { askTimes, seesDiceAsks, toTableDiceAsks } from '@/utils/dice-asks'
+import {
+  askTimes,
+  heldTime,
+  seesDiceAsks,
+  toTableDiceAsks,
+} from '@/utils/dice-asks'
+import { rollStatus } from '@/utils/requests/status'
 import type { Tx } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollKind } from '@/types/roll'
 import type { GameDiceAsk } from '@/types/sending-stone'
 import type { TableDiceAsk } from '@/types/table'
+import type { HeldRollRequest, OtherRoll } from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
 // The dice of later rolls in typed rolls' runs, which the game asks of their players (module
@@ -144,5 +151,29 @@ export function rollDiceAsks(campaignId: string, commandId: string) {
   return prisma.diceAsk.findMany({
     where: { campaignId, commandId },
     select: { askedAt: true, expiresAt: true, closedAt: true },
+  })
+}
+
+/**
+ * Other rolls a check reads, as another damage for the same use or another answer to the same
+ * save, each with the time its dice asks held it (`held`), as its own view counts it: a typed roll
+ * the game holds asking for its run's later dice isn't lost meanwhile, nor taken again from
+ * another device. Asks are read only for those the game fetched that their own time alone would
+ * count as lost, as only for those can they change it; the rest are as they were.
+ */
+export async function withHeldTime(
+  campaignId: string,
+  rolls: Pick<HeldRollRequest, 'id' | 'status' | 'createdAt' | 'claimedAt'>[],
+  now: number,
+): Promise<OtherRoll[]> {
+  const lost = rolls.filter(roll => rollStatus(roll, now) === 'lost')
+  if (lost.length === 0) return rolls
+  const asks = await prisma.diceAsk.findMany({
+    where: { campaignId, commandId: { in: lost.map(({ id }) => id) } },
+    select: { commandId: true, askedAt: true, expiresAt: true, closedAt: true },
+  })
+  return rolls.map(roll => {
+    const own = asks.filter(({ commandId }) => commandId === roll.id)
+    return own.length > 0 ? { ...roll, held: heldTime(own, now) } : roll
   })
 }
