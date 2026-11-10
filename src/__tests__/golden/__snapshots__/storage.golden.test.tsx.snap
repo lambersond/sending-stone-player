@@ -877,6 +877,8 @@ exports[`golden C7: storage the campaign row a hello writes a full hello from mo
     "noteFeatures": [
      "orders"
     ],
+    "tidyActive": null,
+    "tidyVersion": null,
     "companions": [],
     "companionKinds": [],
     "companionInitiative": "own",
@@ -1090,6 +1092,8 @@ exports[`golden C7: storage the campaign row a hello writes a hello from before 
     "hitPointsEnabled": false,
     "notesEnabled": false,
     "noteFeatures": [],
+    "tidyActive": null,
+    "tidyVersion": null,
     "companions": [],
     "companionKinds": [],
     "companionInitiative": "own",
