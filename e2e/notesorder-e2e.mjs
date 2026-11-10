@@ -189,8 +189,10 @@ if (SKEW034) {
 // 1. Reorder by drag
 // =================================================================================================
 part('1. reorder by drag')
-check(await notesFormat('erebor') === 2 && same(lastHello('erebor').data.features.notes, { enabled: true, kinds: ['personal', 'party'], reason: null, journals: [], orders: true, changes: true }),
-  'the module keeps the app\'s answer, notes format 2, and its hello says it takes orders and says who changed a journal')
+// Changed on purpose (module 0.45.0): the app answers notes format 3, as it reads Tidy 5e Sheets'
+// journal, which a module reads as 2 and more.
+check(await notesFormat('erebor') === 3 && same(lastHello('erebor').data.features.notes, { enabled: true, kinds: ['personal', 'party'], reason: null, journals: [], orders: true, changes: true }),
+  'the module keeps the app\'s answer, notes format 3, and its hello says it takes orders and says who changed a journal')
 // Road: Bob's note, the Gamemaster's, and one written in Foundry.
 const ROAD = await post(bob, API.bob, { role: 'chapter', title: 'Road' })
 await post(bob, API.bob, { role: 'entry', title: 'Wolves', body: 'Wargs on the ridge.', chapterId: ROAD })
