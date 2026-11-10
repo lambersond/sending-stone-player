@@ -113,6 +113,19 @@ describe('features/rolling/utils/dice-ask-entry (module 0.45.0)', () => {
       })
     })
 
+    it('keeps a healing ask’s roll as healing, and one with no label as what it is', () => {
+      const healing = answeredRoll(
+        tableIceKnife({ purpose: 'healing', label: '' }),
+      )
+      expect(healing).toMatchObject({
+        label: 'Dice the game asks for',
+        healing: true,
+      })
+      expect(askEntry(tableIceKnife({ label: '' })).title).toBe(
+        'Dice the game asks for',
+      )
+    })
+
     it('leaves the game every die where the player let it roll', () => {
       expect(answerOf(ask)).toEqual([])
       expect(answeredRoll(ask).terms.map(({ text }) => text)).toEqual([

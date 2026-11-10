@@ -7,10 +7,10 @@ const NOW = Date.parse('2026-11-10T12:00:08Z')
 /** Ice Knife's 2d6 cold, waiting 52 s more. */
 const ask = tableIceKnife({ expiresAt: new Date(NOW + 52_000).toISOString() })
 
-const renderBanner = () => {
+const renderBanner = (asked = ask) => {
   const onTypeIn = jest.fn()
   const onLeave = jest.fn()
-  render(<DiceAskBanner asks={[ask]} onTypeIn={onTypeIn} onLeave={onLeave} />)
+  render(<DiceAskBanner asks={[asked]} onTypeIn={onTypeIn} onLeave={onLeave} />)
   return { onTypeIn, onLeave }
 }
 
@@ -26,6 +26,17 @@ describe('DiceAskBanner (module 0.45.0)', () => {
     expect(within(banner).getByText('Ice Knife: Shard Explosion')).toBeVisible()
     expect(within(banner).getByText('2d6 Cold')).toBeVisible()
     expect(within(banner).getByRole('timer')).toHaveTextContent('0:52 left')
+  })
+
+  it('says a critical hit’s dice so, and calls an ask with no label what it is', () => {
+    renderBanner(tableIceKnife({ ...ask, label: '', critical: true }))
+    expect(screen.getByText('Dice the game asks for')).toBeVisible()
+    expect(screen.getByText('2d6 Cold · Critical hit')).toBeVisible()
+    expect(
+      screen.getByRole('button', {
+        name: 'Type in 2d6 Cold for Dice the game asks for',
+      }),
+    ).toBeVisible()
   })
 
   it('types them in, or lets the game roll them, naming both', async () => {

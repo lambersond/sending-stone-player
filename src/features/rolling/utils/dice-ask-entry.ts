@@ -16,6 +16,14 @@ import type { TableDiceAsk } from '@/types/table'
 /** What an ask with no label of its own is called. */
 const UNNAMED = 'Dice the game asks for'
 
+/**
+ * What an ask is called, wherever it's shown: its label, such as "Ice Knife: Shard Explosion", or
+ * where the module gave none, what it is.
+ */
+export function askName({ label }: Pick<TableDiceAsk, 'label'>): string {
+  return label || UNNAMED
+}
+
 /** A roll's kind of damage or healing, as dnd5e's card names it, else its flavor, if any. */
 function kindOf(roll: DiceAskRoll): string | undefined {
   const { type } = roll
@@ -36,7 +44,7 @@ function termsOf(ask: TableDiceAsk): AskTerm[] {
         faces,
         count: number,
         label: kind ? `${dice} ${kind}` : dice,
-        name: kind ?? (ask.label || UNNAMED),
+        name: kind ?? askName(ask),
       }
     })
   })
@@ -63,7 +71,7 @@ function noteOf(ask: TableDiceAsk): string | undefined {
 export function askEntry(ask: TableDiceAsk, signal?: AbortSignal): DiceEntry {
   const note = noteOf(ask)
   return {
-    title: ask.label || UNNAMED,
+    title: askName(ask),
     subtitle: 'The game asks for these dice',
     cancelLabel: 'Let the game roll',
     terms: termsOf(ask).map(({ faces, count, label, name }) => ({
@@ -118,7 +126,7 @@ export function answeredRoll(
       : { text: leftToTheGame(text), values: [], value: 0 }
   })
   return {
-    label: ask.label || UNNAMED,
+    label: askName(ask),
     total: terms.reduce((sum, { value }) => sum + value, 0),
     healing: ask.purpose === 'healing',
     terms,

@@ -4,7 +4,7 @@ import { type Ref } from 'react'
 import { Dices, Timer } from 'lucide-react'
 import { useSecondsLeft } from '../prompt-banner/use-seconds-left'
 import { clock } from '../prompt-banner/utils'
-import { diceWords } from '@/features/rolling/utils/dice-ask-entry'
+import { askName, diceWords } from '@/features/rolling/utils/dice-ask-entry'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import type { TableDiceAsk } from '@/types/table'
 
@@ -70,10 +70,11 @@ function AskRow({
 }>) {
   const left = useSecondsLeft(ask.expiresAt)
   const dice = diceWords(ask)
+  const name = askName(ask)
   return (
     <li className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5'>
       <div className='min-w-0'>
-        <p className='text-sm font-semibold'>{ask.label}</p>
+        <p className='text-sm font-semibold'>{name}</p>
         <p className='text-xs text-text-secondary'>
           {ask.critical ? `${dice} · Critical hit` : dice}
         </p>
@@ -90,7 +91,7 @@ function AskRow({
           <div className='flex flex-wrap gap-1.5'>
             <button
               type='button'
-              aria-label={`Type in ${dice} for ${ask.label}`}
+              aria-label={`Type in ${dice} for ${name}`}
               onClick={() => onTypeIn(ask)}
               className={`${BUTTON} bg-primary font-semibold text-on-primary hover:bg-primary-hover`}
             >
@@ -98,7 +99,7 @@ function AskRow({
             </button>
             <button
               type='button'
-              aria-label={`Let the game roll ${dice} for ${ask.label}`}
+              aria-label={`Let the game roll ${dice} for ${name}`}
               onClick={() => onLeave(ask)}
               className={`${BUTTON} border border-border font-medium hover:border-primary/50 hover:bg-primary/5`}
             >
