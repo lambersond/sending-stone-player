@@ -42,8 +42,9 @@
 // the compact layout; dnd5e's concentration card asking a die only concentration adds. Rerolls at the
 // table: the greatsword's 2d6r<=2 typed 1 and 5 stands, without r<=2, the dialog's note said and the
 // tray's total at once; a Halfling's typed 1 stands; an exploding 1d6x, no note, its die more (since
-// module 0.45.0 asked under dnd5e 5, its dialog opening by itself, typed; Foundry's under dnd5e 6) and
-// the game's total; screenshots to shots-042. MIDI=1 also: Midi's save asks Bless's die, and Midi's
+// module 0.45.0 asked under dnd5e 5, its dialog opening by itself, typed, the tray meanwhile "Waiting
+// for your dice…"; Foundry's under dnd5e 6) and the game's total on the formula's line in the tray;
+// screenshots to shots-042. MIDI=1 also: Midi's save asks Bless's die, and Midi's
 // concentration check, made with dnd5e's, asks the die only a concentration check adds too, its total
 // the game's. DND5E6=1: no effect's die, rerolls kept.
 // Since app 0.42.1 (round 0.42.1 §7.4): Elven Accuracy's third d20 on a line of its own, "Elven
@@ -631,6 +632,8 @@ async function sheetWith(pages, names) {
     await until(async () => listed(await panel(who).innerText()), `${who.width}'s Effects tab with ${names.join(', ') || 'none of them'}`, 20_000)
   }
 }
+/** What the tray says of a roll the game holds while it asks for its run's later dice (module 0.45.0). */
+const WAITING = 'Waiting for your dice…'
 /** The tray's latest roll as shown: its total, and each line of it. */
 const trayLatest = who => tray(who).getByRole('status').first().evaluate(el => ({
   total: el.querySelector('span')?.textContent.trim() ?? null,
@@ -1979,8 +1982,11 @@ part('7b. rerolls at the table')
     const again = alice.page.getByRole('dialog').filter({ hasText: 'The game asks for these dice' })
     await again.waitFor({ timeout: 30_000 })
     const look = { groups: await groupsOf(again), note: await again.getByText('Your die exploded: roll it again and type in what it shows.', { exact: true }).isVisible() }
-    check(same(look.groups, [{ name: '1d6', boxes: ['d6'] }]) && look.note,
-      `typed 6, it explodes: the game asks for its die more, a dialog of its own opening by itself on this page, "1d6", one d6 box, saying why (${JSON.stringify(look)})`)
+    // Meanwhile the tray's latest, the formula the game holds, waits for the die.
+    await until(async () => (await trayLatest(alice)).lines.includes(WAITING), 'the tray to wait for the die', 15_000).catch(() => {})
+    const held = await trayLatest(alice)
+    check(same(look.groups, [{ name: '1d6', boxes: ['d6'] }]) && look.note && held.lines[0] === 'Wild Sparks: Burst' && held.lines.includes(WAITING),
+      `typed 6, it explodes: the game asks for its die more, a dialog of its own opening by itself on this page, "1d6", one d6 box, saying why; the tray's latest, Wild Sparks: Burst, says "${WAITING}" (${JSON.stringify({ look, held: held.lines })})`)
     await keys(again, '3')
     await again.getByRole('button', { name: 'Done', exact: true }).click()
     await again.waitFor({ state: 'hidden', timeout: 5_000 })
@@ -1989,14 +1995,25 @@ part('7b. rerolls at the table')
     made = { request, made: rollRow(request.id), message: madeFor(request.id) }
   }
   const burst = made.message?.rolls[0]
-  // The formula's own line: the tray's latest under dnd5e 6; under dnd5e 5 the latest is the die
-  // typed for the game, the formula's line beneath it among the earlier rolls.
-  if (DND5E6) await until(async () => (await trayLatest(alice)).total === String(burst?.total), "the tray to show the game's total", 20_000).catch(() => {})
-  const later = DND5E6 ? await trayMade(alice) : await trayLatest(alice)
-  note(`the tray: ${JSON.stringify(later)}`)
+  // The formula's own line says the game's 9 once made: under dnd5e 6 the tray's latest; under
+  // dnd5e 5 the latest is the die typed for the game, 1d6 (3), and the formula's line is the newest
+  // of its name beneath it, among the earlier rolls, its typed 6 beside the table's 9.
+  let shown
+  if (DND5E6) {
+    await until(async () => (await trayLatest(alice)).total === String(burst?.total), "the tray to show the game's total", 20_000).catch(() => {})
+    const later = await trayMade(alice)
+    shown = { later, made: later.total === '9' && atTable(later) === '9' }
+  } else {
+    const formulaLine = async () => (await tray(alice).locator('details li').evaluateAll(items => items.map(li => li.textContent.replace(/\s+/g, ' ').trim())))
+      .find(line => line.startsWith('Wild Sparks: Burst'))
+    await until(async () => / table 9$/.test(await formulaLine() ?? ''), "the formula's line to show the table's 9", 20_000).catch(() => {})
+    const later = await trayLatest(alice)
+    const line = await formulaLine()
+    shown = { later, line, made: /^Wild Sparks: Burst ?6 = 6 ?· table 9$/.test(line ?? '') && later.lines.includes('1d6 (3)') }
+  }
   check(same(sparks, [{ name: '1d6x', boxes: ['d6'] }]) && noted === 0 && made.request.payload.rerolls === 'kept' && same(burst?.dice[0].results.map(r => r.result), [6, 3])
-    && burst.total === 9 && faces.length === 0 && (!DND5E6 || (later.total === '9' && atTable(later) === '9')),
-    `Wild Sparks' 1d6x asks one d6 and says no note, as it doesn't reroll; typed 6, ${DND5E6 ? 'Foundry throws' : 'the game asks for'} its die more, a 3 (${burst?.formula} = ${burst?.total})${DND5E6 ? ", and the tray shows the game's 9 once made" : ''} (${JSON.stringify(later)})`)
+    && burst.total === 9 && faces.length === 0 && shown.made,
+    `Wild Sparks' 1d6x asks one d6 and says no note, as it doesn't reroll; typed 6, ${DND5E6 ? 'Foundry throws' : 'the game asks for'} its die more, a 3 (${burst?.formula} = ${burst?.total}), and the tray shows the game's 9 once made${DND5E6 ? '' : ", on the formula's line beneath the die typed"} (${JSON.stringify(shown)})`)
   // The note at 1280 too.
   if (desk) {
     await desk.tab('Actions')
