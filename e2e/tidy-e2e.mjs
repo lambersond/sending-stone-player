@@ -3,14 +3,15 @@
 // stand-in (fvtt/tidy-core.mjs), Foundry 14's deletions in world-030's actors. Erebor, rolls off: Alice
 // plays Thorin, who keeps three entries on Tidy's Journal tab (one untitled, one with a secret) and
 // three of its Classic sheet's boxes (one named, one empty and so never sent), on a phone (390 × 844)
-// and a laptop (1280 × 800); Bob plays Vex, who keeps none; Balin is no player's, his one entry's secret
-// left out. The Gamemaster is Alice's own campaign, at Thorin's and Balin's pages. The hello's
-// `features.notes.tidy` and the settings card's Tidy 5e Sheets; the "From Tidy 5e Sheets" section last
-// in the contents, in Tidy's order, each entry chipped "Tidy 5e" or "Tidy 5e Classic", their page and
-// the read-only reader, undated where they were there before the app saw them; Tidy's own edit, add
-// and delete in Foundry reaching the app within a poll, dated; the Gamemaster; nothing of Thorin's in
-// Bob's browser; Tidy turned off, then uninstalled, the entries still shown with the line that says
-// so; both widths and themes. DND5E6=1: dnd5e 6.0.5 and Tidy 14.4.1, whose delete is Foundry 14's
+// and a laptop (1280 × 800); Bob plays Vex, who keeps none until his first, dated; Balin is no
+// player's, his one entry's secret left out. The Gamemaster is Alice's own campaign, at Thorin's and
+// Balin's pages. The hello's `features.notes.tidy` and the settings card's Tidy 5e Sheets; the "From
+// Tidy 5e Sheets" section last in the contents, in Tidy's order, each entry chipped "Tidy 5e" or "Tidy
+// 5e Classic", their page and the read-only reader, undated where they were there before the app saw
+// them; Tidy's own edit, add and delete in Foundry reaching the app within a poll, dated, a deleted
+// one giving way to the next; the Gamemaster; nothing of Thorin's in Bob's browser; Tidy turned off,
+// "(not enabled)" on the settings card, then uninstalled, the entries still shown with the line that
+// says so; both widths and themes. DND5E6=1: dnd5e 6.0.5 and Tidy 14.4.1, whose delete is Foundry 14's
 // `_del`, and which no longer shows the Classic boxes. SKEW=042 with MODULE=module-0.42.0: the same
 // flags, and nothing new: no `tidy` in the hello, no journal.tidy, no section, no Tidy row on the card.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
@@ -158,6 +159,8 @@ part('1. the hello and the settings card')
     && rows.every(r => r.firstSeenAt === null && r.changedAt === null),
     `Thorin's six, Miscellaneous's emptied box never sent, each undated: there before the app saw them (${JSON.stringify(rows.map(r => r.entryId))})`)
   check(tidyPosts('vex').length === 0 && tidyRows('vex').length === 0, 'Vex, who keeps none, is sent none')
+  check(sql(`select "tidySyncedAt" is not null from journal_book where "campaignId" = '${A}' and kind = 'personal' and "actorId" = 'vex'`) === 't',
+    "and the app knows Vex's Tidy journal from the hello, empty, so his first entry will be dated")
   const versions = await cardVersions()
   check(versions.at(-1) === `Tidy 5e Sheets: ${TIDY_VERSION}`, `the Gamemaster's settings card lists "Tidy 5e Sheets: ${TIDY_VERSION}" last (${JSON.stringify(versions)})`)
 }
@@ -229,10 +232,11 @@ await pick(dialog, 'Dale')
 check((await readerText(dialog)).includes('First seen just now') && (await readerText(dialog)).includes('The bells ring again.'),
   'an entry added in Tidy comes after its others, before the Classic boxes: "First seen just now"')
 await (DND5E6 ? tidy.delete14 : tidy.delete13)(thorin, 'tidyDaleBells0004')
-await readerShows(dialog, SECTION, 20_000)
+await readerShows(dialog, 'Persons of Interest', 20_000)
 await tidyIs(dialog, ['Ravenhill', 'Journal Entry 2', 'What Bard knows', 'Persons of Interest', 'Errands', 'Journal Entries'])
 check(!('tidyDaleBells0004' in thorin.flags[TIDY][JOURNAL]),
-  `deleted in Tidy (${DND5E6 ? "Tidy 14's _del" : "Tidy 13's -=<key>"}), it leaves the contents, and the reader gives way to their page`)
+  `deleted in Tidy (${DND5E6 ? "Tidy 14's _del" : "Tidy 13's -=<key>"}), it leaves the contents, and the reader gives way to the next, Persons of Interest, as a deleted page does`)
+await pick(dialog, SECTION)
 check(journal('personal', 'thorin', 'erebor') === null && game.journal.size === 0,
   'nothing was written to Foundry: no journal made, Tidy\'s flags only as Tidy wrote them')
 await shootBoth(alice, 'tidy-section-page')
@@ -292,6 +296,18 @@ await biography(bob)
   }
   check(!bobSaw.some(body => /Ravenhill|ravens|Bard of Lake-town|A shade on the road/.test(body)), "nothing of Thorin's or Balin's Tidy entries ever reached Bob's browser")
 }
+// Vex held none when the app first heard of Tidy: the first entry his player writes is dated.
+await tidy.add(vex, 'tidyVexMirkwood1', { title: 'Mirkwood', value: '<p>The path is dark.</p>' })
+await until(async () => await countsOf(bob) === '1 from Tidy 5e Sheets', "Vex's first Tidy entry counted on Bob's card", 20_000)
+{
+  const [row] = tidyRows('vex')
+  check(row?.firstSeenAt !== null && row?.changedAt === null,
+    `Vex's first entry, written after the hello said he held none, is dated as first seen, never undated (${JSON.stringify(row)})`)
+  const vexDialog = await openJournal(bob.page, MINE)
+  await readerShows(vexDialog, 'Mirkwood')
+  check((await readerText(vexDialog)).includes('First seen just now'), 'and Bob\'s reader says "First seen just now"')
+  await closeJournal(vexDialog)
+}
 
 // =================================================================================================
 // 6. Tidy turned off, then uninstalled
@@ -305,13 +321,16 @@ await dialog.getByText(OFF, { exact: true }).first().waitFor({ timeout: 20_000 }
   const text = await readerText(dialog)
   check(text.includes(OFF) && (await tidyListed(dialog)).length === 6 && same(campaignTidy(), { active: false, version: TIDY_VERSION }),
     `Tidy turned off in Foundry: the entries still shown, read only, "${OFF}"`)
+  const versions = await cardVersions()
+  check(versions.at(-1) === `Tidy 5e Sheets: ${TIDY_VERSION} (not enabled)`,
+    `and the Gamemaster's settings card lists "Tidy 5e Sheets: ${TIDY_VERSION} (not enabled)" (${JSON.stringify(versions)})`)
 }
 await pick(dialog, 'Ravenhill')
 check(!(await readerText(dialog)).includes(WHERE) && (await readerText(dialog)).includes(OFF), 'and an entry says it, never where to change it')
 await shootBoth(alice, 'tidy-off')
 game.modules.delete(TIDY)
 await reloadFoundry()
-await until(() => same(lastHello('erebor').data.features.notes.tidy, { active: false, version: null, actors: ['thorin', 'balin'] }), 'a hello saying Tidy is not installed', 20_000)
+await until(() => same(lastHello('erebor').data.features.notes.tidy, { active: false, version: null, actors: ['thorin', 'vex', 'balin'] }), 'a hello saying Tidy is not installed', 20_000)
 await dialog.getByText(GONE, { exact: true }).first().waitFor({ timeout: 20_000 })
 check((await tidyListed(dialog)).length === 6 && !(lastHello('erebor').data.settings?.modules ?? []).some(m => m.id === TIDY),
   `uninstalled, the entries kept on Thorin still show, "${GONE}", and the hello's modules list it no more`)

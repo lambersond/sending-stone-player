@@ -441,7 +441,8 @@ export async function foundryWorld({ system = DND5E6 ? '6.0.5' : '5.3.3', dice6 
 /**
  * A dnd5e character with what uses need, as activity5e gives them; its concentration dnd5e's, as
  * dnd5e-cards ports it. Foundry tells every client of a change to it, and the module sends its sheet
- * again.
+ * again. Since module 0.45.0 the hook is handed the change expanded, as Foundry hands it: dotted keys
+ * spread into objects, a deletion as its key (fvtt/tidy-core.mjs).
  */
 export function character(data, gear) {
   const actor = new W.cards.Character(data)
@@ -460,7 +461,7 @@ export function character(data, gear) {
   const update = actor.update.bind(actor)
   actor.update = async changes => {
     await update(deleting(actor, changes))
-    await Hooks.callAll('updateActor', actor, changes, {}, 'gm')
+    await Hooks.callAll('updateActor', actor, foundry.utils.expandObject(changes), {}, 'gm')
   }
   return actor
 }
