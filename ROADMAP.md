@@ -109,17 +109,27 @@ Left, in two batches. Pick from the list by number.
 
 **Batch 2, last: typed dice and Help**
 
-11. **Typed dice for every roll an item makes:** when typing in dice, the dice an item rolls after
-    its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry,
-    as Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
-    homebrew and custom ones included, never a handler per spell. (Still being built for module
-    0.45.0, for dnd5e 5 and its Midi-QOL line; dnd5e 6 later. Not landed yet: v1.x item 8, built
-    beside it, landed first. Decided: every roll of the item's run that the typed dice don't cover
-    is paused and asked for, Midi-QOL's bonus damage of that item included (Sneak Attack, Hunter's
-    Mark, homebrew); a die that explodes or is rerolled is asked for too, one at a time; after 60
-    seconds the computer rolls, and the Gamemaster's Foundry shows the wait with a "Roll it now"
-    button; the dice dialog opens by itself on the device the roll came from, a banner on the
-    player's others; no new switch; a player rolling the app's 3D dice keeps Foundry's later dice.)
+11. **Typed dice for every roll an item makes (done):** when typing in dice, the dice an item rolls
+    after its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by
+    Foundry, as Foundry's Manual Dice does. One general way that follows whatever the item's
+    workflow rolls, homebrew and custom ones included, never a handler per spell. (Done, module
+    0.45.0, for dnd5e 5 alone and with its Midi-QOL line; off under dnd5e 6, whose hello says why,
+    and with an older module, where the game rolls them as before; tested against stand-ins, not
+    yet at a table. Decided: every roll of the item's run that the typed dice don't cover is paused
+    and asked for, Midi-QOL's bonus damage of that item included (Sneak Attack, Hunter's Mark,
+    homebrew); a die that explodes or is rerolled is asked for too, one at a time; after 60 seconds
+    the computer rolls, and the Gamemaster's Foundry shows the wait with a "Roll it now" button; the
+    dice dialog opens by itself on the device the roll came from, a banner on the player's others;
+    no new switch; a player rolling the app's 3D dice keeps Foundry's later dice. To check at the
+    table, with dnd5e 5.3.3 and Midi-QOL v14.0.x: Ice Knife's 2d6 asked after its 1d10, a critical's
+    and an upcast's too, and another activity's damage and dice cost that Midi rolls once saves are
+    checked; d20s never asked; a typed die that explodes asked again one die at a time, never told
+    timed out as the asks run past a minute, the ask opening by itself on the device the roll came
+    from, not the one the exploding die was typed on; the dialog never over a focused text field, a
+    banner on the other devices, focus back where it was; a skip, an expiry, a failed send offered
+    again, two devices answering at once; the Gamemaster's window counting down, with Roll it now,
+    leaving their chat typing alone; two players' Hunter's Mark at once, and a homebrew bonus macro;
+    the Gamemaster using the same item meanwhile; and nothing asked under dnd5e 6.)
 12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
     dice), what each long press offers (damage, attack and other rolls), the settings, how manual
     dice work (item 11 included), and that the Gamemaster applies short and long rests. (Planned;
@@ -168,11 +178,12 @@ Left, in two batches. Pick from the list by number.
 
 **Found while planning Batch 2**
 
-20. **The game's save and check prompts are never pruned:** `RollPrompt` rows are only found,
-    updated and upserted (`src/db/table.ts`, `src/db/campaign-events.ts`,
-    `src/db/roll-requests.ts`), never deleted, so a campaign keeps every prompt it was ever asked
-    until the campaign itself is deleted. They should be pruned once answered or old, as the dishes
-    and notes are.
+20. **The game's save and check prompts were never pruned (done, with item 11):** `RollPrompt` rows
+    were only found, updated and upserted (`src/db/table.ts`, `src/db/campaign-events.ts`,
+    `src/db/roll-requests.ts`), never deleted, so a campaign kept every prompt it was ever asked
+    until the campaign itself was deleted. Now they're pruned a day after they close or run out,
+    with item 11's dice asks, as either is asked, on the dice asks' throttle: at most once every 10
+    minutes per campaign (`pruneAsked` in `src/db/dice-asks.ts`).
 
 **Found while building item 11 and the Tidy journal**
 
@@ -182,15 +193,52 @@ Left, in two batches. Pick from the list by number.
     (`helloDelivered` in `scripts/character-sync.mjs` calls `companionsDelivered` before
     `sendBooks`). Nothing in the app depends on that order; the paragraph now says what the module
     does.
-22. **A use's cost check asks the Gamemaster for dice:** before an item is used from the app, the
-    module works out what the use would spend with dnd5e's `_prepareUsageUpdates` and throws the
-    result away (`prepareUse` in `scripts/command-uses.mjs`, and twice in
-    `scripts/command-alone.mjs` for damage on its own). A cost that is a dice formula, such as
-    `1d4` charges, is rolled there with the Gamemaster's dice settings, so under Manual Dice Foundry
-    asks the Gamemaster for a roll nobody uses, once per use from the app, typed or not; one that
-    explodes, such as `1d4x`, asks again for each highest face typed. The check's rolls should be
-    made without asking anyone (`allowInteractive: false`); item 11's later dice need the same, as
-    a check made while another player's use waits for its own cost could otherwise take its place.
+22. **A use's cost check asked the Gamemaster for dice (done, in module 0.45.0):** before an item
+    is used from the app, the module works out what the use would spend with dnd5e's
+    `_prepareUsageUpdates` and throws the result away (`prepareUse` in `scripts/command-uses.mjs`,
+    and twice in `scripts/command-alone.mjs` for damage on its own). A cost that is a dice formula,
+    such as `1d4` charges, was rolled there with the Gamemaster's dice settings, so under Manual
+    Dice Foundry asked the Gamemaster for a roll nobody uses, once per use from the app, typed or
+    not; one that explodes, such as `1d4x`, asked again for each highest face typed. Now those
+    checks, Midi-QOL's own as its use from the app begins, and the module's dice self-test as it
+    starts are rolled with Foundry's computer dice, never anyone's Manual Dice, under dnd5e 5 and 6,
+    and never taken for item 11's run's cost; the cost the use spends is rolled as ever. To check
+    at the table: with the Gamemaster's Manual Dice on, a use from the app of an item with a `1d4`
+    cost, with Midi-QOL too, asks them once, for the cost spent, or nothing where the player typed.
+23. **Midi-QOL's reaction checks ask the Gamemaster for dice:** as it looks for the reactions an
+    attack's targets could take, Midi-QOL works out what each would spend and throws that away
+    (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
+    with the Gamemaster's dice settings, and under Manual Dice Foundry asks them for a roll nobody
+    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.45.0, whose
+    `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
+    dice, as it now does Midi's check as a use from the app begins.
+24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
+    `commands.mjs`, `transport.mjs`, `chat-data.mjs`, `creatures.mjs`, `midi-prompts.mjs`,
+    `command-rolls.mjs` and others) already imported one another in one loop before item 11, and
+    `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No top-level
+    code depends on the loop; untangling it is a refactor of modules older than item 11.
+25. **Two copies of one countdown:** the dice dialog
+    (`src/features/rolling/components/dice-entry/dice-entry-dialog.tsx`, since v0.42) keeps its own
+    `secondsLeft`, `useSecondsLeft` and `clock`, line for line the prompt banner's
+    (`src/features/sheet/components/prompt-banner/use-seconds-left.ts` and `utils.ts`), which item
+    11's dice ask banner reuses. One shared home, their lowest common ancestor, would remove the
+    copy.
+26. **A die asked again named by its activity, not its roll:** the chip and the tray call Wild
+    Sparks' formula "Wild Sparks: Burst", its roll's name, but the ask for its exploded die, in the
+    dialog's title, the banner, the tray's answer line and the Gamemaster's window, says "Wild
+    Sparks: Use", the item and its activity, as the module's `PROTOCOL.md` defines an ask's `label`,
+    so a player sees two names for one roll within seconds. A wording choice, for the module (a
+    formula's die named by its roll's name where it has one) or the app (`askName` in
+    `src/features/rolling/utils/dice-ask-entry.ts`). Under real dnd5e an unnamed utility activity is
+    named by its type, so the words at a table may differ.
+27. **A die asked again shows its whole roll's total in the tray:** with 6 typed on Wild Sparks'
+    `1d6x` and 3 typed for its die more, the tray reads "Wild Sparks: Use 3 = 3 · table 9" above
+    "Wild Sparks: Burst 6 = 6 · table 9", and while it's the newest roll its big total says 9, "At
+    the table: 9", as if a typed 3 came to 9. The answer's line takes the game's total of the roll
+    its ask lists (`answeredRoll` in `src/features/rolling/utils/dice-ask-entry.ts`, shown by
+    `MadeMark` in `src/features/rolling/components/roll-tray/table-mark.tsx`), and for a die thrown
+    again that's the whole exploding formula. Code and `PROTOCOL.md` agree; such an answer could say
+    it's added to its roll's total instead. The e2e doesn't check these words.
 
 Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
@@ -283,9 +331,13 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - When typing in dice in a world on the legacy (2014) rules, a Bardic Inspiration feature that
   doesn't say which rules it's for counts as 2014's and isn't offered; dnd5e's 2024 compendium
   feature, which says, is.
-- An exploding die typed in still has Foundry throw its extra die.
+- An exploding die typed in still has Foundry throw its extra die under dnd5e 6, or with a module
+  before 0.45.0: with 0.45.0 under dnd5e 5, its player is asked for it.
 - Midi-QOL's optional bonuses, its Bardic Inspiration among them, are offered on the Gamemaster's
   screen after the roll, with Foundry's dice.
+- When typing in dice, two players' attacks awaiting the same Midi-QOL bonus damage at once, such
+  as two Hunter's Marks, have it rolled by Foundry for both, until each has rolled its bonus
+  damage; a bonus only one of them awaits, such as Sneak Attack, is still asked.
 - Moving several items at once isn't planned unless it's asked for.
 - Summon activities are used in Foundry (planned for v1.x).
 - A companion shared by several characters is asked a save card's save only where every one of
