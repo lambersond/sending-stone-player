@@ -72,9 +72,11 @@ run manualdice 18 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 # Round 0.42.1: Elven Accuracy's third d20 on its own line, with Skip, and module 0.42.1's Bardic
 # Inspiration offered, spent and its Inspired removed (step 5c, its pictures in shots-0421), which
 # bring the plain and Midi-QOL runs to 260-330 seconds alone, near the usual limit of 400.
-run typed 159 TIMEOUT=600 SHOTS=$O/shots-032
+# Module 0.45.0 (item 11): step 7b's exploding 1d6x has its die more asked under dnd5e 5, one check
+# more in the plain and Midi-QOL runs; under dnd5e 6 it's Foundry's, as before.
+run typed 160 TIMEOUT=600 SHOTS=$O/shots-032
 run typed 61 DND5E6=1 SHOTS=$O/shots-032
-run typed 163 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-032
+run typed 164 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-032
 run typed 7 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 # Module 0.42.0: the dice effects add, typed or skipped, and rerolls kept at the table;
 # and module 0.41.0 (none of it; since app 0.42.1, Elven Accuracy's Skip, and no offer).
