@@ -375,8 +375,14 @@ async function applyHello(
     )
   }
   // The Tidy 5e Sheets journals of the characters it doesn't list as holding one, from module
-  // 0.45.0; an older module lists none, and sends none, and every one goes.
-  await reconcileTidy(tx, campaignId, features?.notes?.tidy?.actors ?? [])
+  // 0.45.0, and those it says hold none known, empty; an older module lists none, and sends none,
+  // and every one goes, none known.
+  await reconcileTidy(
+    tx,
+    campaignId,
+    characters.map(({ id }) => id),
+    features?.notes?.tidy?.actors,
+  )
   await tx.combat.deleteMany({ where: { campaignId } })
   await tx.combat.createMany({
     data: data.combats.map(combat => ({

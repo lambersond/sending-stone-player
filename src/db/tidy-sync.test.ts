@@ -3,6 +3,7 @@
  */
 import { Prisma, type JournalTidyEntry } from '@prisma/client'
 import { applyJournalTidy, drawTidy, reconcileTidy } from './tidy-sync'
+import { noteHtml } from '@/lib/note-html'
 import { mockJournalTidy, PARTY } from '@/mocks/sending-stone'
 import { prismaMock } from '@/utils/test-utils-node'
 import type { TidyPage } from '@/types/sending-stone'
@@ -12,8 +13,11 @@ const SYNCED = new Date(NOW - 86_400_000)
 const ORIGIN = 'https://my-game.forge-vtt.com'
 const tx = prismaMock as unknown as Prisma.TransactionClient
 
-/** An entry sent as the book holds it, drawn as `html` says. */
-function held(page: TidyPage, html = 'drawn'): JournalTidyEntry {
+/** An entry sent as the book holds it, drawn as `html` says: by default, as it's drawn now. */
+function held(
+  page: TidyPage,
+  html = noteHtml({ format: 1, body: page.html }, ORIGIN, true),
+): JournalTidyEntry {
   return {
     bookId: 'book-1',
     source: page.from,
@@ -266,24 +270,23 @@ describe('db/tidy-sync', () => {
   })
 
   describe('drawTidy, before the transaction', () => {
-    it('draws what the book as it is would draw again: new entries and changed ones', async () => {
+    it('draws every entry sent, each once, as the campaign’s origin now draws it', async () => {
       const entries = mockJournalTidy().entries
-      prismaMock.journalBook.findUnique.mockResolvedValue({
-        tidy: [
-          held(entries[0]),
-          { ...held(entries[1]), revision: 'ffffffffffffff' },
-        ],
-      } as any)
 
-      const drawings = await drawTidy('c1', mockJournalTidy())
+      const drawings = await drawTidy(
+        'c1',
+        mockJournalTidy({ entries: [...entries, entries[0]] }),
+      )
 
       expect(drawings?.origin).toBe(ORIGIN)
       expect([...drawings!.html.keys()]).toEqual([
+        'journal:tidyRavenhill01',
         'journal:tidyUntitled002',
         'journal:tidySecrets0003',
         'classic:notes3',
         'classic:notes',
       ])
+      expect(prismaMock.journalBook.findUnique).not.toHaveBeenCalled()
     })
 
     it('draws nothing for a journal held back, or with no entries', async () => {
@@ -299,14 +302,15 @@ describe('db/tidy-sync', () => {
   })
 
   describe('reconcileTidy, on each hello', () => {
-    it('empties the Tidy entries of every character the hello doesn’t list as holding some', async () => {
-      await reconcileTidy(tx, 'c1', [PARTY.thorin])
+    const unlisted = {
+      campaignId: 'c1',
+      kind: 'personal',
+      actorId: { notIn: [PARTY.thorin] },
+    }
 
-      const unlisted = {
-        campaignId: 'c1',
-        kind: 'personal',
-        actorId: { notIn: [PARTY.thorin] },
-      }
+    it('empties the Tidy entries of every character the hello doesn’t list as holding some', async () => {
+      await reconcileTidy(tx, 'c1', [PARTY.thorin], [PARTY.thorin])
+
       expect(prismaMock.journalBook.updateMany).toHaveBeenCalledWith({
         where: {
           ...unlisted,
@@ -320,6 +324,45 @@ describe('db/tidy-sync', () => {
       expect(prismaMock.journalTidyEntry.deleteMany).toHaveBeenCalledWith({
         where: { book: unlisted },
       })
+      expect(prismaMock.journalBook.createMany).not.toHaveBeenCalled()
+    })
+
+    it('knows the journal of each character it says holds none, empty, so its first entry is dated', async () => {
+      await reconcileTidy(tx, 'c1', [PARTY.thorin, PARTY.vex], [PARTY.thorin])
+
+      expect(prismaMock.journalBook.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            campaignId: 'c1',
+            kind: 'personal',
+            actorId: PARTY.vex,
+            tidySyncedAt: new Date(NOW),
+          },
+        ],
+        skipDuplicates: true,
+      })
+      expect(prismaMock.journalBook.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          campaignId: 'c1',
+          kind: 'personal',
+          actorId: { in: [PARTY.vex] },
+          tidySyncedAt: null,
+        },
+        data: { tidySyncedAt: new Date(NOW) },
+      })
+    })
+
+    it('drops every entry and knows no journal where it says nothing of Tidy, so none comes back dated', async () => {
+      await reconcileTidy(tx, 'c1', [PARTY.thorin, PARTY.vex], undefined)
+
+      expect(prismaMock.journalTidyEntry.deleteMany).toHaveBeenCalledWith({
+        where: { book: { ...unlisted, actorId: { notIn: [] } } },
+      })
+      expect(prismaMock.journalBook.updateMany).toHaveBeenLastCalledWith({
+        where: { campaignId: 'c1', tidySyncedAt: { not: null } },
+        data: { tidySyncedAt: null },
+      })
+      expect(prismaMock.journalBook.createMany).not.toHaveBeenCalled()
     })
   })
 })

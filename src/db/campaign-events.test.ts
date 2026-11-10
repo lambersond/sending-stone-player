@@ -2752,19 +2752,30 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
   })
 
   // Module 0.45.0: the Tidy 5e Sheets journals of characters the hello doesn't list as holding
-  // one go; where it says nothing of Tidy, as an older module, every one does. And every book is
-  // new where Tidy was turned off, for the line its entries then say.
+  // one go, and theirs are known, empty, so a first entry is dated; where it says nothing of Tidy,
+  // as an older module, every one goes and none is known. And every book is new where Tidy was
+  // turned off, for the line its entries then say.
   it.each([
     [
       'those it doesn’t list',
-      { active: true, version: '14.4.1', actors: ['thorin'] },
-      ['thorin'],
+      { active: true, version: '14.4.1', actors: [PARTY.thorin] },
+      [PARTY.thorin],
+      [PARTY.vex],
     ],
-    ['every one where it says nothing of Tidy', undefined, []],
+    ['every one where it says nothing of Tidy', undefined, [], []],
   ])(
     'drops the hello’s characters’ Tidy entries: %s',
-    async (_name, tidy, kept) => {
-      await stored({ rolls, notes: { ...KEEPING, tidy } })
+    async (_name, tidy, kept, known) => {
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: [
+            { id: PARTY.thorin, name: 'Thorin' },
+            { id: PARTY.vex, name: 'Vex' },
+          ],
+          combats: [],
+          features: { rolls, notes: { ...KEEPING, tidy } },
+        }) as GameEvent,
+      )
 
       expect(prismaMock.journalTidyEntry.deleteMany).toHaveBeenCalledWith({
         where: {
@@ -2775,6 +2786,10 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
           },
         },
       })
+      const made = prismaMock.journalBook.createMany.mock.calls.flatMap(
+        ([args]) => (args?.data as { actorId: string }[]).map(b => b.actorId),
+      )
+      expect(made).toEqual(known)
     },
   )
 

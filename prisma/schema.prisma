@@ -529,9 +529,11 @@ model JournalBook {
   changedAt    DateTime?
   changedBy    String?
   changedIn    String?
-  // When its character's Tidy 5e Sheets journal was last sent, from module 0.45.0: unset until the
-  // first, whose entries are undated, as they were there before the app could see them. And why
-  // the last was held back, { reason: 'tooLarge', bytes, limit }, its entries kept as they were.
+  // When the app last knew its character's Tidy 5e Sheets journal, from module 0.45.0: when it was
+  // last sent, or a hello said the character holds none. Unset until then, so the entries of the
+  // first sent are undated, as they were there before the app could see them; and unset again by a
+  // hello that says nothing of Tidy, as an older module's. And why the last was held back,
+  // { reason: 'tooLarge', bytes, limit }, its entries kept as they were.
   tidySyncedAt DateTime?
   tidyWithheld Json?
   createdAt    DateTime           @default(now())

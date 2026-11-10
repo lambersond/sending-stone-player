@@ -8,8 +8,9 @@ import type { JournalTidy, TidyPage } from '@/types/sending-stone'
 // Tidy 5e Sheets' journal (module 0.45.0): what a character's players keep on its Journal tab in
 // Tidy, as the module sends it, whole, in `journal.tidy`; kept here beside the character's personal
 // book, read only, never written back. Tidy keeps no dates, so the app keeps two of its own: when
-// it first heard of each entry, and when its revision last changed. Entries there when the book's
-// first Tidy journal comes are undated, as they were written before the app could see them.
+// it first heard of each entry, and when its revision last changed. Entries there before the app
+// knows the character's Tidy journal, by the first sent of it, are undated, as they were written
+// before the app could see them; a hello that says the character holds none makes it known, empty.
 
 /** An entry's key among its book's Tidy entries: where Tidy keeps it, and its key there. */
 function keyOf(entry: { from: string; id: string }): string {
@@ -26,22 +27,6 @@ function drawn(page: TidyPage, origin: string): string {
   return noteHtml({ format: 1, body: page.html }, origin, true)
 }
 
-/**
- * Whether an entry held is drawn again from what's sent of it: where what's sent may differ, by
- * its revision, or by what the module left out of it, a secret or the end of a long text. Its
- * HTML isn't kept, only its drawing, so one unchanged keeps its drawing.
- */
-function redrawn(
-  held: Pick<JournalTidyEntry, 'revision' | 'secret' | 'cut'>,
-  page: TidyPage,
-): boolean {
-  return (
-    held.revision !== page.rev ||
-    held.secret !== (page.secret === true) ||
-    held.cut !== (page.cut === true)
-  )
-}
-
 /** A journal.tidy's entries, each once, the first of any sent twice. */
 function sentOnce(event: JournalTidy): TidyPage[] {
   const seen = new Set<string>()
@@ -55,8 +40,9 @@ function sentOnce(event: JournalTidy): TidyPage[] {
 
 /**
  * Draw a `journal.tidy`'s entries ahead, before the transaction that keeps them, as a journal's
- * notes are: hundreds of long entries take longer to draw than a transaction may stay open. Only
- * those the book, as it was just now, would draw again; the keeping draws any other itself.
+ * notes are: hundreds of long entries take longer to draw than a transaction may stay open. Each is
+ * drawn every time, as a journal's Foundry HTML is: only its drawing is kept, which the campaign's
+ * origin, moved since, may change.
  * @returns Undefined where nothing is to be drawn.
  */
 export async function drawTidy(
@@ -64,37 +50,14 @@ export async function drawTidy(
   event: JournalTidy,
 ): Promise<JournalDrawings | undefined> {
   if (event.withheld || event.entries.length === 0) return
-  const [campaign, book] = await Promise.all([
-    prisma.campaign.findUnique({
-      where: { id: campaignId },
-      select: { origin: true },
-    }),
-    prisma.journalBook.findUnique({
-      where: {
-        campaignBook: { campaignId, kind: 'personal', actorId: event.actorId },
-      },
-      select: {
-        tidy: {
-          select: {
-            source: true,
-            entryId: true,
-            revision: true,
-            secret: true,
-            cut: true,
-          },
-        },
-      },
-    }),
-  ])
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: { origin: true },
+  })
   if (!campaign) return
-  const held = new Map(book?.tidy.map(entry => [heldKey(entry), entry]))
-  const html = new Map<string, string>()
-  for (const page of sentOnce(event)) {
-    const before = held.get(keyOf(page))
-    if (!before || redrawn(before, page)) {
-      html.set(keyOf(page), drawn(page, campaign.origin))
-    }
-  }
+  const html = new Map(
+    sentOnce(event).map(page => [keyOf(page), drawn(page, campaign.origin)]),
+  )
   return { origin: campaign.origin, html }
 }
 
@@ -156,7 +119,8 @@ export async function applyJournalTidy(
   const ahead = drawings?.origin === campaign.origin ? drawings.html : undefined
   const draw = (page: TidyPage) =>
     ahead?.get(keyOf(page)) ?? drawn(page, campaign.origin)
-  // The first a book is sent: what it holds was there before the app could see it.
+  // Until the app knows the journal, sent it or told it holds none, what it holds was there before
+  // the app could see it.
   const firstSeenAt = held.tidySyncedAt ? now : null
   let changed = await mirrorTidy(tx, held, sentOnce(event), {
     draw,
@@ -175,8 +139,8 @@ export async function applyJournalTidy(
 }
 
 /**
- * A book's Tidy entries made those sent: those gone deleted, each changed written again, drawn
- * again where what's sent of it changed, and new ones made in one go.
+ * A book's Tidy entries made those sent: those gone deleted, each changed written again, its
+ * drawing among what may change, and new ones made in one go.
  * @returns Whether any entry changed.
  */
 async function mirrorTidy(
@@ -221,7 +185,7 @@ async function mirrorTidy(
       })
       continue
     }
-    const html = redrawn(before, page) ? draw(page) : before.html
+    const html = draw(page)
     const differs =
       html !== before.html ||
       (Object.keys(fields) as (keyof typeof fields)[]).some(
@@ -256,19 +220,27 @@ async function mirrorTidy(
 /**
  * On each hello (module 0.45.0): the Tidy entries of every character the hello's
  * `features.notes.tidy` doesn't list as holding some go, as do those of every character where it
- * says nothing of Tidy, as a module before 0.45.0, which never sends them. Only the app's copy
- * goes: a character that has entries after all sends them in the `journal.tidy` that follows.
- * @param actors - The characters the hello lists as holding Tidy entries.
+ * says nothing of Tidy, as a module before 0.45.0, which never sends them. Only the app's copy goes:
+ * a character that has entries after all sends them in the `journal.tidy` that follows.
+ *
+ * And what the app knows of each journal, which its entries' dates rest on: a character the hello
+ * doesn't list holds none, so each entry it's sent later is new, and dated, as its first, written
+ * while no Gamemaster was in Foundry, is when the next hello brings it. Where the hello says nothing
+ * of Tidy, the app knows none: once a module says again, what it sends is as new as at first, and
+ * undated, never dated by when it came back.
+ * @param characters - The hello's characters, by their actors' ids.
+ * @param actors - Those it lists as holding Tidy entries; none where it says nothing of Tidy.
  */
 export async function reconcileTidy(
   tx: Tx,
   campaignId: string,
-  actors: string[],
+  characters: string[],
+  actors: string[] | undefined,
 ): Promise<void> {
   const unlisted = {
     campaignId,
     kind: 'personal' as const,
-    actorId: { notIn: actors },
+    actorId: { notIn: actors ?? [] },
   }
   // Each such book holding any is new: its entries are gone, and what was held back with them.
   await tx.journalBook.updateMany({
@@ -279,4 +251,33 @@ export async function reconcileTidy(
     data: { tidyWithheld: Prisma.DbNull, version: { increment: 1 } },
   })
   await tx.journalTidyEntry.deleteMany({ where: { book: unlisted } })
+  if (!actors) {
+    await tx.journalBook.updateMany({
+      where: { campaignId, tidySyncedAt: { not: null } },
+      data: { tidySyncedAt: null },
+    })
+    return
+  }
+  const empty = characters.filter(actorId => !actors.includes(actorId))
+  if (empty.length === 0) return
+  const now = new Date()
+  // A book made for it shows nothing until a journal or an entry comes.
+  await tx.journalBook.createMany({
+    data: empty.map(actorId => ({
+      campaignId,
+      kind: 'personal' as const,
+      actorId,
+      tidySyncedAt: now,
+    })),
+    skipDuplicates: true,
+  })
+  await tx.journalBook.updateMany({
+    where: {
+      campaignId,
+      kind: 'personal',
+      actorId: { in: empty },
+      tidySyncedAt: null,
+    },
+    data: { tidySyncedAt: now },
+  })
 }
