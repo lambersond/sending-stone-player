@@ -14,17 +14,21 @@
 // page's dialog closes by itself, sending nothing. Rolled from the wide page with Spells' search field
 // focused as the ask comes: no dialog there, the banner, focus and what was typed kept; Type in from
 // the banner. The Gamemaster's Roll it now in Foundry: the phone's dialog closes by itself, nothing
-// sent, Foundry's die. Left a minute: the dialog counts down and closes by itself, nothing sent, the
-// ask expired at 60 s and Foundry's die rolled. Nothing is asked of Bob's 3D roll, whose die explodes
-// on Foundry's computer dice, nor of the Gamemaster's own roll from their page, nor shown to another
-// player or the Gamemaster's page. MIDI=1 with Midi-QOL's other activity "auto": dnd5e's own Ice
-// Knife (its spells24 pack: an attack of 1d10 piercing and Shard Explosion, 2d6 cold), its d20 and
-// 1d10 typed, Shard Explosion's 2d6 asked within the damage, on the phone, typed 3 and 5, Midi's other
-// damage 8; and the dagger's damage on the wide page with a Sneak Attack bonus damage macro, its 2d6
-// piercing asked, typed 4 and 4. DND5E6=1: the hello says diceAsks false, diceAsksReason "system", no
-// "dice" kind, and Wild Sparks' typed 6 explodes on Foundry's die, nothing asked. SKEW=042 with
-// MODULE=module-0.42.0: no diceAsks in the hello, the app keeps nothing new, and the typed 6's die
-// more is Foundry's, nothing asked nor shown. Synthetic characters only. Run with
+// sent from either page, Foundry's die, the banners gone within a poll. The die more, the tray
+// meanwhile "Waiting for your dice…", typed 6 at 40 s: it explodes again and is asked again, one die
+// at a time; that ask left a minute, the dialog counts down and closes by itself, nothing sent from
+// either page, the ask expired at its 60 s, Foundry's die rolled and the banners gone, the roll held
+// past its own minute and never timed out, in the module's result nor the app's view. Nothing is
+// asked of Bob's 3D roll, whose die explodes on Foundry's computer dice, nor of the Gamemaster's own
+// roll from their page, nor shown to another player or the Gamemaster's page. MIDI=1 with Midi-QOL's
+// other activity "auto": a copy of dnd5e's Ice Knife's activities (as its spells24 pack has them: an
+// attack of 1d10 piercing and Shard Explosion, 2d6 cold), its d20 and 1d10 typed, Shard Explosion's
+// 2d6 asked within the damage, on the phone, typed 3 and 5, Midi's other damage 8; and the dagger's
+// damage on the wide page with a Sneak Attack bonus damage macro, its 2d6 piercing asked, typed 4
+// and 4. DND5E6=1: the hello says diceAsks false, diceAsksReason "system", no "dice" kind, and Wild
+// Sparks' typed 6 explodes on Foundry's die, nothing asked. SKEW=042 with MODULE=module-0.42.0: no
+// diceAsks in the hello, the app keeps nothing new, and the typed 6's die more is Foundry's, nothing
+// asked nor shown. Synthetic characters only. Run with
 // --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BOB, DND5E6, MIDI, SKEW042, W, actors, browse, character, check, faces, finish, foundryTab, foundryWorld, launch, manualDice,
@@ -69,9 +73,10 @@ const thorin = character({ id: 'thorin', name: 'Thorin', owners: ['alice'], mods
     spell('mageHand', 'Mage Hand', 0, [plain('hand')]),
     spell('shield', 'Shield', 1, [plain('ward')]),
     spell('sleep', 'Sleep', 1, [plain('drowse')]),
-    // dnd5e's own Ice Knife (spells24, 1st-level/ice-knife.yml, identical at release-5.3.3 and
-    // 6.0.5): its attack, 1d10 piercing, and its save, Shard Explosion, 2d6 cold, 1d6 more a level
-    // above 1st, spending no slot, which Midi-QOL pairs with the attack as its other activity.
+    // A copy of dnd5e's Ice Knife's activities, made here as its spells24 pack has them
+    // (1st-level/ice-knife.yml, identical at release-5.3.3 and 6.0.5), nothing read from the pack:
+    // its attack, 1d10 piercing, and its save, Shard Explosion, 2d6 cold, 1d6 more a level above
+    // 1st, spending no slot, which Midi-QOL pairs with the attack as its other activity.
     spell('iceKnife', 'Ice Knife', 1, [
       { id: 'iceAttack', name: 'Ice Knife', attack: { ability: 'spellcasting' }, damage: [{ number: 1, denomination: 10, types: ['piercing'] }],
         labels: { modifier: '+5', damage: [hits('1d10', 'piercing')] } },
@@ -245,6 +250,15 @@ const focusOf = who => who.page.evaluate(() => {
 })
 const panel = who => who.page.getByRole('tabpanel')
 const tray = who => who.page.getByRole('region', { name: 'Your rolls' })
+const WAITING = 'Waiting for your dice…'
+/** The tray's latest roll as shown, each line of it. */
+const trayLatest = who => tray(who).getByRole('status').first().evaluate(el => ({
+  lines: [...el.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g, ' ').trim()),
+}))
+/** Until neither of Alice's pages shows the banner, as within a poll of an ask's close. */
+const bannersGone = () => until(async () => await bannerOf(phone).count() === 0 && await bannerOf(desk).count() === 0, 'the banners to go', 15_000).catch(() => {})
+/** How many dice answers each of Alice's pages posted. */
+const answerCounts = () => [answersBy(phone).length, answersBy(desk).length]
 const SPARKS_CHIP = 'Roll Wild Sparks: Burst, 1d6x'
 /** Wait for room under the app's limit of 20 rolls a minute from a player. */
 const lastMinute = () => Number(sql(`select count(*) from roll_request where "createdAt" > now() - interval '1 minute' and kind <> 'dice'`))
@@ -509,26 +523,54 @@ if (ASKS) {
     await dialog.waitFor({ timeout: 15_000 })
     await gmWindow().waitFor({ timeout: 10_000 })
     const answers = diceRequests()
+    const posted = answerCounts()
     faces.push(3)
     await gmWindow().getByRole('button', { name: 'Roll it now' }).click()
     await dialog.waitFor({ state: 'hidden', timeout: 15_000 })
     const { row, card } = await madeOf(id, 'the 1d6x')
     await wait(1000)
+    await bannersGone()
     check(row.status === 'done' && same(resultsOf(card?.rolls[0]), [6, 3]) && faces.length === 0 && (await closedAs(ask.id)) === 'rolled' && diceRequests() === answers
-      && await gmWindow().count() === 0 && await bannerOf(desk).count() === 0,
-      `the Gamemaster chooses Roll it now in Foundry: the ask closes "rolled", the phone's dialog closes by itself, nothing sent, and Foundry's die is a 3: the card's 6 and 3 (${card?.rolls[0].total})`)
+      && same(answerCounts(), posted) && await gmWindow().count() === 0 && await bannerOf(desk).count() === 0 && await bannerOf(phone).count() === 0,
+      `the Gamemaster chooses Roll it now in Foundry: the ask closes "rolled", the phone's dialog closes by itself, nothing sent from either page, and Foundry's die is a 3: the card's 6 and 3, the wide page's banner gone within a poll (${card?.rolls[0].total}; answers posted ${JSON.stringify(answerCounts())})`)
   }
 
   // ===============================================================================================
-  // 8. A minute: Foundry's computer dice
+  // 8. Its die more typed 6 at 40 s: asked again, one die at a time; then a minute, Foundry's die,
+  //    and the roll held past its own minute, never timed out
   // ===============================================================================================
-  part('8. a minute')
+  part('8. again, then a minute')
   {
     id = await sparks(phone)
-    ask = await nextAsk(id)
-    const dialog = askOf(phone)
+    const sent = Date.now()
+    // What the phone hears of the roll as it follows it, each look's time since it was sent.
+    const views = []
+    const heard = async response => {
+      if (response.request().method() !== 'GET' || !response.url().endsWith(`/rolls/${id}`)) return
+      const view = await response.json().catch(() => null)
+      views.push({ at: Date.now() - sent, status: view?.status ?? null, diceAsked: view?.diceAsked === true })
+    }
+    phone.page.on('response', heard)
+    const first = await nextAsk(id)
+    let dialog = askOf(phone)
     await dialog.waitFor({ timeout: 15_000 })
+    // 40 s into the roll's own minute, the first ask still open: the tray still waits for the dice.
+    await wait(Math.max(0, sent + 40_000 - Date.now()))
+    const held = await trayLatest(phone)
+    check(await dialog.isVisible() && held.lines[0] === 'Wild Sparks: Burst' && held.lines.includes(WAITING) && rollRow(id)?.status === 'claimed',
+      `40 s on, the phone's dialog still open, its tray's latest, Wild Sparks: Burst, says "${WAITING}", the roll still being made (${JSON.stringify(held.lines)})`)
+    await keys(dialog, '6')
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click()
+    await dialog.waitFor({ state: 'hidden', timeout: 5_000 })
+    ask = await nextAsk(id, 1)
+    dialog = askOf(phone)
+    await dialog.waitFor({ timeout: 15_000 })
+    check(ask.purpose === 'again' && ask.again === 'explode' && ask.id !== first.id && same(ask.rolls.map(roll => roll.terms), [[{ faces: 6, number: 1 }]]) && (await closedAs(first.id)) === 'answered'
+      && same(answersBy(phone).at(-1)?.answer, [{ roll: 0, term: 0, results: [6] }]) && await dialog.getByText(EXPLODED, { exact: true }).isVisible() && await askOf(desk).count() === 0,
+      `typed 6 at 40 s, the die more explodes again: the game asks again, for one more d6, its own dialog by itself on the phone again, "${EXPLODED}"`)
+    // Left alone: Foundry's computer dice, past the roll's own minute.
     const answers = diceRequests()
+    const posted = answerCounts()
     faces.push(4)
     const timer = (await dialog.getByRole('timer').textContent()).trim()
     const opened = Date.now()
@@ -537,10 +579,19 @@ if (ASKS) {
     const { row, card } = await madeOf(id, 'the 1d6x')
     await until(() => askRows().find(r => r.askId === ask.id)?.closedReason === 'expired', 'the app to close the ask', 10_000).catch(() => {})
     const kept = askRows().find(r => r.askId === ask.id)
+    // Gone from both pages within a poll, before anything else is rolled.
+    await bannersGone()
     check(/^[01]:\d\d left to answer$/.test(timer) && after > 45 && (await closedAs(ask.id)) === 'expired' && kept?.closedReason === 'expired'
-      && Date.parse(kept.closedAt) >= Date.parse(kept.expiresAt) - 2000 && diceRequests() === answers,
-      `left alone, the dialog counts down ("${timer}") and closes by itself ${after.toFixed(0)} s later, sending nothing; the ask expired at its minute`)
-    check(row.status === 'done' && same(resultsOf(card?.rolls[0]), [6, 4]) && faces.length === 0, `and Foundry's computer die rolled it, a 4: the card's 6 and 4 (${card?.rolls[0].total})`)
+      && Date.parse(kept.closedAt) >= Date.parse(kept.expiresAt) - 2000 && diceRequests() === answers && same(answerCounts(), posted)
+      && await gmWindow().count() === 0 && await bannerOf(phone).count() === 0 && await bannerOf(desk).count() === 0,
+      `left alone, the dialog counts down ("${timer}") and closes by itself ${after.toFixed(0)} s later, sending nothing from either page; the ask expired at its minute, the Gamemaster's window closed, and no banner left on either page (answers posted ${JSON.stringify(answerCounts())})`)
+    phone.page.off('response', heard)
+    const results = postsOf('command.result').filter(p => p.data?.id === id).map(p => p.data.status)
+    const late = views.filter(view => view.at > 80_000)
+    const took = (Date.now() - sent) / 1000
+    check(row.status === 'done' && same(resultsOf(card?.rolls[0]), [6, 6, 4]) && card.rolls[0].total === 16 && faces.length === 0 && took > 90
+      && same(results, ['done']) && views.length > 0 && !views.some(view => ['failed', 'lost', 'expired'].includes(view.status)) && late.some(view => view.status === 'rolling' && view.diceAsked),
+      `and Foundry's computer die rolled it, a 4: the card's 6, 6 and 4, 16, made ${took.toFixed(0)} s after it was sent, never timed out: the module's one result for it "done", and the app's view of it "rolling", waiting for the dice, past its 75 s (${JSON.stringify({ results, late: late.slice(0, 2), views: views.length })})`)
   }
 }
 

@@ -86,10 +86,12 @@ run typed 12 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-042
 # Module 0.45.0 (item 11): the dice the game rolls later, asked of a player typing theirs, on a
 # phone and a wide page: an exploding die's die more, Let the game roll, the dialog only where the
 # roll came from and not over a focused text field, the banner on the other device, the
-# Gamemaster's Roll it now, a minute's wait, nothing for a 3D player or the Gamemaster's own roll;
-# Midi-QOL's Ice Knife and a Sneak Attack bonus; dnd5e 6.0.5 (off, said so); and module 0.42.0.
-run laterdice 24 SHOTS=$O/shots-045
-run laterdice 30 MIDI=1 SHOTS=$O/shots-045
+# Gamemaster's Roll it now, the die more typed 6 at 40 s asked again, then a minute's wait, the roll
+# held past its own minute and never timed out (the plain and Midi-QOL runs about 45 s longer),
+# nothing for a 3D player or the Gamemaster's own roll; Midi-QOL's copy of Ice Knife's activities
+# and a Sneak Attack bonus; dnd5e 6.0.5 (off, said so); and module 0.42.0.
+run laterdice 26 SHOTS=$O/shots-045
+run laterdice 32 MIDI=1 SHOTS=$O/shots-045
 run laterdice 9 DND5E6=1 SHOTS=$O/shots-045
 run laterdice 9 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-045
 run theme 15 SHOTS=$O/shots-026
