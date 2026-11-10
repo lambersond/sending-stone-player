@@ -94,13 +94,6 @@ describe('app/api/characters/[id]/notes/order', () => {
       .mockResolvedValue({ ok: true, stamp: 'g:0011223344556677' })
   })
 
-  it('answers 401 signed out', async () => {
-    jest.mocked(getCurrentUser).mockResolvedValue(undefined as any)
-
-    await expect(send('PUT', ORDER)).resolves.toHaveProperty('status', 401)
-    await expect(send('PATCH', CHOICE)).resolves.toHaveProperty('status', 401)
-  })
-
   it('puts a group’s notes in a new order in the seat’s book, as its player, never cached', async () => {
     const response = await send('PUT', ORDER)
 
@@ -110,6 +103,7 @@ describe('app/api/characters/[id]/notes/order', () => {
       stamp: 'g:fedcba9876543210',
     })
     expect(reorderNotes).toHaveBeenCalledWith(SEAT, BOOK, ORDER)
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 
   it('settles an order the game didn’t take, as the seat chose', async () => {
@@ -122,21 +116,7 @@ describe('app/api/characters/[id]/notes/order', () => {
     })
     expect(resolveOrder).toHaveBeenCalledWith(SEAT, BOOK, CHOICE)
     expect(reorderNotes).not.toHaveBeenCalled()
-  })
-
-  it('answers 404 for another player’s character, saying no more', async () => {
-    jest.mocked(getCharacter).mockResolvedValue(undefined)
-
-    for (const [method, body] of [
-      ['PUT', ORDER],
-      ['PATCH', CHOICE],
-    ] as const) {
-      const response = await send(method, body)
-      expect(response.status).toBe(404)
-      await expect(response.text()).resolves.toBe('')
-    }
-    expect(reorderNotes).not.toHaveBeenCalled()
-    expect(resolveOrder).not.toHaveBeenCalled()
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 
   it('answers 415 for anything but JSON, 413 for too much, 400 for what isn’t an order or a choice', async () => {

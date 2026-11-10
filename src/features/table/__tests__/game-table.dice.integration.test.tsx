@@ -120,6 +120,18 @@ describe('components/game-table, the page’s dice', () => {
     expect(mockRenderers).toHaveBeenCalledTimes(1)
   })
 
+  it('puts the dice tray in the chat pane itself, with nothing between, as the tray caps its height by its parent’s', () => {
+    table(view())
+    const chat = screen.getByRole('region', { name: 'Chat' })
+    const toggle = within(chat).getByRole('button', { name: 'Roll dice' })
+    const panel = document.querySelector(
+      `#${CSS.escape(toggle.getAttribute('aria-controls') ?? '')}`,
+    )
+    // The tray's column, its bar and its panel, which the tray's own test holds to its parent's
+    // height less 6rem: a wrapper between it and the pane would leave the cap nothing to measure.
+    expect(panel?.parentElement?.parentElement).toBe(chat)
+  })
+
   it('rolls the chat’s dice tray on the same renderer, sends the plain roll and says what the game made of it', async () => {
     const user = userEvent.setup()
     answers['req-1'] = { status: 'done', visible: true, total: 17, rolls: [] }

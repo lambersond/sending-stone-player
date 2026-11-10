@@ -59,6 +59,11 @@ export type GameTableProps = {
   revokeCookbookCode?: () => Promise<void>
 }
 
+/**
+ * A turn that is the seat's own (v0.44): its character's, or one of its companions', by its key.
+ */
+export type SeatTurn = { companion?: string }
+
 /** What `useHold` puts on the tab held to end the turn: its pointer, menu and click handlers. */
 export type HoldHandlers = {
   onPointerDown: PointerEventHandler

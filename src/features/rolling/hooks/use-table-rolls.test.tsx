@@ -1893,8 +1893,27 @@ describe('hooks/use-table-rolls', () => {
         status: 'done',
         visible: false,
         unfollowed: true,
-        together: { count: 3, made: 3 },
+        together: { count: 3, made: 3, unfollowed: true },
       })
+    })
+
+    it('keeps one the app took with nothing to follow it by as sent, not made, once a later one is not made', async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, {}))
+        .mockResolvedValueOnce(respond(422, { reason: 'no-hit-dice' }))
+      const { result } = render(['hitDie'])
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(CHECK_EVERY)
+
+      expect(result.current.states.get('f1')).toEqual({
+        status: 'refused',
+        reason: 'no-hit-dice',
+        visible: false,
+        together: { count: 3, made: 1, unfollowed: true },
+      })
+      expect(posted()).toHaveLength(2)
     })
 
     it("sends none after one the game didn't take or make, keeping how many it made, and why not the rest", async () => {
@@ -4019,6 +4038,18 @@ describe('hooks/use-table-rolls, Wild Shape from the app, from module 0.40.0', (
     await advance(CHECK_EVERY)
     await expect(read).resolves.toEqual({ reason: 'unavailable' })
     expect(result.current.states.size).toBe(0)
+  })
+
+  it('says the list couldn’t be read back, not that the game failed, where the app took the read with nothing to follow it by', async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(202, {}))
+    const { result } = render([])
+    let read: Promise<unknown> = Promise.resolve()
+    act(() => {
+      read = result.current.readWildShapeForms()
+    })
+    await advance(0)
+    await expect(read).resolves.toEqual({ reason: 'unfollowed' })
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })
 

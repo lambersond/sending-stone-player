@@ -569,7 +569,8 @@ export function useTableRolls(
   /**
    * The Beasts the druid may learn, from module 0.40.0, as the game lists them now: asked and
    * followed as any request is, but apart from the rolls, logging nothing and drawing no line in
-   * the tray. Given up on as the page is left.
+   * the tray. Given up on as the page is left. One the app took with no id to follow it by has
+   * nothing to read back, which the game isn't to blame for (`unfollowed`).
    */
   const readWildShapeForms = useCallback(async (): Promise<WildShapeForms> => {
     const controller = new AbortController()
@@ -592,6 +593,7 @@ export function useTableRolls(
     if (last.status === 'done' && listed?.op === 'forms') {
       return { forms: listed.forms, more: listed.more, limits: listed.limits }
     }
+    if (last.unfollowed) return { reason: 'unfollowed' }
     return {
       reason: last.reason ?? (last.status === 'done' ? 'error' : last.status),
     }

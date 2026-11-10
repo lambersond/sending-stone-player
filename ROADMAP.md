@@ -23,64 +23,121 @@ Released: module v0.42.1 and its app.
 
 ## v0.44 (release candidate)
 
-From the table's first session with v0.42.1, after the refactor:
+From the table's first session with v0.42.1, after the refactor.
 
-1. **Typed dice for every roll an item makes:** when typing in dice, the dice an item rolls after
-   its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry, as
-   Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
-   homebrew and custom ones included, never a handler per spell.
-2. **Favorites on the Character tab (done in v0.44's PR):** a setting to show the favorites between
-   skills and traits.
-3. **Larger icon buttons on tablets (done in v0.44's PR):** icon-only buttons grow above a small
-   screen, and can shrink again where the screen is wide enough for their words.
-4. **Hit points from the app (done in v0.44's PR):** players set their own character's hit points
-   and temporary hit points as numbers, its Wild Shape form's and its companions' too, for what the
-   rolls don't do ("you fall through the floor and take 4 damage"), by a switch on the Player
-   actions tab of the module's settings, on by default; a drop asks a concentration save, and no
-   chat line is posted. The Hit points tile, and each companion's, opens an editor of the two.
-5. **Manual dice said in the dice dialog (done in v0.44's PR):** a note, or a "Manual Dice" chip in
-   its header, that the die results are typed in.
-6. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
-   dice), what each long press offers (damage, attack and other rolls), the settings, how manual
-   dice work, and that the Gamemaster applies short and long rests.
-7. **A plain die roll (done in v0.44's PR):** a dice tray under the chat, for what the Gamemaster
-   asks: dice of any of d4, d6, d8, d10, d12, d20 and d100 added and removed, several sizes at
-   once, with a modifier and no advantage or disadvantage, made in the game where the rolls are on;
-   its dice tumble over the whole character page.
-8. **The Gamemaster clears a campaign's chat (done in v0.44's PR):** including messages from the
-   cookbook, whose whispers now stay.
-9. Remaining bugs, and the known limits chosen to close before v1.0. Found in the v0.43 refactor
-   (not fixed there):
-   - **Rules in the database modules:** `src/db/roll-requests.ts` still holds a roll's pure refusal
-     rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
-     `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
-     `seatAllows`) and `src/db/notes.ts` the notes' view overlay; move them to `src/utils/`, where
-     they can be tested without the database's mocks.
-   - **Coverage:** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
-   - **Tooling:** a chapter line's test can race the clock, about once in 200 runs: its "just added"
-     case reads the time twice (`note-lines.test.tsx`, and the same case in
-     `chapter-pane.test.tsx`); the `@test-utils` path alias in
-     `tsconfig.json` has no match in `jest.config.ts`, so a suite importing the kit by it fails in
-     Jest only; and unicorn's `prefer-native-coercion-functions` autofix turns a type-guard filter
-     into `.filter(Boolean)`, which no longer typechecks.
+Done in v0.44's PRs:
 
-   Questions from it: a companion's refusals for its own-switch kinds (409 or 422); whether a list
-   in the module's settings is cut to its limit before or after its malformed entries are dropped
-   (the two readers differ); where the turn's refusal line clears; "the seat's own turn" for an
-   empty companion key; the hand-written types that differ from their schemas; the double reads on
-   the table, party and module polls; the overlapping route and table tests; the five
-   `console.error` logs; and whether the favorites' resource and check rows should draw the sheet's
-   own uses chips and row names, which would change their markup.
+- **Favorites on the Character tab:** a setting to show the favorites between skills and traits.
+- **Larger icon buttons on tablets:** icon-only buttons grow above a small screen, and can shrink
+  again where the screen is wide enough for their words.
+- **Hit points from the app:** players set their own character's hit points and temporary hit
+  points as numbers, its Wild Shape form's and its companions' too, for what the rolls don't do
+  ("you fall through the floor and take 4 damage"), by a switch on the Player actions tab of the
+  module's settings, on by default; a drop asks a concentration save, and no chat line is posted.
+  The Hit points tile, and each companion's, opens an editor of the two.
+- **Manual dice said in the dice dialog:** a "Manual Dice" chip in its header, that the die results
+  are typed in.
+- **A plain die roll:** a dice tray under the chat, for what the Gamemaster asks: dice of any of d4,
+  d6, d8, d10, d12, d20 and d100 added and removed, several sizes at once, with a modifier and no
+  advantage or disadvantage, made in the game where the rolls are on; its dice tumble over the
+  whole character page.
+- **The Gamemaster clears a campaign's chat:** including messages from the cookbook, whose whispers
+  now stay.
+- **The bugs the v0.43 refactor found,** fixed, and the favorites in one list until their card is
+  720 pixels wide.
 
-   Small ones left from v0.44's fixes, for a request taken with no id to follow:
-   - **The Beast list blames the game** when its forms read is taken with no id to follow: no forms
-     come back, and the list says the game failed (`use-table-rolls.ts`, `readWildShapeForms`).
-   - **A hit die told as made that may not be:** in a one-at-a-time hit-dice run (a module before
-     0.20.0), a die taken with no id to follow counts as made when a later die is not.
-   - **Focus left on End Turn:** after an End Turn taken with no id to follow, keyboard focus stays
-     on the End Turn button when the panel moves to another of the seat's turns.
+Left, in two batches. Pick from the list by number.
 
-v0.44 is the release candidate for v1.0: it runs at the table for a while before v1.0 is tagged.
+**Batch 1: what's left from the refactor, the fixes and the last two PRs**
+
+1. **Rules out of the database modules (done):** `src/db/roll-requests.ts` still holds a roll's pure
+   refusal rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
+   `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
+   `seatAllows`) and `src/db/notes.ts` the notes' view overlay; move them to `src/utils/`, where
+   they can be tested without the database's mocks.
+2. **Coverage (done):** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
+3. **Test tooling (done):** a chapter line's test can race the clock, about once in 200 runs: its
+   "just added" case reads the time twice (`note-lines.test.tsx`, and the same case in
+   `chapter-pane.test.tsx`); the `@test-utils` path alias in `tsconfig.json` has no match in
+   `jest.config.ts`, so a suite importing the kit by it fails in Jest only; and unicorn's
+   `prefer-native-coercion-functions` autofix turns a type-guard filter into `.filter(Boolean)`,
+   which no longer typechecks.
+4. **The Beast list blames the game (done)** when its forms read is taken with no id to follow: no
+   forms come back, and the list says the game failed (`use-table-rolls.ts`, `readWildShapeForms`).
+5. **A hit die told as made that may not be (done):** in a one-at-a-time hit-dice run (a module
+   before 0.20.0), a die taken with no id to follow counts as made when a later die is not.
+6. **Focus left on End Turn (done):** after an End Turn taken with no id to follow, keyboard focus
+   stays on the End Turn button when the panel moves to another of the seat's turns.
+7. **The dice tray's accessibility (done):** keyboard focus kept when the last die of a size is
+   removed (today it's lost with that chip); the formula announced as dice are added and removed;
+   and the open tray's height capped by the chat pane, not the screen, on short landscape screens.
+8. **e2e's known races (done),** written into `e2e/README.md`: transfers under dnd5e 6 ("the module
+   fetches for moves with rolls off"), companions under dnd5e 6 (a broken portrait shown for two
+   frames), toasts T7 (a toast pushed out by the three-toast cap pops back when the game answers
+   late), and alone's Fire Breath recharge at 768 and its spell picker's first focus under dnd5e 6.
+   Each has failed only under three lanes' load and passed alone.
+9. **e2e coverage gaps (done):** runs against module 0.42.0 (`SKEW=042`); the dice tray at 768
+   pixels, with the campaign's rolls turned off, and against an older module; and hit points under
+   dnd5e 6 and Midi-QOL.
+10. **Questions to settle (done)** (decisions, then any work they lead to):
+    - a companion's refusals for its own-switch kinds: 409 or 422 (decided: all answer 409
+      'unavailable'; done);
+    - whether a list in the module's settings is cut to its limit before or after its malformed
+      entries are dropped (the two readers differ) (decided: both drop what they can't read, then
+      cut, in one shared helper; done);
+    - where the turn's refusal line clears (decided: in both layouts it stays until the turn moves
+      on or End Turn is pressed again; done);
+    - "the seat's own turn" for an empty companion key (decided: one shared rule in all three
+      places, an empty key meaning no companion, as End Turn has it; done);
+    - the hand-written types that differ from their schemas (decided: each schema checked against
+      its hand-written type, not derived from it, and those that differ corrected or explained;
+      the three real mismatches found are fixed as bugs; done);
+    - the double reads on the table, party and module polls (measured: while a table is open, the
+      module's command wait makes about 636 queries a minute per campaign, half of the ~223,000 in
+      a 3-hour session with four players; decided: the campaign read once per command check and
+      the notes' old changes pruned once in 10 minutes, measured at 252 fewer queries a minute,
+      40% of the command wait, and about 45,000 fewer in a session, 20%; the table and party
+      double reads, about 3%, left as they are; done);
+    - the overlapping route and table tests (decided: the notes routes' repeats trimmed, one table
+      checking 401 and 404 for all 16 routes and each route's file keeping its wiring check, done;
+      the other three overlaps trimmed when those areas next change);
+    - the five `console.error` logs (decided: kept as they are; error tracking revisited after
+      v1.0 if failures go unnoticed);
+    - whether the favorites' resource and check rows should draw the sheet's own uses chips and
+      row names, which would change their markup (decided: kept as they are; revisited if players
+      ask for a Recharge button in Favorites).
+
+**Batch 2, last: typed dice and Help**
+
+11. **Typed dice for every roll an item makes:** when typing in dice, the dice an item rolls after
+    its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry,
+    as Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
+    homebrew and custom ones included, never a handler per spell.
+12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
+    dice), what each long press offers (damage, attack and other rolls), the settings, how manual
+    dice work (item 11 included), and that the Gamemaster applies short and long rests.
+
+**Found in Batch 1's item 10 work**
+
+13. **A chat line's roll label can name a function:** the table view looks up a message's ability
+    and skill, and a sheet skill's id, in plain objects (`rollLabel` and `toTableSheet` in
+    `src/utils/table-view.ts`), so a key every object inherits, such as `constructor`, is found,
+    and the chat line reads "function Object() { [native code] } save". dnd5e only sends its own
+    keys, so only a broken or hand-made message shows it; the lookup should check the key is the
+    table's own, as the schemas' `abilityId` does.
+14. **Clear said twice in the dice tray:** with dice and a modifier other than +0 in the tray,
+    Clear is announced twice, "No dice" and then "+0": `@lambersond/3d-dice-core`'s tray reducer
+    resets the modifier with the dice (its `clear`, in `dist/tray-reducer.js`), and the modifier's
+    own live output speaks as well as the tray's formula. A clear should be said once, as
+    `useDiceSaid` already keeps a modifier's step from being said twice.
+15. **A notes test that depends on the tests' order:** recordNoteResult's "changes nothing for a
+    result for an earlier hand-over, the change since moved on" (`src/db/note-sync.test.ts`)
+    passes only while no earlier test has left `journalOrder.findUnique` finding an order, as the
+    order results' tests do (Jest's `clearMocks` keeps what a mock returns), so under
+    `--randomize` it fails. The test should say that no order has the id, as its name does.
+
+Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
+for a while before v1.0 is tagged.
 
 ## v1.0
 
@@ -108,7 +165,18 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
    case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
    offline as it connects.
-8. Bug fixes and polish.
+8. **Tidy 5e Sheets' journal** (to be planned): the character-specific journal notes Tidy 5e
+   Sheets adds to a character, which aren't part of dnd5e's own character data (its
+   [`documentJournal` flag](https://kgar.github.io/foundry-vtt-tidy-5e-sheets/classes/TidyFlags.html#documentjournal)),
+   merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
+   with in the campaign's settings, as the others are. Where entries can be deconflicted by when
+   each was created, the app shows a chip on the journal pages that come from Tidy 5e Sheets.
+9. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
+   player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
+   (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
+   signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
+   until the cache expires, so its lifetime is chosen with that in mind.
+10. Bug fixes and polish.
 
 ## v2.0
 

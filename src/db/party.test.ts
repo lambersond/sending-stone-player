@@ -2,10 +2,8 @@ import {
   allowedGroup,
   getGroupView,
   getPartyStatus,
-  groupRoster,
   partyNotesAccess,
   partySeat,
-  tableGroups,
 } from './party'
 import { playerSeat } from './seats'
 import { getTableView } from './table'
@@ -17,8 +15,8 @@ import {
 } from '@/mocks/sending-stone'
 import { inventoryView } from '@/utils/table-view'
 import { prismaMock } from '@/utils/test-utils-node'
-import type { PartySeat } from './types'
 import type { SheetSeat } from '@/types/character'
+import type { PartySeat } from '@/types/party'
 
 const ORIGIN = 'https://my-game.forge-vtt.com'
 const UPDATED = new Date('2026-10-19T12:00:00.000Z')
@@ -71,18 +69,6 @@ const sheetHeld = (data: unknown = groupSheet()) =>
     data,
     updatedAt: UPDATED,
   } as any)
-
-/** A seat at a character's sheet in the campaign, of this actor. */
-const seat = (role: 'player' | 'gm', actorId: string): SheetSeat => ({
-  name: 'Vex',
-  gameUrl: ORIGIN,
-  campaignTitle: 'The Lonely Mountain',
-  campaignId: 'c1',
-  actorId,
-  role,
-  userId: 'user-1',
-  characterId: role === 'gm' ? null : 'char-2',
-})
 
 /**
  * The seat's table view of the campaign, its Gamemaster's columns set, and nothing else in it: no
@@ -252,9 +238,6 @@ describe('db/party', () => {
       ).resolves.toBeUndefined()
       held({ groups: 'company' })
       await expect(getGroupView(gm(), 'company')).resolves.toBeUndefined()
-      expect(groupRoster([null, groupEntry(), { name: 'x' }])).toEqual([
-        groupEntry(),
-      ])
     })
 
     it("takes a seat at a character's sheet as the same seat at its party sheets", () => {
@@ -391,43 +374,6 @@ describe('db/party', () => {
         'withheld',
         { reason: 'tooLarge' },
       )
-    })
-  })
-
-  describe('tableGroups', () => {
-    it('lists for a player only the groups they may see, the primary party first, never who else may', () => {
-      expect(
-        tableGroups(
-          seat('player', PARTY.vex),
-          [scouts, groupEntry(), hidden],
-          ORIGIN,
-        ),
-      ).toEqual([
-        {
-          id: 'company',
-          name: 'The Company',
-          portrait: `${ORIGIN}/worlds/erebor/company.webp`,
-          primary: true,
-        },
-        { id: 'scouts', name: 'Scouts', primary: false },
-      ])
-      expect(
-        tableGroups(
-          seat('player', PARTY.balin),
-          [scouts, groupEntry(), hidden],
-          ORIGIN,
-        ),
-      ).toEqual([])
-    })
-
-    it('lists every group for the Gamemaster, the primary party first', () => {
-      expect(
-        tableGroups(
-          seat('gm', PARTY.balin),
-          [scouts, groupEntry(), hidden],
-          ORIGIN,
-        ).map(({ id }) => id),
-      ).toEqual(['company', 'scouts', 'hidden'])
     })
   })
 

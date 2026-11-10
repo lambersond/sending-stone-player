@@ -55,8 +55,13 @@ describe('components/notes/note-lines', () => {
   })
 
   describe('ChapterLine', () => {
+    // Read once: two reads a millisecond apart would make an added chapter a renamed one.
+    const justNow = ago(0)
     it.each([
-      [{ createdAt: ago(0), modifiedAt: ago(0) }, 'Added by Thorin, just now'],
+      [
+        { createdAt: justNow, modifiedAt: justNow },
+        'Added by Thorin, just now',
+      ],
       [
         { createdAt: ago(9), modifiedAt: ago(0) },
         'Renamed by Thorin, just now',

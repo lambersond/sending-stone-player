@@ -7,16 +7,17 @@ import {
   DISHES_KEPT_FOR,
   DISHES_PER_DAY,
   DISHES_PER_MINUTE,
-  DISHES_PRUNE_EVERY,
   DISHES_SHOWN,
   MOST_DISHES_WAITING,
 } from '@/constants/cookbook'
 import { NO_DICE } from '@/constants/roll-kinds'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
-import { isLive } from '@/db/campaigns'
 import { due as pruneDue } from '@/db/commands'
+import { PRUNE_EVERY } from '@/db/constants'
 import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
+import { isLive } from '@/utils/live'
 import type {
+  ClaimCampaign,
   CookbookLinkFound,
   DishAccepted,
   CookbookLinkProblem,
@@ -210,24 +211,26 @@ const pruned = new Map<string, number>()
 /**
  * Hand a campaign's dishes to the module, at most a few at a time, oldest first: those waiting,
  * and those handed over whose answer is overdue, of a version its hello reads. Only to the
- * session whose hello is held, as notes are, and only while the campaign takes dishes, both read
- * again on every pass, so a newer hello's session takes over at once. A dish handed over too many
- * times unanswered fails for good. While nothing waits, a pass is two reads and no write, as a
- * held fetch claims about once a second.
+ * session whose hello is held, as notes are, and only while the campaign takes dishes, both as
+ * the fetch's check read them, on every pass, so a newer hello's session takes over at once. A
+ * dish handed over too many times unanswered fails for good. While nothing waits, a pass is one
+ * read and no write, as a held fetch claims about once a second.
  * @param session - The module session that fetched them.
+ * @param campaign - The campaign as the fetch's check read it, once for all its claims; null where
+ * it's gone.
  */
 export async function claimDishes(
   campaignId: string,
   session: string,
+  campaign: Pick<
+    ClaimCampaign,
+    'helloSession' | 'dishesEnabled' | 'dishVersions'
+  > | null,
 ): Promise<DishCommand[]> {
   const now = Date.now()
-  if (pruneDue(pruned, campaignId, DISHES_PRUNE_EVERY, now)) {
+  if (pruneDue(pruned, campaignId, PRUNE_EVERY, now)) {
     await pruneDishes(campaignId, now)
   }
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: campaignId },
-    select: { helloSession: true, dishesEnabled: true, dishVersions: true },
-  })
   if (
     !campaign ||
     campaign.helloSession !== session ||

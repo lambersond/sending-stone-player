@@ -8,7 +8,9 @@ import { RollingLine } from '../roll-tray/rolling-line'
 import { BonusStepper } from './bonus-stepper'
 import { DieButtons } from './die-buttons'
 import { TrayChips } from './tray-chips'
+import { useDiceSaid } from './use-dice-said'
 import { useDiceTray } from './use-dice-tray'
+import { useTrayFocus } from './use-tray-focus'
 import { rollName } from './utils'
 import type { RollFeature, RollKind } from '@/types/roll'
 
@@ -19,7 +21,8 @@ import type { RollFeature, RollKind } from '@/types/roll'
  * throws them over the page and keeps them for the next roll. Beneath, "Rolling…" as they tumble,
  * then the latest roll, as the game made it too, or not, its card coming in the chat above; and
  * whether the game makes these at all, and why not. It rolls as the character, whichever creature
- * the sheet shows.
+ * the sheet shows. Open, it's no taller than the pane it's put at the foot of, less room for the
+ * chat above, and its dice scroll within; open or closed, its bar always fits in the pane.
  * @param characterId - The character it rolls as, or for the Gamemaster's seat its key.
  * @param kinds - The rolls the game takes from the seat now.
  * @param features - What else the game does with them.
@@ -39,9 +42,15 @@ export function DiceTray({
   const [open, setOpen] = useState(false)
   const panel = useId()
   const tray = useDiceTray({ characterId, kinds, features, typing })
+  const focus = useTrayFocus(tray.dice, tray.remove)
+  const said = useDiceSaid(tray.dice, tray.bonus)
   const empty = tray.dice.length === 0
   return (
-    <div className='@container shrink-0 border-t border-border bg-card'>
+    // A column at the foot of the chat pane, held to its height less 6rem, so that on a short
+    // screen it's never taller than the pane and the chat above keeps room: its panel scrolls. But
+    // never below its bar, 3.5rem and its 1px border, which in a very short pane would otherwise
+    // reach below the pane's foot, open or closed.
+    <div className='@container flex max-h-[max(calc(100%-6rem),calc(3.5rem+1px))] shrink-0 flex-col border-t border-border bg-card'>
       <div className='flex items-center gap-2 px-3 py-1.5'>
         <h2 className='min-w-0 flex-1'>
           <button
@@ -73,13 +82,15 @@ export function DiceTray({
           </button>
         )}
       </div>
+      {/* Its space below in its content, which scrolls, so that the panel can shrink to nothing
+          in a very short pane, its bar alone shown. */}
       <div
         id={panel}
         hidden={!open}
-        className='max-h-[60dvh] overflow-y-auto px-4 pb-4'
+        className='relative max-h-[60dvh] overflow-y-auto px-4'
       >
-        <div className='flex flex-col gap-3'>
-          <DieButtons room={tray.room} onAdd={tray.add} />
+        <div className='flex flex-col gap-3 pb-4'>
+          <DieButtons room={tray.room} onAdd={tray.add} addRef={focus.addRef} />
           {empty ? (
             <p className='text-sm text-text-secondary'>
               Tap a die to add it. Add as many as you need, of any size.
@@ -89,9 +100,20 @@ export function DiceTray({
               dice={tray.dice}
               room={tray.room}
               onAdd={tray.add}
-              onRemove={tray.remove}
+              onRemove={focus.remove}
+              fewerRef={focus.fewerRef}
             />
           )}
+          {/* The whole formula, said as the dice are added and taken away, and only then: a
+              modifier's step changes its words unsaid. Placed in the panel, which holds it as it
+              scrolls. */}
+          <output
+            aria-live={said.live}
+            aria-label='Dice picked'
+            className='sr-only'
+          >
+            {said.words}
+          </output>
           <BonusStepper bonus={tray.bonus} onStep={tray.step} />
           <button
             type='button'

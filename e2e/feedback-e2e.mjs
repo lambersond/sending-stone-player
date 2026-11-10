@@ -31,6 +31,8 @@
 // SKEW=028 with MODULE (or MODULE_DIR) set to module 0.28.0: no End, no spending, no inspiration
 // control, no spell-slot dots to tap, no greyed Use, no Neutral pill and no wire pills; the
 // sections, the Ally and You pills, search and the AC fallback, the app's alone, still there.
+// SKEW=042 with MODULE=module-0.42.0, from before 0.42.1: all of it but the spell slots from the dots,
+// none listed nor kept, the dots pictures with their count and no word why.
 // OLDAPP=1 against the app at 1323970,
 // served in this one's place, with module 0.29.0: the new kinds dropped, every new field ignored,
 // everything the module sends taken. Synthetic characters only. Run with --import
@@ -47,6 +49,8 @@ const SKEW = process.env.SKEW === '028'
 const OLDAPP = Boolean(process.env.OLDAPP)
 /** Whether both sides are this round's. */
 const NEW = !SKEW && !OLDAPP
+/** Module 0.42.0, from before 0.42.1: everything this round's module does, but no spell slots from the dots. */
+const SKEW042 = process.env.SKEW === '042'
 const MIDI = Boolean(process.env.MIDI)
 const DND5E = `${DND5E5}/module/dice`
 const GAME = 'https://lonely-mountain.forge-vtt.com'
@@ -56,7 +60,7 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 // Module 0.31.0's pictures go beside the others, in shots-031.
 const SHOTS031 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-031`
 if (SHOTS031) mkdirSync(SHOTS031, { recursive: true })
-const VARIANT = `${SKEW ? '-skew028' : ''}${OLDAPP ? '-oldapp' : ''}${MIDI ? '-midi' : ''}`
+const VARIANT = `${SKEW ? '-skew028' : ''}${SKEW042 ? '-skew042' : ''}${OLDAPP ? '-oldapp' : ''}${MIDI ? '-midi' : ''}`
 const ALICE = await cookieFor('e2e-token')
 const BOB = await cookieFor('e2e-bob-token')
 const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
@@ -1279,7 +1283,10 @@ const PACT_MAGIC = {
   const listed = features.rolls.kinds
   const stored = kinds()
   const after = (list, kind) => list[list.indexOf(kind) + 1]
-  if (NEW) {
+  if (SKEW042) {
+    check(!listed.includes('spellSlot') && !stored.includes('spellSlot'),
+      `module 0.42.0 lists no spell slots spent or restored, nor does the app keep any (${stored.join(',')})`)
+  } else if (NEW) {
     const companion = features.companions?.kinds
     check(after(listed, 'inspiration') === 'spellSlot' && after(stored, 'inspiration') === 'spellSlot'
       && Array.isArray(companion) && companion.length > 0 && !companion.includes('spellSlot'),
@@ -1288,7 +1295,7 @@ const PACT_MAGIC = {
     check(!listed.includes('spellSlot') && !stored.includes('spellSlot'), `module 0.28.0 lists no spell slots spent or restored, nor does the app keep any (${stored.join(',')})`)
   } else note("the app from before knows nothing of spell slots spent from the dots, which isn't this round's to test")
 }
-if (NEW) {
+if (NEW && !SKEW042) {
   await phone.character()
   await phone.tab('Spells')
   const first = levelOf(phone, '1st Level')
@@ -1628,6 +1635,17 @@ if (NEW) {
   const look = await picturesOf(first)
   check(look.buttons === 0 && look.rings === 4 && look.counts.includes('3/4'),
     `with module 0.28.0, 1st Level's dots are pictures, as before: no button for its slots, four rings, "3/4" (${JSON.stringify(look)})`)
+} else if (SKEW042) {
+  // 10. Module 0.42.0 lists no such kind either: the dots as before, and nothing says why.
+  await phone.character()
+  await phone.tab('Spells')
+  const first = levelOf(phone, '1st Level')
+  await first.waitFor()
+  const look = await picturesOf(first)
+  const words = (await first.textContent()).replace(/\s+/g, ' ')
+  check(look.buttons === 0 && look.rings === 4 && look.counts.includes('3/4') && !/0\.42|version|module/i.test(words),
+    `with module 0.42.0, 1st Level's dots are pictures, as before: no button for its slots, four rings, "3/4", and no word why (${JSON.stringify(look)})`)
+  await shoot(phone, 'slots-old-module', first)
 }
 
 // =================================================================================================

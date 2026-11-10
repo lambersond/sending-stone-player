@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { leftOut, orNull } from '@/schemas/utils'
+import { leftOut, listOf, orNull } from '@/schemas/utils'
 import type { FoundrySettings } from '@/types/foundry-settings'
 
 // The Foundry settings a module from 0.30.0 sends with each hello, and in bridge.settings when one
@@ -14,18 +14,6 @@ const LONGEST = 300
 const LONGEST_VALUE = 100
 
 const text = z.string().max(LONGEST)
-
-/** A list whose malformed entries are dropped, rather than failing the whole list, up to `most`. */
-const listOf = <T extends z.ZodType>(entry: T, most: number) =>
-  z
-    .array(z.unknown())
-    .catch([])
-    .transform(entries =>
-      entries.slice(0, most).flatMap(value => {
-        const parsed = entry.safeParse(value)
-        return parsed.success ? [parsed.data as z.output<T>] : []
-      }),
-    )
 
 const moduleSchema = z.object({
   id: text,

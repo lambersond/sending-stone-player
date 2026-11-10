@@ -79,16 +79,6 @@ describe('app/api/characters/[id]/notes/[note]', () => {
     jest.mocked(deleteNote).mockResolvedValue({ ok: true, stamp: 'w:a.0' })
   })
 
-  it('answers 401 signed out', async () => {
-    jest.mocked(getCurrentUser).mockResolvedValue(undefined as any)
-
-    await expect(patch({ title: 'a', stamp: 'n:' })).resolves.toHaveProperty(
-      'status',
-      401,
-    )
-    await expect(remove()).resolves.toHaveProperty('status', 401)
-  })
-
   it('changes the note in the seat’s book, from the stamp its page saw', async () => {
     const response = await patch({ title: 'Wolves', stamp: 'n:abc' })
 
@@ -99,6 +89,7 @@ describe('app/api/characters/[id]/notes/[note]', () => {
       title: 'Wolves',
       stamp: 'n:abc',
     })
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 
   it('deletes the note in the seat’s book, from the stamp its page saw', async () => {
@@ -106,17 +97,6 @@ describe('app/api/characters/[id]/notes/[note]', () => {
 
     expect(response.status).toBe(200)
     expect(deleteNote).toHaveBeenCalledWith(PLAYER, BOOK, NOTE, 'n:abc')
-  })
-
-  it('answers 404 for another player’s character, changing nothing', async () => {
-    jest.mocked(getCharacter).mockResolvedValue(undefined)
-
-    await expect(patch({ title: 'a', stamp: 'n:' })).resolves.toHaveProperty(
-      'status',
-      404,
-    )
-    await expect(remove()).resolves.toHaveProperty('status', 404)
-    expect(changeNote).not.toHaveBeenCalled()
-    expect(deleteNote).not.toHaveBeenCalled()
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
   })
 })

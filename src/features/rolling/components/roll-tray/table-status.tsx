@@ -74,7 +74,7 @@ export function TableStatus({
       {/* As one, so that why reads on from what was made, rather than beside it. */}
       <span>
         {state.together?.made ? (
-          <PartlyMade state={state} together={state.together} />
+          <PartlyMade state={state} together={state.together} role={role} />
         ) : (
           'Not made at the table'
         )}

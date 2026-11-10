@@ -12,11 +12,12 @@ import {
   claimNoteWrites,
   drawJournal,
   MADE_KEPT_FOR,
-  placesOf,
   reconcileJournals,
   recordNoteResult,
 } from './note-sync'
+import { PRUNE_EVERY } from '@/db/constants'
 import { mockJournalUpdated, NOTE_IDS, PARTY } from '@/mocks/sending-stone'
+import { placesOf } from '@/utils/notes/commands'
 import { prismaMock } from '@/utils/test-utils-node'
 import type { CommandResult, JournalPage } from '@/types/sending-stone'
 
@@ -167,15 +168,14 @@ const eventBook = (fields: object = {}) =>
     ...fields,
   } as any)
 
-/** The campaign as the claim reads it: this session’s hello, taking notes, its owner gm-1. */
-const claimCampaign = (fields: object = {}) =>
-  prismaMock.campaign.findUnique.mockResolvedValue({
-    helloSession: 's1',
-    notesEnabled: true,
-    noteFeatures: [],
-    ownerId: 'gm-1',
-    ...fields,
-  } as any)
+/** The campaign as the fetch's check reads it: this session’s hello, notes on, its owner gm-1. */
+const claimCampaign = (fields: object = {}) => ({
+  helloSession: 's1',
+  notesEnabled: true,
+  noteFeatures: [] as string[],
+  ownerId: 'gm-1' as string | null,
+  ...fields,
+})
 
 /** The changes the claim finds, then the same as it hands them over, with their book. */
 const waitingRows = (rows: Partial<JournalWrite>[]) =>
@@ -188,19 +188,6 @@ const waitingRows = (rows: Partial<JournalWrite>[]) =>
         book: { kind: 'personal', actorId: PARTY.thorin },
       })) as any,
     )
-
-/** A page of a journal, by id, role and chapter, for its place in its group. */
-const pageOf = (
-  id: string,
-  role: 'chapter' | 'entry',
-  chapter: string | null = null,
-) =>
-  ({
-    ...mockJournalUpdated('personal').journal!.notes[0],
-    id,
-    role,
-    chapter,
-  }) as JournalPage
 
 /** The personal mock's notes as the mirror holds them, drawn as they would be. */
 const mirrored = (event = mockJournalUpdated('personal')) =>
@@ -650,29 +637,46 @@ describe('db/note-sync', () => {
 
   describe('claimNoteWrites', () => {
     beforeEach(() => {
-      claimCampaign()
       prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
     })
 
-    it('deletes made changes past their hour, first', async () => {
-      waitingRows([])
-
-      await claimNoteWrites('c1', 's1')
-
-      expect(prismaMock.journalWrite.deleteMany).toHaveBeenCalledWith({
-        where: {
-          campaignId: 'c1',
-          status: 'made',
-          updatedAt: { lt: ago(MADE_KEPT_FOR) },
-        },
-      })
+    it('deletes made changes and orders past their hour first, at most once every ten minutes per server', async () => {
       expect(MADE_KEPT_FOR).toBe(3_600_000)
+      expect(PRUNE_EVERY).toBe(600_000)
+      // A claim at each time, and whether it prunes.
+      for (const [at, prunes] of [
+        [NOW, true],
+        [NOW + PRUNE_EVERY - 1, false],
+        [NOW + PRUNE_EVERY, true],
+      ] as const) {
+        jest.clearAllMocks()
+        jest.setSystemTime(at)
+        waitingRows([])
+
+        await claimNoteWrites('c-prune', 's1', claimCampaign())
+
+        const stale = {
+          where: {
+            campaignId: 'c-prune',
+            status: 'made',
+            updatedAt: { lt: new Date(at - MADE_KEPT_FOR) },
+          },
+        }
+        for (const rows of [prismaMock.journalWrite, prismaMock.journalOrder]) {
+          expect(rows.deleteMany.mock.calls).toEqual(prunes ? [[stale]] : [])
+        }
+      }
+      expect(
+        prismaMock.journalOrder.deleteMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        prismaMock.journalWrite.findMany.mock.invocationCallOrder[0],
+      )
     })
 
     it('hands over the changes waiting, and those unanswered past 75 seconds, oldest first, the Gamemaster’s only the owner’s', async () => {
       waitingRows([{}])
 
-      await claimNoteWrites('c1', 's1')
+      await claimNoteWrites('c1', 's1', claimCampaign())
 
       const due = {
         OR: [
@@ -720,10 +724,9 @@ describe('db/note-sync', () => {
     })
 
     it('hands only players’ over where the campaign has no owner', async () => {
-      claimCampaign({ ownerId: null })
       waitingRows([])
 
-      await claimNoteWrites('c1', 's1')
+      await claimNoteWrites('c1', 's1', claimCampaign({ ownerId: null }))
 
       expect(
         prismaMock.journalWrite.findMany.mock.calls[0][0]?.where?.AND,
@@ -734,17 +737,15 @@ describe('db/note-sync', () => {
       ['another session', { helloSession: 's2' }],
       ['a module that keeps no notes', { notesEnabled: false }],
     ])('hands nothing to %s', async (_name, fields) => {
-      claimCampaign(fields)
-
-      await expect(claimNoteWrites('c1', 's1')).resolves.toEqual([])
+      await expect(
+        claimNoteWrites('c1', 's1', claimCampaign(fields)),
+      ).resolves.toEqual([])
       expect(prismaMock.journalWrite.findMany).not.toHaveBeenCalled()
       expect(prismaMock.journalWrite.updateMany).not.toHaveBeenCalled()
     })
 
     it('hands nothing where the campaign is gone', async () => {
-      prismaMock.campaign.findUnique.mockResolvedValue(null)
-
-      await expect(claimNoteWrites('c1', 's1')).resolves.toEqual([])
+      await expect(claimNoteWrites('c1', 's1', null)).resolves.toEqual([])
     })
 
     it('hands over as many characters as a fetch takes, but always one', async () => {
@@ -753,14 +754,14 @@ describe('db/note-sync', () => {
         { id: W2, body: 'b'.repeat(300_000) },
       ])
 
-      await claimNoteWrites('c1', 's1')
+      await claimNoteWrites('c1', 's1', claimCampaign())
 
       expect(
         prismaMock.journalWrite.updateMany.mock.calls[0][0].where,
       ).toMatchObject({ OR: [{ id: W1, seq: 0 }] })
 
       waitingRows([{ id: W1, body: 'a'.repeat(600_000) }])
-      await claimNoteWrites('c1', 's1')
+      await claimNoteWrites('c1', 's1', claimCampaign())
       expect(
         prismaMock.journalWrite.updateMany.mock.calls[1][0].where,
       ).toMatchObject({ OR: [{ id: W1, seq: 0 }] })
@@ -810,7 +811,7 @@ describe('db/note-sync', () => {
         },
       ])
 
-      const commands = await claimNoteWrites('c1', 's1')
+      const commands = await claimNoteWrites('c1', 's1', claimCampaign())
 
       expect(
         commands.map(command => [command.by, command.note.writer]),
@@ -854,7 +855,7 @@ describe('db/note-sync', () => {
         },
       ])
 
-      const commands = await claimNoteWrites('c1', 's1')
+      const commands = await claimNoteWrites('c1', 's1', claimCampaign())
 
       const common = { mode: 0, explicit: false, extras: [], dice: [] }
       expect(commands).toEqual([
@@ -1123,28 +1124,6 @@ describe('db/note-sync', () => {
   })
 
   describe('the order of a group’s notes, from module 0.35.0', () => {
-    it('places each note in its group as Foundry sends the journal: the chapters, and each group’s notes, counted apart', () => {
-      const places = placesOf([
-        pageOf('looseNote0000001', 'entry'),
-        pageOf('chapterOne000001', 'chapter'),
-        pageOf('inOne00000000001', 'entry', 'chapterOne000001'),
-        pageOf('looseNote0000002', 'entry'),
-        pageOf('chapterTwo000001', 'chapter'),
-        pageOf('inOne00000000002', 'entry', 'chapterOne000001'),
-        pageOf('inTwo00000000001', 'entry', 'chapterTwo000001'),
-      ])
-
-      expect(Object.fromEntries(places)).toEqual({
-        looseNote0000001: 0,
-        chapterOne000001: 0,
-        inOne00000000001: 0,
-        looseNote0000002: 1,
-        chapterTwo000001: 1,
-        inOne00000000002: 1,
-        inTwo00000000001: 0,
-      })
-    })
-
     describe('kept from journal.updated', () => {
       beforeEach(() => {
         eventCampaign()
@@ -1232,33 +1211,19 @@ describe('db/note-sync', () => {
     })
 
     describe('handed over with the notes’ changes', () => {
+      /** The campaign, its module's hello saying it takes orders. */
+      const takingOrders = claimCampaign({ noteFeatures: ['orders'] })
+
       beforeEach(() => {
-        claimCampaign({ noteFeatures: ['orders'] })
         prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
         prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 1 })
       })
 
-      it('deletes made orders past their hour, first, as made changes are', async () => {
-        waitingRows([])
-        waitingOrders([])
-
-        await claimNoteWrites('c1', 's1')
-
-        expect(prismaMock.journalOrder.deleteMany).toHaveBeenCalledWith({
-          where: {
-            campaignId: 'c1',
-            status: 'made',
-            updatedAt: { lt: ago(MADE_KEPT_FOR) },
-          },
-        })
-      })
-
       it('hands orders over only to a module whose hello says it takes them', async () => {
-        claimCampaign({ noteFeatures: [] })
         waitingRows([{}])
         waitingOrders([{}])
 
-        const commands = await claimNoteWrites('c1', 's1')
+        const commands = await claimNoteWrites('c1', 's1', claimCampaign())
 
         expect(prismaMock.journalOrder.findMany).not.toHaveBeenCalled()
         expect(prismaMock.journalOrder.updateMany).not.toHaveBeenCalled()
@@ -1269,7 +1234,7 @@ describe('db/note-sync', () => {
         waitingRows([{}])
         waitingOrders([{}])
 
-        await claimNoteWrites('c1', 's1')
+        await claimNoteWrites('c1', 's1', takingOrders)
 
         const due = {
           OR: [
@@ -1323,7 +1288,7 @@ describe('db/note-sync', () => {
           { id: O2, queuedAt: ago(200_000) },
         ])
 
-        const commands = await claimNoteWrites('c1', 's1')
+        const commands = await claimNoteWrites('c1', 's1', takingOrders)
 
         expect(commands.map(({ id }) => id)).toEqual([
           `${W1}.0`,
@@ -1346,7 +1311,7 @@ describe('db/note-sync', () => {
           { id: O2, queuedAt: ago(1000) },
         ])
 
-        await claimNoteWrites('c1', 's1')
+        await claimNoteWrites('c1', 's1', takingOrders)
 
         expect(
           prismaMock.journalWrite.updateMany.mock.calls[0][0].where?.OR,
@@ -1364,7 +1329,7 @@ describe('db/note-sync', () => {
           { id: W2, body: 'b'.repeat(300_000), queuedAt: ago(100_000) },
         ])
         waitingOrders([{ id: O1, queuedAt: ago(300_000) }])
-        await claimNoteWrites('c1', 's1')
+        await claimNoteWrites('c1', 's1', takingOrders)
         expect(
           prismaMock.journalWrite.updateMany.mock.calls[0][0].where?.OR,
         ).toEqual([{ id: W1, seq: 0 }])
@@ -1377,7 +1342,7 @@ describe('db/note-sync', () => {
         waitingRows([])
         waitingOrders([{}])
 
-        const commands = await claimNoteWrites('c1', 's1')
+        const commands = await claimNoteWrites('c1', 's1', takingOrders)
 
         expect(prismaMock.journalWrite.updateMany).not.toHaveBeenCalled()
         expect(commands.map(({ id }) => id)).toEqual([`${O1}.0`])
@@ -1400,7 +1365,7 @@ describe('db/note-sync', () => {
           },
         ])
 
-        const commands = await claimNoteWrites('c1', 's1')
+        const commands = await claimNoteWrites('c1', 's1', takingOrders)
 
         const common = { mode: 0, explicit: false, extras: [], dice: [] }
         expect(commands).toEqual([

@@ -29,23 +29,83 @@ import {
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import { foundrySettingsSchema } from '@/schemas/foundry-settings'
-import { leftOut, orNull } from '@/schemas/utils'
+import { leftOut, listOf, orNull } from '@/schemas/utils'
 import { MAX_CHECKS } from '@/utils/description-links'
 import { NOTE_ID } from '@/utils/note-id'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import { expandSheet } from '@/utils/slim-sheet'
-import type { ParsedContainer } from '@/schemas/types'
 import type {
+  AloneChoicePlan,
+  AskedCheck,
   BeastEntry,
+  BridgeFeatures,
+  CharacterSheet,
+  CombatantSummary,
+  CombatSnapshot,
+  CommandResult,
+  CompanionEntry,
+  ConnectedCharacter,
   DamagePreview,
+  DishApplied,
+  DishDismissed,
+  Dnd5eMessageData,
+  Dnd5eSave,
+  Dnd5eTarget,
   Envelope,
   GameEvent,
+  GamePrompt,
+  GroupEntry,
+  GroupMember,
+  GroupSheet,
+  HitPointsNow,
   JournalPage,
+  JournalUpdated,
+  KnownForm,
+  MessageAsk,
+  RollSummary,
+  SerializedMessage,
+  SheetAction,
+  SheetActivity,
+  SheetCastFrom,
+  SheetCastLevel,
+  SheetCheck,
+  SheetCheckOption,
+  SheetCondition,
+  SheetContainer,
   SheetCounter,
+  SheetCreature,
+  SheetDetail,
+  SheetEffect,
+  SheetEffectDie,
+  SheetEnchant,
+  SheetEnchantment,
+  SheetEnchantProfile,
+  SheetFavorite,
+  SheetFeature,
+  SheetForm,
+  SheetForward,
+  SheetInventory,
+  SheetItem,
+  SheetSpell,
+  SheetSpend,
+  SheetUse,
+  SheetUses,
+  SheetWildShape,
+  SheetWithheld,
 } from '@/types/sending-stone'
 
 // Payloads may gain fields at any time, so objects are loose: unknown keys are kept, not
 // rejected. Fields this app only displays fall back to a default rather than failing the event.
+//
+// Each schema is tied to the hand-written type it reads into (`: z.ZodType<Type>`), so the
+// compiler flags one whose output no longer fits its type: a required field the type names and the
+// schema doesn't read (added to the type, or dropped from the schema), or a field the schema reads
+// as a value its type doesn't allow. The tie can't flag an optional field the type names and the
+// schema doesn't (added to the type, or dropped from the schema): a loose object's unknown keys
+// (`[k: string]: unknown`) satisfy any optional field unseen, so the data could hold anything
+// there. So every optional field a type names is named in its schema too, by hand, as nothing
+// checks it; only one typed `unknown`, kept as sent and never checked, is left unnamed (a
+// message's `content`, and its dnd5e roll's `type`, `skillId`, `toolId` and `ability`).
 
 const nullableString = orNull(z.string())
 
@@ -75,25 +135,13 @@ export const LONGEST_TEXT = 200_000
 /** A description's hash, or null; anything else is taken as no description. */
 const textRef = orNull(z.string().regex(TEXT_HASH))
 
-/** A list whose malformed entries are dropped, rather than failing the whole list. */
-const listOf = <T extends z.ZodType>(entry: T) =>
-  z
-    .array(z.unknown())
-    .catch([])
-    .transform(entries =>
-      entries.flatMap(value => {
-        const parsed = entry.safeParse(value)
-        return parsed.success ? [parsed.data as z.output<T>] : []
-      }),
-    )
-
 /** One of dnd5e's abilities, never a name any object answers to. */
 const abilityId = z.string().refine(id => Object.hasOwn(ABILITIES, id))
 
 /** A skill's or tool's key, as dnd5e's are. */
 const checkKey = z.string().regex(/^[A-Za-z][\w-]{0,31}$/)
 
-const conditionSchema = z.looseObject({
+const conditionSchema: z.ZodType<SheetCondition> = z.looseObject({
   id: z.string(),
   name: z.string(),
   img: nullableString,
@@ -121,7 +169,7 @@ const MAX_ENCHANTMENTS = 50
  * back, its name, and the spell levels it's offered at, from `min` to `max`, each null for no
  * limit. One that can't be read is dropped, rather than offered at any level.
  */
-const enchantProfileSchema = z
+const enchantProfileSchema: z.ZodType<SheetEnchantProfile> = z
   .looseObject({
     id: z.string().regex(DOCUMENT_ID),
     name: z.string().trim().min(1).max(200),
@@ -137,7 +185,7 @@ const enchantProfileSchema = z
  * where no way is left, or where it can't say whether it enchants its own item, so that the
  * activity reads as used in Foundry.
  */
-const enchantSchema = leftOut(
+const enchantSchema: z.ZodType<SheetEnchant | undefined> = leftOut(
   z
     .looseObject({
       self: z.boolean(),
@@ -173,7 +221,7 @@ const enchantSchema = leftOut(
  * The enchantments on an item, a spell, a feature or an action's item, from module 0.21.0, as many
  * as fifty; a malformed one dropped. Left out, as sent, for none, and by earlier modules.
  */
-const enchantmentsSchema = listOf(
+const enchantmentsSchema: z.ZodType<SheetEnchantment[] | undefined> = listOf(
   z.looseObject({
     id: z.string().regex(DOCUMENT_ID),
     name: z.string().trim().min(1).max(200),
@@ -269,7 +317,7 @@ const MAX_SPENDS = 20
  * What using an activity spends, from module 0.29.0: each counter, and how many, null for a cost a
  * formula works out. One that can't be read is dropped; none are said before.
  */
-const spendsSchema = listOf(
+const spendsSchema: z.ZodType<SheetSpend[] | undefined> = listOf(
   z.object({
     counter: counterSchema,
     amount: orNull(z.number()),
@@ -283,7 +331,7 @@ const spendsSchema = listOf(
  * kinds of activity the game uses, or none. From module 0.21.0, an activity that asks for a check;
  * and one that enchants, with what it enchants, without which it's none.
  */
-const useSchema = z
+const useSchema: z.ZodType<SheetUse | null | undefined> = z
   .looseObject({
     id: z.string().min(1),
     type: z.enum(['save', 'damage', 'heal', 'utility', 'check', 'enchant']),
@@ -312,7 +360,7 @@ const useSchema = z
   // An enchant activity that can't say what it enchants is used in Foundry.
   .transform(use => (use?.type === 'enchant' && !use.enchant ? null : use))
 
-const usesSchema = orNull(
+const usesSchema: z.ZodType<SheetUses | null> = orNull(
   z.looseObject({
     value: z.number(),
     max: z.number(),
@@ -329,7 +377,7 @@ const usesSchema = orNull(
  * A level a spell an item casts may be cast at, from module 0.20.0: 1 to 9, with how many of the
  * item's uses it spends there, if counted, and whether fewer are left.
  */
-const castLevelSchema = z.looseObject({
+const castLevelSchema: z.ZodType<SheetCastLevel> = z.looseObject({
   level: z.int().min(1).max(9),
   charges: orNull(z.int().min(0)),
   short: z.boolean().catch(false),
@@ -340,7 +388,7 @@ const castLevelSchema = z.looseObject({
  * skill's or a tool's, which names its skill or tool, and only they do; and for a tool's, the
  * tool's own bonus, a whole number, where it has one.
  */
-const checkOptionSchema = z
+const checkOptionSchema: z.ZodType<SheetCheckOption> = z
   .looseObject({
     type: z.enum(['check', 'skill', 'tool']),
     ability: abilityId,
@@ -354,7 +402,7 @@ const checkOptionSchema = z
  * or ability once, the first kept, malformed ones dropped; its DC, if it has one; and whether it's
  * the character's own to make. Left out where it can't be read, so that the activity is only used.
  */
-const checkSchema = leftOut(
+const checkSchema: z.ZodType<SheetCheck | undefined> = leftOut(
   z.looseObject({
     checks: listOf(checkOptionSchema)
       .transform(options => {
@@ -376,7 +424,7 @@ const checkSchema = leftOut(
  * What using an activity that uses another spends of its uses, from module 0.21.0, and whether
  * that many are left. Left out where it can't be read.
  */
-const forwardSchema = leftOut(
+const forwardSchema: z.ZodType<SheetForward | undefined> = leftOut(
   z.looseObject({
     charges: orNull(z.int().min(0)),
     short: z.boolean().catch(false),
@@ -398,7 +446,7 @@ function castLevelsFrom(levels: { level: number }[], level: number): boolean {
  * slot's level above the spell's own, an attack mode, an ammunition's id, with its dice, and a
  * critical hit's where one is allowed.
  */
-const aloneChoiceSchema = z.object({
+const aloneChoiceSchema: z.ZodType<AloneChoicePlan> = z.object({
   level: z.int().min(1).max(9).optional(),
   attackMode: z.string().regex(ATTACK_MODE).optional(),
   ammunition: z.string().min(1).max(64).optional(),
@@ -523,7 +571,7 @@ const activityFields = {
  * Each of an item's activities, for an item with more than one, from module 0.14.0: what each is
  * called, its kind, and what it does, as an action does.
  */
-const activitiesSchema = listOf(
+const activitiesSchema: z.ZodType<SheetActivity[] | undefined> = listOf(
   z.looseObject({
     id: z.string().min(1),
     name: z.string(),
@@ -577,7 +625,7 @@ const usageFields = {
   ...itemRollFields,
 }
 
-const featureSchema = z.looseObject({
+const featureSchema: z.ZodType<SheetFeature> = z.looseObject({
   id: z.string(),
   name: z.string(),
   img: nullableString,
@@ -585,13 +633,9 @@ const featureSchema = z.looseObject({
   requirements: nullableString,
   activation: nullableString,
   passive: z.boolean().catch(false),
-  uses: orNull(
-    z.looseObject({
-      value: z.number(),
-      max: z.number(),
-      recovery: nullableString,
-    }),
-  ),
+  // As an item's: from module 0.29.0 its counter and whether it's spendable, and from 0.36.0 the d6
+  // that recharges it, each left out where it can't be read.
+  uses: usesSchema,
   ...usageFields,
   // From module 0.21.0.
   enchantments: enchantmentsSchema,
@@ -602,7 +646,7 @@ const featureSchema = z.looseObject({
  * The item a spell is cast from, such as a wand. Left out, as sent, by modules before 0.8.2, so
  * that a sheet from one reads as it did; null for one that can't be read.
  */
-const castFromSchema = z
+const castFromSchema: z.ZodType<SheetCastFrom | null | undefined> = z
   .object({
     id: z.string(),
     name: z.string(),
@@ -636,36 +680,35 @@ const itemFields = {
   text: textRef,
 }
 
-const itemSchema = z.looseObject(itemFields)
+const itemSchema: z.ZodType<SheetItem> = z.looseObject(itemFields)
 
 // A container holds items, and containers that hold their own.
-const containerSchema: z.ZodType<ParsedContainer<z.output<typeof itemSchema>>> =
-  z.lazy(() =>
-    z.looseObject({
-      ...itemFields,
-      capacity: orNull(
-        z.object({
-          value: z.number(),
-          max: z.number(),
-          units: z.string().catch(''),
-        }),
-      ),
-      contents: orNull(z.array(z.unknown())).transform(entries =>
-        entries === null
-          ? null
-          : entries.flatMap(value => {
-              const schema =
-                (value as { type?: unknown } | null)?.type === 'container'
-                  ? containerSchema
-                  : itemSchema
-              const parsed = schema.safeParse(value)
-              return parsed.success ? [parsed.data] : []
-            }),
-      ),
-    }),
-  )
+const containerSchema: z.ZodType<SheetContainer> = z.lazy(() =>
+  z.looseObject({
+    ...itemFields,
+    capacity: orNull(
+      z.object({
+        value: z.number(),
+        max: z.number(),
+        units: z.string().catch(''),
+      }),
+    ),
+    contents: orNull(z.array(z.unknown())).transform(entries =>
+      entries === null
+        ? null
+        : entries.flatMap(value => {
+            const schema =
+              (value as { type?: unknown } | null)?.type === 'container'
+                ? containerSchema
+                : itemSchema
+            const parsed = schema.safeParse(value)
+            return parsed.success ? [parsed.data] : []
+          }),
+    ),
+  }),
+)
 
-export const inventorySchema = z
+export const inventorySchema: z.ZodType<SheetInventory> = z
   .looseObject({
     sections: listOf(
       z.looseObject({
@@ -704,7 +747,7 @@ export const inventorySchema = z
     attunement: null,
   })
 
-const spellSchema = z.looseObject({
+const spellSchema: z.ZodType<SheetSpell> = z.looseObject({
   id: z.string(),
   name: z.string(),
   img: nullableString,
@@ -728,7 +771,7 @@ const spellSchema = z.looseObject({
   text: textRef,
 })
 
-const detailSchema = z.looseObject({
+const detailSchema: z.ZodType<SheetDetail> = z.looseObject({
   id: z.string(),
   label: z.string(),
   value: z.string(),
@@ -743,7 +786,7 @@ const actionFields = {
   uses: usesSchema,
 }
 
-const actionSchema = z.looseObject({
+const actionSchema: z.ZodType<SheetAction> = z.looseObject({
   id: z.string(),
   name: z.string(),
   img: nullableString,
@@ -764,7 +807,7 @@ const actionSchema = z.looseObject({
   text: textRef,
 })
 
-const effectSchema = z.looseObject({
+const effectSchema: z.ZodType<SheetEffect> = z.looseObject({
   id: z.string(),
   name: z.string(),
   img: nullableString,
@@ -789,7 +832,7 @@ const toolFields = {
 }
 
 /** A favorite, by its type. One of a type a later module adds is dropped, as one malformed is. */
-const favoriteSchema = z.discriminatedUnion('type', [
+const favoriteSchema: z.ZodType<SheetFavorite> = z.discriminatedUnion('type', [
   z.looseObject({
     type: z.literal('item'),
     id: z.string(),
@@ -850,7 +893,7 @@ const poolSchema = orNull(z.object({ value: z.number(), max: z.number() }))
  * its hit dice. A part that can't be read is none; the whole, where it isn't an object, is left
  * out, as for a character.
  */
-const creatureSchema = z.looseObject({
+const creatureSchema: z.ZodType<SheetCreature> = z.looseObject({
   cr: nullableNumber,
   type: nullableString,
   size: nullableString,
@@ -878,7 +921,7 @@ const creatureSchema = z.looseObject({
  * or minutes it can't read as none, so no Return is offered for them; the whole, with no name, is
  * left out, as `creature`.
  */
-const formSchema = z.looseObject({
+const formSchema: z.ZodType<SheetForm> = z.looseObject({
   kind: z.enum(['wildShape', 'other']).catch('other'),
   name: z.string().min(1),
   img: nullableString,
@@ -914,7 +957,7 @@ const formLimitsSchema = z.object({
  * Foundry, and the game counts it among her known forms all the same, so a place it fills is never
  * offered here as empty.
  */
-const knownFormSchema = z.looseObject({
+const knownFormSchema: z.ZodType<KnownForm> = z.looseObject({
   id: z.string().regex(PROFILE_ID),
   name: z.string().catch(''),
   pool: z.boolean().catch(false),
@@ -943,7 +986,7 @@ const knownFormSchema = z.looseObject({
  * limits that can't be read are none, so nothing is offered for them; an ending it can't read is
  * none; the whole, with no row, is left out.
  */
-const wildShapeSchema = z.looseObject({
+const wildShapeSchema: z.ZodType<SheetWildShape> = z.looseObject({
   item: z.string().min(1),
   uses: z
     .object({ value: z.number(), max: z.number() })
@@ -976,7 +1019,7 @@ const wildShapeSchema = z.looseObject({
  * such as a later module's mark of a die the game doesn't add itself, may mean something this app
  * can't tell, so it isn't read as a die the game adds, and is dropped.
  */
-const effectDieSchema = z.strictObject({
+const effectDieSchema: z.ZodType<SheetEffectDie> = z.strictObject({
   name: z.string().min(1).max(100),
   effect: z.string().regex(EFFECT_ID),
   faces: z.literal(EFFECT_DIE_FACES),
@@ -991,7 +1034,7 @@ const effectDieSchema = z.strictObject({
  * on its own, so that one that can't be read is dropped, and the rest still asked for; none where
  * none can be, or the list itself can't be read, when the game rolls them all.
  */
-const effectDiceSchema = leftOut(
+const effectDiceSchema: z.ZodType<SheetEffectDie[] | undefined> = leftOut(
   z
     .array(z.unknown())
     .max(MOST_EFFECT_DICE)
@@ -1005,7 +1048,7 @@ const effectDiceSchema = leftOut(
 )
 
 // A sheet that can't be read is dropped rather than failing the event that carries it.
-const sheetSchema = z
+const sheetSchema: z.ZodType<CharacterSheet | null | undefined> = z
   .looseObject({
     img: nullableString,
     level: nullableNumber,
@@ -1215,7 +1258,7 @@ const sheetSchema = z
 const byteCount = orNull(z.int().min(0))
 
 /** Why the module held a sheet back, such as for its size; left out where it can't be read. */
-const sheetWithheldSchema = leftOut(
+const sheetWithheldSchema: z.ZodType<SheetWithheld | undefined> = leftOut(
   z.looseObject({
     reason: z.string().max(32),
     bytes: byteCount,
@@ -1223,9 +1266,12 @@ const sheetWithheldSchema = leftOut(
   }),
 )
 
-const characterSchema = z.looseObject({
+const characterSchema: z.ZodType<ConnectedCharacter> = z.looseObject({
   id: z.string(),
   name: z.string(),
+  // Its portrait's path, or none where it can't be read, never kept as sent: every page that draws
+  // the roster reads it as a string.
+  img: nullableString.optional(),
   // From module 0.22.0, a sheet may come slim, which is made whole before it's read, so that it's
   // read, and kept, as the module built it. Absent from that module's hello, and kept absent.
   sheet: z.preprocess(expandSheet, sheetSchema),
@@ -1243,7 +1289,7 @@ const characterSchema = z.looseObject({
  * campaign character, each with Observer or Owner on it in Foundry. Access that can't be read is
  * taken as no one's, never as more.
  */
-const groupEntrySchema = z.looseObject({
+const groupEntryFields = {
   id: z.string().regex(DOCUMENT_ID),
   uuid: z.string().max(200),
   name: z.string().max(500),
@@ -1253,13 +1299,18 @@ const groupEntrySchema = z.looseObject({
   access: z
     .record(z.string().regex(DOCUMENT_ID), z.enum(['observer', 'owner']))
     .catch({}),
-})
+  // Sent in group.updated only, never in a hello's groups (the module's groupEntry), and read
+  // wherever a group comes, so that none is kept as sent.
+  sheetWithheld: sheetWithheldSchema,
+}
+
+const groupEntrySchema: z.ZodType<GroupEntry> = z.looseObject(groupEntryFields)
 
 /**
  * One of a group's members: its name and portrait, and nothing else. Anything more is dropped, so
  * that nothing a later module sends of it, such as its hit points, is ever kept.
  */
-const groupMemberSchema = z.object({
+const groupMemberSchema: z.ZodType<GroupMember> = z.object({
   id: z.string(),
   name: z.string(),
   img: nullableString,
@@ -1271,7 +1322,7 @@ const groupMemberSchema = z.object({
  * A group's sheet, made whole first where it comes slim, as a character's is: its members, its
  * descriptions by hash, and its stash, as a character's inventory is sent.
  */
-const groupSheetSchema = z.preprocess(
+const groupSheetSchema: z.ZodType<GroupSheet | null> = z.preprocess(
   expandSheet,
   z
     .looseObject({
@@ -1293,7 +1344,7 @@ const cutTo = (most: number) =>
  * it's a companion of, at least one, its kind, its actor, token and scene, its name, cut, and its
  * portrait, which costs the entry nothing where it can't be read, as what summoned it doesn't.
  */
-const companionEntrySchema = z.looseObject({
+const companionEntrySchema: z.ZodType<CompanionEntry> = z.looseObject({
   key: z.string().regex(COMPANION_KEY),
   of: z.array(z.string().regex(ACTOR_ID)).min(1).max(20),
   kind: z.enum(['owned', 'summoned']),
@@ -1317,7 +1368,9 @@ const companionEntrySchema = z.looseObject({
  * A campaign's companions, as the module lists them: one that can't be read is dropped, as is one
  * listed again under the same key, and no more than the most a list holds are kept.
  */
-const companionsSchema = listOf(companionEntrySchema).transform(entries =>
+const companionsSchema: z.ZodType<CompanionEntry[]> = listOf(
+  companionEntrySchema,
+).transform(entries =>
   entries
     .filter(
       (entry, index) =>
@@ -1326,7 +1379,7 @@ const companionsSchema = listOf(companionEntrySchema).transform(entries =>
     .slice(0, MOST_COMPANIONS),
 )
 
-export const rollSchema = z.looseObject({
+export const rollSchema: z.ZodType<RollSummary> = z.looseObject({
   formula: z.string().catch(''),
   total: orNull(z.number()),
   dice: z
@@ -1340,8 +1393,14 @@ export const rollSchema = z.looseObject({
     )
     .catch([]),
   // What marks a roll, each left out where it doesn't apply, or can't be read: the class it has
-  // always had, and from module 0.28.0, what it says of damage and attacks.
+  // always had, with dnd5e's advantage, disadvantage, critical, fumble and damage type, and from
+  // module 0.28.0, what it says of damage and attacks.
   class: leftOut(z.string().max(100)),
+  advantage: leftOut(z.boolean()),
+  disadvantage: leftOut(z.boolean()),
+  critical: leftOut(z.boolean()),
+  fumble: leftOut(z.boolean()),
+  damageType: leftOut(z.string()),
   damage: leftOut(z.literal(true)),
   damageLabel: leftOut(z.string().trim().min(1).max(64)),
   section: leftOut(z.enum(['damage', 'bonus', 'other'])),
@@ -1353,7 +1412,7 @@ export const rollSchema = z.looseObject({
 const MAX_READERS = 200
 
 /** Someone a message was aimed at: their name, and what came of it, where players see it. */
-const targetSchema = z.looseObject({
+const targetSchema: z.ZodType<Dnd5eTarget> = z.looseObject({
   name: z.string(),
   ac: z.number().nullable().optional().catch(null),
   uuid: leftOut(z.string().min(1).max(500)),
@@ -1366,13 +1425,13 @@ const targetSchema = z.looseObject({
  * A save or check a message is the roll of: whose, and whether it succeeded, where players see it.
  * A readers list that can't be read drops it all, rather than show its outcome to everyone.
  */
-const rollOutcomeSchema = z.looseObject({
+const rollOutcomeSchema: z.ZodType<Dnd5eSave> = z.looseObject({
   target: z.string().min(1).max(500),
   outcome: leftOut(z.enum(['success', 'failure'])),
   readers: z.array(z.string()).max(MAX_READERS).optional(),
 })
 
-const dnd5eSchema = orNull(
+const dnd5eSchema: z.ZodType<Dnd5eMessageData | null> = orNull(
   z.looseObject({
     messageType: nullableString,
     roll: orNull(z.looseObject({})),
@@ -1406,7 +1465,7 @@ const askFields = {
  * each with the ability it's made with; a skill's names its skill, a tool's its tool, and only
  * they do. A tool's name is the game's, where it says.
  */
-const askedCheckSchema = z
+const askedCheckSchema: z.ZodType<AskedCheck> = z
   .object({
     type: z.enum(['check', 'skill', 'tool']),
     ability: abilityId,
@@ -1431,7 +1490,7 @@ const askedCheckSchema = z
  * its text, as one of a kind a later module adds does; absent from an older module, whose cards are
  * read from their buttons instead.
  */
-const askSchema = z
+const askSchema: z.ZodType<MessageAsk | null | undefined> = z
   .discriminatedUnion('type', [
     z
       .object({
@@ -1453,7 +1512,7 @@ const askSchema = z
   .optional()
   .catch(null)
 
-const messageSchema = z.looseObject({
+const messageSchema: z.ZodType<SerializedMessage> = z.looseObject({
   id: z.string(),
   type: z.string().catch('base'),
   timestamp: z.number(),
@@ -1487,7 +1546,7 @@ const messageSchema = z.looseObject({
  * What the module does for a campaign beyond sending its events. Features it can't describe are
  * taken as missing, as from a module before 0.10.0.
  */
-const featuresSchema = z
+const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
   .looseObject({
     rolls: z
       .looseObject({
@@ -1690,7 +1749,7 @@ const journalPageSchema: z.ZodType<JournalPage> = z
   )
 
 /** A character's or a party's journal of notes as Foundry holds it, from module 0.34.0. */
-const journalUpdatedSchema = z.looseObject({
+const journalUpdatedSchema: z.ZodType<JournalUpdated> = z.looseObject({
   kind: z.enum(['personal', 'party']),
   actorId: z.string().regex(ACTOR_ID),
   journal: z
@@ -1746,7 +1805,7 @@ const promptFields = {
  * was before Midi-QOL's: one without what it asks for can't be rolled, and anything else it says
  * is dropped. It says nothing of where it comes from.
  */
-const cardPromptSchema = z.object({
+const cardPromptSchema: z.ZodType<GamePrompt> = z.object({
   ...promptFields,
   type: z.enum(['save', 'concentration']),
   abilities: z.array(promptKey).min(1).max(10),
@@ -1759,7 +1818,7 @@ const cardPromptSchema = z.object({
  * or a skill check by its skills, and how Midi-QOL has each rolled. Advantage for one it doesn't
  * offer is dropped; anything else amiss fails it, as this app couldn't answer it as asked.
  */
-const midiPromptSchema = z
+const midiPromptSchema: z.ZodType<GamePrompt> = z
   .object({
     ...promptFields,
     type: z.enum(['save', 'concentration', 'check', 'skill']),
@@ -1805,7 +1864,10 @@ const midiPromptSchema = z
  * What the game asks of one of a campaign's characters: what a chat card asks, as before, or what
  * Midi-QOL asks, which says where it comes from. One that says so is only ever read as Midi-QOL's.
  */
-const promptSchema = z.union([midiPromptSchema, cardPromptSchema])
+const promptSchema: z.ZodType<GamePrompt> = z.union([
+  midiPromptSchema,
+  cardPromptSchema,
+])
 
 /** A known form, as a Wild Shape command's result names it (module 0.40.0). */
 const formRefSchema = z.object({
@@ -1833,7 +1895,7 @@ const beastSchema: z.ZodType<BeastEntry> = z.object({
  * What became of a command; one without its id, or an outcome, can't be recorded. It's kept as
  * read, so only what the app shows is kept.
  */
-const commandResultSchema = z.object({
+const commandResultSchema: z.ZodType<CommandResult> = z.object({
   id: z.string().min(1).max(64),
   status: z.enum(['done', 'failed']),
   reason: z
@@ -2052,7 +2114,7 @@ const commandResultSchema = z.object({
   ),
 })
 
-const hitPointsSchema = z
+const hitPointsSchema: z.ZodType<HitPointsNow | null | undefined> = z
   .object({
     value: z.number(),
     max: z.number().nullable(),
@@ -2062,7 +2124,7 @@ const hitPointsSchema = z
   .optional()
   .catch(null)
 
-export const combatantSchema = z.looseObject({
+export const combatantSchema: z.ZodType<CombatantSummary> = z.looseObject({
   id: z.string(),
   name: z.string().catch(''),
   initiative: orNull(z.number()),
@@ -2077,7 +2139,7 @@ export const combatantSchema = z.looseObject({
   companion: z.string().regex(COMPANION_KEY).nullable().optional().catch(null),
 })
 
-const combatSchema = z.looseObject({
+const combatSchema: z.ZodType<CombatSnapshot> = z.looseObject({
   id: z.string(),
   name: nullableString,
   active: z.boolean(),
@@ -2111,10 +2173,6 @@ const cut = (most: number) =>
 /** As `cut`, or null for none. */
 const cutOrNull = (most: number) => orNull(cut(most))
 
-/** A list whose malformed entries are dropped, cut to its first `count`. */
-const mostOf = <T extends z.ZodType>(entry: T, count: number) =>
-  listOf(entry).transform(entries => entries.slice(0, count))
-
 /**
  * This app's id for a dish from the Magical Recipe Book, from the command's: the one field of a
  * dish event that refuses it. The module never re-sends a refused event, so every other field is
@@ -2129,12 +2187,12 @@ const dishDecider = {
 }
 
 /** From module 0.38.0: a dish served, naming every character served it so far. */
-const dishAppliedSchema = z.looseObject({
+const dishAppliedSchema: z.ZodType<DishApplied> = z.looseObject({
   dish: dishRowId,
   id: cut(64),
   card: cutOrNull(64),
   outcome: cut(16),
-  characters: mostOf(
+  characters: listOf(
     z.looseObject({
       actorId: z.string().min(1).max(64),
       name: cut(200),
@@ -2142,11 +2200,11 @@ const dishAppliedSchema = z.looseObject({
       replaced: orNull(z.looseObject({ id: cut(64), recipe: cut(200) })),
       healed: z.number().int().catch(0),
       exhaustion: z.number().int().catch(0),
-      skipped: mostOf(z.looseObject({ type: cut(64), reason: cut(32) }), 100),
+      skipped: listOf(z.looseObject({ type: cut(64), reason: cut(32) }), 100),
     }),
     200,
   ),
-  rolled: mostOf(
+  rolled: listOf(
     z.looseObject({
       type: cut(64),
       value: z.number().int(),
@@ -2158,7 +2216,7 @@ const dishAppliedSchema = z.looseObject({
 })
 
 /** From module 0.38.0: a dish set aside, or its card deleted undecided. */
-const dishDismissedSchema = z.looseObject({
+const dishDismissedSchema: z.ZodType<DishDismissed> = z.looseObject({
   dish: dishRowId,
   id: cut(64),
   card: cutOrNull(64),
@@ -2254,10 +2312,7 @@ const EVENT_SCHEMAS: {
     reason: z.string().max(32).catch('gone'),
   }),
   [EVENTS.GROUP_UPDATED]: z.looseObject({
-    group: groupEntrySchema.extend({
-      sheet: groupSheetSchema,
-      sheetWithheld: sheetWithheldSchema,
-    }),
+    group: z.looseObject({ ...groupEntryFields, sheet: groupSheetSchema }),
   }),
   [EVENTS.GROUP_REMOVED]: z.looseObject({ id: z.string().regex(DOCUMENT_ID) }),
   [EVENTS.BRIDGE_SETTINGS]: z.looseObject({

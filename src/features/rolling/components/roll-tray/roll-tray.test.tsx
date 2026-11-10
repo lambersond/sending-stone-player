@@ -13,6 +13,7 @@ import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { TableApiContext } from '@/hooks/use-table-api'
 import type { RollBrief, TableRolls } from '../../types'
 import type { Effects } from '@/features/sheet/components/effect-controls/types'
+import type { TableSeat } from '@/types/character'
 import type {
   GmRollView,
   LocalAsk,
@@ -1790,8 +1791,8 @@ describe('components/character-sheet/roll-tray', () => {
         ],
         times: 3,
       })
-      const renderState = (state: TableRollState) =>
-        render(
+      const renderState = (state: TableRollState, seat?: TableSeat) => {
+        const tray = (
           <RollTray
             rolls={[three, { ...three, id: 'h0' }]}
             rolling={false}
@@ -1799,8 +1800,12 @@ describe('components/character-sheet/roll-tray', () => {
               ['h1', state],
               ['h0', state],
             ])}
-          />,
+          />
         )
+        return render(
+          seat ? <TableApiContext value={seat}>{tray}</TableApiContext> : tray,
+        )
+      }
 
       it.each<[string, TableRollState, string]>([
         [
@@ -1872,6 +1877,45 @@ describe('components/character-sheet/roll-tray', () => {
           /= 22· 1 of 3 at the table$/,
         )
       })
+
+      it.each<[string, TableSeat | undefined, string]>([
+        ['', undefined, 'your Gamemaster’s game'],
+        [
+          ', at the Gamemaster’s seat',
+          {
+            role: 'gm',
+            api: '/api/campaigns/c1/characters/thorin',
+            key: 'gm:c1:thorin',
+          },
+          'your game',
+        ],
+      ])(
+        'says how many were sent, not made, before one was not, where one was taken with nothing to follow it by%s',
+        async (_, seat, game) => {
+          const user = userEvent.setup()
+          renderState(
+            {
+              status: 'refused',
+              reason: 'no-hit-dice',
+              visible: false,
+              together: { count: 3, made: 1, unfollowed: true },
+            },
+            seat,
+          )
+
+          expect(screen.getByRole('status')).toHaveTextContent(
+            new RegExp(
+              String.raw`\+91 of 3 sent to ${game}\. ` +
+                'Not the rest: you have no hit dice of that size left$',
+            ),
+          )
+          expectOneRun(screen.getByText(new RegExp(`sent to ${game}`)))
+          await user.click(screen.getByText('Earlier rolls (1)'))
+          expect(screen.getByRole('listitem')).toHaveTextContent(
+            /= 22· 1 of 3 sent$/,
+          )
+        },
+      )
 
       it('says none was made where the first was not', () => {
         renderState({
@@ -3177,6 +3221,33 @@ describe('components/character-sheet/roll-tray, in brief for its toast', () => {
         },
       ],
       '1 of 3 made at the table · 9 HP regained. Not the rest: you’re at full hit points',
+    ],
+    [
+      'three hit dice, one sent with nothing to follow it by',
+      [
+        hitDie(),
+        {
+          status: 'failed',
+          reason: 'full-hp',
+          visible: false,
+          together: { count: 3, made: 1, unfollowed: true },
+        },
+      ],
+      '1 of 3 sent to your Gamemaster’s game. Not the rest: you’re at full hit points',
+    ],
+    [
+      'three hit dice, one sent with nothing to follow it by, at the Gamemaster’s seat',
+      [
+        hitDie(),
+        {
+          status: 'failed',
+          reason: 'full-hp',
+          visible: false,
+          together: { count: 3, made: 1, unfollowed: true },
+        },
+        'gm',
+      ],
+      '1 of 3 sent to your game. Not the rest: you’re at full hit points',
     ],
     [
       'hit dice sent one by one',

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import {
   Prisma,
   type JournalNote,
@@ -10,8 +10,6 @@ import {
   MOST_BOOK_TEXT,
   MOST_CHAPTERS,
   MOST_ENTRIES,
-  MOST_NOTE_BODY,
-  MOST_NOTE_TITLE,
   NOTES_PER_MINUTE,
 } from '@/constants/notes'
 import {
@@ -23,21 +21,38 @@ import { convertNoteMarkdown, hasBigHeading } from '@/lib/note-markdown'
 import { checkChange } from '@/schemas/notes'
 import { bigHeadings } from '@/utils/note-headings'
 import { newNoteId } from '@/utils/note-id'
-import type { NotesBook, NotesSeat, NoteRights, NoteAnswer, Tx } from './types'
+import {
+  bookCounts,
+  chapterKnown,
+  current,
+  foldedOp,
+  mirrorOrder,
+  sentAgain,
+  writerName,
+} from '@/utils/notes/book'
+import {
+  foundryOnly,
+  groupKey,
+  groupStamp,
+  ordered,
+  ordering,
+  overlay,
+  rightsFor,
+  stampOf,
+  viewOf,
+  waiting,
+} from '@/utils/notes/view'
+import type { NoteAnswer, Tx } from './types'
 import type {
-  NoteBookKind,
-  NoteChapterView,
-  NoteEntryView,
-  NoteGroupView,
-  NoteLastChange,
   NoteOrder,
   NoteOrderResolve,
-  NoteReason,
   NoteRole,
+  NotesBook,
+  NotesSeat,
   NotesView,
-  NoteState,
 } from '@/types/notes'
 import type { ConnectedCharacter } from '@/types/sending-stone'
+import type { HeldBook } from '@/utils/notes/types'
 
 // A seat's journal notes (round 0.34.0 §8.5-§8.8), from module 0.34.0: a character's own book, or a
 // party's, kept here first and sent to Foundry when the Gamemaster's game next takes them. Every
@@ -51,19 +66,6 @@ import type { ConnectedCharacter } from '@/types/sending-stone'
 // here and waiting for it (`JournalOrder`), which anyone who may write the book makes, whoever
 // wrote the notes. And the book keeps its last change that leaves no note to show it: a delete, an
 // order, or a refused change sent again, here or in Foundry.
-
-/** The name the Gamemaster writes as, in both books (Q5). */
-const GAMEMASTER = 'Gamemaster'
-
-/** A change waiting or refused: the module hasn't made it, or didn't. */
-type Waiting = JournalWrite & {
-  status: 'pending' | 'claimed' | 'conflict' | 'failed'
-}
-
-/** A change to a note that still means something: one not yet made. */
-function waiting(write: JournalWrite | undefined): write is Waiting {
-  return !!write && write.status !== 'made'
-}
 
 /**
  * Whether a change handed to the module has gone unanswered past the time a fetched roll is (§4.3),
@@ -102,35 +104,8 @@ function orderFrom(order: JournalOrder): Prisma.JournalOrderWhereInput {
     : { status: order.status }
 }
 
-/** What a book holds, as read for a seat, with what decides what the seat may do in it. */
-type Held = {
-  book: NotesBook
-  /** The book's own row: none until a change is first made in it, or Foundry sends it. */
-  row?: {
-    id: string
-    version: number
-    journalName: string | null
-    withheld: Prisma.JsonValue
-  }
-  notes: Map<string, JournalNote>
-  writes: Map<string, JournalWrite>
-  /** Each group's order made here, by its chapter's id, '' for the notes in no chapter. */
-  orders: Map<string, JournalOrder>
-  /** The book's last change that leaves no note to show it, where one was made. */
-  changed?: { at: Date; by: string }
-  /** The campaign's module takes orders, as its latest hello said (module 0.35.0). */
-  takesOrders: boolean
-  /** The book's actor is still in the campaign: else nothing in it can be changed. */
-  connected: boolean
-  live: boolean
-  enabled: boolean
-  origin: string
-  /** Each of the campaign's characters' names, by actor, to write as. */
-  names: Map<string, string>
-}
-
 /** Read a book for a seat: its notes and its changes waiting, and the campaign around it. */
-async function readBook(book: NotesBook): Promise<Held | undefined> {
+async function readBook(book: NotesBook): Promise<HeldBook | undefined> {
   const [campaign, row] = await Promise.all([
     prisma.campaign.findUnique({
       where: { id: book.campaignId },
@@ -200,343 +175,6 @@ async function readBook(book: NotesBook): Promise<Held | undefined> {
 }
 
 /**
- * What a seat may do in a book (§8.5): add notes and chapters while the book takes them, its actor
- * still the campaign's and, for a party, one its characters may see; rename any chapter; and
- * change or delete an entry in a character's own book, or in a party's the Gamemaster any, a
- * player only those their character wrote, never one written in Foundry. No chapter is deleted.
- * And put the notes of any chapter, or of none, in order, whoever wrote them (module 0.35.0), as
- * the book takes notes.
- */
-export function noteRights(
-  book: { kind: NoteBookKind; private: boolean; connected: boolean },
-  seat: NotesSeat,
-  note?: { role: NoteRole; authorActorId: string | null },
-): NoteRights {
-  const entry = note?.role === 'entry'
-  const mayChange =
-    entry &&
-    (book.kind === 'personal' ||
-      seat.role === 'gm' ||
-      (!!note.authorActorId && note.authorActorId === seat.actorId))
-  return {
-    canAdd: book.connected && !book.private,
-    canRename: true,
-    canEdit: mayChange,
-    canDelete: mayChange,
-    canReorder: book.connected && !book.private,
-  }
-}
-
-/**
- * Why an entry from Foundry may be changed only there (§8.5): written in its own editor; sent as
- * HTML for a party's secret; or more than the app can save back, cut short or too long.
- */
-function foundryOnly(note: JournalNote): NoteEntryView['foundryOnly'] {
-  if (note.role !== 'entry') return
-  if (note.format !== 2) return note.secret ? 'secret' : 'html'
-  if (
-    note.cut ||
-    note.body.length > MOST_NOTE_BODY ||
-    note.title.length > MOST_NOTE_TITLE
-  ) {
-    return 'long'
-  }
-}
-
-/** What a note says, from Foundry's journal or from the change waiting for it. */
-type Content = {
-  title: string
-  body: string
-  html: string
-  chapterId: string | null
-  authorActorId: string | null
-  authorGm: boolean
-  authorName: string | null
-  createdAt: Date
-  modifiedAt: Date
-  modifiedBy: string
-  modifiedIn: 'app' | 'foundry'
-}
-
-function fromMirror(note: JournalNote): Content {
-  return {
-    title: note.title,
-    body: note.body,
-    html: note.html,
-    chapterId: note.chapterId,
-    authorActorId: note.authorActorId,
-    authorGm: note.authorGm,
-    authorName: note.authorName,
-    createdAt: note.createdAt,
-    modifiedAt: note.modifiedAt,
-    modifiedBy: note.modifiedBy,
-    modifiedIn: note.modifiedIn === 'app' ? 'app' : 'foundry',
-  }
-}
-
-function fromWrite(write: JournalWrite, note?: JournalNote): Content {
-  return {
-    title: write.title,
-    body: write.body,
-    // A chapter's own text is Foundry's, never changed here.
-    html: write.role === 'chapter' ? (note?.html ?? '') : write.html,
-    chapterId: write.chapterId,
-    authorActorId: write.authorActorId,
-    authorGm: write.authorGm,
-    authorName: write.authorName,
-    createdAt: note?.createdAt ?? write.noteCreatedAt,
-    modifiedAt: write.modifiedAt,
-    modifiedBy: write.modifiedBy,
-    modifiedIn: 'app',
-  }
-}
-
-/** What the page last saw of a note, sent back with a change: its change waiting, or revision. */
-function stampOf(note?: JournalNote, write?: JournalWrite): string {
-  return waiting(write)
-    ? `w:${write.id}.${write.seq}`
-    : `n:${note?.revision ?? ''}`
-}
-
-/** A note as one seat sees it, or none where it's hidden from them (§8.8). */
-type Seen = {
-  role: NoteRole
-  content: Content
-  state: NoteState
-  reason?: NoteReason
-  /** It shows Foundry's version, and not the change waiting. */
-  mirrored: boolean
-  mine?: Content & { deleting?: true; by?: string }
-  stamp: string
-}
-
-/**
- * A note as a seat sees it (§8.8): Foundry's version, or the change made here while the module
- * hasn't made it yet, which every seat sees; and where the module didn't take a change, Foundry's
- * version with the seat's own beside it, only to a seat that may change it.
- * @param mayChange - The seat may change the note: rename it, or edit or delete it.
- */
-function overlay(
-  note: JournalNote | undefined,
-  write: JournalWrite | undefined,
-  mayChange: boolean,
-  live: boolean,
-  seat: NotesSeat,
-): Seen | undefined {
-  const stamp = stampOf(note, write)
-  if (!waiting(write)) return note && syncedSeen(note, note.role, stamp)
-  switch (write.status) {
-    case 'pending':
-    case 'claimed': {
-      return onItsWaySeen(note, write, mayChange, live, stamp)
-    }
-    case 'conflict': {
-      return refusedSeen(note, write, mayChange, seat, stamp)
-    }
-    case 'failed': {
-      return failedSeen(note, write, mayChange, seat, stamp)
-    }
-  }
-}
-
-/** Foundry's version of a note, as a seat sees it. */
-function syncedSeen(note: JournalNote, role: NoteRole, stamp: string): Seen {
-  return {
-    role,
-    content: fromMirror(note),
-    state: 'synced',
-    mirrored: true,
-    stamp,
-  }
-}
-
-/** The seat's own change beside Foundry's version, where the module didn't take it. */
-function mineOf(
-  note: JournalNote | undefined,
-  write: JournalWrite,
-  seat: NotesSeat,
-) {
-  return {
-    ...fromWrite(write, note),
-    ...(write.op === 'delete' && { deleting: true as const }),
-    ...(write.requestedById !== seat.userId && { by: write.modifiedBy }),
-  }
-}
-
-/** A note with a change on its way: the change, or for a deletion, Foundry's version, as going. */
-function onItsWaySeen(
-  note: JournalNote | undefined,
-  write: JournalWrite,
-  mayChange: boolean,
-  live: boolean,
-  stamp: string,
-): Seen | undefined {
-  const { role } = write
-  if (write.op !== 'delete') {
-    return {
-      role,
-      content: fromWrite(write, note),
-      state: live ? 'saving' : 'waiting',
-      mirrored: false,
-      stamp,
-    }
-  }
-  if (!mayChange || !note) return undefined
-  return {
-    role,
-    content: fromMirror(note),
-    state: 'deleting',
-    mirrored: true,
-    stamp,
-  }
-}
-
-/**
- * A note whose change the module refused as changed in Foundry, or gone there: to a seat that may
- * change it, Foundry's version with its own beside it, or its own where the note is gone.
- */
-function refusedSeen(
-  note: JournalNote | undefined,
-  write: JournalWrite,
-  mayChange: boolean,
-  seat: NotesSeat,
-  stamp: string,
-): Seen | undefined {
-  const { role } = write
-  const reason = noteReason(write.reason)
-  if (!mayChange) {
-    return reason === 'gone' || !note
-      ? undefined
-      : syncedSeen(note, role, stamp)
-  }
-  const mine = mineOf(note, write, seat)
-  if (reason === 'gone' || !note) {
-    return {
-      role,
-      content: fromWrite(write, note),
-      state: 'gone',
-      reason: 'gone',
-      mirrored: false,
-      mine,
-      stamp,
-    }
-  }
-  return {
-    role,
-    content: fromMirror(note),
-    state: 'conflict',
-    reason: 'changed',
-    mirrored: true,
-    mine,
-    stamp,
-  }
-}
-
-/**
- * A note whose change failed otherwise: to a seat that may change it, Foundry's version with its
- * own beside it, or its own where it was to make the note.
- */
-function failedSeen(
-  note: JournalNote | undefined,
-  write: JournalWrite,
-  mayChange: boolean,
-  seat: NotesSeat,
-  stamp: string,
-): Seen | undefined {
-  const { role } = write
-  if (!mayChange) {
-    return write.op === 'create' || !note
-      ? undefined
-      : syncedSeen(note, role, stamp)
-  }
-  const shown = write.op === 'create' || !note
-  return {
-    role,
-    content: shown ? fromWrite(write, note) : fromMirror(note),
-    state: 'failed',
-    reason: noteReason(write.reason),
-    mirrored: !shown,
-    mine: mineOf(note, write, seat),
-    stamp,
-  }
-}
-
-/** Why the module refused a change, as the view names it; any other as an error. */
-function noteReason(reason: string | null): NoteReason {
-  return (REASONS as readonly string[]).includes(reason ?? '')
-    ? (reason as NoteReason)
-    : 'error'
-}
-
-const REASONS = [
-  'changed',
-  'gone',
-  'not-yours',
-  'not-member',
-  'private',
-  'unknown',
-  'headings',
-  'full',
-  'invalid',
-  'foundry-only',
-  'off',
-  'error',
-] as const satisfies readonly NoteReason[]
-
-/** The rights a seat has with a note, by what it is and who wrote it. */
-function rightsFor(
-  held: Held,
-  seat: NotesSeat,
-  note?: JournalNote,
-  write?: JournalWrite,
-): NoteRights & { role: NoteRole; mayChange: boolean } {
-  const role = note?.role ?? write?.role ?? 'entry'
-  const author = note ?? write
-  const rights = noteRights(
-    {
-      kind: held.book.kind,
-      private: held.book.private,
-      connected: held.connected,
-    },
-    seat,
-    { role, authorActorId: author?.authorActorId ?? null },
-  )
-  return {
-    ...rights,
-    role,
-    mayChange: role === 'chapter' ? rights.canRename : rights.canEdit,
-  }
-}
-
-/** Oldest first, by when each was created, then by id. */
-function byAge<T extends { id: string; createdAt: string }>(a: T, b: T) {
-  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
-}
-
-/** The ids of the notes a book holds, Foundry's and those made here alike. */
-function noteIds(held: Held): string[] {
-  return [...new Set([...held.notes.keys(), ...held.writes.keys()])]
-}
-
-/** Why Foundry sends none of the book now, as the view says it. */
-function withheldOf(held: Held): NotesView['withheld'] {
-  // A party no player may see is said so wherever its book is read, before the module says so.
-  if (held.book.kind === 'party' && held.book.private) {
-    return { reason: 'private' }
-  }
-  const withheld = held.row?.withheld as
-    { reason?: unknown; bytes?: unknown; limit?: unknown } | null | undefined
-  if (withheld?.reason === 'private') return { reason: 'private' }
-  if (withheld?.reason === 'tooLarge') {
-    return {
-      reason: 'tooLarge',
-      ...(typeof withheld.bytes === 'number' && { bytes: withheld.bytes }),
-      ...(typeof withheld.limit === 'number' && { limit: withheld.limit }),
-    }
-  }
-}
-
-/**
  * A book as a seat sees it (§8.8): its chapters, oldest first, and its entries, each as Foundry
  * holds it or as changed here and waiting, with where it stands, what the seat may do with it, and
  * its Markdown only for a seat that may change it. From module 0.35.0 (round 0.35.0 §7.9) its
@@ -552,270 +190,6 @@ export async function getNotesView(
   const held = await readBook(book)
   if (!held) return undefined
   return viewOf(held, seat).view
-}
-
-/** A group's key, as an order names it: its chapter's id, or '' for the notes in no chapter. */
-const groupKey = (chapterId: string | null) => chapterId ?? ''
-
-/** A group as a seat sees it, with what decides a change to its order. */
-type Grouped = {
-  /** Its notes as the seat sees them, in the order shown. */
-  ids: string[]
-  /** Its notes as the seat sees them, in Foundry's order and as what waits will make it. */
-  base: string[]
-  /** Its order made here, where there is one. */
-  order?: JournalOrder
-  view: NoteGroupView
-}
-
-/**
- * What a seat was shown of a group's order (§7.9): the order shown, and a refused order's panel
- * where it's shown one, never the order's every step. So a note added or gone, a reorder in
- * Foundry, a new order by anyone and a refusal shown each change it; an order of the seat's going
- * from waiting to made as asked doesn't.
- * @param panel - The refused order shown, as `<id>.<seq>`; null where none is.
- */
-function groupStamp(panel: string | null, ids: string[]): string {
-  const hash = createHash('sha256').update(JSON.stringify([panel, ids]))
-  return `g:${hash.digest('hex').slice(0, 16)}`
-}
-
-/** An order waiting for the game, or on its way to it: the order every seat is shown. */
-function ordering(
-  order?: JournalOrder,
-): order is JournalOrder & { status: 'pending' | 'claimed' } {
-  return order?.status === 'pending' || order?.status === 'claimed'
-}
-
-/** A group's order with an order waiting: its notes the order lists first, in its order. */
-function ordered(base: string[], order?: JournalOrder): string[] {
-  if (!ordering(order)) return base
-  const inGroup = new Set(base)
-  const listed = order.ids.filter(id => inGroup.has(id))
-  const first = new Set(listed)
-  return [...listed, ...base.filter(id => !first.has(id))]
-}
-
-/**
- * A group's order as Foundry holds it, or will once what waits is made (§2.5): its notes the
- * mirror holds in it, by their place there, then by when each was written, then id; then those
- * that wait to come into it, made here or moved in, in the order the module will make them, each
- * landing last.
- */
-function baseOrder(
-  held: Held,
-  entries: NoteEntryView[],
-  group: string | null,
-  shown: ReadonlySet<string>,
-): string[] {
-  const shownChapter = (id: string | null) => (id && shown.has(id) ? id : null)
-  const placed: NoteEntryView[] = []
-  const coming: NoteEntryView[] = []
-  for (const entry of entries) {
-    const note = held.notes.get(entry.id)
-    const inMirror =
-      note?.role === 'entry' && shownChapter(note.chapterId) === group
-    ;(inMirror ? placed : coming).push(entry)
-  }
-  const place = (entry: NoteEntryView) => held.notes.get(entry.id)!.place
-  const queued = (entry: NoteEntryView) => {
-    const write = held.writes.get(entry.id)
-    return waiting(write)
-      ? write.queuedAt.getTime()
-      : Date.parse(entry.createdAt)
-  }
-  return [
-    ...placed.toSorted((a, b) => place(a) - place(b) || byAge(a, b)),
-    ...coming.toSorted(
-      (a, b) => queued(a) - queued(b) || a.id.localeCompare(b.id),
-    ),
-  ].map(({ id }) => id)
-}
-
-/** A group's order as a seat is shown it, where its order stands, and its stamp (§7.9). */
-function groupOf(
-  held: Held,
-  seat: NotesSeat,
-  group: string | null,
-  base: string[],
-): Grouped {
-  const order = held.orders.get(groupKey(group))
-  const ids = ordered(base, order)
-  const refused = order?.status === 'conflict' || order?.status === 'failed'
-  // A refused order is its own seat's to settle, and the Gamemaster's: anyone else is shown
-  // Foundry's order, as for a note.
-  const panel =
-    refused && (seat.role === 'gm' || order.requestedById === seat.userId)
-  const view: NoteGroupView = {
-    chapterId: group,
-    state: 'synced',
-    stamp: groupStamp(panel ? `${order.id}.${order.seq}` : null, ids),
-  }
-  if (ordering(order)) {
-    view.state = held.live && held.takesOrders ? 'saving' : 'waiting'
-  } else if (panel) {
-    const inGroup = new Set(base)
-    view.state = order.status === 'conflict' ? 'conflict' : 'failed'
-    view.reason =
-      order.status === 'conflict' ? 'changed' : noteReason(order.reason)
-    view.mine = {
-      ids: order.ids.filter(id => inGroup.has(id)),
-      ...(order.requestedById !== seat.userId && { by: order.modifiedBy }),
-    }
-  }
-  return { ids, base, ...(order && { order }), view }
-}
-
-/**
- * The journal's last change a seat may be told of (§2.6): the latest of its chapters' and entries'
- * own, as the seat sees them, and of the book's record; the book's where they're at one time.
- */
-function lastChangeOf(
-  held: Held,
-  seen: { modifiedAt: string; modifiedBy: string }[],
-): NoteLastChange | undefined {
-  let latest: { at: number; by: string } | undefined
-  for (const { modifiedAt, modifiedBy } of seen) {
-    const at = Date.parse(modifiedAt)
-    if (!latest || at > latest.at) latest = { at, by: modifiedBy }
-  }
-  if (held.changed && (!latest || held.changed.at.getTime() >= latest.at)) {
-    latest = { at: held.changed.at.getTime(), by: held.changed.by }
-  }
-  return latest && { by: latest.by, at: new Date(latest.at).toISOString() }
-}
-
-/** What every note's view says of it, as a seat sees it. */
-function commonView(id: string, seen: Seen) {
-  const { content } = seen
-  return {
-    id,
-    title: content.title,
-    createdAt: content.createdAt.toISOString(),
-    modifiedAt: content.modifiedAt.toISOString(),
-    modifiedBy: content.modifiedBy,
-    modifiedIn: content.modifiedIn,
-    state: seen.state,
-    ...(seen.reason && { reason: seen.reason }),
-    stamp: seen.stamp,
-  }
-}
-
-/** A chapter as a seat sees it: its title, with the seat's own beside it where it's theirs. */
-function chapterView(
-  id: string,
-  seen: Seen,
-  note: JournalNote | undefined,
-  rights: ReturnType<typeof rightsFor>,
-): NoteChapterView {
-  return {
-    ...commonView(id, seen),
-    html: note?.html ?? '',
-    canRename: rights.canRename,
-    ...(seen.mine && {
-      mine: {
-        title: seen.mine.title,
-        ...(seen.mine.by !== undefined && { by: seen.mine.by }),
-      },
-    }),
-  }
-}
-
-/**
- * An entry as a seat sees it: its text, its body only where the seat may change it and Foundry
- * holds nothing the app can't write, and the seat's own beside it where it's theirs.
- */
-function entryView(
-  id: string,
-  seen: Seen,
-  note: JournalNote | undefined,
-  rights: ReturnType<typeof rightsFor>,
-): NoteEntryView {
-  const { content } = seen
-  const only = seen.mirrored && note ? foundryOnly(note) : undefined
-  const hasAuthor = !!content.authorActorId || content.authorGm
-  return {
-    ...commonView(id, seen),
-    chapterId: content.chapterId,
-    html: content.html,
-    ...(rights.mayChange && !only && { body: content.body }),
-    author: hasAuthor ? { name: content.authorName ?? '' } : null,
-    canEdit: rights.canEdit,
-    canDelete: rights.canDelete,
-    ...(only && { foundryOnly: only }),
-    ...(seen.mine && {
-      mine: {
-        title: seen.mine.title,
-        html: seen.mine.html,
-        body: seen.mine.body,
-        chapterId: seen.mine.chapterId,
-        ...(seen.mine.deleting && { deleting: true as const }),
-        ...(seen.mine.by !== undefined && { by: seen.mine.by }),
-      },
-    }),
-  }
-}
-
-/** A book as a seat sees it, with each of its groups by key, for a change to their order. */
-function viewOf(
-  held: Held,
-  seat: NotesSeat,
-): { view: NotesView; groups: Map<string, Grouped> } {
-  const { book } = held
-  const chapters: NoteChapterView[] = []
-  const entries: NoteEntryView[] = []
-  for (const id of noteIds(held)) {
-    const note = held.notes.get(id)
-    const write = held.writes.get(id)
-    const rights = rightsFor(held, seat, note, write)
-    const seen = overlay(note, write, rights.mayChange, held.live, seat)
-    if (!seen) continue
-    if (seen.role === 'chapter')
-      chapters.push(chapterView(id, seen, note, rights))
-    else entries.push(entryView(id, seen, note, rights))
-  }
-  const sortedChapters = chapters.toSorted(byAge)
-  const shown = new Set(chapters.map(({ id }) => id))
-  // An entry in a chapter the seat isn't shown is in none, as it reads it.
-  const placedEntries = entries.map(entry =>
-    entry.chapterId && !shown.has(entry.chapterId)
-      ? { ...entry, chapterId: null }
-      : entry,
-  )
-  const byId = new Map(placedEntries.map(entry => [entry.id, entry]))
-  const groups = new Map<string, Grouped>()
-  for (const group of [null, ...sortedChapters.map(({ id }) => id)]) {
-    const members = placedEntries.filter(entry => entry.chapterId === group)
-    const base = baseOrder(held, members, group, shown)
-    groups.set(groupKey(group), groupOf(held, seat, group, base))
-  }
-  const rights = noteRights(
-    { kind: book.kind, private: book.private, connected: held.connected },
-    seat,
-  )
-  const withheld = withheldOf(held)
-  const lastChange = lastChangeOf(held, [...chapters, ...entries])
-  return {
-    view: {
-      version: held.row?.version ?? 0,
-      kind: book.kind,
-      journal: held.row?.journalName ?? null,
-      live: held.live,
-      enabled: held.enabled,
-      canAdd: rights.canAdd,
-      connected: held.connected,
-      canReorder: rights.canReorder,
-      orders: held.takesOrders,
-      ...(lastChange && { lastChange }),
-      ...(withheld && { withheld }),
-      chapters: sortedChapters,
-      groups: [...groups.values()].map(({ view }) => view),
-      entries: [...groups.values()].flatMap(({ ids }) =>
-        ids.map(id => byId.get(id)!),
-      ),
-    },
-    groups,
-  }
 }
 
 /**
@@ -854,7 +228,7 @@ export async function getNotesStatus(
 }
 
 /** A note's Markdown as a book draws it: a personal book keeps its secrets, a party's never. */
-function htmlFor(held: Held, body: string): string {
+function htmlFor(held: HeldBook, body: string): string {
   return noteHtml(
     { format: 2, body },
     held.origin,
@@ -862,14 +236,8 @@ function htmlFor(held: Held, body: string): string {
   )
 }
 
-/** The name a seat writes as: the Gamemaster's, or their character's as the campaign names it. */
-function writerName(held: Held, seat: NotesSeat): string {
-  if (seat.role === 'gm') return GAMEMASTER
-  return (seat.actorId && held.names.get(seat.actorId)) || seat.name
-}
-
 /** Who a change is from, as each change to a note's waiting row records it. */
-function changedBy(held: Held, seat: NotesSeat, now: Date) {
+function changedBy(held: HeldBook, seat: NotesSeat, now: Date) {
   return {
     seat: seat.role,
     requestedById: seat.userId,
@@ -879,18 +247,12 @@ function changedBy(held: Held, seat: NotesSeat, now: Date) {
   }
 }
 
-/** What a note says now: the change waiting where there is one, else Foundry's; none if neither. */
-function current(note?: JournalNote, write?: JournalWrite) {
-  if (waiting(write) && write.op !== 'delete') return fromWrite(write, note)
-  return note ? fromMirror(note) : undefined
-}
-
 /**
  * Whether a book takes a change at all, and from this seat now (create steps 2-4): its actor still
  * the campaign's, a party its characters may see, and the seat not making too many changes.
  */
 async function takes(
-  held: Held,
+  held: HeldBook,
   seat: NotesSeat,
   { limited }: { limited: boolean },
 ): Promise<NoteAnswer | undefined> {
@@ -921,7 +283,7 @@ async function takes(
  * @param noteId - The note it changes, whose own text and place don't count; none for a new one.
  */
 function fits(
-  held: Held,
+  held: HeldBook,
   role: NoteRole,
   content: { body: string; chapterId: string | null },
   noteId?: string,
@@ -951,45 +313,6 @@ function fits(
   }
 }
 
-/** Whether a chapter is the book's: Foundry's, or one made here on its way. */
-function chapterKnown(held: Held, chapter: string): boolean {
-  return (
-    held.notes.get(chapter)?.role === 'chapter' ||
-    [...held.writes.values()].some(
-      write =>
-        write.noteId === chapter &&
-        write.role === 'chapter' &&
-        write.op === 'create' &&
-        waiting(write),
-    )
-  )
-}
-
-/**
- * The book's entries and chapters as they'll stand, none on its way out counted, and its entries'
- * text but a note's own.
- * @param noteId - The note a change is to, whose own text doesn't count.
- */
-function bookCounts(held: Held, noteId?: string) {
-  let entryCount = 0
-  let chapterCount = 0
-  let text = 0
-  for (const id of noteIds(held)) {
-    const note = held.notes.get(id)
-    const write = held.writes.get(id)
-    if (waiting(write) && write.op === 'delete') continue
-    const now = current(note, write)
-    if (!now) continue
-    const itsRole = note?.role ?? write?.role
-    if (itsRole === 'chapter') chapterCount++
-    if (itsRole === 'entry') {
-      entryCount++
-      if (id !== noteId) text += now.body.length
-    }
-  }
-  return { entryCount, chapterCount, text }
-}
-
 /** A key the database already holds, as a second change made at once meets. */
 const isTaken = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -1006,7 +329,7 @@ type BookChange = {
 }
 
 /** A change made here by a seat, now, as the book records it. */
-function changedHere(held: Held, seat: NotesSeat, at: Date): BookChange {
+function changedHere(held: HeldBook, seat: NotesSeat, at: Date): BookChange {
   return { changedAt: at, changedBy: writerName(held, seat), changedIn: 'app' }
 }
 
@@ -1186,7 +509,7 @@ export async function changeNote(
  * saw it otherwise than it is, or a change of it is on its way or refused.
  */
 function changeStanding(
-  held: Held,
+  held: HeldBook,
   seat: NotesSeat,
   note: JournalNote | undefined,
   write: JournalWrite | undefined,
@@ -1210,15 +533,6 @@ function changeStanding(
   return undefined
 }
 
-/** A change folded into the one waiting: a delete stays one, and a change undoes one. */
-function foldedOp(
-  waiting: JournalWrite['op'],
-  change: 'update' | 'delete',
-): JournalWrite['op'] {
-  if (change === 'delete') return 'delete'
-  return waiting === 'delete' ? 'update' : waiting
-}
-
 /**
  * A change stored, compare-and-set (§4.2): folded into the note's change waiting or refused, its
  * op kept but a delete's, which becomes this; a made one used again as a new change, from
@@ -1227,7 +541,7 @@ function foldedOp(
  */
 async function saveChange(
   tx: Tx,
-  held: Held,
+  held: HeldBook,
   noteId: string,
   note: JournalNote | undefined,
   write: JournalWrite | undefined,
@@ -1443,44 +757,6 @@ export async function resolveNote(
       return { ok: true as const, stamp: `w:${write.id}.${write.seq + 1}` }
     }),
   )
-}
-
-/**
- * A change the game didn't take, sent again as the seat's (§4.5): the note made again where Foundry
- * deleted it; made from Foundry's revision now where Foundry changed it; else as it was.
- * @param withheld - Foundry holds the book back, so the mirror can't say its revision now.
- */
-function sentAgain(
-  write: JournalWrite,
-  note: JournalNote | undefined,
-  withheld: boolean,
-): Partial<Pick<JournalWrite, 'op' | 'base'>> {
-  if (write.status !== 'conflict') return {}
-  if (write.reason === 'gone') return { op: 'create', base: null }
-  // Foundry's revision now is the mirror's, which every journal.updated keeps up; but in a book
-  // Foundry holds back nothing does, and the refusal's own revision is the latest word of it.
-  const now = withheld
-    ? (write.foundryRev ?? note?.revision)
-    : (note?.revision ?? write.foundryRev)
-  return { base: now ?? write.base }
-}
-
-/**
- * A group's order as the mirror holds it (round 0.35.0 §7.7): its notes as Foundry last sent them
- * in it, by their place there, then by when each was written, then id. What an order is made from,
- * so that the module can tell whether Foundry's order of those notes changed since.
- */
-function mirrorOrder(held: Held, chapterId: string | null): string[] {
-  const group = groupKey(chapterId)
-  return [...held.notes.values()]
-    .filter(note => note.role === 'entry' && groupKey(note.chapterId) === group)
-    .toSorted(
-      (a, b) =>
-        a.place - b.place ||
-        a.createdAt.getTime() - b.createdAt.getTime() ||
-        a.noteId.localeCompare(b.noteId),
-    )
-    .map(({ noteId }) => noteId)
 }
 
 /**

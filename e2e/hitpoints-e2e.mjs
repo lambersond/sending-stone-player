@@ -14,11 +14,19 @@
 // numbers while it's open; a stale view refused "changed" by the module, nothing written; Brakka's
 // header tile, her own actor written, Thorin's untouched; never the Gamemaster's page nor another
 // player's seat; the campaign card; the switch off in Foundry, the tile read-only within a poll and a
-// crafted post answered 409; phones, the tablet and both themes. Synthetic characters only. Run with
-// --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// crafted post answered 409; phones, the tablet and both themes. DND5E6=1 and MIDI=1 run the same
+// and show that this plain path holds in those worlds; neither exercises a path that differs by
+// world, since the module's command has none by dnd5e's version or for Midi-QOL. DND5E6=1: on dnd5e
+// 6.0.5, its dice and its handling of a change of hit points (hp-core.mjs's generation 6), whose one
+// addition, updateDowned, does nothing here: the suite leaves autoApplyDowned unset, which reads
+// "none". MIDI=1: with the stand-in Midi-QOL in the world (fvtt/midi-fake.mjs); nothing here makes a
+// Midi workflow, so part 3's "no Midi-QOL workflow" fails only if the module's command starts one.
+// Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
+// ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
-  BOB, activeScene, browse, call, character, check, companion, finish, foundryWorld, launch, newCampaign, note, part,
-  place, posted, postsOf, relay, same, sameJson, sceneWorld, settled, shootBoth, sideways, sql, startModule, until, wait,
+  BOB, DND5E6, MIDI, W, activeScene, browse, call, character, check, companion, finish, foundryWorld, launch, newCampaign,
+  note, part, place, posted, postsOf, relay, same, sameJson, sceneWorld, settled, shootBoth, sideways, sql, startModule, until,
+  wait,
 } from './world-030.mjs'
 
 const GAME = 'https://ashlands-hitpoints.forge-vtt.com'
@@ -27,7 +35,7 @@ const SECRET = 'erebor-hitpoints-44'
 const TITLE = 'Erebor'
 await launch(GAME)
 const { id: A } = await newCampaign({ title: TITLE, address: ADDRESS, secret: SECRET })
-await foundryWorld()
+await foundryWorld({ dice6: DND5E6 })
 await sceneWorld()
 // A checkout's module.json carries its last release's version: the one this release stamps.
 game.modules.get('sending-stone').version = '0.44.0'
@@ -39,6 +47,8 @@ Object.assign(CONFIG.DND5E, {
 })
 // dnd5e's handling of a change of hit points, from the module's harness.
 const { hpLog, withHitPoints } = await import('./fvtt/hp-core.mjs')
+/** Whose handling of a change of hit points: dnd5e 5.3.3's, or with DND5E6=1 6.0.5's. */
+const generation = DND5E6 ? 6 : 5
 
 // The module's results to the app, held while `results.held` is, as a result on its way takes its time.
 const results = { held: null, release: null }
@@ -63,7 +73,7 @@ const releaseResults = () => {
 
 // ---- The world: Thorin, Alice's, and Brakka, his companion; Vex, Bob's ----
 // world-030's character fires updateActor itself: dnd5e's hit points go around it.
-const thorin = withHitPoints(character({ id: 'thorin', name: 'Thorin Oakenshield', owners: ['alice'], mods: { str: 3, con: 2 }, hp: { value: 22, max: 30, temp: 3 } }, { ac: 16, items: [] }), { coreHooks: false })
+const thorin = withHitPoints(character({ id: 'thorin', name: 'Thorin Oakenshield', owners: ['alice'], mods: { str: 3, con: 2 }, hp: { value: 22, max: 30, temp: 3 } }, { ac: 16, items: [] }), { coreHooks: false, generation })
 thorin.system.details = { level: 5 }
 const vex = character({ id: 'vex', name: 'Vex', owners: ['bob'], mods: { dex: 3, wis: 2 }, hp: { value: 20, max: 30, temp: 0 } }, { ac: 14, items: [] })
 vex.system.details = { level: 5 }
@@ -76,7 +86,7 @@ const brakka = withHitPoints(companion('brakka', 'Brakka', {
     spec: { mods: { str: 3, dex: 1, con: 2 }, prof: 2, hp: { value: 30, max: 30, temp: 0 } },
     system: { traits: { important: true, size: 'med' }, details: { cr: 2, type: { value: 'humanoid', label: 'Humanoid' }, alignment: 'Neutral' }, attributes: { movement: { walk: 30, units: 'ft' }, init: { total: 1 } } },
   },
-}))
+}), { generation })
 const arena = await activeScene('arena')
 for (const actor of [thorin, vex, brakka]) await place(arena, actor, { id: `tok-${actor.id}`, actorLink: true, tell: false })
 // Saved before 0.44.0: no hitPoints key, so it reads on; the players' rolls off.
@@ -93,7 +103,11 @@ const commands = () => JSON.parse(sql(`select coalesce(json_agg(r order by r."cr
 /** The `count`th hit points command, once the module has answered it and posted its result. */
 async function answered(count, what) {
   await until(() => commands().length >= count && ['done', 'failed'].includes(commands()[count - 1].status), what, 30_000)
-  return commands()[count - 1]
+  const row = commands()[count - 1]
+  // The app keeps the result as the module posts it, a moment before its answer is back and the post
+  // noted here: under load, long enough for a check reading the post to find none.
+  await until(() => resultOf(row), `${what}: its result as the module posted it`, 15_000)
+  return row
 }
 /** What the module posted as a command's result. */
 const resultOf = row => postsOf('command.result').find(p => p.data?.id === row.id)?.data
@@ -245,8 +259,10 @@ part('3. the GM\'s fall')
   const made = await answered(1, 'the fall')
   const resultIndex = posted.findIndex(p => (p.type === 'command.result') && (p.data?.id === made.id))
   const sheetIndex = posted.findIndex(p => (p.type === 'character.updated') && (p.data?.character?.id === 'thorin') && (p.data.character.sheet?.hp?.value === 21))
-  check(made.status === 'done' && sameJson(resultOf(made)?.hitPoints, { value: 21, temp: 0, max: 30 }) && (sheetIndex >= 0) && (sheetIndex < resultIndex),
-    `done, the result saying the numbers now, the sheet posted ahead of it (${JSON.stringify({ result: resultOf(made), sheetIndex, resultIndex })})`)
+  // Under Midi-QOL, no workflow of Midi's: a plain update, not dnd5e's damage.
+  check(made.status === 'done' && sameJson(resultOf(made)?.hitPoints, { value: 21, temp: 0, max: 30 }) && (sheetIndex >= 0) && (sheetIndex < resultIndex)
+    && (!MIDI || W.midi.made.length === 0),
+    `done, the result saying the numbers now, the sheet posted ahead of it${MIDI ? ', no Midi-QOL workflow' : ''} (${JSON.stringify({ result: resultOf(made), sheetIndex, resultIndex })})`)
   await trayShows(desk, 'Hit points now 21 / 30')
   check(true, 'the tray says "Hit points now 21 / 30", as the game says')
   const floating = hpLog.shown.slice(shown)

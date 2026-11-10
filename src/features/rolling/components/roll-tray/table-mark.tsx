@@ -7,7 +7,8 @@ import type { LocalRoll, TableRollState } from '@/types/roll'
 /**
  * A roll's way to the game, in brief, among the earlier rolls: for a saving throw or check against
  * a DC a description names that the game didn't make, whether this roll made it, as when it was
- * the latest; for one the app took with nothing to follow it by, that it was sent.
+ * the latest; for one the app took with nothing to follow it by, that it was sent; and of hit dice
+ * that stopped part way, how many were made, or sent, where any couldn't be followed.
  */
 export function TableMark({
   state,
@@ -29,12 +30,14 @@ export function TableMark({
   if (onItsWay(state)) {
     return <span className='ml-1.5'>· sending</span>
   }
-  // Of dice sent one after another, those the game made before one it didn't.
+  // Of dice sent one after another, those the game made before one it didn't; or those sent, where
+  // any of them couldn't be followed.
   const made = state.together?.made
   if (made) {
     return (
       <span className='ml-1.5'>
-        · {made} of {state.together?.count} at the table
+        · {made} of {state.together?.count}{' '}
+        {state.together?.unfollowed ? 'sent' : 'at the table'}
       </span>
     )
   }

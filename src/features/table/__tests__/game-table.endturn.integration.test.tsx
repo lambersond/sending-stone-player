@@ -558,6 +558,26 @@ describe('components/game-table/game-table, End Turn', () => {
     onTab('Combat')
   })
 
+  it('takes a companion’s turn whose key is empty for none of the seat’s, by one rule: no dot, no outline, no End Turn', async () => {
+    const combat = turnOf('c-brakka')
+    renderTable(
+      view({
+        combat: {
+          ...combat,
+          combatants: combat.combatants.map(combatant =>
+            combatant.id === 'c-brakka'
+              ? { ...combatant, companion: '' }
+              : combatant,
+          ),
+        },
+      }),
+    )
+    await advance(600)
+    expect(combatTab()).toHaveAccessibleName('Combat')
+    expect(turnHeading()?.closest('section')).toHaveClass('border-border')
+    expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
+  })
+
   it('ends the turn from the button with no toast until the game has and the page shows it, then offers Undo, focus on the heading', async () => {
     const { poll } = renderTable()
     fireEvent.click(combatTab())
@@ -662,10 +682,12 @@ describe('components/game-table/game-table, End Turn', () => {
     onTab('Combat')
     await advance(5000)
     expect(toast()).toBeNull()
-    // A tab of the bar chosen clears the line.
+    // A tab of the bar chosen keeps the line, as the column's does.
     fireEvent.click(barTab('Chat'), { detail: 0 })
     fireEvent.click(combatTab(), { detail: 0 })
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Your turn wasn’t ended: the turn had already moved on\.$/,
+    )
   })
 
   it('says in the panel why the button’s End Turn was turned away by the app itself, too many at once', async () => {
@@ -892,31 +914,56 @@ describe('components/game-table/game-table, End Turn', () => {
     onColumn(/^Combat/)
   })
 
-  it('clears the panel’s line as the bar’s Combat tab is chosen', async () => {
+  it('keeps the panel’s line through a visit to the column’s Chat tab, on a wide screen', async () => {
+    wideScreen()
+    renderTable()
+    await advance(600)
+    refuse = { status: 429, reason: 'busy' }
+    fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
+    await advance(0)
+    fireEvent.click(columnTab('Chat'))
+    onColumn('Chat')
+    fireEvent.click(columnTab(/^Combat/))
+    onColumn(/^Combat/)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Your turn wasn’t ended: too many rolls at once\. Try again in a moment\.$/,
+    )
+  })
+
+  it('keeps the panel’s line for Combat opened after a hold on the Character tab, its toast gone', async () => {
     renderTable()
     await advance(600)
     answers['req-1'] = { status: 'failed', reason: 'moved' }
     await press(combatTab(), 1000)
     await advance(1000)
     onTab('Character')
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Your turn wasn’t ended: the turn had already moved on.',
-    )
-    fireEvent.click(combatTab(), { detail: 0 })
+    expect(toasted()).toEqual([
+      'Your turn wasn’t ended.',
+      'The turn had already moved on.',
+    ])
+    await advance(5000)
+    expect(toast()).toBeNull()
+    fireEvent.click(combatTab(), { detail: 1 })
     onTab('Combat')
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Your turn wasn’t ended: the turn had already moved on\.$/,
+    )
   })
 
-  it('clears the panel’s line as the bar’s Character tab is chosen', async () => {
+  it('keeps the panel’s line, the app’s own refusal with no toast, through a visit to the bar’s Character tab', async () => {
     renderTable()
     fireEvent.click(combatTab())
     await advance(600)
     refuse = { status: 429, reason: 'busy' }
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     await advance(0)
-    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(toast()).toBeNull()
     fireEvent.click(barTab('Character'), { detail: 0 })
     onTab('Character')
-    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.click(combatTab(), { detail: 0 })
+    onTab('Combat')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Your turn wasn’t ended: too many rolls at once\. Try again in a moment\.$/,
+    )
   })
 })

@@ -75,16 +75,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes', () => {
     jest.mocked(getNotesView).mockResolvedValue(mockNotesView())
   })
 
-  it('answers 401 signed out', async () => {
-    jest.mocked(getCurrentUser).mockResolvedValue(undefined as any)
-
-    await expect(get()).resolves.toHaveProperty('status', 401)
-    await expect(post({ role: 'entry', title: 'a' })).resolves.toHaveProperty(
-      'status',
-      401,
-    )
-  })
-
   it('gives the book to its seat, never cached, and 204 while nothing changed', async () => {
     const response = await get()
 
@@ -96,21 +86,7 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes', () => {
       'status',
       204,
     )
-  })
-
-  it('answers 404 for another Gamemaster’s campaign, saying no more, and never 204', async () => {
-    jest.mocked(getGmSeat).mockResolvedValue(undefined)
-
-    for (const response of [await get(), await get('?version=3&live=1')]) {
-      expect(response.status).toBe(404)
-      expect(await response.text()).toBe('')
-    }
-    await expect(post({ role: 'entry', title: 'a' })).resolves.toHaveProperty(
-      'status',
-      404,
-    )
-    expect(getNotesView).not.toHaveBeenCalled()
-    expect(createNote).not.toHaveBeenCalled()
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 
   it('adds a note to the seat’s book, 201 with its id', async () => {
@@ -129,5 +105,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes', () => {
       role: 'chapter',
       title: 'Session 1',
     })
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 })

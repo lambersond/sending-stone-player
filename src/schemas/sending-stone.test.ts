@@ -471,6 +471,30 @@ describe('schemas/sending-stone', () => {
     expect(characters[3]).not.toHaveProperty('manualDice')
   })
 
+  it("reads a character's portrait as a path, or none where it can't be read", () => {
+    const [thorin] = roster
+    const portraits = (
+      parseGameEvent('bridge.hello', {
+        characters: [
+          { ...thorin, img: 'worlds/thorin.webp' },
+          { ...thorin, img: null },
+          { ...thorin, img: 7 },
+          { ...thorin, img: { src: 'thorin.webp' } },
+          thorin,
+        ],
+        combats: [],
+      })?.data as any
+    ).characters.map(({ img }: any) => img)
+
+    expect(portraits).toEqual([
+      'worlds/thorin.webp',
+      null,
+      null,
+      null,
+      undefined,
+    ])
+  })
+
   it('reads the saves the game asks for, in its hello and as they open and close, from module 0.13.0', () => {
     const prompt = {
       id: 'msg1-thorin',
@@ -2808,6 +2832,32 @@ describe('schemas/sending-stone', () => {
     expect(rollWith({})).toEqual({ formula: '1d6', total: 4, dice: [] })
   })
 
+  it("reads a roll's advantage, disadvantage, critical, fumble and damage type, leaving out those that don't hold up", () => {
+    const marks = {
+      advantage: true,
+      disadvantage: false,
+      critical: true,
+      fumble: false,
+      damageType: 'fire',
+    }
+
+    expect(rollWith(marks)).toEqual({
+      formula: '1d6',
+      total: 4,
+      dice: [],
+      ...marks,
+    })
+    expect(
+      rollWith({
+        advantage: 'yes',
+        disadvantage: 1,
+        critical: 'no',
+        fumble: null,
+        damageType: 7,
+      }),
+    ).toEqual({ formula: '1d6', total: 4, dice: [] })
+  })
+
   it('reads what marks a combat roll, and drops a malformed armor class', () => {
     expect(
       messageWith({
@@ -4529,6 +4579,25 @@ const usesOf = (recharge: unknown) =>
     uses: { value: 0, max: 1, recovery: 'Recharge [5+]', recharge },
   }).uses
 
+/** A feature's uses, as its sheet's Features tab reads them. */
+const featureUsesOf = (uses: object) => {
+  const sheet = fullerSheet()
+  const [section] = sheet.features
+  return (
+    parseGameEvent('character.updated', {
+      character: {
+        ...roster[0],
+        sheet: {
+          ...sheet,
+          features: [
+            { ...section, features: [{ ...section.features[0], uses }] },
+          ],
+        },
+      },
+    }) as any
+  ).data.character.sheet.features[0].features[0].uses
+}
+
 const combatantOf = (companion: unknown) =>
   (
     parseGameEvent('combat.combatant.added', {
@@ -4749,6 +4818,26 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
       expect(uses.recharge).toBeUndefined()
       expect(uses.value).toBe(0)
     }
+  })
+
+  it("reads a feature's uses as an item's, leaving out a counter, spendable or recharge it can't read", () => {
+    const uses = { value: 0, max: 1, recovery: 'Recharge [5+]' }
+    const kept = {
+      ...uses,
+      counter: { item: 'breath' },
+      spendable: true,
+      recharge: 5,
+    }
+
+    expect(featureUsesOf(kept)).toEqual(kept)
+    expect(
+      featureUsesOf({
+        ...uses,
+        counter: { item: 'fire breath' },
+        spendable: 'yes',
+        recharge: 7,
+      }),
+    ).toEqual(uses)
   })
 
   it('reads damage on its own wherever a row has damage, leaving out a plan it can’t read', () => {
@@ -5621,7 +5710,7 @@ describe('schemas/sending-stone, Wild Shape, from module 0.40.0', () => {
     // without one.
     expect(source).not.toMatch(/\*\/\s*\n\s*\/\*\*/)
     expect(source).toMatch(
-      /\/\*\*\n \* What became of a command;[^/]*\*\/\nconst commandResultSchema = /,
+      /\/\*\*\n \* What became of a command;[^/]*\*\/\nconst commandResultSchema\b/,
     )
   })
 })

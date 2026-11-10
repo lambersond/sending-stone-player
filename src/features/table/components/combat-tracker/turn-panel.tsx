@@ -5,7 +5,11 @@ import { TriangleAlert } from 'lucide-react'
 import { EndTurnButton } from '../end-turn-button/end-turn-button'
 import { useTurnFocus } from './use-turn-focus'
 import { refusalLine, turnHeading } from './utils'
-import { currentCombatant, nextUp } from '@/features/table/utils/combat'
+import {
+  currentCombatant,
+  nextUp,
+  seatTurn,
+} from '@/features/table/utils/combat'
 import { END_TURN_HINT, turnKey } from '@/features/table/utils/end-turn'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
@@ -41,9 +45,9 @@ export function TurnPanel({
   const next = nextUp(combat)
   // The turn of one of the player's own creatures: their character's, or from module 0.36.0 one of
   // its companions', which is rolled for on its own tab.
-  const companion = current?.yours ? current.companion : undefined
-  const mine =
-    combat.started && (current?.side === 'me' || companion !== undefined)
+  const own = current && seatTurn(current)
+  const companion = own?.companion
+  const mine = combat.started && own !== undefined
   const heading = turnHeading(combat, current, companion)
 
   // End Turn, on the seat's turn as the panel shows it (module 0.36.0).

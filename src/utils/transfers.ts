@@ -235,3 +235,17 @@ function contained(item: SheetItem | SheetContainer): string[] {
     ...contained(inner),
   ])
 }
+
+/**
+ * Whether a move on its way moves any of the same from the same end: one of the same items, or
+ * coins, as both do.
+ */
+export function overlaps(
+  earlier: TransferInput | undefined,
+  transfer: TransferInput,
+): boolean {
+  if (!earlier || earlier.from !== transfer.from) return false
+  const ids = new Set((earlier.items ?? []).map(({ id }) => id))
+  const items = (transfer.items ?? []).some(({ id }) => ids.has(id))
+  return items || (!!earlier.currency && !!transfer.currency)
+}

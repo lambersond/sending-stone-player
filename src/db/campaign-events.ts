@@ -6,7 +6,6 @@ import {
   drawJournal,
   reconcileJournals,
 } from '@/db/note-sync'
-import { groupRoster } from '@/db/party'
 import {
   keepOnlySheetTexts,
   lacksSheetTexts,
@@ -15,6 +14,8 @@ import {
 import { postedBeforeClear } from '@/utils/chat-clear'
 import { companionRoster } from '@/utils/companions'
 import { helloCampaignData, helloCompanionData } from '@/utils/hello-features'
+import { groupRoster } from '@/utils/roster'
+import { sortTurnOrder } from '@/utils/turn-order'
 import type { JournalDrawings, Tx } from '@/db/types'
 import type { FoundrySettings, FoundrySnapshot } from '@/types/foundry-settings'
 import type {
@@ -823,21 +824,6 @@ async function patchCombat(
     ...combat,
     combatants: change(combat.combatants),
   })
-}
-
-/**
- * Foundry's turn order: highest initiative first, those yet to roll last, then by name. The next
- * snapshot from Foundry corrects any difference, such as a system's own tiebreaker.
- */
-export function sortTurnOrder(
-  combatants: CombatantSummary[],
-): CombatantSummary[] {
-  return combatants.toSorted(
-    (a, b) =>
-      (b.initiative ?? -Infinity) - (a.initiative ?? -Infinity) ||
-      a.name.localeCompare(b.name) ||
-      a.id.localeCompare(b.id),
-  )
 }
 
 const toJson = (value: object) => value as unknown as Prisma.InputJsonObject

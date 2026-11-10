@@ -61,6 +61,15 @@ const BOOK = {
   private: false,
 }
 
+/** Thorin's seat at the party, as the party's book is asked for at his address. */
+const PARTY_SEAT = {
+  role: 'player',
+  campaignId: 'c1',
+  actorId: 'thorin',
+  characterId: 'char-1',
+  name: 'Thorin',
+}
+
 const URL = 'https://player.example/api/characters/char-1/party/company/notes'
 const context = { params: Promise.resolve({ id: 'char-1', group: 'company' }) }
 const get = (query = '') => GET(new NextRequest(`${URL}${query}`), context)
@@ -83,16 +92,6 @@ describe('app/api/characters/[id]/party/[group]/notes', () => {
     jest.mocked(getNotesView).mockResolvedValue(mockNotesView())
   })
 
-  it('answers 401 signed out', async () => {
-    jest.mocked(getCurrentUser).mockResolvedValue(undefined as any)
-
-    await expect(get()).resolves.toHaveProperty('status', 401)
-    await expect(post({ role: 'entry', title: 'a' })).resolves.toHaveProperty(
-      'status',
-      401,
-    )
-  })
-
   it('gives the book to its seat, never cached, and 204 while nothing changed', async () => {
     const response = await get()
 
@@ -104,22 +103,8 @@ describe('app/api/characters/[id]/party/[group]/notes', () => {
       'status',
       204,
     )
-  })
-
-  it('answers 404 for a party the character may not see now, saying no more, and never 204', async () => {
-    jest.mocked(getCharacter).mockResolvedValue(THORIN)
-    jest.mocked(partyNotesAccess).mockResolvedValue(undefined)
-
-    for (const response of [await get(), await get('?version=3&live=1')]) {
-      expect(response.status).toBe(404)
-      expect(await response.text()).toBe('')
-    }
-    await expect(post({ role: 'entry', title: 'a' })).resolves.toHaveProperty(
-      'status',
-      404,
-    )
-    expect(getNotesView).not.toHaveBeenCalled()
-    expect(createNote).not.toHaveBeenCalled()
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+    expect(partyNotesAccess).toHaveBeenCalledWith(PARTY_SEAT, 'company')
   })
 
   it('adds a note to the seat’s book, 201 with its id', async () => {
@@ -138,5 +123,7 @@ describe('app/api/characters/[id]/party/[group]/notes', () => {
       role: 'chapter',
       title: 'Session 1',
     })
+    expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
+    expect(partyNotesAccess).toHaveBeenCalledWith(PARTY_SEAT, 'company')
   })
 })

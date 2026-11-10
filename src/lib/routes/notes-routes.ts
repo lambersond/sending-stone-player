@@ -26,7 +26,9 @@ import {
 } from '@/schemas/notes'
 import { NOTE_ID } from '@/utils/note-id'
 import type { NotesAddress, NotesPlace } from './types'
-import type { NoteAnswer, NotesSeat, PartySeat } from '@/db/types'
+import type { NoteAnswer } from '@/db/types'
+import type { NotesSeat } from '@/types/notes'
+import type { PartySeat } from '@/types/party'
 import type { NextRequest } from 'next/server'
 import type { z } from 'zod'
 

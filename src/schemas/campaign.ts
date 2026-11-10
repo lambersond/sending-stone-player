@@ -6,6 +6,7 @@ import {
   SECRET_MAX_LENGTH,
   SECRET_MIN_LENGTH,
 } from '@/constants/campaign'
+import type { CampaignSetupInput } from '@/types/campaign'
 
 // A Forge game is served from its own subdomain, such as my-game.forge-vtt.com.
 const FORGE_GAME_HOST = /^(?!www\.)[a-z\d-]+\.forge-vtt\.com$/
@@ -72,7 +73,7 @@ export const secretSchema = z
     `Keep the secret to ${SECRET_MAX_LENGTH} characters or fewer.`,
   )
 
-export const campaignSetupSchema = z.object({
+export const campaignSetupSchema: z.ZodType<CampaignSetupInput> = z.object({
   title: campaignTitleSchema,
   gameUrl: forgeGameUrlSchema,
   secret: secretSchema,

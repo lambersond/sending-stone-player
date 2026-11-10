@@ -1,6 +1,6 @@
 import type { BRIDGE_SWITCHES } from '@/constants/features'
 import type { SheetSeat } from '@/types/character'
-import type { NoteBookKind, NoteRole, NoteRefusal } from '@/types/notes'
+import type { NoteRefusal } from '@/types/notes'
 import type {
   RollKindInfo,
   RollRequestInput,
@@ -13,33 +13,8 @@ import type {
   DishDismissed,
 } from '@/types/sending-stone'
 import type { GmRolls } from '@/types/table'
-import type { RollRefusal } from '@/utils/requests/types'
-import type { Prisma, CookbookDishStatus } from '@prisma/client'
-
-/** A note command, as the module fetches it (round 0.34.0 §3.4): a change to one page. */
-export type NotePageCommand = {
-  id: string
-  actorId: string
-  kind: 'note'
-  by?: 'gm'
-  note: {
-    book: NoteBookKind
-    op: 'create' | 'update' | 'delete'
-    id: string
-    role: NoteRole
-    base: string | null
-    writer: string | null
-    at: number
-    title?: string
-    markdown?: string
-    chapter?: string | null
-    createdAt?: number
-  }
-  mode: 0
-  explicit: false
-  extras: []
-  dice: []
-}
+import type { RollRefusal, RollRejection } from '@/utils/requests/types'
+import type { Campaign, Prisma, CookbookDishStatus } from '@prisma/client'
 
 /**
  * Whose rolls are asked after: a seat's (#156), as a sheet's routes resolve it; or, from module
@@ -51,17 +26,6 @@ export type RollSeat = Pick<
   SheetSeat,
   'role' | 'userId' | 'campaignId' | 'actorId' | 'characterId'
 > & { companion?: Pick<NonNullable<SheetSeat['companion']>, 'of'> }
-
-/**
- * Why a roll wasn't taken, with the HTTP status that says so; for a move of items and coins, from
- * module 0.31.0, also that the seat has a move of the same on its way already (`moving`), and for
- * a removal, from module 0.33.0, a move or removal of the item, of anything in it, or of a
- * container it's in.
- */
-export type RollRejection = {
-  status: 409 | 422 | 429
-  reason: RollRefusal | 'busy' | 'moving'
-}
 
 /**
  * A command a seat sends that rides to the game as a roll does but is none, each with a switch of
@@ -142,34 +106,29 @@ export type BridgePolled = Record<BridgeSwitch, boolean> & {
   playersPresent: boolean
 }
 
+/**
+ * What a check of the module's fetch reads of its campaign, once for every claim it runs: the
+ * session whose hello is held, which each claim reads; its owner, which the notes' and the rolls'
+ * read; the dishes' switch and versions; the notes' switch and features; and the rolls' features
+ * and each switch of a kind of their own.
+ */
+export type ClaimCampaign = Pick<
+  Campaign,
+  | 'helloSession'
+  | 'ownerId'
+  | 'dishesEnabled'
+  | 'dishVersions'
+  | 'notesEnabled'
+  | 'noteFeatures'
+  | 'rollFeatures'
+  | NonNullable<RollKindInfo['own']>
+>
+
 /** A creator of a kind of command, past every roll's gates. */
 export type CommandCreator = (
   seat: SheetSeat,
   input: RollRequestInput,
 ) => Promise<{ id: string } | RollRejection>
-
-/**
- * Who is at a book of notes, as its route resolved them from the session and the address alone:
- * the character's player, as their character, or the campaign's Gamemaster, as no character.
- */
-export type NotesSeat = {
-  role: 'player' | 'gm'
-  userId: string
-  /** The player's character's actor, which they write as; null for the Gamemaster. */
-  actorId: string | null
-  /** The character's name, as their seat knows it; the Gamemaster's is "Gamemaster". */
-  name: string
-}
-
-/** The book a seat is at: a character's or a party's, in one campaign. */
-export type NotesBook = {
-  campaignId: string
-  kind: NoteBookKind
-  /** The character's actor, or the party's Group actor. */
-  actorId: string
-  /** A party no campaign character may see in Foundry, which only its Gamemaster reaches. */
-  private: boolean
-}
 
 /** What a change answered: done, with the note's id and stamp now, or why not, with a status. */
 export type NoteAnswer =
@@ -181,15 +140,6 @@ export type NoteAnswer =
       field?: string
       lines?: number[]
     }
-
-/** What a seat may do in a book, and with a note in it (§8.5). */
-export type NoteRights = {
-  canAdd: boolean
-  canRename: boolean
-  canEdit: boolean
-  canDelete: boolean
-  canReorder: boolean
-}
 
 /** A link as the cookbook's post is checked against it. */
 export type CookbookLinkFound = {
@@ -221,17 +171,6 @@ export type CookbookSeat = { id: string; campaignId: string; actorId: string }
 /** The campaign an event is for, with the module session whose state it holds, if any. */
 export type EventCampaign =
   { id: string; helloSession?: string } | 'unknown' | 'refused'
-
-/** Who is at a party sheet: a player, through their character, or the campaign's Gamemaster. */
-export type PartySeat =
-  | {
-      role: 'player'
-      campaignId: string | null
-      actorId: string | null
-      characterId: string
-      name: string
-    }
-  | { role: 'gm'; campaignId: string; userId: string }
 
 /**
  * What tells a companion's pane whether anything is new: as a character's view, the campaign's
@@ -284,26 +223,6 @@ export type CampaignStatus = {
   wildShape: boolean
   hitPoints: boolean
 }
-
-/**
- * An order of a group's notes, as the module fetches it (round 0.35.0 §3.4): the group's notes'
- * ids in the new order, and in Foundry's order it was made from.
- */
-export type NoteOrderCommand = Omit<NotePageCommand, 'note'> & {
-  note: {
-    book: NoteBookKind
-    op: 'order'
-    /** The group: a chapter's page, or null for the notes in no chapter. */
-    chapter: string | null
-    ids: string[]
-    was: string[]
-    writer: string | null
-    at: number
-  }
-}
-
-/** A note command, as the module fetches it: a change to one page, or from 0.35.0 an order. */
-export type NoteCommand = NotePageCommand | NoteOrderCommand
 
 /** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */
 export type JournalDrawings = { origin: string; html: Map<string, string> }

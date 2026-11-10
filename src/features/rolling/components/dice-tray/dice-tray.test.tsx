@@ -100,6 +100,93 @@ describe('features/rolling/components/dice-tray', () => {
     ).toBeInTheDocument()
   })
 
+  it('keeps keyboard focus as the last die of a size goes with its chip: on the next chip, else the one before, else that size’s add', async () => {
+    const user = userEvent.setup()
+    tray()
+    await user.click(toggle())
+    for (const size of ['d6', 'd8', 'd20']) await user.click(add(size))
+    const fewer = (size: string) =>
+      screen.getByRole('button', { name: `One ${size} fewer` })
+
+    fewer('d8').focus()
+    await user.keyboard('{Enter}')
+    expect(fewer('d20')).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(fewer('d6')).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.queryByRole('list', { name: 'Dice to roll' })).toBeNull()
+    expect(add('d6')).toHaveFocus()
+  })
+
+  it('says its whole formula politely as its dice are added and taken away, and at nothing else', async () => {
+    const user = userEvent.setup()
+    tray()
+    await user.click(toggle())
+    const picked = screen.getByRole('status', { name: 'Dice picked' })
+    expect(picked).toHaveAttribute('aria-live', 'polite')
+    // What a screen reader hears: each change to the region's words while it's live, as the page
+    // commits it.
+    const heard: string[] = []
+    new MutationObserver(() => {
+      if (picked.getAttribute('aria-live') === 'polite') {
+        heard.push(picked.textContent ?? '')
+      }
+    }).observe(picked, { childList: true, characterData: true, subtree: true })
+    const modifier = within(
+      screen.getByRole('group', { name: 'Modifier' }),
+    ).getByRole('status')
+
+    await user.click(add('d8'))
+    // The number added is said by the modifier, its own output, as it steps, and with the dice once
+    // they change; the region's words follow a step unsaid, so it never reads a formula gone by.
+    await user.click(screen.getByRole('button', { name: 'Raise the modifier' }))
+    expect(modifier).toHaveAttribute('aria-live', 'polite')
+    expect(modifier.textContent).toBe('+1')
+    expect(picked.textContent).toBe('1d8 + 1')
+    await user.click(add('d6'))
+    await user.click(screen.getByRole('button', { name: 'One d6 more' }))
+    // A roll is said by the latest roll's line.
+    await user.click(screen.getByRole('button', { name: 'Roll 2d6 + 1d8 + 1' }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('status', { name: 'Latest roll' }),
+      ).toHaveTextContent('Dice (2d6 + 1d8 + 1)'),
+    )
+    await user.click(screen.getByRole('button', { name: 'One d6 fewer' }))
+    await user.click(screen.getByRole('button', { name: 'Lower the modifier' }))
+    expect(modifier.textContent).toBe('+0')
+    expect(picked.textContent).toBe('1d6 + 1d8')
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(heard).toEqual([
+      '1d8',
+      '1d6 + 1d8 + 1',
+      '2d6 + 1d8 + 1',
+      '1d6 + 1d8 + 1',
+      'No dice',
+    ])
+  })
+
+  it('caps its height by the pane it sits in, not the screen, leaving the chat above room, its dice scrolling within, and never below its bar', async () => {
+    const user = userEvent.setup()
+    tray()
+    await user.click(toggle())
+    const panel = document.querySelector(
+      `#${CSS.escape(toggle().getAttribute('aria-controls') ?? '')}`,
+    )
+    // Its own bar and its panel, a column held to the pane's height less 6rem, but never below
+    // the bar's 3.5rem and its 1px border; jsdom lays nothing out, so the classes stand for what a
+    // browser draws (measured in Chromium at 844 × 390, 375 × 667, 1024 × 600 and in a 120 px
+    // pane).
+    expect(panel?.parentElement).toHaveClass(
+      'flex',
+      'flex-col',
+      'max-h-[max(calc(100%-6rem),calc(3.5rem+1px))]',
+    )
+    expect(panel).toHaveClass('overflow-y-auto')
+    // Its space below in its content, which scrolls, so that the panel can shrink to nothing.
+    expect(panel?.firstElementChild).toHaveClass('pb-4')
+  })
+
   it('says, at 20 dice, that it takes no more, on every way to add one', async () => {
     const user = userEvent.setup()
     tray()

@@ -71,12 +71,14 @@
 // Skip, two d20s sent and the card's third Foundry's, and no offer.
 // SKEW=041 with MODULE=module-0.41.0: no effect's die asked, a crafted effectDice and rerolls taken
 // (202) and stripped, and the greatsword's typed 1 rerolled by Foundry, the tray waiting for the
-// game's total. Synthetic characters only. Run with
+// game's total. SKEW=042 with MODULE=module-0.42.0, from before 0.42.1: Bless's d4 among Thorin's
+// effectDice, asked and typed, the card's d4 the typed one; the greatsword's typed 1 kept, as rerolled
+// at the table; and Vex's Inspired on Thorin offering nothing. Synthetic characters only. Run with
 // --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { mkdirSync, readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import {
-  BOB, DND5E6, MIDI, MODULE, SHOTS, SHOTS_033, SHOTS_042, SKEW031, SKEW041, VARIANT, W, actors, browse, call, character, check, faces, finish, foundryWorld,
+  BOB, DND5E6, MIDI, MODULE, SHOTS, SHOTS_033, SHOTS_042, SKEW031, SKEW041, SKEW042, VARIANT, W, actors, browse, call, character, check, faces, finish, foundryWorld,
   launch, manualDice, midiCritical, newCampaign, note, npc, part, posted, postsOf, same, sameJson, setPermissions, settings, settled, shoot,
   shootBoth, sideways, sql, startModule, theme, until, wait,
 } from './world-030.mjs'
@@ -951,6 +953,74 @@ if (SKEW041) {
     const look = await offerLook(entry.dialog)
     check(storedDice() === null && look === null && await entry.dialog.getByText(OFFER_LINE).count() === 0 && same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }]),
       `Vex's Inspired on Thorin, module 0.41.0's sheet lists no effectDice, and a Strength save offers nothing: no Add, no "${OFFER_LINE}" (${JSON.stringify(look)})`)
+  }
+  await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
+  await entry.dialog.waitFor({ state: 'hidden' })
+  await takeOff(inspired)
+  await finish()
+}
+
+if (SKEW042) {
+  // =================================================================================================
+  // Module 0.42.0: the dice effects add asked and typed, rerolls kept; no Bardic Inspiration offered
+  // =================================================================================================
+  part('23. module 0.42.0')
+  await resultsAs(alice, 'Banner')
+  const blessed = await putOn(BLESSED)
+  await sheetWith([alice], ['Blessed'])
+  {
+    const rolls = hello().data.features.rolls
+    check(sameJson(storedDice(), [{ name: 'Bless', effect: 'thorinBlessed', faces: 4, count: 1, sign: 1, on: ['attack', 'save', 'death', 'concentration'] }])
+      && rolls.effectDice === true && rolls.keptRerolls === true && rollFeatures().includes('effectDice') && rollFeatures().includes('keptRerolls'),
+      `Bless applied, module 0.42.0 lists Bless's d4 among Thorin's effectDice, its hello says effectDice and keptRerolls, and the app keeps both (${JSON.stringify(storedDice())}; ${rollFeatures().join(',')})`)
+  }
+  await alice.tab('Character')
+  let entry = await asked(alice, () => dexSave(alice).click(), 'a Dexterity save, Blessed, with module 0.42.0')
+  {
+    const groups = await groupsOf(entry.dialog)
+    check(same(groups, [{ name: 'd20', boxes: ['d20'] }, { name: 'Bless: +1d4', boxes: ['d4'] }]), `a Dexterity save asks its d20 and "Bless: +1d4" (${JSON.stringify(groups)})`)
+  }
+  await keys(entry.dialog, '1', '2', '3')
+  let made = await done(alice, entry)
+  {
+    const roll = made.message?.rolls[0]
+    check(sameJson(made.request.payload.effectDice, [{ faces: 4, sign: 1, results: [3] }]) && same(made.request.payload.dice, [{ faces: 20, results: [12] }])
+      && same(d4sOf(roll), [[3]]) && roll.total === 18,
+      `typed 12 and 3: sent with Bless's d4 as effectDice, and module 0.42.0's card has the typed 3, 18 (${roll?.formula} = ${roll?.total})`)
+  }
+  await takeOff(blessed)
+  await sheetWith([alice], [])
+  // The greatsword's 2d6r<=2 typed 1 and 5: rerolls kept, so the 1 stands, as rerolled at the table.
+  await alice.tab('Actions')
+  const greatsword = panel(alice).getByRole('button', { name: 'Greatsword attack, +4' })
+  const picker = alice.page.getByRole('dialog', { name: 'Greatsword attack' })
+  entry = await asked(alice, async () => {
+    await greatsword.click()
+    await picker.waitFor()
+    await picker.getByRole('button', { name: /^Goblin/ }).click()
+  }, 'the greatsword')
+  await keys(entry.dialog, '1', '5')
+  await done(alice, entry)
+  await tray(alice).getByRole('button', { name: 'Roll damage' }).waitFor({ timeout: 30_000 })
+  entry = await asked(alice, () => tray(alice).getByRole('button', { name: 'Roll damage' }).click(), "the greatsword's damage")
+  const note = await entry.dialog.getByText(REROLL_NOTE, { exact: true }).isVisible()
+  await keys(entry.dialog, '1', '5')
+  made = await done(alice, entry)
+  {
+    const roll = made.message?.rolls[0]
+    check(note && made.request.payload.typed === true && made.request.payload.rerolls === 'kept' && same(made.request.payload.dice, [{ faces: 6, results: [1, 5] }])
+      && same(roll?.dice[0].results.map(r => [r.result, r.active !== false, r.rerolled === true]), [[1, true, false], [5, true, false]]) && !roll.formula.includes('r<=2') && roll.total === 7,
+      `the greatsword's damage says "${REROLL_NOTE}", is sent with rerolls "kept", and module 0.42.0's card has the 1 and the 5, neither rerolled, without r<=2 (${roll?.formula} = ${roll?.total})`)
+  }
+  // And Inspired on Thorin: module 0.42.0 offers no die, so nothing is offered.
+  const inspired = await putOn(inspiring())
+  await sheetWith([alice], ['Inspired'])
+  await alice.tab('Character')
+  entry = await asked(alice, () => strSave(alice).click(), 'a Strength save, Inspired, with module 0.42.0')
+  {
+    const look = await offerLook(entry.dialog)
+    check(storedDice() === null && look === null && await entry.dialog.getByText(OFFER_LINE).count() === 0 && same(await groupsOf(entry.dialog), [{ name: 'd20', boxes: ['d20'] }]),
+      `Vex's Inspired on Thorin, module 0.42.0's sheet offers no die, and a Strength save offers nothing: no Add, no "${OFFER_LINE}" (${JSON.stringify(look)})`)
   }
   await entry.dialog.getByRole('button', { name: 'Cancel' }).click()
   await entry.dialog.waitFor({ state: 'hidden' })

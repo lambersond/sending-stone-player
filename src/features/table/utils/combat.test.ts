@@ -1,6 +1,43 @@
-import { hpBar } from './combat'
+import { hpBar, seatTurn } from './combat'
+import type { TableCombatant } from '@/types/table'
+
+/** A combatant as the page shows it, one of the party's, with the fields a case gives it. */
+const combatant = (fields: Partial<TableCombatant>): TableCombatant => ({
+  id: 'c-brakka',
+  name: 'Brakka',
+  initiative: 18,
+  defeated: false,
+  side: 'party',
+  ...fields,
+})
 
 describe('features/table/utils/combat', () => {
+  describe('seatTurn', () => {
+    it.each([
+      ['the character’s turn', { side: 'me' as const }, {}],
+      [
+        'the turn of the companion the seat is at, as its own',
+        { side: 'me' as const, companion: 'wolfBrakka' },
+        {},
+      ],
+      [
+        'a companion’s turn, by its key',
+        { yours: true as const, companion: 'wolfBrakka' },
+        { companion: 'wolfBrakka' },
+      ],
+      [
+        'no companion’s turn for an empty key',
+        { yours: true as const, companion: '' },
+        undefined,
+      ],
+      ['no gone companion’s turn', { yours: true as const }, undefined],
+      ['no other player’s turn', {}, undefined],
+      ['no foe’s turn', { side: 'other' as const }, undefined],
+    ])('takes %s', (_, fields, own) => {
+      expect(seatTurn(combatant(fields))).toEqual(own)
+    })
+  })
+
   describe('hpBar', () => {
     it.each([
       ['a living sliver', { value: 1, max: 250, temp: 0 }, 1, 'bg-warning'],

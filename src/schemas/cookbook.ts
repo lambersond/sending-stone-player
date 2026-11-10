@@ -3,7 +3,11 @@ import {
   MOST_KEPT_CHANGE_BYTES,
   MOST_KEPT_CHANGE_KEYS,
 } from '@/constants/cookbook'
-import type { CookbookDishBody } from '@/types/cookbook'
+import type {
+  CookbookChange,
+  CookbookDishBody,
+  KnownCookbookChange,
+} from '@/types/cookbook'
 
 // A dish from the Magical Recipe Book, as its server posts it, version 1, from module 0.38.0. It
 // refuses only what this app or the module acts on and the bounds of the cookbook's seeded text:
@@ -102,7 +106,7 @@ export const KNOWN_CHANGES = [
   'exhaustion',
 ] as const
 
-const knownChange = z.union([
+const knownChange: z.ZodType<KnownCookbookChange> = z.union([
   z.object({
     type: z.literal('abilityScore'),
     ability: z.enum(ABILITIES),
@@ -173,7 +177,7 @@ const keptChange = z
     { message: 'A change this app doesn’t know is too large to keep' },
   )
 
-const change = z.union([knownChange, keptChange])
+const change: z.ZodType<CookbookChange> = z.union([knownChange, keptChange])
 
 /**
  * A dish as the cookbook's server posts it. Its version is checked before this parse, so another

@@ -1,4 +1,4 @@
-import { groupTextRefs, sheetTextRefs } from './sheet-texts'
+import { campaignTextRefs, groupTextRefs, sheetTextRefs } from './sheet-texts'
 import {
   characterSheet,
   fullerSheet,
@@ -192,5 +192,24 @@ describe('utils/sheet-texts groupTextRefs (module 0.30.0)', () => {
       }),
     ).toEqual([])
     expect(groupTextRefs({})).toEqual([])
+  })
+})
+
+describe('utils/sheet-texts campaignTextRefs', () => {
+  it("counts its characters', its groups' and its companions' sheets' descriptions together, each once", () => {
+    const sheet = characterSheet()
+    const companion = fullerSheet()
+    const refs = campaignTextRefs([sheet, sheet], [groupSheet()], [companion])
+    expect(refs.toSorted()).toEqual(
+      [
+        ...new Set([
+          ...sheetTextRefs(sheet),
+          ...groupTextRefs(groupSheet()),
+          ...sheetTextRefs(companion),
+        ]),
+      ].toSorted(),
+    )
+    expect(new Set(refs).size).toBe(refs.length)
+    expect(campaignTextRefs([], [], [])).toEqual([])
   })
 })

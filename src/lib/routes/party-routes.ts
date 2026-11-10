@@ -9,7 +9,7 @@ import { getGroupText } from '@/db/sheet-texts'
 import { bare, NO_STORE, seenAs, textAnswer } from '@/lib/routes/http'
 import { notePresent } from '@/lib/routes/seat-routes'
 import { TEXT_HASH } from '@/schemas/sending-stone'
-import type { PartySeat } from '@/db/types'
+import type { PartySeat } from '@/types/party'
 import type { NextRequest } from 'next/server'
 
 // What a party sheet's routes answer (module 0.30.0), once they know who is at it: a player,

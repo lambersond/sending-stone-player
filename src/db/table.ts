@@ -1,34 +1,30 @@
-import { createHash } from 'node:crypto'
 import prisma from '@/clients/prisma'
-import { ABILITIES, SKILLS } from '@/constants/dnd5e'
 import {
   GM_ROLLS_SHOWN,
   MIDI_PROMPT_GRACE,
   PROMPT_NOTICE_FOR,
   ROLLS_KEPT_FOR,
 } from '@/constants/sending-stone'
-import { isLive } from '@/db/campaigns'
-import { groupRoster, tableGroups, tableMoves } from '@/db/party'
-import {
-  companionRoster,
-  companionsByKey,
-  tableCompanion,
-} from '@/utils/companions'
+import { companionAsks } from '@/utils/companion-asks'
+import { companionRoster, tableCompanion } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
+import { gmRollParts, gmRollsKey } from '@/utils/gm-rolls'
 import { hitPointsAvailable } from '@/utils/hit-points'
+import { isLive } from '@/utils/live'
+import { tableGroups } from '@/utils/party'
 import { toTablePrompts } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
+import { groupRoster } from '@/utils/roster'
 import {
-  availableRollFeatures,
-  availableRollKinds,
-} from '@/utils/requests/availability'
-import { GM_UNSENT } from '@/utils/requests/commands'
-import { rollStatus } from '@/utils/requests/status'
-import { toGmRollView } from '@/utils/requests/views'
+  ownCompanions,
+  seatAllows,
+  seatRolls,
+  viewerOf,
+  withheld,
+} from '@/utils/table-seat'
 import {
   pickCombat,
-  portraitUrl,
   toTableCombat,
   toTableMessages,
   toTableSheet,
@@ -37,16 +33,15 @@ import { transfersAvailable } from '@/utils/transfers'
 import { wildShapeAvailable } from '@/utils/wild-shape'
 import type { CampaignStatus } from './types'
 import type { SheetSeat } from '@/types/character'
-import type { PromptData } from '@/types/prompts'
 import type {
   CharacterSheet,
   CombatSnapshot,
   CommandResult,
+  CompanionEntry,
   ConnectedCharacter,
   SerializedMessage,
-  SheetWithheld,
 } from '@/types/sending-stone'
-import type { CompanionAsked, GmRolls, TableView, Viewer } from '@/types/table'
+import type { TableView, Viewer } from '@/types/table'
 import type { HeldRollRequest } from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
@@ -69,27 +64,6 @@ export function gmRollsOf(
     role: 'gm',
     createdAt: { gt: new Date(now - ROLLS_KEPT_FOR) },
   }
-}
-
-/**
- * What changes whenever any of the Gamemaster's rolls a player is shown does: its status, as time
- * moves it too, or what the game said of it. None for none.
- */
-export function gmRollsKey(
-  rolls: (Pick<HeldRollRequest, 'id' | 'status' | 'createdAt' | 'claimedAt'> & {
-    completedAt: Date | null
-  })[],
-  now: number,
-): string | undefined {
-  if (rolls.length === 0) return undefined
-  const states = rolls.map(
-    roll =>
-      `${roll.id}:${rollStatus(roll, now)}:${roll.completedAt?.getTime() ?? ''}`,
-  )
-  return createHash('sha256')
-    .update(states.join(','))
-    .digest('base64url')
-    .slice(0, 16)
 }
 
 /**
@@ -153,35 +127,6 @@ export const rollsSelect = {
   transfersEnabled: true,
   removalsEnabled: true,
 } as const
-
-/**
- * The rolls a seat can have made in the game, none without an actor to make them, and what else
- * the game does with them. A player's never name `gmRolls`, which only the Gamemaster's view
- * reads, so their views, and what tells them apart, are as before it. The Gamemaster's (#156) are
- * none while the game doesn't make their rolls as the character's, marked as theirs, and never an
- * end of an enchantment, a concentration or from module 0.36.0 a turn, which is no roll and posts
- * nothing (`GM_UNSENT`); with where their rolls go: made in the game, kept here
- * until its module is updated, or kept here while it takes no rolls.
- */
-export function seatRolls(
-  seat: SheetSeat,
-  campaign?: Parameters<typeof availableRollFeatures>[0] | null,
-): Pick<CampaignStatus, 'rollsToTable' | 'rollFeatures' | 'gm'> {
-  const kinds = seat.actorId && campaign ? availableRollKinds(campaign) : []
-  const features =
-    seat.actorId && campaign ? availableRollFeatures(campaign) : []
-  const others = features.filter(feature => feature !== 'gmRolls')
-  if (seat.role !== 'gm') return { rollsToTable: kinds, rollFeatures: others }
-  const made = features.includes('gmRolls')
-  let rolls: GmRolls = 'off'
-  if (made) rolls = 'made'
-  else if (kinds.length > 0) rolls = 'update'
-  return {
-    rollsToTable: made ? kinds.filter(kind => !GM_UNSENT.has(kind)) : [],
-    rollFeatures: made ? others : [],
-    gm: { rolls },
-  }
-}
 
 /**
  * The status of a seat's campaign, to tell cheaply whether a viewer is up to date.
@@ -274,17 +219,6 @@ export async function getCampaignStatus(
 }
 
 /**
- * Why the module held a character's sheet back, as its entry in the roster keeps it, from module
- * 0.22.0: only what the player is told.
- */
-export function withheld(
-  entry: Pick<ConnectedCharacter, 'sheetWithheld'> | undefined,
-): SheetWithheld | undefined {
-  const held = entry?.sheetWithheld
-  return held && { reason: held.reason, bytes: held.bytes, limit: held.limit }
-}
-
-/**
  * The saves the game asks of one of a campaign's characters, or from module 0.41.0 of a companion
  * by its key, as its view shows them: those still open, Midi-QOL's a while after their time runs
  * out, and those that closed just now, for which only Midi-QOL's are shown; oldest first.
@@ -314,67 +248,6 @@ export function heldPrompts(campaignId: string, actorId: string, now: number) {
       closedReason: true,
     },
   })
-}
-
-/**
- * The companions the game is asking a save of now, from module 0.41.0, each once, in the order
- * first asked: what its first prompt still waiting asks for, in words, and when the soonest of
- * those stops waiting. A prompt whose time has run out waits no more, though Midi-QOL may still be
- * rolling it its own way: a companion with none other isn't asked.
- * @param held - Its companions' prompts still open, oldest first.
- */
-export function companionAsks(
-  held: { actorId: string; data: unknown; expiresAt: Date }[],
-  now = Date.now(),
-): CompanionAsked[] {
-  const asked = new Map<string, CompanionAsked>()
-  for (const prompt of held) {
-    if (prompt.expiresAt.getTime() <= now) continue
-    const expiresAt = prompt.expiresAt.toISOString()
-    const known = asked.get(prompt.actorId)
-    if (!known) {
-      asked.set(prompt.actorId, {
-        key: prompt.actorId,
-        label: askedFor(prompt.data as PromptData),
-        expiresAt,
-      })
-    } else if (expiresAt < known.expiresAt) {
-      known.expiresAt = expiresAt
-    }
-  }
-  return [...asked.values()]
-}
-
-/** Abilities or skills by their names, such as "Strength or Dexterity". */
-function either(keys: string[] = [], names: Record<string, string>): string {
-  return new Intl.ListFormat('en', { type: 'disjunction' }).format(
-    keys.map(key => names[key] ?? key),
-  )
-}
-
-/**
- * What a save the game asks for asks, in words: such as "Dexterity saving throw", "Strength or
- * Dexterity saving throw", "Concentration check", naming its ability where it isn't Constitution,
- * or for Midi-QOL's checks "Athletics or Acrobatics check".
- */
-function askedFor(data: PromptData): string {
-  const [ability] = data.abilities ?? []
-  switch (data.type) {
-    case 'concentration': {
-      return ability && ability !== 'con'
-        ? `Concentration check (${ABILITIES[ability] ?? ability})`
-        : 'Concentration check'
-    }
-    case 'check': {
-      return `${either(data.abilities, ABILITIES)} check`.trim()
-    }
-    case 'skill': {
-      return `${either(data.skills, SKILLS)} check`.trim()
-    }
-    default: {
-      return `${either(data.abilities, ABILITIES)} saving throw`.trim()
-    }
-  }
 }
 
 /** What a table reads of its campaign. */
@@ -499,44 +372,6 @@ export async function getTableView(
 }
 
 /**
- * Who sees a table, as its messages and combat are worded for them: the seat's actor, the
- * campaign's characters, their portraits, and its characters' companions.
- */
-function viewerOf(
-  seat: SheetSeat,
-  roster: ConnectedCharacter[],
-  companions: ReturnType<typeof companionRoster>,
-  origin: string,
-): Viewer {
-  return {
-    actorId: seat.actorId ?? undefined,
-    party: new Set(roster.map(({ id }) => id)),
-    portraits: new Map(
-      roster.flatMap(({ id, img }) => {
-        const url = portraitUrl(img, origin)
-        return url ? [[id, url] as const] : []
-      }),
-    ),
-    companions: companionsByKey(companions, origin),
-  }
-}
-
-/**
- * The character's own companions, for their tabs, from module 0.36.0: never another's, and none
- * at a companion's own seat, which has its own view.
- */
-function ownCompanions(
-  seat: SheetSeat,
-  companions: ReturnType<typeof companionRoster>,
-) {
-  return seat.companion
-    ? []
-    : companions.filter(
-        entry => !!seat.actorId && entry.of.includes(seat.actorId),
-      )
-}
-
-/**
  * What a table shows, read at once: the chat the seat may read, the combats, its sheet, the saves
  * the game asks of the character, the Gamemaster's rolls as it its player is shown, and those its
  * game asks of its companions.
@@ -545,7 +380,7 @@ function readTable(
   seat: SheetSeat,
   campaignId: string,
   viewer: Viewer,
-  own: ReturnType<typeof ownCompanions>,
+  own: CompanionEntry[],
   features: string[],
   now: number,
 ) {
@@ -616,61 +451,4 @@ function readTable(
         })
       : [],
   ])
-}
-
-/**
- * The Gamemaster's rolls as the character its player is shown (#156), with what tells them
- * apart.
- */
-function gmRollParts(
-  made: Awaited<ReturnType<typeof readTable>>[4],
-  heals: Awaited<ReturnType<typeof healingUses>>,
-  now: number,
-) {
-  return made.length > 0
-    ? {
-        gmRolls: made.map(roll =>
-          toGmRollView(roll, now, !!roll.useId && heals.has(roll.useId)),
-        ),
-        gmRollsKey: gmRollsKey(made, now),
-      }
-    : {}
-}
-
-/**
- * What the seat may do with its character from here, beyond rolling, each only where its campaign
- * takes it now: where it may move its items and coins to, from module 0.31.0; whether it may
- * remove its items, from module 0.33.0, with no switch, with moves off too; and its player alone,
- * at their own seat, whether they may add to and remove from its favorites, from module 0.37.0,
- * with no switch; turn off, turn on and delete its own effects, from module 0.39.0, by the
- * campaign's switch, as favorites; use Wild Shape, from module 0.40.0, by the campaign's switch, as
- * effects; and set its hit points and temporary hit points, its form's while shaped, from module
- * 0.44.0, by the campaign's switch, as Wild Shape. What the character is, and what Wild Shape
- * gives, are on its sheet.
- */
-function seatAllows(
-  seat: SheetSeat,
-  campaign: Prisma.CampaignGetPayload<{ select: typeof TABLE_CAMPAIGN }>,
-  connected: boolean,
-  listed: ReturnType<typeof groupRoster>,
-  roster: ConnectedCharacter[],
-  now: number,
-) {
-  const at = connected && !!seat.actorId
-  const own = at && seat.role === 'player'
-  const moves =
-    at && transfersAvailable(campaign, now)
-      ? tableMoves(seat, listed, roster, campaign.origin)
-      : undefined
-  return {
-    ...(moves && { moves }),
-    ...(at && removalsAvailable(campaign, now) && { removes: true as const }),
-    ...(own &&
-      favoritesAvailable(campaign, now) && { favorites: true as const }),
-    ...(own && effectsAvailable(campaign, now) && { effects: true as const }),
-    ...(own &&
-      wildShapeAvailable(campaign, now) && { wildShape: true as const }),
-    ...(own &&
-      hitPointsAvailable(campaign, now) && { hitPoints: true as const }),
-  }
 }

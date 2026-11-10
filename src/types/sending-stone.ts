@@ -248,7 +248,7 @@ export type AloneSpend = (typeof ALONE_SPENDS)[number]
  * slot's level above the spell's own, a weapon's attack mode, its ammunition's id, as many as it
  * picks; its dice, and a critical hit's where one is allowed.
  */
-type AloneChoicePlan = {
+export type AloneChoicePlan = {
   level?: number
   attackMode?: string
   ammunition?: string
@@ -562,7 +562,7 @@ export type SheetSpellSection = {
 /** Such as Senses: Darkvision 60 ft. */
 type SheetTrait = { id: string; label: string; values: string[] }
 
-type SheetDetail = { id: string; label: string; value: string }
+export type SheetDetail = { id: string; label: string; value: string }
 
 export type SheetDetails = {
   /** Alignment, age and the like. */
@@ -860,7 +860,7 @@ export type SheetCheck = {
  * One way a check an activity asks for may be made: an ability check, or a skill's or a tool's,
  * each with the ability it's made with, as dnd5e's card's button has it.
  */
-type SheetCheckOption = {
+export type SheetCheckOption = {
   type: 'check' | 'skill' | 'tool'
   /** dnd5e's id, such as "dex". */
   ability: string
@@ -1279,13 +1279,17 @@ export type RollSummary = {
   attack?: true
 }
 
-type Dnd5eMessageData = {
+export type Dnd5eMessageData = {
   messageType: string | null
+  /**
+   * What dnd5e recorded of the roll, such as `{ type: 'skill', skillId: 'ath' }`: kept as sent,
+   * never checked, so each field is read as whatever it may be.
+   */
   roll: {
-    type?: string
-    skillId?: string
-    toolId?: string
-    ability?: string
+    type?: unknown
+    skillId?: unknown
+    toolId?: unknown
+    ability?: unknown
   } | null
   item: { name: string | null; type?: string | null } | null
   activity: { name: string | null; type: string | null } | null
@@ -1387,8 +1391,11 @@ export type SerializedMessage = {
   audience: { public: boolean; characters: string[] }
   rolls: RollSummary[]
   dnd5e: Dnd5eMessageData | null
-  /** The message's HTML, as Foundry holds it: read, never shown. */
-  content?: string
+  /**
+   * The message's HTML, as Foundry holds it: read, never shown. Kept as sent, never checked, so
+   * it's read as whatever it may be.
+   */
+  content?: unknown
   /**
    * The saving throw it asks the table for, if it's a roll request card; null for any other
    * message. Module 0.17.0; absent before. The check one asks for, from module 0.18.0.
@@ -2186,7 +2193,7 @@ export type GroupEntry = {
 }
 
 /** One of a group's members: its name and portrait, and nothing else of it, for anyone. */
-type GroupMember = {
+export type GroupMember = {
   id: string
   name: string
   img: string | null

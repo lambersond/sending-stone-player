@@ -4,7 +4,7 @@
 import { createFavoriteRequest } from './favorites'
 import { createRollRequest } from './roll-requests'
 import { playerSeat } from './seats'
-import { fullerSheet, mockCompanionEntry } from '@/mocks/sending-stone'
+import { fullerSheet } from '@/mocks/sending-stone'
 import { prismaMock } from '@/utils/test-utils-node'
 import type { SheetSeat } from '@/types/character'
 import type { FavoriteInput, RollRequestInput } from '@/types/roll'
@@ -33,12 +33,6 @@ const gm: SheetSeat = {
   role: 'gm',
   userId: 'gm-1',
   characterId: null,
-}
-/** Thorin's player at his wolf's pane, from module 0.36.0. */
-const wolf: SheetSeat = {
-  ...thorin,
-  actorId: 'wolfBrakka',
-  companion: { of: THORIN, entry: mockCompanionEntry() },
 }
 
 /** A favorite added or removed, as a row's menu sends it. */
@@ -228,15 +222,6 @@ describe('db/favorites, createFavoriteRequest', () => {
       status: 409,
       reason: 'unavailable',
     })
-    expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
-    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
-  })
-
-  it('refuses a companion’s seat as unknown, as an NPC has no favorites', async () => {
-    given()
-    await expect(
-      createRollRequest(wolf, favoriting(ADD_ROPE)),
-    ).resolves.toEqual({ status: 422, reason: 'unknown' })
     expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
     expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })

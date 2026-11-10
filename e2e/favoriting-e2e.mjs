@@ -814,7 +814,7 @@ await desk.tab('Effects')
   await bite.waitFor({ timeout: 15_000 })
   check(await noMenu(desk, bite), 'the Wolf\'s pane: a right-click on its Bite opens no menu')
   const refused = await crafted(desk, WOLF_API, { op: 'add', type: 'item', id: 'bite' })
-  check(refused.status === 422, `a crafted favorite at the Wolf's seat: ${refused.status} ${refused.json?.reason}`)
+  check(refused.status === 409 && refused.json?.reason === 'unavailable', `a crafted favorite at the Wolf's seat: ${refused.status} ${refused.json?.reason}`)
   await desk.page.locator('#creature-tab-self').click()
 }
 const gm = await browse({ width: 1280, height: 800, path: `/campaigns/${A}/characters/thorin` })

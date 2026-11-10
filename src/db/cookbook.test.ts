@@ -20,11 +20,11 @@ import {
   DISHES_KEPT_FOR,
   DISHES_PER_DAY,
   DISHES_PER_MINUTE,
-  DISHES_PRUNE_EVERY,
   DISHES_SHOWN,
   MOST_DISHES_WAITING,
 } from '@/constants/cookbook'
 import { BRIDGE_TIMEOUT, ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+import { PRUNE_EVERY } from '@/db/constants'
 import { hashCookbookCode } from '@/lib/cookbook-code'
 import { fireberryBoon } from '@/mocks/cookbook'
 import { dishResult } from '@/mocks/sending-stone'
@@ -92,14 +92,13 @@ function counts(minute = 0, day = minute, waiting = 0) {
   }) as any)
 }
 
-/** The campaign as the claim reads it: its hello's session holds, and it takes version 1. */
-const campaign = (fields = {}) =>
-  prismaMock.campaign.findUnique.mockResolvedValue({
-    helloSession: 'sess-1',
-    dishesEnabled: true,
-    dishVersions: [1],
-    ...fields,
-  } as any)
+/** The campaign as the fetch's check reads it: its hello's session holds, it takes version 1. */
+const campaign = (fields = {}) => ({
+  helloSession: 'sess-1',
+  dishesEnabled: true,
+  dishVersions: [1],
+  ...fields,
+})
 
 /** What's due: waiting, or handed over and unanswered too long, of a version the hello reads. */
 const due = (versions = [1]) => ({
@@ -417,7 +416,6 @@ describe('acceptDish', () => {
 
 describe('claimDishes', () => {
   beforeEach(() => {
-    campaign()
     prismaMock.cookbookDish.findMany.mockResolvedValue([])
   })
 
@@ -432,7 +430,7 @@ describe('claimDishes', () => {
         dish({ id: 'row-2', actorId: 'actor-vex', queuedAt: ago(MINUTE) }),
       ] as any)
 
-    const commands = await claimDishes('c1', 'sess-1')
+    const commands = await claimDishes('c1', 'sess-1', campaign())
 
     expect(prismaMock.cookbookDish.findMany).toHaveBeenNthCalledWith(1, {
       where: due(),
@@ -474,22 +472,18 @@ describe('claimDishes', () => {
     ['another session', { helloSession: 'sess-old' }],
     ['dishes off', { dishesEnabled: false }],
   ])('hands nothing to %s', async (_name, fields) => {
-    campaign(fields)
-
-    await expect(claimDishes('c1', 'sess-1')).resolves.toEqual([])
+    await expect(
+      claimDishes('c1', 'sess-1', campaign(fields)),
+    ).resolves.toEqual([])
     expect(prismaMock.cookbookDish.findMany).not.toHaveBeenCalled()
   })
 
   it('hands nothing for a campaign gone', async () => {
-    prismaMock.campaign.findUnique.mockResolvedValue(null)
-
-    await expect(claimDishes('c1', 'sess-1')).resolves.toEqual([])
+    await expect(claimDishes('c1', 'sess-1', null)).resolves.toEqual([])
   })
 
   it('hands only dishes of the versions the hello reads', async () => {
-    campaign({ dishVersions: [2] })
-
-    await claimDishes('c1', 'sess-1')
+    await claimDishes('c1', 'sess-1', campaign({ dishVersions: [2] }))
 
     expect(prismaMock.cookbookDish.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: due([2]) }),
@@ -505,7 +499,7 @@ describe('claimDishes', () => {
       ] as any)
       .mockResolvedValueOnce([dish({ id: 'row-2' })] as any)
 
-    const commands = await claimDishes('c1', 'sess-1')
+    const commands = await claimDishes('c1', 'sess-1', campaign())
 
     expect(prismaMock.cookbookDish.updateMany).toHaveBeenNthCalledWith(1, {
       where: { id: { in: ['row-1'] }, AND: [due()] },
@@ -523,26 +517,28 @@ describe('claimDishes', () => {
       { id: 'row-1', attempts: DISH_ATTEMPTS },
     ] as any)
 
-    await expect(claimDishes('c1', 'sess-1')).resolves.toEqual([])
+    await expect(claimDishes('c1', 'sess-1', campaign())).resolves.toEqual([])
     expect(prismaMock.cookbookDish.updateMany).toHaveBeenCalledTimes(1)
   })
 
-  it('makes no write on a pass with nothing due, once pruned', async () => {
-    await claimDishes('c-idle', 'sess-1')
+  it('makes one read and no write on a pass with nothing due, once pruned', async () => {
+    await claimDishes('c-idle', 'sess-1', campaign())
     jest.clearAllMocks()
-    campaign()
     prismaMock.cookbookDish.findMany.mockResolvedValue([])
 
-    await expect(claimDishes('c-idle', 'sess-1')).resolves.toEqual([])
+    await expect(claimDishes('c-idle', 'sess-1', campaign())).resolves.toEqual(
+      [],
+    )
 
-    expect(prismaMock.campaign.findUnique).toHaveBeenCalledTimes(1)
+    // The campaign is the fetch's check's own read, made once for all its claims.
+    expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
     expect(prismaMock.cookbookDish.findMany).toHaveBeenCalledTimes(1)
     expect(prismaMock.cookbookDish.updateMany).not.toHaveBeenCalled()
     expect(prismaMock.cookbookDish.deleteMany).not.toHaveBeenCalled()
   })
 
   it('prunes a campaign’s old dishes at most once in a while, per server', async () => {
-    await claimDishes('c-prune', 'sess-1')
+    await claimDishes('c-prune', 'sess-1', campaign())
     expect(prunes('c-prune')).toEqual([
       [
         {
@@ -554,12 +550,12 @@ describe('claimDishes', () => {
       ],
     ])
 
-    jest.setSystemTime(NOW + DISHES_PRUNE_EVERY - 1)
-    await claimDishes('c-prune', 'sess-1')
+    jest.setSystemTime(NOW + PRUNE_EVERY - 1)
+    await claimDishes('c-prune', 'sess-1', campaign())
     expect(prunes('c-prune')).toHaveLength(1)
 
-    jest.setSystemTime(NOW + DISHES_PRUNE_EVERY)
-    await claimDishes('c-prune', 'sess-1')
+    jest.setSystemTime(NOW + PRUNE_EVERY)
+    await claimDishes('c-prune', 'sess-1', campaign())
     expect(prunes('c-prune')).toHaveLength(2)
   })
 })

@@ -11,16 +11,22 @@
 // in the app's chat above the tray, the dice kept, and one dice renderer on the page. At 1280 ×
 // 800, in the chat column beside the sheet: the seven sizes in one row; 1d100 + 2, one die from 1
 // to 100, its card "1d100 + 2"; 20 dice the most, every way to add one saying so; Clear. At 1024 ×
-// 768, the column beside the sheet narrower: four sizes a row, then three. Send to the table off at
-// 1280: rolled on the app's dice alone, nothing sent, the footer saying why; before Manual Dice is
-// on, which Thorin's every device takes up. With Manual Dice on, at 390: Roll asks the tray's own
-// dialog for "2d6" and "+1d8", typed 3, 5 and 7, sent typed, the card flagged typed, its total 15.
-// The Gamemaster's page for Thorin, at 1280: the tray rolls 1d20 as Thorin, the request the
-// Gamemaster's, labelled, the card flagged GM. Synthetic characters only. Run with --import
+// 768, the column beside the sheet narrower: four sizes a row, then three. On a tablet at 768 ×
+// 1024, the rail's Chat: the tray under the chat, left of the rail, its seven sizes in one row,
+// each 44 px at least; a d12, a d4 and −1, rolled smallest first, 1d4 + 1d12 − 1, made in the game.
+// Send to the table off at 1280: rolled on the app's dice alone, nothing sent, the footer saying
+// why; before Manual Dice is on, which Thorin's every device takes up. With Manual Dice on, at 390:
+// Roll asks the tray's own dialog for "2d6" and "+1d8", typed 3, 5 and 7, sent typed, the card
+// flagged typed, its total 15. The Gamemaster's page for Thorin, at 1280: the tray rolls 1d20 as
+// Thorin, the request the Gamemaster's, labelled, the card flagged GM. The campaign's rolls turned
+// off in Foundry: the tray rolls the app's dice alone, asks nothing typed, sends nothing, and says
+// why, on the player's page and the Gamemaster's. SKEW=042 with MODULE=module-0.42.0, before plain
+// rolls: the app keeps no plainRoll; the tray rolls the app's dice alone, sends nothing, and says
+// the module makes these from 0.44.0, on both seats. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
-  DND5E6, W, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, part, same, sameJson,
-  settled, shoot, sideways, sql, startModule, until, wait,
+  DND5E6, SKEW042, W, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, part, same,
+  sameJson, settled, shoot, sideways, sql, startModule, until, wait,
 } from './world-030.mjs'
 
 const GAME = 'https://dice-tray.forge-vtt.com'
@@ -30,7 +36,7 @@ await launch(GAME)
 const { id: A } = await newCampaign({ title: TITLE, address: 'dice-tray.forge-vtt.com', secret: SECRET })
 await foundryWorld({ dice6: DND5E6 })
 // A checkout's module.json says 0.1.0: the version the release stamps.
-game.modules.get('sending-stone').version = '0.44.0'
+game.modules.get('sending-stone').version = SKEW042 ? '0.42.0' : '0.44.0'
 manualDice('active')
 // Thorin's player is Trusted, whom Make Manual Rolls is given to out of the box.
 game.users.get('alice').role = 2
@@ -39,8 +45,10 @@ game.users.get('alice').role = 2
 const thorin = character({ id: 'thorin', name: 'Thorin', owners: ['alice'], mods: { str: 2, dex: 1 }, hp: { value: 30, max: 40, temp: 0 } }, { ac: 16, items: [] })
 thorin.system.details = { level: 5 }
 game.users.get('alice').character = thorin
+/** Dice Tray as the Gamemaster saves it in Foundry: its players' rolls made in the game, unless `rolls` is false. */
+const CAMPAIGN = ({ rolls = true } = {}) => ({ id: 'camp-tray', title: TITLE, characters: ['thorin'], groups: [], rolls, manualDice: true })
 await startModule({
-  campaigns: [{ id: 'camp-tray', title: TITLE, characters: ['thorin'], groups: [], rolls: true, manualDice: true }],
+  campaigns: [CAMPAIGN()],
   secrets: { 'camp-tray': SECRET },
 })
 await settled()
@@ -57,8 +65,13 @@ const sum = values => values.flat().reduce((total, value) => total + value, 0)
 const kindOf = message => (DND5E6 ? message?.type : message?.flags?.dnd5e?.roll?.type)
 
 part('0. the game takes plain rolls')
-await until(() => kinds().includes('plainRoll'), 'the app to keep that the game takes plain rolls', 15_000)
-check(kinds().indexOf('plainRoll') === kinds().indexOf('formula') + 1, `the app keeps that the game takes plain rolls, from module 0.44.0, right after formulas (${kinds()})`)
+if (SKEW042) {
+  await until(() => kinds().includes('formula'), 'the app to keep the rolls the game takes', 15_000)
+  check(!kinds().includes('plainRoll'), `with module 0.42.0 the app keeps the rolls the game takes, formulas among them, and no plain rolls (${kinds()})`)
+} else {
+  await until(() => kinds().includes('plainRoll'), 'the app to keep that the game takes plain rolls', 15_000)
+  check(kinds().indexOf('plainRoll') === kinds().indexOf('formula') + 1, `the app keeps that the game takes plain rolls, from module 0.44.0, right after formulas (${kinds()})`)
+}
 
 // ---- The pages and the tray ----
 sql(`insert into "character" (id, name, "gameUrl", "campaignTitle", "campaignId", "actorId", "userId", "updatedAt")
@@ -107,6 +120,60 @@ async function toggleSetting(who, name) {
   await dialog.waitFor({ state: 'hidden' })
 }
 const MADE_THERE = 'Made in your Gamemaster’s game too, with the same dice.'
+/** A page's POST to its seat's rolls route: a roll sent to the game, whether the app keeps or refuses it. */
+const isRollPost = request => (request.method() === 'POST') && /\/rolls$/.test(new URL(request.url()).pathname)
+/**
+ * Roll, named as the tray names it, where the game makes none: until the tray says the roll, then two
+ * seconds more, what it says and whether anything was sent, typed or posted meanwhile. Sent counts
+ * the page's POSTs to its rolls route as well as the requests kept and the cards made, since the app
+ * refuses a roll the game doesn't take before it keeps a request (409, "Not made at the table").
+ */
+async function rollHere(who, name, label) {
+  const before = { requests: requests(), cards: W.messages.size }
+  let posted = 0
+  const heard = request => { if (isRollPost(request)) posted++ }
+  who.page.on('request', heard)
+  try {
+    await chatOf(who).getByRole('button', { name, exact: true }).click()
+    await latestOf(who).getByText(label, { exact: true }).waitFor({ timeout: 30_000 })
+    await wait(2_000)
+    return {
+      shown: await said(latestOf(who)),
+      posted,
+      sent: posted > 0 || requests() > before.requests || W.messages.size > before.cards,
+      asked: (await who.page.getByRole('dialog', { name: label }).count()) > 0,
+    }
+  } finally {
+    who.page.off('request', heard)
+  }
+}
+/** Whether the tray says anything of the table: made there, or not made there. */
+const saysTable = shown => /at the table/i.test(shown)
+
+if (SKEW042) {
+  // =================================================================================================
+  // Module 0.42.0, before plain rolls: the tray rolls the app's dice alone, and says why
+  // =================================================================================================
+  part('9. module 0.42.0')
+  const OLD = 'Your Gamemaster’s Sending Stone module makes these from version 0.44.0.'
+  const player = await browse({ width: 390, height: 844, path: '/characters/sheet-thorin' })
+  await player.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await openTray(player)
+  for (const size of ['d6', 'd6', 'd8']) await addOf(player, size).click()
+  await until(() => footerSays(player, OLD), 'the tray to say the game makes none of these', 20_000).catch(() => {})
+  check(await footerSays(player, OLD) && !(await footerSays(player, MADE_THERE)), `with module 0.42.0, the tray's footer says "${OLD}"`)
+  const here = await rollHere(player, 'Roll 2d6 + 1d8', 'Dice (2d6 + 1d8)')
+  check(!here.sent && !here.asked && !saysTable(here.shown) && same(await chipsOf(player), ['2d6', '1d8']),
+    `Roll 2d6 + 1d8 throws the app's dice alone: nothing sent, no card in Foundry, nothing to wait for, the dice kept: "${here.shown}" (${here.posted} posted)`)
+  await shoot(player, 'dice-tray-old-module', chatOf(player))
+  const gmSide = await browse({ width: 1280, height: 800, path: `/campaigns/${A}/characters/thorin`, toasts: false })
+  await gmSide.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await openTray(gmSide)
+  const GM_OLD = 'Your Sending Stone module makes these from version 0.44.0.'
+  await until(() => footerSays(gmSide, GM_OLD), 'the Gamemaster’s tray to say why', 20_000).catch(() => {})
+  check(await footerSays(gmSide, GM_OLD), `and the Gamemaster's page for Thorin says "${GM_OLD}"`)
+  await finish()
+}
 
 part('1. the tray under the chat, on a phone')
 const phone = await browse({ width: 390, height: 844, path: '/characters/sheet-thorin' })
@@ -194,6 +261,36 @@ check(same(perRow, [4, 3]) && boxes.every(box => box.w >= 44 && box.h >= 44)
 await shoot(narrow, 'dice-tray-narrow', chatOf(narrow))
 await narrow.view.close()
 
+part('3b. on a tablet, at 768')
+const tablet = await browse({ width: 768, height: 1024, path: '/characters/sheet-thorin', toasts: false })
+await tablet.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+await openTray(tablet)
+{
+  const rail = await tablet.nav.boundingBox()
+  const chat = await chatOf(tablet).boundingBox()
+  const tiles = await sizesOf(tablet).evaluateAll(buttons => buttons.map(b => {
+    const box = b.getBoundingClientRect()
+    return { top: Math.round(box.top), w: Math.round(box.width), h: Math.round(box.height) }
+  }))
+  check(tiles.length === 7 && new Set(tiles.map(tile => tile.top)).size === 1 && tiles.every(tile => tile.w >= 44 && tile.h >= 44)
+    && chat.x + chat.width <= rail.x + 0.5 && (await sideways(tablet.page)) === 0,
+    `at 768 the rail's Chat shows the chat, the tray under it, left of the rail: its seven sizes in one row, each 44 px at least, and nothing scrolls sideways (${JSON.stringify({ tiles, chat, rail })})`)
+}
+await addOf(tablet, 'd12').click()
+await addOf(tablet, 'd4').click()
+await chatOf(tablet).getByRole('button', { name: 'Lower the modifier', exact: true }).click()
+const onTablet = await rollTray(tablet, 'Roll 1d4 + 1d12 − 1', 'the tray’s 1d4 + 1d12 − 1 at 768')
+{
+  const thrownThere = onTablet.made.payload.dice ?? []
+  const total = sum(thrownThere.map(die => die.results)) - 1
+  check(sameJson(onTablet.made.payload.plainRoll, { terms: [{ faces: 4, count: 1 }, { faces: 12, count: 1 }], bonus: -1 }) && onTablet.made.status === 'done'
+    && same(thrownThere.map(die => [die.faces, die.results.length]), [[4, 1], [12, 1]]) && onTablet.message?.rolls[0].total === total
+    && onTablet.shown.includes('Dice (1d4 + 1d12 − 1)') && onTablet.shown.includes(`At the table: ${total}`),
+    `a d12, a d4 and −1 rolled there, smallest first: a plain roll of the app's dice, the game's total theirs less 1, the tray's (${JSON.stringify(onTablet.made.payload)}: "${onTablet.shown}")`)
+}
+await shoot(tablet, 'dice-tray-tablet', chatOf(tablet))
+await tablet.view.close()
+
 part('4. Send to the table off')
 // Before Manual Dice is turned on for Thorin, which every device of his then takes up, this one too.
 await toggleSetting(desk, 'Send to the table')
@@ -204,7 +301,7 @@ await chatOf(desk).getByRole('button', { name: 'Roll 1d20', exact: true }).click
 await latestOf(desk).getByText('Dice (1d20)', { exact: true }).waitFor({ timeout: 30_000 })
 await wait(2_000)
 const offShown = await said(latestOf(desk))
-check(requests() === beforeOff && !offShown.includes('At the table'),
+check(requests() === beforeOff && !saysTable(offShown),
   `with Send to the table off, the tray rolls on the app's dice alone, sends nothing, and says why the game makes none: "${offShown}"`)
 await shoot(desk, 'dice-tray-send-off', chatOf(desk))
 
@@ -248,5 +345,24 @@ check(gmRoll.made.role === 'gm' && gmRoll.made.label === 'Dice (1d20)' && gmRoll
   && gmRoll.message?.flags['sending-stone'].by === 'gm' && gmRoll.message.speaker.actor === 'thorin' && gmRoll.message.rolls[0].formula === '1d20'
   && gmRoll.shown.includes(`At the table: ${gmRoll.message.rolls[0].total}`),
   `the Gamemaster's page has the tray too: 1d20 as Thorin, the request the Gamemaster's and labelled, the card flagged GM (${gmRoll.made.role} ${gmRoll.made.label}: "${gmRoll.shown}")`)
+
+part('7. the campaign’s rolls off')
+await game.settings.set('sending-stone', 'campaigns', [CAMPAIGN({ rolls: false })])
+await until(() => sql(`select "rollsEnabled" from campaign where id = '${A}'`) === 'f' && !kinds().includes('plainRoll'), 'the app to keep the rolls off', 20_000)
+{
+  const NOT_SENT = "Only you see these rolls for now. They aren't sent to your Gamemaster's game."
+  await openTray(phone)
+  await until(() => footerSays(phone, NOT_SENT), 'the phone’s tray to say why', 20_000).catch(() => {})
+  const footer = await footerSays(phone, NOT_SENT)
+  // A d4 more, so that part 5's "Dice (2d6 + 1d8)", still the tray's latest, can't pass for this roll.
+  await addOf(phone, 'd4').click()
+  const here = await rollHere(phone, 'Roll 1d4 + 2d6 + 1d8', 'Dice (1d4 + 2d6 + 1d8)')
+  check(footer && !here.sent && !here.asked && !saysTable(here.shown),
+    `with the campaign's rolls off in Foundry, the tray says "${NOT_SENT}", and Roll 1d4 + 2d6 + 1d8 throws the app's dice alone, nothing typed, nothing sent: "${here.shown}" (${here.posted} posted)`)
+  await shoot(phone, 'dice-tray-rolls-off', chatOf(phone))
+  const GM_NOT_SENT = "Only you see these rolls for now. They aren't sent to your game."
+  await until(() => footerSays(gmPage, GM_NOT_SENT), 'the Gamemaster’s tray to say why', 20_000).catch(() => {})
+  check(await footerSays(gmPage, GM_NOT_SENT), `and the Gamemaster's page for Thorin says "${GM_NOT_SENT}"`)
+}
 
 await finish()

@@ -128,4 +128,39 @@ describe('schemas/foundry-settings', () => {
     expect(settings.results).toHaveLength(8)
     expect(settings.results.at(-1)?.id).toBe('r7')
   })
+
+  // Changed on purpose (v0.44, decision Q2): an entry it can't read is dropped before the list is
+  // cut, so it never pushes out one it can.
+  it('keeps as many entries as it reads up to each limit, an unreadable one among the first left out', () => {
+    const settings = read({
+      format: 1,
+      modules: [
+        'lib-wrapper',
+        ...many(20, index => ({ id: `m${index}`, title: `Module ${index}` })),
+      ],
+      sections: [
+        {
+          id: 's0',
+          title: 'Section 0',
+          rows: [{ id: 'attacks' }, ...many(40, row)],
+        },
+      ],
+      results: [
+        { id: 'r', state: 'sometimes', text: 'Result' },
+        ...many(8, index => ({
+          id: `r${index}`,
+          state: 'shown',
+          text: `Result ${index}`,
+        })),
+      ],
+    })
+
+    expect(settings.modules.map(({ id }) => id)).toEqual(
+      many(20, index => `m${index}`),
+    )
+    expect(settings.sections[0].rows).toEqual(many(40, row))
+    expect(settings.results.map(({ id }) => id)).toEqual(
+      many(8, index => `r${index}`),
+    )
+  })
 })

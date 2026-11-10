@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, type Ref } from 'react'
 import { DIE_SIDES, type DieSides } from '@lambersond/3d-dice-core'
 import { AT_MOST } from './constants'
 import { iconSides } from './utils'
@@ -9,11 +9,17 @@ import { DieIcon } from '@/components/icons/die'
  * its size, "d6". Four to a row in a narrow tray, all seven in a wide one. Once the tray holds as
  * many dice as it may, each says so, and adds none.
  * @param room - Whether one more die may be added.
+ * @param addRef - The ref of a size's button, which focus may be moved to.
  */
 export function DieButtons({
   room,
   onAdd,
-}: Readonly<{ room: boolean; onAdd: (sides: DieSides) => void }>) {
+  addRef,
+}: Readonly<{
+  room: boolean
+  onAdd: (sides: DieSides) => void
+  addRef: (sides: DieSides) => Ref<HTMLButtonElement>
+}>) {
   const full = useId()
   return (
     <div className='flex flex-col gap-1'>
@@ -25,6 +31,7 @@ export function DieButtons({
         {DIE_SIDES.map(sides => (
           <button
             key={sides}
+            ref={addRef(sides)}
             type='button'
             aria-label={`Add a d${sides}`}
             aria-disabled={!room}

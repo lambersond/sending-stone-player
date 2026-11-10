@@ -74,12 +74,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/preview', () => {
       .mockResolvedValue({ html: '<h5>Loot</h5>', headings: [] })
   })
 
-  it('answers 401 signed out', async () => {
-    jest.mocked(getCurrentUser).mockResolvedValue(undefined as any)
-
-    await expect(post({ body: 'a' })).resolves.toHaveProperty('status', 401)
-  })
-
   it('renders a note for the seat’s book, storing nothing', async () => {
     const response = await post({ body: '### Loot' })
 
@@ -90,12 +84,6 @@ describe('app/api/campaigns/[id]/characters/[actor]/notes/preview', () => {
       headings: [],
     })
     expect(previewNote).toHaveBeenCalledWith(BOOK, '### Loot')
-  })
-
-  it('answers 404 for another Gamemaster’s campaign', async () => {
-    jest.mocked(getGmSeat).mockResolvedValue(undefined)
-
-    await expect(post({ body: 'a' })).resolves.toHaveProperty('status', 404)
-    expect(previewNote).not.toHaveBeenCalled()
+    expect(getGmSeat).toHaveBeenCalledWith('gm-1', 'c1', 'thorin')
   })
 })

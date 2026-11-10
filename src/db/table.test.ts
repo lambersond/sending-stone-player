@@ -1,10 +1,5 @@
 import { playerSeat } from './seats'
-import {
-  companionAsks,
-  getCampaignStatus,
-  getTableView,
-  MESSAGE_LIMIT,
-} from './table'
+import { getCampaignStatus, getTableView, MESSAGE_LIMIT } from './table'
 import {
   characterSheet,
   chatMessage,
@@ -2177,19 +2172,6 @@ const askingCompanions = (companions: object[]) =>
       typeof query.where.actorId === 'object' ? companions : [],
     )) as any)
 
-/** What a companion's one prompt asks for, in words. */
-const wordsOf = (data: object) =>
-  companionAsks(
-    [
-      {
-        actorId: 'wolfBrakka',
-        data,
-        expiresAt: new Date('2026-10-08T12:10:00Z'),
-      },
-    ],
-    Date.parse('2026-10-08T12:05:00Z'),
-  )[0].label
-
 describe("db/table, the saves the game asks of the character's companions, from module 0.41.0", () => {
   const ORIGIN = 'https://my-game.forge-vtt.com'
   const thorin = playerSeat(
@@ -2354,21 +2336,5 @@ describe("db/table, the saves the game asks of the character's companions, from 
     expect(
       queries.some(([query]) => typeof query.where.actorId === 'object'),
     ).toBe(false)
-  })
-
-  it('words what each asks for as the banner does', () => {
-    expect(wordsOf({ type: 'save', abilities: ['dex'] })).toBe(
-      'Dexterity saving throw',
-    )
-    expect(wordsOf({ type: 'concentration', abilities: ['con'] })).toBe(
-      'Concentration check',
-    )
-    expect(wordsOf({ type: 'concentration', abilities: ['wis'] })).toBe(
-      'Concentration check (Wisdom)',
-    )
-    expect(wordsOf({ type: 'check', abilities: ['str', 'dex'] })).toBe(
-      'Strength or Dexterity check',
-    )
-    expect(wordsOf({ type: 'save', abilities: [] })).toBe('saving throw')
   })
 })

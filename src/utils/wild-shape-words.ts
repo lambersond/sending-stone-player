@@ -280,6 +280,13 @@ export function listFailedWords(role: SeatRole, reason: string): string {
   return `${capitalized(seatWords(role).game)} couldn’t list the Beasts: ${reason}.`
 }
 
+/**
+ * That the Beasts to learn couldn't be read back, where the app took the read with no id to follow
+ * it by: the game may well have listed them, so it isn't blamed.
+ */
+export const LIST_UNREAD_WORDS =
+  'The Beasts couldn’t be read back this time. Try again in a moment.'
+
 /** The reasons a picker's refusal asks to try again after, as the game may take it then. */
 const TRY_AGAIN = new Set([
   'unavailable',

@@ -18,7 +18,8 @@ const NO_KINDS: readonly RollKind[] = []
 
 /**
  * Why the last End Turn wasn't made, which the turn panel says while it shows that turn: by the
- * turn and its way's reason, as a refusal by this app's own server has no id.
+ * turn and its way's reason, as a refusal by this app's own server has no id. A change of tab keeps
+ * it, in either layout: it goes as the turn moves on, or as End Turn is pressed again (v0.44).
  */
 function useRefusal(ending: EndTurnState) {
   const [refused, setRefused] = useState<{ turn: EndableTurn; key: string }>()
@@ -135,7 +136,6 @@ export function useTurnEnding({
     undoing,
     via,
     refused,
-    clearRefused: () => setRefused(undefined),
     endTurn,
     held,
     quiet,

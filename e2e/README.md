@@ -2,7 +2,7 @@
 
 The real Sending Stone module, in a stand-in Foundry (the module's own `test/fvtt`), posting from a
 game's page in Chromium to this app, built and served for real over its own Postgres database, with
-players and a Gamemaster in their own browsers. 51 suites, 107 runs (`regress.sh`), each on fresh data,
+players and a Gamemaster in their own browsers. 51 suites, 113 runs (`regress.sh`), each on fresh data,
 and each run's `ok` lines counted against the number it wants.
 
 They run locally, on Linux, from this checkout and the module's. Nothing here runs in CI yet.
@@ -196,6 +196,41 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
 
   If a run fails only in lanes, read its FAIL line before blaming the lanes. Rerun it with `ONLY=name`,
   serially, or with `RETRY=1`. Never loosen the check.
+- **Six known load races**, each failed only on a loaded machine and passed when rerun alone:
+  - **transfers DND5E6=1**, "the module fetches for moves with rolls off, and no 60 s wait holds it
+    after the hello's answer": the check gives the module 1.5 s from the hello's answer to begin a
+    fetch for commands. Under load none had begun by then, and none had been answered with a 60 s
+    wait either: the module was slow to fetch, not held.
+  - **companions DND5E6=1**, "a portrait changed in Foundry after one failed: … never a broken image
+    drawn": a count of animation frames watches Thorin's header as his new portrait, which the game
+    answers no image for, is tried, and allows the broken image one frame before his initials take
+    its place. Under load it showed for two (`longest: 2`): the image's error, which swaps it for his
+    initials, was heard a frame late.
+  - **toasts**, T7, "four checks tapped … show three toasts at most, … the last to land among them and
+    the first gone": the first check to land, pushed out by the three-toast cap as the fourth landed,
+    popped back on top when the game's answer to it came, as a toast does each time its roll's way to
+    the game ends (`settledMark`, `src/features/rolling/utils/roll-toasts.ts`). The check counts on the
+    game answering each check before the fourth lands; under load its answer came after. It runs alone
+    already (`solo`), and failed so twice in a row there, straight after a pass's lanes, then passed
+    when rerun with `ONLY=toasts`.
+  - **alone** and **alone MIDI=1**, part 15, "Timed out waiting for Fire Breath's failed recharge at
+    768 to be sent": the Recharge chip's tap sent nothing in 30 s. Most likely the tap came as the page
+    took the game's recharged sheet: the chip the suite waited for was still shown from before the
+    recharge, and went (to come back with the spend after it) between Playwright's look and its tap.
+    Alone that sheet reaches the page before the spend; under load it comes after.
+  - **alone DND5E6=1**, part 17's deferred "as it opens, focus on the chip picked in its first row":
+    focus was on the Spend switch. The picker opened on the page's sheet from before Thorin's 2nd-level
+    slot reached it, with one level and so no row of levels, where the switch takes focus; and the poll
+    bringing the slot landed before the suite's first look at the picker, so `openPicker` took it as
+    ready. Under load more time passes between the two.
+  - **feedback SKEW=042**, under Attack Roll Visibility "Hide AC", `and the app pills it "Hit"`
+    (the run's 85th check of 115, after the 84 before it had passed): the phone's chat still showed
+    the goblin with no Hit pill after `targetsBecome`'s 15 s wait. The check just before it passed, so
+    module 0.42.0 had already told the app that the rapier hit, and never the goblin's armor class.
+    It failed once, under three lanes' load (a load average of about 6), and passed alone on lane 0
+    with the other lanes idle (`RETRY=1`, 115 of 115), as it did in Batch 1's own pass. The check is
+    an old one, which this variant, new in v0.44, runs too; the plain and Midi-QOL runs passed it in
+    the same pass.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across

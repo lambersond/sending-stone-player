@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { z } from 'zod'
-import { leftOut, orNull } from './utils'
+import { leftOut, listOf, orNull } from './utils'
 
 describe('schemas/utils', () => {
   describe('leftOut', () => {
@@ -30,6 +30,32 @@ describe('schemas/utils', () => {
       ['nothing, as null', {}, { name: null }],
     ])('reads %s', (_, input, output) => {
       expect(schema.parse(input)).toStrictEqual(output)
+    })
+  })
+
+  describe('listOf', () => {
+    const schema = z.object({ names: listOf(z.string(), 2) })
+
+    it.each([
+      ['what it reads', { names: ['Ash', 'Bo'] }, { names: ['Ash', 'Bo'] }],
+      [
+        'only its first, as many as it keeps',
+        { names: ['Ash', 'Bo', 'Cy'] },
+        { names: ['Ash', 'Bo'] },
+      ],
+      [
+        'past what it can’t read, before it cuts',
+        { names: [1, 'Ash', null, 'Bo', 'Cy'] },
+        { names: ['Ash', 'Bo'] },
+      ],
+      ['another type, as none', { names: 'Ash' }, { names: [] }],
+      ['nothing, as none', {}, { names: [] }],
+    ])('reads %s', (_, input, output) => {
+      expect(schema.parse(input)).toStrictEqual(output)
+    })
+
+    it('keeps every one it reads, where it is given no most', () => {
+      expect(listOf(z.int()).parse([1, 'two', 3, 4])).toStrictEqual([1, 3, 4])
     })
   })
 })

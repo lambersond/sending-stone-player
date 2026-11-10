@@ -72,6 +72,24 @@ function activityRefs(entry: {
   ]
 }
 
+/**
+ * What a campaign's characters' sheets and its groups' sheets refer to, together; and from module
+ * 0.36.0 its characters' companions' sheets, which are a character's in shape.
+ */
+export function campaignTextRefs(
+  sheets: CharacterSheet[],
+  groups: GroupSheet[],
+  companions: CharacterSheet[],
+): string[] {
+  return [
+    ...new Set([
+      ...sheets.flatMap(sheet => sheetTextRefs(sheet)),
+      ...groups.flatMap(group => groupTextRefs(group)),
+      ...companions.flatMap(sheet => sheetTextRefs(sheet)),
+    ]),
+  ]
+}
+
 /** Every item on a sheet: by type, the containers, and what they hold, however deep. */
 export function allItems(
   sheet: Pick<Partial<CharacterSheet>, 'inventory'>,

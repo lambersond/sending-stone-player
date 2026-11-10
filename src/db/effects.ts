@@ -1,8 +1,9 @@
 import { createCommand } from '@/db/commands'
 import { checkEffect } from '@/utils/effect-commands'
-import type { CommandSpec, RollRejection } from '@/db/types'
+import type { CommandSpec } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
+import type { RollRejection } from '@/utils/requests/types'
 
 // One of a character's own effects turned off, turned on or deleted (module 0.39.0) rides to the
 // game as a favorite does: held here as a RollRequest of the kind `effect`, for the seat's

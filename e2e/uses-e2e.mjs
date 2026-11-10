@@ -17,7 +17,10 @@
 // the Spells tab and unprepared on the Actions tab with a held touch, his cleric's count of spells
 // prepared following each, Bless and back, none for a spell an item casts or a cantrip, and Witch
 // Bolt among his favorites (round 0.42.1 §P). MIDI=1 puts the stand-in Midi-QOL workflow in the
-// world (fvtt/midi-fake.mjs). Run with --import ./fvtt/unref-timers.mjs --import
+// world (fvtt/midi-fake.mjs). SKEW=042 with MODULE=module-0.42.0, from before 0.42.1: all of it but
+// the last, the app keeping no spell slots spent nor spells prepared; then no count of his cleric's
+// prepared spells, Witch Bolt's and Bless's menus with no Prepare nor Unprepare and no word why, and
+// one posted anyway turned down. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { combat, combatant, settings, user, users, actors } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
@@ -29,6 +32,8 @@ const GAME = 'https://lonely-mountain.forge-vtt.com'
 const SECRET = 'ashlands-secret-123'
 const SHOTS = process.env.SHOTS
 const MIDI = !!process.env.MIDI
+/** Module 0.42.0, from before 0.42.1: no spell slots spent from the app, no spells prepared from it. */
+const SKEW042 = process.env.SKEW === '042'
 const cookie = await cookieFor('e2e-token')
 const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -42,7 +47,7 @@ async function until(test, what, ms = 30_000) {
 const shoot = async (page, name) => {
   if (!SHOTS) return
   await page.waitForTimeout(350)
-  await page.screenshot({ path: `${SHOTS}/${name}${MIDI ? '-midi' : ''}.png` })
+  await page.screenshot({ path: `${SHOTS}/${name}${MIDI ? '-midi' : ''}${SKEW042 ? '-skew042' : ''}.png` })
 }
 
 // Foundry's hooks: callAll and call run their handlers at once, as Foundry's do.
@@ -420,7 +425,11 @@ await until(() => stored().includes('use'), 'the app to hear the game takes spel
 // Changed on purpose (round 0.42.1 §P.6.4): from module 0.42.1, a spell prepared or unprepared,
 // right after the charge kinds.
 // Changed on purpose (v0.44): from module 0.44.0, a plain roll, right after a formula.
-check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,plainRoll,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,spellSlot,prepare,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
+if (SKEW042) {
+  check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,textRoll,textDamage,itemDamage,recharge|t', `with module 0.42.0 the app keeps that the game takes players' attacks, spells and features, and their damage, and no spell slots spent, spells prepared or plain rolls (${stored()})`)
+} else {
+  check(stored() === 't|skill,tool,ability,save,death,initiative,hitDie,hitDice,formula,plainRoll,endConcentration,endTurn,undoEndTurn,attack,use,damage,endEnchantment,spend,inspiration,spellSlot,prepare,textRoll,textDamage,itemDamage,recharge|t', `the app keeps that the game takes players' attacks, spells and features, and their damage (${stored()})`)
+}
 const features = sql(`select array_to_string("rollFeatures", ',') from campaign where title = 'Ashlands'`)
 // From module 0.22.0, wherever uses are made, it makes one at its user too, as asked.
 // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0, damage on its own's choices wherever it's offered.
@@ -1279,6 +1288,44 @@ check(windRows === 1 && windCounters === 0 && await panel.getByRole('region', { 
   const countIs = n => ({ shown: `${n} / ${PREPARE_MAX}`, said: `Prepared ${n} of ${PREPARE_MAX}` })
   const countReads = async n => same(await preparedFact(), countIs(n))
 
+  if (SKEW042) {
+    // Module 0.42.0 sends no count of a class's prepared spells, and takes no spell prepared or
+    // unprepared: the Spells tab shows no count, and the menus offer neither, saying nothing of it.
+    await page.getByRole('tab', { name: 'Spells' }).click()
+    const level1 = panel.getByRole('region', { name: '1st Level', exact: true })
+    await level1.waitFor()
+    thorin.spellcastingClasses.cleric.spellcasting.preparation = { get value() { return counted() }, max: PREPARE_MAX }
+    await Hooks.callAll('updateActor', thorin, { system: {} }, {}, 'gm')
+    await wait(7_000)
+    const uncounted = await preparedFact()
+    check(uncounted === null && counted() === 5, `with module 0.42.0 the Spells tab shows no count of his cleric's prepared spells, though dnd5e counts 5 of 10 (${JSON.stringify(uncounted)})`)
+    const oldMenu = async (anchor, name, shot) => {
+      const menu = await menuFor(anchor, name)
+      // All it says: its title, the spell's name, and its items.
+      const look = { ...(await menuLook(menu)), text: (await menu.textContent()).replace(/\s+/g, ' ').trim() }
+      if (shot) await shoot(page, shot)
+      await page.keyboard.press('Escape')
+      await menu.waitFor({ state: 'hidden' }).catch(() => {})
+      return look
+    }
+    const witchMenu = await oldMenu(anchorOf('Witch Bolt', level1), 'Witch Bolt', 'phone-prepare-menu')
+    const blessMenu = await oldMenu(anchorOf('Bless', level1), 'Bless')
+    const favoritesOnly = (look, name) => same(look.items, ['Add to favorites']) && same(look.disabled, [false]) && look.text === `${name}Add to favorites`
+    check(favoritesOnly(witchMenu, 'Witch Bolt') && favoritesOnly(blessMenu, 'Bless'),
+      `Witch Bolt, not prepared, and Bless, prepared, each open a menu of Add to favorites alone: no Prepare, no Unprepare, and no word why (${JSON.stringify({ witchMenu, blessMenu })})`)
+    await paced()
+    const postedBefore = requests()
+    const refused = await page.evaluate(async body => {
+      const response = await fetch('/api/characters/sheet-thorin/rolls', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      let json = null
+      try { json = JSON.parse(await response.text()) } catch {}
+      return { status: response.status, json }
+    }, { kind: 'prepare', prepare: { op: 'prepare', id: 'witch' }, ...PLAIN })
+    check(refused.status === 409 && refused.json?.reason === 'unavailable' && requests() === postedBefore && preparedIn('witch') === 0,
+      `Witch Bolt's prepare posted anyway is turned down, ${refused.status} ${refused.json?.reason}, nothing kept, and it stays unprepared`)
+    await finish()
+  }
+
   // 1. The Spells tab: Witch Bolt, which he hasn't prepared, says so in words; his cleric's count.
   await page.getByRole('tab', { name: 'Spells' }).click()
   const level1 = panel.getByRole('region', { name: '1st Level', exact: true })
@@ -1448,7 +1495,12 @@ check(windRows === 1 && windCounters === 0 && await panel.getByRole('region', { 
     'the favorite taken away again; Witch Bolt is left unprepared and Bless prepared, as they were')
 }
 
-console.log('problems:', problems)
-check(problems.filter(p => !p.includes('Failed to load resource')).length === 0, 'no page errors, and the app took everything the module sent')
-await browser.close()
-process.exit(0)
+await finish()
+
+/** The end of a run: no page errors, and everything the module sent taken. */
+async function finish() {
+  console.log('problems:', problems)
+  check(problems.filter(p => !p.includes('Failed to load resource')).length === 0, 'no page errors, and the app took everything the module sent')
+  await browser.close()
+  process.exit(0)
+}

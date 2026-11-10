@@ -14,14 +14,7 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
-import {
-  ago,
-  due,
-  holdCommand,
-  keptLabel,
-  madeBy,
-  onItsWay,
-} from '@/db/commands'
+import { ago, due, holdCommand, madeBy, onItsWay } from '@/db/commands'
 import { FOUNDRY_ID } from '@/db/constants'
 import { recordDishResult } from '@/db/cookbook'
 import { createEffectRequest } from '@/db/effects'
@@ -33,19 +26,19 @@ import { createTransferRequest } from '@/db/transfers'
 import { createWildShapeRequest, shapedRefusal } from '@/db/wild-shape'
 import { sheetLinks } from '@/lib/sheet-html'
 import { companionRoster } from '@/utils/companions'
-import { changes } from '@/utils/damage-modifiers'
 import { checkPrompt } from '@/utils/prompts'
-import { availableRollKinds } from '@/utils/requests/availability'
 import { checkDamage } from '@/utils/requests/check-damage'
 import { checkEndTurn, checkUndoTurn } from '@/utils/requests/check-turns'
 import { checkRoll } from '@/utils/requests/checks'
-import { GM_UNSENT, toCommand } from '@/utils/requests/commands'
+import { toCommand } from '@/utils/requests/commands'
+import { combatOf, companionRefusal, rollGate } from '@/utils/requests/gate'
+import { keptLabel, rollPayload } from '@/utils/requests/payloads'
 import { toRollRequestView } from '@/utils/requests/views'
 import type {
   BridgePolled,
   BridgeSwitch,
+  ClaimCampaign,
   CommandCreator,
-  RollRejection,
   RollSeat,
 } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
@@ -59,12 +52,13 @@ import type {
   CharacterSheet,
   CombatSnapshot,
   CommandResult,
-  ConnectedCharacter,
 } from '@/types/sending-stone'
 import type {
   HeldRollRequest,
+  RollCampaign,
   RollCommand,
   RollRefusal,
+  RollRejection,
 } from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
@@ -138,16 +132,17 @@ export async function createRollRequest(
   // A companion's seat moves, removes, favorites, changes no effects and uses no Wild Shape: it has
   // no items of the character's to move, nor favorites, its effects are no player's to change, it
   // has no Wild Shape of a character's, and the schema takes the kinds, so they're refused here
-  // first, before any is looked at. Its hit points, from module 0.44.0, are its player's to set,
-  // as its kind's row says, past this to their own creator. The other kinds no companion's roll is
-  // are refused by the rolls' gate, as the game takes none of them for companions.
+  // first, before any is looked at, as kinds the game isn't taking: as the rolls' gate refuses the
+  // other kinds no companion's roll is, which the game takes none of for companions. Its hit
+  // points, from module 0.44.0, are its player's to set, as its kind's row says, past this to
+  // their own creator.
   const { companion } = seat
   if (
     companion &&
     OWN_KINDS.includes(input.kind) &&
     'companion' in ROLL_KIND_INFO[input.kind]
   ) {
-    return { status: 422, reason: 'unknown' }
+    return { status: 409, reason: 'unavailable' }
   }
   // While the character is transformed, what would change its own actor's things waits.
   if ('shaped' in ROLL_KIND_INFO[input.kind]) {
@@ -201,7 +196,11 @@ export async function createRollRequest(
   )
 }
 
-/** What a roll reads of its campaign: whether the game takes it, how, and its roster. */
+/**
+ * What a roll reads of its campaign: whether the game takes it, how, and its roster. Exactly
+ * RollCampaign's fields, each way: one added to or taken from either is flagged here, and each
+ * field's type where the campaign read is handed on as one.
+ */
 const ROLL_CAMPAIGN = {
   rollsEnabled: true,
   rollKinds: true,
@@ -211,79 +210,10 @@ const ROLL_CAMPAIGN = {
   companions: true,
   companionKinds: true,
   companionInitiative: true,
-} as const satisfies Prisma.CampaignSelect
-
-/** A roll's campaign, as ROLL_CAMPAIGN reads it. */
-type RollCampaign = Prisma.CampaignGetPayload<{ select: typeof ROLL_CAMPAIGN }>
-
-/**
- * Whether the game takes this roll now, before anything else is read: the Gamemaster's only where
- * it makes them as the character's, its kind where the game takes it, a companion's only of the
- * kinds the game takes for companions, and whatever it asks of the game only where the game does
- * that.
- * @returns Why not; nothing where it does.
- */
-function rollGate(
-  seat: SheetSeat,
-  input: RollRequestInput,
-  campaign: RollCampaign | null,
-): RollRejection | undefined {
-  const { companion } = seat
-  // The Gamemaster's rolls go only to a game that makes them as the character's, marked as theirs;
-  // and ending an enchantment, a concentration or from module 0.36.0 a turn, or taking one back, is
-  // no roll, and posts nothing, so it would leave no mark: the Gamemaster ends one in Foundry.
-  // Charges spent and Heroic Inspiration post a line marked as theirs, so they're the Gamemaster's
-  // to send too.
-  if (
-    seat.role === 'gm' &&
-    (!campaign?.rollFeatures.includes('gmRolls') || GM_UNSENT.has(input.kind))
-  ) {
-    return { status: 409, reason: 'unavailable' }
-  }
-  if (!campaign || !availableRollKinds(campaign).includes(input.kind)) {
-    return { status: 409, reason: 'unavailable' }
-  }
-  // A companion's rolls are only those the game takes for companions, as its view offers them.
-  if (companion && !campaign.companionKinds.includes(input.kind)) {
-    return { status: 409, reason: 'unavailable' }
-  }
-  // The game asks a companion its saves only from module 0.41.0, and only an important NPC makes
-  // death saving throws.
-  if (
-    companion &&
-    input.prompt &&
-    !campaign.rollFeatures.includes('companionPrompts')
-  ) {
-    return { status: 422, reason: 'prompt' }
-  }
-  if (lacksFeature(input, campaign.rollFeatures)) {
-    return { status: 409, reason: 'unavailable' }
-  }
-  return undefined
-}
-
-/**
- * Whether a roll asks the game for what it doesn't do: damage a player changed goes only to a game
- * that can roll it so, an answer to what the game asked only to one that asks, an area attack only
- * to one that makes it at those picked, a check an activity asks for only to one that makes it
- * against the activity, and from module 0.41.0 damage on its own with its choices, or spending
- * what it uses, only to one that takes them.
- */
-function lacksFeature(input: RollRequestInput, features: string[]): boolean {
-  return (
-    (changes(input.modifiers) && !features.includes('modifiers')) ||
-    (input.kind === 'itemDamage' &&
-      namesAloneChoices(input) &&
-      !features.includes('aloneChoices')) ||
-    (!!input.prompt && !features.includes('prompts')) ||
-    (input.kind === 'attack' &&
-      input.targets !== undefined &&
-      !features.includes('areaAttacks')) ||
-    ('check' in ROLL_KIND_INFO[input.kind] &&
-      input.item !== undefined &&
-      !features.includes('activityChecks'))
-  )
-}
+} as const satisfies Prisma.CampaignSelect satisfies Record<
+  keyof RollCampaign,
+  true
+>
 
 /**
  * What a roll is checked against, read at once: its sheet, its combat, for damage the attack or use
@@ -480,98 +410,6 @@ function rollRefusal(
 }
 
 /**
- * The combat a roll is made in: initiative's, or the one an attack's or a use's targets are in; or
- * from module 0.36.0, the one whose turn is ended, or taken back.
- */
-function combatOf(input: RollRequestInput): string | undefined {
-  if (input.kind === 'initiative') return input.combatId
-  if (input.kind === 'endTurn' || input.kind === 'undoEndTurn') {
-    return input.turn?.combatId
-  }
-  return input.target?.combatId ?? input.targets?.[0]?.combatId
-}
-
-/**
- * What the module is sent of a roll: only what to roll, as its label is the app's alone. Marked as
- * typed in only where the player may type theirs, as the game said last: else the same dice,
- * unmarked. A companion's are typed as its character's are. And with it, the dice its effects add,
- * and that its rerolls are its player's, where the game takes them (module 0.42.0); else the game
- * rolls those.
- */
-function rollPayload(
-  seat: SheetSeat,
-  input: RollRequestInput,
-  campaign: RollCampaign,
-) {
-  const { typed, effectDice, rerolls } = input
-  const command = { ...input }
-  delete command.label
-  delete command.typed
-  delete command.effectDice
-  delete command.rerolls
-  const roster = campaign.characters as unknown as ConnectedCharacter[]
-  const typer = seat.companion?.of ?? seat.actorId
-  const typedHere =
-    typed === true &&
-    seat.role === 'player' &&
-    command.dice.length > 0 &&
-    campaign.rollFeatures.includes('manualDice') &&
-    roster.some(({ id, manualDice }) => id === typer && manualDice === true)
-  return typedHere
-    ? {
-        ...command,
-        typed: true as const,
-        ...(effectDice &&
-          effectDice.length > 0 &&
-          campaign.rollFeatures.includes('effectDice') && { effectDice }),
-        ...(rerolls === 'kept' &&
-          campaign.rollFeatures.includes('keptRerolls') && { rerolls }),
-      }
-    : command
-}
-
-/**
- * Does damage on its own name any of its choices, from module 0.41.0: the slot it's rolled at, the
- * attack mode, the ammunition, or spending what its use would?
- */
-function namesAloneChoices(input: RollRequestInput): boolean {
-  return (
-    input.slot !== undefined ||
-    input.attackMode !== undefined ||
-    input.ammunition !== undefined ||
-    input.consume !== undefined
-  )
-}
-
-/**
- * Why a companion can't make this roll, from module 0.36.0, before it's checked as any roll is: a
- * death saving throw of a creature that makes none, as only an important NPC does; or its
- * initiative where its campaign has companions act right after their character and one of its
- * characters is a combatant of that combat, whose initiative the game sets for it. Nothing for a
- * character's own roll.
- */
-function companionRefusal(
-  input: RollRequestInput,
-  companion: SheetSeat['companion'],
-  sheet: CharacterSheet | undefined,
-  combats: CombatSnapshot[],
-  campaign: { companionInitiative: string },
-): RollRefusal | undefined {
-  if (!companion) return undefined
-  if (input.kind === 'death' && sheet?.creature?.important !== true) {
-    return 'not-dying'
-  }
-  if (input.kind === 'initiative' && campaign.companionInitiative === 'after') {
-    const combat = combats.find(({ id }) => id === input.combatId)
-    const follows = combat?.combatants.some(
-      ({ character }) => !!character && companion.entry.of.includes(character),
-    )
-    if (follows) return 'follows'
-  }
-  return undefined
-}
-
-/**
  * A roll a seat sent, as it is told of it. At a companion's, from module 0.36.0, only one the seat
  * sent for that companion from that character's seat: never the character's own, nor another
  * companion's, which a player's rolls, all kept by their Character, would otherwise match.
@@ -609,26 +447,21 @@ export async function getRollRequestView(
  * likewise, a player's only, to the session whose hello said its campaign lets them; and from
  * module 0.44.0 hit points set likewise, a companion's among them.
  * @param session - The module session that fetched them.
+ * @param campaign - The campaign as the fetch's check read it, once for all its claims; null where
+ * it's gone.
  */
 export async function claimRollRequests(
   campaignId: string,
   session: string,
+  campaign: Pick<
+    ClaimCampaign,
+    | 'helloSession'
+    | 'rollFeatures'
+    | 'ownerId'
+    | NonNullable<RollKindInfo['own']>
+  > | null,
 ): Promise<RollCommand[]> {
   const now = Date.now()
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: campaignId },
-    select: {
-      helloSession: true,
-      rollFeatures: true,
-      ownerId: true,
-      transfersEnabled: true,
-      removalsEnabled: true,
-      favoritesEnabled: true,
-      effectsEnabled: true,
-      wildShapeEnabled: true,
-      hitPointsEnabled: true,
-    },
-  })
   const ownerId = campaign?.ownerId
   const current = campaign?.helloSession === session
   const gmRolls =
@@ -827,6 +660,43 @@ export async function markBridgePolled(
     ) as Record<BridgeSwitch, boolean>),
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
+}
+
+/**
+ * What a check of the module's fetch reads of its campaign, once for the claims it runs. Exactly
+ * ClaimCampaign's fields, each way, as ROLL_CAMPAIGN is RollCampaign's.
+ */
+const CLAIM_CAMPAIGN = {
+  helloSession: true,
+  ownerId: true,
+  dishesEnabled: true,
+  dishVersions: true,
+  notesEnabled: true,
+  noteFeatures: true,
+  rollFeatures: true,
+  transfersEnabled: true,
+  removalsEnabled: true,
+  favoritesEnabled: true,
+  effectsEnabled: true,
+  wildShapeEnabled: true,
+  hitPointsEnabled: true,
+} as const satisfies Prisma.CampaignSelect satisfies Record<
+  keyof ClaimCampaign,
+  true
+>
+
+/**
+ * A campaign as one check of the module's fetch reads it: once, for its dishes', notes' and rolls'
+ * claims alike, each of which reads it as it stands at the check.
+ * @returns Null where the campaign is gone.
+ */
+export function findClaimCampaign(
+  campaignId: string,
+): Promise<ClaimCampaign | null> {
+  return prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: CLAIM_CAMPAIGN,
+  })
 }
 
 /** When this server last noted each campaign's players present. */

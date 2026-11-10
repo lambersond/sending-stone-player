@@ -241,7 +241,7 @@ export type FormulaSource =
   | { kind: 'plainRoll'; plainRoll: PlainRollInput }
 
 /** Hit dice of one size spent at once: the size, such as "d10", and how many. */
-type HitDiceSpent = { denomination: string; count: number }
+export type HitDiceSpent = { denomination: string; count: number }
 
 /**
  * A link in one of the character's descriptions the game acts on, by which the game finds what it
@@ -1195,9 +1195,11 @@ export type TableRollState = Omit<
   /**
    * For rolls sent one after another as one, as hit dice spent at once are to a game before module
    * 0.20.0, a request a die: how many there are, and how many of them the game has made. From
-   * 0.20.0, sent as one, the same, once the game stopped part way through them.
+   * 0.20.0, sent as one, the same, once the game stopped part way through them. Where the app took
+   * any of those made with no id to follow it by (`unfollowed`), they're told as sent, not made, as
+   * what the game made of it isn't known.
    */
-  together?: { count: number; made: number }
+  together?: { count: number; made: number; unfollowed?: true }
   /**
    * For a roll of a d20 the Gamemaster made as the character (#156), whether the game says it came
    * up a critical or a fumble, as there are no dice of it here to say.

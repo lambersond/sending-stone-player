@@ -14,14 +14,13 @@ import {
   deleteNote,
   getNotesStatus,
   getNotesView,
-  noteRights,
   previewNote,
   reorderNotes,
   resolveNote,
   resolveOrder,
 } from './notes'
 import { prismaMock } from '@/utils/test-utils-node'
-import type { NotesBook, NotesSeat } from './types'
+import type { NotesBook, NotesSeat } from '@/types/notes'
 
 const NOW = Date.parse('2026-10-22T12:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms)
@@ -203,16 +202,23 @@ const after = (row: JournalWrite) =>
     seq: row.seq + 1,
   }) as JournalWrite
 
+/** The campaign as the module's fetch reads it: this session's hello, taking notes and orders. */
+const fetching = {
+  helloSession: 's1',
+  ownerId: 'gm-1',
+  notesEnabled: true,
+  noteFeatures: ['orders'],
+}
+
 /** A change's row handed over, as the module fetches it from a party's book. */
 const handed = async (row: JournalWrite) => {
-  heldCampaign({ helloSession: 's1', ownerId: 'gm-1' })
   prismaMock.journalOrder.findMany.mockResolvedValue([])
   prismaMock.journalWrite.findMany
     .mockResolvedValueOnce([row] as any)
     .mockResolvedValueOnce([
       { ...row, book: { kind: 'party', actorId: 'company' } },
     ] as any)
-  const [command] = await claimNoteWrites('c1', 's1')
+  const [command] = await claimNoteWrites('c1', 's1', fetching)
   return command
 }
 
@@ -421,81 +427,6 @@ describe('db/notes', () => {
 
   afterEach(() => {
     jest.useRealTimers()
-  })
-
-  describe('noteRights', () => {
-    const book = { kind: 'personal' as const, private: false, connected: true }
-    const entry = (authorActorId: string | null) => ({
-      role: 'entry' as const,
-      authorActorId,
-    })
-
-    it('lets the character’s player and the Gamemaster do anything in its own book', () => {
-      for (const seat of [thorin, gm]) {
-        expect(noteRights(book, seat, entry(null))).toEqual({
-          canAdd: true,
-          canRename: true,
-          canEdit: true,
-          canDelete: true,
-          canReorder: true,
-        })
-      }
-    })
-
-    it('lets a party member change their own entries, the Gamemaster any, and Foundry’s only the Gamemaster', () => {
-      const company = { ...book, kind: 'party' as const }
-
-      expect(noteRights(company, thorin, entry(THORIN)).canEdit).toBe(true)
-      expect(noteRights(company, vex, entry(THORIN))).toEqual({
-        canAdd: true,
-        canRename: true,
-        canEdit: false,
-        canDelete: false,
-        canReorder: true,
-      })
-      expect(noteRights(company, gm, entry(THORIN)).canDelete).toBe(true)
-      expect(noteRights(company, thorin, entry(null)).canEdit).toBe(false)
-      expect(noteRights(company, gm, entry(null)).canEdit).toBe(true)
-    })
-
-    it('never deletes a chapter, and lets any seat rename one', () => {
-      expect(
-        noteRights({ ...book, kind: 'party' }, vex, {
-          role: 'chapter',
-          authorActorId: THORIN,
-        }),
-      ).toEqual({
-        canAdd: true,
-        canRename: true,
-        canEdit: false,
-        canDelete: false,
-        canReorder: true,
-      })
-    })
-
-    it('adds nothing to a private party’s book, or one whose actor left the campaign', () => {
-      expect(
-        noteRights({ ...book, kind: 'party', private: true }, gm).canAdd,
-      ).toBe(false)
-      expect(noteRights({ ...book, connected: false }, thorin).canAdd).toBe(
-        false,
-      )
-    })
-
-    it('lets every seat at a book put any group’s notes in order, whoever wrote them, while it takes notes (module 0.35.0)', () => {
-      const company = { ...book, kind: 'party' as const }
-      for (const seat of [thorin, vex, gm]) {
-        for (const author of [THORIN, VEX, null]) {
-          expect(noteRights(company, seat, entry(author)).canReorder).toBe(true)
-        }
-      }
-      expect(
-        noteRights({ ...company, private: true }, gm, entry(null)).canReorder,
-      ).toBe(false)
-      expect(noteRights({ ...book, connected: false }, thorin).canReorder).toBe(
-        false,
-      )
-    })
   })
 
   describe('getNotesView', () => {
@@ -2815,7 +2746,6 @@ describe('db/notes', () => {
           expect(queuedAt).toEqual(new Date(NOW))
 
           // Handed over oldest first: the note, then the order that places it.
-          heldCampaign({ helloSession: 's1', ownerId: 'gm-1' })
           const refolded = order({ seq: 2, ids: [NEW, D, C, B, A], queuedAt })
           prismaMock.journalWrite.findMany
             .mockResolvedValueOnce([note] as any)
@@ -2827,7 +2757,7 @@ describe('db/notes', () => {
             .mockResolvedValueOnce([
               { ...refolded, book: { kind: 'party', actorId: 'company' } },
             ] as any)
-          const commands = await claimNoteWrites('c1', 's1')
+          const commands = await claimNoteWrites('c1', 's1', fetching)
           expect(commands.map(({ note }) => note.op)).toEqual([
             'create',
             'order',

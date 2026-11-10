@@ -64,6 +64,21 @@ describe('schemas/sending-stone, groups (module 0.30.0)', () => {
     ])
   })
 
+  it('reads why a group’s sheet was held back in a hello too, as group.updated does', () => {
+    expect(
+      helloWith([
+        { ...groupEntry(), sheetWithheld: { reason: 'private' } },
+        { ...groupEntry({ id: 'scouts' }), sheetWithheld: 'private' },
+      ]).groups,
+    ).toEqual([
+      {
+        ...groupEntry(),
+        sheetWithheld: { reason: 'private', bytes: null, limit: null },
+      },
+      groupEntry({ id: 'scouts' }),
+    ])
+  })
+
   it('reads group.updated with its sheet, as the module sent it', () => {
     expect(updated(groupSheet())).toEqual({
       ...groupEntry(),

@@ -1,10 +1,11 @@
 import prisma from '@/clients/prisma'
 import { createCommand } from '@/db/commands'
 import { checkWildShape, isShaped } from '@/utils/wild-shape'
-import type { CommandSpec, RollRejection } from '@/db/types'
+import type { CommandSpec } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 import type { CharacterSheet } from '@/types/sending-stone'
+import type { RollRejection } from '@/utils/requests/types'
 
 // Wild Shape from the app (module 0.40.0) rides to the game as an effect does: held here as a
 // RollRequest of the kind `wildShape`, for the seat's character, which the module fetches at most

@@ -11,6 +11,7 @@ import { claimDishes } from '@/db/cookbook'
 import { claimNoteWrites } from '@/db/note-sync'
 import {
   claimRollRequests,
+  findClaimCampaign,
   markBridgePolled,
   openActorIds,
 } from '@/db/roll-requests'
@@ -20,8 +21,8 @@ import { readBody } from '@/lib/routes/body'
 import { cors, notSetUp, refuse } from '@/lib/routes/bridge-http'
 import { toForgeGameUrl } from '@/schemas/campaign'
 import { commandsPollSchema } from '@/schemas/roll-request'
-import type { NoteCommand } from '@/db/types'
 import type { DishCommand } from '@/types/cookbook'
+import type { NoteCommand } from '@/types/notes'
 import type { RollCommand } from '@/utils/requests/types'
 
 // Where the Gamemaster's module fetches what players ask its game to do: for now, rolls made here,
@@ -208,7 +209,8 @@ async function commandsFor(
  * Hand over what the campaign's game is to make: notes written here, from module 0.34.0, and
  * dishes from the Magical Recipe Book, from module 0.38.0, are handed over after the rolls, but
  * claimed first: each handed to an answer that's lost is handed over again, and a roll never is,
- * so a failure claiming them must come before any roll is taken.
+ * so a failure claiming them must come before any roll is taken. The campaign is read once for
+ * all three, as a held fetch checks about once a second.
  */
 function claimAll(
   campaignId: string,
@@ -216,10 +218,13 @@ function claimAll(
   dishesEnabled: boolean,
 ): Promise<(RollCommand | NoteCommand | DishCommand)[] | undefined> {
   return attempt(async () => {
-    const dishes = dishesEnabled ? await claimDishes(campaignId, session) : []
-    const notes = await claimNoteWrites(campaignId, session)
+    const campaign = await findClaimCampaign(campaignId)
+    const dishes = dishesEnabled
+      ? await claimDishes(campaignId, session, campaign)
+      : []
+    const notes = await claimNoteWrites(campaignId, session, campaign)
     return [
-      ...(await claimRollRequests(campaignId, session)),
+      ...(await claimRollRequests(campaignId, session, campaign)),
       ...notes,
       ...dishes,
     ]

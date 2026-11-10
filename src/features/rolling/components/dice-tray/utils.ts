@@ -1,7 +1,7 @@
 import { MOST_PLAIN_DICE } from '@/constants/sending-stone'
 import { plainRollFormula, plainRollLabel } from '@/utils/plain-roll-words'
 import { MAX_FLAT } from '@/utils/roll-modifiers'
-import type { TrayDie } from './types'
+import type { TrayButton, TrayDie } from './types'
 import type { DieSides as IconSides } from '@/components/icons/types'
 import type { ExtraTerm, PlainRollInput, SheetFormulaRoll } from '@/types/roll'
 import type { DieSides } from '@lambersond/3d-dice-core'
@@ -28,6 +28,23 @@ export function roomFor(dice: readonly TrayDie[]): boolean {
 /** Whether the number added may go one up (`1`) or one down (`-1`): from −100 to +100. */
 export function canStep(bonus: number, by: 1 | -1): boolean {
   return Math.abs(bonus + by) <= MAX_FLAT
+}
+
+/**
+ * Where keyboard focus goes as the last die of a size is taken away, its chip and both its buttons
+ * going with it: the next chip's One fewer, else the one before's, else, with no dice left, that
+ * size's Add. Nowhere while the size keeps a die, its chip staying.
+ */
+export function focusOnRemoving(
+  dice: readonly TrayDie[],
+  sides: DieSides,
+): TrayButton | undefined {
+  const at = dice.findIndex(die => die.sides === sides)
+  if (at === -1 || dice[at].count > 1) return undefined
+  const beside = dice[at + 1] ?? dice[at - 1]
+  return beside
+    ? { button: 'fewer', sides: beside.sides }
+    : { button: 'add', sides }
 }
 
 /** A die's shape, as the app draws it: a d100 as a d10, which it has none of its own for. */
@@ -65,6 +82,15 @@ export function toPlainRoll(
     ],
     source: { kind: 'plainRoll', plainRoll },
   }
+}
+
+/**
+ * What's said as the tray's dice are added and taken away: their whole formula, the number added
+ * in it, "2d6 + 1d8 + 2"; or once none are left, "No dice".
+ */
+export function diceSaid(dice: readonly TrayDie[], bonus: number): string {
+  if (dice.length === 0) return 'No dice'
+  return plainRollFormula(plainRollOf(dice, bonus))
 }
 
 /** What the tray's Roll says: "Roll 2d6 + 1d8 + 2", or with no dice yet, "Pick dice to roll". */

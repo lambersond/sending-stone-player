@@ -1,37 +1,31 @@
 import prisma from '@/clients/prisma'
 import { COMPANION_KEY, GM_ROLLS_SHOWN } from '@/constants/sending-stone'
-import { isLive } from '@/db/campaigns'
 import {
-  gmRollsKey,
   gmRollsOf,
   gmRollStateSelect,
   healingUses,
   heldPrompts,
   rollsSelect,
-  seatRolls,
-  withheld,
 } from '@/db/table'
 import {
-  companionRoster,
-  companionsByKey,
-  tableCompanion,
-} from '@/utils/companions'
-import { hitPointsAvailable } from '@/utils/hit-points'
+  companionRolls,
+  hitPointsFlag,
+  initiativeOf,
+  setsHitPoints,
+} from '@/utils/companion-pane'
+import { companionRoster, tableCompanion } from '@/utils/companions'
+import { gmRollParts, gmRollsKey } from '@/utils/gm-rolls'
+import { isLive } from '@/utils/live'
 import { toTablePrompts } from '@/utils/prompts'
-import { toGmRollView } from '@/utils/requests/views'
+import { listedCompanion } from '@/utils/roster'
 import { sheetTextRefs } from '@/utils/sheet-texts'
-import {
-  pickCombat,
-  portraitUrl,
-  toTableCombat,
-  toTableSheet,
-} from '@/utils/table-view'
+import { viewerOf, withheld } from '@/utils/table-seat'
+import { pickCombat, toTableCombat, toTableSheet } from '@/utils/table-view'
 import type { RollSeat, CompanionStatus } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type {
   CharacterSheet,
   CombatSnapshot,
-  CompanionEntry,
   ConnectedCharacter,
 } from '@/types/sending-stone'
 import type { CompanionView, Viewer } from '@/types/table'
@@ -117,54 +111,6 @@ const companionSelect = {
   ...rollsSelect,
 } as const
 
-type CompanionCampaign = {
-  rollsEnabled: boolean
-  rollKinds: string[]
-  rollFeatures: string[]
-  bridgePolledAt: Date | null
-  companions: unknown
-  companionKinds: string[]
-}
-
-/** The companion a seat is at, as the campaign lists it now, while it's still its character's. */
-function listedNow(
-  seat: SheetSeat,
-  companions: unknown,
-): CompanionEntry | undefined {
-  const of = seat.companion?.of
-  return of
-    ? companionRoster(companions).find(
-        entry => entry.key === seat.actorId && entry.of.includes(of),
-      )
-    : undefined
-}
-
-/**
- * The rolls a companion can have made, and what else the game does with them: the seat's, as its
- * character's would be, of the kinds the game takes for its companions, none while it's no longer
- * listed as its character's; and what the game asks of it only from module 0.41.0, which asks it
- * of companions (`companionPrompts`), as of no companion before.
- */
-function companionRolls(
-  seat: SheetSeat,
-  campaign: CompanionCampaign,
-  connected: boolean,
-): Pick<CompanionStatus, 'rollsToTable' | 'rollFeatures' | 'gm'> {
-  const rolls = seatRolls(seat, campaign)
-  const kinds = connected
-    ? rolls.rollsToTable.filter(kind => campaign.companionKinds.includes(kind))
-    : []
-  const asked = campaign.rollFeatures.includes('companionPrompts')
-  return {
-    rollsToTable: kinds,
-    rollFeatures:
-      kinds.length > 0
-        ? rolls.rollFeatures.filter(feature => asked || feature !== 'prompts')
-        : [],
-    ...(rolls.gm && { gm: rolls.gm }),
-  }
-}
-
 /**
  * The status of a companion's campaign, as its seat sees it, to tell cheaply whether its pane is up
  * to date (module 0.36.0).
@@ -200,7 +146,7 @@ export async function getCompanionStatus(
       hitPoints: false,
     }
   }
-  const connected = !!listedNow(seat, campaign.companions)
+  const connected = !!listedCompanion(seat, campaign.companions)
   const key = gmRollsKey(made, now)
   return {
     version: campaign.version,
@@ -211,29 +157,6 @@ export async function getCompanionStatus(
     // Whether its player may set its hit points, from module 0.44.0, as its view says.
     hitPoints: setsHitPoints(seat, campaign, connected, now),
   }
-}
-
-/**
- * Whether the seat may set a companion's hit points and temporary hit points, from module 0.44.0:
- * its character's player's alone, never the Gamemaster's, while it's still listed as its
- * character's and the campaign lets its players, its module fetching; with the rolls off too.
- */
-function setsHitPoints(
-  seat: SheetSeat,
-  campaign: { hitPointsEnabled: boolean; bridgePolledAt: Date | null },
-  connected: boolean,
-  now: number,
-): boolean {
-  return (
-    seat.role === 'player' && connected && hitPointsAvailable(campaign, now)
-  )
-}
-
-/** The view's flag that its player may set its hit points (module 0.44.0), only where they may. */
-function hitPointsFlag(...args: Parameters<typeof setsHitPoints>): {
-  hitPoints?: true
-} {
-  return setsHitPoints(...args) ? { hitPoints: true } : {}
 }
 
 /**
@@ -270,7 +193,7 @@ export async function getCompanionView(
   const now = Date.now()
   const gmRolls = gmRollsOf(seat, now)
   // As the module lists it now, or else as the seat found it, a moment ago.
-  const current = listedNow(seat, campaign.companions)
+  const current = listedCompanion(seat, campaign.companions)
   const connected = !!current
   const rolls = companionRolls(seat, campaign, connected)
   // The saves the game asks of it, where it asks companions, as its character's view has its own.
@@ -310,16 +233,8 @@ export async function getCompanionView(
   const entry = current ?? seat.companion?.entry
   const roster = campaign.characters as unknown as ConnectedCharacter[]
   const viewer: Viewer = {
-    actorId: key,
+    ...viewerOf(seat, roster, listed, campaign.origin),
     of,
-    party: new Set(roster.map(({ id }) => id)),
-    portraits: new Map(
-      roster.flatMap(({ id, img }) => {
-        const url = portraitUrl(img, campaign.origin)
-        return url ? [[id, url] as const] : []
-      }),
-    ),
-    companions: companionsByKey(listed, campaign.origin),
   }
   const snapshot = pickCombat(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
@@ -345,12 +260,7 @@ export async function getCompanionView(
     rollFeatures: rolls.rollFeatures,
     ...(prompted && { prompts: toTablePrompts(prompts, now) }),
     ...(rolls.gm && { gm: rolls.gm }),
-    ...(made.length > 0 && {
-      gmRolls: made.map(roll =>
-        toGmRollView(roll, now, !!roll.useId && heals.has(roll.useId)),
-      ),
-      gmRollsKey: gmRollsKey(made, now),
-    }),
+    ...gmRollParts(made, heals, now),
     // Its character's, as its character's view has it: for its player's seat alone.
     ...(seat.role === 'player' && {
       manualDice: {
@@ -368,34 +278,6 @@ export async function getCompanionView(
       roster,
     ),
   }
-}
-
-/**
- * How a companion enters initiative (module 0.36.0): its own roll, or right after its character,
- * as the campaign's Gamemaster set it; and under the second, the character it follows in the
- * combat shown, by the roster's name: the first of its characters that's a combatant there, the
- * first with an initiative where any has one, as the game leads it. None where none of them is in
- * it, when it rolls its own.
- * @param of - The characters it's a companion of, in the order the module lists them.
- */
-function initiativeOf(
-  mode: string,
-  of: string[],
-  combat: CombatSnapshot | undefined,
-  roster: ConnectedCharacter[],
-): CompanionView['initiative'] {
-  if (mode !== 'after') return { mode: 'own' }
-  const fighting = of.filter(id =>
-    combat?.combatants.some(({ character }) => character === id),
-  )
-  const leader =
-    fighting.find(id =>
-      combat?.combatants.some(
-        ({ character, initiative }) => character === id && initiative !== null,
-      ),
-    ) ?? fighting[0]
-  const name = leader && roster.find(({ id }) => id === leader)?.name
-  return name ? { mode: 'after', after: name } : { mode: 'after' }
 }
 
 /**

@@ -3,6 +3,7 @@ import { MOST_NOTE_BODY, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
 import { NOTE_ID } from '@/utils/note-id'
 import type {
   NoteChange,
+  NoteInput,
   NoteOrder,
   NoteOrderResolve,
   NoteResolve,
@@ -27,7 +28,7 @@ const body = z.string().max(MOST_NOTE_BODY)
 const chapterId = z.string().regex(NOTE_ID).nullable()
 
 /** A note or chapter to add: a chapter has no body nor chapter, an entry's body is '' if unset. */
-export const noteInputSchema = z
+export const noteInputSchema: z.ZodType<NoteInput> = z
   .strictObject({
     role: z.enum(['chapter', 'entry']),
     title,

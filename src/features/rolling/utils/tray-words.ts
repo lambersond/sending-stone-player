@@ -334,14 +334,28 @@ export function wayWords(
 }
 
 /**
- * That a roll wasn't made, before why: of hit dice spent at once, how many the game made before
- * one it didn't, and the hit points they gave back.
+ * Of hit dice spent at once, how many the game made before one it didn't: "2 of 3 made at the
+ * table"; or, where the app took any of those with no id to follow it by (`unfollowed`), only how
+ * many were sent: "2 of 3 sent to your Gamemaster's game", as what the game made of it isn't known.
  */
-export function notMadeAtTable(state: TableRollState): string {
+export function partlyWords(
+  { count, made, unfollowed }: NonNullable<TableRollState['together']>,
+  role: SeatRole,
+): string {
+  return unfollowed
+    ? `${made} of ${count} sent to ${seatWords(role).game}`
+    : `${made} of ${count} made at the table`
+}
+
+/**
+ * That a roll wasn't made, before why: of hit dice spent at once, how many the game made (or was
+ * sent) before one it didn't, and the hit points they gave back.
+ */
+export function notMadeAtTable(state: TableRollState, role: SeatRole): string {
   const { together, healed } = state
   const healing = healed === undefined ? '' : ` · ${healed} HP regained`
   return together?.made
-    ? `${together.made} of ${together.count} made at the table${healing}. Not the rest`
+    ? `${partlyWords(together, role)}${healing}. Not the rest`
     : 'Not made at the table'
 }
 

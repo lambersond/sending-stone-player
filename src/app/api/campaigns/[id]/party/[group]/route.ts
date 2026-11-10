@@ -1,6 +1,6 @@
 import { partyResponse } from '@/lib/routes/party-routes'
 import { seatAnswer } from '@/lib/routes/seat-resolver'
-import type { PartySeat } from '@/db/types'
+import type { PartySeat } from '@/types/party'
 import type { NextRequest } from 'next/server'
 
 /**

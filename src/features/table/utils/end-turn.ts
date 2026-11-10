@@ -1,5 +1,5 @@
 import { NOT_MADE } from '@/constants/lifecycle'
-import { currentCombatant } from '@/features/table/utils/combat'
+import { currentCombatant, seatTurn } from '@/features/table/utils/combat'
 import { reasons } from '@/utils/roll-reasons'
 import { seatWords } from '@/utils/seat-words'
 import type { Followed, Sent } from '@/features/table/types'
@@ -70,20 +70,18 @@ export function endableTurn(
 ): EndableTurn | undefined {
   if (!combat?.started || !kinds.includes('endTurn')) return undefined
   const current = currentCombatant(combat)
-  if (!current) return undefined
+  const own = current && seatTurn(current)
+  if (!current || !own) return undefined
   const turn = {
     combatId: combat.id,
     round: combat.round,
     combatantId: current.id,
   }
-  if (current.side === 'me') return turn
-  if (current.yours === true && current.companion) {
-    return {
-      ...turn,
-      companion: { key: current.companion, name: current.name },
-    }
+  if (own.companion === undefined) return turn
+  return {
+    ...turn,
+    companion: { key: own.companion, name: current.name },
   }
-  return undefined
 }
 
 /**

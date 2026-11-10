@@ -35,9 +35,6 @@ export const DISH_ATTEMPTS = 5
 /** How long a dish is kept after its last change, in milliseconds. */
 export const DISHES_KEPT_FOR = 30 * 24 * 60 * 60 * 1000
 
-/** How often a claim may prune a campaign's old dishes, per server process, in milliseconds. */
-export const DISHES_PRUNE_EVERY = 10 * 60 * 1000
-
 /** How many of a character's dishes its card shows, newest first. */
 export const DISHES_SHOWN = 10
 

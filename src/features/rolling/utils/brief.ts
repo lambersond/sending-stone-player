@@ -336,7 +336,7 @@ function tableLine(
   const words = {
     doing: 'Rolling',
     done: madeAtTable(roll, state, role),
-    not: notMadeAtTable(state),
+    not: notMadeAtTable(state, role),
   }
   return {
     tone,
