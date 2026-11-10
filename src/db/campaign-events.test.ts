@@ -912,6 +912,30 @@ describe('db/campaign-events', () => {
     }
   })
 
+  it('bridge.hello keeps whether a typing player is asked for the dice the game rolls later, last, from module 0.45.0', async () => {
+    const rolls = { enabled: true, kinds: ['damage', 'dice'], reason: null }
+    for (const [diceAsks, rollFeatures] of [
+      [true, ['manualDice', 'keptRerolls', 'diceAsks']],
+      ['yes', ['manualDice', 'keptRerolls']],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          features: {
+            rolls: { ...rolls, manualDice: true, keptRerolls: true, diceAsks },
+          },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rollFeatures }),
+        }),
+      )
+    }
+  })
+
   it("bridge.hello keeps a sheet's dice its effects add, from module 0.42.0", async () => {
     await apply(
       parseGameEvent('bridge.hello', {

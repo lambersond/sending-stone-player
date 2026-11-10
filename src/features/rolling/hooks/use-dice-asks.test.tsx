@@ -181,6 +181,31 @@ describe('features/rolling/hooks/use-dice-asks (module 0.45.0)', () => {
     expect(sendAnswer).not.toHaveBeenCalled()
   })
 
+  it('opens by itself one left on the banner while the player typed, once a view lists it again after leaving it out', () => {
+    const chat = document.createElement('textarea')
+    document.body.append(chat)
+    chat.focus()
+    const { result, rerender } = render()
+    expect(result.current.offered).toEqual([ask])
+
+    rerender({ asks: [], states: sentHere })
+    chat.blur()
+    rerender({ asks: [ask], states: sentHere })
+    expect(enter).toHaveBeenCalledTimes(1)
+    expect(result.current.offered).toEqual([])
+  })
+
+  it('closes the dialog of one asked again, though the dialog it closed before had yet to go', async () => {
+    const { rerender } = render()
+    rerender({ asks: [], states: sentHere })
+    rerender({ asks: [ask], states: sentHere })
+    // The first dialog goes only now, after its ask was asked again.
+    await act(async () => asked[0].close())
+
+    rerender({ asks: [], states: sentHere })
+    expect(asked[1].entry.signal?.aborted).toBe(true)
+  })
+
   it('takes each ask once on a page, however often its view lists it', () => {
     const { rerender } = render()
     rerender({ asks: [{ ...ask }], states: sentHere })

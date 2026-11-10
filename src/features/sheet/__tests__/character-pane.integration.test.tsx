@@ -23,6 +23,7 @@ import {
   spiritSheet,
   usedBy,
 } from '@/mocks/alone'
+import { tableIceKnife } from '@/mocks/dice-asks'
 import {
   BLESS_DIE,
   blessedSheet,
@@ -4183,6 +4184,42 @@ describe('components/character-sheet/character-pane', () => {
         screen.queryByRole('region', { name: 'Your Gamemaster asks' }),
       ).toBeNull()
       expect(toasts().parentElement).toHaveStyle({ top: '116px' })
+    })
+
+    it('P8b starts the toasts below the dice the game asks for beneath the row, from module 0.45.0, so as not to cover their only buttons', async () => {
+      const user = userEvent.setup()
+      render(
+        <CharacterPane
+          characterId='char-1'
+          name='Thorin Oakenshield'
+          sheet={toTableSheet(fullerSheet(), GAME)}
+          rollsToTable={['save', 'dice']}
+          rollFeatures={['manualDice', 'diceAsks']}
+          // Sent from another of the player's devices: on the banner here.
+          diceAsks={[
+            tableIceKnife({
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            }),
+          ]}
+        />,
+      )
+      const row = screen.getByRole('tablist').parentElement as HTMLElement
+      const asks = screen.getByRole('region', {
+        name: 'The game asks for your dice',
+      })
+      row.getBoundingClientRect = () =>
+        ({ top: 64, bottom: 108, width: 390, height: 44 }) as DOMRect
+      asks.getBoundingClientRect = () =>
+        ({ top: 108, bottom: 180, width: 390, height: 72 }) as DOMRect
+      act(() => {
+        globalThis.dispatchEvent(new Event('resize'))
+      })
+
+      await user.click(
+        screen.getByRole('button', { name: 'Strength check, +4' }),
+      )
+      await within(toasts()).findByText('Strength check')
+      expect(toasts().parentElement).toHaveStyle({ top: '188px' })
     })
 
     it("P9 opens the cog's settings and the rolls' popover over the toasts, which start just below them", async () => {

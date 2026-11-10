@@ -483,6 +483,38 @@ describe('db/roll-requests', () => {
         })
       })
 
+      it('takes damage where another for its use is lost though the dice asks of a third held it, each held only by its own (module 0.45.0)', async () => {
+        given()
+        prismaMock.rollRequest.findMany.mockResolvedValue([
+          // Fetched 200 s ago, held 60 s by its ask: lost still.
+          {
+            id: 'req-a',
+            status: 'claimed',
+            createdAt: ago(201_000),
+            claimedAt: ago(200_000),
+          },
+          // Fetched 90 s ago, asked nothing: lost.
+          {
+            id: 'req-b',
+            status: 'claimed',
+            createdAt: ago(91_000),
+            claimedAt: ago(90_000),
+          },
+        ] as any)
+        prismaMock.rollRequest.findFirst.mockResolvedValue(madeSwing() as any)
+        prismaMock.diceAsk.findMany.mockResolvedValue([
+          heldIceKnife({
+            commandId: 'req-a',
+            askedAt: ago(190_000),
+            closedAt: ago(130_000),
+          }),
+        ] as any)
+
+        await expect(createRollRequest(character, smash)).resolves.toEqual({
+          id: 'req-1',
+        })
+      })
+
       it.each([
         ['of an attack that is not the character’s', null, [], 'gone'],
         ['rolled already', madeSwing(), [{ status: 'done' }], 'damaged'],
