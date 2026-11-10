@@ -1213,10 +1213,11 @@ if (CHOICES) {
     await shootBoth(alice, 'alone-choices-tray', trayOf(alice), SHOTS_041)
   }
 
-  // 3. Again, the switch off.
+  // 3. Again, the switch off: once the page has Thorin's 2nd-level slot spent, as step 2 opens it
+  // once the page has the slot (a picker opened on the sheet from before the spend, its 2nd still
+  // "1 slot left", raced the poll once in a full pass).
   {
-    await hands.click()
-    await handsPicker.waitFor({ timeout: 10_000 })
+    await openPicker(alice, hands, 'Burning Hands', look => look.rows['At level']?.some(c => c.name === '2nd Level, 0 slots left'))
     await setSpend(handsPicker, true)
     let look = await pickerLook(handsPicker)
     const second = look.rows['At level']?.find(c => /^2nd/.test(c.name))
