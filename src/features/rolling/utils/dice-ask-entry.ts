@@ -50,7 +50,34 @@ function termsOf(ask: TableDiceAsk): AskTerm[] {
   })
 }
 
-/** What's said under the dialog's subtitle of a die thrown again, or a critical hit's dice. */
+/** A roll's formula, as Foundry writes it, without the flavors it gives its terms, as "[cold]". */
+function formulaOf({ formula }: DiceAskRoll): string {
+  return formula.replaceAll(/\[[^\]]*\]/g, '')
+}
+
+/** Whether a roll's formula is more than the dice asked of it, spaces aside: "2d6 + 3", "1d4x". */
+function addsToItsDice(roll: DiceAskRoll): boolean {
+  const dice = roll.terms.map(({ number, faces }) => `${number}d${faces}`)
+  return formulaOf(roll).replaceAll(/\s/g, '') !== dice.join('+')
+}
+
+/**
+ * The rolls as the game makes them, where one is more than its dice asked, such as a number it
+ * adds, or a die it throws itself: "Rolled as 3d6 Cold, 1d4 + 1d6 + 2 Fire."
+ */
+function formulaNote(ask: TableDiceAsk): string | undefined {
+  if (!ask.rolls.some(roll => addsToItsDice(roll))) return undefined
+  const rolls = ask.rolls.map(roll => {
+    const kind = kindOf(roll)
+    return kind ? `${formulaOf(roll)} ${kind}` : formulaOf(roll)
+  })
+  return `Rolled as ${rolls.join(', ')}.`
+}
+
+/**
+ * What's said under the dialog's subtitle: of a die thrown again, why; else the game's formulas,
+ * where they add to the dice asked, and that a critical hit's dice are counted twice.
+ */
 function noteOf(ask: TableDiceAsk): string | undefined {
   if (ask.again === 'explode') {
     return 'Your die exploded: roll it again and type in what it shows.'
@@ -58,14 +85,16 @@ function noteOf(ask: TableDiceAsk): string | undefined {
   if (ask.again === 'reroll') {
     return 'Your die is rerolled: roll it again and type in what it shows.'
   }
-  if (ask.critical) return 'A critical hit: its dice are counted twice.'
-  return undefined
+  const critical = ask.critical && 'A critical hit: its dice are counted twice.'
+  const notes = [formulaNote(ask), critical].filter(Boolean)
+  return notes.length > 0 ? notes.join(' ') : undefined
 }
 
 /**
- * The dice dialog's entry for an ask: its label as its title, each term of each roll a group of
- * boxes the player may skip for the game to roll, the time left to answer, and closing it lets the
- * game roll them all. Its total is the dice typed so far: the game adds what its formulas add.
+ * The dice dialog's entry for an ask: its label as its title, its formulas as its note where they
+ * add to its dice, each term of each roll a group of boxes the player may skip for the game to
+ * roll, the time left to answer, and closing it lets the game roll them all. Its total is the dice
+ * typed so far: the game adds what its formulas add.
  * @param signal - Aborted once the ask is answered or closed elsewhere: the dialog then closes.
  */
 export function askEntry(ask: TableDiceAsk, signal?: AbortSignal): DiceEntry {

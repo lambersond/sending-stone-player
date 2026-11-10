@@ -1,5 +1,11 @@
 import { answeredRoll, answerOf, askEntry, diceWords } from './dice-ask-entry'
 import { tableIceKnife, twoRollsAsk } from '@/mocks/dice-asks'
+import type { TableDiceAsk } from '@/types/table'
+
+/** One roll of cold damage, by its formula, of so many d6s. */
+const cold = (formula: string, number = 2) => ({
+  rolls: [{ formula, type: 'cold', terms: [{ faces: 6 as const, number }] }],
+})
 
 describe('features/rolling/utils/dice-ask-entry (module 0.45.0)', () => {
   describe('askEntry', () => {
@@ -41,23 +47,66 @@ describe('features/rolling/utils/dice-ask-entry (module 0.45.0)', () => {
       expect(entry.total([[1, 6, undefined], [], [5]])).toBe(12)
     })
 
-    it.each([
+    it.each<[string, Partial<TableDiceAsk>, string | undefined]>([
       [
-        'a die that exploded',
-        { purpose: 'again' as const, again: 'explode' as const },
+        'a die that exploded, why rather than its formula',
+        { purpose: 'again', again: 'explode', ...cold('1d6x', 1) },
         'Your die exploded: roll it again and type in what it shows.',
       ],
       [
         'a die rerolled',
-        { purpose: 'again' as const, again: 'reroll' as const },
+        { purpose: 'again', again: 'reroll' },
         'Your die is rerolled: roll it again and type in what it shows.',
       ],
       [
         'a critical hit’s damage',
-        { critical: true as const },
+        { critical: true },
         'A critical hit: its dice are counted twice.',
       ],
-    ])('says so of %s', (_, fields, note) => {
+      [
+        'a formula of no kind that adds a number to its dice',
+        { rolls: [{ formula: '1d4 + 2', terms: [{ faces: 4, number: 1 }] }] },
+        'Rolled as 1d4 + 2.',
+      ],
+      [
+        'every roll’s formula where one adds to its dice, without its terms’ flavors',
+        {
+          rolls: [
+            ...cold('3d6', 3).rolls,
+            {
+              formula: '1d4[fire] + 1d6[fire] + 2',
+              type: 'fire',
+              terms: [
+                { faces: 4, number: 1 },
+                { faces: 6, number: 1 },
+              ],
+            },
+          ],
+        },
+        'Rolled as 3d6 Cold, 1d4 + 1d6 + 2 Fire.',
+      ],
+      [
+        'a critical hit’s formula, and its dice counted twice',
+        { critical: true, ...cold('4d6 + 3', 4) },
+        'Rolled as 4d6 + 3 Cold. A critical hit: its dice are counted twice.',
+      ],
+      [
+        'nothing of formulas that are only their dice, flavors and spaces aside',
+        {
+          rolls: [
+            {
+              formula: '1d4[fire] + 1d6[fire]',
+              type: 'fire',
+              terms: [
+                { faces: 4, number: 1 },
+                { faces: 6, number: 1 },
+              ],
+            },
+          ],
+        },
+        undefined,
+      ],
+    ])('notes %s', (_, fields, note) => {
       expect(askEntry(tableIceKnife(fields)).note).toBe(note)
     })
 
