@@ -13,8 +13,11 @@ const quote = text => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** A tab's or a panel's Journal card: the region named Journal. */
 export const journalCard = scope => scope.getByRole('region', { name: 'Journal', exact: true })
-/** The card's line of counts: "No notes yet", "1 chapter · 2 notes · Last changed by …". */
-export const cardCounts = card => card.getByText(/^(No notes yet|Loading notes…|Notes couldn’t be loaded|\d+ chapters? · \d+ notes?)/).first()
+/**
+ * The card's line of counts: "No notes yet", "1 chapter · 2 notes · Last changed by …", and since
+ * module 0.45.0 "… · 3 from Tidy 5e Sheets", or that alone.
+ */
+export const cardCounts = card => card.getByText(/^(No notes yet|Loading notes…|Notes couldn’t be loaded|\d+ chapters? · \d+ notes?|\d+ from Tidy 5e Sheets)/).first()
 /** The journal's dialog, named by its title: "My Journal", "Thorin’s Journal". */
 export const journalOf = (page, title) => page.getByRole('dialog', { name: title, exact: true })
 /** Its header: the journal's own details, whatever the reader shows. */
@@ -93,6 +96,15 @@ export const listed = async dialog => dialog.locator('nav[aria-label="Contents"]
   group: group.querySelectorAll('button')[1]?.getAttribute('aria-label'),
   notes: [...group.querySelectorAll('ul > li > button')].map(b => b.getAttribute('aria-label')),
 })))
+/**
+ * The character's Tidy 5e Sheets entries in the contents (module 0.45.0), last: each by its name and
+ * its chip's words, in order; null where the contents list none. Read as they are, the drawer left as
+ * it is.
+ */
+export const tidyListed = dialog => dialog.locator('nav[aria-label="Contents"]').evaluate(nav => {
+  const section = [...nav.children].find(el => el.querySelector(':scope > button[aria-label="From Tidy 5e Sheets"]'))
+  return section ? [...section.querySelectorAll('ul > li > button')].map(b => [b.getAttribute('aria-label'), b.lastElementChild?.textContent.trim()]) : null
+})
 /** One group's notes in the contents' order. */
 export const notesIn = async (dialog, group) => (await listed(dialog)).find(g => g.group === group)?.notes ?? null
 /** A group page's cards, in order, by their titles. */

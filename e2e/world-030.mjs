@@ -458,8 +458,32 @@ export function character(data, gear) {
   actor.prototypeToken = { texture: { src: `tokens/${data.id}.webp` } }
   actors.set(actor.id, actor)
   const update = actor.update.bind(actor)
-  actor.update = async changes => { await update(changes); await Hooks.callAll('updateActor', actor, changes, {}, 'gm') }
+  actor.update = async changes => {
+    await update(deleting(actor, changes))
+    await Hooks.callAll('updateActor', actor, changes, {}, 'gm')
+  }
   return actor
+}
+/**
+ * An update's changes with Foundry 14's deletions made (since module 0.45.0, for Tidy 5e Sheets'
+ * journal, fvtt/tidy-core.mjs): a dotted key ending in the legacy `-=<key>`, as Tidy 13 deletes, or
+ * one whose value is Foundry 14's `_del`, as Tidy 14 does, removes that key from the document; the
+ * rest are left to set.
+ */
+function deleting(doc, changes) {
+  const rest = {}
+  for (const [path, value] of Object.entries(changes)) {
+    const parts = path.split('.')
+    const last = parts.at(-1)
+    const legacy = last.startsWith('-=')
+    if (!legacy && ((globalThis._del === undefined) || (value !== globalThis._del))) {
+      rest[path] = value
+      continue
+    }
+    const parent = parts.slice(0, -1).reduce((at, part) => at?.[part], doc)
+    if (parent && (typeof parent === 'object')) delete parent[legacy ? last.slice(2) : last]
+  }
+  return rest
 }
 /** An NPC, as the Gamemaster's creatures are. */
 export function npc(id, name, ac, mods = {}) {

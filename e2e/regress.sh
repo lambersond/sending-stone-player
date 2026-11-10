@@ -132,6 +132,13 @@ run partynotes 58 SHOTS=$O/shots-035
 run notesoffline 47 TIMEOUT=600 SHOTS=$O/shots-035
 run notesorder 66 SHOTS=$O/shots-035
 run notesorder 9 SKEW=034 MODULE=$O/module-0.34.0 SHOTS=$O/shots-035
+# Module 0.45.0: Tidy 5e Sheets' journal, read only, last in the character's journal: the hello and
+# the settings card, its section, chips and dates, Tidy's edits in Foundry, the Gamemaster and another
+# player, Tidy off and uninstalled; dnd5e 6.0.5 with Tidy 14 (its _del, the Classic boxes it no longer
+# shows); and module 0.42.0 (nothing new).
+run tidy 34 SHOTS=$O/shots-045
+run tidy 34 DND5E6=1 SHOTS=$O/shots-045
+run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-045
 # Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
 # shown beside the character and acting from the app; damage on its own and recharges; and
 # module 0.35.0 (neither).
