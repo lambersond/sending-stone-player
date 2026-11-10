@@ -2,6 +2,7 @@ import {
   answerFits,
   askTimes,
   heldTime,
+  seesDiceAsks,
   toTableDiceAsks,
   waitsOnDice,
 } from './dice-asks'
@@ -24,6 +25,34 @@ const span = (from: number, to: number | null, expires = to ?? 60_000) => ({
 })
 
 describe('utils/dice-asks (module 0.45.0)', () => {
+  describe('seesDiceAsks', () => {
+    const player = { role: 'player' as const, manualDice: true }
+    it.each([
+      [
+        'a player typing in their dice, the game taking the answer',
+        true,
+        player,
+        ['dice'],
+      ],
+      // On its own: the Gamemaster's rolls open no run, whatever their seat says.
+      [
+        "the Gamemaster's seat",
+        false,
+        { ...player, role: 'gm' as const },
+        ['dice'],
+      ],
+      [
+        'a player not typing in their dice',
+        false,
+        { ...player, manualDice: false },
+        ['dice'],
+      ],
+      ['a game not taking the answer now', false, player, ['damage']],
+    ] as const)('%s: %s', (_, sees, seat, kinds) => {
+      expect(seesDiceAsks(seat, kinds)).toBe(sees)
+    })
+  })
+
   describe('askTimes', () => {
     it.each([
       ['sent as it was asked: the whole minute left', ASKED_AT, 0, 60_000],

@@ -6289,6 +6289,26 @@ describe('schemas/sending-stone, dice the game rolls later, from module 0.45.0',
       '41 of a die',
       { rolls: [{ formula: '41d6', terms: [{ faces: 6, number: 41 }] }] },
     ],
+    [
+      '11 rolls',
+      {
+        rolls: Array.from({ length: 11 }, () => ({
+          formula: '1d6',
+          terms: [{ faces: 6, number: 1 }],
+        })),
+      },
+    ],
+    [
+      'a roll of 11 terms',
+      {
+        rolls: [
+          {
+            formula: '11 terms',
+            terms: Array.from({ length: 11 }, () => ({ faces: 6, number: 1 })),
+          },
+        ],
+      },
+    ],
     ['no time it waits until', { expiresAt: 'soon' }],
   ])(
     'refuses an ask with %s, as it couldn’t be answered as asked',

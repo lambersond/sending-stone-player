@@ -4737,3 +4737,30 @@ describe('hooks/use-table-rolls, spells prepared and unprepared, from module 0.4
     expect(result.current.takes('prepare')).toBe(false)
   })
 })
+
+describe('hooks/use-table-rolls, the dice the game asks for, from module 0.45.0', () => {
+  const answered = spent({ id: 'dice-1', label: 'Ice Knife: Shard Explosion' })
+  const answer = [{ roll: 0, term: 0, results: [3, 5] }]
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    globalThis.localStorage.clear()
+    globalThis.fetch = jest.fn()
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-9' }))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('answers only where the game takes the answer, whatever this device’s switch', () => {
+    const { result, rerender } = render(['damage'])
+    act(() => result.current.sendDiceAnswer(answered, 'ask1', answer))
+    expect(fetch).not.toHaveBeenCalled()
+
+    rerender({ kinds: ['damage', 'dice'], features: [] })
+    act(() => result.current.setSending(false))
+    act(() => result.current.sendDiceAnswer(answered, 'ask1', answer))
+    expect(sent()).toMatchObject({ kind: 'dice', diceAsk: 'ask1', answer })
+  })
+})
