@@ -1,14 +1,14 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CompanionAskNotice } from './companion-ask-notice'
-import { useWaitingCompanions } from '@/hooks/use-waiting-prompts'
+import { useStillWaiting } from '@/hooks/use-waiting-prompts'
 import type { CompanionAskRow } from '@/features/companions/types'
 import type { CompanionAsked } from '@/types/table'
 
 /*
  * The notice on the character's own banner of the companions the game asks a save of, from module
- * 0.41.0 (round 0.41.0 §3.1.3, §3.7, §7.5): a line each, and Show, which goes to its tab and
- * answers nothing.
+ * 0.41.0 (round 0.41.0 §3.1.3, §3.7, §7.5), or from module 0.45.0 its player's dice: a line each,
+ * and Show, which goes to its tab and answers nothing.
  */
 
 const NOW = Date.parse('2026-10-27T19:00:00Z')
@@ -24,7 +24,7 @@ function Waiting({
   asked,
   onShow,
 }: Readonly<{ asked: CompanionAsked[]; onShow: (key: string) => void }>) {
-  const waiting = useWaitingCompanions(asked)
+  const waiting = useStillWaiting(asked)
   const names = new Map([
     ['arena-bat1', 'Bat 1'],
     ['arena-bat2', 'Bat 2'],
@@ -62,6 +62,27 @@ describe('components/companions/companion-ask-notice', () => {
         .map(button => button.getAttribute('aria-label')),
     ).toEqual(['Show Bat 1', 'Show Bat 2', 'Show Brakka'])
     expect(within(list).getAllByRole('button')[0]).toHaveTextContent('Show')
+  })
+
+  it('says a companion whose dice the game asks of its player by what rolls them, else as dice, from module 0.45.0', () => {
+    render(
+      <CompanionAskNotice
+        asked={[
+          { key: 'brakka', name: 'Brakka', label: 'Bite: Rend', dice: true },
+          { key: 'arena-bat1', name: 'Bat 1', label: '', dice: true },
+        ]}
+        onShow={jest.fn()}
+      />,
+    )
+
+    expect(
+      screen
+        .getAllByRole('listitem')
+        .map(line => line.querySelector('p')?.textContent),
+    ).toEqual([
+      'Brakka is asked for the dice of Bite: Rend',
+      'Bat 1 is asked for dice',
+    ])
   })
 
   it('shows the companion asked, by its key, posting nothing', async () => {

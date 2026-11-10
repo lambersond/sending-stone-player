@@ -129,8 +129,16 @@ export type PaneReporters = {
   onLost: () => void
 }
 
-/** A companion the game asks a save of (module 0.41.0), as its tab in the row names it. */
-export type WaitingCompanion = { key: string; label: string; name: string }
+/**
+ * A companion the game asks a save of (module 0.41.0), or from module 0.45.0 its player's dice
+ * (`dice`), as its tab in the row names it.
+ */
+export type WaitingCompanion = {
+  key: string
+  label: string
+  name: string
+  dice?: true
+}
 
 /**
  * The row of the character's companions above the sheet, as `useCompanionRow` keeps it (module

@@ -8,7 +8,7 @@ import {
   waitingCompanions,
   withMark,
 } from '@/features/table/utils/companion-row-state'
-import { useWaitingCompanions } from '@/hooks/use-waiting-prompts'
+import { useStillWaiting } from '@/hooks/use-waiting-prompts'
 import type {
   CompanionRow,
   PaneMarks,
@@ -103,7 +103,7 @@ export function useCompanionRow({
 }): CompanionRow {
   // From module 0.41.0, those the game asks of the character's companions, which each one's tab
   // marks.
-  const companionsAsked = useWaitingCompanions(
+  const companionsAsked = useStillWaiting(
     view.connected ? view.companionPrompts : undefined,
   )
   const { shownRow, setKept, setLost } = useRow(view.companions)

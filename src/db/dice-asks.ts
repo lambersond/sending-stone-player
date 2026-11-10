@@ -146,6 +146,36 @@ export async function viewDiceAsks(
   return diceAsks.length > 0 ? { diceAsks } : {}
 }
 
+/**
+ * The dice its game asks a character's player for in its companions' typed rolls' runs, from
+ * module 0.45.0, still open, oldest first, by which the character's view marks each companion
+ * asked: those of the character's own runs alone; none, and nothing read, where it has no
+ * companions or the seat doesn't see dice asks (`seesDiceAsks`).
+ * @param keys - The character's companions' keys.
+ * @param rollsToTable - What the seat's rolls the game takes now, as its view says.
+ */
+export async function companionDiceAsks(
+  seat: SheetSeat,
+  keys: string[],
+  rollsToTable: readonly RollKind[],
+  now: number,
+): Promise<{ actorId: string; data: unknown; expiresAt: Date }[]> {
+  const { campaignId, actorId } = seat
+  if (!campaignId || !actorId || keys.length === 0) return []
+  if (!seesDiceAsks(seat, rollsToTable)) return []
+  return prisma.diceAsk.findMany({
+    where: {
+      campaignId,
+      actorId: { in: keys },
+      ofActorId: actorId,
+      closedAt: null,
+      expiresAt: { gt: new Date(now) },
+    },
+    orderBy: { askedAt: 'asc' },
+    select: { actorId: true, data: true, expiresAt: true },
+  })
+}
+
 /** The dice asks of one typed roll, for how long they held it, and whether one waits now. */
 export function rollDiceAsks(campaignId: string, commandId: string) {
   return prisma.diceAsk.findMany({

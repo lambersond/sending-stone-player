@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { useTableView } from '@/features/table/hooks/use-table-view'
+import { tableIceKnife } from '@/mocks/dice-asks'
 import {
   biteAction,
   characterSheet,
@@ -801,12 +802,10 @@ describe('components/game-table/game-table, with companions', () => {
     })
   })
 
-  it('marks the character’s tab while its game asks it for a roll and a companion is chosen', async () => {
-    const user = userEvent.setup()
-    companionViews.set(BRAKKA.key, companionView(BRAKKA))
-    renderTable(
-      view({
-        companions: [BRAKKA],
+  it.each<[string, Partial<TableView>]>([
+    [
+      'a save',
+      {
         prompts: [
           {
             id: 'msg2-thorin',
@@ -815,14 +814,31 @@ describe('components/game-table/game-table, with companions', () => {
             expiresAt: new Date(Date.now() + 600_000).toISOString(),
           },
         ],
-      }),
-    )
-    expect(creatureTab('Thorin')).toHaveAccessibleName('Thorin')
-    await user.click(creatureTab('Brakka'))
-    expect(creatureTab(/^Thorin/)).toHaveAccessibleName(
-      'Thorin, your Gamemaster asks for a roll',
-    )
-  })
+      },
+    ],
+    [
+      'from module 0.45.0 its player’s dice, on the sheet’s banner',
+      {
+        diceAsks: [
+          tableIceKnife({
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          }),
+        ],
+      },
+    ],
+  ])(
+    'marks the character’s tab while its game asks %s and a companion is chosen',
+    async (_, asked) => {
+      const user = userEvent.setup()
+      companionViews.set(BRAKKA.key, companionView(BRAKKA))
+      renderTable(view({ companions: [BRAKKA], ...asked }))
+      expect(creatureTab('Thorin')).toHaveAccessibleName('Thorin')
+      await user.click(creatureTab('Brakka'))
+      expect(creatureTab(/^Thorin/)).toHaveAccessibleName(
+        'Thorin, your Gamemaster asks for a roll',
+      )
+    },
+  )
 
   // The bug log's reproduction (round 0.44): the banner is under the header above every pane, and
   // the character's own panel is hidden while a companion's is chosen.
@@ -1012,6 +1028,25 @@ describe('components/game-table/game-table, companions’ saves, from module 0.4
         name: /^Roll Dexterity saving throw/,
       }),
     ).toBeInTheDocument()
+  })
+
+  it('says on Thorin’s own banner, and marks its tab, a companion whose dice the game asks of its player, from module 0.45.0', () => {
+    renderTable(
+      asking({
+        companionPrompts: [
+          { key: 'arena-bat1', label: 'Bite', expiresAt: later(), dice: true },
+        ],
+      }),
+    )
+
+    expect(
+      within(notice() as HTMLElement)
+        .getAllByRole('listitem')
+        .map(row => row.textContent),
+    ).toEqual(['Bat 1 is asked for the dice of Bite' + 'Show'])
+    expect(creatureTab(/^Bat 1/)).toHaveAccessibleName(
+      'Bat 1, your Gamemaster asks for a roll',
+    )
   })
 
   it('marks the phone’s Character tab for a companion’s prompt alone, with Combat shown', async () => {

@@ -5,7 +5,7 @@ import {
   PROMPT_NOTICE_FOR,
   ROLLS_KEPT_FOR,
 } from '@/constants/sending-stone'
-import { viewDiceAsks } from '@/db/dice-asks'
+import { companionDiceAsks, viewDiceAsks } from '@/db/dice-asks'
 import { companionAsks } from '@/utils/companion-asks'
 import { companionRoster, tableCompanion } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
@@ -298,11 +298,11 @@ export async function getTableView(
   const own = ownCompanions(seat, companions)
   const rolls = seatRolls(seat, campaign)
   const now = Date.now()
-  const [messages, combats, sheet, prompts, made, asked, diceAsks] =
+  const [messages, combats, sheet, prompts, made, asked, diceAsks, diceAsked] =
     await readTable(seat, campaign.id, viewer, own, rolls, now)
   const sheetVersion = sheet?.updatedAt.toISOString()
   const heals = await healingUses(made, seat)
-  const waiting = companionAsks(asked, now)
+  const waiting = companionAsks(asked, now, diceAsked)
 
   const combat = pickCombat(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
@@ -370,7 +370,8 @@ export async function getTableView(
 /**
  * What a table shows, read at once: the chat the seat may read, the combats, its sheet, the saves
  * the game asks of the character, the Gamemaster's rolls as it its player is shown, those its game
- * asks of its companions, and from module 0.45.0 the dice its game asks its player for.
+ * asks of its companions, and from module 0.45.0 the dice its game asks its player for, its own
+ * and in its companions' runs.
  */
 function readTable(
   seat: SheetSeat,
@@ -448,5 +449,11 @@ function readTable(
         })
       : [],
     viewDiceAsks(seat, rolls.rollsToTable, now),
+    companionDiceAsks(
+      seat,
+      own.map(({ key }) => key),
+      rolls.rollsToTable,
+      now,
+    ),
   ])
 }

@@ -367,7 +367,9 @@ export type TableView = {
   /**
    * Of those companions, each the game is asking a save of now, from module 0.41.0, where the
    * game asks companions: its key, what its first prompt still open asks for, such as "Dexterity
-   * saving throw", and the earliest time one of them stops waiting. Unset for none.
+   * saving throw", and the earliest time one of them stops waiting. From module 0.45.0, also each
+   * it asks its player's dice of, in the character's typed rolls' runs, while they see dice asks,
+   * after those asked a save: its first ask's label, marked `dice`. Unset for none.
    */
   companionPrompts?: CompanionAsked[]
   /**
@@ -418,9 +420,15 @@ export type GmRolls = 'made' | 'update' | 'off'
 /**
  * One of the seat's character's companions the game asks a save of, from module 0.41.0: its key,
  * what it's asked for, in words, such as "Dexterity saving throw", and when the soonest of its
- * prompts stops waiting.
+ * prompts stops waiting. From module 0.45.0, or asks the dice of (`dice`), what rolls them, such as
+ * "Bite: Rend", where it's asked no save.
  */
-export type CompanionAsked = { key: string; label: string; expiresAt: string }
+export type CompanionAsked = {
+  key: string
+  label: string
+  expiresAt: string
+  dice?: true
+}
 
 /** One of the seat's character's companions, for its tab beside the character (module 0.36.0). */
 export type TableCompanion = {

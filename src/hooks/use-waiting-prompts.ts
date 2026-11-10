@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { MIDI_PROMPT_GRACE, PROMPT_NOTICE_FOR } from '@/constants/sending-stone'
 import { shownPrompts, waitingPrompts } from '@/utils/prompts'
-import type { CompanionAsked, TablePrompt } from '@/types/table'
+import type { TablePrompt } from '@/types/table'
 
 /**
  * The saving throws the game asks of the character that still wait for their player: each until
@@ -23,14 +23,15 @@ export function useWaitingPrompts(
 }
 
 /**
- * The character's companions the game asks a save of that still wait, from module 0.41.0 (round
- * 0.41.0 §3.7): each until the soonest of its prompts runs out, when it's dropped, as the
- * character's own are, though nothing new comes from the game.
- * @param asked - As the table view last had them (`companionPrompts`).
+ * What the game asks that still waits, each until its time runs out, when it's dropped, as the
+ * character's own saves are, though nothing new comes from the game: the character's companions it
+ * asks a save of, from module 0.41.0 (round 0.41.0 §3.7), each until the soonest of its prompts
+ * runs out; and from module 0.45.0, the dice it asks the character's player for.
+ * @param asked - As the table view last had them, such as its `companionPrompts` or `diceAsks`.
  */
-export function useWaitingCompanions(
-  asked: readonly CompanionAsked[] = [],
-): CompanionAsked[] {
+export function useStillWaiting<T extends { expiresAt: string }>(
+  asked: readonly T[] = [],
+): T[] {
   const [now, setNow] = useState(() => Date.now())
   const waiting = asked.filter(({ expiresAt }) => Date.parse(expiresAt) > now)
   useTick(

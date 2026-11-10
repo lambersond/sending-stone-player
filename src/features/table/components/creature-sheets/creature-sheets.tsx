@@ -24,7 +24,8 @@ import type { ReactNode } from 'react'
  * The character's own pane, and the companions' mounted, in the row's order, with the row of tabs
  * that switches between them above, from module 0.36.0, where the character has companions.
  * @param companions - The row of companions, as `useCompanionRow` keeps it.
- * @param asking - Whether the game asks a save of the character that still waits.
+ * @param asking - Whether the game asks a save of the character, or its player's dice, that still
+ *   waits.
  * @param header - The table's header, which the sheets' roll toasts start below.
  * @param parties - The party sheets the character may open, where there are any.
  * @param playing - Whether the character plays one of its campaign's characters.
