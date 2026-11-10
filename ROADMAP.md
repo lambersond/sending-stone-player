@@ -158,6 +158,14 @@ Left, in two batches. Pick from the list by number.
       combats its characters are in (`PROTOCOL.md`, the hello's `combats`), so this is a bug to
       find.
 
+**Found while planning Batch 2**
+
+20. **The game's save and check prompts are never pruned:** `RollPrompt` rows are only found,
+    updated and upserted (`src/db/table.ts`, `src/db/campaign-events.ts`,
+    `src/db/roll-requests.ts`), never deleted, so a campaign keeps every prompt it was ever asked
+    until the campaign itself is deleted. They should be pruned once answered or old, as the dishes
+    and notes are.
+
 Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
 
