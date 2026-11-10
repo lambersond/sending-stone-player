@@ -11,6 +11,9 @@ import type { EnterDice } from '@/types/dice-entry'
 import type { DiceAnswerTerm, LocalFormula, TableRollState } from '@/types/roll'
 import type { TableDiceAsk } from '@/types/table'
 
+/** No asks, the same each render, so that a view without any changes nothing. */
+const NONE: readonly TableDiceAsk[] = []
+
 /**
  * The dice the game asks the player for, for later rolls in their typed rolls' runs, from module
  * 0.45.0. On the device that sent the roll an ask is for, the dice dialog opens by itself, unless
@@ -19,21 +22,24 @@ import type { TableDiceAsk } from '@/types/table'
  * it, or Let the game roll. Done sends what they typed, a die skipped left to the game; Let the
  * game roll, in the dialog or the banner, leaves the game every die; and a dialog that closes by
  * itself, its time out or the ask closed elsewhere, sends nothing, as the game rolls it anyway.
- * Each ask is taken once on a page, and its dialog closes once it's no longer asked. Each answer
- * is kept in the tray, as a formula rolled.
+ * Whether an ask is for this device's roll is known once the app has told it the roll's id, a
+ * moment after it was sent, which a view may list it before: until then it's on the banner, and
+ * its dialog opens as the id comes. Each ask is taken once on a page, and its dialog closes once
+ * it's no longer asked; one a view lists again after, as one that lost it for a moment, is asked
+ * again. Each answer is kept in the tray, as a formula rolled.
  * @param asks - What the pane's view lists, oldest first.
  * @param states - The pane's rolls' ways to the game, by which the device that sent one is known.
  * @param sending - Whether this device sends the player's rolls to the game.
  */
 export function useDiceAsks({
-  asks = [],
+  asks = NONE,
   states,
   sending,
   enter,
   logAnswer,
   sendAnswer,
 }: Readonly<{
-  asks?: TableDiceAsk[]
+  asks?: readonly TableDiceAsk[]
   states: ReadonlyMap<string, TableRollState>
   sending: boolean
   enter: EnterDice
@@ -51,12 +57,27 @@ export function useDiceAsks({
   const takenNow = useRef(new Set<string>())
   // Each dialog open, to close as its ask closes, or the pane goes.
   const open = useRef(new Map<string, AbortController>())
+  // The asks this page has known to be for its own rolls: each opened at once, or left on the
+  // banner where the player was typing or this device doesn't send their rolls, never opened by
+  // itself after.
+  const known = useRef(new Set<string>())
 
   const take = useCallback((id: string): boolean => {
     if (takenNow.current.has(id)) return false
     takenNow.current.add(id)
     setTaken(held => new Set(held).add(id))
     return true
+  }, [])
+
+  // An ask whose dialog closed as a view stopped listing it, as one again to this page.
+  const release = useCallback((id: string) => {
+    takenNow.current.delete(id)
+    known.current.delete(id)
+    setTaken(held => {
+      const kept = new Set(held)
+      kept.delete(id)
+      return kept
+    })
   }, [])
 
   const answer = useCallback(
@@ -73,7 +94,7 @@ export function useDiceAsks({
       const controller = new AbortController()
       open.current.set(ask.id, controller)
       const values = await enter(askEntry(ask, controller.signal))
-      open.current.delete(ask.id)
+      if (open.current.get(ask.id) === controller) open.current.delete(ask.id)
       if (values) {
         answer(ask, values)
         return
@@ -93,23 +114,30 @@ export function useDiceAsks({
     [answer, take],
   )
 
-  // Asks new to this page: opened at once on the device whose roll each is for, as the latest
-  // render has it; and the dialogs of those no longer asked closed.
-  const arrive = useEffectEvent((listed: TableDiceAsk[]) => {
+  // As the view's asks or this page's rolls change: the dialogs of asks no longer listed closed,
+  // each such ask forgotten, so that one listed again is asked again; and those newly known to be
+  // for this device's rolls, as the latest render has them, opened at once.
+  const arrive = useEffectEvent((listed: readonly TableDiceAsk[]) => {
     const ids = new Set(listed.map(({ id }) => id))
     for (const [id, controller] of open.current) {
-      if (!ids.has(id)) controller.abort()
+      if (ids.has(id)) continue
+      open.current.delete(id)
+      controller.abort()
+      release(id)
     }
+    for (const id of known.current) {
+      if (!ids.has(id)) known.current.delete(id)
+    }
+    const sent = new Set([...states.values()].map(({ requestId }) => requestId))
+    const ours = listed.filter(
+      ({ id, command }) => !known.current.has(id) && sent.has(command),
+    )
+    for (const { id } of ours) known.current.add(id)
     if (!sending || typingInText(document.activeElement)) return
-    for (const ask of listed) {
-      const ours = [...states.values()].some(
-        ({ requestId }) => requestId === ask.command,
-      )
-      // One this page took already, `typeIn` leaves alone.
-      if (ours) void typeIn(ask)
-    }
+    // One this page took already, `typeIn` leaves alone.
+    for (const ask of ours) void typeIn(ask)
   })
-  useEffect(() => arrive(asks), [asks])
+  useEffect(() => arrive(asks), [asks, states])
 
   // The pane going closes its dialogs first, so that none is taken as the player letting the game
   // roll it.

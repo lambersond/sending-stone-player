@@ -14,6 +14,10 @@ const sentHere: ReadonlyMap<string, TableRollState> = new Map([
   ['damage-1', { status: 'rolling', requestId: 'roll-thorin-1' }],
 ])
 const sentNowhere: ReadonlyMap<string, TableRollState> = new Map()
+/** That damage sent from this device, before the app has told it the roll's id. */
+const sentNoIdYet: ReadonlyMap<string, TableRollState> = new Map([
+  ['damage-1', { status: 'sending' }],
+])
 
 /** The dialog, as the hook asks it: each entry, and how to close it. */
 let asked: {
@@ -90,12 +94,30 @@ describe('features/rolling/hooks/use-dice-asks (module 0.45.0)', () => {
     },
   )
 
-  it('offers it on the banner while the player types in a text field, as the chat’s', () => {
+  it('opens it by itself once the roll’s id comes, where the view listed it before', () => {
+    const asks = [ask]
+    const { result, rerender } = render({ asks, states: sentNoIdYet })
+    expect(enter).not.toHaveBeenCalled()
+    expect(result.current.offered).toEqual([ask])
+
+    // The same view, as a poll that finds nothing new leaves it; only the roll's way changes.
+    rerender({ asks, states: sentHere })
+    expect(enter).toHaveBeenCalledTimes(1)
+    expect(result.current.offered).toEqual([])
+  })
+
+  it('offers it on the banner while the player types in a text field, as the chat’s, and never opens it by itself after', () => {
     const chat = document.createElement('textarea')
     document.body.append(chat)
     chat.focus()
 
-    const { result } = render()
+    const asks = [ask]
+    const { result, rerender } = render({ asks })
+    expect(enter).not.toHaveBeenCalled()
+    expect(result.current.offered).toEqual([ask])
+
+    chat.blur()
+    rerender({ asks, states: new Map(sentHere) })
     expect(enter).not.toHaveBeenCalled()
     expect(result.current.offered).toEqual([ask])
   })
@@ -126,6 +148,18 @@ describe('features/rolling/hooks/use-dice-asks (module 0.45.0)', () => {
     rerender({ asks: [], states: sentHere })
     expect(signal?.aborted).toBe(true)
     await close()
+    expect(sendAnswer).not.toHaveBeenCalled()
+  })
+
+  it('asks again for one a view lists again after leaving it out, as one that lost it for a moment', async () => {
+    const { result, rerender } = render()
+    rerender({ asks: [], states: sentHere })
+    await close()
+    rerender({ asks: [ask], states: sentHere })
+
+    expect(enter).toHaveBeenCalledTimes(2)
+    expect(asked[1].entry.signal?.aborted).toBe(false)
+    expect(result.current.offered).toEqual([])
     expect(sendAnswer).not.toHaveBeenCalled()
   })
 
