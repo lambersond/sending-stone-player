@@ -93,12 +93,31 @@ describe('features/rolling/utils/dice-ask-entry (module 0.45.0)', () => {
   describe('answerOf and answeredRoll', () => {
     const ask = twoRollsAsk()
 
-    it('answers each term typed by its place, leaving one skipped to the game', () => {
+    // Its terms by the dialog's places: 3d6 cold (roll 0, term 0), then the fire roll's 1d4
+    // (roll 1, term 0) and 1d6 (roll 1, term 1).
+    it.each([
+      [
+        'the first and last typed',
+        [[1, 6, 3], [], [5]],
+        [
+          { roll: 0, term: 0, results: [1, 6, 3] },
+          { roll: 1, term: 1, results: [5] },
+        ],
+      ],
+      [
+        'only the fire roll’s first, its roll’s place not its own',
+        [[], [2], []],
+        [{ roll: 1, term: 0, results: [2] }],
+      ],
+    ])(
+      'answers each term typed by its roll’s place and its own: %s',
+      (_, values, answer) => {
+        expect(answerOf(ask, values)).toEqual(answer)
+      },
+    )
+
+    it('keeps what was typed in the tray, term by term, one skipped left to the game', () => {
       const values = [[1, 6, 3], [], [5]]
-      expect(answerOf(ask, values)).toEqual([
-        { roll: 0, term: 0, results: [1, 6, 3] },
-        { roll: 1, term: 1, results: [5] },
-      ])
       expect(answeredRoll(ask, values)).toEqual({
         label: 'Ice Knife: Shard Explosion',
         total: 15,
