@@ -1,4 +1,5 @@
 import { commandsPollSchema, rollRequestSchema } from './roll-request'
+import { NO_DICE } from '@/constants/roll-kinds'
 
 /** A Perception check, rolled normally. */
 const perception = {
@@ -3349,4 +3350,85 @@ describe('schemas/roll-request, a plain roll, from module 0.44.0', () => {
       expect(issuesOf(rolling, fields)).toContainEqual(issue)
     },
   )
+})
+
+describe('schemas/roll-request, dice the game asked for, from module 0.45.0', () => {
+  /** Ice Knife's 2d6 cold, answered: a 3 and a 5, typed. */
+  const answering = {
+    kind: 'dice',
+    diceAsk: 'ask1',
+    answer: [{ roll: 0, term: 0, results: [3, 5] }],
+    typed: true,
+    ...NO_DICE,
+  }
+
+  it.each([
+    ['its dice typed', {}],
+    ['every die left to the game', { answer: [] }],
+    [
+      'the most terms, each on its own',
+      {
+        answer: Array.from({ length: 100 }, (_, at) => ({
+          roll: at % 10,
+          term: Math.floor(at / 10),
+          results: [1],
+        })),
+      },
+    ],
+  ])('takes one with %s', (_, fields) => {
+    expect(parseKind(answering, fields).success).toBe(true)
+  })
+
+  it.each([
+    ['an ask that isn’t an id', { diceAsk: 'ask-1' }],
+    [
+      'a roll past the most an ask lists',
+      { answer: [{ roll: 10, term: 0, results: [1] }] },
+    ],
+    ['a term past the most', { answer: [{ roll: 0, term: 10, results: [1] }] }],
+    ['a term with no values', { answer: [{ roll: 0, term: 0, results: [] }] }],
+    [
+      '41 values',
+      {
+        answer: [
+          { roll: 0, term: 0, results: Array.from({ length: 41 }, () => 1) },
+        ],
+      },
+    ],
+    ['a value of 0', { answer: [{ roll: 0, term: 0, results: [0] }] }],
+    [
+      'a term naming more',
+      { answer: [{ roll: 0, term: 0, results: [1], faces: 6 }] },
+    ],
+    [
+      '101 terms',
+      {
+        answer: Array.from({ length: 101 }, () => ({
+          roll: 0,
+          term: 0,
+          results: [1],
+        })),
+      },
+    ],
+  ])('refuses %s', (_, fields) => {
+    expect(parseKind(answering, fields).success).toBe(false)
+  })
+
+  it('throws no dice of its own, and nothing else names an ask or an answer', () => {
+    expect(
+      issuesOf(answering, { dice: [{ faces: 6, results: [3, 5] }] }),
+    ).toEqual([
+      [
+        'dice',
+        'Dice the game asked for are answered term by term, never thrown',
+      ],
+    ])
+    expect(issuesOf(answering, { answer: undefined })).toEqual([
+      ['answer', 'Dice the game asked for, and only those, say what was typed'],
+    ])
+    expect(issuesOf(perception, { diceAsk: 'ask1', answer: [] })).toEqual([
+      ['diceAsk', 'Dice the game asked for, and only those, name the ask'],
+      ['answer', 'Dice the game asked for, and only those, say what was typed'],
+    ])
+  })
 })

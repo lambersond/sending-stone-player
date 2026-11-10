@@ -5,6 +5,7 @@ import {
   PROMPT_NOTICE_FOR,
   ROLLS_KEPT_FOR,
 } from '@/constants/sending-stone'
+import { viewDiceAsks } from '@/db/dice-asks'
 import { companionAsks } from '@/utils/companion-asks'
 import { companionRoster, tableCompanion } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
@@ -297,14 +298,8 @@ export async function getTableView(
   const own = ownCompanions(seat, companions)
   const rolls = seatRolls(seat, campaign)
   const now = Date.now()
-  const [messages, combats, sheet, prompts, made, asked] = await readTable(
-    seat,
-    campaign.id,
-    viewer,
-    own,
-    rolls.rollFeatures,
-    now,
-  )
+  const [messages, combats, sheet, prompts, made, asked, diceAsks] =
+    await readTable(seat, campaign.id, viewer, own, rolls, now)
   const sheetVersion = sheet?.updatedAt.toISOString()
   const heals = await healingUses(made, seat)
   const waiting = companionAsks(asked, now)
@@ -350,6 +345,7 @@ export async function getTableView(
     rollsToTable: rolls.rollsToTable,
     rollFeatures: rolls.rollFeatures,
     prompts: toTablePrompts(prompts, now),
+    ...diceAsks,
     ...(rolls.gm && { gm: rolls.gm }),
     ...gmRollParts(made, heals, now),
     ...(groups.length > 0 && { groups }),
@@ -373,17 +369,18 @@ export async function getTableView(
 
 /**
  * What a table shows, read at once: the chat the seat may read, the combats, its sheet, the saves
- * the game asks of the character, the Gamemaster's rolls as it its player is shown, and those its
- * game asks of its companions.
+ * the game asks of the character, the Gamemaster's rolls as it its player is shown, those its game
+ * asks of its companions, and from module 0.45.0 the dice its game asks its player for.
  */
 function readTable(
   seat: SheetSeat,
   campaignId: string,
   viewer: Viewer,
   own: CompanionEntry[],
-  features: string[],
+  rolls: ReturnType<typeof seatRolls>,
   now: number,
 ) {
+  const features: string[] = rolls.rollFeatures
   // The saves the game asks of the character, while it takes their answers; and from module
   // 0.41.0, whether it asks any of its companions', which their own views show.
   const prompted = viewer.actorId && features.includes('prompts')
@@ -450,5 +447,6 @@ function readTable(
           select: { actorId: true, data: true, expiresAt: true },
         })
       : [],
+    viewDiceAsks(seat, rolls.rollsToTable, now),
   ])
 }

@@ -80,6 +80,9 @@ const FEATURES = {
   // Changed on purpose (v0.44): from module 0.44.0, hit points and temporary hit points set from
   // the app, fetched for with everything else off.
   hitPoints: 1,
+  // Changed on purpose (item 11): from module 0.45.0, the dice the game rolls later in a typed
+  // roll's run, asked of its player, and the `dice` command answering one.
+  diceAsks: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -276,11 +279,12 @@ describe('app/api/events', () => {
         campaign,
         {
           type: 'bridge.hello',
-          // Changed on purpose (round 0.36.0 §7.12): no companions.
+          // Changed on purpose (round 0.36.0 §7.12): no companions; (item 11) no dice asks.
           data: {
             characters: [],
             combats: [],
             prompts: [],
+            diceAsks: [],
             groups: [],
             companions: [],
           },
@@ -521,6 +525,8 @@ describe('app/api/events', () => {
             characters,
             combats: [],
             prompts: [],
+            // Changed on purpose (item 11).
+            diceAsks: [],
             groups: [],
             // Changed on purpose (round 0.36.0 §7.12).
             companions: [],
@@ -820,15 +826,16 @@ describe('app/api/events', () => {
 
         const { features } = await response.json()
         // Changed on purpose (round 0.39.0 §1.10): effects follow them; (round 0.40.0 §10.3)
-        // Wild Shape follows those; (round 0.41.0 §8.3) damage on its own's choices follow it; and
-        // (v0.44) hit points follow those.
-        expect(Object.keys(features).slice(-6)).toEqual([
+        // Wild Shape follows those; (round 0.41.0 §8.3) damage on its own's choices follow it;
+        // (v0.44) hit points follow those; and (item 11) dice asks follow them.
+        expect(Object.keys(features).slice(-7)).toEqual([
           'favorites',
           'dishes',
           'effects',
           'wildShape',
           'aloneChoices',
           'hitPoints',
+          'diceAsks',
         ])
         expect(features.dishes).toBe(1)
       })
@@ -844,7 +851,8 @@ describe('app/api/events', () => {
       )
 
       const { features } = await response.json()
-      expect(Object.keys(features).slice(0, -3)).toEqual([
+      // Changed on purpose (item 11): dice asks follow hit points, last.
+      expect(Object.keys(features).slice(0, -4)).toEqual([
         'commands',
         'slimSheets',
         'maxBytes',
@@ -872,7 +880,8 @@ describe('app/api/events', () => {
           envelope(type, { characters: [], combats: [] }),
         )
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-4, -2)).toEqual([
+        // Changed on purpose (item 11): dice asks follow hit points, last.
+        expect(Object.keys(features).slice(-5, -3)).toEqual([
           'effects',
           'wildShape',
         ])
@@ -891,7 +900,8 @@ describe('app/api/events', () => {
           envelope(type, { characters: [], combats: [] }),
         )
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-3, -1)).toEqual([
+        // Changed on purpose (item 11): dice asks follow hit points, last.
+        expect(Object.keys(features).slice(-4, -2)).toEqual([
           'wildShape',
           'aloneChoices',
         ])
@@ -904,7 +914,25 @@ describe('app/api/events', () => {
       }
     })
 
-    it('says it takes hit points set from the app, from module 0.44.0, after damage on its own’s choices, last', async () => {
+    // Changed on purpose (item 11): dice asks follow them, last.
+    it('says it takes hit points set from the app, from module 0.44.0, after damage on its own’s choices', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      for (const type of ['bridge.hello', 'bridge.heartbeat']) {
+        const response = await post(
+          envelope(type, { characters: [], combats: [] }),
+        )
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-3, -1)).toEqual([
+          'aloneChoices',
+          'hitPoints',
+        ])
+        // The module reads it as a whole number, 1 or more, as it reads Wild Shape's.
+        expect(features.hitPoints).toBe(1)
+      }
+    })
+
+    it('says it reads the dice the game asks for, from module 0.45.0, after hit points, last, as a whole number', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       for (const type of ['bridge.hello', 'bridge.heartbeat']) {
@@ -913,11 +941,11 @@ describe('app/api/events', () => {
         )
         const { features } = await response.json()
         expect(Object.keys(features).slice(-2)).toEqual([
-          'aloneChoices',
           'hitPoints',
+          'diceAsks',
         ])
-        // The module reads it as a whole number, 1 or more, as it reads Wild Shape's.
-        expect(features.hitPoints).toBe(1)
+        // The module asks only a listener whose answer says `"diceAsks": 1`.
+        expect(features.diceAsks).toBe(1)
       }
     })
 

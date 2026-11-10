@@ -1,7 +1,7 @@
 import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 import type { ConnectedCharacter } from '@/types/sending-stone'
-import type { RollCampaign } from '@/utils/requests/types'
+import type { DiceAnswerCommand, RollCampaign } from '@/utils/requests/types'
 
 // What the module is sent of a roll, or of a command that rides to the game as one, and what the
 // app keeps beside it (src/db/roll-requests.ts, src/db/commands.ts).
@@ -11,13 +11,14 @@ import type { RollCampaign } from '@/utils/requests/types'
  * typed in only where the player may type theirs, as the game said last: else the same dice,
  * unmarked. A companion's are typed as its character's are. And with it, the dice its effects add,
  * and that its rerolls are its player's, where the game takes them (module 0.42.0); else the game
- * rolls those.
+ * rolls those. Dice the game asked for (module 0.45.0) are sent as their own command.
  */
 export function rollPayload(
   seat: SheetSeat,
   input: RollRequestInput,
   campaign: Pick<RollCampaign, 'characters' | 'rollFeatures'>,
 ) {
+  if (input.kind === 'dice') return answerPayload(input)
   const { typed, effectDice, rerolls } = input
   const command = { ...input }
   delete command.label
@@ -43,6 +44,23 @@ export function rollPayload(
           campaign.rollFeatures.includes('keptRerolls') && { rerolls }),
       }
     : command
+}
+
+/**
+ * What the module is sent of dice the game asked for (module 0.45.0): the ask, and the values typed
+ * for each of its terms, as its `dice`, by roll and term; typed, as only a typing player's page
+ * sends them, and thrown no other way.
+ */
+function answerPayload(input: RollRequestInput): DiceAnswerCommand {
+  return {
+    kind: 'dice',
+    diceAsk: input.diceAsk ?? '',
+    dice: input.answer ?? [],
+    mode: 0,
+    explicit: false,
+    extras: [],
+    typed: true,
+  }
 }
 
 /**

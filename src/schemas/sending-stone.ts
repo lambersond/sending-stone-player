@@ -14,6 +14,10 @@ import {
   COMPANION_INITIATIVE,
   COMPANION_KEY,
   DAMAGE_TYPE,
+  DICE_ASK_AGAIN,
+  DICE_ASK_FACES,
+  DICE_ASK_ID,
+  DICE_ASK_PURPOSES,
   EFFECT_DIE_FACES,
   EFFECT_ID,
   EFFECT_OPS,
@@ -25,6 +29,9 @@ import {
   MAX_USE_TARGETS,
   MOST_ALONE_CHOICES,
   MOST_AMONG,
+  MOST_ASK_DICE,
+  MOST_ASK_ROLLS,
+  MOST_ASK_TERMS,
   MOST_COMPANIONS,
   MOST_EFFECT_DICE,
   MOST_FORMS,
@@ -53,12 +60,14 @@ import type {
   CompanionEntry,
   ConnectedCharacter,
   DamagePreview,
+  DiceAskRoll,
   DishApplied,
   DishDismissed,
   Dnd5eMessageData,
   Dnd5eSave,
   Dnd5eTarget,
   Envelope,
+  GameDiceAsk,
   GameEvent,
   GamePrompt,
   GroupEntry,
@@ -1596,6 +1605,9 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // typed them, and whether a typed roll keeps the dice its player rerolled at the table.
         effectDice: z.boolean().optional().catch(false),
         keptRerolls: z.boolean().optional().catch(false),
+        // From module 0.45.0: whether a typing player is asked for the dice the game rolls later
+        // in their roll's run.
+        diceAsks: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -2232,6 +2244,47 @@ const cut = (most: number) =>
 const cutOrNull = (most: number) => orNull(cut(most))
 
 /**
+ * One of the rolls a dice ask lists (module 0.45.0): its formula, its type and flavor, which are
+ * only shown, and its dice terms, each die one a player types in, 1 to 40 of it. Its type, where it
+ * isn't one of dnd5e's keys, and its flavor, where it can't be read, are left out; a term that
+ * can't be read fails it, as its dice couldn't be answered as asked.
+ */
+const diceAskRollSchema: z.ZodType<DiceAskRoll> = z.looseObject({
+  formula: cutTo(400),
+  type: leftOut(z.string().regex(DAMAGE_TYPE)),
+  flavor: leftOut(z.string().transform(text => storable(text, 200))),
+  terms: z
+    .array(
+      z.looseObject({
+        faces: z.union(DICE_ASK_FACES.map(faces => z.literal(faces))),
+        number: z.int().min(1).max(MOST_ASK_DICE),
+      }),
+    )
+    .min(1)
+    .max(MOST_ASK_TERMS),
+})
+
+/**
+ * The dice of a later roll in a typed roll's run, asked of its player (module 0.45.0). What it
+ * asks of, which roll's run it's in, its rolls and when it waits until must be read, or it can't be
+ * answered; its label is only shown, cut; a purpose this app doesn't know reads as "other", and a
+ * critical hit's mark that can't be read as none.
+ */
+const diceAskSchema: z.ZodType<GameDiceAsk> = z.looseObject({
+  id: z.string().regex(DICE_ASK_ID),
+  actorId: z.string().regex(COMPANION_KEY),
+  of: leftOut(z.string().regex(ACTOR_ID)),
+  command: z.string().regex(/^[\w-]{1,64}$/),
+  label: cut(200),
+  purpose: z.enum(DICE_ASK_PURPOSES).catch('other'),
+  again: leftOut(z.enum(DICE_ASK_AGAIN)),
+  critical: z.boolean().catch(false),
+  rolls: z.array(diceAskRollSchema).min(1).max(MOST_ASK_ROLLS),
+  askedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+})
+
+/**
  * This app's id for a dish from the Magical Recipe Book, from the command's: the one field of a
  * dish event that refuses it. The module never re-sends a refused event, so every other field is
  * caught or cut, as one over-long actor name would otherwise lose the Gamemaster's choice for good.
@@ -2294,6 +2347,9 @@ const helloSchema = z.looseObject({
   features: featuresSchema,
   // Sent from module 0.13.0; none from an older module.
   prompts: listOf(promptSchema),
+  // From module 0.45.0, the dice asks open; none from an older module. One that can't be read is
+  // dropped, and closes as one the hello doesn't list.
+  diceAsks: listOf(diceAskSchema),
   // From module 0.22.0: its characters carry no sheets, which follow it.
   sheetsApart: z.boolean().optional().catch(false),
   // What Foundry says of itself, for the Gamemaster's card alone: its versions, from
@@ -2367,6 +2423,11 @@ const EVENT_SCHEMAS: {
   [EVENTS.PROMPT_OPENED]: z.looseObject({ prompt: promptSchema }),
   [EVENTS.PROMPT_CLOSED]: z.looseObject({
     id: z.string().regex(PROMPT_ID),
+    reason: z.string().max(32).catch('gone'),
+  }),
+  [EVENTS.DICE_ASKED]: z.looseObject({ ask: diceAskSchema }),
+  [EVENTS.DICE_CLOSED]: z.looseObject({
+    id: z.string().regex(DICE_ASK_ID),
     reason: z.string().max(32).catch('gone'),
   }),
   [EVENTS.GROUP_UPDATED]: z.looseObject({

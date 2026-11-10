@@ -5,6 +5,7 @@ import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import {
   ATTACK_MODE,
   DAMAGE_TYPE,
+  DICE_ASK_ID,
   EFFECT_DIE_FACES,
   EFFECT_ID,
   EFFECT_OPS,
@@ -15,6 +16,10 @@ import {
   MAX_SPEND,
   MAX_USE_TARGETS,
   MOST_AMONG,
+  MOST_ANSWER_ENTRIES,
+  MOST_ASK_DICE,
+  MOST_ASK_ROLLS,
+  MOST_ASK_TERMS,
   MOST_EFFECT_DICE,
   MOST_HIT_DICE,
   MOST_HIT_POINTS,
@@ -38,6 +43,7 @@ import type { Issue, RequestRule } from '@/schemas/types'
 import type {
   AttackTarget,
   DamageModifiers,
+  DiceAnswerTerm,
   DieSize,
   EndedTurn,
   ExtraTerm,
@@ -435,6 +441,10 @@ const OWN_FIELDS: Readonly<
     field: 'plainRoll',
     message: 'A dice roll, and only that, names its dice',
   },
+  dice: {
+    field: 'diceAsk',
+    message: 'Dice the game asked for, and only those, name the ask',
+  },
   endTurn: {
     field: 'turn',
     kinds: ['endTurn', 'undoEndTurn'],
@@ -464,7 +474,25 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   hitPoints: 'Setting hit points throws no dice',
   endTurn: 'Ending a turn throws no dice',
   undoEndTurn: 'Taking a turn back throws no dice',
+  dice: 'Dice the game asked for are answered term by term, never thrown',
 }
+
+/**
+ * One of a dice ask's terms as its player typed it, from module 0.45.0: by its roll's place and its
+ * own, a value each of its dice. Whether it's one the ask lists, and each value one of its die's
+ * faces, is checked against the ask as it's taken.
+ */
+const answerTermSchema: z.ZodType<DiceAnswerTerm> = z.strictObject({
+  roll: z
+    .int()
+    .min(0)
+    .max(MOST_ASK_ROLLS - 1),
+  term: z
+    .int()
+    .min(0)
+    .max(MOST_ASK_TERMS - 1),
+  results: z.array(z.int().min(1).max(100)).min(1).max(MOST_ASK_DICE),
+})
 
 const rolledDiceSchema: z.ZodType<RolledDice> = z.strictObject({
   faces: z.int().min(2).max(100),
@@ -538,7 +566,9 @@ const effectDieSchema = z.strictObject({
  * points set name the hit points or temporary hit points wanted, or both, and what the page showed
  * of each, and nothing else, and throw no dice; and a plain roll names the dice picked, each size
  * once, and the number added, and nothing else, and throws those dice, each size's together, in
- * the same order, typed in or not.
+ * the same order, typed in or not. From module 0.45.0, dice the game asked for name the ask, and
+ * what was typed, term by term, each term by its roll's and its own place, with a value for each of
+ * its dice, at most 100 terms; and nothing else, and throw no dice of their own.
  */
 export const rollRequestSchema: z.ZodType<RollRequestInput> = z
   .strictObject({
@@ -629,6 +659,9 @@ export const rollRequestSchema: z.ZodType<RollRequestInput> = z
     // roll's rerolls were made at the table.
     effectDice: z.array(effectDieSchema).max(MOST_EFFECT_DICE).optional(),
     rerolls: z.literal('kept').optional(),
+    // From module 0.45.0: the dice the game asked for, by its ask, term by term.
+    diceAsk: z.string().regex(DICE_ASK_ID).optional(),
+    answer: z.array(answerTermSchema).max(MOST_ANSWER_ENTRIES).optional(),
   })
   .superRefine((request, context) => {
     // Each group of rules in turn, so that a request's issues always come in the same order.
@@ -910,6 +943,12 @@ function ownFieldRules(request: RollRequestInput, issue: Issue) {
   }
   if ((request.kind === 'spend') !== (request.count !== undefined)) {
     issue('count', 'Charges spent, and only those, say how many')
+  }
+  if ((request.kind === 'dice') !== (request.answer !== undefined)) {
+    issue(
+      'answer',
+      'Dice the game asked for, and only those, say what was typed',
+    )
   }
 }
 

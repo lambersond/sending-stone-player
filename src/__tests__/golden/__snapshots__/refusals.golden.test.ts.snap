@@ -906,6 +906,7 @@ exports[`parseGameEvent reads bridge.hello: bridge.hello read 1`] = `
     }
    },
    "prompts": [],
+   "diceAsks": [],
    "sheetsApart": true,
    "module": {
     "id": "sending-stone",
@@ -2309,6 +2310,51 @@ exports[`parseGameEvent reads journal.updated: journal.updated read 1`] = `
 }"
 `;
 
+exports[`parseGameEvent reads roll.dice.asked: roll.dice.asked read 1`] = `
+"{
+ "event": {
+  "type": "roll.dice.asked",
+  "data": {
+   "ask": {
+    "id": "ask1",
+    "actorId": "actor-thorin",
+    "command": "roll-thorin-1",
+    "label": "Ice Knife: Shard Explosion",
+    "purpose": "damage",
+    "critical": false,
+    "rolls": [
+     {
+      "formula": "2d6",
+      "type": "cold",
+      "flavor": "Cold",
+      "terms": [
+       {
+        "faces": 6,
+        "number": 2
+       }
+      ]
+     }
+    ],
+    "askedAt": "2026-11-10T12:00:00.000Z",
+    "expiresAt": "2026-11-10T12:01:00.000Z"
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads roll.dice.closed: roll.dice.closed read 1`] = `
+"{
+ "event": {
+  "type": "roll.dice.closed",
+  "data": {
+   "id": "ask1",
+   "reason": "answered"
+  }
+ }
+}"
+`;
+
 exports[`parseGameEvent reads roll.prompt.closed: roll.prompt.closed read 1`] = `
 "{
  "event": {
@@ -2506,6 +2552,18 @@ exports[`parseGameEvent refuses a malformed journal.tidy: journal.tidy malformed
 exports[`parseGameEvent refuses a malformed journal.updated: journal.updated malformed 1`] = `
 "{
  "prettified": "✖ Invalid input: expected string, received undefined\\n  → at actorId\\n✖ Invalid input: expected object, received undefined\\n  → at journal"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed roll.dice.asked: roll.dice.asked malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at ask.actorId\\n✖ Invalid input: expected string, received undefined\\n  → at ask.command\\n✖ Invalid input: expected array, received undefined\\n  → at ask.rolls\\n✖ Invalid input: expected string, received undefined\\n  → at ask.askedAt\\n✖ Invalid input: expected string, received undefined\\n  → at ask.expiresAt"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed roll.dice.closed: roll.dice.closed malformed 1`] = `
+"{
+ "prettified": "✖ Invalid string: must match pattern /^[A-Za-z0-9]{1,64}$/\\n  → at id"
 }"
 `;
 

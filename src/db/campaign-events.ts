@@ -2,6 +2,12 @@ import prisma from '@/clients/prisma'
 import { MIDI_PROMPT_WAIT, ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { clearChat } from '@/db/chat'
 import {
+  closeDiceAsk,
+  closeUnlistedDiceAsks,
+  pruneAsked,
+  saveDiceAsk,
+} from '@/db/dice-asks'
+import {
   applyJournalUpdated,
   drawJournal,
   reconcileJournals,
@@ -198,12 +204,25 @@ const EVENT_HANDLERS: {
     )
     return false
   },
+  // What's asked of a campaign's players is pruned as more is asked (`pruneAsked`): the saves the
+  // game asks too, from v0.45 (ROADMAP item 20), as the dice it asks.
   'roll.prompt.opened': async ({ prompt }, { tx, campaignId, sentAt }) => {
     await savePrompt(tx, campaignId, prompt, sentAt)
+    await pruneAsked(tx, campaignId, Date.now())
     return false
   },
   'roll.prompt.closed': async ({ id, reason }, { tx, campaignId }) => {
     await closePrompt(tx, campaignId, id, reason)
+    return false
+  },
+  // The dice of a later roll in a player's typed roll's run, asked of them, from module 0.45.0.
+  'roll.dice.asked': async ({ ask }, { tx, campaignId, sentAt }) => {
+    await saveDiceAsk(tx, campaignId, ask, sentAt)
+    await pruneAsked(tx, campaignId, Date.now())
+    return false
+  },
+  'roll.dice.closed': async ({ id, reason }, { tx, campaignId }) => {
+    await closeDiceAsk(tx, campaignId, id, reason)
     return false
   },
   'group.updated': async ({ group }, { tx, campaignId }) => {
@@ -298,7 +317,8 @@ async function keepCombatant(
 /**
  * Apply a hello: the campaign's full current state, its roster, its groups, what its game does,
  * its companions and what Foundry says of itself, replacing what was held; and the saves its game
- * is asking, its combats and its sheets. It carries no chat, so the chat log is kept.
+ * is asking, from module 0.45.0 the dice it's asking for, its combats and its sheets. It carries
+ * no chat, so the chat log is kept.
  * @returns Whether the campaign then lacks a description its sheets refer to.
  */
 async function applyHello(
@@ -309,6 +329,8 @@ async function applyHello(
 ): Promise<boolean> {
   // The campaign's full current state. It carries no chat, so the chat log is kept.
   const { characters, features, prompts = [], groups = [] } = data
+  // The dice asks open, from module 0.45.0; none from an older module, which closes any held.
+  const { diceAsks = [] } = data
   // Its characters' companions, from module 0.36.0, whose sheets follow it; none from an
   // older module, which clears them.
   const { companions = [] } = data
@@ -351,6 +373,16 @@ async function applyHello(
   })
   for (const prompt of prompts) {
     await savePrompt(tx, campaignId, prompt, sentAt)
+  }
+  // The dice its game is asking for, from module 0.45.0: any other still open has closed, as after
+  // the Gamemaster reloads; a hello sent again, as when a setting changes, closes none it lists.
+  await closeUnlistedDiceAsks(
+    tx,
+    campaignId,
+    diceAsks.map(({ id }) => id),
+  )
+  for (const ask of diceAsks) {
+    await saveDiceAsk(tx, campaignId, ask, sentAt)
   }
   // Pages showing an order "kept here for now" learn that the game now takes it, or no longer
   // does: every book of the campaign is new where what the module does with notes changed; and,

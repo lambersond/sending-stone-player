@@ -319,6 +319,7 @@ model Campaign {
   players             Character[]
   rollRequests        RollRequest[]
   rollPrompts         RollPrompt[]
+  diceAsks            DiceAsk[]
   journalBooks        JournalBook[]
   cookbookLinks       CookbookLink[]
   cookbookDishes      CookbookDish[]
@@ -503,6 +504,41 @@ model RollPrompt {
   @@unique([campaignId, promptId], name: "campaignPrompt")
   @@index([campaignId, actorId, closedAt])
   @@map("roll_prompt")
+}
+
+// The dice of a later roll in a typed roll's run, which the game asks of its player before it
+// throws them, from module 0.45.0: from the module's roll.dice.asked until its roll.dice.closed, or
+// its wait runs out, when Foundry's computer dice roll them. Kept apart from the saves the game
+// asks, which every reader of those would otherwise have to tell from these. Deleted a day after it
+// closed or ran out.
+model DiceAsk {
+  id           String    @id @default(cuid())
+  campaignId   String
+  campaign     Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // The module's id for it, a key of its own.
+  askId        String
+  // The Foundry actor asked: the character, or a companion's key.
+  actorId      String
+  // For a companion's, the character whose typed roll's run it's in. Unset for a character's own.
+  ofActorId    String?
+  // The typed roll whose run asks it, by its id here: the roll it holds while it waits.
+  commandId    String
+  // What it asks, as the module described it: its label, purpose, and its rolls' dice.
+  data         Json
+  // When it was asked, and when its wait ends, by this app's clock, counted from the envelope's
+  // time as a Midi prompt's is.
+  askedAt      DateTime
+  expiresAt    DateTime
+  // Once closed: when, and why, such as "answered" or "expired".
+  closedAt     DateTime?
+  closedReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([campaignId, askId], name: "campaignAsk")
+  @@index([campaignId, actorId, closedAt])
+  @@index([campaignId, commandId])
+  @@map("dice_ask")
 }
 
 // A character's or a party's journal of notes, from module 0.34.0: the app's mirror of Foundry's

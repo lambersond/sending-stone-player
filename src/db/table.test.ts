@@ -1,5 +1,6 @@
 import { playerSeat } from './seats'
 import { getCampaignStatus, getTableView, MESSAGE_LIMIT } from './table'
+import { heldIceKnife, tableIceKnife } from '@/mocks/dice-asks'
 import {
   characterSheet,
   chatMessage,
@@ -1581,6 +1582,68 @@ describe('db/table, typing in their own dice, from module 0.32.0', () => {
       })
     },
   )
+})
+
+/** Ice Knife's ask, open 40 s more. */
+const openAsk = () => heldIceKnife({ expiresAt: new Date(Date.now() + 40_000) })
+
+describe('db/table, the dice the game asks for, from module 0.45.0', () => {
+  const thorin = { ...character, actorId: roster[0].id, manualDice: true }
+  /** A game asking typing players for the dice it rolls later, as it takes their answers. */
+  const asking = taking(['manualDice', 'diceAsks'], ['damage', 'dice'])
+
+  it('lists those still open of a player typing in their dice, as their page reads them', async () => {
+    givenCampaign(asking)
+    const ask = openAsk()
+    prismaMock.diceAsk.findMany.mockResolvedValue([ask] as any)
+
+    const view = await getTableView(thorin)
+    expect(view.diceAsks).toEqual([
+      tableIceKnife({ expiresAt: ask.expiresAt.toISOString() }),
+    ])
+    expect(prismaMock.diceAsk.findMany).toHaveBeenCalledWith({
+      where: {
+        campaignId: 'c1',
+        actorId: roster[0].id,
+        // The character's own, never a companion's of its runs.
+        ofActorId: null,
+        closedAt: null,
+        expiresAt: { gt: expect.any(Date) },
+      },
+      orderBy: { askedAt: 'asc' },
+      select: {
+        askId: true,
+        commandId: true,
+        data: true,
+        expiresAt: true,
+        closedAt: true,
+      },
+    })
+  })
+
+  it.each([
+    [
+      'a player not typing in their dice',
+      { ...thorin, manualDice: false },
+      asking,
+    ],
+    [
+      "the Gamemaster's seat, whose rolls open no run",
+      { ...thorin, role: 'gm' as const, userId: 'gm-1', characterId: null },
+      taking(['manualDice', 'diceAsks', 'gmRolls'], ['damage', 'dice']),
+    ],
+    [
+      'a game not taking the answer now',
+      thorin,
+      taking(['manualDice'], ['damage']),
+    ],
+  ])('lists none, and reads none, for %s', async (_, seat, found) => {
+    givenCampaign(found)
+    prismaMock.diceAsk.findMany.mockResolvedValue([openAsk()] as any)
+
+    expect(await getTableView(seat)).not.toHaveProperty('diceAsks')
+    expect(prismaMock.diceAsk.findMany).not.toHaveBeenCalled()
+  })
 })
 
 /** The campaign, its game removing items as given, and fetching as lately as given. */

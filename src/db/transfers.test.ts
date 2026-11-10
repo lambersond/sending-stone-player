@@ -287,7 +287,8 @@ describe('db/transfers, createTransferRequest', () => {
       status: 429,
       reason: 'busy',
     })
-    // Counted by the seat, as its rolls are: any kind, on its way or of the last minute.
+    // Counted by the seat, as its rolls are: any kind, on its way or of the last minute; changed
+    // on purpose (item 11), but its answers to the dice the game asks for.
     expect(prismaMock.rollRequest.count).toHaveBeenCalledWith({
       where: {
         characterId: 'char-1',
@@ -295,10 +296,15 @@ describe('db/transfers, createTransferRequest', () => {
           { status: 'pending', createdAt: { gt: ago(30_000) } },
           { status: 'claimed', claimedAt: { gt: ago(75_000) } },
         ],
+        kind: { not: 'dice' },
       },
     })
     expect(prismaMock.rollRequest.count).toHaveBeenCalledWith({
-      where: { characterId: 'char-1', createdAt: { gt: ago(60_000) } },
+      where: {
+        characterId: 'char-1',
+        createdAt: { gt: ago(60_000) },
+        kind: { not: 'dice' },
+      },
     })
   })
 

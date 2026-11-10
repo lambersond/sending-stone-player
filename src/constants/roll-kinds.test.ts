@@ -26,7 +26,8 @@ const dice = (group: string) =>
   kindsWhere(kind => ROLL_KIND_INFO[kind].dice === group)
 
 // Each list as the code said it by hand when the table was made (24f808b), copied once; with the
-// kinds of module 0.44.0 since, a plain roll and hit points set (v0.44).
+// kinds of module 0.44.0 since, a plain roll and hit points set (v0.44), and of module 0.45.0, the
+// dice the game asks for (item 11).
 describe('constants/roll-kinds, the request-kind table', () => {
   it('has a row for each kind, in ROLL_KINDS’ order', () => {
     expect(Object.keys(ROLL_KIND_INFO)).toEqual([...ROLL_KINDS])
@@ -94,6 +95,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
         'hitPoints',
         'endTurn',
         'undoEndTurn',
+        // Changed on purpose (item 11): its values are its answer's, never thrown dice.
+        'dice',
       ],
     ],
     [
@@ -104,7 +107,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
     [
       'summed (utils/roll-requests.ts:1591 SUMMED)',
       kindsWhere(kind => 'summed' in ROLL_KIND_INFO[kind]),
-      ['damage', 'textDamage', 'itemDamage', 'hitDice'],
+      // Changed on purpose (item 11): the rolls the game makes of an ask add up, as damage's do.
+      ['damage', 'textDamage', 'itemDamage', 'hitDice', 'dice'],
     ],
     [
       'checks (schemas :60, db/roll-requests.ts:225, use-sheet-roller.ts:86, use-table-rolls.ts:1405)',
@@ -139,6 +143,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
         'wildShape',
         'prepare',
         'hitPoints',
+        // Changed on purpose (item 11): only a typing player's runs are asked.
+        'dice',
       ],
     ],
     [
@@ -207,6 +213,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
         hitPoints: 'Hit points set',
         endTurn: 'A turn ended',
         undoEndTurn: 'A turn taken back',
+        // Changed on purpose (item 11).
+        dice: 'Dice the game asked for',
       },
     ],
     [

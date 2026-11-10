@@ -367,6 +367,29 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('toRollRequestView for a typed roll the game asks later dice of, from module 0.45.0', () => {
+    const claimed = held({ status: 'claimed', claimedAt: ago(90_000) })
+    it.each([
+      [
+        'held 20 s, one waiting: rolling, waiting on its dice',
+        { held: 20_000, waiting: true },
+        { id: 'req-1', status: 'rolling', diceAsked: true },
+      ],
+      [
+        'held 20 s, none waiting now: rolling',
+        { held: 20_000, waiting: false },
+        { id: 'req-1', status: 'rolling' },
+      ],
+      [
+        'held 10 s: lost, past its time, never said to wait',
+        { held: 10_000, waiting: true },
+        { id: 'req-1', status: 'lost' },
+      ],
+    ])('a roll fetched 90 s ago, %s', (_, asks, view) => {
+      expect(toRollRequestView(claimed, NOW, asks)).toEqual(view)
+    })
+  })
+
   describe('toRollRequestView for a move of items and coins, from module 0.31.0', () => {
     const transfer = {
       from: 'groupIronCo01',

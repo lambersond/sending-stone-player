@@ -1,5 +1,6 @@
 import prisma from '@/clients/prisma'
 import { COMPANION_KEY, GM_ROLLS_SHOWN } from '@/constants/sending-stone'
+import { viewDiceAsks } from '@/db/dice-asks'
 import {
   gmRollsOf,
   gmRollStateSelect,
@@ -198,7 +199,7 @@ export async function getCompanionView(
   const rolls = companionRolls(seat, campaign, connected)
   // The saves the game asks of it, where it asks companions, as its character's view has its own.
   const prompted = rolls.rollFeatures.includes('prompts')
-  const [combats, sheet, made, prompts] = await Promise.all([
+  const [combats, sheet, made, prompts, diceAsks] = await Promise.all([
     prisma.combat.findMany({
       where: { campaignId },
       orderBy: { updatedAt: 'desc' },
@@ -226,6 +227,9 @@ export async function getCompanionView(
         })
       : [],
     prompted ? heldPrompts(campaignId, key, now) : [],
+    // The dice the game asks its character's player for, of its own typed rolls' runs (module
+    // 0.45.0), as its character's view has its own.
+    viewDiceAsks(seat, rolls.rollsToTable, now),
   ])
   const heals = await healingUses(made, seat)
 
@@ -259,6 +263,7 @@ export async function getCompanionView(
     rollsToTable: rolls.rollsToTable,
     rollFeatures: rolls.rollFeatures,
     ...(prompted && { prompts: toTablePrompts(prompts, now) }),
+    ...diceAsks,
     ...(rolls.gm && { gm: rolls.gm }),
     ...gmRollParts(made, heals, now),
     // Its character's, as its character's view has it: for its player's seat alone.

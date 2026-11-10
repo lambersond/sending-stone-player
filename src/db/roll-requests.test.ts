@@ -270,6 +270,7 @@ describe('db/roll-requests', () => {
       given()
       await createRollRequest(character, perception)
 
+      // Changed on purpose (item 11): never its answers to the dice the game asks for.
       expect(prismaMock.rollRequest.count).toHaveBeenCalledWith({
         where: {
           characterId: 'char-1',
@@ -277,10 +278,15 @@ describe('db/roll-requests', () => {
             { status: 'pending', createdAt: { gt: ago(30_000) } },
             { status: 'claimed', claimedAt: { gt: ago(75_000) } },
           ],
+          kind: { not: 'dice' },
         },
       })
       expect(prismaMock.rollRequest.count).toHaveBeenCalledWith({
-        where: { characterId: 'char-1', createdAt: { gt: ago(60_000) } },
+        where: {
+          characterId: 'char-1',
+          createdAt: { gt: ago(60_000) },
+          kind: { not: 'dice' },
+        },
       })
     })
 

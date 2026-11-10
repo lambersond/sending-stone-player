@@ -1,6 +1,10 @@
 import { kindsWhere, ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import type { RollRequestInput } from '@/types/roll'
-import type { HeldRollRequest, RollCommand } from '@/utils/requests/types'
+import type {
+  DiceAnswerCommand,
+  HeldRollRequest,
+  RollCommand,
+} from '@/utils/requests/types'
 
 /**
  * What the campaign's Gamemaster never sends as a character (#156): an end of an enchantment or,
@@ -21,7 +25,7 @@ export const GM_UNSENT: ReadonlySet<string> = new Set(
 /** A held roll as the module is sent it. */
 export function toCommand(request: HeldRollRequest): RollCommand {
   return {
-    ...(request.payload as RollRequestInput),
+    ...(request.payload as RollRequestInput | DiceAnswerCommand),
     id: request.id,
     actorId: request.actorId,
     // A companion's names its character (module 0.36.0).

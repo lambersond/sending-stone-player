@@ -4768,7 +4768,10 @@ exports[`the routes of a companion companion rolls POST, gm: companion rolls POS
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -4783,6 +4786,9 @@ exports[`the routes of a companion companion rolls POST, gm: companion rolls POS
     "requestedById": "u-gm",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -4943,7 +4949,10 @@ exports[`the routes of a companion companion rolls POST, player: companion rolls
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -4955,6 +4964,9 @@ exports[`the routes of a companion companion rolls POST, player: companion rolls
     "characterId": "char-1",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -6707,7 +6719,10 @@ exports[`the routes of a sheet rolls POST, gm, labelled: rolls POST, gm, labelle
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -6722,6 +6737,9 @@ exports[`the routes of a sheet rolls POST, gm, labelled: rolls POST, gm, labelle
     "requestedById": "u-gm",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -6892,7 +6910,10 @@ exports[`the routes of a sheet rolls POST, player, a favorite: rolls POST, playe
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -6904,6 +6925,9 @@ exports[`the routes of a sheet rolls POST, player, a favorite: rolls POST, playe
     "characterId": "char-1",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -7143,7 +7167,10 @@ exports[`the routes of a sheet rolls POST, player: rolls POST, player 1`] = `
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -7155,6 +7182,9 @@ exports[`the routes of a sheet rolls POST, player: rolls POST, player 1`] = `
     "characterId": "char-1",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -14898,7 +14928,7 @@ exports[`the routes of the module events POST, declared too large: events POST, 
 
 exports[`the routes of the module events POST, heartbeat of another session: events POST, heartbeat of another session 1`] = `
 {
-  "body": "{"resend":"hello","features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":3,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1}}",
+  "body": "{"resend":"hello","features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":3,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1,"diceAsks":1}}",
   "calls": "[
  {
   "model": "campaign",
@@ -14944,7 +14974,7 @@ exports[`the routes of the module events POST, heartbeat of another session: eve
 
 exports[`the routes of the module events POST, heartbeat: events POST, heartbeat 1`] = `
 {
-  "body": "{"features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":3,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1}}",
+  "body": "{"features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":3,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1,"diceAsks":1}}",
   "calls": "[
  {
   "model": "campaign",

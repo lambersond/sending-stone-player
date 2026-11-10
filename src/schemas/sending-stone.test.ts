@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { envelopeSchema, parseGameEvent } from './sending-stone'
+import { iceKnifeAsk } from '@/mocks/dice-asks'
 import {
   castingSheet,
   characterSheet,
@@ -74,6 +75,7 @@ import {
 } from '@/mocks/sending-stone'
 import { slimQuillSheet } from '@/mocks/slim-sheet'
 import type {
+  GameEvent,
   SheetAction,
   SheetActivityFavorite,
   SheetSpell,
@@ -377,8 +379,15 @@ describe('schemas/sending-stone', () => {
     expect(parseGameEvent('bridge.hello', data)).toEqual({
       type: 'bridge.hello',
       // None of the saves the game asks for, as from a module before 0.13.0, nor groups, as
-      // before 0.30.0; nor companions, as before 0.36.0 (changed on purpose, round 0.36.0 §7.12).
-      data: { ...data, prompts: [], groups: [], companions: [] },
+      // before 0.30.0; nor companions, as before 0.36.0 (changed on purpose, round 0.36.0 §7.12);
+      // nor dice asks, as before 0.45.0 (changed on purpose, item 11).
+      data: {
+        ...data,
+        prompts: [],
+        diceAsks: [],
+        groups: [],
+        companions: [],
+      },
     })
   })
 
@@ -541,6 +550,8 @@ describe('schemas/sending-stone', () => {
       characters: [],
       combats: [],
       prompts: [],
+      // Changed on purpose (item 11): no dice asks, as before module 0.45.0.
+      diceAsks: [],
       groups: [],
       // Changed on purpose (round 0.36.0 §7.12).
       companions: [],
@@ -1222,6 +1233,8 @@ describe('schemas/sending-stone', () => {
         characters: [character],
         combats: [],
         prompts: [],
+        // Changed on purpose (item 11): no dice asks.
+        diceAsks: [],
         groups: [],
         companions: [],
       },
@@ -1256,6 +1269,8 @@ describe('schemas/sending-stone', () => {
           characters: [named],
           combats: [],
           prompts: [],
+          // Changed on purpose (item 11).
+          diceAsks: [],
           groups: [],
           // Changed on purpose (round 0.36.0 §7.12).
           companions: [],
@@ -1275,6 +1290,8 @@ describe('schemas/sending-stone', () => {
         characters: [character, { ...roster[1], sheet: null }],
         combats: [],
         prompts: [],
+        // Changed on purpose (item 11).
+        diceAsks: [],
         groups: [],
         // Changed on purpose (round 0.36.0 §7.12).
         companions: [],
@@ -6218,5 +6235,88 @@ describe('schemas/sending-stone, hit points set from the app, from module 0.44.0
     for (const junk of [{ value: '21', temp: 0, max: 30 }, { value: 21 }, 21]) {
       expect(hitPointsOf(junk)).toBeUndefined()
     }
+  })
+})
+
+/** A dice ask, as read from roll.dice.asked. */
+const asked = (ask: object) =>
+  parseGameEvent('roll.dice.asked', { ask }) as Extract<
+    GameEvent,
+    { type: 'roll.dice.asked' }
+  >
+
+describe('schemas/sending-stone, dice the game rolls later, from module 0.45.0', () => {
+  it('reads an ask as the module sends it', () => {
+    const ask = iceKnifeAsk({ of: 'thorin1', actorId: 'scene1-token1' })
+    expect(asked(ask).data.ask).toEqual(ask)
+  })
+
+  it('reads only what it shows leniently: an unknown purpose as other, a label cut, a type or flavor it can’t read left out', () => {
+    const { ask } = asked({
+      ...iceKnifeAsk(),
+      purpose: 'splash',
+      label: 'I'.repeat(250),
+      critical: 'yes',
+      rolls: [
+        {
+          formula: '2d6',
+          type: 'not a type',
+          flavor: 7,
+          terms: [{ faces: 6, number: 2 }],
+        },
+      ],
+    }).data
+    expect(ask).toMatchObject({
+      purpose: 'other',
+      label: 'I'.repeat(200),
+      critical: false,
+    })
+    expect(ask.rolls[0]).toEqual({
+      formula: '2d6',
+      terms: [{ faces: 6, number: 2 }],
+    })
+  })
+
+  it.each([
+    ['an id with other characters', { id: 'ask-1' }],
+    ['no command', { command: undefined }],
+    ['no rolls', { rolls: [] }],
+    [
+      'a d3, which a player types none of',
+      { rolls: [{ formula: '1d3', terms: [{ faces: 3, number: 1 }] }] },
+    ],
+    [
+      '41 of a die',
+      { rolls: [{ formula: '41d6', terms: [{ faces: 6, number: 41 }] }] },
+    ],
+    ['no time it waits until', { expiresAt: 'soon' }],
+  ])(
+    'refuses an ask with %s, as it couldn’t be answered as asked',
+    (_, fields) => {
+      expect(() => asked({ ...iceKnifeAsk(), ...fields })).toThrow()
+    },
+  )
+
+  it('reads the hello’s asks, dropping one it can’t read, and its flag', () => {
+    const hello = parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: {
+        rolls: { enabled: true, kinds: ['dice'], reason: null, diceAsks: true },
+      },
+      diceAsks: [iceKnifeAsk(), { ...iceKnifeAsk({ id: 'ask2' }), rolls: [] }],
+    }) as Extract<GameEvent, { type: 'bridge.hello' }>
+    expect(hello.data.diceAsks).toEqual([iceKnifeAsk()])
+    expect(hello.data.features?.rolls?.diceAsks).toBe(true)
+  })
+
+  it.each([
+    ['as the module says it', 'answered', 'answered'],
+    ['one too long as gone', 'x'.repeat(33), 'gone'],
+  ])('reads a closed ask’s reason %s', (_, reason, read) => {
+    expect(parseGameEvent('roll.dice.closed', { id: 'ask1', reason })).toEqual({
+      type: 'roll.dice.closed',
+      data: { id: 'ask1', reason: read },
+    })
   })
 })
