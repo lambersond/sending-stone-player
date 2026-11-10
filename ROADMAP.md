@@ -135,6 +135,28 @@ Left, in two batches. Pick from the list by number.
     passes only while no earlier test has left `journalOrder.findUnique` finding an order, as the
     order results' tests do (Jest's `clearMocks` keeps what a mock returns), so under
     `--randomize` it fails. The test should say that no order has the id, as its name does.
+16. **e2e's feedback race against module 0.42.0:** "and the app pills it 'Hit'" under Hide AC
+    (`e2e/feedback-e2e.mjs`), one of the known load races in `e2e/README.md`, failed under three
+    lanes' load in both of Batch 1's full passes, at the same check, and passed alone each time:
+    not a one-off, so its wait should be looked at rather than left to the retry.
+
+**After Batch 2: feedback from the table**
+
+17. **Long names overflow:** a very long character name on the campaign page pushes the second
+    pane to the right, squeezing its text until it overflows.
+    - The same long text on a character's Biography tab, in the journal's container, pushes the
+      rest around: buttons shrink instead of wrapping, leaving a lot of empty space.
+18. **Companions and sidekicks wherever they are:** a companion or sidekick has its own tab and can
+    be rolled with even when it isn't on its player's scene or level, with a warning that it isn't
+    there. Today the module lists a linked NPC wherever its tokens are, but an unlinked token and a
+    summoned creature only while they're visible on the active scene, and never looks at levels
+    (`scripts/creatures.mjs`).
+19. **Initiative only in an active combat:** no initiative order is shown when there's no active
+    combat.
+    - With two Sending Stone campaigns on one Foundry server, one campaign sees the other's combat
+      and initiative even when none of its characters are in it. A campaign should get only the
+      combats its characters are in (`PROTOCOL.md`, the hello's `combats`), so this is a bug to
+      find.
 
 Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
