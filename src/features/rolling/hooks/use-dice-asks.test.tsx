@@ -34,6 +34,8 @@ const kept = { kind: 'formula', id: 'dice-1' } as LocalFormula
 const logAnswer = jest.fn(() => kept)
 const sendAnswer = jest.fn()
 
+type Hook = ReturnType<typeof useDiceAsks>
+
 /** The hook, on a pane listing these asks. */
 const render = ({
   asks = [ask] as TableDiceAsk[],
@@ -105,6 +107,22 @@ describe('features/rolling/hooks/use-dice-asks (module 0.45.0)', () => {
     expect(enter).toHaveBeenCalledTimes(1)
     expect(result.current.offered).toEqual([])
   })
+
+  it.each([
+    ['typed in', (ask: TableDiceAsk, hook: Hook) => hook.typeIn(ask)],
+    ['let the game roll', (ask: TableDiceAsk, hook: Hook) => hook.leave(ask)],
+  ])(
+    'never asks again for one %s from the banner before the roll’s id came',
+    (_, take) => {
+      const asks = [ask]
+      const { result, rerender } = render({ asks, states: sentNoIdYet })
+      act(() => take(ask, result.current))
+      const asked = enter.mock.calls.length
+
+      rerender({ asks, states: sentHere })
+      expect(enter).toHaveBeenCalledTimes(asked)
+    },
+  )
 
   it('offers it on the banner while the player types in a text field, as the chat’s, and never opens it by itself after', () => {
     const chat = document.createElement('textarea')
