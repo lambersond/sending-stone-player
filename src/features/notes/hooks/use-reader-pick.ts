@@ -23,8 +23,12 @@ export function useReaderPick({
   draft?: NoteDraft
   setPick: (pick: NotePick) => void
 }) {
-  // The reading order as last drawn, to find what follows a note that has left the view.
-  const drawn = useRef<NoteEntryView[]>([])
+  // The reading order as last drawn, to find what follows a note, or a Tidy entry, that has left
+  // the view.
+  const drawn = useRef<Parameters<typeof showing>[0]['before']>({
+    order: [],
+    tidy: [],
+  })
   // eslint-disable-next-line react-hooks/refs -- the order as the last commit drew it, by design
   const before = drawn.current
   const shownNow = groups
@@ -33,7 +37,7 @@ export function useReaderPick({
   const note = shownNow?.note
   const group = shownNow?.group
   useEffect(() => {
-    if (groups) drawn.current = order
+    if (groups) drawn.current = { order, tidy }
   })
   // What the reader settled on is kept, so a card mounted again shows the same: the most
   // recently changed note it opened on, or what follows a note gone since.

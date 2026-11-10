@@ -1,4 +1,8 @@
-import type { JournalGroup, NotePick } from '@/features/notes/types'
+import type {
+  JournalGroup,
+  NotePick,
+  ReadingStep,
+} from '@/features/notes/types'
 import type { NoteChapterView, NoteEntryView } from '@/types/notes'
 import type { SeatRole } from '@/types/seats'
 import type { ReactNode } from 'react'
@@ -9,6 +13,8 @@ export type NotePaneProps = {
   group: JournalGroup
   /** Every note of the book in reading order, whatever is searched. */
   order: NoteEntryView[]
+  /** What follows its last note in reading order (module 0.45.0): the first Tidy entry. */
+  after?: ReadingStep
   /** The book's chapters, oldest first, to move it to one. */
   chapters: NoteChapterView[]
   role: SeatRole

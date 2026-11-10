@@ -6,7 +6,11 @@ import type { TidyReaderProps } from './types'
  * What the reader shows of a character's Tidy 5e Sheets entries (module 0.45.0): the one picked,
  * or their page.
  */
-export function TidyReader({ entry, ...section }: Readonly<TidyReaderProps>) {
+export function TidyReader({
+  entry,
+  before,
+  ...section
+}: Readonly<TidyReaderProps>) {
   if (!entry) return <TidySectionPane {...section} />
   return (
     <TidyPane
@@ -16,6 +20,7 @@ export function TidyReader({ entry, ...section }: Readonly<TidyReaderProps>) {
       tidy={section.tidy}
       name={section.name}
       form={section.form}
+      before={before}
       contents={section.contents}
       onPick={section.onPick}
     />

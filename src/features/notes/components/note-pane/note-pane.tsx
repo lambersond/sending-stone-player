@@ -26,6 +26,7 @@ import {
 } from '@/features/notes/constants'
 import { mayDelete, mayEdit, mayMove } from '@/features/notes/utils/permissions'
 import type { NotePaneProps } from './types'
+import type { ReadingStep } from '@/features/notes/types'
 
 const ICON_BUTTON = `${JOURNAL_ICON_BUTTON} disabled:pointer-events-none disabled:opacity-40`
 const NAV_CARD =
@@ -35,12 +36,14 @@ const NAV_CARD =
  * One note, read (round 0.35.0 §8.8): its chapter's number and its tools in the bar, Move, Edit
  * and Delete where the seat may, then where it is among the book's notes and the arrows to the
  * one before and after; its chapter's title over its own, who wrote it and who changed it last,
- * where it stands, and its text, at the reader's size; and Previous and Next, pinned below.
+ * where it stands, and its text, at the reader's size; and Previous and Next, pinned below. Past
+ * the book's last note, Next goes on to what follows it, the character's Tidy 5e Sheets entries.
  */
 export function NotePane({
   entry,
   group,
   order,
+  after,
   chapters,
   role,
   canAdd,
@@ -57,7 +60,10 @@ export function NotePane({
   const titleId = useId()
   const at = order.findIndex(({ id }) => id === entry.id)
   const previous = at > 0 ? order[at - 1] : undefined
-  const next = at >= 0 ? order[at + 1] : undefined
+  const nextNote = at >= 0 ? order[at + 1] : undefined
+  const next: ReadingStep | undefined = nextNote
+    ? { pick: { note: nextNote.id }, title: nextNote.title }
+    : after
   const moves = mayMove(entry, canAdd, chapters)
   const edits = mayEdit(entry, canAdd)
   const deletes = mayDelete(entry, canAdd)
@@ -138,7 +144,7 @@ export function NotePane({
           aria-label='Next note'
           title={next && `Next: ${next.title}`}
           disabled={!next}
-          onClick={() => next && onPick({ note: next.id }, 'next')}
+          onClick={() => next && onPick(next.pick, 'next')}
           className={ICON_BUTTON}
         >
           <ChevronRight aria-hidden className='size-5' />
@@ -169,7 +175,7 @@ export function NotePane({
       {next ? (
         <button
           type='button'
-          onClick={() => onPick({ note: next.id })}
+          onClick={() => onPick(next.pick)}
           className={clsx(NAV_CARD, 'items-end text-right')}
         >
           <span className='inline-flex items-center gap-1 text-xs text-text-secondary'>

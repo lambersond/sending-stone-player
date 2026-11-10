@@ -14,28 +14,34 @@ import {
   tidyWhereWords,
 } from '@/features/notes/utils/note-words'
 import type { TidyPaneProps } from './types'
+import type { ReadingStep } from '@/features/notes/types'
 
 const ICON_BUTTON = `${JOURNAL_ICON_BUTTON} disabled:pointer-events-none disabled:opacity-40`
 const LINE = 'inline-flex items-start gap-1.5 text-sm text-text-secondary'
 
 /**
  * One of a character's Tidy 5e Sheets entries, read (module 0.45.0): where it is among them and the
- * arrows to the one before and after in the bar; their page's title over its own, its chip, where
- * it comes from and when the app first saw it and last saw it change, why it can't be changed now
- * or where it can, and its text. Read only: no Edit, Delete or Move, as it's changed in Foundry.
+ * arrows to the one before and after in the bar, before the first, the book's last note; their
+ * page's title over its own, its chip, where it comes from and when the app first saw it and last
+ * saw it change, why it can't be changed now or where it can, and its text. Read only: no Edit,
+ * Delete or Move, as it's changed in Foundry.
  */
 export function TidyPane({
   entry,
   tidy,
   name,
   form,
+  before,
   contents,
   onPick,
 }: Readonly<TidyPaneProps>) {
   const titleId = useId()
   const { entries } = tidy
   const at = entries.findIndex(({ key }) => key === entry.key)
-  const previous = at > 0 ? entries[at - 1] : undefined
+  const previousEntry = at > 0 ? entries[at - 1] : undefined
+  const previous: ReadingStep | undefined = previousEntry
+    ? { pick: { tidy: previousEntry.key }, title: previousEntry.title }
+    : before
   const next = at >= 0 ? entries[at + 1] : undefined
   const where = tidyWhereWords(tidy, entry, name)
   const gone = entry.from === 'classic' && tidy.classicGone
@@ -52,7 +58,7 @@ export function TidyPane({
         aria-label='Previous note'
         title={previous && `Previous: ${previous.title}`}
         disabled={!previous}
-        onClick={() => previous && onPick({ tidy: previous.key }, 'previous')}
+        onClick={() => previous && onPick(previous.pick, 'previous')}
         className={ICON_BUTTON}
       >
         <ChevronLeft aria-hidden className='size-5' />

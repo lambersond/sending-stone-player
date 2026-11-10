@@ -5,6 +5,7 @@ import type {
   NoteDraft,
   NotePick,
   Ordering,
+  ReadingStep,
 } from '@/features/notes/types'
 import type { NoteEntryView, NotesTidyView, NoteTidyView } from '@/types/notes'
 
@@ -25,8 +26,9 @@ type Shown = {
  * left the view, the next in reading order as it was, else the one before, else its group's page;
  * with nothing picked, the draft's note where the draft is a change to one, else the most recently
  * changed note, else the last group listed. `keep` where that's to be kept as the pick. From module
- * 0.45.0, likewise a Tidy 5e Sheets entry picked, or their page, to which one deleted in Foundry
- * gives way while any is left; and with nothing else to show, the first of them.
+ * 0.45.0, likewise a Tidy 5e Sheets entry picked, or their page; one deleted in Foundry gives way
+ * as a note does, to the next as they were, else the one before, else their page while any is
+ * left; and with nothing else to show, the first of them.
  */
 export function showing({
   pick,
@@ -39,7 +41,8 @@ export function showing({
   pick?: NotePick
   groups: JournalGroup[]
   order: NoteEntryView[]
-  before: NoteEntryView[]
+  /** The reading order as last drawn: the notes, and the Tidy entries. */
+  before: { order: NoteEntryView[]; tidy: NoteTidyView[] }
   draft?: NoteDraft
   /** The character's Tidy entries, in Tidy's order. */
   tidy?: NoteTidyView[]
@@ -66,14 +69,16 @@ export function showing({
     if (picked) return picked
     // A note picked that has left the view gives way to what was near it.
     if ('note' in pick) {
-      const instead = near(pick.note, order, before, groups)
+      const instead = near(pick.note, order, before.order, groups)
       if (instead) return at(instead, true)
       // Never drawn, as a note saved here whose read hasn't come: it's shown once it comes.
       const first = fallback(groups, order, tidy, draft)
       return first && at(first, false)
     }
-    // A Tidy entry deleted in Foundry gives way to their page, while any is left.
-    if ('tidy' in pick && tidy.length > 0) return at({ tidy: null }, true)
+    // A Tidy entry deleted in Foundry gives way to what was near it, while any is left.
+    if ('tidy' in pick && tidy.length > 0) {
+      return at(nearTidy(pick.tidy, tidy, before.tidy), true)
+    }
   }
   const first = fallback(groups, order, tidy, draft)
   return first && at(first, true)
@@ -129,6 +134,39 @@ function near(
     group: groups.some(group => group.chapterId === chapterId)
       ? chapterId
       : null,
+  }
+}
+
+/** What follows a Tidy entry gone: the next as it was, the one before, or their page. */
+function nearTidy(
+  key: string | null,
+  tidy: NoteTidyView[],
+  before: NoteTidyView[],
+): NotePick {
+  const at = before.findIndex(entry => entry.key === key)
+  if (at === -1) return { tidy: null }
+  const here = new Set(tidy.map(entry => entry.key))
+  const instead =
+    before.slice(at + 1).find(entry => here.has(entry.key)) ??
+    before.slice(0, at).findLast(entry => here.has(entry.key))
+  return { tidy: instead?.key ?? null }
+}
+
+/**
+ * Where the journal's reading order crosses from the book's notes to the character's Tidy 5e
+ * Sheets entries (module 0.45.0): what follows its last note, the first entry; and what comes
+ * before the first entry, its last note. Neither where either part is empty.
+ */
+export function tidyCrossing(
+  order: NoteEntryView[],
+  tidy: NoteTidyView[],
+): { after?: ReadingStep; before?: ReadingStep } {
+  const last = order.at(-1)
+  const first = tidy[0]
+  if (!last || !first) return {}
+  return {
+    after: { pick: { tidy: first.key }, title: first.title },
+    before: { pick: { note: last.id }, title: last.title },
   }
 }
 

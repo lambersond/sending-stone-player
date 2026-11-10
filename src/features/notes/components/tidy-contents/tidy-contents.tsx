@@ -10,8 +10,9 @@ import type { NotesTidyView } from '@/types/notes'
 
 /**
  * A character's Tidy 5e Sheets entries in the journal's contents (module 0.45.0), last, after every
- * chapter: their title, which opens their page, and each entry with its chip, in Tidy's order;
- * searching, only those it finds. Read only: nothing here adds, moves or reorders them.
+ * chapter: their title, which opens their page, and each entry with its chip, in Tidy's order,
+ * named by its title and described by its chip, as a note is by its marks; searching, only those
+ * it finds. Read only: nothing here adds, moves or reorders them.
  */
 export function TidyContents({
   tidy,
@@ -26,6 +27,7 @@ export function TidyContents({
   onPick: (pick: NotePick) => void
 }>) {
   const countId = useId()
+  const chipsId = useId()
   const entries = hits
     ? tidy.entries.filter(({ key }) => hits.has(key))
     : tidy.entries
@@ -59,11 +61,12 @@ export function TidyContents({
         </span>
       </button>
       <ul className='flex flex-col'>
-        {entries.map(entry => (
+        {entries.map((entry, at) => (
           <li key={entry.key}>
             <button
               type='button'
               aria-label={entry.title}
+              aria-describedby={`${chipsId}-${at}`}
               aria-current={onTidy === entry.key ? 'true' : undefined}
               onClick={() => onPick({ tidy: entry.key })}
               className={clsx(
@@ -76,7 +79,7 @@ export function TidyContents({
               <span title={entry.title} className='min-w-0 flex-1 truncate'>
                 {entry.title}
               </span>
-              <TidyChip from={entry.from} />
+              <TidyChip from={entry.from} id={`${chipsId}-${at}`} />
             </button>
           </li>
         ))}

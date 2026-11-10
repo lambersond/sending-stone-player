@@ -798,6 +798,15 @@ describe('components/notes/journal-modal', () => {
         'Ravenhill',
         'Quests',
       ])
+      // Each named by its title alone, and described by its chip's words.
+      for (const [name, chip] of [
+        ['Ravenhill', 'Tidy 5e'],
+        ['Quests', 'Tidy 5e Classic'],
+      ]) {
+        expect(
+          within(contents(dialog)).getByRole('button', { name }),
+        ).toHaveAccessibleDescription(chip)
+      }
       await user.click(
         within(contents(dialog)).getByRole('button', { name: 'Quests' }),
       )
@@ -863,7 +872,7 @@ describe('components/notes/journal-modal', () => {
       expect(nav.queryByText(/No notes match/)).toBeNull()
     })
 
-    it('gives way to their page as the entry shown is deleted in Foundry', async () => {
+    it('gives way to the next entry as the one shown is deleted in Foundry, as a note does', async () => {
       jest.useFakeTimers()
       const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
       const server = serveNotes({ [API]: book({ tidy: tidyJournal() }) })
@@ -878,7 +887,28 @@ describe('components/notes/journal-modal', () => {
       await act(async () => {
         await jest.advanceTimersByTimeAsync(POLL_INTERVAL)
       })
-      expect(reader(dialog)).toHaveTextContent('From Tidy 5e Sheets')
+      expect(reader(dialog)).toHaveTextContent('Quests')
+    })
+
+    it('reads on from the book’s last note to the first entry, and back', async () => {
+      const user = userEvent.setup()
+      serveNotes({ [API]: book({ tidy: tidyJournal() }) })
+      renderCard()
+      const dialog = await openJournal(user)
+      await user.click(
+        within(contents(dialog)).getByRole('button', { name: 'Wolves' }),
+      )
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Next note' }),
+      )
+      expect(reader(dialog)).toHaveTextContent('Ravenhill')
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Previous note' }),
+      )
+      expect(reader(dialog)).toHaveTextContent('Wolves')
+      expect(
+        within(dialog).getByRole('navigation', { name: 'Other notes' }),
+      ).toHaveTextContent('NextRavenhill')
     })
 
     it('shows nothing of them from a module before 0.45.0', async () => {

@@ -68,6 +68,7 @@ import {
   draftNoteOf,
   hitEntries,
   lockedBy,
+  tidyCrossing,
   tidyShown,
 } from '@/features/notes/utils/reader'
 import { useModalDialog } from '@/hooks/use-modal-dialog'
@@ -216,8 +217,10 @@ function Journal({
     draft,
     setPick,
   })
-  // The Tidy entries, where the reader shows one of them, or their page.
+  // The Tidy entries, where the reader shows one of them, or their page; and where the reading
+  // order crosses to them from the book's notes, and back.
   const reading = tidyShown(shownNow, tidy)
+  const crossing = tidyCrossing(order, tidyEntries)
 
   const chapters = view?.chapters ?? []
   const canAdd = view?.canAdd === true
@@ -456,6 +459,7 @@ function Journal({
         hits={tidyHits}
         name={name}
         form={form}
+        before={crossing.before}
         contents={contentsButton}
         onPick={pickFrom}
       />
@@ -469,6 +473,7 @@ function Journal({
         entry={note}
         group={held}
         order={order}
+        after={crossing.after}
         chapters={chapters}
         role={role}
         canAdd={canAdd}

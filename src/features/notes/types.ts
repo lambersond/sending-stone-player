@@ -65,6 +65,13 @@ export type NotePick =
   { note: string } | { group: string | null } | { tidy: string | null }
 
 /**
+ * Where the reader steps across the journal's reading order, past the end of one part of it: the
+ * book's notes, then the character's Tidy 5e Sheets entries (module 0.45.0). What it shows, and
+ * its title, for the arrow and the link to it.
+ */
+export type ReadingStep = { pick: NotePick; title: string }
+
+/**
  * What a page holds of one book: what it last saw of it, what's being written in it, and whether
  * its journal is open, with what its reader shows (round 0.35.0 §8.2).
  */
