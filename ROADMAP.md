@@ -112,14 +112,14 @@ Left, in two batches. Pick from the list by number.
 11. **Typed dice for every roll an item makes:** when typing in dice, the dice an item rolls after
     its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry,
     as Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
-    homebrew and custom ones included, never a handler per spell. (Planned, and being built now
-    with v1.x item 8 as module 0.45.0, for dnd5e 5 and its Midi-QOL line; dnd5e 6 later.
-    Decided: every roll of the item's run that the typed dice don't cover is paused and asked for,
-    Midi-QOL's bonus damage of that item included (Sneak Attack, Hunter's Mark, homebrew); a die
-    that explodes or is rerolled is asked for too, one at a time; after 60 seconds the computer
-    rolls, and the Gamemaster's Foundry shows the wait with a "Roll it now" button; the dice dialog
-    opens by itself on the device the roll came from, a banner on the player's others; no new
-    switch; a player rolling the app's 3D dice keeps Foundry's later dice.)
+    homebrew and custom ones included, never a handler per spell. (Still being built for module
+    0.45.0, for dnd5e 5 and its Midi-QOL line; dnd5e 6 later. Not landed yet: v1.x item 8, built
+    beside it, landed first. Decided: every roll of the item's run that the typed dice don't cover
+    is paused and asked for, Midi-QOL's bonus damage of that item included (Sneak Attack, Hunter's
+    Mark, homebrew); a die that explodes or is rerolled is asked for too, one at a time; after 60
+    seconds the computer rolls, and the Gamemaster's Foundry shows the wait with a "Roll it now"
+    button; the dice dialog opens by itself on the device the roll came from, a banner on the
+    player's others; no new switch; a player rolling the app's 3D dice keeps Foundry's later dice.)
 12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
     dice), what each long press offers (damage, attack and other rolls), the settings, how manual
     dice work (item 11 included), and that the Gamemaster applies short and long rests. (Planned;
@@ -174,6 +174,23 @@ Left, in two batches. Pick from the list by number.
     until the campaign itself is deleted. They should be pruned once answered or old, as the dishes
     and notes are.
 
+**Found while building item 11 and the Tidy journal**
+
+21. **The hello's order told wrongly:** the module's `PROTOCOL.md`, after the hello's table, reads
+    as if each companion the hello lists follows the books in its `companion.updated`, but the
+    module sends the companions before the books (`helloDelivered` in `scripts/character-sync.mjs`
+    calls `companionsDelivered` before `sendBooks`). Nothing in the app depends on that order; the
+    paragraph should say what the module does.
+22. **A use's cost check asks the Gamemaster for dice:** before an item is used from the app, the
+    module works out what the use would spend with dnd5e's `_prepareUsageUpdates` and throws the
+    result away (`prepareUse` in `scripts/command-uses.mjs`, and twice in
+    `scripts/command-alone.mjs` for damage on its own). A cost that is a dice formula, such as
+    `1d4` charges, is rolled there with the Gamemaster's dice settings, so under Manual Dice Foundry
+    asks the Gamemaster for a roll nobody uses, once per use from the app, typed or not; one that
+    explodes, such as `1d4x`, asks again for each highest face typed. The check's rolls should be
+    made without asking anyone (`allowInteractive: false`); item 11's later dice need the same, as
+    a check made while another player's use waits for its own cost could otherwise take its place.
+
 Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
 
@@ -203,18 +220,24 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
    case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
    offline as it connects.
-8. **Tidy 5e Sheets' journal** (to be planned): the character-specific journal notes Tidy 5e
-   Sheets adds to a character, which aren't part of dnd5e's own character data (its
+8. **Tidy 5e Sheets' journal:** the character-specific journal notes Tidy 5e Sheets adds to a
+   character, which aren't part of dnd5e's own character data (its
    [`documentJournal` flag](https://kgar.github.io/foundry-vtt-tidy-5e-sheets/classes/TidyFlags.html#documentjournal)),
    merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
    with in the campaign's settings, as the others are. Where entries can be deconflicted by when
    each was created, the app shows a chip on the journal pages that come from Tidy 5e Sheets.
-   (Planned, and being built now with v0.44 item 11 as module 0.45.0. Tidy keeps no times for its
-   entries. Decided: read only in the app, edited in Foundry; shown side by side, in a "From Tidy
-   5e Sheets" section at the end of the character's journal, in Tidy's order, each with its chip
-   and the date the app first saw it and last saw it change; the Classic sheet's five boxes too,
-   chipped "Tidy 5e Classic"; secrets left out where no player owns the character, as in the app's
-   own journal; still shown, read only, while Tidy is off or uninstalled, with a line saying so.)
+   (Done, module 0.45.0, for dnd5e 5 with Tidy 13, and for dnd5e 6 with Tidy 14, which keeps the
+   same flags; tested against stand-ins, not yet at a table. Tidy keeps no times for its entries,
+   so: read only in the app, edited in Foundry; shown side by side, in a "From Tidy 5e Sheets"
+   section at the end of the character's journal, in Tidy's order, each with its chip and the date
+   the app first saw it and last saw it change; the Classic sheet's five boxes too, chipped "Tidy
+   5e Classic"; secrets left out where no player owns the character, as in the app's own journal;
+   still shown, read only, while Tidy is off or uninstalled, with a line saying so. To check at
+   the table, with dnd5e 5.3.3 and Tidy 13.10.5: an entry added, changed, dragged and deleted on
+   the Journal tab reaches the app within seconds, a first one dated "First seen"; the Classic
+   sheet's boxes; secrets on a character no player owns; Tidy turned off, then uninstalled,
+   leaving the entries readable and the campaign card saying "(not enabled)"; and an entry written
+   on a Wild Shape form's Journal tab lost when the form ends, as the app's line says.)
 9. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
    player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
