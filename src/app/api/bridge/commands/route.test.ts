@@ -7,12 +7,14 @@ import { claimDishes } from '@/db/cookbook'
 import { claimNoteWrites } from '@/db/note-sync'
 import {
   claimRollRequests,
+  findClaimCampaign,
   markBridgePolled,
   openActorIds,
 } from '@/db/roll-requests'
 import { fireberryBoon } from '@/mocks/cookbook'
 import { mockNoteCommand } from '@/mocks/sending-stone'
 import { guardNoDb } from '@/utils/test-utils-node'
+import type { ClaimCampaign } from '@/db/types'
 import type { DishCommand } from '@/types/cookbook'
 import type { RollCommand } from '@/utils/requests/types'
 
@@ -23,6 +25,7 @@ jest.mock('@/db/cookbook', () => ({ claimDishes: jest.fn() }))
 jest.mock('@/db/note-sync', () => ({ claimNoteWrites: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({
   claimRollRequests: jest.fn(),
+  findClaimCampaign: jest.fn(),
   markBridgePolled: jest.fn(),
   openActorIds: jest.fn(),
 }))
@@ -31,6 +34,8 @@ const URL = 'https://player.example/api/bridge/commands'
 const GAME = 'https://my-game.forge-vtt.com'
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
 const poll = { protocol: 2, session: 's1', campaign }
+/** The campaign as a check reads it, once for all its claims, which make what they will of it. */
+const read = { helloSession: 's1' } as ClaimCampaign
 
 const command: RollCommand = {
   id: 'req-1',
@@ -121,6 +126,7 @@ describe('app/api/bridge/commands', () => {
       .mocked(findEventCampaign)
       .mockResolvedValue({ id: 'c1', helloSession: 's1' })
     given(true, false)
+    jest.mocked(findClaimCampaign).mockResolvedValue(read)
     jest.mocked(claimRollRequests).mockResolvedValue([])
     jest.mocked(claimNoteWrites).mockResolvedValue([])
     jest.mocked(claimDishes).mockResolvedValue([])
@@ -159,7 +165,7 @@ describe('app/api/bridge/commands', () => {
     })
     expect(findEventCampaign).toHaveBeenCalledWith(GAME, campaign, 'hunter2')
     expect(markBridgePolled).toHaveBeenCalledWith('c1')
-    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
     expect(openActorIds).toHaveBeenCalledWith('c1')
   })
 
@@ -187,7 +193,7 @@ describe('app/api/bridge/commands', () => {
       wait: 10_000,
       open: ['thorin'],
     })
-    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
 
     jest.useFakeTimers()
     given(false, true, true)
@@ -228,7 +234,7 @@ describe('app/api/bridge/commands', () => {
       wait: 10_000,
       open: ['thorin'],
     })
-    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
 
     jest.useFakeTimers()
     given(false, true, false, true)
@@ -269,7 +275,7 @@ describe('app/api/bridge/commands', () => {
       wait: 10_000,
       open: ['thorin'],
     })
-    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
 
     jest.useFakeTimers()
     given(false, true, false, false, false, true)
@@ -310,7 +316,7 @@ describe('app/api/bridge/commands', () => {
       wait: 10_000,
       open: ['thorin'],
     })
-    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
     expect(claimDishes).not.toHaveBeenCalled()
 
     jest.useFakeTimers()
@@ -352,7 +358,7 @@ describe('app/api/bridge/commands', () => {
       wait: 10_000,
       open: ['thorin'],
     })
-    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
     expect(claimDishes).not.toHaveBeenCalled()
 
     jest.useFakeTimers()
@@ -395,7 +401,7 @@ describe('app/api/bridge/commands', () => {
       wait: 10_000,
       open: ['thorin'],
     })
-    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1')
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
   })
 
   describe('journal notes, from module 0.34.0', () => {
@@ -412,7 +418,7 @@ describe('app/api/bridge/commands', () => {
         wait: 10_000,
         open: ['thorin'],
       })
-      expect(claimNoteWrites).toHaveBeenCalledWith('c1', 's1')
+      expect(claimNoteWrites).toHaveBeenCalledWith('c1', 's1', read)
 
       jest.useFakeTimers()
       given(false, true, false, false, true)
@@ -494,7 +500,7 @@ describe('app/api/bridge/commands', () => {
         wait: 10_000,
         open: ['thorin'],
       })
-      expect(claimDishes).toHaveBeenCalledWith('c1', 's1')
+      expect(claimDishes).toHaveBeenCalledWith('c1', 's1', read)
 
       jest.useFakeTimers()
       given(false, true, false, false, false, false, true)
@@ -514,9 +520,13 @@ describe('app/api/bridge/commands', () => {
       })
     })
 
-    it('claims dishes first, before notes and rolls, and lists them last', async () => {
+    it('reads the campaign once, then claims dishes first, before notes and rolls, and lists them last', async () => {
       given(true, false, false, false, true, false, true)
       const claimed: string[] = []
+      jest.mocked(findClaimCampaign).mockImplementation(async () => {
+        claimed.push('campaign')
+        return read
+      })
       jest.mocked(claimDishes).mockImplementation(async () => {
         claimed.push('dishes')
         return [dish]
@@ -537,7 +547,11 @@ describe('app/api/bridge/commands', () => {
         wait: 10_000,
         open: ['thorin'],
       })
-      expect(claimed).toEqual(['dishes', 'notes', 'rolls'])
+      expect(claimed).toEqual(['campaign', 'dishes', 'notes', 'rolls'])
+      expect(findClaimCampaign).toHaveBeenCalledWith('c1')
+      for (const claim of [claimDishes, claimNoteWrites, claimRollRequests]) {
+        expect(claim).toHaveBeenCalledWith('c1', 's1', read)
+      }
     })
 
     it('claims no dishes while the game takes none', async () => {
@@ -659,6 +673,8 @@ describe('app/api/bridge/commands', () => {
         open: ['thorin'],
       })
       expect(claimRollRequests).toHaveBeenCalledTimes(21)
+      // The campaign is read once a check, for all its claims.
+      expect(findClaimCampaign).toHaveBeenCalledTimes(21)
       // Which characters are open is read again each time it's checked, as rolls are.
       expect(openActorIds).toHaveBeenCalledTimes(21)
     })
@@ -812,6 +828,7 @@ describe('app/api/bridge/commands', () => {
   it.each([
     ['the campaign cannot be looked up', findEventCampaign],
     ['the fetch cannot be noted', markBridgePolled],
+    ['the campaign cannot be read for its claims', findClaimCampaign],
     ['the rolls cannot be handed over', claimRollRequests],
   ])('asks for a retry when %s', async (_, step) => {
     const consoleError = jest

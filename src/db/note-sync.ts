@@ -13,7 +13,7 @@ import {
   placesOf,
 } from '@/utils/notes/commands'
 import { listedIn } from '@/utils/roster'
-import type { JournalDrawings, Tx } from './types'
+import type { ClaimCampaign, JournalDrawings, Tx } from './types'
 import type { NoteBookKind, NoteCommand } from '@/types/notes'
 import type {
   CommandResult,
@@ -351,10 +351,16 @@ type Due = {
  * changes, oldest first across both (round 0.35.0 §7.10), so that a note an order places, made
  * before the order last changed, reaches Foundry first.
  * @param session - The module session that fetched them.
+ * @param campaign - The campaign as the fetch's check read it, once for all its claims; null where
+ * it's gone.
  */
 export async function claimNoteWrites(
   campaignId: string,
   session: string,
+  campaign: Pick<
+    ClaimCampaign,
+    'helloSession' | 'notesEnabled' | 'noteFeatures' | 'ownerId'
+  > | null,
 ): Promise<NoteCommand[]> {
   const now = Date.now()
   const stale = {
@@ -364,15 +370,6 @@ export async function claimNoteWrites(
   }
   await prisma.journalWrite.deleteMany({ where: stale })
   await prisma.journalOrder.deleteMany({ where: stale })
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: campaignId },
-    select: {
-      helloSession: true,
-      notesEnabled: true,
-      noteFeatures: true,
-      ownerId: true,
-    },
-  })
   if (
     !campaign ||
     campaign.helloSession !== session ||

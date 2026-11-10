@@ -202,16 +202,23 @@ const after = (row: JournalWrite) =>
     seq: row.seq + 1,
   }) as JournalWrite
 
+/** The campaign as the module's fetch reads it: this session's hello, taking notes and orders. */
+const fetching = {
+  helloSession: 's1',
+  ownerId: 'gm-1',
+  notesEnabled: true,
+  noteFeatures: ['orders'],
+}
+
 /** A change's row handed over, as the module fetches it from a party's book. */
 const handed = async (row: JournalWrite) => {
-  heldCampaign({ helloSession: 's1', ownerId: 'gm-1' })
   prismaMock.journalOrder.findMany.mockResolvedValue([])
   prismaMock.journalWrite.findMany
     .mockResolvedValueOnce([row] as any)
     .mockResolvedValueOnce([
       { ...row, book: { kind: 'party', actorId: 'company' } },
     ] as any)
-  const [command] = await claimNoteWrites('c1', 's1')
+  const [command] = await claimNoteWrites('c1', 's1', fetching)
   return command
 }
 
@@ -2739,7 +2746,6 @@ describe('db/notes', () => {
           expect(queuedAt).toEqual(new Date(NOW))
 
           // Handed over oldest first: the note, then the order that places it.
-          heldCampaign({ helloSession: 's1', ownerId: 'gm-1' })
           const refolded = order({ seq: 2, ids: [NEW, D, C, B, A], queuedAt })
           prismaMock.journalWrite.findMany
             .mockResolvedValueOnce([note] as any)
@@ -2751,7 +2757,7 @@ describe('db/notes', () => {
             .mockResolvedValueOnce([
               { ...refolded, book: { kind: 'party', actorId: 'company' } },
             ] as any)
-          const commands = await claimNoteWrites('c1', 's1')
+          const commands = await claimNoteWrites('c1', 's1', fetching)
           expect(commands.map(({ note }) => note.op)).toEqual([
             'create',
             'order',

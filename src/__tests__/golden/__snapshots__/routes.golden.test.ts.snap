@@ -8979,8 +8979,18 @@ exports[`the routes of the module commands POST, cold: commands POST, cold 1`] =
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -9040,21 +9050,6 @@ exports[`the routes of the module commands POST, cold: commands POST, cold 1`] =
     "updatedAt": {
      "lt": "2026-10-04T18:30:00.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -9145,26 +9140,6 @@ exports[`the routes of the module commands POST, cold: commands POST, cold 1`] =
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -9314,8 +9289,18 @@ exports[`the routes of the module commands POST, held, a roll waiting: commands 
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -9375,21 +9360,6 @@ exports[`the routes of the module commands POST, held, a roll waiting: commands 
     "updatedAt": {
      "lt": "2026-10-04T18:30:00.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -9480,26 +9450,6 @@ exports[`the routes of the module commands POST, held, a roll waiting: commands 
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -9698,8 +9648,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -9759,21 +9719,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:00.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -9864,26 +9809,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -9973,8 +9898,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10034,21 +9969,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:01.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -10139,26 +10059,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -10248,8 +10148,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10309,21 +10219,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:02.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -10414,26 +10309,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -10523,8 +10398,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10584,21 +10469,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:03.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -10689,26 +10559,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -10798,8 +10648,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -10859,21 +10719,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:04.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -10964,26 +10809,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -11073,8 +10898,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -11134,21 +10969,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:05.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -11239,26 +11059,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -11348,8 +11148,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -11409,21 +11219,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:06.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -11514,26 +11309,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -11623,8 +11398,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -11684,21 +11469,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:07.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -11789,26 +11559,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -11898,8 +11648,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -11959,21 +11719,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:08.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -12064,26 +11809,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -12173,8 +11898,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -12234,21 +11969,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:09.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -12339,26 +12059,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -12448,8 +12148,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -12509,21 +12219,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:10.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -12614,26 +12309,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -12723,8 +12398,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -12784,21 +12469,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:11.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -12889,26 +12559,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -12998,8 +12648,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13059,21 +12719,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:12.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -13164,26 +12809,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -13273,8 +12898,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13334,21 +12969,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:13.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -13439,26 +13059,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -13548,8 +13148,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13609,21 +13219,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:14.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -13714,26 +13309,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -13823,8 +13398,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -13884,21 +13469,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:15.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -13989,26 +13559,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -14098,8 +13648,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -14159,21 +13719,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:16.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -14264,26 +13809,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -14373,8 +13898,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -14434,21 +13969,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:17.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -14539,26 +14059,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -14648,8 +14148,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -14709,21 +14219,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:18.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -14814,26 +14309,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -14923,8 +14398,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -14984,21 +14469,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:19.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -15089,26 +14559,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },
@@ -15198,8 +14648,18 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
    },
    "select": {
     "helloSession": true,
+    "ownerId": true,
     "dishesEnabled": true,
-    "dishVersions": true
+    "dishVersions": true,
+    "notesEnabled": true,
+    "noteFeatures": true,
+    "rollFeatures": true,
+    "transfersEnabled": true,
+    "removalsEnabled": true,
+    "favoritesEnabled": true,
+    "effectsEnabled": true,
+    "wildShapeEnabled": true,
+    "hitPointsEnabled": true
    }
   }
  },
@@ -15259,21 +14719,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "updatedAt": {
      "lt": "2026-10-04T18:30:20.000Z"
     }
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "notesEnabled": true,
-    "noteFeatures": true,
-    "ownerId": true
    }
   }
  },
@@ -15364,26 +14809,6 @@ exports[`the routes of the module commands POST, held, nothing comes: commands P
     "id": true,
     "seq": true,
     "queuedAt": true
-   }
-  }
- },
- {
-  "model": "campaign",
-  "method": "findUnique",
-  "args": {
-   "where": {
-    "id": "c1"
-   },
-   "select": {
-    "helloSession": true,
-    "rollFeatures": true,
-    "ownerId": true,
-    "transfersEnabled": true,
-    "removalsEnabled": true,
-    "favoritesEnabled": true,
-    "effectsEnabled": true,
-    "wildShapeEnabled": true,
-    "hitPointsEnabled": true
    }
   }
  },

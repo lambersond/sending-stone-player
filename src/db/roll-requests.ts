@@ -37,6 +37,7 @@ import { toRollRequestView } from '@/utils/requests/views'
 import type {
   BridgePolled,
   BridgeSwitch,
+  ClaimCampaign,
   CommandCreator,
   RollSeat,
 } from '@/db/types'
@@ -446,26 +447,21 @@ export async function getRollRequestView(
  * likewise, a player's only, to the session whose hello said its campaign lets them; and from
  * module 0.44.0 hit points set likewise, a companion's among them.
  * @param session - The module session that fetched them.
+ * @param campaign - The campaign as the fetch's check read it, once for all its claims; null where
+ * it's gone.
  */
 export async function claimRollRequests(
   campaignId: string,
   session: string,
+  campaign: Pick<
+    ClaimCampaign,
+    | 'helloSession'
+    | 'rollFeatures'
+    | 'ownerId'
+    | NonNullable<RollKindInfo['own']>
+  > | null,
 ): Promise<RollCommand[]> {
   const now = Date.now()
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: campaignId },
-    select: {
-      helloSession: true,
-      rollFeatures: true,
-      ownerId: true,
-      transfersEnabled: true,
-      removalsEnabled: true,
-      favoritesEnabled: true,
-      effectsEnabled: true,
-      wildShapeEnabled: true,
-      hitPointsEnabled: true,
-    },
-  })
   const ownerId = campaign?.ownerId
   const current = campaign?.helloSession === session
   const gmRolls =
@@ -664,6 +660,43 @@ export async function markBridgePolled(
     ) as Record<BridgeSwitch, boolean>),
     playersPresent: !!seen && now.getTime() - seen < PLAYERS_PRESENT_FOR,
   }
+}
+
+/**
+ * What a check of the module's fetch reads of its campaign, once for the claims it runs. Exactly
+ * ClaimCampaign's fields, each way, as ROLL_CAMPAIGN is RollCampaign's.
+ */
+const CLAIM_CAMPAIGN = {
+  helloSession: true,
+  ownerId: true,
+  dishesEnabled: true,
+  dishVersions: true,
+  notesEnabled: true,
+  noteFeatures: true,
+  rollFeatures: true,
+  transfersEnabled: true,
+  removalsEnabled: true,
+  favoritesEnabled: true,
+  effectsEnabled: true,
+  wildShapeEnabled: true,
+  hitPointsEnabled: true,
+} as const satisfies Prisma.CampaignSelect satisfies Record<
+  keyof ClaimCampaign,
+  true
+>
+
+/**
+ * A campaign as one check of the module's fetch reads it: once, for its dishes', notes' and rolls'
+ * claims alike, each of which reads it as it stands at the check.
+ * @returns Null where the campaign is gone.
+ */
+export function findClaimCampaign(
+  campaignId: string,
+): Promise<ClaimCampaign | null> {
+  return prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: CLAIM_CAMPAIGN,
+  })
 }
 
 /** When this server last noted each campaign's players present. */

@@ -4,6 +4,7 @@
 import {
   claimRollRequests,
   createRollRequest,
+  findClaimCampaign,
   getRollRequestView,
   markBridgePolled,
   notePlayersSeen,
@@ -567,7 +568,9 @@ describe('db/roll-requests', () => {
     it('hands over nothing, and marks nothing, when no roll waits', async () => {
       prismaMock.rollRequest.findMany.mockResolvedValue([])
 
-      await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([])
+      await expect(claimRollRequests('c1', 'session-1', null)).resolves.toEqual(
+        [],
+      )
       expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
         where: {
           campaignId: 'c1',
@@ -607,9 +610,9 @@ describe('db/roll-requests', () => {
         // Another fetch marked req-2 first.
         .mockResolvedValueOnce([held('req-1')] as any)
 
-      await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
-        { ...perception, id: 'req-1', actorId: 'actor-thorin' },
-      ])
+      await expect(claimRollRequests('c1', 'session-1', null)).resolves.toEqual(
+        [{ ...perception, id: 'req-1', actorId: 'actor-thorin' }],
+      )
       expect(prismaMock.rollRequest.updateMany).toHaveBeenCalledWith({
         where: { id: { in: ['req-1', 'req-2'] }, status: 'pending' },
         data: {
@@ -632,8 +635,8 @@ describe('db/roll-requests', () => {
       prismaMock.rollRequest.findMany.mockResolvedValue([
         { id: 'req-1' },
       ] as any)
-      await claimRollRequests('c1', 'session-1')
-      await claimRollRequests('c1', 'session-1')
+      await claimRollRequests('c1', 'session-1', null)
+      await claimRollRequests('c1', 'session-1', null)
 
       const [first, second] = prismaMock.rollRequest.updateMany.mock.calls.map(
         ([update]) => update.data.claimToken,
@@ -1892,6 +1895,33 @@ describe('db/roll-requests', () => {
     })
   })
 
+  describe('findClaimCampaign', () => {
+    it('reads what each claim of a check reads of the campaign, once for them all: its switches and features by name', async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(null)
+
+      await expect(findClaimCampaign('c1')).resolves.toBeNull()
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledTimes(1)
+      expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        select: {
+          helloSession: true,
+          ownerId: true,
+          dishesEnabled: true,
+          dishVersions: true,
+          notesEnabled: true,
+          noteFeatures: true,
+          rollFeatures: true,
+          transfersEnabled: true,
+          removalsEnabled: true,
+          favoritesEnabled: true,
+          effectsEnabled: true,
+          wildShapeEnabled: true,
+          hitPointsEnabled: true,
+        },
+      })
+    })
+  })
+
   describe('markBridgePolled', () => {
     // Changed on purpose (round 0.37.0 §7.15): each says whether the game takes favorites too.
     // Changed on purpose (round 0.38.0 §D9): and dishes from the Magical Recipe Book.
@@ -2522,11 +2552,11 @@ describe("db/roll-requests, the Gamemaster's rolls as a character (#156)", () =>
   })
 
   it("hands the module the Gamemaster's roll saying it's theirs, and a player's exactly as before", async () => {
-    prismaMock.campaign.findUnique.mockResolvedValue({
+    const read = {
       helloSession: 'session-1',
       rollFeatures: ['gmRolls'],
       ownerId: 'gm-1',
-    } as any)
+    } as never
     prismaMock.rollRequest.findMany
       .mockResolvedValueOnce([{ id: 'req-1' }, { id: 'req-2' }] as any)
       .mockResolvedValueOnce([
@@ -2534,7 +2564,7 @@ describe("db/roll-requests, the Gamemaster's rolls as a character (#156)", () =>
         held('req-2', { role: 'gm' }),
       ] as any)
 
-    const commands = await claimRollRequests('c1', 'session-1')
+    const commands = await claimRollRequests('c1', 'session-1', read)
     expect(commands).toEqual([
       { ...perception, id: 'req-1', actorId: 'actor-thorin' },
       { ...perception, id: 'req-2', actorId: 'actor-thorin', by: 'gm' },
@@ -2599,7 +2629,6 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
     session = 'session-1',
     rows: ((typeof waiting)[number] & { kind?: string })[] = waiting,
   ): Promise<string[]> => {
-    prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
     prismaMock.rollRequest.findMany.mockImplementation((({
       where,
       take,
@@ -2610,7 +2639,7 @@ describe("db/roll-requests, handing over the Gamemaster's rolls (#156)", () => {
           .slice(0, take)
           .map(row => held(row.id, { role: row.role })),
       )) as any)
-    const commands = await claimRollRequests('c1', session)
+    const commands = await claimRollRequests('c1', session, campaign as never)
     return commands.map(({ id }) => id)
   }
   const ready = {
@@ -2694,7 +2723,6 @@ describe('db/roll-requests, handing over moves of items and coins, from module 0
     })
   /** What a fetch for this session takes, from a campaign as given. */
   const fetched = async (campaign: object | null, session = 'session-1') => {
-    prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
     prismaMock.rollRequest.findMany.mockImplementation((({ where }: any) =>
       Promise.resolve(
         where.claimToken
@@ -2705,7 +2733,7 @@ describe('db/roll-requests, handing over moves of items and coins, from module 0
               .filter(row => matches(row, where))
               .map(({ id }) => ({ id })),
       )) as any)
-    const commands = await claimRollRequests('c1', session)
+    const commands = await claimRollRequests('c1', session, campaign as never)
     return commands.map(({ id }) => id)
   }
   /** Moves on, rolls off: the module sends gmRolls only while rolls are on. */
@@ -2764,14 +2792,15 @@ describe('db/roll-requests, handing over moves of items and coins, from module 0
         items: [{ id: 'rope', quantity: 1 }],
       },
     }
-    prismaMock.campaign.findUnique.mockResolvedValue(moving as any)
     prismaMock.rollRequest.findMany
       .mockResolvedValueOnce([{ id: 'move-gm' }] as any)
       .mockResolvedValueOnce([
         held('move-gm', { role: 'gm', kind: 'transfer', payload: move }),
       ] as any)
 
-    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+    await expect(
+      claimRollRequests('c1', 'session-1', moving as never),
+    ).resolves.toEqual([
       { ...move, id: 'move-gm', actorId: 'actor-thorin', by: 'gm' },
     ])
   })
@@ -3209,7 +3238,6 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
     })
   /** What a fetch for this session takes, from a campaign as given. */
   const fetched = async (campaign: object | null, session = 'session-1') => {
-    prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
     prismaMock.rollRequest.findMany.mockImplementation((({ where }: any) =>
       Promise.resolve(
         where.claimToken
@@ -3220,7 +3248,7 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
               .filter(row => matches(row, where))
               .map(({ id }) => ({ id })),
       )) as any)
-    const commands = await claimRollRequests('c1', session)
+    const commands = await claimRollRequests('c1', session, campaign as never)
     return commands.map(({ id }) => id)
   }
   /** Removals taken, rolls and moves off: the module sends gmRolls only while rolls are on. */
@@ -3319,11 +3347,6 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       'remove-gm',
       'effect-player',
     ])
-    // The campaign's own select names the switch, as the claim reads no field it doesn't ask for.
-    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
-      where: { id: 'c1' },
-      select: expect.objectContaining({ effectsEnabled: true }),
-    })
     await expect(fetched(changing, 'session-old')).resolves.toEqual([
       'roll-player',
     ])
@@ -3374,17 +3397,17 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       dice: [],
       effect: { op: 'disable', id: 'blessed' },
     }
-    prismaMock.campaign.findUnique.mockResolvedValue({
+    const read = {
       ...removing,
       effectsEnabled: true,
-    } as any)
+    } as never
     prismaMock.rollRequest.findMany
       .mockResolvedValueOnce([{ id: 'effect-player' }] as any)
       .mockResolvedValueOnce([
         held('effect-player', { kind: 'effect', payload: change }),
       ] as any)
 
-    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+    await expect(claimRollRequests('c1', 'session-1', read)).resolves.toEqual([
       { ...change, id: 'effect-player', actorId: 'actor-thorin' },
     ])
   })
@@ -3397,11 +3420,6 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       'remove-gm',
       'wildshape-player',
     ])
-    // The campaign's own select names the switch, as the claim reads no field it doesn't ask for.
-    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
-      where: { id: 'c1' },
-      select: expect.objectContaining({ wildShapeEnabled: true }),
-    })
     // A session the hello didn't come from is handed none: a module before 0.40.0 never is.
     await expect(fetched(shaping, 'session-old')).resolves.toEqual([
       'roll-player',
@@ -3435,10 +3453,6 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       'remove-gm',
       'hitpoints-player',
     ])
-    expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
-      where: { id: 'c1' },
-      select: expect.objectContaining({ hitPointsEnabled: true }),
-    })
     // A session the hello didn't come from is handed none: a module before 0.44.0 never is.
     await expect(fetched(setting, 'session-old')).resolves.toEqual([
       'roll-player',
@@ -3486,17 +3500,17 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       dice: [],
       wildShape: { op: 'transform', form: 'Kp3vQ8mZr2LdW0aB' },
     }
-    prismaMock.campaign.findUnique.mockResolvedValue({
+    const read = {
       ...removing,
       wildShapeEnabled: true,
-    } as any)
+    } as never
     prismaMock.rollRequest.findMany
       .mockResolvedValueOnce([{ id: 'wildshape-player' }] as any)
       .mockResolvedValueOnce([
         held('wildshape-player', { kind: 'wildShape', payload: change }),
       ] as any)
 
-    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+    await expect(claimRollRequests('c1', 'session-1', read)).resolves.toEqual([
       { ...change, id: 'wildshape-player', actorId: 'actor-thorin' },
     ])
   })
@@ -3510,14 +3524,14 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       dice: [],
       remove: { item: 'rope', quantity: 1, held: 1 },
     }
-    prismaMock.campaign.findUnique.mockResolvedValue(removing as any)
+    const read = removing as never
     prismaMock.rollRequest.findMany
       .mockResolvedValueOnce([{ id: 'remove-gm' }] as any)
       .mockResolvedValueOnce([
         held('remove-gm', { role: 'gm', kind: 'remove', payload: removal }),
       ] as any)
 
-    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+    await expect(claimRollRequests('c1', 'session-1', read)).resolves.toEqual([
       { ...removal, id: 'remove-gm', actorId: 'actor-thorin', by: 'gm' },
     ])
   })
@@ -5180,7 +5194,7 @@ describe('db/roll-requests, a spell slot spent or restored, from module 0.42.1',
   })
 
   it("hands the module the player's and the Gamemaster's, withholding neither, as they came", async () => {
-    prismaMock.campaign.findUnique.mockResolvedValue({
+    const read = {
       helloSession: 'session-1',
       rollFeatures: ['gmRolls'],
       ownerId: 'gm-1',
@@ -5189,7 +5203,7 @@ describe('db/roll-requests, a spell slot spent or restored, from module 0.42.1',
       favoritesEnabled: false,
       effectsEnabled: false,
       wildShapeEnabled: false,
-    } as any)
+    } as never
     prismaMock.rollRequest.findMany
       .mockResolvedValueOnce([{ id: 'slot-1' }, { id: 'slot-gm' }] as any)
       .mockResolvedValueOnce([
@@ -5205,7 +5219,7 @@ describe('db/roll-requests, a spell slot spent or restored, from module 0.42.1',
         }),
       ] as any)
 
-    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+    await expect(claimRollRequests('c1', 'session-1', read)).resolves.toEqual([
       { ...spendOne, id: 'slot-1', actorId: 'actor-thorin' },
       { ...restorePact, id: 'slot-gm', actorId: 'actor-thorin', by: 'gm' },
     ])
@@ -5387,7 +5401,7 @@ describe('db/roll-requests, a spell prepared or unprepared, from module 0.42.1',
   })
 
   it("hands the module the player's, withheld by no switch, as it came", async () => {
-    prismaMock.campaign.findUnique.mockResolvedValue({
+    const read = {
       helloSession: 'session-1',
       rollFeatures: [],
       ownerId: 'gm-1',
@@ -5396,7 +5410,7 @@ describe('db/roll-requests, a spell prepared or unprepared, from module 0.42.1',
       favoritesEnabled: false,
       effectsEnabled: false,
       wildShapeEnabled: false,
-    } as any)
+    } as never
     prismaMock.rollRequest.findMany
       .mockResolvedValueOnce([{ id: 'prep-1' }] as any)
       .mockResolvedValueOnce([
@@ -5407,7 +5421,7 @@ describe('db/roll-requests, a spell prepared or unprepared, from module 0.42.1',
         }),
       ] as any)
 
-    await expect(claimRollRequests('c1', 'session-1')).resolves.toEqual([
+    await expect(claimRollRequests('c1', 'session-1', read)).resolves.toEqual([
       { ...prepareWitch, id: 'prep-1', actorId: 'actor-thorin' },
     ])
     const [[{ where }]] = prismaMock.rollRequest.findMany.mock.calls as any

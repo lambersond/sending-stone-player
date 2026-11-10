@@ -14,7 +14,7 @@ import type {
 } from '@/types/sending-stone'
 import type { GmRolls } from '@/types/table'
 import type { RollRefusal, RollRejection } from '@/utils/requests/types'
-import type { Prisma, CookbookDishStatus } from '@prisma/client'
+import type { Campaign, Prisma, CookbookDishStatus } from '@prisma/client'
 
 /**
  * Whose rolls are asked after: a seat's (#156), as a sheet's routes resolve it; or, from module
@@ -105,6 +105,24 @@ export type BridgeSwitch = (typeof BRIDGE_SWITCHES)[number]
 export type BridgePolled = Record<BridgeSwitch, boolean> & {
   playersPresent: boolean
 }
+
+/**
+ * What a check of the module's fetch reads of its campaign, once for every claim it runs: the
+ * session whose hello is held, which each claim reads; its owner, which the notes' and the rolls'
+ * read; the dishes' switch and versions; the notes' switch and features; and the rolls' features
+ * and each switch of a kind of their own.
+ */
+export type ClaimCampaign = Pick<
+  Campaign,
+  | 'helloSession'
+  | 'ownerId'
+  | 'dishesEnabled'
+  | 'dishVersions'
+  | 'notesEnabled'
+  | 'noteFeatures'
+  | 'rollFeatures'
+  | NonNullable<RollKindInfo['own']>
+>
 
 /** A creator of a kind of command, past every roll's gates. */
 export type CommandCreator = (

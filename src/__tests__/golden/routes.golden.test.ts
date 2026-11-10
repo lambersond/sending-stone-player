@@ -415,7 +415,7 @@ beforeEach(async () => {
   // pruning noted a moment ago, as a server running for a while would.
   await notePlayersSeen('c1')
   await noteTableOpen('char-1')
-  await claimDishes('c1', 's1')
+  await claimDishes('c1', 's1', null)
   jest.clearAllMocks()
   signedIn(THORIN)
 })
