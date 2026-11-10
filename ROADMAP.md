@@ -176,11 +176,12 @@ Left, in two batches. Pick from the list by number.
 
 **Found while building item 11 and the Tidy journal**
 
-21. **The hello's order told wrongly:** the module's `PROTOCOL.md`, after the hello's table, reads
-    as if each companion the hello lists follows the books in its `companion.updated`, but the
-    module sends the companions before the books (`helloDelivered` in `scripts/character-sync.mjs`
-    calls `companionsDelivered` before `sendBooks`). Nothing in the app depends on that order; the
-    paragraph should say what the module does.
+21. **The hello's order told wrongly (done, in module 0.45.0's `PROTOCOL.md`):** the module's
+    `PROTOCOL.md`, after the hello's table, read as if each companion the hello lists followed the
+    books in its `companion.updated`, but the module sends the companions before the books
+    (`helloDelivered` in `scripts/character-sync.mjs` calls `companionsDelivered` before
+    `sendBooks`). Nothing in the app depends on that order; the paragraph now says what the module
+    does.
 22. **A use's cost check asks the Gamemaster for dice:** before an item is used from the app, the
     module works out what the use would spend with dnd5e's `_prepareUsageUpdates` and throws the
     result away (`prepareUse` in `scripts/command-uses.mjs`, and twice in
