@@ -58,6 +58,7 @@ import * as joinPage from '@/app/join/[code]/page'
 import * as rootLayout from '@/app/layout'
 import * as loginPage from '@/app/login/page'
 import { claimDishes } from '@/db/cookbook'
+import { claimNoteWrites } from '@/db/note-sync'
 import { notePlayersSeen, noteTableOpen } from '@/db/roll-requests'
 import { hashSecret } from '@/lib/campaign-secret'
 import { hashCookbookCode } from '@/lib/cookbook-code'
@@ -412,10 +413,11 @@ beforeEach(async () => {
   fake = prismaFake(world())
   // The server's own throttles, noted once at this time, so that no test's calls hang on which
   // ran before it: each test then finds the campaign's players, Thorin's table and its dishes'
-  // pruning noted a moment ago, as a server running for a while would.
+  // and notes' pruning noted a moment ago, as a server running for a while would.
   await notePlayersSeen('c1')
   await noteTableOpen('char-1')
   await claimDishes('c1', 's1', null)
+  await claimNoteWrites('c1', 's1', null)
   jest.clearAllMocks()
   signedIn(THORIN)
 })

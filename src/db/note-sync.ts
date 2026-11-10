@@ -3,6 +3,8 @@ import { Prisma, type JournalNote, type JournalWrite } from '@prisma/client'
 import prisma from '@/clients/prisma'
 import { NOTE_CLAIM_CHARS, NOTE_CLAIM_LIMIT } from '@/constants/notes'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+import { due as pruneDue } from '@/db/commands'
+import { PRUNE_EVERY } from '@/db/constants'
 import { noteHtml } from '@/lib/note-html'
 import {
   byQueue,
@@ -32,7 +34,10 @@ import type {
 // over with the notes' changes, oldest first across both; and the book keeps who last deleted or
 // reordered its pages in Foundry, and when, as the module says.
 
-/** How long a made change is kept, so the seat's limit has rows to count while Foundry is live. */
+/**
+ * How long a made change is kept, so the seat's limit has rows to count while Foundry is live: at
+ * least, as the module's fetch prunes them at most once every PRUNE_EVERY.
+ */
 export const MADE_KEPT_FOR = 3_600_000
 
 /**
@@ -331,6 +336,9 @@ async function mirrorPages(
   return changed
 }
 
+/** When this server last pruned each campaign's made changes as the module fetched them. */
+const pruned = new Map<string, number>()
+
 /** A change or an order the claim may hand over, oldest first across both. */
 type Due = {
   table: 'write' | 'order'
@@ -346,8 +354,10 @@ type Due = {
  * those handed over but unanswered past the time a fetched roll is, which are handed over again
  * under the same command id. Only to the session whose hello the app holds, and only while it takes
  * notes; the Gamemaster's only where they're the campaign's owner. At most a few at once, and so
- * many characters of titles and text, but always one. Made changes past their hour go first. From
- * module 0.35.0, where its hello says it takes them, the orders of groups' notes go with the
+ * many characters of titles and text, but always one. Made changes past their hour go first, at
+ * most once every PRUNE_EVERY per server: nothing reads one but to count the seat's last minute, or
+ * to make it its note's next change or its group's next order, which finds it there or not alike.
+ * From module 0.35.0, where its hello says it takes them, the orders of groups' notes go with the
  * changes, oldest first across both (round 0.35.0 §7.10), so that a note an order places, made
  * before the order last changed, reaches Foundry first.
  * @param session - The module session that fetched them.
@@ -363,13 +373,15 @@ export async function claimNoteWrites(
   > | null,
 ): Promise<NoteCommand[]> {
   const now = Date.now()
-  const stale = {
-    campaignId,
-    status: 'made' as const,
-    updatedAt: { lt: new Date(now - MADE_KEPT_FOR) },
+  if (pruneDue(pruned, campaignId, PRUNE_EVERY, now)) {
+    const stale = {
+      campaignId,
+      status: 'made' as const,
+      updatedAt: { lt: new Date(now - MADE_KEPT_FOR) },
+    }
+    await prisma.journalWrite.deleteMany({ where: stale })
+    await prisma.journalOrder.deleteMany({ where: stale })
   }
-  await prisma.journalWrite.deleteMany({ where: stale })
-  await prisma.journalOrder.deleteMany({ where: stale })
   if (
     !campaign ||
     campaign.helloSession !== session ||

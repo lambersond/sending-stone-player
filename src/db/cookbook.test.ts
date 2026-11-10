@@ -20,11 +20,11 @@ import {
   DISHES_KEPT_FOR,
   DISHES_PER_DAY,
   DISHES_PER_MINUTE,
-  DISHES_PRUNE_EVERY,
   DISHES_SHOWN,
   MOST_DISHES_WAITING,
 } from '@/constants/cookbook'
 import { BRIDGE_TIMEOUT, ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
+import { PRUNE_EVERY } from '@/db/constants'
 import { hashCookbookCode } from '@/lib/cookbook-code'
 import { fireberryBoon } from '@/mocks/cookbook'
 import { dishResult } from '@/mocks/sending-stone'
@@ -550,11 +550,11 @@ describe('claimDishes', () => {
       ],
     ])
 
-    jest.setSystemTime(NOW + DISHES_PRUNE_EVERY - 1)
+    jest.setSystemTime(NOW + PRUNE_EVERY - 1)
     await claimDishes('c-prune', 'sess-1', campaign())
     expect(prunes('c-prune')).toHaveLength(1)
 
-    jest.setSystemTime(NOW + DISHES_PRUNE_EVERY)
+    jest.setSystemTime(NOW + PRUNE_EVERY)
     await claimDishes('c-prune', 'sess-1', campaign())
     expect(prunes('c-prune')).toHaveLength(2)
   })

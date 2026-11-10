@@ -15,6 +15,7 @@ import {
   reconcileJournals,
   recordNoteResult,
 } from './note-sync'
+import { PRUNE_EVERY } from '@/db/constants'
 import { mockJournalUpdated, NOTE_IDS, PARTY } from '@/mocks/sending-stone'
 import { placesOf } from '@/utils/notes/commands'
 import { prismaMock } from '@/utils/test-utils-node'
@@ -639,19 +640,37 @@ describe('db/note-sync', () => {
       prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
     })
 
-    it('deletes made changes past their hour, first', async () => {
-      waitingRows([])
-
-      await claimNoteWrites('c1', 's1', claimCampaign())
-
-      expect(prismaMock.journalWrite.deleteMany).toHaveBeenCalledWith({
-        where: {
-          campaignId: 'c1',
-          status: 'made',
-          updatedAt: { lt: ago(MADE_KEPT_FOR) },
-        },
-      })
+    it('deletes made changes and orders past their hour first, at most once every ten minutes per server', async () => {
       expect(MADE_KEPT_FOR).toBe(3_600_000)
+      expect(PRUNE_EVERY).toBe(600_000)
+      // A claim at each time, and whether it prunes.
+      for (const [at, prunes] of [
+        [NOW, true],
+        [NOW + PRUNE_EVERY - 1, false],
+        [NOW + PRUNE_EVERY, true],
+      ] as const) {
+        jest.clearAllMocks()
+        jest.setSystemTime(at)
+        waitingRows([])
+
+        await claimNoteWrites('c-prune', 's1', claimCampaign())
+
+        const stale = {
+          where: {
+            campaignId: 'c-prune',
+            status: 'made',
+            updatedAt: { lt: new Date(at - MADE_KEPT_FOR) },
+          },
+        }
+        for (const rows of [prismaMock.journalWrite, prismaMock.journalOrder]) {
+          expect(rows.deleteMany.mock.calls).toEqual(prunes ? [[stale]] : [])
+        }
+      }
+      expect(
+        prismaMock.journalOrder.deleteMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        prismaMock.journalWrite.findMany.mock.invocationCallOrder[0],
+      )
     })
 
     it('hands over the changes waiting, and those unanswered past 75 seconds, oldest first, the Gamemaster’s only the owner’s', async () => {
@@ -1198,21 +1217,6 @@ describe('db/note-sync', () => {
       beforeEach(() => {
         prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 1 })
         prismaMock.journalOrder.updateMany.mockResolvedValue({ count: 1 })
-      })
-
-      it('deletes made orders past their hour, first, as made changes are', async () => {
-        waitingRows([])
-        waitingOrders([])
-
-        await claimNoteWrites('c1', 's1', takingOrders)
-
-        expect(prismaMock.journalOrder.deleteMany).toHaveBeenCalledWith({
-          where: {
-            campaignId: 'c1',
-            status: 'made',
-            updatedAt: { lt: ago(MADE_KEPT_FOR) },
-          },
-        })
       })
 
       it('hands orders over only to a module whose hello says it takes them', async () => {

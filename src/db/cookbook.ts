@@ -7,13 +7,13 @@ import {
   DISHES_KEPT_FOR,
   DISHES_PER_DAY,
   DISHES_PER_MINUTE,
-  DISHES_PRUNE_EVERY,
   DISHES_SHOWN,
   MOST_DISHES_WAITING,
 } from '@/constants/cookbook'
 import { NO_DICE } from '@/constants/roll-kinds'
 import { ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { due as pruneDue } from '@/db/commands'
+import { PRUNE_EVERY } from '@/db/constants'
 import { generateCookbookCode, hashCookbookCode } from '@/lib/cookbook-code'
 import { isLive } from '@/utils/live'
 import type {
@@ -228,7 +228,7 @@ export async function claimDishes(
   > | null,
 ): Promise<DishCommand[]> {
   const now = Date.now()
-  if (pruneDue(pruned, campaignId, DISHES_PRUNE_EVERY, now)) {
+  if (pruneDue(pruned, campaignId, PRUNE_EVERY, now)) {
     await pruneDishes(campaignId, now)
   }
   if (
