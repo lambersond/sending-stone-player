@@ -83,6 +83,15 @@ run typed 7 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 run typed 15 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
 # And module 0.42.0: Bless's die typed, the greatsword's typed 1 kept, and no Bardic Inspiration offered.
 run typed 12 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-042
+# Module 0.45.0 (item 11): the dice the game rolls later, asked of a player typing theirs, on a
+# phone and a wide page: an exploding die's die more, Let the game roll, the dialog only where the
+# roll came from and not over a focused text field, the banner on the other device, the
+# Gamemaster's Roll it now, a minute's wait, nothing for a 3D player or the Gamemaster's own roll;
+# Midi-QOL's Ice Knife and a Sneak Attack bonus; dnd5e 6.0.5 (off, said so); and module 0.42.0.
+run laterdice 24 SHOTS=$O/shots-045
+run laterdice 30 MIDI=1 SHOTS=$O/shots-045
+run laterdice 9 DND5E6=1 SHOTS=$O/shots-045
+run laterdice 9 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-045
 run theme 15 SHOTS=$O/shots-026
 # One damage card (module 0.28.0): plain dnd5e, Midi-QOL's card, and module 0.27.0 under Midi.
 run damagecard 31 SHOTS=$O/shots-028
