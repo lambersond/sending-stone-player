@@ -58,15 +58,21 @@ export function partly(
     : {}
 }
 
+/**
+ * Whether a roll answers what the game asked, a save or its dice: on its way, or made there. One
+ * refused, failed, expired or lost leaves it asked.
+ */
+export function answers({ status }: Pick<TableRollState, 'status'>): boolean {
+  return ['sending', 'rolling', 'done'].includes(status)
+}
+
 /** The prompts answered by rolls on their way to the game, or made there. */
 export function answeringOf(
   states: ReadonlyMap<string, TableRollState>,
 ): ReadonlySet<string> {
   const answering = new Set<string>()
-  for (const { prompt, status } of states.values()) {
-    if (prompt && ['sending', 'rolling', 'done'].includes(status)) {
-      answering.add(prompt)
-    }
+  for (const state of states.values()) {
+    if (state.prompt && answers(state)) answering.add(state.prompt)
   }
   return answering
 }

@@ -152,6 +152,52 @@ describe('features/rolling/hooks/use-dice-asks (module 0.45.0)', () => {
     expect(other.result.current.offered).toEqual([])
   })
 
+  it.each<[string, TableRollState, boolean]>([
+    [
+      'refused, as where the network dropped',
+      { status: 'refused', reason: 'network' },
+      true,
+    ],
+    ['failed at the game', { status: 'failed', reason: 'invalid' }, true],
+    ['expired before the game took it', { status: 'expired' }, true],
+    ['lost on its way', { status: 'lost' }, true],
+    ['still being sent', { status: 'sending' }, false],
+    [
+      'being made at the game',
+      { status: 'rolling', requestId: 'req-2' },
+      false,
+    ],
+    ['made', { status: 'done', requestId: 'req-2' }, false],
+  ])(
+    'offers it on the banner again, never opened by itself, where its answer is %s: %s',
+    async (_, way, again) => {
+      const { result, rerender } = render()
+      await close([[3, 5]])
+      expect(result.current.offered).toEqual([])
+
+      // The answer's way, under the tray's roll it was kept as.
+      rerender({ asks: [ask], states: new Map(sentHere).set(kept.id, way) })
+      expect(result.current.offered).toEqual(again ? [ask] : [])
+      expect(enter).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('lets the player answer again from the banner one whose answer from it was refused before the roll’s id came, never opening it by itself as the id comes', () => {
+    const asks = [ask]
+    const refused: TableRollState = { status: 'refused', reason: 'network' }
+    const { result, rerender } = render({ asks, states: sentNoIdYet })
+    act(() => result.current.leave(ask))
+
+    rerender({ asks, states: new Map(sentNoIdYet).set(kept.id, refused) })
+    rerender({ asks, states: new Map(sentHere).set(kept.id, refused) })
+    expect(enter).not.toHaveBeenCalled()
+    expect(result.current.offered).toEqual([ask])
+
+    act(() => result.current.leave(ask))
+    expect(sendAnswer).toHaveBeenCalledTimes(2)
+    expect(result.current.offered).toEqual([])
+  })
+
   it('sends nothing where the dialog closed by itself, its time out', async () => {
     render()
     jest.setSystemTime(Date.parse(ask.expiresAt))

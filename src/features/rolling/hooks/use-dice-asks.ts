@@ -6,6 +6,7 @@ import {
   answerOf,
   askEntry,
 } from '@/features/rolling/utils/dice-ask-entry'
+import { answers } from '@/features/rolling/utils/roll-states'
 import { typingInText } from '@/features/rolling/utils/text-focus'
 import type { EnterDice } from '@/types/dice-entry'
 import type { DiceAnswerTerm, LocalFormula, TableRollState } from '@/types/roll'
@@ -26,7 +27,8 @@ const NONE: readonly TableDiceAsk[] = []
  * moment after it was sent, which a view may list it before: until then it's on the banner, and
  * its dialog opens as the id comes. Each ask is taken once on a page, and its dialog closes once
  * it's no longer asked; one a view lists again after, as one that lost it for a moment, is asked
- * again. Each answer is kept in the tray, as a formula rolled.
+ * again. Each answer is kept in the tray, as a formula rolled; one that never reaches the game,
+ * refused or lost on its way, leaves its ask on the banner again, never opened by itself.
  * @param asks - What the pane's view lists, oldest first.
  * @param states - The pane's rolls' ways to the game, by which the device that sent one is known.
  * @param sending - Whether this device sends the player's rolls to the game.
@@ -61,6 +63,9 @@ export function useDiceAsks({
   // banner where the player was typing or this device doesn't send their rolls, never opened by
   // itself after.
   const known = useRef(new Set<string>())
+  // The answers this page sent, by their asks' ids: the tray's roll each is kept as, whose way to
+  // the game says whether it got there.
+  const sentAnswers = useRef(new Map<string, string>())
 
   const take = useCallback((id: string): boolean => {
     if (takenNow.current.has(id)) return false
@@ -69,10 +74,9 @@ export function useDiceAsks({
     return true
   }, [])
 
-  // An ask whose dialog closed as a view stopped listing it, as one again to this page.
-  const release = useCallback((id: string) => {
+  // An ask this page took, on the banner again.
+  const untake = useCallback((id: string) => {
     takenNow.current.delete(id)
-    known.current.delete(id)
     setTaken(held => {
       const kept = new Set(held)
       kept.delete(id)
@@ -80,9 +84,19 @@ export function useDiceAsks({
     })
   }, [])
 
+  // An ask whose dialog closed as a view stopped listing it, as one again to this page.
+  const release = useCallback(
+    (id: string) => {
+      untake(id)
+      known.current.delete(id)
+    },
+    [untake],
+  )
+
   const answer = useCallback(
     (ask: TableDiceAsk, values?: number[][]) => {
       const kept = logAnswer(answeredRoll(ask, values))
+      sentAnswers.current.set(ask.id, kept.id)
       sendAnswer(kept, ask.id, answerOf(ask, values))
     },
     [logAnswer, sendAnswer],
@@ -114,10 +128,18 @@ export function useDiceAsks({
     [answer, take],
   )
 
-  // As the view's asks or this page's rolls change: the dialogs of asks no longer listed closed,
-  // each such ask forgotten, so that one listed again is asked again; and those newly known to be
-  // for this device's rolls, as the latest render has them, opened at once.
+  // As the view's asks or this page's rolls change: the asks whose answers never reached the game
+  // on the banner again; the dialogs of asks no longer listed closed, each such ask forgotten, so
+  // that one listed again is asked again; and those newly known to be for this device's rolls, as
+  // the latest render has them, opened at once.
   const arrive = useEffectEvent((listed: readonly TableDiceAsk[]) => {
+    for (const [id, local] of sentAnswers.current) {
+      const way = states.get(local)
+      if (!way || answers(way)) continue
+      sentAnswers.current.delete(id)
+      known.current.add(id)
+      untake(id)
+    }
     const ids = new Set(listed.map(({ id }) => id))
     for (const [id, controller] of open.current) {
       if (ids.has(id)) continue
