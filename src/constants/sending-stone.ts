@@ -82,6 +82,7 @@ export const EVENTS = {
   GROUP_UPDATED: 'group.updated',
   GROUP_REMOVED: 'group.removed',
   JOURNAL_UPDATED: 'journal.updated',
+  JOURNAL_TIDY: 'journal.tidy',
   BRIDGE_SETTINGS: 'bridge.settings',
   COMPANIONS_LISTED: 'companions.listed',
   COMPANION_UPDATED: 'companion.updated',
@@ -386,9 +387,11 @@ export const ENDING_STATUSES = [
  * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,
  * the `note` command, `journal.updated` and the hello's `features.notes`. The module fetches for
  * them, and sends journals, only then. From module 0.35.0, 2: it reads who changed a journal in
- * Foundry, `journal.changed`, and sends orders of a group's notes, `op: "order"`.
+ * Foundry, `journal.changed`, and sends orders of a group's notes, `op: "order"`. From module
+ * 0.45.0, 3: it reads a character's Tidy 5e Sheets journal, `journal.tidy`, which the module sends
+ * only then; a module before it reads 3 as 2.
  */
-export const NOTES = 2
+export const NOTES = 3
 
 /**
  * The format of companions this app takes, as it tells the module (`companions`): from module

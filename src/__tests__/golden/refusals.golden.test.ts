@@ -35,6 +35,7 @@ import {
   mockCompanionEntry,
   mockCompanionPrompt,
   mockCompanionSheet,
+  mockJournalTidy,
   mockJournalUpdated,
   NOTE_IDS,
   PARTY,
@@ -536,6 +537,7 @@ const GAME_EVENTS: [type: string, good: unknown, malformed: unknown][] = [
   ],
   [EVENTS.GROUP_REMOVED, { id: 'company' }, { id: '' }],
   [EVENTS.JOURNAL_UPDATED, mockJournalUpdated('party'), { kind: 'party' }],
+  [EVENTS.JOURNAL_TIDY, mockJournalTidy(), { actorId: 'thorin' }],
   [EVENTS.BRIDGE_SETTINGS, { settings: foundrySettings() }, 'junk'],
   [EVENTS.COMPANIONS_LISTED, { companions: [mockCompanionEntry()] }, 'junk'],
   [

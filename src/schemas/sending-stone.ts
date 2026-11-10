@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { ABILITIES } from '@/constants/dnd5e'
-import { MOST_NOTE_TEXT, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
+import {
+  MOST_NOTE_TEXT,
+  MOST_NOTE_TITLE,
+  MOST_NOTES,
+  MOST_TIDY_ENTRIES,
+  TIDY_CLASSIC,
+  TIDY_SOURCES,
+} from '@/constants/notes'
 import {
   ALONE_SPENDS,
   ATTACK_MODE,
@@ -59,6 +66,7 @@ import type {
   GroupSheet,
   HitPointsNow,
   JournalPage,
+  JournalTidy,
   JournalUpdated,
   KnownForm,
   MessageAsk,
@@ -92,6 +100,7 @@ import type {
   SheetUses,
   SheetWildShape,
   SheetWithheld,
+  TidyPage,
 } from '@/types/sending-stone'
 
 // Payloads may gain fields at any time, so objects are loose: unknown keys are kept, not
@@ -1637,6 +1646,16 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // journal in Foundry. Anything but a boolean is read as unsaid.
         orders: leftOut(z.boolean()),
         changes: leftOut(z.boolean()),
+        // From module 0.45.0, under dnd5e: Tidy 5e Sheets, whether it's active, its version, null
+        // where it isn't installed, and which characters hold its journal's entries. An odd one is
+        // read as unsaid, as from a module before it.
+        tidy: leftOut(
+          z.looseObject({
+            active: z.boolean(),
+            version: z.string().max(100).nullable(),
+            actors: z.array(z.string().regex(ACTOR_ID)).max(2000),
+          }),
+        ),
       })
       .nullable()
       .optional()
@@ -1777,6 +1796,45 @@ const journalUpdatedSchema: z.ZodType<JournalUpdated> = z.looseObject({
         limit: z.int().min(0),
       }),
     ])
+    .optional(),
+})
+
+/** A Tidy 5e Sheets journal entry's key: Tidy's own, 1 to 64 letters and digits. */
+const TIDY_ID = /^[\dA-Za-z]{1,64}$/
+
+/**
+ * One of a character's Tidy 5e Sheets journal entries, from module 0.45.0, which sends only what
+ * this takes, as one that can't be read fails the whole event: a Classic box by one of its five
+ * keys.
+ */
+const tidyPageSchema: z.ZodType<TidyPage> = z
+  .object({
+    from: z.enum(TIDY_SOURCES),
+    id: z.string().regex(TIDY_ID),
+    title: z.string().max(MOST_NOTE_TITLE),
+    html: z.string().max(MOST_NOTE_TEXT),
+    cut: z.literal(true).optional(),
+    secret: z.literal(true).optional(),
+    sort: z.int().min(1),
+    rev: z.string().regex(NOTE_REV),
+  })
+  .refine(
+    page => page.from === 'journal' || Object.hasOwn(TIDY_CLASSIC, page.id),
+  )
+
+/**
+ * A character's Tidy 5e Sheets journal as Foundry holds it, from module 0.45.0: its entries, or
+ * held back as too large, its entries `[]`.
+ */
+const journalTidySchema: z.ZodType<JournalTidy> = z.looseObject({
+  actorId: z.string().regex(ACTOR_ID),
+  entries: z.array(tidyPageSchema).max(MOST_TIDY_ENTRIES),
+  withheld: z
+    .object({
+      reason: z.literal('tooLarge'),
+      bytes: z.int().min(0),
+      limit: z.int().min(0),
+    })
     .optional(),
 })
 
@@ -2319,6 +2377,7 @@ const EVENT_SCHEMAS: {
     settings: leftOut(foundrySettingsSchema),
   }),
   [EVENTS.JOURNAL_UPDATED]: journalUpdatedSchema,
+  [EVENTS.JOURNAL_TIDY]: journalTidySchema,
   [EVENTS.COMPANIONS_LISTED]: z.looseObject({ companions: companionsSchema }),
   [EVENTS.COMPANION_UPDATED]: z.looseObject({
     companion: companionEntrySchema,

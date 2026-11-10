@@ -252,7 +252,7 @@ export default [
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       // The names others give, which the app must spell their way: the Web App Manifest's,
-      // next/font's and Prisma's compound key.
+      // next/font's and Prisma's compound keys.
       camelcase: [
         'error',
         {
@@ -263,6 +263,7 @@ export default [
             'theme_color',
             'Geist_Mono',
             'bookId_noteId',
+            'bookId_source_entryId',
           ],
         },
       ],

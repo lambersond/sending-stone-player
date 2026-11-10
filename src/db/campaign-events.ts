@@ -11,6 +11,7 @@ import {
   lacksSheetTexts,
   saveSheetTexts,
 } from '@/db/sheet-texts'
+import { applyJournalTidy, drawTidy, reconcileTidy } from '@/db/tidy-sync'
 import { postedBeforeClear } from '@/utils/chat-clear'
 import { companionRoster } from '@/utils/companions'
 import { helloCampaignData, helloCompanionData } from '@/utils/hello-features'
@@ -44,13 +45,30 @@ type World = { id: string; title: string }
  * The events that leave the campaign's version alone: descriptions change nothing anyone sees
  * until a sheet refers to them, and Foundry's settings only the Gamemaster's campaign card shows,
  * which no table page watches. A journal of notes (module 0.34.0) has its own version, as no table
- * or party view shows notes.
+ * or party view shows notes; so has a character's Tidy 5e Sheets journal (module 0.45.0), which
+ * its personal book shows.
  */
 const VERSION_SILENT: ReadonlySet<string> = new Set([
   'character.texts',
   'bridge.settings',
   'journal.updated',
+  'journal.tidy',
 ])
+
+/**
+ * Draw what an event holds ahead, before its transaction: a large journal's notes, or a Tidy
+ * journal's entries, take longer to draw than a transaction may stay open.
+ */
+function drawAhead(
+  campaignId: string,
+  event: GameEvent,
+): Promise<JournalDrawings | undefined> {
+  if (event.type === 'journal.updated') {
+    return drawJournal(campaignId, event.data)
+  }
+  if (event.type === 'journal.tidy') return drawTidy(campaignId, event.data)
+  return Promise.resolve(undefined)
+}
 
 /**
  * Apply an event from a game's Gamemaster to what is held for one of its campaigns.
@@ -72,10 +90,7 @@ export async function applyCampaignEvent(
   sentAt: string,
 ): Promise<{ lacksTexts: boolean }> {
   // A journal's notes are drawn first: a large book's drawing would outlast the transaction.
-  const drawings =
-    event.type === 'journal.updated'
-      ? await drawJournal(campaignId, event.data)
-      : undefined
+  const drawings = await drawAhead(campaignId, event)
   return prisma.$transaction(async tx => {
     const lacksTexts = await apply(event, {
       tx,
@@ -210,6 +225,10 @@ const EVENT_HANDLERS: {
     await applyJournalUpdated(tx, campaignId, data, drawings)
     return false
   },
+  'journal.tidy': async (data, { tx, campaignId, drawings }) => {
+    await applyJournalTidy(tx, campaignId, data, drawings)
+    return false
+  },
   'companions.listed': async ({ companions }, { tx, campaignId }) => {
     await tx.campaign.update({
       where: { id: campaignId },
@@ -297,7 +316,7 @@ async function applyHello(
   const switches = helloCampaignData(features)
   const before = await tx.campaign.findUnique({
     where: { id: campaignId },
-    select: { noteFeatures: true },
+    select: { noteFeatures: true, tidyActive: true, tidyVersion: true },
   })
   await tx.campaign.update({
     where: { id: campaignId },
@@ -334,9 +353,11 @@ async function applyHello(
     await savePrompt(tx, campaignId, prompt, sentAt)
   }
   // Pages showing an order "kept here for now" learn that the game now takes it, or no longer
-  // does: every book of the campaign is new where what the module does with notes changed.
-  const noteFeatures = switches.noteFeatures.join(',')
-  if (before && before.noteFeatures.join(',') !== noteFeatures) {
+  // does: every book of the campaign is new where what the module does with notes changed; and,
+  // from module 0.45.0, where Tidy 5e Sheets was turned on or off, installed, removed or upgraded,
+  // which its entries' lines say.
+  const notesNow = notesSaid(switches)
+  if (before && notesSaid(before) !== notesNow) {
     await tx.journalBook.updateMany({
       where: { campaignId },
       data: { version: { increment: 1 } },
@@ -353,6 +374,9 @@ async function applyHello(
       features.notes.journals,
     )
   }
+  // The Tidy 5e Sheets journals of the characters it doesn't list as holding one, from module
+  // 0.45.0; an older module lists none, and sends none, and every one goes.
+  await reconcileTidy(tx, campaignId, features?.notes?.tidy?.actors ?? [])
   await tx.combat.deleteMany({ where: { campaignId } })
   await tx.combat.createMany({
     data: data.combats.map(combat => ({
@@ -383,6 +407,15 @@ async function applyHello(
   const companionSheets = await keptCompanionSheets(tx, campaignId)
   await keepOnlySheetTexts(tx, campaignId, sheets, [], companionSheets)
   return lacksSheetTexts(tx, campaignId, sheets, [], companionSheets)
+}
+
+/** What a campaign's hello said of journal notes, as one string to compare. */
+function notesSaid(said: {
+  noteFeatures: string[]
+  tidyActive: boolean | null
+  tidyVersion: string | null
+}): string {
+  return JSON.stringify([said.noteFeatures, said.tidyActive, said.tidyVersion])
 }
 
 /**

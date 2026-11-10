@@ -9,7 +9,7 @@ import type {
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
-import type { NoteBookKind, NoteRole } from '@/types/notes'
+import type { NoteBookKind, NoteRole, TidySource } from '@/types/notes'
 import type { DieSides } from '@lambersond/3d-dice-core'
 
 /**
@@ -1554,6 +1554,12 @@ export type BridgeFeatures = {
      */
     orders?: boolean
     changes?: boolean
+    /**
+     * Module 0.45.0, under dnd5e where Tidy 5e Sheets is installed or a character holds its
+     * journal's entries: whether Tidy is active, its version (null where it isn't installed), and
+     * the campaign's characters holding at least one entry, whose `journal.tidy` follows.
+     */
+    tidy?: { active: boolean; version: string | null; actors: string[] }
   } | null
   /**
    * The kinds a companion's rolls may be, as the campaign takes them now, and how its companions
@@ -1641,6 +1647,36 @@ export type JournalUpdated = {
   } | null
   withheld?:
     { reason: 'private' } | { reason: 'tooLarge'; bytes: number; limit: number }
+}
+
+/**
+ * A character's Tidy 5e Sheets journal, whole, as Foundry holds it (module 0.45.0), shown here
+ * read only: none where `entries` is `[]`; held back, its entries kept as they were, `withheld`.
+ */
+export type JournalTidy = {
+  actorId: string
+  /** In the order Tidy shows them: its current sheet's entries, then its Classic sheet's boxes. */
+  entries: TidyPage[]
+  withheld?: { reason: 'tooLarge'; bytes: number; limit: number }
+}
+
+/** One of a character's Tidy 5e Sheets journal entries, known by where it's kept and its key. */
+export type TidyPage = {
+  /** An entry of Tidy's current sheet's Journal tab, or one of its Classic sheet's five boxes. */
+  from: TidySource
+  /** Tidy's key: a journal entry's, or notes1 to notes4 or notes for a Classic box. */
+  id: string
+  /** As Tidy keeps it: "" where it has none. */
+  title: string
+  /** HTML, as written in Tidy: not enriched. */
+  html: string
+  cut?: true
+  /** Its secret sections were left out, as no player owns the character in Foundry. */
+  secret?: true
+  /** Its place within its `from`, from 1. */
+  sort: number
+  /** Its revision, of Tidy's own title and text, 14 hexadecimal digits. */
+  rev: string
 }
 
 /** One of a journal's notes as Foundry holds it: a chapter or an entry, by its page's id. */
@@ -2062,6 +2098,7 @@ export type GameEvent =
   | { type: 'group.removed'; data: { id: string } }
   | { type: 'bridge.settings'; data: { settings?: FoundrySettings } }
   | { type: 'journal.updated'; data: JournalUpdated }
+  | { type: 'journal.tidy'; data: JournalTidy }
   | { type: 'companions.listed'; data: CompanionsListed }
   | { type: 'companion.updated'; data: CompanionUpdated }
 

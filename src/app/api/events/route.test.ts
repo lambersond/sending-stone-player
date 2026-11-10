@@ -56,8 +56,9 @@ const FEATURES = {
   // From module 0.33.0: removals of characters' items, fetched for with rolls and moves off.
   removals: 1,
   // From module 0.34.0: journal notes, fetched for with rolls, moves and removals off; 2 from
-  // module 0.35.0, as the app reads who changed a journal in Foundry and sends orders of notes.
-  notes: 2,
+  // module 0.35.0, as the app reads who changed a journal in Foundry and sends orders of notes;
+  // and 3 from module 0.45.0, as it reads a character's Tidy 5e Sheets journal.
+  notes: 3,
   // Changed on purpose (round 0.36.0 §7.12): from module 0.36.0, the campaign's characters'
   // companions; and (round 0.41.0 §8.3) 2 from module 0.41.0, the saves the game asks of them.
   companions: 2,

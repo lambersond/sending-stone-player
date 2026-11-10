@@ -21,6 +21,7 @@ import {
   MAGIC_WEAPON_PROFILES,
   LOCK_CHECK,
   MAZE_CHECK,
+  mockJournalTidy,
   mockJournalUpdated,
   movedResult,
   NOT_FAVORITING,
@@ -4630,6 +4631,76 @@ const aloneOf = (alone?: unknown) =>
       },
     }) as any
   ).data.message.alone
+
+describe('schemas/sending-stone, Tidy 5e Sheets’ journal, from module 0.45.0', () => {
+  const KEEPING = {
+    enabled: true,
+    kinds: ['personal', 'party'],
+    reason: null,
+    journals: [],
+  }
+
+  it.each([
+    [{ active: true, version: '14.4.1', actors: ['thorin'] }, true],
+    [{ active: false, version: null, actors: [] }, true],
+    [{ active: 'yes', version: '14.4.1', actors: [] }, false],
+    [{ active: true, version: 'v'.repeat(101), actors: [] }, false],
+    [{ active: true, version: '14.4.1', actors: ['thor-in'] }, false],
+    ['on', false],
+  ])('reads features.notes.tidy %j, or as unsaid', (tidy, read) => {
+    const said = notes({ ...KEEPING, tidy }) as { tidy?: unknown }
+    expect(said).toMatchObject(KEEPING)
+    expect(said.tidy).toEqual(read ? tidy : undefined)
+  })
+
+  it('reads a character’s Tidy journal as the module sends it, and one held back', () => {
+    const event = mockJournalTidy()
+    expect(parseGameEvent('journal.tidy', event)?.data).toEqual(event)
+    const withheld = {
+      actorId: 'thorin',
+      entries: [],
+      withheld: { reason: 'tooLarge', bytes: 5_000_000, limit: 4_000_000 },
+    }
+    expect(parseGameEvent('journal.tidy', withheld)?.data).toEqual(withheld)
+  })
+
+  const entry = mockJournalTidy().entries[0]
+  it.each<[string, Record<string, unknown>]>([
+    ['from another store', { from: 'notes' }],
+    ['a key of another shape', { id: '-=tidyRavenhill01' }],
+    ['a Classic key Tidy has no box for', { from: 'classic', id: 'notes5' }],
+    ['a title of 201', { title: 't'.repeat(201) }],
+    ['text of 100,001', { html: 'h'.repeat(100_001) }],
+    ['no place', { sort: 0 }],
+    ['a place that isn’t whole', { sort: 1.5 }],
+    ['a revision of 13', { rev: 'abcdef0123456' }],
+    ['a cut said false', { cut: false }],
+  ])(
+    'refuses a journal with an entry %s, as one bad entry fails it',
+    (_name, junk) => {
+      expect(() =>
+        parseGameEvent('journal.tidy', {
+          actorId: 'thorin',
+          entries: [{ ...entry, ...junk }],
+        }),
+      ).toThrow()
+    },
+  )
+
+  it.each<[string, Record<string, unknown>]>([
+    ['an actor of another shape', { actorId: 'thor-in' }],
+    ['401 entries', { entries: Array.from({ length: 401 }, () => entry) }],
+    ['held back for another reason', { withheld: { reason: 'private' } }],
+  ])('refuses a journal with %s', (_name, junk) => {
+    expect(() =>
+      parseGameEvent('journal.tidy', {
+        actorId: 'thorin',
+        entries: [],
+        ...junk,
+      }),
+    ).toThrow()
+  })
+})
 
 describe('schemas/sending-stone, companions, from module 0.36.0', () => {
   const wolf = mockCompanionEntry()

@@ -116,6 +116,11 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
       features?.notes?.enabled === true && features.notes.orders === true
         ? ['orders']
         : [],
+    // Whether Tidy 5e Sheets is active, and its version, from module 0.45.0, under dnd5e, where
+    // it's installed or a character holds its journal's entries: a module before it, or a hello
+    // that says nothing of Tidy, clears both.
+    tidyActive: features?.notes?.tidy?.active ?? null,
+    tidyVersion: features?.notes?.tidy?.version ?? null,
   }
 }
 

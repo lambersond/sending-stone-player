@@ -2169,6 +2169,60 @@ exports[`parseGameEvent reads group.updated: group.updated read 1`] = `
 }"
 `;
 
+exports[`parseGameEvent reads journal.tidy: journal.tidy read 1`] = `
+"{
+ "event": {
+  "type": "journal.tidy",
+  "data": {
+   "actorId": "thorin",
+   "entries": [
+    {
+     "from": "journal",
+     "id": "tidyRavenhill01",
+     "title": "Ravenhill",
+     "html": "<p>The ravens speak of @UUID[JournalEntry.abc]{the old watch}.</p>",
+     "sort": 1,
+     "rev": "00000000000029"
+    },
+    {
+     "from": "journal",
+     "id": "tidyUntitled002",
+     "title": "",
+     "html": "<p>Ask Balin about the map.</p>",
+     "sort": 2,
+     "rev": "0000000000002a"
+    },
+    {
+     "from": "journal",
+     "id": "tidySecrets0003",
+     "title": "What Bard knows",
+     "html": "<p>He is not what he seems.</p>",
+     "secret": true,
+     "sort": 3,
+     "rev": "0000000000002b"
+    },
+    {
+     "from": "classic",
+     "id": "notes3",
+     "title": "Errands",
+     "html": "<p>Return the key to Dale.</p>",
+     "sort": 3,
+     "rev": "0000000000002c"
+    },
+    {
+     "from": "classic",
+     "id": "notes",
+     "title": "",
+     "html": "<p>We left at dawn.</p>",
+     "sort": 5,
+     "rev": "0000000000002d"
+    }
+   ]
+  }
+ }
+}"
+`;
+
 exports[`parseGameEvent reads journal.updated: journal.updated read 1`] = `
 "{
  "event": {
@@ -2428,6 +2482,12 @@ exports[`parseGameEvent refuses a malformed group.removed: group.removed malform
 exports[`parseGameEvent refuses a malformed group.updated: group.updated malformed 1`] = `
 "{
  "prettified": "✖ Invalid string: must match pattern /^[\\\\dA-Za-z]{1,64}$/\\n  → at group.id\\n✖ Invalid input: expected object, received undefined\\n  → at group.sheet"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed journal.tidy: journal.tidy malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected array, received undefined\\n  → at entries"
 }"
 `;
 
