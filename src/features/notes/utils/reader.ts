@@ -172,9 +172,17 @@ export function tidyShown(
     : undefined
 }
 
-/** A Tidy entry's text as it's searched, and its card shows it: what it draws, as plain text. */
+/**
+ * A Tidy entry's text as it's searched, and its card shows it: what it draws, as plain text, its
+ * paragraphs and other blocks a space apart.
+ */
 export function tidyText(entry: NoteTidyView): string {
-  return readDescription(entry.html)?.textContent ?? ''
+  const body = readDescription(entry.html)
+  if (!body) return ''
+  return [...body.childNodes]
+    .map(node => node.textContent?.trim() ?? '')
+    .filter(Boolean)
+    .join(' ')
 }
 
 /** The Tidy entries a search finds, by key, by title and text; none while nothing is searched. */
