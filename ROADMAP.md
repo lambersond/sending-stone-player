@@ -79,7 +79,7 @@ Left, in two batches. Pick from the list by number.
 9. **e2e coverage gaps (done):** runs against module 0.42.0 (`SKEW=042`); the dice tray at 768
    pixels, with the campaign's rolls turned off, and against an older module; and hit points under
    dnd5e 6 and Midi-QOL.
-10. **Questions to settle** (decisions, then any work they lead to):
+10. **Questions to settle (done)** (decisions, then any work they lead to):
     - a companion's refusals for its own-switch kinds: 409 or 422 (decided: all answer 409
       'unavailable'; done);
     - whether a list in the module's settings is cut to its limit before or after its malformed
@@ -94,9 +94,10 @@ Left, in two batches. Pick from the list by number.
       the three real mismatches found are fixed as bugs; done);
     - the double reads on the table, party and module polls (measured: while a table is open, the
       module's command wait makes about 636 queries a minute per campaign, half of the ~223,000 in
-      a 3-hour session with four players; reading the campaign once per check would save about
-      10%, also trimming the table and party double reads 3% more, and remembering the module
-      secret no queries; the owner decides from the numbers);
+      a 3-hour session with four players; decided: the campaign read once per command check and
+      the notes' old changes pruned once in 10 minutes, measured at 252 fewer queries a minute,
+      40% of the command wait, and about 45,000 fewer in a session, 20%; the table and party
+      double reads, about 3%, left as they are; done);
     - the overlapping route and table tests (decided: the notes routes' repeats trimmed, one table
       checking 401 and 404 for all 16 routes and each route's file keeping its wiring check, done;
       the other three overlaps trimmed when those areas next change);
@@ -124,6 +125,16 @@ Left, in two batches. Pick from the list by number.
     and the chat line reads "function Object() { [native code] } save". dnd5e only sends its own
     keys, so only a broken or hand-made message shows it; the lookup should check the key is the
     table's own, as the schemas' `abilityId` does.
+14. **Clear said twice in the dice tray:** with dice and a modifier other than +0 in the tray,
+    Clear is announced twice, "No dice" and then "+0": `@lambersond/3d-dice-core`'s tray reducer
+    resets the modifier with the dice (its `clear`, in `dist/tray-reducer.js`), and the modifier's
+    own live output speaks as well as the tray's formula. A clear should be said once, as
+    `useDiceSaid` already keeps a modifier's step from being said twice.
+15. **A notes test that depends on the tests' order:** recordNoteResult's "changes nothing for a
+    result for an earlier hand-over, the change since moved on" (`src/db/note-sync.test.ts`)
+    passes only while no earlier test has left `journalOrder.findUnique` finding an order, as the
+    order results' tests do (Jest's `clearMocks` keeps what a mock returns), so under
+    `--randomize` it fails. The test should say that no order has the id, as its name does.
 
 Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
