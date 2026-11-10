@@ -475,9 +475,11 @@ export async function getRollRequestView(
   })
   if (!request) return undefined
   const now = Date.now()
-  // A typed roll the game is making may be held asking for its run's later dice (module 0.45.0).
+  // A typed roll the game is making may be held asking for its run's later dice (module 0.45.0):
+  // never an answer to one, whose asks are its roll's.
   const typed = (request.payload as RollRequestInput | null)?.typed === true
-  if (request.status !== 'claimed' || !typed || !seat.campaignId) {
+  const runs = typed && request.kind !== 'dice'
+  if (request.status !== 'claimed' || !runs || !seat.campaignId) {
     return toRollRequestView(request as HeldRollRequest, now)
   }
   const asks = await rollDiceAsks(seat.campaignId, request.id)

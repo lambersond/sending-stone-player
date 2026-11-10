@@ -61,13 +61,13 @@ const given = ({ inFlight = 0, lastMinute = 0, ask = heldIceKnife() } = {}) => {
 }
 
 /** Thorin's typed damage, fetched 90 s ago and not yet answered. */
-const fetched = (typed: boolean) =>
+const fetched = (typed: boolean, kind = 'damage') =>
   prismaMock.rollRequest.findFirst.mockResolvedValue({
     id: 'roll-thorin-1',
     actorId: 'actor-thorin',
     role: 'player',
-    kind: 'damage',
-    payload: { kind: 'damage', ...(typed && { typed }) },
+    kind,
+    payload: { kind, ...(typed && { typed }) },
     status: 'claimed',
     result: null,
     createdAt: ago(91_000),
@@ -175,8 +175,11 @@ describe('db/roll-requests, dice the game asked for (module 0.45.0)', () => {
       })
     })
 
-    it('reads no asks of a roll not typed, as none opens a run', async () => {
-      fetched(false)
+    it.each([
+      ['a roll not typed, as none opens a run', false, 'damage'],
+      ['an answer to an ask, whose asks are its roll’s', true, 'dice'],
+    ])('reads no asks of %s', async (_, typed, kind) => {
+      fetched(typed, kind)
 
       await expect(
         getRollRequestView(thorin, 'roll-thorin-1'),
