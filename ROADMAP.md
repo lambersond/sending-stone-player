@@ -135,6 +135,8 @@ Left, in two batches. Pick from the list by number.
     dice work (item 11 included), and that the Gamemaster applies short and long rests. (Planned;
     held for a prototype first.)
 
+Built early, beside item 11, in module 0.44.0: v1.x item 8, Tidy 5e Sheets' journal (done).
+
 **Found in Batch 1's item 10 work**
 
 13. **A chat line's roll label can name a function:** the table view looks up a message's ability
@@ -269,8 +271,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
    case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
    offline as it connects.
-8. **Tidy 5e Sheets' journal:** the character-specific journal notes Tidy 5e Sheets adds to a
-   character, which aren't part of dnd5e's own character data (its
+8. **Tidy 5e Sheets' journal (done early, in v0.44):** the character-specific journal notes Tidy 5e
+   Sheets adds to a character, which aren't part of dnd5e's own character data (its
    [`documentJournal` flag](https://kgar.github.io/foundry-vtt-tidy-5e-sheets/classes/TidyFlags.html#documentjournal)),
    merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
    with in the campaign's settings, as the others are. Where entries can be deconflicted by when
