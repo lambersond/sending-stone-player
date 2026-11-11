@@ -196,7 +196,7 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
 
   If a run fails only in lanes, read its FAIL line before blaming the lanes. Rerun it with `ONLY=name`,
   serially, or with `RETRY=1`. Never loosen the check.
-- **Five known load races**, each failed only on a loaded machine and passed when rerun alone:
+- **Four known load races**, each failed only on a loaded machine and passed when rerun alone:
   - **transfers DND5E6=1**, "the module fetches for moves with rolls off, and no 60 s wait holds it
     after the hello's answer": the check gives the module 1.5 s from the hello's answer to begin a
     fetch for commands. Under load none had begun by then, and none had been answered with a 60 s
@@ -213,11 +213,6 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     game answering each check before the fourth lands; under load its answer came after. It runs alone
     already (`solo`), and failed so twice in a row there, straight after a pass's lanes, then passed
     when rerun with `ONLY=toasts`.
-  - **alone** and **alone MIDI=1**, part 15, "Timed out waiting for Fire Breath's failed recharge at
-    768 to be sent": the Recharge chip's tap sent nothing in 30 s. Most likely the tap came as the page
-    took the game's recharged sheet: the chip the suite waited for was still shown from before the
-    recharge, and went (to come back with the spend after it) between Playwright's look and its tap.
-    Alone that sheet reaches the page before the spend; under load it comes after.
   - **alone DND5E6=1**, part 17's deferred "as it opens, focus on the chip picked in its first row":
     focus was on the Spend switch. The picker opened on the page's sheet from before Thorin's 2nd-level
     slot reached it, with one level and so no row of levels, where the switch takes focus; and the poll
