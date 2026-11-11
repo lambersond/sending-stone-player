@@ -23,7 +23,7 @@ run() {
 }
 run organize 43 X=1
 run step3 39 X=1
-run step2 66 X=1
+run step2 69 X=1
 run step1 36 X=1
 run sheet 60 X=1
 run gm 66 X=1 SHOTS=$O/shots-gm
