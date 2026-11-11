@@ -446,6 +446,51 @@ describe('a creature’s pane', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
+  it('has its Condition Immunities’ conditions as a description’s, a hover their rules and a click the panel at one, D&D Beyond’s tags never shown', async () => {
+    const scrolled = jest.fn()
+    Element.prototype.scrollIntoView = scrolled
+    const user = userEvent.setup()
+    // A sidekick's, as the owner saw it at the table, its tags an import's.
+    const values = [
+      'Poison',
+      '[condition]Charmed[/condition]',
+      '[condition]Exhaustion[/condition]',
+      '[condition]Poisoned[/condition]',
+    ]
+    render(
+      pane({
+        sheet: wolf({
+          traits: [{ id: 'ci', label: 'Condition Immunities', values }],
+        }),
+      }),
+    )
+    const tags = /\[\/?condition\]/i
+
+    const traits = screen.getByRole('region', { name: 'Traits' })
+    expect(traits).toHaveTextContent(
+      'Condition ImmunitiesPoison, Charmed, Exhaustion, Poisoned',
+    )
+    expect(
+      within(traits)
+        .getAllByRole('button')
+        .map(({ textContent }) => textContent),
+    ).toEqual(['Charmed', 'Exhaustion', 'Poisoned'])
+    const charmed = within(traits).getByRole('button', { name: 'Charmed' })
+    await user.hover(charmed)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/^Charmed/)
+    expect(document.body).not.toHaveTextContent(tags)
+
+    await user.click(charmed)
+    const panel = screen.getByRole('dialog', { name: 'Conditions' })
+    await waitFor(() =>
+      expect(scrolled.mock.contexts.at(-1)).toBe(
+        within(panel).getByRole('region', { name: 'Charmed' }),
+      ),
+    )
+    expect(document.body).not.toHaveTextContent(tags)
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+
   describe('its initiative right after its character', () => {
     const waiting: TableCombat = {
       id: 'cmbt1',
