@@ -40,6 +40,7 @@ const combatWith = (initiative: number | null): TableCombat => ({
   id: 'cmbt1',
   name: null,
   underWay: true,
+  active: true,
   round: 1,
   combatants: [
     {

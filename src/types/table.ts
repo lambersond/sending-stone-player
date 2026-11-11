@@ -201,6 +201,12 @@ export type TableCombat = {
    * initiative roll and the target picker.
    */
   underWay: boolean
+  /**
+   * Whether it's the encounter its Gamemaster's tracker shows, the only one the game takes an
+   * initiative rolled from the sheet into (v0.45).
+   */
+  active: boolean
+  /** Its round: 0 before it begins, 1 or later once it has. */
   round: number
   /** Whose turn it is. Unset before the start, or while a hidden combatant acts. */
   currentId?: string

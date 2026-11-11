@@ -1176,6 +1176,7 @@ describe('components/character-sheet/character-pane', () => {
       id: 'cmbt1',
       name: null,
       underWay: true,
+      active: true,
       round: 1,
       combatants: [
         {
@@ -1927,6 +1928,7 @@ describe('components/character-sheet/character-pane', () => {
       id: 'cmbt1',
       name: null,
       underWay: true,
+      active: true,
       round: 1,
       combatants: [
         {
@@ -2739,6 +2741,7 @@ describe('components/character-sheet/character-pane', () => {
       id: 'cmbt1',
       name: null,
       underWay: true,
+      active: true,
       round: 1,
       combatants: [
         {
@@ -4536,6 +4539,7 @@ describe("components/character-sheet/character-pane, the Gamemaster's rolls as t
       id: 'c1',
       name: null,
       underWay: true,
+      active: true,
       round: 2,
       combatants: [
         {
@@ -6472,6 +6476,7 @@ describe('components/character-sheet/character-pane, Bardic Inspiration offered,
           id: 'cmbt1',
           name: null,
           underWay: true,
+          active: true,
           round: 1,
           combatants: [
             {

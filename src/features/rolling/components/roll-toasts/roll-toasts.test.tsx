@@ -1796,6 +1796,7 @@ describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the 
       id: 'c1',
       name: null,
       underWay: true,
+      active: true,
       round: 1,
       combatants: [
         {

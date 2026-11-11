@@ -21,6 +21,7 @@ const encounter = (fields: Partial<TableCombat> = {}): TableCombat => ({
   id: 'cmbt1',
   name: null,
   underWay: true,
+  active: true,
   round: 2,
   currentId: 'boss',
   combatants: [
@@ -100,10 +101,12 @@ const endingOf = (
 })
 
 const HINT = 'Or press and hold the Combat tab, from any tab.'
+const ORDER_LINE =
+  'The initiative order appears here when your Gamemaster starts an encounter.'
 const ROLL_LINE =
   'Roll initiative from the sheet for your Gamemaster’s encounter.'
 
-/** An encounter being set up, round 0, with `who` still to roll initiative. */
+/** The tracker's encounter being set up, round 0, with `who` still to roll initiative. */
 const waiting = (who: Partial<TableCombatant> & { id: string }) =>
   encounter({
     underWay: false,
@@ -231,46 +234,40 @@ describe('components/game-table/combat-tracker', () => {
   })
 
   describe('an encounter not under way (item 19)', () => {
+    // What it says beneath its heading is `noCombatLines`' (v0.45, the owner's decision 1), whose
+    // cases its own test covers; here, that each of its answers is drawn.
     it.each([
       [
-        'set up, the character waiting to roll',
+        'the tracker’s, set up, the character waiting to roll: both lines',
         waiting({ id: 'thorin', side: 'me' }),
-        true,
+        [ORDER_LINE, ROLL_LINE],
       ],
       [
-        'set up, a companion of the character waiting',
-        waiting({
-          id: 'brakka',
-          side: 'party',
-          yours: true,
-          companion: 'wolfBrakka',
-        }),
-        true,
-      ],
-      [
-        'set up, another of the party waiting',
+        'the tracker’s, set up, another of the party waiting: the order’s line',
         waiting({ id: 'vex', side: 'party' }),
-        false,
+        [ORDER_LINE],
       ],
       [
-        'begun, but not the encounter the tracker shows, the character without initiative',
+        'begun, but not the encounter the tracker shows, the character without initiative: the heading alone',
         {
           ...waiting({ id: 'thorin', side: 'me' }),
+          active: false,
           round: 2,
           currentId: 'boss',
         },
-        true,
+        [],
       ],
-    ])('%s: no combat, its turn and order unshown', (_, combat, line) => {
+    ])('%s, its turn and order unshown', (_, combat, lines) => {
       render(<CombatTracker combat={combat} />)
 
-      expect(
-        screen.getByRole('heading', { name: 'No combat right now' }),
-      ).toBeInTheDocument()
+      const heading = screen.getByRole('heading', {
+        name: 'No combat right now',
+      })
       expect(screen.queryByRole('list')).toBeNull()
       expect(screen.queryByRole('heading', { name: 'Initiative' })).toBeNull()
       expect(screen.queryByText(/^Round/)).toBeNull()
-      expect(screen.queryByText(ROLL_LINE) !== null).toBe(line)
+      const said = heading.nextElementSibling as HTMLElement
+      expect([...said.children].map(line => line.textContent)).toEqual(lines)
     })
 
     // The panel's heading comes with the encounter under way, its words already in it, so a region

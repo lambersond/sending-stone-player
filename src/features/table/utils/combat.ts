@@ -1,4 +1,4 @@
-import type { SeatTurn } from '@/features/table/types'
+import type { NoCombatLines, SeatTurn } from '@/features/table/types'
 import type { TableCombat, TableCombatant } from '@/types/table'
 
 /** Who acts in the combat now: its current combatant, where it lists one. */
@@ -41,15 +41,22 @@ export function isTurnOf(
 }
 
 /**
- * Whether one of the seat's own combatants, as `seatTurn` has them, its character or a companion of
- * it, waits for its initiative, rolled from its sheet: in an encounter being set up (round 0), or
- * in one begun that isn't the Gamemaster's tracker's, as the tracker asks it of one not under way.
+ * What the Combat tab says with no encounter under way, the one rule for it (v0.45, the owner's
+ * decision 1). In an encounter begun that isn't the Gamemaster's tracker's, nothing beneath its
+ * heading: the order won't appear "when an encounter starts", as it has, and the game takes no
+ * initiative into it. In the tracker's encounter before Begin Combat, the one an initiative rolled
+ * from the sheet goes into, the line to roll it while one of the seat's own combatants, as
+ * `seatTurn` has them, its character or a companion of it, has none. Otherwise, with none held
+ * too, that the order appears once one starts.
  */
-export function waitsForInitiative(combat: TableCombat): boolean {
-  return combat.combatants.some(
+export function noCombatLines(combat?: TableCombat): NoCombatLines {
+  if (!combat) return 'order'
+  if (!combat.active) return combat.round > 0 ? 'none' : 'order'
+  const waits = combat.combatants.some(
     combatant =>
       combatant.initiative === null && seatTurn(combatant) !== undefined,
   )
+  return combat.round === 0 && waits ? 'roll' : 'order'
 }
 
 /**

@@ -979,6 +979,7 @@ export function toTableCombat(
     id: combat.id,
     name: combat.name,
     underWay: isUnderWay(combat),
+    active: combat.active,
     round: combat.round,
     currentId: current ? (combat.combatantId ?? undefined) : undefined,
     combatants,

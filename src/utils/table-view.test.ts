@@ -1747,11 +1747,11 @@ describe('utils/table-view', () => {
       [false, true, false],
       [false, false, false],
     ])(
-      'is under way only begun (%p) and the encounter the tracker shows (%p): %p',
+      'is under way only begun (%p) and the encounter the tracker shows (%p): %p, and says whether it is the tracker’s',
       (started, active, underWay) => {
         expect(
-          toTableCombat(combat({ started, active }), viewer).underWay,
-        ).toBe(underWay)
+          toTableCombat(combat({ started, active }), viewer),
+        ).toMatchObject({ underWay, active })
       },
     )
 

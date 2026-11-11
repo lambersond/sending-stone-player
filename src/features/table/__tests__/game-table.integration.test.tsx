@@ -102,6 +102,7 @@ const combat = (fields: Partial<TableCombat> = {}): TableCombat => ({
   id: 'cmbt1',
   name: null,
   underWay: true,
+  active: true,
   round: 3,
   currentId: 'boss',
   combatants: [

@@ -287,6 +287,7 @@ const fight = (fields: Partial<TableCombat> = {}): TableCombat => ({
   id: 'cmbt1',
   name: null,
   underWay: true,
+  active: true,
   round: 2,
   currentId: 'c-brakka',
   combatants: [

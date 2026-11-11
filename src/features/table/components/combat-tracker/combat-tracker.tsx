@@ -6,7 +6,7 @@ import { TurnPanel } from './turn-panel'
 import { useTurnSaid } from './use-turn-said'
 import { turnHeading } from './utils'
 import { EmptyState } from '@/components/empty-state/empty-state'
-import { waitsForInitiative } from '@/features/table/utils/combat'
+import { noCombatLines } from '@/features/table/utils/combat'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
 import type { PanelEnding } from '@/features/table/types'
@@ -16,9 +16,10 @@ import type { TableCombat } from '@/types/table'
  * The encounter as the character's player sees it, while it's under way: whose turn it is, above
  * the initiative order. From module 0.36.0, the character's companions are the player's own, and on
  * a companion's turn its panel says to roll for it on its tab, which it opens. And on the seat's
- * turn, the panel offers End Turn. Before then, or with none, there's no combat to show; while the
- * character or a companion of it waits for its initiative in the encounter held, being set up or
- * begun but not the Gamemaster's tracker's, it says to roll it from the sheet.
+ * turn, the panel offers End Turn. Before then, or with none, there's no combat to show, and it
+ * says what `noCombatLines` has it say: in the tracker's encounter before Begin Combat, while the
+ * character or a companion of it waits for its initiative, to roll it from the sheet; in one begun
+ * that isn't the Gamemaster's tracker's, nothing beneath its heading.
  * @param onOpen - Shows a companion's tab, by its key.
  * @param keys - The companions whose tabs the page shows.
  */
@@ -45,13 +46,13 @@ export function CombatTracker({
     </p>
   )
   if (!combat?.underWay) {
-    const waiting = combat !== undefined && waitsForInitiative(combat)
+    const lines = noCombatLines(combat)
     return (
       <>
         {said}
         <EmptyState icon={Swords} title='No combat right now'>
-          <p>{noCombat}</p>
-          {waiting && (
+          {lines !== 'none' && <p>{noCombat}</p>}
+          {lines === 'roll' && (
             <p className='mt-2 font-medium text-text-primary'>
               {rollInitiative}
             </p>

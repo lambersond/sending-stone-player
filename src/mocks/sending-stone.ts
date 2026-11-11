@@ -4238,6 +4238,7 @@ export function mockTurnCombat(fields: Partial<TableCombat> = {}): TableCombat {
     id: 'cmbt1',
     name: null,
     underWay: true,
+    active: true,
     round: 1,
     currentId: 'c-thorin',
     combatants: [
