@@ -1440,9 +1440,7 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
       "Offline. Your game hasn't been heard from in the last two minutes.",
     )
     expect(
-      screen.getByText(
-        'You’re setting up an encounter: roll initiative from the sheet.',
-      ),
+      screen.getByText('Roll initiative from the sheet for your encounter.'),
     ).toBeInTheDocument()
   })
 })

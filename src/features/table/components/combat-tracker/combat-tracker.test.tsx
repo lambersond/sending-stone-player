@@ -101,7 +101,7 @@ const endingOf = (
 
 const HINT = 'Or press and hold the Combat tab, from any tab.'
 const ROLL_LINE =
-  'Your Gamemaster is setting up an encounter: roll initiative from the sheet.'
+  'Roll initiative from the sheet for your Gamemaster’s encounter.'
 
 /** An encounter being set up, round 0, with `who` still to roll initiative. */
 const waiting = (who: Partial<TableCombatant> & { id: string }) =>
@@ -259,7 +259,7 @@ describe('components/game-table/combat-tracker', () => {
           round: 2,
           currentId: 'boss',
         },
-        false,
+        true,
       ],
     ])('%s: no combat, its turn and order unshown', (_, combat, line) => {
       render(<CombatTracker combat={combat} />)

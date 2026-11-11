@@ -41,17 +41,14 @@ export function isTurnOf(
 }
 
 /**
- * Whether the encounter is being set up, not yet begun (round 0), and one of the seat's own
- * combatants, as `seatTurn` has them, its character or a companion of it, waits for its initiative,
- * rolled from its sheet. One begun that isn't the tracker's isn't being set up.
+ * Whether one of the seat's own combatants, as `seatTurn` has them, its character or a companion of
+ * it, waits for its initiative, rolled from its sheet: in an encounter being set up (round 0), or
+ * in one begun that isn't the Gamemaster's tracker's, as the tracker asks it of one not under way.
  */
 export function waitsForInitiative(combat: TableCombat): boolean {
-  return (
-    combat.round === 0 &&
-    combat.combatants.some(
-      combatant =>
-        combatant.initiative === null && seatTurn(combatant) !== undefined,
-    )
+  return combat.combatants.some(
+    combatant =>
+      combatant.initiative === null && seatTurn(combatant) !== undefined,
   )
 }
 

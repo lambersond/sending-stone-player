@@ -38,7 +38,8 @@ export type SeatWords = {
   noCombat: string
   /**
    * The combat tracker with no combat under way, while the seat's character, or a companion of it,
-   * waits to roll initiative into the encounter being set up.
+   * waits to roll initiative into the encounter it holds: one being set up, or one begun that isn't
+   * the Gamemaster's tracker's.
    */
   rollInitiative: string
   /** The game, live. */

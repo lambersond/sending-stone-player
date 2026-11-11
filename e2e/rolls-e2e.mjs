@@ -631,7 +631,7 @@ await shoot(page, 'phone-initiative-to-roll')
 // Combat, only that there's no combat, with a line to roll from the sheet while Thorin waits.
 const tableNav = page.getByRole('navigation', { name: 'Table' })
 const tracker = page.getByRole('region', { name: 'Combat' })
-const ROLL_LINE = 'Your Gamemaster is setting up an encounter: roll initiative from the sheet.'
+const ROLL_LINE = 'Roll initiative from the sheet for your Gamemaster’s encounter.'
 /** What Combat shows: whether it says there's no combat, its line to roll, its rows and its turn panel. */
 const combatShows = async () => {
   await tableNav.getByRole('button', { name: /^Combat/ }).click()
