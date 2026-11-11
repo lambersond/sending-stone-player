@@ -16,6 +16,35 @@ From the table's first session with v0.42.1, after the refactor.
 
 What's left. Pick from the list by number.
 
+**To check at the table before module v0.44.0 is tagged** (built and tested against stand-ins
+only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
+
+- **The dice an item rolls later**, when typing in dice:
+  - **What's asked:** Ice Knife's 2d6 after its 1d10, a critical's and an upcast's too, and
+    another activity's damage and dice cost that Midi rolls once saves are checked. D20s are never
+    asked, and nothing is asked under dnd5e 6.
+  - **Explosions and timing:** a typed die that explodes is asked again, one die at a time, never
+    told as timed out when the asks run past a minute. The ask opens by itself on the device the
+    roll came from, not the one the exploding die was typed on.
+  - **The dialog:** never over a focused text field, with a banner on the other devices, and focus
+    back where it was. A skip, an expiry, a failed send offered again, two devices answering at
+    once.
+  - **The Gamemaster:** their window counts down, with Roll it now, leaving their chat typing
+    alone; two players' Hunter's Mark at once, and a homebrew bonus macro; the Gamemaster using
+    the same item meanwhile.
+- **A use's cost check:** with the Gamemaster's Manual Dice on, a use from the app of an item with
+  a `1d4` cost, with Midi-QOL too, asks them once, for the cost spent, or nothing where the player
+  typed.
+- **Tidy 5e Sheets' journal:**
+  - an entry added, changed, dragged and deleted on the Journal tab reaches the app within
+    seconds, a first one dated "First seen";
+  - the Classic sheet's boxes;
+  - secrets on a character no player owns;
+  - Tidy turned off, then uninstalled, leaving the entries readable and the campaign card saying
+    "(not enabled)";
+  - an entry written on a Wild Shape form's Journal tab lost when the form ends, as the app's line
+    says.
+
 **Help**
 
 12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
