@@ -196,7 +196,7 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
 
   If a run fails only in lanes, read its FAIL line before blaming the lanes. Rerun it with `ONLY=name`,
   serially, or with `RETRY=1`. Never loosen the check.
-- **Six known load races**, each failed only on a loaded machine and passed when rerun alone:
+- **Five known load races**, each failed only on a loaded machine and passed when rerun alone:
   - **transfers DND5E6=1**, "the module fetches for moves with rolls off, and no 60 s wait holds it
     after the hello's answer": the check gives the module 1.5 s from the hello's answer to begin a
     fetch for commands. Under load none had begun by then, and none had been answered with a 60 s
@@ -223,14 +223,6 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     slot reached it, with one level and so no row of levels, where the switch takes focus; and the poll
     bringing the slot landed before the suite's first look at the picker, so `openPicker` took it as
     ready. Under load more time passes between the two.
-  - **feedback SKEW=042**, under Attack Roll Visibility "Hide AC", `and the app pills it "Hit"`
-    (the run's 85th check of 115, after the 84 before it had passed): the phone's chat still showed
-    the goblin with no Hit pill after `targetsBecome`'s 15 s wait. The check just before it passed, so
-    module 0.42.0 had already told the app that the rapier hit, and never the goblin's armor class.
-    It failed once, under three lanes' load (a load average of about 6), and passed alone on lane 0
-    with the other lanes idle (`RETRY=1`, 115 of 115), as it did in Batch 1's own pass. The check is
-    an old one, which this variant, new in v0.44, runs too; the plain and Midi-QOL runs passed it in
-    the same pass.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across
