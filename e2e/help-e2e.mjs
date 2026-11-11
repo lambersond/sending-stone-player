@@ -13,14 +13,15 @@
 // opens the same panel at its title, and Escape gives the cog its focus back; with the cog's Send to
 // the table off, the box says his rolls stay here. At 1280 × 800 the panel is 448 px at the right.
 // The campaign lets players type in their dice: "Allowed: turn it on in Settings", and the paragraph
-// on the dice an item rolls later shown, its module asking for them;
-// Thorin's Enter dice results manually on: "On", the dice his effects add and those an item rolls
-// later "Asked for". The Gamemaster's page for Seraphina at 360 × 780: the room her name has in the
-// header, with the ? and without it, measured; Help "What your player sees", its note naming her, its
-// own box, the same sections and paragraphs as her player's; at 1280 the same. Screenshots at twice the pixels, to SHOTS: the panel at 360, 390, 768 and 1280, in both
-// themes at 390 and 1280; the Gamemaster's at 390 and 1280; the box with typing off and on; the
-// settings menu; the Gamemaster's header at 360. Synthetic characters only. Run with --import
-// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
+// on the dice an item rolls later shown, its module asking for them; Thorin's Enter dice results
+// manually on: "On", the dice his effects add and those an item rolls later "Asked for". The
+// Gamemaster's page for Seraphina at 360 × 780: the room her name has in the header, with the ? and
+// without it, measured; Help "What your player sees", its note naming her, its own box, the same
+// sections and paragraphs as her player's; at 1280 the same. Screenshots at twice the pixels, to
+// SHOTS: the panel at 360, 390, 768 and 1280, in both themes at 390 and 1280; the Gamemaster's at 390
+// and 1280; the box with typing off and on; the settings menu; the Gamemaster's header at 360.
+// Focus and scrolling are waited for as they happen, never for a fixed time. Synthetic characters
+// only. Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
 import {
   browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, note, part, same, settled,
   shoot, sideways, sql, startModule, theme, until,
@@ -65,11 +66,26 @@ const focused = who => who.page.evaluate(() => {
   const el = document.activeElement
   return `${el?.tagName.toLowerCase()} ${el?.getAttribute('aria-label') ?? el?.textContent?.trim()}`
 })
-/** Help, opened from the header's button, its title focused. */
+/** What has focus once it's `want`, or after 5 s whatever has it, for the check after it to say. */
+async function focusedOn(who, want) {
+  const end = Date.now() + 5_000
+  let now = await focused(who)
+  while (now !== want && Date.now() < end) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+    now = await focused(who)
+  }
+  return now
+}
+/** Help, once open: its slide in over, and its title focused, or 5 s on. */
+async function opened(who) {
+  await panelOf(who).waitFor()
+  await panelOf(who).evaluate(dialog => Promise.all(dialog.getAnimations().map(slide => slide.finished)))
+  await focusedOn(who, 'h2 Help')
+}
+/** Help, opened from the header's button. */
 async function openHelp(who) {
   await who.page.getByRole('button', { name: 'Help', exact: true }).click()
-  await panelOf(who).waitFor()
-  await who.page.waitForTimeout(250)
+  await opened(who)
 }
 /** The box's rows, "label: says". */
 const boxOf = who => panelOf(who).getByRole('region', { name: /^In this game, for / })
@@ -78,7 +94,6 @@ const shown = async (who, text) => (await panelOf(who).getByText(text, { exact: 
 async function closeHelp(who) {
   await who.page.keyboard.press('Escape')
   await panelOf(who).waitFor({ state: 'hidden' })
-  await who.page.waitForTimeout(100)
 }
 /** The panel's own layout: its box and sections, and how its content scrolls. */
 const layoutOf = who => panelOf(who).evaluate(dialog => {
@@ -133,34 +148,43 @@ check(await focused(phone) === 'h2 Help' && await panelOf(phone).getByText('Play
 }
 
 part('2. the chips: focus, scroll and reduced motion')
-/** A chip clicked, the content's scroll read at once and again later, and the heading's place then. */
+/**
+ * A chip clicked: the content's scroll as it's clicked, then every frame's, until it has moved and
+ * stood still for 300 ms, or 3 s on; how many frames it was on its way; and the heading's place then.
+ */
 const jump = (who, name) => panelOf(who).evaluate(async (dialog, name) => {
   const scroller = dialog.querySelector('.overflow-y-auto')
   scroller.scrollTop = 0
   const chip = [...dialog.querySelectorAll('nav button')].find(button => button.textContent === name)
   chip.click()
   const atOnce = scroller.scrollTop
-  await new Promise(resolve => setTimeout(resolve, 60))
-  const soon = scroller.scrollTop
-  await new Promise(resolve => setTimeout(resolve, 1200))
+  const seen = [atOnce]
+  const began = performance.now()
+  let since = began
+  while ((seen.at(-1) === 0 || performance.now() - since < 300) && performance.now() - began < 3_000) {
+    await new Promise(requestAnimationFrame)
+    if (scroller.scrollTop !== seen.at(-1)) since = performance.now()
+    seen.push(scroller.scrollTop)
+  }
+  const final = scroller.scrollTop
   const heading = [...scroller.querySelectorAll('h3')].find(h3 => h3.textContent === name)
   return {
-    atOnce, soon, final: scroller.scrollTop, focused: document.activeElement === heading,
+    atOnce, final, between: seen.filter(top => top > 0 && top < final).length, focused: document.activeElement === heading,
     offset: Math.round(heading.getBoundingClientRect().top - scroller.getBoundingClientRect().top),
   }
 }, name)
 {
   const smooth = await jump(phone, 'Typing in your own dice')
-  check(smooth.focused && smooth.atOnce === 0 && smooth.soon > 0 && smooth.soon < smooth.final && smooth.offset === 12,
-    `a chip focuses its section's heading and scrolls it smoothly to ${smooth.offset} px from the top (0, then ${smooth.soon}, then ${smooth.final} px)`)
+  check(smooth.focused && smooth.atOnce === 0 && smooth.between > 0 && smooth.offset === 12,
+    `a chip focuses its section's heading and scrolls it smoothly to ${smooth.offset} px from the top (from 0 to ${smooth.final} px, ${smooth.between} frames on its way)`)
   await phone.page.emulateMedia({ reducedMotion: 'reduce' })
   const reduced = await jump(phone, 'Typing in your own dice')
-  check(reduced.focused && reduced.atOnce === reduced.final && reduced.final === smooth.final && reduced.offset === 12,
-    `with reduced motion it's there at once: ${reduced.atOnce} px as the chip is clicked`)
+  check(reduced.focused && reduced.atOnce === reduced.final && reduced.between === 0 && reduced.final === smooth.final && reduced.offset === 12,
+    `with reduced motion it's there at once: ${reduced.atOnce} px as the chip is clicked, no frame on its way`)
   await phone.page.emulateMedia({ reducedMotion: 'no-preference' })
 }
 await closeHelp(phone)
-check(await focused(phone) === 'button Help', 'Escape closes Help and gives the header’s ? its focus back')
+check(await focusedOn(phone, 'button Help') === 'button Help', 'Escape closes Help and gives the header’s ? its focus back')
 
 part('3. the settings menu’s How to use Sending Stone')
 {
@@ -174,11 +198,10 @@ part('3. the settings menu’s How to use Sending Stone')
   await group.scrollIntoViewIfNeeded()
   await shoot(phone, 'help-settings-menu', menu)
   await group.getByRole('button', { name: 'How to use Sending Stone' }).click()
-  await panelOf(phone).waitFor()
-  await phone.page.waitForTimeout(250)
+  await opened(phone)
   check(await focused(phone) === 'h2 Help' && !(await menu.isVisible()), 'it closes the settings and opens the same Help, at its title')
   await closeHelp(phone)
-  check(await focused(phone) === 'button Settings', 'Escape gives the cog its focus back')
+  check(await focusedOn(phone, 'button Settings') === 'button Settings', 'Escape gives the cog its focus back')
   // This device's Send to the table, off: what he rolls here stays here, whatever the game takes.
   const send = async on => {
     await phone.page.getByRole('button', { name: 'Settings', exact: true }).click()
@@ -205,7 +228,7 @@ await openHelp(desk)
   check(layout.width === 448 && layout.left === 1280 - 448 && await focused(desk) === 'h2 Help', `at 1280 the panel is ${layout.width} px wide at the right (from ${layout.left} px), its title focused`)
 }
 await closeHelp(desk)
-check(await focused(desk) === 'button Help', 'and Escape gives the ? its focus back there too')
+check(await focusedOn(desk, 'button Help') === 'button Help', 'and Escape gives the ? its focus back there too')
 await openHelp(desk)
 await shoot(desk, 'help-panel-player')
 await theme(desk, 'dark')
@@ -282,7 +305,7 @@ await openHelp(gm)
     'the same eight sections, with the paragraph on the dice an item rolls later, as the campaign\'s module asks for them')
 }
 await closeHelp(gm)
-check(await focused(gm) === 'button Help', 'Escape gives the Gamemaster\'s ? its focus back')
+check(await focusedOn(gm, 'button Help') === 'button Help', 'Escape gives the Gamemaster\'s ? its focus back')
 for (const [width, height] of [[390, 844], [1280, 800]]) {
   const who = await open(width, height, `/campaigns/${A}/characters/seraphina`)
   await ready(who)
