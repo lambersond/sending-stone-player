@@ -197,8 +197,9 @@ describe('components/game-table/combat-tracker', () => {
     render(<CombatTracker combat={encounter({ currentId: 'thorin' })} />)
 
     expect(turnPanel()).toHaveTextContent('Your turn')
-    expect(screen.getByText('Next: Vex')).toBeInTheDocument()
-    expect(screen.getByText('Round 2')).toBeInTheDocument()
+    expect(screen.getByText('Next: Vex')).toHaveClass('truncate')
+    // Item 33: a long name after "Next:" is cut short, never squeezing the round onto two lines.
+    expect(screen.getByText('Round 2')).toHaveClass('shrink-0')
   })
 
   it("tells the player they're up next", () => {

@@ -117,14 +117,16 @@ export function TurnPanel({
   )
 }
 
-/** The round, and who acts next. */
+/**
+ * The round, and who acts next: a long name cut short, the round kept whole, on one line, beside it.
+ */
 function RoundLine({
   combat,
   next,
 }: Readonly<{ combat: TableCombat; next?: TableCombatant }>) {
   return (
     <div className='flex items-baseline justify-between gap-2 text-xs text-text-secondary'>
-      <span className='font-semibold tracking-wider uppercase'>
+      <span className='shrink-0 font-semibold tracking-wider uppercase'>
         {`Round ${combat.round}`}
       </span>
       {next && (

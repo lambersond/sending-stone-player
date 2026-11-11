@@ -4,7 +4,8 @@
 // page it wraps inside its column, never under the invite link beside it nor past a phone's screen;
 // on the Gamemaster's page of the character the journal's card leaves its words room, Open's label
 // wrapping, and Combat and Chat keep their width beside it; and on the join page, Bob choosing, it
-// wraps inside its card, the chooser inside its column.
+// wraps inside its card, the chooser inside its column. And item 33: on that page's Combat, a long
+// name after "Next:" cut short, "Round 2" beside it kept on one line, at the same five widths.
 import { actor, combat, combatant, message, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -60,7 +61,9 @@ const thorin = actor('thorin', 'Thorin Oakenshield', ['alice'], 'character', { v
 // Item 17: a name as long as one at the table, Alice's too.
 const LONG = 'Seraphina Nightingale-Ashworth of the Ever-Burning Lighthouse'
 actor('sera', LONG, ['alice'], 'character', { value: 30, max: 38, temp: 0 })
-const goblins = Array.from({ length: 11 }, (_, i) => actor(`gob${i}`, `Goblin ${i + 1}`, [], 'npc', { value: 7, max: 7, temp: 0 }))
+// Item 33: the goblin who acts after the current one has a long name, shown after "Next:".
+const LONG_FOE = 'Vorthagax the Undying, Tyrant of the Ever-Burning Ashen Wastes'
+const goblins = Array.from({ length: 11 }, (_, i) => actor(`gob${i}`, i === 3 ? LONG_FOE : `Goblin ${i + 1}`, [], 'npc', { value: 7, max: 7, temp: 0 }))
 await import(`${MODULE}/scripts/module.mjs`)
 await Hooks.callAll('init')
 settings.set('listenerUrl', new URL(BASE).host)
@@ -190,6 +193,28 @@ const chooserRoom = page => page.getByRole('group', { name: 'Which character are
     pageX: root.scrollWidth - root.clientWidth,
   }
 }, LONG)
+/**
+ * On that page's Combat (item 33): the turn panel's round line, its round's lines, the name after
+ * "Next:" cut short inside the line, and the page's sideways scroll.
+ */
+const roundRoom = page => page.locator('section[aria-labelledby="turn-heading"]').evaluate(panel => {
+  const line = panel.firstElementChild
+  const [round, next] = line.children
+  const root = document.scrollingElement
+  return {
+    round: round.textContent, lines: Math.round(round.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(round).lineHeight)),
+    next: next.textContent, cut: next.scrollWidth > next.clientWidth, inside: next.getBoundingClientRect().right <= line.getBoundingClientRect().right + 0.5,
+    pageX: root.scrollWidth - root.clientWidth,
+  }
+})
+/** That page on Combat: the bottom bar's tab on one pane, the column's beside the sheet. */
+async function showCombat(page, width) {
+  const tab = width < 1024
+    ? page.getByRole('navigation', { name: 'Table' }).getByRole('button', { name: /^Combat/ })
+    : page.getByRole('tablist', { name: 'Combat or chat' }).getByRole('tab', { name: /^Combat/ })
+  await tab.click()
+  await page.locator('#turn-heading').waitFor()
+}
 const invite = sql(`select "inviteCode" from campaign where id = '${campaignId}'`)
 const bob = await cookieFor('e2e-bob-token')
 const named = {}
@@ -206,6 +231,9 @@ for (const width of [360, 390, 768, 1024, 1280]) {
   await page.getByRole('button', { name: `Open ${LONG}’s Journal` }).waitFor()
   named[width].journal = await cardRoom(page)
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-journal-${width}.png` })
+  await showCombat(page, width)
+  named[width].combat = await roundRoom(page)
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-combat-${width}.png` })
   await ctx.close()
   const joining = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 900 }, colorScheme: 'light' })
   await joining.addCookies([bob])
@@ -219,13 +247,15 @@ for (const width of [360, 390, 768, 1024, 1280]) {
 }
 console.log(JSON.stringify(named, null, 1))
 if (EXPECT === 'fixed') {
-  for (const [width, { campaigns, journal, join }] of Object.entries(named)) {
+  for (const [width, { campaigns, journal, join, combat }] of Object.entries(named)) {
     check(campaigns.past <= 0 && campaigns.pageX === 0,
       `${width}: on the campaigns page the long name wraps inside its column, the page not scrolling sideways (${JSON.stringify(campaigns)})`)
     check(journal.words >= journal.card / 3 && journal.spill <= 0 && journal.pageX === 0 && journal.aside === journal.wanted,
       `${width}: on its page the journal's card leaves its words a third of it, Open's label wrapping inside Open, Combat and Chat at their width beside it (${JSON.stringify(journal)})`)
     check(join.past <= 0 && !join.cut && join.pageX === 0,
       `${width}: on the join page the long name wraps, whole, inside its card, the chooser inside its column, the page not scrolling sideways (${JSON.stringify(join)})`)
+    check(combat.round === 'Round 2' && combat.lines === 1 && combat.next === `Next: ${LONG_FOE}` && combat.cut && combat.inside && combat.pageX === 0,
+      `${width}: on Combat the long name after "Next:" is cut short inside the round line, "Round 2" kept on one line beside it, the page not scrolling sideways (${JSON.stringify(combat)})`)
   }
 }
 

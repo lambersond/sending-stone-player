@@ -32,8 +32,8 @@ run conditions 22 X=1
 run late-setup 4 EXPECT_FIX=1
 run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
 # Item 17: a very long character name on the campaigns page, the journal's card and the join page,
-# at 360, 390, 768, 1024 and 1280.
-run layout 27 EXPECT=fixed
+# at 360, 390, 768, 1024 and 1280; item 33: a long name after the turn panel's "Next:" at the same.
+run layout 32 EXPECT=fixed
 # Item 17 in world-030: a long party name on the campaigns page, a long word in Personality and
 # Appearance, and long names in Give coins' and Distribute coins' lists, at the same five widths.
 run names 21 SHOTS=$O/shots-names
