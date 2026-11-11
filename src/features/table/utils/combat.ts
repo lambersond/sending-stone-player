@@ -51,11 +51,14 @@ export function waitsForInitiative(combat: TableCombat): boolean {
   )
 }
 
-/** Who acts after the current combatant, skipping the defeated, while the combat is under way. */
+/**
+ * Who acts after the current combatant, skipping the defeated, as the turn panel shows it: drawn
+ * only for a combat under way (`CombatTracker`), so that's left to it.
+ */
 export function nextUp(combat: TableCombat): TableCombatant | undefined {
   const { combatants, currentId } = combat
   const index = combatants.findIndex(({ id }) => id === currentId)
-  if (!combat.underWay || index === -1) return undefined
+  if (index === -1) return undefined
   for (let step = 1; step < combatants.length; step++) {
     const candidate = combatants[(index + step) % combatants.length]
     if (!candidate.defeated) return candidate
