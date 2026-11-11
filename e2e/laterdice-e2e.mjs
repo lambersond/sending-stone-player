@@ -6,9 +6,10 @@
 // attacks and asks in the app, allows players to type their dice, and Manual Dice is on. The hello
 // says diceAsks, diceAsksReason null, "dice" last of the kinds, the app answers diceAsks: 1 and keeps
 // it. Thorin's Wild Sparks, a 1d6x formula, typed 6 on the phone, explodes: the game asks for the die
-// it throws again, one d6, its dialog opening by itself on the phone, the device the roll came from,
-// "Your die exploded", and only a banner on the wide page; the Gamemaster's Foundry shows "Waiting for
-// Thorin's player" with Roll it now; typed 2, the card's dice are 6 and 2, the banner gone. "Let the
+// it throws again, one d6, named "Wild Sparks: Burst" by its roll since module 0.45.0, its dialog
+// opening by itself on the phone, the device the roll came from, "Your die exploded", and only a
+// banner on the wide page; the Gamemaster's Foundry shows "Waiting for Thorin's player" with Roll it
+// now; typed 2, the card's dice are 6 and 2, the banner gone. "Let the
 // game roll": Foundry's computer 6 explodes again into a 1, never asked. Rolled from the wide page,
 // the dialog opens there and the phone has the banner; typed in from the phone's banner, the wide
 // page's dialog closes by itself, sending nothing. Rolled from the wide page with Spells' search field
@@ -395,9 +396,11 @@ if (!ASKS) {
   ask = await nextAsk(id)
   const dialog = askOf(phone)
   await dialog.waitFor({ timeout: 15_000 })
-  check(ask.purpose === 'again' && ask.again === 'explode' && ask.actorId === 'thorin' && same(ask.rolls.map(roll => roll.terms), [[{ faces: 6, number: 1 }]]) && /^Wild Sparks/.test(ask.label)
+  // Named by its roll, as its chip and the tray name it, since module 0.45.0 (ROADMAP item 26): the
+  // dialog's title, the banner and the Gamemaster's window below say the ask's label.
+  check(ask.purpose === 'again' && ask.again === 'explode' && ask.actorId === 'thorin' && same(ask.rolls.map(roll => roll.terms), [[{ faces: 6, number: 1 }]]) && ask.label === 'Wild Sparks: Burst'
     && Date.parse(ask.expiresAt) - Date.parse(ask.askedAt) === 60_000,
-    `typed 6, Wild Sparks' 1d6x explodes: the game asks for its die more, purpose again, explode, one d6, "${ask.label}", for a minute`)
+    `typed 6, Wild Sparks' 1d6x explodes: the game asks for its die more, purpose again, explode, one d6, "${ask.label}", named by its roll as its chip is, for a minute`)
   const look = {
     title: await titleOf(dialog), groups: await groupsOf(dialog), note: await dialog.getByText(EXPLODED, { exact: true }).isVisible(),
     chip: await dialog.getByText('Manual Dice', { exact: true }).isVisible(), timer: (await dialog.getByRole('timer').textContent()).trim(),
