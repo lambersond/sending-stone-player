@@ -1,8 +1,9 @@
 # Roadmap
 
 Sending Stone is two projects released together: this app and the Foundry module
-[fvtt-sending-stone](https://github.com/lambersond/fvtt-sending-stone). Each version below ships as
-one app release and one module release, the app deployed first.
+[fvtt-sending-stone](https://github.com/lambersond/fvtt-sending-stone). Each module version below
+ships with the app deployed for it, the app first. The app has no version numbers of its own:
+app-only work ships with its next deploy.
 
 The further out a version is, the less settled it is, and that's expected: each one is planned in
 full when work on it starts. Open questions stay with their version until then. Any version may
@@ -12,9 +13,7 @@ Released: module v0.42.1 and its app.
 
 ## v0.44 (release candidate)
 
-From the table's first session with v0.42.1, after the refactor.
-
-What's left. Pick from the list by number.
+From the table's first session with v0.42.1, after the refactor: built and merged.
 
 **To check at the table before module v0.44.0 is tagged** (built and tested against stand-ins
 only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
@@ -44,6 +43,15 @@ only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
     "(not enabled)";
   - an entry written on a Wild Shape form's Journal tab lost when the form ends, as the app's line
     says.
+
+Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
+for a while before v1.0 is tagged.
+
+## Next slice
+
+Picked by the owner, to follow v0.44. Whatever of it changes the module ships in module v0.45.0;
+what's app-only ships with the app, which has no version numbers of its own. Pick from the list by
+number.
 
 **Help**
 
@@ -95,19 +103,6 @@ only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
 
 **Found while building Batch 2**
 
-23. **Midi-QOL's reaction checks ask the Gamemaster for dice:** as it looks for the reactions an
-    attack's targets could take, Midi-QOL works out what each would spend and throws that away
-    (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
-    with the Gamemaster's dice settings, and under Manual Dice Foundry asks them for a roll nobody
-    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
-    `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
-    dice, as it now does Midi's check as a use from the app begins.
-24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
-    `commands.mjs`, `transport.mjs`, `chat-data.mjs`, `creatures.mjs`, `midi-prompts.mjs`,
-    `command-rolls.mjs` and others) already imported one another in one loop before the later dice,
-    and `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No
-    top-level code depends on the loop; untangling it is a refactor of modules older than the later
-    dice.
 25. **Two copies of one countdown:** the dice dialog
     (`src/features/rolling/components/dice-entry/dice-entry-dialog.tsx`, since v0.42) keeps its own
     `secondsLeft`, `useSecondsLeft` and `clock`, line for line the prompt banner's
@@ -131,8 +126,32 @@ only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
     again that's the whole exploding formula. Code and `PROTOCOL.md` agree; such an answer could say
     it's added to its roll's total instead. The e2e doesn't check these words.
 
-Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
-for a while before v1.0 is tagged.
+## Follow-up batch
+
+After the next slice, by number.
+
+**Found while building Batch 2**
+
+23. **Midi-QOL's reaction checks ask the Gamemaster for dice:** as it looks for the reactions an
+    attack's targets could take, Midi-QOL works out what each would spend and throws that away
+    (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
+    with the Gamemaster's dice settings, and under Manual Dice Foundry asks them for a roll nobody
+    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
+    `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
+    dice, as it now does Midi's check as a use from the app begins.
+24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
+    `commands.mjs`, `transport.mjs`, `chat-data.mjs`, `creatures.mjs`, `midi-prompts.mjs`,
+    `command-rolls.mjs` and others) already imported one another in one loop before the later dice,
+    and `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No
+    top-level code depends on the loop; untangling it is a refactor of modules older than the later
+    dice.
+
+**Moved up from v1.x**
+
+28. **Favorites reordered** from the app.
+29. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
+    cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
+    concentration.
 
 ## v1.0
 
@@ -149,23 +168,19 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 2. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
    actual hit points (off by default, as it gives information away).
 3. **Summon activities** used from the app.
-4. **Favorites reordered** from the app.
-5. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
+4. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
    campaign's compendiums, such as another compendium or a world actor, used from the app too,
    where its player could use it in Foundry.
-6. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
-   cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
-   concentration.
-7. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
+5. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
    to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
    case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
    offline as it connects.
-8. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
+6. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
    player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
    signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
    until the cache expires, so its lifetime is chosen with that in mind.
-9. Bug fixes and polish.
+7. Bug fixes and polish.
 
 ## v2.0
 
