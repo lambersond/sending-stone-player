@@ -220,6 +220,10 @@ run hitpoints 36 SHOTS=$O/shots-044
 run hitpoints 36 DND5E6=1 SHOTS=$O/shots-044
 run hitpoints 36 MIDI=1 SHOTS=$O/shots-044
 # Item 12: Help, from the header's ? and the cog's How to use Sending Stone, at 360 and 1280, for a
-# player and the Gamemaster: the box reading the campaign, typing off, allowed and on; the panel's
-# layout, the chips and reduced motion, focus going back; the Gamemaster's long name at 360.
-run help 26 SHOTS=$O/shots-help
+# player and the Gamemaster: the box reading the campaign, typing off, allowed and on, and with this
+# device's Send to the table off; the paragraph on the dice an item rolls later by the module's
+# version, typing allowed or not; the panel's layout, the chips and reduced motion, focus going back;
+# the Gamemaster's long name at 360. Module 0.42.0, and dnd5e 6.0.5: no row nor paragraph for them.
+run help 28 SHOTS=$O/shots-help
+run help 4 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-help
+run help 4 DND5E6=1 SHOTS=$O/shots-help
