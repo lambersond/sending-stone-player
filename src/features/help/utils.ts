@@ -54,21 +54,24 @@ function row(
 /**
  * The player's rows, in the brief's order, each from the view their page already has: the rolls
  * and what else the game takes now, none while the character isn't one of its campaign's (as the
- * dice tray reads them); typing in their dice by their own switch; and the campaign's own switches.
- * The dice their effects add and those an item rolls later only while they type theirs in, the
- * later ones only where the campaign's module asks for them (H6 B); Wild Shape only for a sheet
- * that has it.
+ * dice tray reads them), those made, rolled or ended there only while this device's Send to the
+ * table is on, as the page's own rolls are; typing in their dice by their own switch; and the
+ * campaign's own switches. The dice their effects add and those an item rolls later only while they
+ * type theirs in, the later ones only where the campaign's module asks for them (H6 B); Wild Shape
+ * only for a sheet that has it.
  */
-function playerRows({ view, typing }: HelpFacts): BoxRow[] {
+function playerRows({ view, typing, send }: HelpFacts): BoxRow[] {
   const kinds = view.connected ? (view.rollsToTable ?? []) : []
   const features = view.connected ? (view.rollFeatures ?? []) : []
+  // What this device sends the game: nothing with Send to the table off here.
+  const sent = send ? kinds : []
   const typed = typing?.on === true
   const rows = [
-    row(PLAYER_ROWS.rolls, kinds.length > 0),
-    row(PLAYER_ROWS.attacks, kinds.includes('attack')),
+    row(PLAYER_ROWS.rolls, sent.length > 0),
+    row(PLAYER_ROWS.attacks, sent.includes('attack')),
     row(PLAYER_ROWS.prompts, features.includes('prompts')),
-    row(PLAYER_ROWS.tray, kinds.includes('plainRoll')),
-    row(PLAYER_ROWS.endTurn, kinds.includes('endTurn')),
+    row(PLAYER_ROWS.tray, sent.includes('plainRoll')),
+    row(PLAYER_ROWS.endTurn, sent.includes('endTurn')),
     typingRow(typing),
   ]
   if (typed)
@@ -95,14 +98,18 @@ function typingRow(typing: HelpFacts['typing']): BoxRow {
   return { label, says: typing.on ? on : allowed, on: true }
 }
 
-/** The Gamemaster's rows: where their rolls here go, and what they may move and remove. */
-function gmRows({ view, name }: HelpFacts): BoxRow[] {
+/**
+ * The Gamemaster's rows: where their rolls here go, made in the game only while their own Send to
+ * the table is on here, and what they may move and remove.
+ */
+function gmRows({ view, name, send }: HelpFacts): BoxRow[] {
   const rolls = view.gm?.rolls ?? 'off'
+  const where = rolls === 'made' && !send ? 'unsent' : rolls
   return [
     {
       label: GM_ROLLS_ROW.label,
-      says: named(GM_ROLLS_ROW[rolls], name),
-      on: rolls === 'made',
+      says: named(GM_ROLLS_ROW[where], name),
+      on: where === 'made',
     },
     row(PLAYER_ROWS.moves, view.moves !== undefined),
     row(PLAYER_ROWS.removes, view.removes === true),

@@ -275,12 +275,15 @@ export const BOX_TITLE = 'In this game, for {name}'
 /** A row's own words: what it's about, and what it says while on and off. */
 const FROM_HERE = { on: 'From here', off: 'Not from here' } as const
 
+/** Where rolls made here stay while the game takes none from this device, at either seat. */
+const ONLY_YOU = 'Stay here: only you see them'
+
 /** The rows at the player's seat, in their order. */
 export const PLAYER_ROWS = {
   rolls: {
     label: 'Your rolls',
     on: 'Made in your Gamemaster’s game too',
-    off: 'Stay here: only you see them',
+    off: ONLY_YOU,
   },
   attacks: {
     label: 'Attacks, spells and features',
@@ -326,10 +329,14 @@ export const PLAYER_ROWS = {
   wildShape: { label: 'Wild Shape', ...FROM_HERE },
 } as const
 
-/** The rolls' row at the Gamemaster's seat, by where their rolls go (`TableView['gm']`). */
+/**
+ * The rolls' row at the Gamemaster's seat, by where their rolls go (`TableView['gm']`), and while
+ * the game would make them but their Send to the table is off here (`unsent`).
+ */
 export const GM_ROLLS_ROW = {
   label: 'Your rolls here',
   made: 'Made in your game as {name}, marked GM',
+  unsent: ONLY_YOU,
   update: 'Stay here until your Sending Stone module is updated',
   off: 'Stay here: your game takes no rolls now',
 } as const

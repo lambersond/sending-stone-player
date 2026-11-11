@@ -47,6 +47,7 @@ const facts = (fields: Partial<HelpFacts> = {}): HelpFacts => ({
   name: 'Thorin',
   playing: true,
   view: quiet(),
+  send: true,
   ...fields,
 })
 
@@ -153,6 +154,17 @@ describe('features/help/utils', () => {
       },
     )
 
+    it('says the rolls made, rolled or ended in the game stay here while this device’s Send to the table is off', () => {
+      const rows = rowsOf(facts({ view: everything(), send: false }))
+      expect(rows?.slice(0, 5)).toEqual([
+        '○ Your rolls: Stay here: only you see them',
+        '○ Attacks, spells and features: Stay here',
+        '● Saves the game asks: Asked here',
+        '○ Dice tray: Rolls here only',
+        '○ End turn: Not from here',
+      ])
+    })
+
     it('takes nothing as made in the game for a character no longer among its campaign’s', () => {
       const rows = rowsOf(facts({ view: everything({ connected: false }) }))
       expect(rows?.slice(0, 5).every(row => row.startsWith('○'))).toBe(true)
@@ -188,17 +200,28 @@ describe('features/help/utils', () => {
     })
 
     it.each([
-      ['made', '● Your rolls here: Made in your game as Thorin, marked GM'],
+      [
+        'made',
+        true,
+        '● Your rolls here: Made in your game as Thorin, marked GM',
+      ],
+      ['made', false, '○ Your rolls here: Stay here: only you see them'],
       [
         'update',
+        true,
         '○ Your rolls here: Stay here until your Sending Stone module is updated',
       ],
-      ['off', '○ Your rolls here: Stay here: your game takes no rolls now'],
+      [
+        'off',
+        true,
+        '○ Your rolls here: Stay here: your game takes no rolls now',
+      ],
     ] as const)(
-      'tells the Gamemaster where their rolls go, %s, and what they may move and remove',
-      (rolls, row) => {
+      'tells the Gamemaster where their rolls go, %s, Send to the table on here: %s, and what they may move and remove',
+      (rolls, send, row) => {
         const shown = facts({
           gm: true,
+          send,
           view: everything({ gm: { rolls }, removes: undefined }),
         })
         expect(rowsOf(shown)).toEqual([

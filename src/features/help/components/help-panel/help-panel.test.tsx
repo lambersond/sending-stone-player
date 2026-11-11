@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HelpPanel } from './help-panel'
+import { GM_SEND_KEY, SEND_KEY } from '@/features/rolling/constants'
 import type { TableView } from '@/types/table'
 
 const view = (fields: Partial<TableView> = {}): TableView => ({
@@ -41,6 +42,7 @@ const panel = () => screen.getByRole('dialog', { name: 'Help' })
 describe('features/help/components/help-panel', () => {
   afterEach(() => {
     delete (Element.prototype as Partial<Element>).scrollIntoView
+    localStorage.clear()
   })
 
   it('opens at its title for the player: the box, then the Go to chips and the eight sections', () => {
@@ -84,6 +86,24 @@ describe('features/help/components/help-panel', () => {
     // As the campaign's module said last, at either seat, polling or not (H6 B).
     expect(screen.getByText('Dice an item rolls later.')).toBeVisible()
   })
+
+  it.each([
+    ['player', false, SEND_KEY, 'Your rolls'],
+    ['Gamemaster', true, GM_SEND_KEY, 'Your rolls here'],
+  ])(
+    'says the %s’s rolls stay here while this device’s Send to the table is off',
+    (_seat, gm, key, label) => {
+      localStorage.setItem(key, 'off')
+      renderPanel({
+        gm,
+        shown: view({ rollsToTable: ['skill'], gm: { rolls: 'made' } }),
+      })
+
+      expect(
+        within(panel()).getByText(label, { selector: 'dt' }).nextSibling,
+      ).toHaveTextContent('Stay here: only you see them')
+    },
+  )
 
   it.each([
     ['smoothly', false, 'smooth'],

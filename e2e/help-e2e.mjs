@@ -10,9 +10,10 @@
 // its content scrolling to the last section), nothing to scroll sideways; a chip focuses its
 // section's heading and scrolls it to 12 px from the top, smoothly, or at once with reduced motion;
 // Escape gives the ? its focus back. The cog's "How to use Sending Stone", first in its Help group,
-// opens the same panel at its title, and Escape gives the cog its focus back. At 1280 × 800 the
-// panel is 448 px at the right. The campaign lets players type in their dice: "Allowed: turn it on in
-// Settings", and the paragraph on the dice an item rolls later shown, its module asking for them;
+// opens the same panel at its title, and Escape gives the cog its focus back; with the cog's Send to
+// the table off, the box says his rolls stay here. At 1280 × 800 the panel is 448 px at the right.
+// The campaign lets players type in their dice: "Allowed: turn it on in Settings", and the paragraph
+// on the dice an item rolls later shown, its module asking for them;
 // Thorin's Enter dice results manually on: "On", the dice his effects add and those an item rolls
 // later "Asked for". The Gamemaster's page for Seraphina at 360 × 780: the room her name has in the
 // header, with the ? and without it, measured; Help "What your player sees", its note naming her, its
@@ -178,6 +179,21 @@ part('3. the settings menu’s How to use Sending Stone')
   check(await focused(phone) === 'h2 Help' && !(await menu.isVisible()), 'it closes the settings and opens the same Help, at its title')
   await closeHelp(phone)
   check(await focused(phone) === 'button Settings', 'Escape gives the cog its focus back')
+  // This device's Send to the table, off: what he rolls here stays here, whatever the game takes.
+  const send = async on => {
+    await phone.page.getByRole('button', { name: 'Settings', exact: true }).click()
+    const toggle = menu.getByRole('switch', { name: 'Send to the table', exact: true })
+    if ((await toggle.isChecked()) !== on) await toggle.click()
+    await phone.page.keyboard.press('Escape')
+    await menu.waitFor({ state: 'hidden' })
+  }
+  await send(false)
+  await openHelp(phone)
+  const rows = await rowsOf(phone)
+  check(same(rows.slice(0, 5), ['Your rolls: Stay here: only you see them', 'Attacks, spells and features: Stay here', 'Saves the game asks: Asked here', 'Dice tray: Rolls here only', 'End turn: Not from here']),
+    `with the cog's Send to the table off, the box says his rolls stay here: ${JSON.stringify(rows.slice(0, 5))}`)
+  await closeHelp(phone)
+  await send(true)
 }
 
 part('4. the panel at 1280, and its shots')

@@ -31,9 +31,18 @@ export type HelpFacts = {
   view: TableView
   /** The player's Enter dice results manually, where the game lets them type in their dice. */
   typing?: { on: boolean }
+  /**
+   * This device's Send to the table, the seat's own: the seat's rolls are made in the game, where
+   * it takes them, only while it's on.
+   */
+  send: boolean
 }
 
 /** Opens Help, focus going back to `opener` once it closes: the header's button, or the cog. */
 export type ShowHelp = (opener: HTMLElement | null) => void
 
-export type HelpPanelProps = HelpFacts & { open: boolean; onClose: () => void }
+/** Help's panel reads this device's Send to the table itself, as every roll on the page does. */
+export type HelpPanelProps = Omit<HelpFacts, 'send'> & {
+  open: boolean
+  onClose: () => void
+}
