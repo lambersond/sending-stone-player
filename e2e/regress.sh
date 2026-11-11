@@ -39,8 +39,9 @@ run layout 32 EXPECT=fixed
 run names 21 SHOTS=$O/shots-names
 run favorites 59 X=1
 # v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate. Item 19:
-# an encounter not begun shows no turn nor order, but the line to roll initiative; begun, both;
-# begun but no longer the tracker's, neither, and the line while Thorin's initiative is cleared.
+# the tracker's encounter not begun shows no turn nor order, but the line to roll initiative; begun,
+# both; begun but no longer the tracker's, "No combat right now" alone, even with Thorin's
+# initiative cleared (v0.45, the owner's decision 1).
 run rolls 82 SHOTS=$O/shots-rolls
 # v0.44: the dice tray under the chat (module 0.44.0's plain roll): at 390, 1280, 1024 and on a
 # 768 tablet, a d100 and a modifier, 20 dice the most, Send to the table off, typed in, the
