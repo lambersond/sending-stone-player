@@ -414,9 +414,11 @@ await openCog(desk)
 await cogItem(desk).waitFor({ timeout: 20_000 })
 {
   const items = await desk.page.getByRole('dialog').filter({ has: cogItem(desk) }).locator('button, a').evaluateAll(all => all.map(el => el.textContent.replace(/\s+/g, ' ').trim()))
-  const help = items.indexOf('Report a bug (opens in a new tab)')
+  // Changed on purpose (ROADMAP item 12, the owner's H1): the cog's Help group opens with "How to
+  // use Sending Stone", before its links; help-e2e's part 3 pins the group's order.
+  const help = items.indexOf('How to use Sending Stone')
   check(await cogItem(desk).getAttribute('aria-haspopup') === 'dialog' && help > 0 && items[help - 1] === COG_ITEM,
-    `Alice's cog offers "${COG_ITEM}", last among its settings, before its Help links (${JSON.stringify(items)})`)
+    `Alice's cog offers "${COG_ITEM}", last among its settings, before its Help group and its "How to use Sending Stone" (${JSON.stringify(items)})`)
   await cogItem(desk).click()
   await cardOf(desk).waitFor({ timeout: 10_000 })
   check(await cogOf(desk).getAttribute('aria-expanded') !== 'true' && await cardOf(desk).getByRole('button', { name: 'Make a link code', exact: true }).isVisible()
