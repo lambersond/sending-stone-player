@@ -283,6 +283,12 @@ check(out.every(p => p.status === 204), 'an attack on the Goblin Boss is sent')
 await say(message('m-damage', { ...by(bard, 'bob'), rolls: [damage('2d8 + 4', 15, 8, [6, 5], 'piercing')], ...dnd5e({ type: 'damage' }, { name: 'Black Arrow', type: 'weapon' }, [], { originatingMessage: 'm-attack' }) }))
 await say(message('m-spell', { ...by(vex, 'alice'), rolls: [d20('1d20 + 5', 9, 4)], ...dnd5e({ type: 'attack' }, { name: 'Fire Bolt', type: 'spell' }, [target]) }))
 await say(message('m-heal', { ...by(vex, 'alice'), rolls: [damage('1d8 + 3', 8, 8, [5], 'healing')], ...dnd5e({ type: 'damage' }, { name: 'Cure Wounds', type: 'spell' }, [{ name: 'Bard the Bowman', uuid: 'Actor.bard' }]) }))
+// Module 0.45.0 (the ROADMAP's item 19): a public card Mirkwood's characters said is Mirkwood's
+// alone, so The Lonely Mountain, none of whose characters is in this fight, holds none of them, though
+// Alice plays in both; module 0.22.0 (SKEW=1) sent every public card to both, as it still does.
+const cardsIn = id => Number(sql(`select count(*) from chat_message where "campaignId" = '${id}' and "messageId" in ('m-attack', 'm-damage', 'm-spell', 'm-heal')`))
+check(cardsIn(ids.mirkwood) === 4 && cardsIn(ids.lonely) === (process.env.SKEW ? 4 : 0),
+  `the fight's four cards are in Mirkwood's chat, and ${process.env.SKEW ? 'in The Lonely Mountain\'s too, from module 0.22.0' : "none in The Lonely Mountain's"} (${cardsIn(ids.mirkwood)}, ${cardsIn(ids.lonely)})`)
 
 await bob.getByRole('button', { name: /Combat/ }).click()
 await bob.getByRole('heading', { name: 'Your turn' }).waitFor({ timeout: 10_000 })
