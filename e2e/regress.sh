@@ -31,9 +31,9 @@ run gm 65 X=1 SKEW=1 MODULE_DIR=$O/module-0.22.0 SHOTS=$O/shots-gm
 run conditions 22 X=1
 run late-setup 4 EXPECT_FIX=1
 run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
-# Item 17: a very long character name on the campaigns page and the journal's card, at 360, 390,
-# 768, 1024 and 1280.
-run layout 22 EXPECT=fixed
+# Item 17: a very long character name on the campaigns page, the journal's card and the join page,
+# at 360, 390, 768, 1024 and 1280.
+run layout 27 EXPECT=fixed
 run favorites 59 X=1
 # v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate.
 run rolls 77 SHOTS=$O/shots-rolls

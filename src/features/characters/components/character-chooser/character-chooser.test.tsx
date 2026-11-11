@@ -42,6 +42,21 @@ describe('components/character-chooser', () => {
     expect(formData.get('actorId')).toBe('actor-bard')
   })
 
+  it('wraps a long name, whole, to be read before it’s chosen (item 17)', () => {
+    const name = 'Seraphina Nightingale-Ashworth of the Ever-Burning Lighthouse'
+    render(
+      <CharacterChooser
+        choice={choice([{ id: 'actor-sera', name }])}
+        action={jest.fn()}
+      />,
+    )
+
+    // Kept on one line, it held the fieldset, as wide as what's in it, past a phone's screen.
+    const shown = screen.getByText(name)
+    expect(shown).toHaveClass('wrap-anywhere')
+    expect(shown).not.toHaveClass('truncate')
+  })
+
   it('shows why a choice was refused', async () => {
     const action = jest.fn().mockResolvedValue({
       message: 'Another player has just chosen that character.',

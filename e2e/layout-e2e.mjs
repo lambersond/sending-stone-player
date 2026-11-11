@@ -3,7 +3,8 @@
 // (item 17), at 360, 390, 768, 1024 and 1280 in the light theme: on the Gamemaster's campaigns
 // page it wraps inside its column, never under the invite link beside it nor past a phone's screen;
 // on the Gamemaster's page of the character the journal's card leaves its words room, Open's label
-// wrapping, and Combat and Chat keep their width beside it.
+// wrapping, and Combat and Chat keep their width beside it; and on the join page, Bob choosing, it
+// wraps inside its card, the chooser inside its column.
 import { actor, combat, combatant, message, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -175,6 +176,22 @@ const cardRoom = page => page.getByRole('region', { name: 'Journal', exact: true
     aside: beside ? Math.round(asideWidth) : null, wanted: beside ? Math.round(Math.min(500, Math.max(320, 0.4 * row))) : null,
   }
 }, LONG)
+/**
+ * On the join page: the chooser's fieldset against its column, the long name cut short or not, and
+ * the page's sideways scroll.
+ */
+const chooserRoom = page => page.getByRole('group', { name: 'Which character are you playing?' }).evaluate((fieldset, long) => {
+  const column = fieldset.closest('form').parentElement.getBoundingClientRect()
+  const box = fieldset.getBoundingClientRect()
+  const name = [...fieldset.querySelectorAll('span')].find(span => span.textContent === long)
+  const root = document.scrollingElement
+  return {
+    past: Math.round(box.right - column.right), cut: name.scrollWidth > name.clientWidth || name.getBoundingClientRect().right > box.right,
+    pageX: root.scrollWidth - root.clientWidth,
+  }
+}, LONG)
+const invite = sql(`select "inviteCode" from campaign where id = '${campaignId}'`)
+const bob = await cookieFor('e2e-bob-token')
 const named = {}
 for (const width of [360, 390, 768, 1024, 1280]) {
   const ctx = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 900 }, colorScheme: 'light' })
@@ -190,14 +207,25 @@ for (const width of [360, 390, 768, 1024, 1280]) {
   named[width].journal = await cardRoom(page)
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-journal-${width}.png` })
   await ctx.close()
+  const joining = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 900 }, colorScheme: 'light' })
+  await joining.addCookies([bob])
+  const join = await joining.newPage()
+  join.on('pageerror', e => problems.push(`${width} long name join pageerror: ${e.message}`))
+  await join.goto(`${BASE}/join/${invite}`)
+  await join.getByText(LONG).waitFor()
+  named[width].join = await chooserRoom(join)
+  if (SHOTS) await join.screenshot({ path: `${SHOTS}/long-name-join-${width}.png` })
+  await joining.close()
 }
 console.log(JSON.stringify(named, null, 1))
 if (EXPECT === 'fixed') {
-  for (const [width, { campaigns, journal }] of Object.entries(named)) {
+  for (const [width, { campaigns, journal, join }] of Object.entries(named)) {
     check(campaigns.past <= 0 && campaigns.pageX === 0,
       `${width}: on the campaigns page the long name wraps inside its column, the page not scrolling sideways (${JSON.stringify(campaigns)})`)
     check(journal.words >= journal.card / 3 && journal.spill <= 0 && journal.pageX === 0 && journal.aside === journal.wanted,
       `${width}: on its page the journal's card leaves its words a third of it, Open's label wrapping inside Open, Combat and Chat at their width beside it (${JSON.stringify(journal)})`)
+    check(join.past <= 0 && !join.cut && join.pageX === 0,
+      `${width}: on the join page the long name wraps, whole, inside its card, the chooser inside its column, the page not scrolling sideways (${JSON.stringify(join)})`)
   }
 }
 
