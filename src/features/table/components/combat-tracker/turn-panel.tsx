@@ -46,7 +46,7 @@ export function TurnPanel({
   const own = current && seatTurn(current)
   const companion = own?.companion
   const mine = own !== undefined
-  const heading = turnHeading(current, companion)
+  const heading = turnHeading(combat)
 
   // End Turn, on the seat's turn as the panel shows it (module 0.36.0).
   const turn =
@@ -78,7 +78,6 @@ export function TurnPanel({
           ref={titled}
           id='turn-heading'
           tabIndex={-1}
-          aria-live='polite'
           className={clsx(
             'text-2xl font-semibold tracking-tight outline-none',
             mine && 'text-primary',

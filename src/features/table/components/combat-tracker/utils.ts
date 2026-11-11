@@ -1,3 +1,4 @@
+import { currentCombatant, seatTurn } from '@/features/table/utils/combat'
 import {
   TURN_OVER,
   turnFragment,
@@ -6,7 +7,7 @@ import {
 } from '@/features/table/utils/end-turn'
 import type { PanelEnding } from '@/features/table/types'
 import type { SeatRole } from '@/types/seats'
-import type { TableCombatant } from '@/types/table'
+import type { TableCombat } from '@/types/table'
 
 /**
  * An initiative as Foundry shows it. Systems break ties with decimals, such as D&D's dexterity
@@ -17,13 +18,14 @@ export function formatInitiative(initiative: number | null): string {
   return String(Math.round(initiative * 100) / 100)
 }
 
-/** The turn panel's heading: whose turn it is, as the seat reads it. */
-export function turnHeading(
-  current: TableCombatant | undefined,
-  companion: string | undefined,
-): string {
+/**
+ * The turn panel's heading: whose turn it is, as the seat reads it, the character's or, from module
+ * 0.36.0, one of its companions' by name.
+ */
+export function turnHeading(combat: TableCombat): string {
+  const current = currentCombatant(combat)
   if (current?.side === 'me') return 'Your turn'
-  if (current && companion) return `${current.name}’s turn`
+  if (current && seatTurn(current)?.companion) return `${current.name}’s turn`
   if (current) return `${current.name} is acting`
   return 'Waiting for the next turn'
 }
