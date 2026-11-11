@@ -133,7 +133,7 @@ if (SKEW042 || DND5E6) {
   part(SKEW042 ? 'module 0.42.0' : 'dnd5e 6')
   await game.settings.set('sending-stone', 'campaigns', [CAMPAIGN({ typing: true })])
   sql(`update "character" set "manualDice" = true where id = 'sheet-thorin'`)
-  check(versions() === (SKEW042 ? '0.42.0 dnd5e 5.3.3 false' : '0.44.0 dnd5e 6.0.5 false'), `the app keeps the hello's versions, and that its module asks for no later dice: ${versions()}`)
+  check(versions() === (SKEW042 ? '0.42.0 dnd5e 5.3.3 f' : '0.44.0 dnd5e 6.0.5 f'), `the app keeps the hello's versions, and that its module asks for no later dice: ${versions()}`)
   const player = await open(390, 844, '/characters/sheet-thorin')
   await ready(player)
   await openHelp(player)
@@ -173,7 +173,7 @@ check(await focused(phone) === 'h2 Help' && await panelOf(phone).getByText('Play
     && rows.includes('Attacks, spells and features: Stay here') && rows.includes('Typing in your dice: Not in this game')
     && !rows.some(row => row.startsWith('Dice your effects add') || row.startsWith('Dice an item rolls later')),
     'the box reads the campaign: rolls, the dice tray and End turn made there, attacks not, typing not in this game, and no typing rows')
-  check(versions() === '0.44.0 dnd5e 5.3.3 true' && await shown(phone, LATER) && await panelOf(phone).getByText('Missing something?', { exact: false }).isVisible(),
+  check(versions() === '0.44.0 dnd5e 5.3.3 t' && await shown(phone, LATER) && await panelOf(phone).getByText('Missing something?', { exact: false }).isVisible(),
     `the paragraph on the dice an item rolls later, as the app keeps the module's hello (${versions()}), though the campaign doesn't let players type theirs in; the box says why something may be missing`)
   const chips = await panelOf(phone).getByRole('navigation', { name: 'Go to a section' }).getByRole('button').allTextContents()
   check(same(chips, SECTIONS) && await panelOf(phone).getByText('Go to', { exact: true }).isVisible(), `a "Go to" label above eight chips: ${chips.join(', ')}`)
@@ -356,7 +356,7 @@ await openHelp(gm)
     `its own box: ${JSON.stringify(rows)}`)
   const sections = await panelOf(gm).locator('section h3').allTextContents()
   check(same(sections, [`In this game, for ${LONG}`, ...SECTIONS]) && await shown(gm, LATER),
-    'the same eight sections, with the paragraph on the dice an item rolls later, as the campaign\'s module asks for them')
+    'the same eight sections, with the paragraph on the dice an item rolls later, by the campaign\'s module\'s version')
 }
 await closeHelp(gm)
 check(await focusedOn(gm, 'button Help') === 'button Help', 'Escape gives the Gamemaster\'s ? its focus back')
