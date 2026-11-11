@@ -47,72 +47,40 @@ only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
 Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
 
-## Next slice
+## v0.45 (release candidate)
 
-Picked by the owner, to follow v0.44. Whatever of it changes the module ships in module v0.45.0;
-what's app-only ships with the app, which has no version numbers of its own. Pick from the list by
-number.
+The next slice, built and merged: module 0.45.0 holds item 26 (a die asked again named by its roll)
+and item 19's chat and sidekick fixes, with the app's Help, Combat tab and fixes.
 
-**Help**
+**To check at the table before module v0.45.0 is tagged** (built and tested against stand-ins
+only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 
-12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
-    dice), what each long press offers (damage, attack and other rolls), the settings, how manual
-    dice work (the dice an item rolls later included), and that the Gamemaster applies short and
-    long rests. (Planned; held for a prototype first.)
+- **A die asked again named by its roll:** a real dnd5e 5.3.3 utility with a named roll, such as
+  Wild Sparks: Burst, its die thrown again asked of a player typing in dice by that name.
+- **Two campaigns on one world:**
+  - each campaign's chat holds none of the other's cards, and the Gamemaster's narration reaches
+    both;
+  - a fight both campaigns are in: each sees the whole fight's cards (the owner's answer);
+  - a linked NPC left in one campaign's old, un-ended encounter, speaking in the other campaign's
+    session: its cards stay out of that campaign until the encounter is ended;
+  - a card's edits go where the card went as it was made; after the Gamemaster reloads the browser
+    mid-fight, an edit of a card from before the reload, made once that fight is over, is judged by
+    the fights at the edit.
+- **A character shared as All Players: Owner:** no other campaign's sidekicks or fights.
+- **The Combat tab** before and after Begin Combat, and a begun encounter switched away on the
+  tracker: No combat right now, with the line to roll initiative while the character has none, and
+  whether that roll is taken.
+- **Help at the table:** the box's rows match the campaign's switches and this device's Send to the
+  table.
+- **Condition immunities** on a sidekick imported from D&D Beyond: no tags shown, each condition
+  shows its rules on hover and opens the Conditions panel on a tap.
 
-**Feedback from the table**
-
-18. **Companions and sidekicks wherever they are:** a companion or sidekick has its own tab and can
-    be rolled with even when it isn't on its player's scene or level, with a warning that it isn't
-    there. Today the module lists a linked NPC wherever its tokens are, but an unlinked token and a
-    summoned creature only while they're visible on the active scene, and never looks at levels
-    (`scripts/creatures.mjs`).
-19. **Initiative only in an active combat:** no initiative order is shown when there's no active
-    combat.
-    - With two Sending Stone campaigns on one Foundry server, one campaign sees the other's combat
-      and initiative even when none of its characters are in it. A campaign should get only the
-      combats its characters are in (`PROTOCOL.md`, the hello's `combats`), so this is a bug to
-      find.
-
-**Found while building the next slice**
-
-30. **e2e's alone race under dnd5e 6 too:** "Timed out waiting for Fire Breath's failed recharge at
-    768 to be sent", part 15 of `e2e/alone-e2e.mjs`, one of the known load races in
-    `e2e/README.md` for alone and alone MIDI=1 only, failed the same way in alone DND5E6=1 under
-    three lanes' load. The README's entry should name it too, or its wait be looked at.
-31. **A die left to the game reads as 0 in the tray:** a dice ask answered with Let the game roll,
-    or with every die skipped, is kept in the tray with each term's value 0 (`answeredRoll` in
-    `src/features/rolling/utils/dice-ask-entry.ts`), so among the earlier rolls it reads "Ice Knife:
-    Shard Explosion 0 +0 +0 = 0 · table 17", as if its dice came to 0, and while it's the newest
-    its big total is 0 until the game says. A die thrown again left to the game already reads "left
-    to the game", with no number; a term left to the game could say the same.
-32. **A companion's held save can name a function too:** the companions' asks look a held prompt's
-    abilities and skills up in plain objects (`either` and the concentration line in
-    `src/utils/companion-asks.ts`), so a key every object inherits, such as `constructor`, which a
-    prompt's keys may be (`promptKey` in `src/schemas/sending-stone.ts`), is found, and a broken or
-    hand-made save held for a companion throws as the character's table view is built
-    (`src/db/table.ts`). The lookup should check the key is the table's own, as the chat's roll
-    labels now do (`ownName` in `src/utils/table-view.ts`).
-33. **A long name squeezes the combat tracker's round:** a long name after "Next:" in the tracker's
-    round line (`RoundLine` in `src/features/table/components/combat-tracker/turn-panel.tsx`) is cut
-    short, but squeezes "Round 1" beside it onto two lines, as long names did on the campaign page.
-    The label should keep its width; the layout suite's combat has no long name, so nothing measures
-    it.
-34. **A rerolled die reads "added to its roll":** the tray, its toast and the earlier rolls say a
-    die thrown again was "Added to its roll at the table" whether it exploded or was rerolled
-    (`ADDED_WORDS` in `src/features/rolling/constants.ts`), but a rerolled die takes the place of
-    the die it rerolls. It's rare from the app, which has typed rolls keep rerolls made at the
-    table. Words for both, or a reroll's own, want a test with `again: 'reroll'`; and the rule for
-    such an answer, now in both `MadeMark` (`roll-tray/table-mark.tsx`) and `madeAtTable`
-    (`utils/brief.ts`), could live in one place.
-35. **The tests' READMEs miscount their runs:** the app's `e2e/README.md` says 53 suites and 120
-    runs, and that twenty-four suites share `world-030.mjs`, where `regress.sh` has 54 and 121 since
-    the long names' suite, and 25 share it; the module's `test/README.md` says 114 runs, where
-    `harness-all.sh` has 115.
+Then module v0.45.0 is tagged, and v0.45 is the release candidate for v1.0: it runs at the table
+for a while before v1.0 is tagged.
 
 ## Follow-up batch
 
-After the next slice, by number.
+After v0.45, by number.
 
 **Found while building Batch 2**
 
@@ -136,6 +104,62 @@ After the next slice, by number.
 29. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
     cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
     concentration.
+
+**Moved from the next slice**
+
+18. **Companions and sidekicks wherever they are:** a companion or sidekick has its own tab and can
+    be rolled with even when it isn't on its player's scene or level, with a warning that it isn't
+    there. Today the module lists a linked NPC wherever its tokens are, but an unlinked token and a
+    summoned creature only while they're visible on the active scene, and never looks at levels
+    (`scripts/creatures.mjs`). The owner's answers: on which scenes a companion is found, "Ideally
+    all of them, however if NPC sheets never get deleted it could pose an issue of too many.
+    Perhaps this is a more complex feature than originally thought."; where its character is, C,
+    the active scene only and no levels, "but this could conflict with the #3 answer's example"
+    (item 36).
+
+And from the owner's answers on item 19, later work too:
+
+36. **A sidekick fighting without its character, and two encounters at once:** a sidekick in an
+    encounter its character isn't in still brings that encounter to its campaign, as since module
+    0.36.0 (0.45.0 keeps the rule). The Combat tab shows one encounter, the one `pickCombat` ranks
+    first, under way first. The owner: "Yes, a sidekick could get into an encounter w/out the main
+    character. This opens up other questions around how many active encounters should be able to be
+    shown in the app. Example, if there is an encounter on scene A with all the characters and their
+    sidekicks, and a second scene with one character's sidekick, which is in a different encounter,
+    how would you depict the two encounters? Foundry definately supports multiple encounters."
+
+**Found while building the next slice**
+
+37. **A player's whispers reach a campaign through a character shared with All Players:** under
+    "Which messages: All its players can read", a whisper or private roll another campaign's player
+    can read reaches every campaign with a character shared with All Players as Owner, at that
+    character's seat. The module names a whispered message's characters by `charactersSeenBy`
+    (`scripts/characters.mjs`), which counts `default`, and `isInScope` (`scripts/chat.mjs`) keeps
+    it; a check's outcome names its author's characters the same way (`rollResult`,
+    `scripts/chat-data.mjs`). A whisper's readers could be read as module 0.45.0 reads a
+    character's players for its sidekicks.
+38. **A campaign's roster names every player as owner of a character shared with All Players:**
+    `rosterEntry` (`scripts/characters.mjs`) lists `owners` by `playerOwners`, which counts
+    `default`, so the hello and `character.updated` name every player of the world, other
+    campaigns' among them, as its owners (names and user ids; the app keeps them in the campaign's
+    roster, `src/db/campaign-events.ts`, and shows them nowhere today). In Foundry alone, a dish's
+    card is whispered to all of them (`readersOf`, `dish-card.mjs`) and a group the Gamemaster
+    listed for the campaign takes the best access any of them has (`accessFor`, `groups.mjs`).
+39. **A Recharge chip stays up to a poll after its roll:** after a recharge rolled at the table, the
+    tray says "recharged" within about a second, but the sheet's Recharge chip stays until the
+    page's next read of the table, up to 3 s later, and a tap on it then is refused ("it's charged
+    already"). Nothing wrong is sent or spent. The tray follows a roll each second (`follow`,
+    `src/utils/lifecycle.ts`) and the table is polled every 3 s (`use-table-view.ts`); nothing reads
+    the table again as a roll ends. Found by part 15 of `e2e/alone-e2e.mjs`, which now waits for the
+    chip to go.
+40. **A save's DC shown for any player's card at a character shared with All Players:**
+    `showsChallenge` (`scripts/prompts.mjs`) counts a card as the character's player's own when its
+    author is among `playerOwners`, which counts `default`. For a character shared with All Players
+    as Owner, every player's card is then its own, so its seat is shown the DC of a save another
+    campaign's player's spell asks (and Midi-QOL's, `midi-prompts.mjs`), which dnd5e's Challenge
+    Visibility would hide from its player. It could read the author against `companionPlayers`, as
+    module 0.45.0 reads a character's players for its sidekicks. `typed-dice.mjs`, `journals.mjs`
+    and `tidy-journal.mjs` read players the same way, no further than Foundry's own sharing.
 
 ## v1.0
 
