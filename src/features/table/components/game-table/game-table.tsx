@@ -239,74 +239,75 @@ export function GameTable({
     // A character's page has no app bar, so the game table fills the viewport. What reads and rolls
     // through the seat's API below, the sheet's descriptions and rolls among it, finds it here.
     <TableApiContext value={seat}>
-      <ShowHelpContext value={help.show}>
-        <div className='flex h-dvh flex-col md:flex-row'>
-          <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
-            <TableHeader
-              ref={setHeader}
-              character={character}
-              gm={gm}
-              playing={playing}
-              view={view}
-              tab={tabs.tab}
-              connection={pageConnection(connection, companions.reconnecting)}
-              onHelp={help.show}
-              deleteCharacter={deleteCharacter}
-            />
-            <TableNotices
-              gm={gm}
-              playing={playing}
-              view={view}
-              character={character}
-              seatKey={seat.key}
-              addBack={words.addBack}
-              panels={panels}
-            />
-            <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
-          </div>
-          <TableNav
-            tab={tabs.tab}
-            asking={asking || companions.waitingKeys.size > 0}
-            asksForRoll={words.asksForRoll}
-            myTurn={myTurn}
-            unread={unread}
-            quiet={turn.quiet}
-            onShow={show}
-            combatTab={turn.barCombat}
-            hold={turn.holdOf('combat-hold-bar', !tabs.sideBySide)}
-          />
-          {/* A party sheet, over the character's, never part of it. */}
-          <TablePartyPanel
-            seat={seat}
+      <div className='flex h-dvh flex-col md:flex-row'>
+        <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
+          <TableHeader
+            ref={setHeader}
             character={character}
-            sheet={view.sheet}
-            group={party}
-            onClose={() => setPartyOpen(undefined)}
-          />
-          {/* End Turn's toast, with Undo (module 0.36.0): there, empty, from the start. */}
-          <TurnToast
-            ending={turn.ending}
-            undoing={turn.undoing}
-            via={turn.via}
-            held={turn.held}
-            combatShown={tabs.combatShown}
-            focusTurn={turn.focusTurn}
-            combat={view.combat}
-            header={header}
-            beside={beside}
-            onFoot={setToastFoot}
-          />
-          <HelpPanel
-            open={help.open}
-            onClose={help.close}
             gm={gm}
-            name={character.name}
             playing={playing}
             view={view}
-            typing={diceSwitch}
+            tab={tabs.tab}
+            connection={pageConnection(connection, companions.reconnecting)}
+            onHelp={help.show}
+            deleteCharacter={deleteCharacter}
           />
+          <TableNotices
+            gm={gm}
+            playing={playing}
+            view={view}
+            character={character}
+            seatKey={seat.key}
+            addBack={words.addBack}
+            panels={panels}
+          />
+          {/* Every pane's cog opens the page's one Help. */}
+          <ShowHelpContext value={help.show}>
+            <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
+          </ShowHelpContext>
         </div>
-      </ShowHelpContext>
+        <TableNav
+          tab={tabs.tab}
+          asking={asking || companions.waitingKeys.size > 0}
+          asksForRoll={words.asksForRoll}
+          myTurn={myTurn}
+          unread={unread}
+          quiet={turn.quiet}
+          onShow={show}
+          combatTab={turn.barCombat}
+          hold={turn.holdOf('combat-hold-bar', !tabs.sideBySide)}
+        />
+        {/* A party sheet, over the character's, never part of it. */}
+        <TablePartyPanel
+          seat={seat}
+          character={character}
+          sheet={view.sheet}
+          group={party}
+          onClose={() => setPartyOpen(undefined)}
+        />
+        {/* End Turn's toast, with Undo (module 0.36.0): there, empty, from the start. */}
+        <TurnToast
+          ending={turn.ending}
+          undoing={turn.undoing}
+          via={turn.via}
+          held={turn.held}
+          combatShown={tabs.combatShown}
+          focusTurn={turn.focusTurn}
+          combat={view.combat}
+          header={header}
+          beside={beside}
+          onFoot={setToastFoot}
+        />
+        <HelpPanel
+          open={help.open}
+          onClose={help.close}
+          gm={gm}
+          name={character.name}
+          playing={playing}
+          view={view}
+          typing={diceSwitch}
+        />
+      </div>
     </TableApiContext>
   )
 }
