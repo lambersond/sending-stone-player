@@ -3,6 +3,7 @@
 import { Swords } from 'lucide-react'
 import { CombatantRow } from './combatant-row'
 import { TurnPanel } from './turn-panel'
+import { useTurnSaid } from './use-turn-said'
 import { turnHeading } from './utils'
 import { EmptyState } from '@/components/empty-state/empty-state'
 import { waitsForInitiative } from '@/features/table/utils/combat'
@@ -35,10 +36,12 @@ export function CombatTracker({
 >) {
   const { noCombat, rollInitiative } = seatWords(useTableRole())
   // Whose turn it is, said as it changes from a region first in either view, so it stays as the
-  // encounter comes under way and its first turn is heard too, as each turn after it is.
+  // encounter comes under way and its first turn is heard too, as each turn after it is; cleared
+  // once said, so that it isn't heard again beside the panel's heading.
+  const turn = useTurnSaid(combat?.underWay ? turnHeading(combat) : '')
   const said = (
     <p aria-live='polite' className='sr-only'>
-      {combat?.underWay ? turnHeading(combat) : ''}
+      {turn}
     </p>
   )
   if (!combat?.underWay) {

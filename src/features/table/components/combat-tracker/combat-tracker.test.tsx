@@ -274,19 +274,41 @@ describe('components/game-table/combat-tracker', () => {
     })
 
     // The panel's heading comes with the encounter under way, its words already in it, so a region
-    // kept through the change says the first turn, as it says each one after it.
-    it('says the first turn as it comes under way, from a region kept through the change', () => {
-      const { rerender, container } = render(
-        <CombatTracker combat={waiting({ id: 'thorin', side: 'me' })} />,
-      )
-      const live = container.querySelector('[aria-live="polite"]')
-      expect(live).toBeEmptyDOMElement()
+    // kept through the change says the first turn, as it says each one after it; and once said,
+    // it's cleared, so that reading through the pane hears the turn once, from the heading.
+    describe('whose turn it is, said', () => {
+      beforeEach(() => jest.useFakeTimers())
+      afterEach(() => jest.useRealTimers())
 
-      rerender(<CombatTracker combat={encounter({ currentId: 'thorin' })} />)
+      it('says the first turn as it comes under way, from a region kept through the change, then each after it, each cleared once said', () => {
+        const { rerender, container } = render(
+          <CombatTracker combat={waiting({ id: 'thorin', side: 'me' })} />,
+        )
+        const live = container.querySelector('[aria-live="polite"]')
+        expect(live).toBeEmptyDOMElement()
 
-      expect(container.querySelector('[aria-live="polite"]')).toBe(live)
-      expect(live).toHaveTextContent('Your turn')
-      expect(turnPanel()).not.toHaveAttribute('aria-live')
+        rerender(<CombatTracker combat={encounter({ currentId: 'thorin' })} />)
+
+        expect(container.querySelector('[aria-live="polite"]')).toBe(live)
+        expect(live).toHaveTextContent('Your turn')
+        expect(turnPanel()).not.toHaveAttribute('aria-live')
+
+        act(() => jest.advanceTimersByTime(6000))
+        expect(live).toBeEmptyDOMElement()
+        expect(turnPanel()).toHaveTextContent('Your turn')
+
+        rerender(<CombatTracker combat={encounter()} />)
+        expect(live).toHaveTextContent('Goblin Boss is acting')
+      })
+
+      it('says nothing as Combat opens on a turn: its heading is there to read', () => {
+        const { container } = render(<CombatTracker combat={encounter()} />)
+
+        expect(
+          container.querySelector('[aria-live="polite"]'),
+        ).toBeEmptyDOMElement()
+        expect(turnPanel()).toHaveTextContent('Goblin Boss is acting')
+      })
     })
   })
 
