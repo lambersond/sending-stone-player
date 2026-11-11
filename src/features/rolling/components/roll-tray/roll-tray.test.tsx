@@ -5,12 +5,14 @@ import { briefOf } from '../../utils/brief'
 import { RollToasts } from '../roll-toasts/roll-toasts'
 import { RollsButton } from '../rolls-button/rolls-button'
 import { RollTray } from './roll-tray'
+import { answeredRoll } from '@/features/rolling/utils/dice-ask-entry'
 import { gmRollsOf } from '@/features/rolling/utils/gm-rolls'
 import { NO_EFFECTS } from '@/features/sheet/components/effect-controls/constants'
 import { Effecting } from '@/features/sheet/components/effect-controls/effecting'
 import { CreatureContext } from '@/hooks/use-creature'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { sparksAgain } from '@/mocks/dice-asks'
 import type { RollBrief, TableRolls } from '../../types'
 import type { Effects } from '@/features/sheet/components/effect-controls/types'
 import type { TableSeat } from '@/types/character'
@@ -5265,5 +5267,68 @@ describe('a spell prepared or unprepared, from module 0.42.1 (round 0.42.1 §P.1
     expect(
       screen.getAllByRole('listitem').map(item => item.textContent),
     ).toEqual(['Blessunprepared'])
+  })
+})
+
+/** Wild Sparks' die more, as the tray keeps its answer: typed, or left to the game. */
+const answered = (values?: number[][]): LocalFormula => ({
+  kind: 'formula',
+  id: 'a1',
+  at: 0,
+  ...answeredRoll(sparksAgain(), values),
+})
+
+describe('components/character-sheet/roll-tray, a die thrown again, answered, from module 0.44.0', () => {
+  // The game's total of the roll its ask lists: the whole 1d6x, the typed 6 and this die.
+  const made = tableOf([['a1', { status: 'done', visible: true, total: 9 }]])
+
+  it('shows the die typed, added to its roll, never that roll’s total as its own', async () => {
+    const user = userEvent.setup()
+    const typed = answered([[3]])
+    const { rerender } = render(
+      <RollTray rolls={[typed]} rolling={false} table={made} />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /^3Wild Sparks: Burst1d6 \(3\)Added to its roll at the table$/,
+    )
+    expect(briefOf(typed, made.states.get('a1'))).toMatchObject({
+      total: 3,
+      table: { tone: 'made', text: 'Added to its roll at the table' },
+    })
+
+    rerender(
+      <RollTray
+        rolls={[roll({ id: 'r2' }), typed]}
+        rolling={false}
+        table={made}
+      />,
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      /^Wild Sparks: Burst3 = 3· added to its roll$/,
+    )
+  })
+
+  it('shows no number for a die left to the game', async () => {
+    const user = userEvent.setup()
+    const left = answered()
+    const { rerender } = render(
+      <RollTray rolls={[left]} rolling={false} table={made} />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /^\?Wild Sparks: Burst1d6, left to the gameAdded to its roll at the table$/,
+    )
+
+    rerender(
+      <RollTray
+        rolls={[roll({ id: 'r2' }), left]}
+        rolling={false}
+        table={made}
+      />,
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      /^Wild Sparks: Burstleft to the game· added to its roll$/,
+    )
   })
 })

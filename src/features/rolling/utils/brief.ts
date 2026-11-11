@@ -1,5 +1,9 @@
 import { NOT_MADE } from '@/constants/lifecycle'
-import { GM_WORDS, GM_WORDS_AFTER } from '@/features/rolling/constants'
+import {
+  ADDED_WORDS,
+  GM_WORDS,
+  GM_WORDS_AFTER,
+} from '@/features/rolling/constants'
 import { missed } from '@/features/rolling/utils/damage-due'
 import { gmBadge, gmLine, gmShape } from '@/features/rolling/utils/gm-words'
 import {
@@ -7,6 +11,7 @@ import {
   byTheGame,
   damageBadge,
   leastOf,
+  leftAgain,
   madeOf,
   notMadeAtTable,
   outcomeOf,
@@ -108,14 +113,16 @@ function checkBreakdown(roll: LocalCheck): string {
 
 /**
  * What a roll came to, in brief, as its row among the earlier rolls and its toast say it: its dice
- * or terms; what a use, an ask or one of the Gamemaster's as the character (#156) did; or, for one
- * the game throws dice again for, that it does.
+ * or terms; what a use, an ask or one of the Gamemaster's as the character (#156) did; for one the
+ * game throws dice again for, that it does; or of a die thrown again that the player left to the
+ * game (module 0.44.0), that they did.
  */
 export function breakdown(roll: LocalRoll, state?: TableRollState): string {
   if (roll.kind === 'gm') return GM_WORDS_AFTER
   if (roll.kind === 'use') return usedWord(roll)
   if (roll.kind === 'ask') return 'asked'
   if (thrownAgainThere(roll, state)) return 'thrown again at the table'
+  if (leftAgain(roll)) return 'left to the game'
   if (roll.kind === 'formula') return formulaBreakdown(roll)
   if (roll.kind === 'damage') return damageBreakdown(roll)
   return checkBreakdown(roll)
@@ -124,12 +131,14 @@ export function breakdown(roll: LocalRoll, state?: TableRollState): string {
 /**
  * The total a damage roll, a hit die or a formula shows: its own, or the game's where the game
  * throws its dice, or some of them again, or adds them up as only it can, once it says; "…" until
- * then, where its own isn't it.
+ * then, where its own isn't it. A die thrown again (module 0.44.0) shows the die typed, never its
+ * roll's total, and none where the player left it to the game: "?".
  */
 export function shownTotal(
   roll: LocalDamage | LocalFormula,
   state?: TableRollState,
 ): number | string {
+  if (leftAgain(roll)) return '?'
   const told = state?.status === 'done' && state.visible
   if (
     (roll.kind === 'damage' && byTheGame(roll)) ||
@@ -344,13 +353,17 @@ function tableLine(
   }
 }
 
-/** What the game made of a roll, as its total and what came of it; or that it's hidden. */
+/**
+ * What the game made of a roll, as its total and what came of it; of a die thrown again (module
+ * 0.44.0), that it was added to its roll; or that it's hidden.
+ */
 function madeAtTable(
   roll: LocalRoll,
   state: TableRollState,
   role: SeatRole,
 ): string {
   if (!state.visible) return seatWords(role).hidden
+  if (roll.kind === 'formula' && roll.again) return ADDED_WORDS
   const outcome =
     roll.kind === 'check'
       ? outcomeOf(state, role, roll.dc, roll.verdict)

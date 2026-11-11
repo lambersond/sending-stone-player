@@ -36,3 +36,12 @@ export const GM_WORDS = 'Rolled by your Gamemaster'
 
 /** The same, after what the roll is called, or what it came to. */
 export const GM_WORDS_AFTER = 'rolled by your Gamemaster'
+
+/**
+ * What the game made of a die thrown again that the player answered (module 0.44.0), in place of
+ * a total: it's added to its roll, whose own line says the game's total.
+ */
+export const ADDED_WORDS = 'Added to its roll at the table'
+
+/** The same, among the earlier rolls, after the die. */
+export const ADDED_WORDS_AFTER = 'added to its roll'

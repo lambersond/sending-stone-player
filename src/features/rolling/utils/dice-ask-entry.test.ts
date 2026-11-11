@@ -1,5 +1,5 @@
 import { answeredRoll, answerOf, askEntry, diceWords } from './dice-ask-entry'
-import { tableIceKnife, twoRollsAsk } from '@/mocks/dice-asks'
+import { sparksAgain, tableIceKnife, twoRollsAsk } from '@/mocks/dice-asks'
 import type { TableDiceAsk } from '@/types/table'
 
 /** One roll of cold damage, by its formula, of so many d6s. */
@@ -177,6 +177,17 @@ describe('features/rolling/utils/dice-ask-entry (module 0.44.0)', () => {
           { text: '+1d6 Fire', values: [5], value: 5 },
         ],
         gameTotal: true,
+        typed: true,
+      })
+    })
+
+    it('keeps a die thrown again as the die typed, which the game counts in its roll, never as that roll’s total', () => {
+      expect(answeredRoll(sparksAgain(), [[3]])).toEqual({
+        label: 'Wild Sparks: Burst',
+        total: 3,
+        healing: false,
+        terms: [{ text: '1d6', values: [3], value: 3 }],
+        again: 'explode',
         typed: true,
       })
     })

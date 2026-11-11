@@ -43,7 +43,8 @@
 // table: the greatsword's 2d6r<=2 typed 1 and 5 stands, without r<=2, the dialog's note said and the
 // tray's total at once; a Halfling's typed 1 stands; an exploding 1d6x, no note, its die more (since
 // module 0.44.0 asked under dnd5e 5, its dialog opening by itself, typed, the tray meanwhile "Waiting
-// for your dice…"; Foundry's under dnd5e 6) and the game's total on the formula's line in the tray;
+// for your dice…", then the die typed "Added to its roll at the table"; Foundry's under dnd5e 6) and
+// the game's total on the formula's line in the tray;
 // screenshots to shots-042. MIDI=1 also: Midi's save asks Bless's die, and Midi's
 // concentration check, made with dnd5e's, asks the die only a concentration check adds too, its total
 // the game's. DND5E6=1: no effect's die, rerolls kept.
@@ -634,6 +635,8 @@ async function sheetWith(pages, names) {
 }
 /** What the tray says of a roll the game holds while it asks for its run's later dice (module 0.44.0). */
 const WAITING = 'Waiting for your dice…'
+/** What the tray says the game made of a die thrown again, in place of a total. */
+const ADDED = 'Added to its roll at the table'
 /** The tray's latest roll as shown: its total, and each line of it. */
 const trayLatest = who => tray(who).getByRole('status').first().evaluate(el => ({
   total: el.querySelector('span')?.textContent.trim() ?? null,
@@ -1996,8 +1999,9 @@ part('7b. rerolls at the table')
   }
   const burst = made.message?.rolls[0]
   // The formula's own line says the game's 9 once made: under dnd5e 6 the tray's latest; under
-  // dnd5e 5 the latest is the die typed for the game, 1d6 (3), and the formula's line is the newest
-  // of its name beneath it, among the earlier rolls, its typed 6 beside the table's 9.
+  // dnd5e 5 the latest is the die typed for the game, named as the formula is (module 0.45.0), 1d6
+  // (3), its own 3 added to its roll, never the 9 (ROADMAP items 26 and 27), and the formula's line
+  // is the newest of its name beneath it, among the earlier rolls, its typed 6 beside the table's 9.
   let shown
   if (DND5E6) {
     await until(async () => (await trayLatest(alice)).total === String(burst?.total), "the tray to show the game's total", 20_000).catch(() => {})
@@ -2006,14 +2010,14 @@ part('7b. rerolls at the table')
   } else {
     const formulaLine = async () => (await tray(alice).locator('details li').evaluateAll(items => items.map(li => li.textContent.replace(/\s+/g, ' ').trim())))
       .find(line => line.startsWith('Wild Sparks: Burst'))
-    await until(async () => / table 9$/.test(await formulaLine() ?? ''), "the formula's line to show the table's 9", 20_000).catch(() => {})
+    await until(async () => / table 9$/.test(await formulaLine() ?? '') && (await trayLatest(alice)).lines.includes(ADDED), "the formula's line to show the table's 9", 20_000).catch(() => {})
     const later = await trayLatest(alice)
     const line = await formulaLine()
-    shown = { later, line, made: /^Wild Sparks: Burst ?6 = 6 ?· table 9$/.test(line ?? '') && later.lines.includes('1d6 (3)') }
+    shown = { later, line, made: /^Wild Sparks: Burst ?6 = 6 ?· table 9$/.test(line ?? '') && later.total === '3' && same(later.lines, ['Wild Sparks: Burst', '1d6 (3)', ADDED]) }
   }
   check(same(sparks, [{ name: '1d6x', boxes: ['d6'] }]) && noted === 0 && made.request.payload.rerolls === 'kept' && same(burst?.dice[0].results.map(r => r.result), [6, 3])
     && burst.total === 9 && faces.length === 0 && shown.made,
-    `Wild Sparks' 1d6x asks one d6 and says no note, as it doesn't reroll; typed 6, ${DND5E6 ? 'Foundry throws' : 'the game asks for'} its die more, a 3 (${burst?.formula} = ${burst?.total}), and the tray shows the game's 9 once made${DND5E6 ? '' : ", on the formula's line beneath the die typed"} (${JSON.stringify(shown)})`)
+    `Wild Sparks' 1d6x asks one d6 and says no note, as it doesn't reroll; typed 6, ${DND5E6 ? 'Foundry throws' : 'the game asks for'} its die more, a 3 (${burst?.formula} = ${burst?.total}), and the tray shows the game's 9 once made${DND5E6 ? '' : `, on the formula's line beneath the die typed, its own 3 "${ADDED}"`} (${JSON.stringify(shown)})`)
   // The note at 1280 too.
   if (desk) {
     await desk.tab('Actions')

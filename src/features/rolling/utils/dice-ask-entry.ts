@@ -140,7 +140,9 @@ export function answerOf(
 /**
  * What the tray keeps of an answer, as a formula rolled: the ask's label, each term with the dice
  * typed, or left to the game, and what the dice typed came to, the game's total in its place once
- * it says, as it adds what its formulas add and throws what was left to it.
+ * it says, as it adds what its formulas add and throws what was left to it. Of a die thrown again,
+ * the die typed alone, and why it was thrown again: the game's total is its whole roll's, which
+ * that roll's own line says.
  */
 export function answeredRoll(
   ask: TableDiceAsk,
@@ -159,7 +161,7 @@ export function answeredRoll(
     total: terms.reduce((sum, { value }) => sum + value, 0),
     healing: ask.purpose === 'healing',
     terms,
-    gameTotal: true,
+    ...(ask.again ? { again: ask.again } : { gameTotal: true }),
     typed: true,
   }
 }

@@ -1,3 +1,4 @@
+import { ADDED_WORDS } from '../../constants'
 import { shownTotal } from '../../utils/brief'
 import {
   leastOf,
@@ -17,6 +18,7 @@ import type { LocalFormula, TableRollState } from '@/types/roll'
  * least it comes to, where its dice came to less. Hit dice spent at once are one roll, every die
  * among its terms, and the least each gives back said where one gave back its least. One with a die
  * rerolled or exploded, which the game throws again itself, shows the game's total, once it says.
+ * A die thrown again that the player answered (module 0.44.0) says it was added to its roll.
  */
 export function FormulaResult({
   roll,
@@ -36,7 +38,9 @@ export function FormulaResult({
           {roll.minimum !== undefined && ` · ${leastOf(roll)}`}
           {again && thrownAgainWords(game)}
         </p>
-        {state && <TableStatus state={state} />}
+        {state && (
+          <TableStatus state={state} made={roll.again && ADDED_WORDS} />
+        )}
         {!state && roll.described && <OnlyYou />}
       </div>
     </div>

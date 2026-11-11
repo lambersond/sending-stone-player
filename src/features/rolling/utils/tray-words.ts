@@ -528,6 +528,18 @@ function thrownAgain(terms: LocalExtra[]): boolean {
   )
 }
 
+/**
+ * Is this a die thrown again whose answer left it to the game (module 0.44.0)? Its value is the
+ * game's alone, counted in its roll's total, so no number is shown for it.
+ */
+export function leftAgain(roll: LocalRoll): boolean {
+  return (
+    roll.kind === 'formula' &&
+    roll.again !== undefined &&
+    roll.terms.every(({ values }) => values.length === 0)
+  )
+}
+
 /** Is this damage the game's to roll, with no dice thrown here? */
 export function byTheGame(roll: LocalDamage): boolean {
   return roll.parts.every(part => part.terms.length === 0)
