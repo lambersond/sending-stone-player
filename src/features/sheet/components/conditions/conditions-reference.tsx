@@ -2,11 +2,13 @@
 
 import { useEffect, useId, useRef } from 'react'
 import clsx from 'clsx'
+import { GO_TO_CHIP, GO_TO_CHIP_PLAIN } from '@/constants/buttons'
 import {
   CONDITION_BASICS,
   CONDITIONS,
   SRD_LINKS,
 } from '@/features/sheet/components/conditions/constants'
+import { scrollToStart } from '@/utils/scroll'
 import type { SheetCondition } from '@/types/sending-stone'
 
 /**
@@ -27,15 +29,7 @@ export function ConditionsReference({
   const sections = useRef(new Map<string, HTMLElement>())
   const has = new Map(conditions.map(condition => [condition.id, condition]))
   const anchor = (id: string) => `${prefix}-${id}`
-  const jumpTo = (id: string) => {
-    const reduced = globalThis.matchMedia?.(
-      '(prefers-reduced-motion: reduce)',
-    ).matches
-    sections.current.get(id)?.scrollIntoView?.({
-      block: 'start',
-      behavior: reduced ? 'auto' : 'smooth',
-    })
-  }
+  const jumpTo = (id: string) => scrollToStart(sections.current.get(id))
   // Opened at a condition, it's there at once: a frame after it's drawn, as the dialog it's in is
   // shown only after that, and nothing in a dialog not shown yet can be scrolled to.
   useEffect(() => {
@@ -58,10 +52,10 @@ export function ConditionsReference({
                 type='button'
                 onClick={() => jumpTo(condition.id)}
                 className={clsx(
-                  'rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
+                  GO_TO_CHIP,
                   has.has(condition.id)
                     ? 'border-ruby/40 bg-ruby/10 text-ruby hover:bg-ruby/20'
-                    : 'border-border hover:border-primary hover:bg-primary/5',
+                    : GO_TO_CHIP_PLAIN,
                 )}
               >
                 {condition.name}

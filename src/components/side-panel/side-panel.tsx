@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 import { InPortalRoot } from '@/components/modal/in-portal-root'
 import { useDialogRoot } from '@/components/modal/use-dialog-root'
@@ -13,7 +13,8 @@ import type { SidePanelProps } from './types'
  * as the rules of every condition: as wide as a phone, the height of the screen, its content
  * scrolling under its title. It is a modal dialog on the browser's own <dialog>, like Modal: focus
  * stays in it, Escape or a click beside it closes it, and its content is only rendered while open.
- * Menus and tooltips opened from its content open inside it.
+ * Menus and tooltips opened from its content open inside it. With `focusTitle`, opening it focuses
+ * its title, so that reading starts at the top, as Help's does.
  */
 export function SidePanel({
   open,
@@ -21,11 +22,17 @@ export function SidePanel({
   title,
   subtitle,
   actions,
+  focusTitle = false,
   children,
 }: Readonly<SidePanelProps>) {
   const ref = useModalDialog(open)
   const { root, attach } = useDialogRoot(ref)
   const titleId = useId()
+  const heading = useRef<HTMLHeadingElement>(null)
+  // After the dialog is shown, which focuses its first control: the title takes it from there.
+  useEffect(() => {
+    if (open && focusTitle) heading.current?.focus()
+  }, [open, focusTitle])
 
   return (
     <dialog
@@ -46,7 +53,12 @@ export function SidePanel({
           <div className='flex h-full flex-col'>
             <header className='flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4'>
               <div className='min-w-0'>
-                <h2 id={titleId} className='text-lg font-semibold'>
+                <h2
+                  ref={heading}
+                  id={titleId}
+                  tabIndex={focusTitle ? -1 : undefined}
+                  className='text-lg font-semibold outline-none'
+                >
                   {title}
                 </h2>
                 {subtitle && (

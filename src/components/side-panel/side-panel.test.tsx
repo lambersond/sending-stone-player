@@ -91,6 +91,26 @@ describe('components/side-panel', () => {
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 
+  it.each([
+    ['its title, with `focusTitle`', true, true],
+    ['nothing of its own, without', false, false],
+  ])('focuses %s as it opens', (_case, focusTitle, focused) => {
+    const { rerender } = render(
+      <SidePanel open={false} onClose={jest.fn()} title='Help'>
+        <button type='button'>Rolling</button>
+      </SidePanel>,
+    )
+    rerender(
+      <SidePanel open onClose={jest.fn()} title='Help' focusTitle={focusTitle}>
+        <button type='button'>Rolling</button>
+      </SidePanel>,
+    )
+
+    const title = screen.getByRole('heading', { name: 'Help' })
+    expect(title === document.activeElement).toBe(focused)
+    expect(title.hasAttribute('tabindex')).toBe(focused)
+  })
+
   it('closes only for its own close, not one of a dialog opened inside it, which React hands it too', () => {
     const panel = jest.fn()
     const inner = jest.fn()
