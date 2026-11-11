@@ -669,6 +669,22 @@ check(true, 'once rolled, Initiative rolls only in the app')
   const round = await page.locator('section[aria-labelledby="turn-heading"]').getByText('Round 1', { exact: true }).count()
   check(!begun.none && begun.rows === 2 && begun.turn && round === 1, `once begun, Combat shows round 1, the turn and the initiative order of both (${JSON.stringify({ ...begun, round })})`)
   await shoot(page, 'phone-combat-begun')
+  // Item 19: begun, it's under way only while it's the encounter its scene's tracker shows. The
+  // Gamemaster turns the tracker to another (Foundry's activate): no turn nor order again; and with
+  // Thorin's initiative cleared, the line to roll it from the sheet, as before the encounter began.
+  fight.active = false
+  await Hooks.callAll('updateCombat', fight, { active: false })
+  await until(async () => !(await combatShows()).turn, 'the turn gone from Combat, the tracker on another encounter', 15_000)
+  const away = await combatShows()
+  check(away.none && !away.line && away.rows === 0 && !away.turn,
+    `begun but no longer the encounter the tracker shows, Combat says "No combat right now", with no turn, no initiative order, and no line while Thorin has his initiative (${JSON.stringify(away)})`)
+  turn.initiative = null
+  await Hooks.callAll('updateCombatant', turn, { initiative: null })
+  await until(async () => (await combatShows()).line, 'the line to roll on Combat, Thorin\'s initiative cleared', 15_000)
+  const cleared = await combatShows()
+  check(cleared.none && cleared.line && cleared.rows === 0 && !cleared.turn,
+    `and with Thorin's initiative cleared, the line to roll it from the sheet, still no turn nor order (${JSON.stringify(cleared)})`)
+  await shoot(page, 'phone-combat-begun-elsewhere')
   await tableNav.getByRole('button', { name: /^Character/ }).click()
 }
 
