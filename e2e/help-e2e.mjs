@@ -281,7 +281,9 @@ for (const [width, height, schemes] of [[390, 844, ['light', 'dark']], [768, 102
   await openHelp(who)
   if (width === 390) {
     await shoot(who, 'help-box-typing-off', boxOf(who))
-    await shoot(who, 'help-later-dice-typing-off', panelOf(who).getByRole('region', { name: 'Typing in your own dice' }))
+    // The paragraph in the middle of the panel, the page shot whole: its section is taller than the screen.
+    await panelOf(who).getByText(LATER, { exact: true }).evaluate(lead => lead.closest('p').scrollIntoView({ block: 'center' }))
+    await shoot(who, 'help-later-dice-typing-off')
   }
   for (const scheme of schemes) {
     await theme(who, scheme)
