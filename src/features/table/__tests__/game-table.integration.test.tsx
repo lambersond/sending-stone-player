@@ -852,6 +852,23 @@ describe('components/game-table/game-table', () => {
       ).toBeInTheDocument()
     })
 
+    // Item 19: an encounter begun but not the Gamemaster's tracker's still names who acts, here the
+    // player, but it isn't under way, so the page opens on the chat and marks no turn of it.
+    it('opens on the chat beside the sheet, its Combat tab unmarked, where the encounter isn’t under way', () => {
+      renderTable(
+        view({ sheet, combat: combat({ currentId: 'me', underWay: false }) }),
+      )
+
+      expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(screen.getByRole('tab', { name: 'Combat' })).toHaveAttribute(
+        'aria-selected',
+        'false',
+      )
+    })
+
     it('shows the Character pane until a sheet arrives, with why and the notes, beside a narrow column of combat and the chat', () => {
       renderTable()
 

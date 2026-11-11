@@ -344,6 +344,19 @@ describe('components/game-table/turn-toast', () => {
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
   })
 
+  // Item 19: an encounter begun but no longer the Gamemaster's tracker's still names who acts, but
+  // the page shows no turn of it, so the toast neither waits for it nor names them.
+  it('says an End Turn ended at once, naming no one, where the encounter is no longer under way', () => {
+    const turn = thorins()
+    const { update } = setup({ turn })
+    update({ via: 'button', sent: { turn, way: { status: 'sending' } } })
+    update({
+      sent: { turn, way: { status: 'done', requestId: 'req-1' } },
+      combat: on('c-thorin', { underWay: false }),
+    })
+    expect(said()).toEqual(['Your turn has ended.'])
+  })
+
   it('offers Undo by name, as a 44 pixel target, taking the turn back', () => {
     const { undo } = endedByButton()
     const button = screen.getByRole('button', { name: 'Undo' })

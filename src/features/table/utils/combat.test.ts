@@ -1,4 +1,5 @@
-import { hpBar, seatTurn } from './combat'
+import { hpBar, isMyTurn, seatTurn } from './combat'
+import { mockTurnCombat } from '@/mocks/sending-stone'
 import type { TableCombatant } from '@/types/table'
 
 /** A combatant as the page shows it, one of the party's, with the fields a case gives it. */
@@ -35,6 +36,20 @@ describe('features/table/utils/combat', () => {
       ['no foe’s turn', { side: 'other' as const }, undefined],
     ])('takes %s', (_, fields, own) => {
       expect(seatTurn(combatant(fields))).toEqual(own)
+    })
+  })
+
+  // The rule the Combat tab's mark and the companions' tabs' marks follow (`isTurnOf`): a turn
+  // only in an encounter under way, never one begun that isn't the tracker's, though it names who
+  // acts (item 19).
+  describe('isMyTurn', () => {
+    it.each([
+      ['the character’s, under way', true, {}],
+      ['a companion’s, under way', true, { currentId: 'c-brakka' }],
+      ['a foe’s', false, { currentId: 'c-goblin' }],
+      ['the character’s, not under way', false, { underWay: false }],
+    ])('takes a turn, %s, as the seat’s: %p', (_, mine, fields) => {
+      expect(isMyTurn(mockTurnCombat(fields))).toBe(mine)
     })
   })
 
