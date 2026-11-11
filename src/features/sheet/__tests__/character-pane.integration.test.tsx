@@ -1175,7 +1175,7 @@ describe('components/character-sheet/character-pane', () => {
     const fight: TableCombat = {
       id: 'cmbt1',
       name: null,
-      started: true,
+      underWay: true,
       round: 1,
       combatants: [
         {
@@ -1926,7 +1926,7 @@ describe('components/character-sheet/character-pane', () => {
     const fight: TableCombat = {
       id: 'cmbt1',
       name: null,
-      started: true,
+      underWay: true,
       round: 1,
       combatants: [
         {
@@ -2738,7 +2738,7 @@ describe('components/character-sheet/character-pane', () => {
     const fight: TableCombat = {
       id: 'cmbt1',
       name: null,
-      started: true,
+      underWay: true,
       round: 1,
       combatants: [
         {
@@ -4535,7 +4535,7 @@ describe("components/character-sheet/character-pane, the Gamemaster's rolls as t
     const combat: TableCombat = {
       id: 'c1',
       name: null,
-      started: true,
+      underWay: true,
       round: 2,
       combatants: [
         {
@@ -6471,7 +6471,7 @@ describe('components/character-sheet/character-pane, Bardic Inspiration offered,
         combat: {
           id: 'cmbt1',
           name: null,
-          started: true,
+          underWay: true,
           round: 1,
           combatants: [
             {

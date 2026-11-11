@@ -59,7 +59,7 @@ export const TURN_UNDO_FOR = 8000
 
 /**
  * The turn the seat may end, as the page shows the combat: where the game takes it, the combat
- * has started and its current combatant is the seat's character, or one of the character's
+ * is under way and its current combatant is the seat's character, or one of the character's
  * companions, whose key and name it carries. None for anyone else's turn, nor while a hidden
  * combatant acts, which the page is shown no current combatant for.
  * @param kinds - The rolls the game takes from this page now.
@@ -68,7 +68,7 @@ export function endableTurn(
   combat: TableCombat | undefined,
   kinds: readonly RollKind[],
 ): EndableTurn | undefined {
-  if (!combat?.started || !kinds.includes('endTurn')) return undefined
+  if (!combat?.underWay || !kinds.includes('endTurn')) return undefined
   const current = currentCombatant(combat)
   const own = current && seatTurn(current)
   if (!current || !own) return undefined
@@ -93,13 +93,13 @@ export function turnKey(turn: EndedTurn): string {
 }
 
 /**
- * The turn the page shows: its combat's, while that's started and someone it shows is acting, with
- * who that is. None before the start, or while a combatant hidden from players acts.
+ * The turn the page shows: its combat's, while that's under way and someone it shows is acting,
+ * with who that is. None before then, or while a combatant hidden from players acts.
  */
 function shownTurn(
   combat: TableCombat | undefined,
 ): TurnUndo['left'] | undefined {
-  if (!combat?.started || combat.currentId === undefined) return undefined
+  if (!combat?.underWay || combat.currentId === undefined) return undefined
   const current = currentCombatant(combat)
   if (!current) return undefined
   return {

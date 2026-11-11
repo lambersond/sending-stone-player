@@ -20,13 +20,13 @@ import type { EndedTurn } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 import type { TableCombat } from '@/types/table'
 
-/** Whether the page shows this turn now: its combat, started, at its round and combatant. */
+/** Whether the page shows this turn now: its combat, under way, at its round and combatant. */
 export function showsTurn(
   combat: TableCombat | undefined,
   turn: EndedTurn,
 ): boolean {
   return (
-    combat?.started === true &&
+    combat?.underWay === true &&
     combat.id === turn.combatId &&
     combat.round === turn.round &&
     combat.currentId === turn.combatantId
@@ -50,7 +50,7 @@ export function takenBack(
 function actingOf(
   combat: TableCombat | undefined,
 ): { name: string; mine: boolean } | undefined {
-  if (!combat?.started) return undefined
+  if (!combat?.underWay) return undefined
   const current = currentCombatant(combat)
   return current && { name: current.name, mine: current.side === 'me' }
 }

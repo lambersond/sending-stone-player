@@ -627,6 +627,29 @@ await Hooks.callAll('createCombat', fight)
 const initiative = sheet.getByRole('button', { name: 'Initiative, +1, to roll for the combat' })
 await initiative.waitFor({ timeout: 15_000 })
 await shoot(page, 'phone-initiative-to-roll')
+// Item 19 (the owner's Q4 A): an encounter not yet begun shows no turn and no initiative order on
+// Combat, only that there's no combat, with a line to roll from the sheet while Thorin waits.
+const tableNav = page.getByRole('navigation', { name: 'Table' })
+const tracker = page.getByRole('region', { name: 'Combat' })
+const ROLL_LINE = 'Your Gamemaster is setting up an encounter: roll initiative from the sheet.'
+/** What Combat shows: whether it says there's no combat, its line to roll, its rows and its turn panel. */
+const combatShows = async () => {
+  await tableNav.getByRole('button', { name: /^Combat/ }).click()
+  await tracker.waitFor()
+  return {
+    none: await tracker.getByRole('heading', { name: 'No combat right now' }).count() === 1,
+    line: await tracker.getByText(ROLL_LINE).count() === 1,
+    rows: await tracker.getByRole('listitem').count(),
+    turn: await page.locator('#turn-heading').count() === 1,
+  }
+}
+{
+  const shown = await combatShows()
+  check(shown.none && shown.line && shown.rows === 0 && !shown.turn,
+    `in the encounter not begun, Combat says "No combat right now" and to roll initiative from the sheet, with no turn and no initiative order (${JSON.stringify(shown)})`)
+  await shoot(page, 'phone-combat-not-begun')
+  await tableNav.getByRole('button', { name: /^Character/ }).click()
+}
 ;({ request, made, message, text } = await rollAtTable(initiative, 'initiative'))
 check(request.payload.kind === 'initiative' && request.payload.combatId === 'cmbt1', 'the Initiative button rolls for the combat Thorin waits in')
 check(turn.initiative === message.rolls[0].total && message.rolls[0].dice[0].results[0].result === request.payload.dice[0].results[0], `the game gives Thorin initiative ${turn.initiative}, with Alice's d20`)
@@ -634,6 +657,20 @@ check(text.includes(`At the table: ${turn.initiative}`), `the tray shows it: "${
 await Hooks.callAll('updateCombatant', turn, { initiative: turn.initiative })
 await sheet.getByRole('button', { name: 'Initiative, +1' }).waitFor({ timeout: 15_000 })
 check(true, 'once rolled, Initiative rolls only in the app')
+{
+  await until(async () => !(await combatShows()).line, 'the line to roll gone from Combat', 15_000)
+  const shown = await combatShows()
+  check(shown.none && shown.rows === 0 && !shown.turn, `once Thorin has rolled, the line goes, and still no turn nor order before the encounter begins (${JSON.stringify(shown)})`)
+  // The Gamemaster's Begin Combat: round 1, the first in initiative acting.
+  fight.started = true; fight.round = 1; fight.turn = 0
+  await Hooks.callAll('combatTurnChange', fight, { round: 0, turn: null, combatantId: null }, { round: 1, turn: 0, combatantId: fight.turns[0].id })
+  await page.locator('#turn-heading').waitFor({ timeout: 15_000 })
+  const begun = await combatShows()
+  const round = await page.locator('section[aria-labelledby="turn-heading"]').getByText('Round 1', { exact: true }).count()
+  check(!begun.none && begun.rows === 2 && begun.turn && round === 1, `once begun, Combat shows round 1, the turn and the initiative order of both (${JSON.stringify({ ...begun, round })})`)
+  await shoot(page, 'phone-combat-begun')
+  await tableNav.getByRole('button', { name: /^Character/ }).click()
+}
 
 // ---- A death saving throw ----
 thorin.system.attributes.hp.value = 0

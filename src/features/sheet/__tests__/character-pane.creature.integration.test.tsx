@@ -450,7 +450,7 @@ describe('a creature’s pane', () => {
     const waiting: TableCombat = {
       id: 'cmbt1',
       name: null,
-      started: true,
+      underWay: true,
       round: 1,
       combatants: [
         {
@@ -603,7 +603,7 @@ describe('a creature’s pane', () => {
       const fight: TableCombat = {
         id: 'cmbt1',
         name: null,
-        started: true,
+        underWay: true,
         round: 1,
         combatants: [
           {

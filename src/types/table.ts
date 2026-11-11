@@ -195,7 +195,12 @@ export type TableCombatant = {
 export type TableCombat = {
   id: string
   name: string | null
-  started: boolean
+  /**
+   * Whether it's under way: begun, round 1 or later, and the encounter its Gamemaster's tracker
+   * shows. Only then are its turn and initiative order shown; otherwise it's held for the sheet's
+   * initiative roll and the target picker.
+   */
+  underWay: boolean
   round: number
   /** Whose turn it is. Unset before the start, or while a hidden combatant acts. */
   currentId?: string

@@ -46,7 +46,7 @@ const combatant = (
 const fight: TableCombat = {
   id: 'cmbt1',
   name: null,
-  started: true,
+  underWay: true,
   round: 2,
   combatants: [
     combatant({ id: 'goblin1', name: 'Goblin', initiative: 18 }),

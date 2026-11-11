@@ -65,7 +65,7 @@ export function GameTable({
   const gm = seat.role === 'gm'
   const words = seatWords(seat.role)
   const { view, connection } = useTableView(seat.api, initialView)
-  const tabs = useTableTabs(initialView.combat?.started === true)
+  const tabs = useTableTabs(initialView.combat?.underWay === true)
   const { party, setPartyOpen } = usePartyOpen(view.groups)
   const unread = useChatRead({
     gm,

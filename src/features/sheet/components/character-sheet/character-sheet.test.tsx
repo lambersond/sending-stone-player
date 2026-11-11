@@ -39,7 +39,7 @@ const renderSheet = (fields: Partial<Sheet> = {}) => {
 const combatWith = (initiative: number | null): TableCombat => ({
   id: 'cmbt1',
   name: null,
-  started: true,
+  underWay: true,
   round: 1,
   combatants: [
     {

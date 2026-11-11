@@ -30,7 +30,7 @@ export function useTurnFocus({
   const titled = useRef<HTMLHeadingElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const now =
-    combat.started && current
+    combat.underWay && current
       ? `${combat.id}:${combat.round}:${current.id}`
       : ''
   // The End Turn that moved the turn on, by its id; or, where the app took it with no id to follow

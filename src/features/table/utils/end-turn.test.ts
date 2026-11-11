@@ -87,7 +87,7 @@ describe('utils/end-turn', () => {
 
     it('offers none before the combat starts', () => {
       expect(
-        endableTurn(mockTurnCombat({ started: false }), KINDS),
+        endableTurn(mockTurnCombat({ underWay: false }), KINDS),
       ).toBeUndefined()
     })
 

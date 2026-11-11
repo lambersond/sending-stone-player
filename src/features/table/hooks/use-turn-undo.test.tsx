@@ -220,7 +220,7 @@ describe('hooks/use-turn-undo', () => {
   it('offers nothing for a combat not started, though it names who was acting, nor once it starts again', () => {
     // Reset straight after the End Turn: no turn is shown, so there's none to take back to.
     const { result, rerender } = render({ sent: done() })
-    rerender({ combat: on('c-brakka', { started: false }), sent: done() })
+    rerender({ combat: on('c-brakka', { underWay: false }), sent: done() })
     expect(result.current.offer).toBeUndefined()
     rerender({ combat: on('c-brakka'), sent: done() })
     expect(result.current.offer).toBeUndefined()
@@ -229,7 +229,7 @@ describe('hooks/use-turn-undo', () => {
     const sent = done()
     const reset = render({ combat: on('c-brakka'), sent })
     expect(reset.result.current.offer).toBeDefined()
-    reset.rerender({ combat: on('c-brakka', { started: false }), sent })
+    reset.rerender({ combat: on('c-brakka', { underWay: false }), sent })
     expect(reset.result.current.offer).toBeUndefined()
     reset.rerender({ combat: on('c-brakka'), sent })
     expect(reset.result.current.offer).toBeUndefined()

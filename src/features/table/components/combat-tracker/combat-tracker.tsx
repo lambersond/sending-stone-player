@@ -4,16 +4,19 @@ import { Swords } from 'lucide-react'
 import { CombatantRow } from './combatant-row'
 import { TurnPanel } from './turn-panel'
 import { EmptyState } from '@/components/empty-state/empty-state'
+import { waitsForInitiative } from '@/features/table/utils/combat'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
 import type { PanelEnding } from '@/features/table/types'
 import type { TableCombat } from '@/types/table'
 
 /**
- * The encounter as the character's player sees it: whose turn it is, above the initiative order.
- * From module 0.36.0, the character's companions are the player's own, and on a companion's turn
- * its panel says to roll for it on its tab, which it opens. And on the seat's turn, the panel
- * offers End Turn.
+ * The encounter as the character's player sees it, while it's under way: whose turn it is, above
+ * the initiative order. From module 0.36.0, the character's companions are the player's own, and on
+ * a companion's turn its panel says to roll for it on its tab, which it opens. And on the seat's
+ * turn, the panel offers End Turn. Before then, or with none, there's no combat to show; while the
+ * character or a companion of it waits for its initiative in the encounter held, it says to roll it
+ * from the sheet.
  * @param onOpen - Shows a companion's tab, by its key.
  * @param keys - The companions whose tabs the page shows.
  */
@@ -29,11 +32,15 @@ export function CombatTracker({
     keys?: ReadonlySet<string>
   } & PanelEnding
 >) {
-  const { noCombat } = seatWords(useTableRole())
-  if (!combat) {
+  const { noCombat, rollInitiative } = seatWords(useTableRole())
+  if (!combat?.underWay) {
+    const waiting = combat !== undefined && waitsForInitiative(combat)
     return (
       <EmptyState icon={Swords} title='No combat right now'>
-        {noCombat}
+        <p>{noCombat}</p>
+        {waiting && (
+          <p className='mt-2 font-medium text-text-primary'>{rollInitiative}</p>
+        )}
       </EmptyState>
     )
   }

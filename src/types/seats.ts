@@ -36,8 +36,11 @@ export type SeatWords = {
   addBack: string
   /** The combat tracker with no combat. */
   noCombat: string
-  /** A combat not yet started. */
-  settingUp: string
+  /**
+   * The combat tracker with no combat under way, while the seat's character, or a companion of it,
+   * waits to roll initiative into the encounter being set up.
+   */
+  rollInitiative: string
   /** The game, live. */
   connected: string
   /** The game, not heard from lately. */

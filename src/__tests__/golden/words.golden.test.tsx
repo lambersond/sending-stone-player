@@ -774,7 +774,7 @@ describe('golden C4: words', () => {
         chatReadAt: '2026-10-04T19:01:00.000Z',
       },
       'a combat not started': {
-        combat: mockTurnCombat({ started: false, round: 0 }),
+        combat: mockTurnCombat({ underWay: false, round: 0 }),
       },
       'no messages': { messages: [], combat: undefined },
       'not connected': { connected: false, combat: undefined },

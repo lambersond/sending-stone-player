@@ -15526,7 +15526,7 @@ exports[`golden C4: words the table’s heading, subtitle and tab names a combat
   },
   "Combat": {
     "heading": "Thorin",
-    "subtitle": "Getting ready",
+    "subtitle": "No combat",
     "tabs": [
       "button: Character",
       "button: Combat",

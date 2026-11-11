@@ -941,7 +941,16 @@ export function htmlToText(html: string): string | undefined {
 /* -------------------------------------------- */
 
 /**
- * The encounter to show: the one the tracker is showing, preferring one under way.
+ * Whether an encounter is under way, the one rule for showing its turn and initiative order:
+ * begun, round 1 or later, and the one its Gamemaster's tracker shows, as Foundry's Begin Combat
+ * and its scene's chosen encounter have it.
+ */
+function isUnderWay(combat: CombatSnapshot): boolean {
+  return combat.started && combat.active
+}
+
+/**
+ * The encounter to show: one under way first, then the one the tracker is showing, then one begun.
  * @param combats - Every held combat, most recently changed first.
  */
 export function pickCombat(
@@ -968,7 +977,7 @@ export function toTableCombat(
   return {
     id: combat.id,
     name: combat.name,
-    started: combat.started,
+    underWay: isUnderWay(combat),
     round: combat.round,
     currentId: current ? (combat.combatantId ?? undefined) : undefined,
     combatants,

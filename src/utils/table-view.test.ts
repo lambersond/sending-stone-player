@@ -1736,11 +1736,24 @@ describe('utils/table-view', () => {
       expect(toTableCombat(combat(), viewer)).toMatchObject({
         id: 'cmbt1',
         name: null,
-        started: true,
         round: 1,
         currentId: 'c-boss',
       })
     })
+
+    it.each([
+      [true, true, true],
+      [true, false, false],
+      [false, true, false],
+      [false, false, false],
+    ])(
+      'is under way only begun (%p) and the encounter the tracker shows (%p): %p',
+      (started, active, underWay) => {
+        expect(
+          toTableCombat(combat({ started, active }), viewer).underWay,
+        ).toBe(underWay)
+      },
+    )
 
     it('has no current turn before the start', () => {
       const view = toTableCombat(

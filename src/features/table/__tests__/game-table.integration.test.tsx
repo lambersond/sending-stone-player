@@ -101,7 +101,7 @@ const message = (id: string, sentAt: string): TableMessage => ({
 const combat = (fields: Partial<TableCombat> = {}): TableCombat => ({
   id: 'cmbt1',
   name: null,
-  started: true,
+  underWay: true,
   round: 3,
   currentId: 'boss',
   combatants: [
@@ -506,7 +506,7 @@ describe('components/game-table/game-table', () => {
   })
 
   it.each([
-    [combat({ started: false, currentId: undefined }), 'Getting ready'],
+    [combat({ underWay: false, currentId: undefined }), 'No combat'],
     [combat({ currentId: undefined }), 'Round 3'],
   ])('describes the encounter', async (encounter, text) => {
     const user = userEvent.setup()
@@ -1233,6 +1233,21 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
       markChatRead={markChatRead}
     />
   )
+  // An encounter being set up, Thorin still to roll his initiative.
+  const setUp = combat({
+    underWay: false,
+    round: 0,
+    currentId: undefined,
+    combatants: [
+      {
+        id: 'me',
+        name: 'Thorin',
+        initiative: null,
+        defeated: false,
+        side: 'me',
+      },
+    ],
+  })
   const renderGm = (initial = view({ gm: { rolls: 'made' } })) => {
     current = { view: initial, connection: 'live' }
     jest.mocked(useTableView).mockImplementation(() => current)
@@ -1381,7 +1396,7 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
         },
       },
     ],
-    ['with a combat not yet begun', { combat: combat({ started: false }) }],
+    ['with a combat not yet begun', { combat: setUp }],
   ])('never names the Gamemaster as someone else, %s', (_name, fields) => {
     const { container } = renderGm(view({ gm: { rolls: 'made' }, ...fields }))
 
@@ -1392,7 +1407,7 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
   it('names the game as theirs: its saves asked for, its liveness, its sheets and combat', () => {
     renderGm(
       view({
-        combat: undefined,
+        combat: setUp,
         live: false,
         gm: { rolls: 'made' },
         sheetWithheld: { reason: 'later', bytes: 5, limit: 4 },
@@ -1407,6 +1422,11 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
     expect(screen.getByRole('status')).toHaveTextContent(
       "Offline. Your game hasn't been heard from in the last two minutes.",
     )
+    expect(
+      screen.getByText(
+        'You’re setting up an encounter: roll initiative from the sheet.',
+      ),
+    ).toBeInTheDocument()
   })
 })
 

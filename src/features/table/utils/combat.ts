@@ -22,29 +22,40 @@ export function seatTurn(combatant: TableCombatant): SeatTurn | undefined {
   return undefined
 }
 
-/** Whether it's the player's turn, as `seatTurn` has it, in a combat that has started. */
+/** Whether it's the player's turn, as `seatTurn` has it, in a combat under way. */
 export function isMyTurn(combat?: TableCombat): boolean {
   return isTurnOf(combat, combatant => seatTurn(combatant) !== undefined)
 }
 
-/** Whether the combat has started and its current combatant is one that `is` picks. */
+/** Whether the combat is under way and its current combatant is one that `is` picks. */
 export function isTurnOf(
   combat: TableCombat | undefined,
   is: (combatant: TableCombat['combatants'][number]) => boolean,
 ): boolean {
   return (
-    combat?.started === true &&
+    combat?.underWay === true &&
     combat.combatants.some(
       combatant => combatant.id === combat.currentId && is(combatant),
     )
   )
 }
 
-/** Who acts after the current combatant, skipping the defeated. */
+/**
+ * Whether one of the seat's own combatants, as `seatTurn` has them, its character or a companion
+ * of it, waits for its initiative: rolled from its sheet, into the encounter before it's under way.
+ */
+export function waitsForInitiative(combat: TableCombat): boolean {
+  return combat.combatants.some(
+    combatant =>
+      combatant.initiative === null && seatTurn(combatant) !== undefined,
+  )
+}
+
+/** Who acts after the current combatant, skipping the defeated, while the combat is under way. */
 export function nextUp(combat: TableCombat): TableCombatant | undefined {
   const { combatants, currentId } = combat
   const index = combatants.findIndex(({ id }) => id === currentId)
-  if (!combat.started || index === -1) return undefined
+  if (!combat.underWay || index === -1) return undefined
   for (let step = 1; step < combatants.length; step++) {
     const candidate = combatants[(index + step) % combatants.length]
     if (!candidate.defeated) return candidate

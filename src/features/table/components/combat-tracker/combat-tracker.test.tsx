@@ -20,7 +20,7 @@ const fighter = (
 const encounter = (fields: Partial<TableCombat> = {}): TableCombat => ({
   id: 'cmbt1',
   name: null,
-  started: true,
+  underWay: true,
   round: 2,
   currentId: 'boss',
   combatants: [
@@ -45,7 +45,7 @@ const encounter = (fields: Partial<TableCombat> = {}): TableCombat => ({
 })
 
 const turnPanel = () =>
-  screen.getByRole('heading', { level: 2, name: /acting|turn|ready/ })
+  screen.getByRole('heading', { level: 2, name: /acting|turn/ })
 
 /** A row's initiative box, coloured by whose side they're on. */
 const box = (row: HTMLElement) =>
@@ -100,6 +100,8 @@ const endingOf = (
 })
 
 const HINT = 'Or press and hold the Combat tab, from any tab.'
+const ROLL_LINE =
+  'Your Gamemaster is setting up an encounter: roll initiative from the sheet.'
 
 describe('components/game-table/combat-tracker', () => {
   it('says when there is no combat', () => {
@@ -214,21 +216,56 @@ describe('components/game-table/combat-tracker', () => {
     expect(screen.queryByText(/^Next:/)).not.toBeInTheDocument()
   })
 
-  it('shows an encounter being set up', () => {
-    render(
-      <CombatTracker
-        combat={encounter({
-          started: false,
-          round: 0,
-          currentId: undefined,
-          combatants: [fighter({ id: 'boss', initiative: null })],
-        })}
-      />,
-    )
+  describe('an encounter not under way (item 19)', () => {
+    const waiting = (who: Partial<TableCombatant> & { id: string }) =>
+      encounter({
+        underWay: false,
+        round: 0,
+        currentId: undefined,
+        combatants: [
+          fighter({ id: 'boss', initiative: 15 }),
+          fighter({ id: 'thorin', side: 'me', initiative: 12 }),
+          fighter({ initiative: null, ...who }),
+        ],
+      })
 
-    expect(turnPanel()).toHaveTextContent('Getting ready')
-    expect(screen.getByText('Not started')).toBeInTheDocument()
-    expect(screen.getByRole('listitem')).toHaveTextContent('Initiative –')
+    it.each([
+      [
+        'set up, the character waiting to roll',
+        waiting({ id: 'thorin', side: 'me' }),
+        true,
+      ],
+      [
+        'set up, a companion of the character waiting',
+        waiting({
+          id: 'brakka',
+          side: 'party',
+          yours: true,
+          companion: 'wolfBrakka',
+        }),
+        true,
+      ],
+      [
+        'set up, another of the party waiting',
+        waiting({ id: 'vex', side: 'party' }),
+        false,
+      ],
+      [
+        'begun, but not the encounter the tracker shows',
+        encounter({ underWay: false }),
+        false,
+      ],
+    ])('%s: no combat, its turn and order unshown', (_, combat, line) => {
+      render(<CombatTracker combat={combat} />)
+
+      expect(
+        screen.getByRole('heading', { name: 'No combat right now' }),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('list')).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Initiative' })).toBeNull()
+      expect(screen.queryByText(/^Round/)).toBeNull()
+      expect(screen.queryByText(ROLL_LINE) !== null).toBe(line)
+    })
   })
 
   it('says when no one has joined', () => {
@@ -322,14 +359,6 @@ describe('components/game-table/combat-tracker', () => {
       expect(turnPanel()).not.toHaveClass('text-primary')
       expect(screen.queryByText('Roll for it on its tab.')).toBeNull()
     })
-
-    it('marks nothing as the player’s before the start', () => {
-      render(<CombatTracker combat={fight({ started: false })} />)
-      expect(turnPanel()).toHaveTextContent('Getting ready')
-      expect(turnPanel()).not.toHaveClass('text-primary')
-      expect(turnPanel().closest('section')).toHaveClass('border-border')
-      expect(screen.queryByText('Roll for it on its tab.')).toBeNull()
-    })
   })
 
   describe('End Turn (module 0.36.0)', () => {
@@ -387,8 +416,8 @@ describe('components/game-table/combat-tracker', () => {
       ['a party member’s', encounter({ currentId: 'vex' })],
       ['a foe’s', encounter()],
       [
-        'the player’s, before the start',
-        fight({ started: false, currentId: 'thorin' }),
+        'the player’s, not under way',
+        fight({ underWay: false, currentId: 'thorin' }),
       ],
     ])('offers nothing on %s turn', (_, combat) => {
       render(<CombatTracker combat={combat} ending={endingOf(combat)} />)
