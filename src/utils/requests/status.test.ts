@@ -69,7 +69,7 @@ describe('utils/roll-requests', () => {
       ).toBe('lost')
     })
 
-    it('doesn’t count the time the game held it asking for its run’s later dice, from module 0.45.0', () => {
+    it('doesn’t count the time the game held it asking for its run’s later dice, from module 0.44.0', () => {
       const claimed = held({ status: 'claimed', claimedAt: ago(100_000) })
       expect(rollStatus(claimed, NOW, 26_000)).toBe('rolling')
       expect(rollStatus(claimed, NOW, 25_000)).toBe('lost')

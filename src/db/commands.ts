@@ -62,7 +62,7 @@ export function onItsWay(now: number): Prisma.RollRequestWhereInput {
 
 /**
  * A seat's rows that count against its limits: all but its answers to the dice the game asks for
- * (module 0.45.0), which the roll they answer, itself on its way, waits on; one an ask is allowed
+ * (module 0.44.0), which the roll they answer, itself on its way, waits on; one an ask is allowed
  * instead.
  */
 export const COUNTED: Prisma.RollRequestWhereInput = { kind: { not: 'dice' } }

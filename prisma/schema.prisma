@@ -57,7 +57,7 @@ enum NoteWriteStatus {
   made
 }
 
-// Where a Tidy 5e Sheets journal entry is kept on its character (module 0.45.0): an entry of Tidy's
+// Where a Tidy 5e Sheets journal entry is kept on its character (module 0.44.0): an entry of Tidy's
 // current sheet's Journal tab, or one of its Classic sheet's five boxes.
 enum TidySource {
   journal
@@ -283,7 +283,7 @@ model Campaign {
   // bridge.hello: by the campaign's own switch, on by default, under dnd5e. A module before it
   // says nothing, which clears it.
   hitPointsEnabled    Boolean          @default(false)
-  // Whether Tidy 5e Sheets is active in the world, and its version, from module 0.45.0's
+  // Whether Tidy 5e Sheets is active in the world, and its version, from module 0.44.0's
   // bridge.hello, under dnd5e, where Tidy is installed or a character holds its journal's entries:
   // a version unset while it isn't installed. Both unset where the hello says nothing of Tidy, as a
   // module before it does, which clears them.
@@ -507,7 +507,7 @@ model RollPrompt {
 }
 
 // The dice of a later roll in a typed roll's run, which the game asks of its player before it
-// throws them, from module 0.45.0: from the module's roll.dice.asked until its roll.dice.closed, or
+// throws them, from module 0.44.0: from the module's roll.dice.asked until its roll.dice.closed, or
 // its wait runs out, when Foundry's computer dice roll them. Kept apart from the saves the game
 // asks, which every reader of those would otherwise have to tell from these. Deleted a day after it
 // closed or ran out.
@@ -565,7 +565,7 @@ model JournalBook {
   changedAt    DateTime?
   changedBy    String?
   changedIn    String?
-  // When the app last knew its character's Tidy 5e Sheets journal, from module 0.45.0: when it was
+  // When the app last knew its character's Tidy 5e Sheets journal, from module 0.44.0: when it was
   // last sent, or a hello said the character holds none. Unset until then, so the entries of the
   // first sent are undated, as they were there before the app could see them; and unset again by a
   // hello that says nothing of Tidy, as an older module's. And why the last was held back,
@@ -618,7 +618,7 @@ model JournalNote {
   @@map("journal_note")
 }
 
-// An entry of Tidy 5e Sheets' journal on a character, as the module last sent it (module 0.45.0):
+// An entry of Tidy 5e Sheets' journal on a character, as the module last sent it (module 0.44.0):
 // read only here, changed only in Foundry, and never written there from here. Only a personal
 // book's. Tidy keeps no dates, so the app keeps its own.
 model JournalTidyEntry {

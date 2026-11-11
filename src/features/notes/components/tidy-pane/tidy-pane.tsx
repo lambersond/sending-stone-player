@@ -20,7 +20,7 @@ const ICON_BUTTON = `${JOURNAL_ICON_BUTTON} disabled:pointer-events-none disable
 const LINE = 'inline-flex items-start gap-1.5 text-sm text-text-secondary'
 
 /**
- * One of a character's Tidy 5e Sheets entries, read (module 0.45.0): where it is among them and the
+ * One of a character's Tidy 5e Sheets entries, read (module 0.44.0): where it is among them and the
  * arrows to the one before and after in the bar, before the first, the book's last note; their
  * page's title over its own, its chip, where it comes from and when the app first saw it and last
  * saw it change, why it can't be changed now or where it can, and its text. Read only: no Edit,

@@ -912,7 +912,7 @@ describe('db/campaign-events', () => {
     }
   })
 
-  it('bridge.hello keeps whether a typing player is asked for the dice the game rolls later, last, from module 0.45.0', async () => {
+  it('bridge.hello keeps whether a typing player is asked for the dice the game rolls later, last, from module 0.44.0', async () => {
     const rolls = { enabled: true, kinds: ['damage', 'dice'], reason: null }
     for (const [diceAsks, rollFeatures] of [
       [true, ['manualDice', 'keptRerolls', 'diceAsks']],
@@ -2775,7 +2775,7 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
     ])
   })
 
-  // Module 0.45.0: the Tidy 5e Sheets journals of characters the hello doesn't list as holding
+  // Module 0.44.0: the Tidy 5e Sheets journals of characters the hello doesn't list as holding
   // one go, and theirs are known, empty, so a first entry is dated; where it says nothing of Tidy,
   // as an older module, every one goes and none is known. And every book is new where Tidy was
   // turned off, for the line its entries then say.

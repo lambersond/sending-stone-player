@@ -3,7 +3,7 @@ import type { TIDY_SOURCES } from '@/constants/notes'
 /** Whose journal: a character's own notes, or a party's. From module 0.34.0. */
 export type NoteBookKind = 'personal' | 'party'
 
-/** Where a Tidy 5e Sheets journal entry is kept on its character (module 0.45.0). */
+/** Where a Tidy 5e Sheets journal entry is kept on its character (module 0.44.0). */
 export type TidySource = (typeof TIDY_SOURCES)[number]
 
 /** A chapter, a level 1 heading in Foundry's journal; or an entry under one, a level 2. */
@@ -158,14 +158,14 @@ export type NotesView = {
    */
   entries: NoteEntryView[]
   /**
-   * A character's Tidy 5e Sheets journal, read only (module 0.45.0): only in a personal book whose
+   * A character's Tidy 5e Sheets journal, read only (module 0.44.0): only in a personal book whose
    * character holds entries of it, shown after everything else.
    */
   tidy?: NotesTidyView
 }
 
 /**
- * A character's Tidy 5e Sheets journal as a seat sees it (module 0.45.0): whether Tidy is active in
+ * A character's Tidy 5e Sheets journal as a seat sees it (module 0.44.0): whether Tidy is active in
  * Foundry, so its entries can be changed there; whether it's installed; whether its Classic sheet's
  * boxes are shown anywhere in Foundry, which Tidy 14 and later no longer does; and its entries, in
  * the order Tidy shows them.
@@ -177,7 +177,7 @@ export type NotesTidyView = {
   entries: NoteTidyView[]
 }
 
-/** One of a character's Tidy 5e Sheets journal entries, shown read only (module 0.45.0). */
+/** One of a character's Tidy 5e Sheets journal entries, shown read only (module 0.44.0). */
 export type NoteTidyView = {
   /** Its key among the book's Tidy entries: `<from>:<Tidy's key>`. */
   key: string

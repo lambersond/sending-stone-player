@@ -17,7 +17,7 @@ const NONE: readonly TableDiceAsk[] = []
 
 /**
  * The dice the game asks the player for, for later rolls in their typed rolls' runs, from module
- * 0.45.0. On the device that sent the roll an ask is for, the dice dialog opens by itself, unless
+ * 0.44.0. On the device that sent the roll an ask is for, the dice dialog opens by itself, unless
  * they're typing in a text field there, such as the chat's, or this device doesn't send their
  * rolls; on their other devices, or then, its banner offers it (`offered`): Type in, which opens
  * it, or Let the game roll. Done sends what they typed, a die skipped left to the game; Let the

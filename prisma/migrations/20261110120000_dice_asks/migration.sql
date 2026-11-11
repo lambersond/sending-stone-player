@@ -1,5 +1,5 @@
 -- CreateTable
--- The dice of a later roll in a typed roll's run, asked of its player, from module 0.45.0: until the module closes it or its wait runs out; deleted a day after.
+-- The dice of a later roll in a typed roll's run, asked of its player, from module 0.44.0: until the module closes it or its wait runs out; deleted a day after.
 CREATE TABLE "dice_ask" (
     "id" TEXT NOT NULL,
     "campaignId" TEXT NOT NULL,

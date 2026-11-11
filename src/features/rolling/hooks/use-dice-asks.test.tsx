@@ -54,7 +54,7 @@ const close = async (values?: number[][]) => {
   })
 }
 
-describe('features/rolling/hooks/use-dice-asks (module 0.45.0)', () => {
+describe('features/rolling/hooks/use-dice-asks (module 0.44.0)', () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: NOW })
     asked = []

@@ -10,7 +10,7 @@ const TEXT_TYPES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Is the player typing in a text field, such as the chat's, from module 0.45.0: one a dialog
+ * Is the player typing in a text field, such as the chat's, from module 0.44.0: one a dialog
  * opening by itself would take from them? A text area, an editable region, or an input that takes
  * words; never the dice dialog's own boxes, which open no keyboard (`inputmode="none"`), nor a
  * button or a checkbox.

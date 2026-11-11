@@ -202,7 +202,7 @@ function Journal({
     [order],
   )
   const hits = hitsOf(order, texts, query)
-  // The character's Tidy 5e Sheets entries, read only, last (module 0.45.0).
+  // The character's Tidy 5e Sheets entries, read only, last (module 0.44.0).
   const tidy = view?.tidy
   const {
     entries: tidyEntries,

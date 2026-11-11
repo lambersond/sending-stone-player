@@ -85,7 +85,7 @@ export function noteEntry(fields: Partial<NoteEntryView> = {}): NoteEntryView {
 }
 
 /**
- * Thorin's Tidy 5e Sheets journal as a book shows it (module 0.45.0): an entry of Tidy's current
+ * Thorin's Tidy 5e Sheets journal as a book shows it (module 0.44.0): an entry of Tidy's current
  * sheet, first seen and changed since, and a box of its Classic sheet there before the app could
  * see it; Tidy active.
  */

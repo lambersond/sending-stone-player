@@ -1,13 +1,13 @@
 import type { GameDiceAsk } from '@/types/sending-stone'
 
-/** What a dice ask asks, as held (module 0.45.0): its words and its rolls' dice. */
+/** What a dice ask asks, as held (module 0.44.0): its words and its rolls' dice. */
 export type DiceAskData = Pick<
   GameDiceAsk,
   'label' | 'purpose' | 'again' | 'critical' | 'rolls'
 >
 
 /**
- * A dice ask as held for its player to answer (module 0.45.0): its times by this app's clock, and
+ * A dice ask as held for its player to answer (module 0.44.0): its times by this app's clock, and
  * once closed, when and why.
  */
 export type HeldDiceAsk = {

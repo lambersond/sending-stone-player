@@ -12,7 +12,7 @@ import type { HeldRollRequest, RollAsks } from '@/utils/requests/types'
  * see them, or where it stopped part way, even where they can't; and where they can, what those it
  * made came to, all together, and gave back. Of an enchant activity used, or an enchantment ended,
  * what it applied and ended, seen or not; and of one that failed, whether no card of it is left.
- * From module 0.45.0, of a typed roll, whether the game is asking its player for its run's later
+ * From module 0.44.0, of a typed roll, whether the game is asking its player for its run's later
  * dice now, the time they held it not counted (`asks`).
  */
 export function toRollRequestView(
@@ -27,7 +27,7 @@ export function toRollRequestView(
     return {
       id: request.id,
       status,
-      // Held by the game, asking its player for its run's later dice (module 0.45.0).
+      // Held by the game, asking its player for its run's later dice (module 0.44.0).
       ...(status === 'rolling' && asks.waiting && { diceAsked: true as const }),
     }
   }

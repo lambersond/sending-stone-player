@@ -4186,7 +4186,7 @@ describe('components/character-sheet/character-pane', () => {
       expect(toasts().parentElement).toHaveStyle({ top: '116px' })
     })
 
-    it('P8b starts the toasts below the dice the game asks for beneath the row, from module 0.45.0, so as not to cover their only buttons', async () => {
+    it('P8b starts the toasts below the dice the game asks for beneath the row, from module 0.44.0, so as not to cover their only buttons', async () => {
       const user = userEvent.setup()
       render(
         <CharacterPane

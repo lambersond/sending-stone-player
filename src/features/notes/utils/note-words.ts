@@ -268,7 +268,7 @@ export function whoSeesShort({
 
 /**
  * How much a journal holds, on its card: "No notes yet", or "2 chapters · 1 note"; and from module
- * 0.45.0 how many of its character's Tidy 5e Sheets entries show beside them, "· 3 from Tidy 5e
+ * 0.44.0 how many of its character's Tidy 5e Sheets entries show beside them, "· 3 from Tidy 5e
  * Sheets", alone where it holds nothing else.
  */
 export function journalCounts(
@@ -283,7 +283,7 @@ export function journalCounts(
 }
 
 /*
- * A character's Tidy 5e Sheets entries (module 0.45.0), shown read only beside its own notes: what
+ * A character's Tidy 5e Sheets entries (module 0.44.0), shown read only beside its own notes: what
  * each is chipped, and why it can't be changed in Foundry now, or where it can.
  */
 

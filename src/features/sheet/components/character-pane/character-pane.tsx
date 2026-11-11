@@ -105,7 +105,7 @@ export function CharacterPane({
     entry,
   })
   const { rolls, rolling } = roller
-  // The dice the game asks for later in the player's typed rolls' runs, from module 0.45.0: their
+  // The dice the game asks for later in the player's typed rolls' runs, from module 0.44.0: their
   // dialog at once on the device that sent the roll, else a banner.
   const diceAsking = useDiceAsks({
     asks: diceAsks,
@@ -166,7 +166,7 @@ export function CharacterPane({
   // start below, so as not to cover the prompts' only buttons.
   const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null)
   const [promptBanner, setPromptBanner] = useState<HTMLElement | null>(null)
-  // And the dice the game asks for beneath them, from module 0.45.0, which the toasts start below.
+  // And the dice the game asks for beneath them, from module 0.44.0, which the toasts start below.
   const [diceBanner, setDiceBanner] = useState<HTMLElement | null>(null)
   const width = useWidth(body)
   // What the character has that an enchantment may be put on.

@@ -83,7 +83,7 @@ export function GameTable({
     sideBySide: tabs.sideBySide,
     combatShown: tabs.combatShown,
   })
-  // The saves the game asks of the character, and from module 0.45.0 the dice it asks its player
+  // The saves the game asks of the character, and from module 0.44.0 the dice it asks its player
   // for, which its tab marks while they wait: an ask on the sheet's banner, out of sight behind
   // Chat or Combat, rolled by the game once its minute is up.
   const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)

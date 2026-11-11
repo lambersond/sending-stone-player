@@ -1605,7 +1605,7 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // typed them, and whether a typed roll keeps the dice its player rerolled at the table.
         effectDice: z.boolean().optional().catch(false),
         keptRerolls: z.boolean().optional().catch(false),
-        // From module 0.45.0: whether a typing player is asked for the dice the game rolls later
+        // From module 0.44.0: whether a typing player is asked for the dice the game rolls later
         // in their roll's run.
         diceAsks: z.boolean().optional().catch(false),
       })
@@ -1658,7 +1658,7 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // journal in Foundry. Anything but a boolean is read as unsaid.
         orders: leftOut(z.boolean()),
         changes: leftOut(z.boolean()),
-        // From module 0.45.0, under dnd5e: Tidy 5e Sheets, whether it's active, its version, null
+        // From module 0.44.0, under dnd5e: Tidy 5e Sheets, whether it's active, its version, null
         // where it isn't installed, and which characters hold its journal's entries. An odd one is
         // read as unsaid, as from a module before it.
         tidy: leftOut(
@@ -1815,7 +1815,7 @@ const journalUpdatedSchema: z.ZodType<JournalUpdated> = z.looseObject({
 const TIDY_ID = /^[\dA-Za-z]{1,64}$/
 
 /**
- * One of a character's Tidy 5e Sheets journal entries, from module 0.45.0, which sends only what
+ * One of a character's Tidy 5e Sheets journal entries, from module 0.44.0, which sends only what
  * this takes, as one that can't be read fails the whole event: a Classic box by one of its five
  * keys.
  */
@@ -1835,7 +1835,7 @@ const tidyPageSchema: z.ZodType<TidyPage> = z
   )
 
 /**
- * A character's Tidy 5e Sheets journal as Foundry holds it, from module 0.45.0: its entries, or
+ * A character's Tidy 5e Sheets journal as Foundry holds it, from module 0.44.0: its entries, or
  * held back as too large, its entries `[]`.
  */
 const journalTidySchema: z.ZodType<JournalTidy> = z.looseObject({
@@ -2244,7 +2244,7 @@ const cut = (most: number) =>
 const cutOrNull = (most: number) => orNull(cut(most))
 
 /**
- * One of the rolls a dice ask lists (module 0.45.0): its formula, its type and flavor, which are
+ * One of the rolls a dice ask lists (module 0.44.0): its formula, its type and flavor, which are
  * only shown, and its dice terms, each die one a player types in, 1 to 40 of it. Its type, where it
  * isn't one of dnd5e's keys, and its flavor, where it can't be read, are left out; a term that
  * can't be read fails it, as its dice couldn't be answered as asked.
@@ -2265,7 +2265,7 @@ const diceAskRollSchema: z.ZodType<DiceAskRoll> = z.looseObject({
 })
 
 /**
- * The dice of a later roll in a typed roll's run, asked of its player (module 0.45.0). What it
+ * The dice of a later roll in a typed roll's run, asked of its player (module 0.44.0). What it
  * asks of, which roll's run it's in, its rolls and when it waits until must be read, or it can't be
  * answered; its label is only shown, cut; a purpose this app doesn't know reads as "other", and a
  * critical hit's mark that can't be read as none.
@@ -2347,7 +2347,7 @@ const helloSchema = z.looseObject({
   features: featuresSchema,
   // Sent from module 0.13.0; none from an older module.
   prompts: listOf(promptSchema),
-  // From module 0.45.0, the dice asks open; none from an older module. One that can't be read is
+  // From module 0.44.0, the dice asks open; none from an older module. One that can't be read is
   // dropped, and closes as one the hello doesn't list.
   diceAsks: listOf(diceAskSchema),
   // From module 0.22.0: its characters carry no sheets, which follow it.

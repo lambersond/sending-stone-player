@@ -58,7 +58,7 @@ export type NotesState = 'loading' | 'ready' | 'gone' | 'failed'
 
 /**
  * What the journal's reader shows: a note, or a group's page, the loose group's as null; or, from
- * module 0.45.0, one of the character's Tidy 5e Sheets entries, by its key, or their section's page
+ * module 0.44.0, one of the character's Tidy 5e Sheets entries, by its key, or their section's page
  * as null.
  */
 export type NotePick =
@@ -66,7 +66,7 @@ export type NotePick =
 
 /**
  * Where the reader steps across the journal's reading order, past the end of one part of it: the
- * book's notes, then the character's Tidy 5e Sheets entries (module 0.45.0). What it shows, and
+ * book's notes, then the character's Tidy 5e Sheets entries (module 0.44.0). What it shows, and
  * its title, for the arrow and the link to it.
  */
 export type ReadingStep = { pick: NotePick; title: string }

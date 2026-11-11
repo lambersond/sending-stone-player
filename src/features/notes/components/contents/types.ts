@@ -10,7 +10,7 @@ export type ContentsProps = {
   onQuery: (query: string) => void
   /** The notes the search finds; none while nothing is searched. */
   hits?: Set<string>
-  /** The character's Tidy 5e Sheets entries, listed last (module 0.45.0), and those it finds. */
+  /** The character's Tidy 5e Sheets entries, listed last (module 0.44.0), and those it finds. */
   tidy?: NotesTidyView
   tidyHits?: Set<string>
   /** What the reader shows. */

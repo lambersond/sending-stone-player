@@ -817,7 +817,7 @@ describe('components/game-table/game-table, with companions', () => {
       },
     ],
     [
-      'from module 0.45.0 its player’s dice, on the sheet’s banner',
+      'from module 0.44.0 its player’s dice, on the sheet’s banner',
       {
         diceAsks: [
           tableIceKnife({
@@ -1030,7 +1030,7 @@ describe('components/game-table/game-table, companions’ saves, from module 0.4
     ).toBeInTheDocument()
   })
 
-  it('says on Thorin’s own banner, and marks its tab, a companion whose dice the game asks of its player, from module 0.45.0', () => {
+  it('says on Thorin’s own banner, and marks its tab, a companion whose dice the game asks of its player, from module 0.44.0', () => {
     renderTable(
       asking({
         companionPrompts: [

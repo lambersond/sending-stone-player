@@ -42,7 +42,7 @@
 // the compact layout; dnd5e's concentration card asking a die only concentration adds. Rerolls at the
 // table: the greatsword's 2d6r<=2 typed 1 and 5 stands, without r<=2, the dialog's note said and the
 // tray's total at once; a Halfling's typed 1 stands; an exploding 1d6x, no note, its die more (since
-// module 0.45.0 asked under dnd5e 5, its dialog opening by itself, typed, the tray meanwhile "Waiting
+// module 0.44.0 asked under dnd5e 5, its dialog opening by itself, typed, the tray meanwhile "Waiting
 // for your dice…"; Foundry's under dnd5e 6) and the game's total on the formula's line in the tray;
 // screenshots to shots-042. MIDI=1 also: Midi's save asks Bless's die, and Midi's
 // concentration check, made with dnd5e's, asks the die only a concentration check adds too, its total
@@ -632,7 +632,7 @@ async function sheetWith(pages, names) {
     await until(async () => listed(await panel(who).innerText()), `${who.width}'s Effects tab with ${names.join(', ') || 'none of them'}`, 20_000)
   }
 }
-/** What the tray says of a roll the game holds while it asks for its run's later dice (module 0.45.0). */
+/** What the tray says of a roll the game holds while it asks for its run's later dice (module 0.44.0). */
 const WAITING = 'Waiting for your dice…'
 /** The tray's latest roll as shown: its total, and each line of it. */
 const trayLatest = who => tray(who).getByRole('status').first().evaluate(el => ({
@@ -1964,7 +1964,7 @@ part('7b. rerolls at the table')
   const save = made.message?.rolls[0]
   check(made.request.payload.rerolls === 'kept' && same(save?.dice[0].results.map(r => [r.result, r.rerolled === true]), [[1, false]]) && !save.formula.includes('r1=1') && save.total === 4,
     `Thorin a Halfling, a typed 1 on a save, sent with rerolls "kept": the card's one d20, the 1, stands, its formula without r1=1 (${save?.formula} = ${save?.total})`)
-  // An exploding die: no note, its die more, the game's total. Changed on purpose (module 0.45.0,
+  // An exploding die: no note, its die more, the game's total. Changed on purpose (module 0.44.0,
   // item 11, D2 B): under dnd5e 5 the game asks for the die it throws again, one die, in a dialog
   // of its own that opens by itself on this page, the one the roll came from (D4 C), typed 3, as
   // laterdice-e2e.mjs proves at length; under dnd5e 6, whose later dice are off, Foundry's 3, as

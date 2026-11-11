@@ -32,7 +32,7 @@ export function isDying(sheet?: Partial<CharacterSheet>): boolean {
 /**
  * Where a roll stands. One the module hasn't fetched in time no longer goes to the game, and one
  * it fetched but never answered for is taken as lost; an answer that comes late still counts. From
- * module 0.45.0, the time the game held a typed roll asking its player for its run's later dice
+ * module 0.44.0, the time the game held a typed roll asking its player for its run's later dice
  * isn't counted against it (`held`), as the module doesn't count it either.
  * @param held - How long, in milliseconds, its dice asks held it.
  */

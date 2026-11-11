@@ -124,7 +124,7 @@ export function CompanionPane({
         rollFeatures={live?.rollFeatures}
         // The saves the game asks of it, from module 0.41.0, on its own banner, answered here.
         prompts={live?.prompts}
-        // The dice the game asks for later in its own typed rolls' runs, from module 0.45.0.
+        // The dice the game asks for later in its own typed rolls' runs, from module 0.44.0.
         diceAsks={live?.diceAsks}
         // Its hit points set from here, from module 0.44.0, its player's alone, whatever the rolls.
         hitPoints={live?.hitPoints}

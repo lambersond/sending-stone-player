@@ -18,7 +18,7 @@ export function useReaderPick({
   pick?: NotePick
   groups?: JournalGroup[]
   order: NoteEntryView[]
-  /** The character's Tidy 5e Sheets entries, in Tidy's order (module 0.45.0). */
+  /** The character's Tidy 5e Sheets entries, in Tidy's order (module 0.44.0). */
   tidy: NoteTidyView[]
   draft?: NoteDraft
   setPick: (pick: NotePick) => void

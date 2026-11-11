@@ -52,7 +52,7 @@ describe('utils/lifecycle, follow', () => {
       requestId: 'req-hp',
     })
   })
-  it('holds its time to be made while the game asks for the dice of a later roll in its run (module 0.45.0)', async () => {
+  it('holds its time to be made while the game asks for the dice of a later roll in its run (module 0.44.0)', async () => {
     const held = { id: 'req-ice', status: 'rolling', diceAsked: true }
     jest
       .mocked(fetch)

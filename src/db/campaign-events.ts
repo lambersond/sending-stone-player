@@ -51,7 +51,7 @@ type World = { id: string; title: string }
  * The events that leave the campaign's version alone: descriptions change nothing anyone sees
  * until a sheet refers to them, and Foundry's settings only the Gamemaster's campaign card shows,
  * which no table page watches. A journal of notes (module 0.34.0) has its own version, as no table
- * or party view shows notes; so has a character's Tidy 5e Sheets journal (module 0.45.0), which
+ * or party view shows notes; so has a character's Tidy 5e Sheets journal (module 0.44.0), which
  * its personal book shows.
  */
 const VERSION_SILENT: ReadonlySet<string> = new Set([
@@ -205,7 +205,7 @@ const EVENT_HANDLERS: {
     return false
   },
   // What's asked of a campaign's players is pruned as more is asked (`pruneAsked`): the saves the
-  // game asks too, from v0.45 (ROADMAP item 20), as the dice it asks.
+  // game asks too, from v0.44 (ROADMAP item 20), as the dice it asks.
   'roll.prompt.opened': async ({ prompt }, { tx, campaignId, sentAt }) => {
     await savePrompt(tx, campaignId, prompt, sentAt)
     await pruneAsked(tx, campaignId, Date.now())
@@ -215,7 +215,7 @@ const EVENT_HANDLERS: {
     await closePrompt(tx, campaignId, id, reason)
     return false
   },
-  // The dice of a later roll in a player's typed roll's run, asked of them, from module 0.45.0.
+  // The dice of a later roll in a player's typed roll's run, asked of them, from module 0.44.0.
   'roll.dice.asked': async ({ ask }, { tx, campaignId, sentAt }) => {
     await saveDiceAsk(tx, campaignId, ask, sentAt)
     await pruneAsked(tx, campaignId, Date.now())
@@ -317,7 +317,7 @@ async function keepCombatant(
 /**
  * Apply a hello: the campaign's full current state, its roster, its groups, what its game does,
  * its companions and what Foundry says of itself, replacing what was held; and the saves its game
- * is asking, from module 0.45.0 the dice it's asking for, its combats and its sheets. It carries
+ * is asking, from module 0.44.0 the dice it's asking for, its combats and its sheets. It carries
  * no chat, so the chat log is kept.
  * @returns Whether the campaign then lacks a description its sheets refer to.
  */
@@ -329,7 +329,7 @@ async function applyHello(
 ): Promise<boolean> {
   // The campaign's full current state. It carries no chat, so the chat log is kept.
   const { characters, features, prompts = [], groups = [] } = data
-  // The dice asks open, from module 0.45.0; none from an older module, which closes any held.
+  // The dice asks open, from module 0.44.0; none from an older module, which closes any held.
   const { diceAsks = [] } = data
   // Its characters' companions, from module 0.36.0, whose sheets follow it; none from an
   // older module, which clears them.
@@ -374,7 +374,7 @@ async function applyHello(
   for (const prompt of prompts) {
     await savePrompt(tx, campaignId, prompt, sentAt)
   }
-  // The dice its game is asking for, from module 0.45.0: any other still open has closed, as after
+  // The dice its game is asking for, from module 0.44.0: any other still open has closed, as after
   // the Gamemaster reloads; a hello sent again, as when a setting changes, closes none it lists.
   await closeUnlistedDiceAsks(
     tx,
@@ -386,7 +386,7 @@ async function applyHello(
   }
   // Pages showing an order "kept here for now" learn that the game now takes it, or no longer
   // does: every book of the campaign is new where what the module does with notes changed; and,
-  // from module 0.45.0, where Tidy 5e Sheets was turned on or off, installed, removed or upgraded,
+  // from module 0.44.0, where Tidy 5e Sheets was turned on or off, installed, removed or upgraded,
   // which its entries' lines say.
   const notesNow = notesSaid(switches)
   if (before && notesSaid(before) !== notesNow) {
@@ -407,7 +407,7 @@ async function applyHello(
     )
   }
   // The Tidy 5e Sheets journals of the characters it doesn't list as holding one, from module
-  // 0.45.0, and those it says hold none known, empty; an older module lists none, and sends none,
+  // 0.44.0, and those it says hold none known, empty; an older module lists none, and sends none,
   // and every one goes, none known.
   await reconcileTidy(
     tx,

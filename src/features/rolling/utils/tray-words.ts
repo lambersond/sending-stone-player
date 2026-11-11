@@ -135,7 +135,7 @@ function askReasons(
 /**
  * Where a roll, a use or an ask is on its way to the game, in words: sent, then being made there,
  * which a use or an ask says as what's done with it, such as "Casting it" or "Posting it"; and
- * from module 0.45.0, while the game asks the player for the dice of a later roll in its run,
+ * from module 0.44.0, while the game asks the player for the dice of a later roll in its run,
  * that it waits for them.
  */
 export function onItsWayWords(
@@ -157,7 +157,7 @@ export function onItsWayWords(
 }
 
 /**
- * A term of the dice the game asked for that the player left to it, from module 0.45.0, as the
+ * A term of the dice the game asked for that the player left to it, from module 0.44.0, as the
  * tray writes its terms: such as "+1d6 Fire, left to the game".
  */
 export function leftToTheGame(term: string): string {

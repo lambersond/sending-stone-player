@@ -343,7 +343,7 @@ describe('utils/notes/view', () => {
     })
   })
 
-  describe('viewOf, with a character’s Tidy 5e Sheets journal (module 0.45.0)', () => {
+  describe('viewOf, with a character’s Tidy 5e Sheets journal (module 0.44.0)', () => {
     const tidy = {
       entries: [
         {

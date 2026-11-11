@@ -34,6 +34,6 @@ export type CompanionAskRow = {
   name: string
   /** What it's asked for, such as "Dexterity saving throw"; or for dice, what rolls them. */
   label: string
-  /** Asked its player's dice, from module 0.45.0, not a save. */
+  /** Asked its player's dice, from module 0.44.0, not a save. */
   dice?: true
 }

@@ -1,4 +1,4 @@
-// Tidy 5e Sheets' journal (module 0.45.0 and the app; the owner's T1 A, T2 A, T3 B, T4 B, T5 A and
+// Tidy 5e Sheets' journal (module 0.44.0 and the app; the owner's T1 A, T2 A, T3 B, T4 B, T5 A and
 // T6 A), end to end, in the world of world-030.mjs, Tidy's flags and its own writes from the module's
 // stand-in (fvtt/tidy-core.mjs), Foundry 14's deletions in world-030's actors. Erebor, rolls off: Alice
 // plays Thorin, who keeps three entries on Tidy's Journal tab (one untitled, one with a secret) and
@@ -41,7 +41,7 @@ const CLASSIC_GONE = 'Tidy 5e Sheets no longer shows this: it was written on its
 await launch(GAME)
 const { id: A, invite } = await newCampaign({ title: TITLE, address: ADDRESS, secret: SECRET })
 await foundryWorld()
-game.modules.get('sending-stone').version = SKEW042 ? '0.42.0' : '0.45.0'
+game.modules.get('sending-stone').version = SKEW042 ? '0.42.0' : '0.44.0'
 
 // ---- The world: Thorin's Tidy journal, Vex with none, and Balin, no player's ----
 const SECRET_TEXT = 'He is the heir of Girion.'

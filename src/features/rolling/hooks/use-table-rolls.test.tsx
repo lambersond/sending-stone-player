@@ -4738,7 +4738,7 @@ describe('hooks/use-table-rolls, spells prepared and unprepared, from module 0.4
   })
 })
 
-describe('hooks/use-table-rolls, the dice the game asks for, from module 0.45.0', () => {
+describe('hooks/use-table-rolls, the dice the game asks for, from module 0.44.0', () => {
   const answered = spent({ id: 'dice-1', label: 'Ice Knife: Shard Explosion' })
   const answer = [{ roll: 0, term: 0, results: [3, 5] }]
 

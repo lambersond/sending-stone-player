@@ -14,7 +14,7 @@ const renderBanner = (asked = ask) => {
   return { onTypeIn, onLeave }
 }
 
-describe('DiceAskBanner (module 0.45.0)', () => {
+describe('DiceAskBanner (module 0.44.0)', () => {
   beforeEach(() => jest.useFakeTimers({ now: NOW }))
   afterEach(() => jest.useRealTimers())
 

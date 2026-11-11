@@ -380,7 +380,7 @@ describe('schemas/sending-stone', () => {
       type: 'bridge.hello',
       // None of the saves the game asks for, as from a module before 0.13.0, nor groups, as
       // before 0.30.0; nor companions, as before 0.36.0 (changed on purpose, round 0.36.0 §7.12);
-      // nor dice asks, as before 0.45.0 (changed on purpose, item 11).
+      // nor dice asks, as before 0.44.0 (changed on purpose, item 11).
       data: {
         ...data,
         prompts: [],
@@ -550,7 +550,7 @@ describe('schemas/sending-stone', () => {
       characters: [],
       combats: [],
       prompts: [],
-      // Changed on purpose (item 11): no dice asks, as before module 0.45.0.
+      // Changed on purpose (item 11): no dice asks, as before module 0.44.0.
       diceAsks: [],
       groups: [],
       // Changed on purpose (round 0.36.0 §7.12).
@@ -4649,7 +4649,7 @@ const aloneOf = (alone?: unknown) =>
     }) as any
   ).data.message.alone
 
-describe('schemas/sending-stone, Tidy 5e Sheets’ journal, from module 0.45.0', () => {
+describe('schemas/sending-stone, Tidy 5e Sheets’ journal, from module 0.44.0', () => {
   const KEEPING = {
     enabled: true,
     kinds: ['personal', 'party'],
@@ -6245,7 +6245,7 @@ const asked = (ask: object) =>
     { type: 'roll.dice.asked' }
   >
 
-describe('schemas/sending-stone, dice the game rolls later, from module 0.45.0', () => {
+describe('schemas/sending-stone, dice the game rolls later, from module 0.44.0', () => {
   it('reads an ask as the module sends it', () => {
     const ask = iceKnifeAsk({ of: 'thorin1', actorId: 'scene1-token1' })
     expect(asked(ask).data.ask).toEqual(ask)

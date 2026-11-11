@@ -31,7 +31,7 @@ const wolfAsk = heldIceKnife({
   ofActorId: 'actor-thorin',
 })
 
-describe('utils/requests/check-dice (module 0.45.0)', () => {
+describe('utils/requests/check-dice (module 0.44.0)', () => {
   it.each([
     ['the character’s own, waiting', thorin, heldIceKnife()],
     ['a companion’s, of its character’s run, at its seat', atWolf, wolfAsk],

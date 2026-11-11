@@ -269,7 +269,7 @@ export type ToastBook = {
 export type ToastDraft = ToastBook & { popped: Set<RollToast> }
 
 /**
- * One of the terms of the dice the game asks for, from module 0.45.0, as the dice dialog asks for
+ * One of the terms of the dice the game asks for, from module 0.44.0, as the dice dialog asks for
  * it: by its roll's place among the ask's rolls and its own among that roll's terms.
  */
 export type AskTerm = {

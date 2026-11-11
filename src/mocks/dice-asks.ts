@@ -3,7 +3,7 @@ import type { GameDiceAsk } from '@/types/sending-stone'
 import type { TableDiceAsk } from '@/types/table'
 
 /*
- * Dice the game asks a typing player for (module 0.45.0), as the module, the app's table and its
+ * Dice the game asks a typing player for (module 0.44.0), as the module, the app's table and its
  * view hold them: dnd5e's Ice Knife's Shard Explosion, 2d6 cold, which Midi-QOL rolls after the
  * 1d10 of Thorin's typed damage, `roll-thorin-1`.
  */

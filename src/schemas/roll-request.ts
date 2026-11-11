@@ -478,7 +478,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
 }
 
 /**
- * One of a dice ask's terms as its player typed it, from module 0.45.0: by its roll's place and its
+ * One of a dice ask's terms as its player typed it, from module 0.44.0: by its roll's place and its
  * own, a value each of its dice. Whether it's one the ask lists, and each value one of its die's
  * faces, is checked against the ask as it's taken.
  */
@@ -566,9 +566,9 @@ const effectDieSchema = z.strictObject({
  * points set name the hit points or temporary hit points wanted, or both, and what the page showed
  * of each, and nothing else, and throw no dice; and a plain roll names the dice picked, each size
  * once, and the number added, and nothing else, and throws those dice, each size's together, in
- * the same order, typed in or not. From module 0.45.0, dice the game asked for name the ask, and
- * what was typed, term by term, each term by its roll's and its own place, with a value for each of
- * its dice, at most 100 terms; and nothing else, and throw no dice of their own.
+ * the same order, typed in or not. From module 0.44.0 too, dice the game asked for name the ask,
+ * and what was typed, term by term, each term by its roll's and its own place, with a value for
+ * each of its dice, at most 100 terms; and nothing else, and throw no dice of their own.
  */
 export const rollRequestSchema: z.ZodType<RollRequestInput> = z
   .strictObject({
@@ -659,7 +659,7 @@ export const rollRequestSchema: z.ZodType<RollRequestInput> = z
     // roll's rerolls were made at the table.
     effectDice: z.array(effectDieSchema).max(MOST_EFFECT_DICE).optional(),
     rerolls: z.literal('kept').optional(),
-    // From module 0.45.0: the dice the game asked for, by its ask, term by term.
+    // From module 0.44.0: the dice the game asked for, by its ask, term by term.
     diceAsk: z.string().regex(DICE_ASK_ID).optional(),
     answer: z.array(answerTermSchema).max(MOST_ANSWER_ENTRIES).optional(),
   })

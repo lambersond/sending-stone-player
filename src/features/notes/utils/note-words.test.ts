@@ -313,7 +313,7 @@ describe('utils/note-words', () => {
     expect(journalCounts(chapters, notes)).toBe(words)
   })
 
-  // Module 0.45.0: the character's Tidy 5e Sheets entries, beside its own notes.
+  // Module 0.44.0: the character's Tidy 5e Sheets entries, beside its own notes.
   it.each([
     [0, 0, 3, '3 from Tidy 5e Sheets'],
     [1, 2, 1, '1 chapter · 2 notes · 1 from Tidy 5e Sheets'],

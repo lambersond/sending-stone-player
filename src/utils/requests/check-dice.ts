@@ -6,7 +6,7 @@ import type { RollRequestInput } from '@/types/roll'
 import type { HeldRollRequest, RollRefusal } from '@/utils/requests/types'
 
 /**
- * Can these dice answer what the game asked, from module 0.45.0: is it asked of this seat, its
+ * Can these dice answer what the game asked, from module 0.44.0: is it asked of this seat, its
  * player's while they type in their dice, of its character, or at a companion's seat of that
  * companion in its own character's run; still waiting; and is no other answer to it on its way or
  * made, as from another of the player's devices (`diceAsk`)? And do the values fit it: each term

@@ -189,7 +189,7 @@ if (SKEW034) {
 // 1. Reorder by drag
 // =================================================================================================
 part('1. reorder by drag')
-// Changed on purpose (module 0.45.0): the app answers notes format 3, as it reads Tidy 5e Sheets'
+// Changed on purpose (module 0.44.0): the app answers notes format 3, as it reads Tidy 5e Sheets'
 // journal, which a module reads as 2 and more.
 check(await notesFormat('erebor') === 3 && same(lastHello('erebor').data.features.notes, { enabled: true, kinds: ['personal', 'party'], reason: null, journals: [], orders: true, changes: true }),
   'the module keeps the app\'s answer, notes format 3, and its hello says it takes orders and says who changed a journal')

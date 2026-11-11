@@ -70,7 +70,7 @@ import type { DiceAnswerTerm, RollRequestInput } from '@/types/roll'
  * From module 0.42.1, a spell prepared or unprepared that isn't one the character prepares: a
  * cantrip, one always prepared, one cast at will, innately, as a ritual or from an item
  * (`prepare`); one the sheet doesn't list is `gone`.
- * From module 0.45.0, for dice the game asked for: the ask isn't the seat's, its player's while
+ * From module 0.44.0, for dice the game asked for: the ask isn't the seat's, its player's while
  * they type in their dice, no longer waits, or is answered already, as from another device
  * (`diceAsk`); or its values don't fit it (`dice`).
  */
@@ -158,7 +158,7 @@ export type RollCampaign = {
 
 /**
  * Another roll a check reads to see whether it's on its way or made, as another damage for the
- * same use or another answer to the same ask: with, from module 0.45.0, how long its dice asks
+ * same use or another answer to the same ask: with, from module 0.44.0, how long its dice asks
  * held it (`held`), where they may have, which isn't counted against it.
  */
 export type OtherRoll = Pick<
@@ -183,7 +183,7 @@ export type HeldRollRequest = {
 }
 
 /**
- * Dice the game asked for, as the module is sent them (module 0.45.0): the ask they answer, and the
+ * Dice the game asked for, as the module is sent them (module 0.44.0): the ask they answer, and the
  * values typed for each of its terms, as `dice`, by roll and term; typed, and thrown no other way.
  */
 export type DiceAnswerCommand = Pick<
@@ -200,7 +200,7 @@ export type DiceAnswerCommand = Pick<
  * A roll as the module is sent it: whose, what, how, and the dice to make it with; and from module
  * 0.23.0, `by: 'gm'` for one the campaign's Gamemaster made as the character, which the module
  * marks as theirs. A player's has no `by`. From module 0.36.0, a companion's names its character,
- * `of`, its `actorId` being the companion's key. From module 0.45.0, dice the game asked for, as
+ * `of`, its `actorId` being the companion's key. From module 0.44.0, dice the game asked for, as
  * their own command.
  */
 export type RollCommand = (RollRequestInput | DiceAnswerCommand) & {
@@ -211,7 +211,7 @@ export type RollCommand = (RollRequestInput | DiceAnswerCommand) & {
 }
 
 /**
- * What a typed roll's dice asks say of it, from module 0.45.0: how long, in milliseconds, they held
+ * What a typed roll's dice asks say of it, from module 0.44.0: how long, in milliseconds, they held
  * it, and whether one is waiting for its player now.
  */
 export type RollAsks = { held: number; waiting: boolean }

@@ -7,7 +7,7 @@ import type { CompanionAsked } from '@/types/table'
 
 /*
  * The notice on the character's own banner of the companions the game asks a save of, from module
- * 0.41.0 (round 0.41.0 §3.1.3, §3.7, §7.5), or from module 0.45.0 its player's dice: a line each,
+ * 0.41.0 (round 0.41.0 §3.1.3, §3.7, §7.5), or from module 0.44.0 its player's dice: a line each,
  * and Show, which goes to its tab and answers nothing.
  */
 
@@ -64,7 +64,7 @@ describe('components/companions/companion-ask-notice', () => {
     expect(within(list).getAllByRole('button')[0]).toHaveTextContent('Show')
   })
 
-  it('says a companion whose dice the game asks of its player by what rolls them, else as dice, from module 0.45.0', () => {
+  it('says a companion whose dice the game asks of its player by what rolls them, else as dice, from module 0.44.0', () => {
     render(
       <CompanionAskNotice
         asked={[

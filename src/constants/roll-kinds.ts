@@ -126,7 +126,7 @@ export const ROLL_KIND_INFO = {
     gm: false,
     own: 'hitPointsEnabled',
   },
-  // From module 0.45.0: the dice of a later roll the game asks a typing player for, the player's
+  // From module 0.44.0: the dice of a later roll the game asks a typing player for, the player's
   // alone, a companion's too. It throws none of its own: its values are its answer's, each checked
   // against the ask, never thrown dice by size; and the rolls the game makes of it add up, as
   // damage's do.

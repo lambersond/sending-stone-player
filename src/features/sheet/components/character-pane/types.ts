@@ -86,7 +86,7 @@ export type CharacterPaneProps = {
   prompts?: TablePrompt[]
   /**
    * The dice the game asks its player for, for later rolls in their typed rolls' runs, from module
-   * 0.45.0: on the device that sent the roll, its dialog opens by itself; else its banner.
+   * 0.44.0: on the device that sent the roll, its dialog opens by itself; else its banner.
    */
   diceAsks?: TableDiceAsk[]
   /**

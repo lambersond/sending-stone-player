@@ -3,7 +3,7 @@ import { tidyHitsOf, tidyText } from '@/features/notes/utils/reader'
 import type { NotesTidyView } from '@/types/notes'
 
 /**
- * A character's Tidy 5e Sheets entries as the journal reads and searches them (module 0.45.0): in
+ * A character's Tidy 5e Sheets entries as the journal reads and searches them (module 0.44.0): in
  * Tidy's order, none where it holds none; each one's text, worked out once as they change; and
  * those the search finds.
  */

@@ -208,7 +208,7 @@ function OwnSheet({
       rollsToTable={view.connected ? view.rollsToTable : undefined}
       rollFeatures={view.connected ? view.rollFeatures : undefined}
       prompts={view.connected ? view.prompts : undefined}
-      // The dice the game asks for later in its player's typed rolls' runs (module 0.45.0).
+      // The dice the game asks for later in its player's typed rolls' runs (module 0.44.0).
       diceAsks={view.connected ? view.diceAsks : undefined}
       gmRolls={view.gmRolls}
       header={header}

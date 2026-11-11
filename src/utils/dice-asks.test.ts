@@ -24,7 +24,7 @@ const span = (from: number, to: number | null, expires = to ?? 60_000) => ({
   closedAt: to === null ? null : at(to),
 })
 
-describe('utils/dice-asks (module 0.45.0)', () => {
+describe('utils/dice-asks (module 0.44.0)', () => {
   describe('seesDiceAsks', () => {
     const player = { role: 'player' as const, manualDice: true }
     it.each([

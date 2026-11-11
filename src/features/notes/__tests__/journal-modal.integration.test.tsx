@@ -780,7 +780,7 @@ describe('components/notes/journal-modal', () => {
     })
   })
 
-  // Module 0.45.0: the character's Tidy 5e Sheets entries, read only, last.
+  // Module 0.44.0: the character's Tidy 5e Sheets entries, read only, last.
   describe('Tidy 5e Sheets’ journal', () => {
     it('lists the entries last, read only with their chips, and reads one with its dates and where to change it', async () => {
       const user = userEvent.setup()
@@ -911,7 +911,7 @@ describe('components/notes/journal-modal', () => {
       ).toHaveTextContent('NextRavenhill')
     })
 
-    it('shows nothing of them from a module before 0.45.0', async () => {
+    it('shows nothing of them from a module before 0.44.0', async () => {
       const user = userEvent.setup()
       serveNotes({ [API]: book() })
       renderCard()

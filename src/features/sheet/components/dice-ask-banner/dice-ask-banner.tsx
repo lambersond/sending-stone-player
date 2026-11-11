@@ -10,7 +10,7 @@ import type { TableDiceAsk } from '@/types/table'
 
 /**
  * The dice the game asks the player for, for later rolls in their typed rolls' runs, from module
- * 0.45.0, at the top of every tab of their sheet, under the saves it asks: on the devices that
+ * 0.44.0, at the top of every tab of their sheet, under the saves it asks: on the devices that
  * didn't send the roll, or where the dialog didn't open by itself, as while they were typing in
  * the chat. Each says what rolls, its dice and how long is left, with Type in, which opens the
  * dice dialog, and Let the game roll; once its time is up, that the game rolls it.

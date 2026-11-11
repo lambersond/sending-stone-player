@@ -113,7 +113,7 @@ Left, in two batches. Pick from the list by number.
     after its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by
     Foundry, as Foundry's Manual Dice does. One general way that follows whatever the item's
     workflow rolls, homebrew and custom ones included, never a handler per spell. (Done, module
-    0.45.0, for dnd5e 5 alone and with its Midi-QOL line; off under dnd5e 6, whose hello says why,
+    0.44.0, for dnd5e 5 alone and with its Midi-QOL line; off under dnd5e 6, whose hello says why,
     and with an older module, where the game rolls them as before; tested against stand-ins, not
     yet at a table. Decided: every roll of the item's run that the typed dice don't cover is paused
     and asked for, Midi-QOL's bonus damage of that item included (Sneak Attack, Hunter's Mark,
@@ -187,13 +187,13 @@ Left, in two batches. Pick from the list by number.
 
 **Found while building item 11 and the Tidy journal**
 
-21. **The hello's order told wrongly (done, in module 0.45.0's `PROTOCOL.md`):** the module's
+21. **The hello's order told wrongly (done, in module 0.44.0's `PROTOCOL.md`):** the module's
     `PROTOCOL.md`, after the hello's table, read as if each companion the hello lists followed the
     books in its `companion.updated`, but the module sends the companions before the books
     (`helloDelivered` in `scripts/character-sync.mjs` calls `companionsDelivered` before
     `sendBooks`). Nothing in the app depends on that order; the paragraph now says what the module
     does.
-22. **A use's cost check asked the Gamemaster for dice (done, in module 0.45.0):** before an item
+22. **A use's cost check asked the Gamemaster for dice (done, in module 0.44.0):** before an item
     is used from the app, the module works out what the use would spend with dnd5e's
     `_prepareUsageUpdates` and throws the result away (`prepareUse` in `scripts/command-uses.mjs`,
     and twice in `scripts/command-alone.mjs` for damage on its own). A cost that is a dice formula,
@@ -209,7 +209,7 @@ Left, in two batches. Pick from the list by number.
     attack's targets could take, Midi-QOL works out what each would spend and throws that away
     (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
     with the Gamemaster's dice settings, and under Manual Dice Foundry asks them for a roll nobody
-    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.45.0, whose
+    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
     `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
     dice, as it now does Midi's check as a use from the app begins.
 24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
@@ -275,7 +275,7 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
    with in the campaign's settings, as the others are. Where entries can be deconflicted by when
    each was created, the app shows a chip on the journal pages that come from Tidy 5e Sheets.
-   (Done, module 0.45.0, for dnd5e 5 with Tidy 13, and for dnd5e 6 with Tidy 14, which keeps the
+   (Done, module 0.44.0, for dnd5e 5 with Tidy 13, and for dnd5e 6 with Tidy 14, which keeps the
    same flags; tested against stand-ins, not yet at a table. Tidy keeps no times for its entries,
    so: read only in the app, edited in Foundry; shown side by side, in a "From Tidy 5e Sheets"
    section at the end of the character's journal, in Tidy's order, each with its chip and the date
@@ -332,7 +332,7 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   doesn't say which rules it's for counts as 2014's and isn't offered; dnd5e's 2024 compendium
   feature, which says, is.
 - An exploding die typed in still has Foundry throw its extra die under dnd5e 6, or with a module
-  before 0.45.0: with 0.45.0 under dnd5e 5, its player is asked for it.
+  before 0.44.0: with 0.44.0 under dnd5e 5, its player is asked for it.
 - Midi-QOL's optional bonuses, its Bardic Inspiration among them, are offered on the Gamemaster's
   screen after the roll, with Foundry's dice.
 - When typing in dice, two players' attacks awaiting the same Midi-QOL bonus damage at once, such

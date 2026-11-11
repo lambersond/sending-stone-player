@@ -3352,7 +3352,7 @@ describe('schemas/roll-request, a plain roll, from module 0.44.0', () => {
   )
 })
 
-describe('schemas/roll-request, dice the game asked for, from module 0.45.0', () => {
+describe('schemas/roll-request, dice the game asked for, from module 0.44.0', () => {
   /** Ice Knife's 2d6 cold, answered: a 3 and a 5, typed. */
   const answering = {
     kind: 'dice',

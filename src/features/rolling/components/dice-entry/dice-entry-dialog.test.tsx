@@ -1398,7 +1398,7 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       expect(screen.queryByText(note)).toBeNull()
     })
 
-    it('says the subtitle and the Cancel its entry gives, as for the dice the game asks for later (module 0.45.0)', async () => {
+    it('says the subtitle and the Cancel its entry gives, as for the dice the game asks for later (module 0.44.0)', async () => {
       const onCancel = jest.fn()
       render(
         <DiceEntryDialog

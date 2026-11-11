@@ -26,7 +26,7 @@ const OUTLINE =
 
 /**
  * The journal's contents (round 0.35.0 §8.6): a search, then the notes in no chapter and every
- * chapter, each shut or open, with its notes; from module 0.45.0 the character's Tidy 5e Sheets
+ * chapter, each shut or open, with its notes; from module 0.44.0 the character's Tidy 5e Sheets
  * entries last, read only; and New note and New chapter. From 640 px of the
  * modal they're a pane at its left; below, a drawer, opened by the reader's Contents button, which
  * is inert while it's closed, so Tab never reaches it. While the editor or a Reorder fills the

@@ -10,7 +10,7 @@ function element(tag: string, attributes: Record<string, string> = {}) {
   return made
 }
 
-describe('features/rolling/utils/text-focus (module 0.45.0)', () => {
+describe('features/rolling/utils/text-focus (module 0.44.0)', () => {
   it.each([
     ['the chat’s text area', 'textarea', {}, true],
     ['a field with no type, as a note’s title', 'input', {}, true],

@@ -269,7 +269,7 @@ export type PromptNotice = 'rolled' | 'expired'
 
 /**
  * The dice of a later roll in one of the player's typed rolls' runs, which the game asks of them
- * before it throws them (module 0.45.0), such as Ice Knife's 2d6 cold after its 1d10: to type in,
+ * before it throws them (module 0.44.0), such as Ice Knife's 2d6 cold after its 1d10: to type in,
  * skip die by die, or leave to the game, until it stops waiting, when Foundry's computer dice roll
  * it.
  */
@@ -335,7 +335,7 @@ export type TableView = {
   /** The saving throws the game is asking of the character, oldest first, while it takes them. */
   prompts?: TablePrompt[]
   /**
-   * For the player's seat only, while they type in their dice, from module 0.45.0: the dice the
+   * For the player's seat only, while they type in their dice, from module 0.44.0: the dice the
    * game asks of them for later rolls in their typed rolls' runs, oldest first, while it takes the
    * answer. Unset for none.
    */
@@ -367,7 +367,7 @@ export type TableView = {
   /**
    * Of those companions, each the game is asking a save of now, from module 0.41.0, where the
    * game asks companions: its key, what its first prompt still open asks for, such as "Dexterity
-   * saving throw", and the earliest time one of them stops waiting. From module 0.45.0, also each
+   * saving throw", and the earliest time one of them stops waiting. From module 0.44.0, also each
    * it asks its player's dice of, in the character's typed rolls' runs, while they see dice asks,
    * after those asked a save: its first ask's label, marked `dice`. Unset for none.
    */
@@ -420,7 +420,7 @@ export type GmRolls = 'made' | 'update' | 'off'
 /**
  * One of the seat's character's companions the game asks a save of, from module 0.41.0: its key,
  * what it's asked for, in words, such as "Dexterity saving throw", and when the soonest of its
- * prompts stops waiting. From module 0.45.0, or asks the dice of (`dice`), what rolls them, such as
+ * prompts stops waiting. From module 0.44.0, or asks the dice of (`dice`), what rolls them, such as
  * "Bite: Rend", where it's asked no save.
  */
 export type CompanionAsked = {
@@ -473,7 +473,7 @@ export type CompanionView = {
   prompts?: TablePrompt[]
   /**
    * The dice the game asks of its character's player for later rolls in its own typed rolls' runs,
-   * from module 0.45.0, as a character's view has its own; never its character's. Unset for none.
+   * from module 0.44.0, as a character's view has its own; never its character's. Unset for none.
    */
   diceAsks?: TableDiceAsk[]
   gm?: { rolls: GmRolls }

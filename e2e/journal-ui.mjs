@@ -15,7 +15,7 @@ const quote = text => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 export const journalCard = scope => scope.getByRole('region', { name: 'Journal', exact: true })
 /**
  * The card's line of counts: "No notes yet", "1 chapter · 2 notes · Last changed by …", and since
- * module 0.45.0 "… · 3 from Tidy 5e Sheets", or that alone.
+ * module 0.44.0 "… · 3 from Tidy 5e Sheets", or that alone.
  */
 export const cardCounts = card => card.getByText(/^(No notes yet|Loading notes…|Notes couldn’t be loaded|\d+ chapters? · \d+ notes?|\d+ from Tidy 5e Sheets)/).first()
 /** The journal's dialog, named by its title: "My Journal", "Thorin’s Journal". */
@@ -97,7 +97,7 @@ export const listed = async dialog => dialog.locator('nav[aria-label="Contents"]
   notes: [...group.querySelectorAll('ul > li > button')].map(b => b.getAttribute('aria-label')),
 })))
 /**
- * The character's Tidy 5e Sheets entries in the contents (module 0.45.0), last: each by its name and
+ * The character's Tidy 5e Sheets entries in the contents (module 0.44.0), last: each by its name and
  * its chip's words, in order; null where the contents list none. Read as they are, the drawer left as
  * it is.
  */

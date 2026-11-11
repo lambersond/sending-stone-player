@@ -228,7 +228,7 @@ export async function getCompanionView(
       : [],
     prompted ? heldPrompts(campaignId, key, now) : [],
     // The dice the game asks its character's player for, of its own typed rolls' runs (module
-    // 0.45.0), as its character's view has its own.
+    // 0.44.0), as its character's view has its own.
     viewDiceAsks(seat, rolls.rollsToTable, now),
   ])
   const heals = await healingUses(made, seat)

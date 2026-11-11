@@ -26,7 +26,7 @@ export function useWaitingPrompts(
  * What the game asks that still waits, each until its time runs out, when it's dropped, as the
  * character's own saves are, though nothing new comes from the game: the character's companions it
  * asks a save of, from module 0.41.0 (round 0.41.0 §3.7), each until the soonest of its prompts
- * runs out; and from module 0.45.0, the dice it asks the character's player for.
+ * runs out; and from module 0.44.0, the dice it asks the character's player for.
  * @param asked - As the table view last had them, such as its `companionPrompts` or `diceAsks`.
  */
 export function useStillWaiting<T extends { expiresAt: string }>(

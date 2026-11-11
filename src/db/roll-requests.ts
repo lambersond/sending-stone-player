@@ -166,7 +166,7 @@ export async function createRollRequest(
   const now = Date.now()
   const context = await readRollContext(seat, input, campaignId, actorId, now)
   const { inFlight, lastMinute, asks } = context
-  // An answer to a dice ask (module 0.45.0) is held to its ask instead, one an ask: the roll it
+  // An answer to a dice ask (module 0.44.0) is held to its ask instead, one an ask: the roll it
   // answers, waiting on it, may be one of those on their way.
   const answering = input.kind === 'dice'
   if (
@@ -228,7 +228,7 @@ const ROLL_CAMPAIGN = {
  * What a roll is checked against, read at once: its sheet, its combat, for damage the attack or use
  * it follows and what else followed it, the seat's rolls on their way and of the last minute, what
  * the game asked and its answers so far, the description a link was in, the seat's asks of the
- * last minute, for a turn taken back, the End Turn it names, and from module 0.45.0 for dice the
+ * last minute, for a turn taken back, the End Turn it names, and from module 0.44.0 for dice the
  * game asked for, its ask and the answers to it so far.
  */
 async function readRollContext(
@@ -378,7 +378,7 @@ async function readRollContext(
         })
       : [],
   ])
-  // From module 0.45.0, a typed damage or answer the game holds asking for its run's later dice is
+  // From module 0.44.0, a typed damage or answer the game holds asking for its run's later dice is
   // still on its way, past its own time.
   const [othersHeld, answersHeld] = await Promise.all([
     withHeldTime(campaignId, others, now),
@@ -460,7 +460,7 @@ function rollRefusal(
  * A roll a seat sent, as it is told of it. At a companion's, from module 0.36.0, only one the seat
  * sent for that companion from that character's seat: never the character's own, nor another
  * companion's, which a player's rolls, all kept by their Character, would otherwise match. From
- * module 0.45.0, a typed roll the game is making is told whether it waits on the dice the game asks
+ * module 0.44.0, a typed roll the game is making is told whether it waits on the dice the game asks
  * for its run, the time they held it not counted against it, as the module doesn't count it.
  * @returns Undefined for a roll that isn't the seat's: another character's, or the other seat's.
  */
@@ -481,7 +481,7 @@ export async function getRollRequestView(
   })
   if (!request) return undefined
   const now = Date.now()
-  // A typed roll the game is making may be held asking for its run's later dice (module 0.45.0):
+  // A typed roll the game is making may be held asking for its run's later dice (module 0.44.0):
   // never an answer to one, whose asks are its roll's.
   const typed = (request.payload as RollRequestInput | null)?.typed === true
   const runs = typed && request.kind !== 'dice'

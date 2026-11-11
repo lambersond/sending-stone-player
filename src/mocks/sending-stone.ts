@@ -1984,7 +1984,7 @@ export function foundrySettings(
         active: true,
       },
       { id: 'manual-dice', title: 'Manual Dice', version: null, active: false },
-      // Since module 0.45.0, last: Tidy 5e Sheets, whose journal the app shows.
+      // Since module 0.44.0, last: Tidy 5e Sheets, whose journal the app shows.
       {
         id: 'tidy5e-sheet',
         title: 'Tidy 5e Sheets',
@@ -3826,7 +3826,7 @@ export function mockJournalUpdated(
 }
 
 /**
- * Thorin's Tidy 5e Sheets journal as module 0.45.0 sends it: three entries of Tidy's current
+ * Thorin's Tidy 5e Sheets journal as module 0.44.0 sends it: three entries of Tidy's current
  * sheet, the second untitled and the third with its secret left out, then two of its Classic
  * sheet's boxes, Quests renamed and Journal Entries.
  */

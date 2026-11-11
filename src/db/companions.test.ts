@@ -448,7 +448,7 @@ describe('db/companions', () => {
       })
     })
 
-    it('gives the dice the game asks of its character’s player for its own typed rolls’ runs, from module 0.45.0, never its character’s', async () => {
+    it('gives the dice the game asks of its character’s player for its own typed rolls’ runs, from module 0.44.0, never its character’s', async () => {
       const seat = await seatAt({ ...thorin, manualDice: true }, 'wolfBrakka')
       held({
         rollKinds: ['attack', 'damage', 'dice'],

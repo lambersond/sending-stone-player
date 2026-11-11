@@ -11,7 +11,7 @@ import type { DiceAnswerCommand, RollCampaign } from '@/utils/requests/types'
  * typed in only where the player may type theirs, as the game said last: else the same dice,
  * unmarked. A companion's are typed as its character's are. And with it, the dice its effects add,
  * and that its rerolls are its player's, where the game takes them (module 0.42.0); else the game
- * rolls those. Dice the game asked for (module 0.45.0) are sent as their own command.
+ * rolls those. Dice the game asked for (module 0.44.0) are sent as their own command.
  */
 export function rollPayload(
   seat: SheetSeat,
@@ -47,7 +47,7 @@ export function rollPayload(
 }
 
 /**
- * What the module is sent of dice the game asked for (module 0.45.0): the ask, and the values typed
+ * What the module is sent of dice the game asked for (module 0.44.0): the ask, and the values typed
  * for each of its terms, as its `dice`, by roll and term; typed, as only a typing player's page
  * sends them, and thrown no other way.
  */

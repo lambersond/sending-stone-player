@@ -573,7 +573,7 @@ describe('golden C7: storage', () => {
         module: { ...module, version: '0.42.1' },
         foundry,
         system,
-        // Tidy 5e Sheets joins the modules listed only from module 0.45.0.
+        // Tidy 5e Sheets joins the modules listed only from module 0.44.0.
         settings: settings && {
           ...settings,
           modules: settings.modules.filter(({ id }) => id !== 'tidy5e-sheet'),

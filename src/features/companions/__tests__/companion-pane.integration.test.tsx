@@ -178,7 +178,7 @@ const brakkaView = (fields: Partial<CompanionView> = {}): CompanionView =>
     ...fields,
   })
 
-/** Its view while the game asks for its Bite's later 2d6, in its own roll's run (module 0.45.0). */
+/** Its view while the game asks for its Bite's later 2d6, in its own roll's run (module 0.44.0). */
 const bitten = () =>
   brakkaView({
     rollsToTable: ['attack', 'damage', 'dice'],
@@ -659,7 +659,7 @@ describe('CompanionPane, the saves the game asks of it, from module 0.41.0 (roun
     ).toBeInTheDocument()
   })
 
-  describe('the dice the game asks for in its own typed rolls’ runs, from module 0.45.0', () => {
+  describe('the dice the game asks for in its own typed rolls’ runs, from module 0.44.0', () => {
     const BANNER = { name: 'The game asks for your dice' }
 
     it('asks on its own banner, and answers through its own routes', async () => {

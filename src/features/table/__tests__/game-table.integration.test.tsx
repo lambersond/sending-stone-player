@@ -418,7 +418,7 @@ describe('components/game-table/game-table', () => {
   // Below 1024 pixels the sheet, and the banner of the dice the game asks for, is a hidden tab
   // while Chat or Combat shows: there, as on another of the player's devices, the game rolls them
   // once their minute is up.
-  it('marks the character tab while the game asks the player for their dice, until their minute is up though the view still lists them, from module 0.45.0', async () => {
+  it('marks the character tab while the game asks the player for their dice, until their minute is up though the view still lists them, from module 0.44.0', async () => {
     jest.useFakeTimers()
     try {
       const user = userEvent.setup({

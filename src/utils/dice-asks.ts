@@ -7,7 +7,7 @@ import type { TableDiceAsk } from '@/types/table'
 
 /*
  * The dice of a later roll in a typed roll's run, which the game asks of its player before it
- * throws them (module 0.45.0): held as the module described them, until it says they closed, or
+ * throws them (module 0.44.0): held as the module described them, until it says they closed, or
  * their wait runs out; shown to their player to type in; checked as they're answered; and how long
  * they held the roll whose run they're in, which isn't lost meanwhile.
  */

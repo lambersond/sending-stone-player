@@ -7,7 +7,7 @@ const cold = (formula: string, number = 2) => ({
   rolls: [{ formula, type: 'cold', terms: [{ faces: 6 as const, number }] }],
 })
 
-describe('features/rolling/utils/dice-ask-entry (module 0.45.0)', () => {
+describe('features/rolling/utils/dice-ask-entry (module 0.44.0)', () => {
   describe('askEntry', () => {
     it('asks for each term of each roll, each skippable, named by its kind, until its wait ends', () => {
       const signal = new AbortController().signal

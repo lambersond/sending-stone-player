@@ -1523,7 +1523,7 @@ export type BridgeFeatures = {
     /**
      * Whether a player typing in their dice is asked for the dice the game rolls later in their
      * roll's run, by an app that says `diceAsks: 1`: where `manualDice` is, under dnd5e 5, its
-     * self-test passed. `"dice"`, the answer, is then among the kinds. Module 0.45.0.
+     * self-test passed. `"dice"`, the answer, is then among the kinds. Module 0.44.0.
      */
     diceAsks?: boolean
   } | null
@@ -1564,7 +1564,7 @@ export type BridgeFeatures = {
     orders?: boolean
     changes?: boolean
     /**
-     * Module 0.45.0, under dnd5e where Tidy 5e Sheets is installed or a character holds its
+     * Module 0.44.0, under dnd5e where Tidy 5e Sheets is installed or a character holds its
      * journal's entries: whether Tidy is active, its version (null where it isn't installed), and
      * the campaign's characters holding at least one entry, whose `journal.tidy` follows.
      */
@@ -1659,7 +1659,7 @@ export type JournalUpdated = {
 }
 
 /**
- * A character's Tidy 5e Sheets journal, whole, as Foundry holds it (module 0.45.0), shown here
+ * A character's Tidy 5e Sheets journal, whole, as Foundry holds it (module 0.44.0), shown here
  * read only: none where `entries` is `[]`; held back, its entries kept as they were, `withheld`.
  */
 export type JournalTidy = {
@@ -1756,17 +1756,17 @@ export type GamePrompt = {
 /** Where Midi-QOL asks what it asks of a character from. Module 0.27.0. */
 export type PromptSource = (typeof PROMPT_SOURCES)[number]
 
-/** What a dice ask's roll is, such as damage or a use's cost. Module 0.45.0. */
+/** What a dice ask's roll is, such as damage or a use's cost. Module 0.44.0. */
 export type DiceAskPurpose = (typeof DICE_ASK_PURPOSES)[number]
 
-/** One of a dice ask's rolls' dice terms: its die, and how many. Module 0.45.0. */
+/** One of a dice ask's rolls' dice terms: its die, and how many. Module 0.44.0. */
 export type DiceAskTerm = {
   faces: (typeof DICE_ASK_FACES)[number]
   /** 1 to 40. */
   number: number
 }
 
-/** One of the rolls a dice ask lists, in the order thrown. Module 0.45.0. */
+/** One of the rolls a dice ask lists, in the order thrown. Module 0.44.0. */
 export type DiceAskRoll = {
   /** As Foundry writes it, such as "2d6". */
   formula: string
@@ -1780,7 +1780,7 @@ export type DiceAskRoll = {
 /**
  * The dice of a later roll in a typed roll's run, which the game asks of its player before it
  * throws them, as Foundry's Manual Dice would at the table: Ice Knife's 2d6 cold after its 1d10,
- * say. Module 0.45.0. Unanswered within its wait, Foundry's computer dice roll it.
+ * say. Module 0.44.0. Unanswered within its wait, Foundry's computer dice roll it.
  */
 export type GameDiceAsk = {
   id: string
@@ -2099,7 +2099,7 @@ export type GameEvent =
         features?: BridgeFeatures | null
         /** The saves the game is asking its players for. Module 0.13.0. */
         prompts?: GamePrompt[]
-        /** The dice asks open for the campaign, in the order asked. Module 0.45.0. */
+        /** The dice asks open for the campaign, in the order asked. Module 0.44.0. */
         diceAsks?: GameDiceAsk[]
         /**
          * Its characters carry no sheets, which follow it, each in a post of its own. Module

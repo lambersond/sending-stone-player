@@ -77,7 +77,7 @@ function reasonsOf(role: SeatRole): Record<string, string> {
     // A favorite, an effect or a removal while the character is transformed, from module 0.40.0.
     shaped: 'that waits until your character is back in their own form',
     // Dice the game asked for, once it no longer waits for them, or has them already, from module
-    // 0.45.0.
+    // 0.44.0.
     diceAsk: `${game} no longer waits for those dice`,
   }
 }

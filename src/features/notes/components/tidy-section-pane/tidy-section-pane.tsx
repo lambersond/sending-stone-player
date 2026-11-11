@@ -10,7 +10,7 @@ import { tidySectionWords } from '@/features/notes/utils/note-words'
 import type { TidySectionPaneProps } from './types'
 
 /**
- * A character's Tidy 5e Sheets entries' own page (module 0.45.0), last in the journal: where they
+ * A character's Tidy 5e Sheets entries' own page (module 0.44.0), last in the journal: where they
  * come from and that they're changed in Foundry, why they can't be now where Tidy is off, and each
  * as a card, in Tidy's order; searching, those the search finds.
  */

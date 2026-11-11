@@ -13,7 +13,7 @@ describe('utils/reader', () => {
     ).toBe('He sees far. He is the heir of Girion.')
   })
 
-  // Module 0.45.0: the Tidy entries are last in the reading order.
+  // Module 0.44.0: the Tidy entries are last in the reading order.
   it('crosses from the book’s last note to the first Tidy entry, and back', () => {
     const notes = [noteEntry({ id: 'first' }), noteEntry({ id: 'last' })]
     const tidy = tidyJournal().entries

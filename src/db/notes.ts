@@ -106,7 +106,7 @@ function orderFrom(order: JournalOrder): Prisma.JournalOrderWhereInput {
 
 /**
  * Read a book for a seat: its notes and its changes waiting, and the campaign around it; and where
- * it's to be shown, a personal book's Tidy 5e Sheets journal (module 0.45.0), which no change here
+ * it's to be shown, a personal book's Tidy 5e Sheets journal (module 0.44.0), which no change here
  * reads.
  */
 async function readBook(

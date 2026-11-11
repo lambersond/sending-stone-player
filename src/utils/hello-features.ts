@@ -18,7 +18,7 @@ import type { BridgeFeatures } from '@/types/sending-stone'
  * here what Midi-QOL asks of characters, which nothing reads yet; from module 0.41.0, let damage on
  * its own name its choices and spend what it uses, and ask companions for the saves the game asks
  * of them; and from module 0.42.0, take a typed roll's effects' dice, and keep its rerolls; and
- * from module 0.45.0, ask a typing player for the dice the game rolls later in their roll's run.
+ * from module 0.44.0, ask a typing player for the dice the game rolls later in their roll's run.
  */
 export const HELLO_ROLL_FLAGS = [
   'modifiers',
@@ -118,7 +118,7 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
       features?.notes?.enabled === true && features.notes.orders === true
         ? ['orders']
         : [],
-    // Whether Tidy 5e Sheets is active, and its version, from module 0.45.0, under dnd5e, where
+    // Whether Tidy 5e Sheets is active, and its version, from module 0.44.0, under dnd5e, where
     // it's installed or a character holds its journal's entries: a module before it, or a hello
     // that says nothing of Tidy, clears both.
     tidyActive: features?.notes?.tidy?.active ?? null,

@@ -367,7 +367,7 @@ describe('utils/roll-requests', () => {
     })
   })
 
-  describe('toRollRequestView for a typed roll the game asks later dice of, from module 0.45.0', () => {
+  describe('toRollRequestView for a typed roll the game asks later dice of, from module 0.44.0', () => {
     const claimed = held({ status: 'claimed', claimedAt: ago(90_000) })
     it.each([
       [

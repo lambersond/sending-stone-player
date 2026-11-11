@@ -1587,7 +1587,7 @@ describe('db/table, typing in their own dice, from module 0.32.0', () => {
 /** Ice Knife's ask, open 40 s more. */
 const openAsk = () => heldIceKnife({ expiresAt: new Date(Date.now() + 40_000) })
 
-describe('db/table, the dice the game asks for, from module 0.45.0', () => {
+describe('db/table, the dice the game asks for, from module 0.44.0', () => {
   const thorin = { ...character, actorId: roster[0].id, manualDice: true }
   /** A game asking typing players for the dice it rolls later, as it takes their answers. */
   const asking = taking(['manualDice', 'diceAsks'], ['damage', 'dice'])
@@ -2229,7 +2229,7 @@ describe('db/table, companions, from module 0.36.0', () => {
 })
 
 /** The companions' prompts held, oldest first; the character's own, none. */
-/** A dice ask of one of Thorin's companions, in his own run (module 0.45.0). */
+/** A dice ask of one of Thorin's companions, in his own run (module 0.44.0). */
 const diceAsked = (actorId: string, label: string, expiresAt: Date) =>
   heldIceKnife({
     actorId,
@@ -2410,7 +2410,7 @@ describe("db/table, the saves the game asks of the character's companions, from 
     ).toBe(false)
   })
 
-  describe('and from module 0.45.0, the dice the game asks of its player in their runs', () => {
+  describe('and from module 0.44.0, the dice the game asks of its player in their runs', () => {
     /** Thorin's player, typing in their dice. */
     const typing = { ...thorin, manualDice: true }
     beforeEach(() => {

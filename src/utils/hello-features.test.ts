@@ -101,7 +101,7 @@ describe('utils/hello-features', () => {
     expect(helloCampaignData({ hitPoints }).hitPointsEnabled).toBe(on)
   })
 
-  // Module 0.45.0: Tidy 5e Sheets, active or not, installed or not, as the hello's notes say it.
+  // Module 0.44.0: Tidy 5e Sheets, active or not, installed or not, as the hello's notes say it.
   it.each([
     [{ active: true, version: '14.4.1', actors: [] }, true, '14.4.1'],
     [

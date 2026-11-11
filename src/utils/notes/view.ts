@@ -582,7 +582,7 @@ export function viewOf(
   )
   const withheld = withheldOf(held)
   const lastChange = lastChangeOf(held, [...chapters, ...entries])
-  // Its character's Tidy 5e Sheets journal, read only, in a personal book alone (module 0.45.0).
+  // Its character's Tidy 5e Sheets journal, read only, in a personal book alone (module 0.44.0).
   const tidy = book.kind === 'personal' ? tidyViewOf(held.tidy) : undefined
   return {
     view: {

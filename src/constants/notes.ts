@@ -19,7 +19,7 @@ export const NOTE_CLAIM_LIMIT = 5
 export const NOTE_CLAIM_CHARS = 500_000
 
 /**
- * Where a Tidy 5e Sheets journal entry is kept on its character (module 0.45.0): an entry of Tidy's
+ * Where a Tidy 5e Sheets journal entry is kept on its character (module 0.44.0): an entry of Tidy's
  * current sheet's Journal tab, or one of its Classic sheet's five boxes.
  */
 export const TIDY_SOURCES = ['journal', 'classic'] as const

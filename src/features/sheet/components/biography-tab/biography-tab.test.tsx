@@ -209,7 +209,7 @@ describe('components/character-sheet/biography-tab, with the character’s journ
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1)
   })
 
-  // Module 0.45.0: Tidy 5e Sheets' entries are read off the character, never its form.
+  // Module 0.44.0: Tidy 5e Sheets' entries are read off the character, never its form.
   it('says, while the character is in Wild Shape, that its Tidy entries changed on the beast are lost', async () => {
     const user = userEvent.setup()
     serveNotes(

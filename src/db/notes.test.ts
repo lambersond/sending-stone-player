@@ -456,7 +456,7 @@ describe('db/notes', () => {
       expect(prismaMock.journalBook.upsert).not.toHaveBeenCalled()
     })
 
-    // Module 0.45.0: a personal book's Tidy 5e Sheets entries are read with it for a seat, and
+    // Module 0.44.0: a personal book's Tidy 5e Sheets entries are read with it for a seat, and
     // only then: no change here reads them, and a party's book has none.
     it('reads a personal book’s Tidy entries, with Tidy’s state, and a party’s never', async () => {
       heldCampaign({ tidyActive: false, tidyVersion: '13.10.5' })

@@ -441,7 +441,7 @@ export async function foundryWorld({ system = DND5E6 ? '6.0.5' : '5.3.3', dice6 
 /**
  * A dnd5e character with what uses need, as activity5e gives them; its concentration dnd5e's, as
  * dnd5e-cards ports it. Foundry tells every client of a change to it, and the module sends its sheet
- * again. Since module 0.45.0 the hook is handed the change expanded, as Foundry hands it: dotted keys
+ * again. Since module 0.44.0 the hook is handed the change expanded, as Foundry hands it: dotted keys
  * spread into objects, a deletion as its key (fvtt/tidy-core.mjs).
  */
 export function character(data, gear) {
@@ -466,7 +466,7 @@ export function character(data, gear) {
   return actor
 }
 /**
- * An update's changes with Foundry 14's deletions made (since module 0.45.0, for Tidy 5e Sheets'
+ * An update's changes with Foundry 14's deletions made (since module 0.44.0, for Tidy 5e Sheets'
  * journal, fvtt/tidy-core.mjs): a dotted key ending in the legacy `-=<key>`, as Tidy 13 deletes, or
  * one whose value is Foundry 14's `_del`, as Tidy 14 does, removes that key from the document; the
  * rest are left to set.

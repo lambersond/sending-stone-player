@@ -39,13 +39,13 @@ export type HeldBook = {
   /** Each of the campaign's characters' names, by actor, to write as. */
   names: Map<string, string>
   /**
-   * Its character's Tidy 5e Sheets journal (module 0.45.0), read only where it's to be shown: its
+   * Its character's Tidy 5e Sheets journal (module 0.44.0), read only where it's to be shown: its
    * entries, and Tidy's state as the campaign's latest hello said it, unset where it said nothing.
    */
   tidy?: HeldTidy
 }
 
-/** A character's Tidy 5e Sheets journal as held (module 0.45.0). */
+/** A character's Tidy 5e Sheets journal as held (module 0.44.0). */
 export type HeldTidy = {
   entries: Pick<
     JournalTidyEntry,

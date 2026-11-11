@@ -1,4 +1,4 @@
-// The dice the game rolls later, asked of a player typing in theirs (module 0.45.0, item 11, its
+// The dice the game rolls later, asked of a player typing in theirs (module 0.44.0, item 11, its
 // PROTOCOL's "Dice the game rolls later", and the app's dice asks), end to end, in the world of
 // world-030.mjs, with dnd5e 5.3.3's real dice classes or, with DND5E6=1, 6.0.5's. Alice plays Thorin,
 // Trusted, so Make Manual Rolls is hers, on a phone (390×844) and a wide page (1280×800) at once; Bob
@@ -40,7 +40,7 @@ import { combat, combatant } from './fvtt/stub.mjs'
 const GAME = 'https://rime-hollow.forge-vtt.com'
 const SECRET = 'rime-hollow-later-45'
 const TITLE = 'Rime Hollow'
-/** Module 0.45.0 under dnd5e 5: the game asks for its later dice. */
+/** Module 0.44.0 under dnd5e 5: the game asks for its later dice. */
 const ASKS = !SKEW042 && !DND5E6
 await launch(GAME)
 const { id: A, invite } = await newCampaign({ title: TITLE, address: 'rime-hollow.forge-vtt.com', secret: SECRET })
@@ -387,7 +387,7 @@ if (!ASKS) {
   const { row, card } = await madeOf(id, 'the 1d6x')
   const shown = await nothingShown([phone, desk, bob, gm])
   check(row.status === 'done' && row.payload.typed === true && same(resultsOf(card?.rolls[0]), [6, 2]) && card.rolls[0].total === 8 && faces.length === 0,
-    `typed 6, Wild Sparks' 1d6x explodes: its die more Foundry's, a 2, as before 0.45.0 (${card?.rolls[0].formula} = ${card?.rolls[0].total})`)
+    `typed 6, Wild Sparks' 1d6x explodes: its die more Foundry's, a 2, as before 0.44.0 (${card?.rolls[0].formula} = ${card?.rolls[0].total})`)
   check(same(asked(), []) && same(askRows(), []) && diceRequests() === 0 && same(shown, []),
     `nothing asked: no roll.dice.asked, no ask kept, no dice answer, and no dialog or banner on any page (${JSON.stringify(shown)})`)
 } else {

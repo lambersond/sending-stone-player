@@ -10,7 +10,7 @@ export const JOURNAL_ICON_BUTTON =
 /** The loose group's title, in the contents and over its page. */
 export const LOOSE_TITLE = 'Not in a chapter'
 
-/** The title of a character's Tidy 5e Sheets entries, last in the contents (module 0.45.0). */
+/** The title of a character's Tidy 5e Sheets entries, last in the contents (module 0.44.0). */
 export const TIDY_TITLE = 'From Tidy 5e Sheets'
 
 /** Why a note is changed only in Foundry, said where its Edit would be. */

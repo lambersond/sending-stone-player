@@ -22,7 +22,7 @@ import type {
  * rerolled on its highest face; and is each kind of damage chosen one its roll offers?
  * @param use - The attack or use, if it's the character's.
  * @param others - The other damage asked for the same attack or use, each with the time its dice
- *   asks held it, where they may have (module 0.45.0).
+ *   asks held it, where they may have (module 0.44.0).
  * @param actorId - The seat's actor: from module 0.36.0, damage follows only that actor's own
  *   attack or use, never its character's or another companion's, whose seats share a player.
  */

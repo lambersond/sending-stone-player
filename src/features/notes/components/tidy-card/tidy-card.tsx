@@ -3,7 +3,7 @@ import { TidyDates } from '../tidy-lines/tidy-dates'
 import type { NoteTidyView } from '@/types/notes'
 
 /**
- * A Tidy 5e Sheets entry as their page lists it (module 0.45.0): its title, a button over the whole
+ * A Tidy 5e Sheets entry as their page lists it (module 0.44.0): its title, a button over the whole
  * card that opens it; its chip; when the app first saw it and last saw it change; and the start of
  * its text. Read only: no Move, Edit or Delete.
  */

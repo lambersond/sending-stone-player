@@ -8,7 +8,7 @@ import type { DiceAskRoll } from '@/types/sending-stone'
 import type { TableDiceAsk } from '@/types/table'
 
 /*
- * The dice the game asks a typing player for, from module 0.45.0, as the dice dialog asks for them:
+ * The dice the game asks a typing player for, from module 0.44.0, as the dice dialog asks for them:
  * every term of every roll it lists, each the player may skip for the game to roll; what they
  * typed, as the answer the game takes, term by term; and the roll the tray keeps of it.
  */

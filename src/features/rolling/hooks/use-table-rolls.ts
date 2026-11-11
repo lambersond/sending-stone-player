@@ -637,7 +637,7 @@ export function useTableRolls(
   )
 
   /**
-   * Answer the dice the game asks for, from module 0.45.0, with what the player typed, term by
+   * Answer the dice the game asks for, from module 0.44.0, with what the player typed, term by
    * term, as the tray keeps it: none at all leaves the game every die. No switch of this device's
    * holds it back, as the roll it answers is on its way already; only the game taking it.
    */

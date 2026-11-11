@@ -7,7 +7,7 @@ import type { CompanionAsked } from '@/types/table'
 // each one asked (src/db/table.ts).
 
 /**
- * The companions the game is asking a save of now, from module 0.41.0, and from module 0.45.0 the
+ * The companions the game is asking a save of now, from module 0.41.0, and from module 0.44.0 the
  * dice of in their character's typed rolls' runs, each once, its saves first, in the order first
  * asked: what its first prompt still waiting asks for, in words, else its first dice ask's label,
  * marked as dice; and when the soonest of all those stops waiting. A prompt whose time has run out

@@ -3,7 +3,7 @@ import { TidySectionPane } from '../tidy-section-pane/tidy-section-pane'
 import type { TidyReaderProps } from './types'
 
 /**
- * What the reader shows of a character's Tidy 5e Sheets entries (module 0.45.0): the one picked,
+ * What the reader shows of a character's Tidy 5e Sheets entries (module 0.44.0): the one picked,
  * or their page.
  */
 export function TidyReader({

@@ -2,7 +2,7 @@ import { TIDY_CLASSIC, TIDY_CLASSIC_GONE } from '@/constants/notes'
 import type { NotesTidyView, NoteTidyView } from '@/types/notes'
 import type { HeldTidy } from '@/utils/notes/types'
 
-// A character's Tidy 5e Sheets journal as a seat sees it (module 0.45.0), beside its personal book:
+// A character's Tidy 5e Sheets journal as a seat sees it (module 0.44.0), beside its personal book:
 // read only, in Tidy's order, each entry under the title Tidy shows it by, with the dates the app
 // keeps for it; and whether Tidy can change it in Foundry now.
 

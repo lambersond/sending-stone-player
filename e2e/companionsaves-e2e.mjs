@@ -207,10 +207,10 @@ part('1. the hello and the answer')
   const rolls = data.features.rolls
   const keys = Object.keys(rolls)
   // Changed on purpose (round 0.42.0 §8.5): module 0.42.0's effectDice and keptRerolls come after
-  // it, the last of v0.41's flags; and since module 0.45.0 (item 11), its diceAsks and
+  // it, the last of v0.41's flags; and since module 0.44.0 (item 11), its diceAsks and
   // diceAsksReason after them, under dnd5e 6 too, there diceAsks false.
   check(rolls.companionPrompts === true && rolls.prompts === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason']),
-    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls and 0.45.0's diceAsks and diceAsksReason after it (${JSON.stringify(keys)})`)
+    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls and 0.44.0's diceAsks and diceAsksReason after it (${JSON.stringify(keys)})`)
   check(JSON.parse(hello().body ?? '{}').features?.companions === 2, `the app answers companions: 2 (${hello().body})`)
   await until(() => features().includes('companionPrompts'), 'the app to keep companionPrompts', 15_000).catch(() => {})
   check(features().includes('companionPrompts'), `the app keeps companionPrompts (${features().join(',')})`)

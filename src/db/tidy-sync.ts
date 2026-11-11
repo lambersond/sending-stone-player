@@ -5,7 +5,7 @@ import { listedIn } from '@/utils/roster'
 import type { JournalDrawings, Tx } from './types'
 import type { JournalTidy, TidyPage } from '@/types/sending-stone'
 
-// Tidy 5e Sheets' journal (module 0.45.0): what a character's players keep on its Journal tab in
+// Tidy 5e Sheets' journal (module 0.44.0): what a character's players keep on its Journal tab in
 // Tidy, as the module sends it, whole, in `journal.tidy`; kept here beside the character's personal
 // book, read only, never written back. Tidy keeps no dates, so the app keeps two of its own: when
 // it first heard of each entry, and when its revision last changed. Entries there before the app
@@ -73,7 +73,7 @@ function fieldsOf(page: TidyPage) {
 }
 
 /**
- * A character's Tidy journal as Foundry holds it now, from module 0.45.0's `journal.tidy`, kept on
+ * A character's Tidy journal as Foundry holds it now, from module 0.44.0's `journal.tidy`, kept on
  * its personal book: held back, which keeps the entries as they were; or its entries, which the
  * book's become, those gone deleted, each new one dated when first seen, each whose revision moved
  * dated as changed. The book's version moves only where something did. A character the campaign
@@ -218,9 +218,9 @@ async function mirrorTidy(
 }
 
 /**
- * On each hello (module 0.45.0): the Tidy entries of every character the hello's
+ * On each hello (module 0.44.0): the Tidy entries of every character the hello's
  * `features.notes.tidy` doesn't list as holding some go, as do those of every character where it
- * says nothing of Tidy, as a module before 0.45.0, which never sends them. Only the app's copy
+ * says nothing of Tidy, as a module before 0.44.0, which never sends them. Only the app's copy
  * goes: a character that has entries after all sends them in the `journal.tidy` that follows.
  *
  * And what the app knows of each journal, which its entries' dates rest on: a character the hello

@@ -14,7 +14,7 @@ type Shown = {
   pick: NotePick
   note?: NoteEntryView
   group?: JournalGroup
-  /** One of the character's Tidy 5e Sheets entries (module 0.45.0). */
+  /** One of the character's Tidy 5e Sheets entries (module 0.44.0). */
   tidy?: NoteTidyView
   /** The Tidy entries' own page. */
   tidySection?: true
@@ -26,7 +26,7 @@ type Shown = {
  * left the view, the next in reading order as it was, else the one before, else its group's page;
  * with nothing picked, the draft's note where the draft is a change to one, else the most recently
  * changed note, else the last group listed. `keep` where that's to be kept as the pick. From module
- * 0.45.0, likewise a Tidy 5e Sheets entry picked, or their page; one deleted in Foundry gives way
+ * 0.44.0, likewise a Tidy 5e Sheets entry picked, or their page; one deleted in Foundry gives way
  * as a note does, to the next as they were, else the one before, else their page while any is
  * left; and with nothing else to show, the first of them.
  */
@@ -154,7 +154,7 @@ function nearTidy(
 
 /**
  * Where the journal's reading order crosses from the book's notes to the character's Tidy 5e
- * Sheets entries (module 0.45.0): what follows its last note, the first entry; and what comes
+ * Sheets entries (module 0.44.0): what follows its last note, the first entry; and what comes
  * before the first entry, its last note. Neither where either part is empty.
  */
 export function tidyCrossing(

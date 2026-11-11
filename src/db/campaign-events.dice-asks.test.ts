@@ -7,7 +7,7 @@ import { prismaMock } from '@/utils/test-utils-node'
 import type { GameEvent } from '@/types/sending-stone'
 
 // The dice of later rolls in typed rolls' runs, which the game asks of their players (module
-// 0.45.0): kept as asked, closed as the module says, closed as gone where a hello leaves them out,
+// 0.44.0): kept as asked, closed as the module says, closed as gone where a hello leaves them out,
 // and pruned a day after, with the saves the game asked (ROADMAP item 20).
 
 const world = { id: 'erebor', title: 'Return to Erebor' }
@@ -58,7 +58,7 @@ const old = () => ({
   ],
 })
 
-describe('db/campaign-events, dice asks (module 0.45.0)', () => {
+describe('db/campaign-events, dice asks (module 0.44.0)', () => {
   beforeEach(() => {
     now += 3_600_000
     jest.useFakeTimers({ now })
@@ -128,7 +128,7 @@ describe('db/campaign-events, dice asks (module 0.45.0)', () => {
     )
   })
 
-  it('a hello from a module before 0.45.0, or after the Gamemaster reloads, closes every one', async () => {
+  it('a hello from a module before 0.44.0, or after the Gamemaster reloads, closes every one', async () => {
     await hello({})
 
     expect(prismaMock.diceAsk.updateMany).toHaveBeenCalledWith({

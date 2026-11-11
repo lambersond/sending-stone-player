@@ -29,7 +29,7 @@ export function describe(
 
 /**
  * What a companion is asked for, as the character's notice says it: "a Dexterity saving throw"; or
- * from module 0.45.0, its player's dice, "the dice of Bite: Rend", or "dice" where nothing names
+ * from module 0.44.0, its player's dice, "the dice of Bite: Rend", or "dice" where nothing names
  * them.
  */
 export function askedWords({

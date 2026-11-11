@@ -18,7 +18,7 @@ import type { HeldRollRequest, OtherRoll } from '@/utils/requests/types'
 import type { Prisma } from '@prisma/client'
 
 // The dice of later rolls in typed rolls' runs, which the game asks of their players (module
-// 0.45.0): held from the module's roll.dice.asked until its roll.dice.closed, or a hello that no
+// 0.44.0): held from the module's roll.dice.asked until its roll.dice.closed, or a hello that no
 // longer lists them, and read for the views that show them and the rolls they hold.
 
 /**
@@ -77,7 +77,7 @@ export async function closeDiceAsk(
 }
 
 /**
- * Close as gone every dice ask a hello doesn't list, as one from a module before 0.45.0, or after
+ * Close as gone every dice ask a hello doesn't list, as one from a module before 0.44.0, or after
  * the Gamemaster reloaded, lists none.
  */
 export async function closeUnlistedDiceAsks(
@@ -112,7 +112,7 @@ export async function pruneAsked(tx: Tx, campaignId: string, now: number) {
 }
 
 /**
- * The dice its game asks a seat's player for, as its view shows them, from module 0.45.0: those
+ * The dice its game asks a seat's player for, as its view shows them, from module 0.44.0: those
  * still open, oldest first, of its character, or at a companion's seat of that companion in its
  * character's own runs; none, and nothing read, where the seat doesn't see them (`seesDiceAsks`).
  * @param rollsToTable - What the seat's rolls the game takes now, as its view says.
@@ -148,7 +148,7 @@ export async function viewDiceAsks(
 
 /**
  * The dice its game asks a character's player for in its companions' typed rolls' runs, from
- * module 0.45.0, still open, oldest first, by which the character's view marks each companion
+ * module 0.44.0, still open, oldest first, by which the character's view marks each companion
  * asked: those of the character's own runs alone; none, and nothing read, where it has no
  * companions or the seat doesn't see dice asks (`seesDiceAsks`).
  * @param keys - The character's companions' keys.

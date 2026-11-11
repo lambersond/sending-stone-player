@@ -9,7 +9,7 @@ import type { NotePick } from '@/features/notes/types'
 import type { NotesTidyView } from '@/types/notes'
 
 /**
- * A character's Tidy 5e Sheets entries in the journal's contents (module 0.45.0), last, after every
+ * A character's Tidy 5e Sheets entries in the journal's contents (module 0.44.0), last, after every
  * chapter: their title, which opens their page, and each entry with its chip, in Tidy's order,
  * named by its title and described by its chip, as a note is by its marks; searching, only those
  * it finds. Read only: nothing here adds, moves or reorders them.

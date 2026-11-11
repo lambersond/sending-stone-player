@@ -49,7 +49,7 @@ export async function follow(
     await pause(CHECK_EVERY, signal)
     if (signal.aborted) return
     const heard = await look(api, id, signal, update)
-    // While the game asks for the dice of a later roll in its run (module 0.45.0), the time it has
+    // While the game asks for the dice of a later roll in its run (module 0.44.0), the time it has
     // to be made stands still, as the game's own does.
     const now = Date.now()
     if (heard === 'held') until += now - asked
@@ -115,7 +115,7 @@ async function takenId(response: Response): Promise<string | undefined> {
 /**
  * Ask once after a roll sent, telling `update` where it stands: whether it's made, or given up on
  * (`settled`); one this page can't see any more (`gone`); one the game took too long to make,
- * which may still be made (`late`); from module 0.45.0, one the game holds asking for the dice of
+ * which may still be made (`late`); from module 0.44.0, one the game holds asking for the dice of
  * a later roll in its run (`held`); or else, or where the app couldn't be asked, one to ask after
  * again (`again`).
  */

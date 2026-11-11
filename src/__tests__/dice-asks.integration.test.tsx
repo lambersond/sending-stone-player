@@ -12,7 +12,7 @@ import type { Character } from '@/types/character'
 import type { Connection, TableDiceAsk, TableView } from '@/types/table'
 
 /*
- * The dice the game asks a typing player for later in their roll's run (module 0.45.0), from the
+ * The dice the game asks a typing player for later in their roll's run (module 0.44.0), from the
  * table's view through the character's sheet, its banner and the real dice dialog, to what's
  * posted: on the device that sent the roll, the dialog opens by itself, even where the view listed
  * the ask before the app had told this page its roll's id; on another of the player's devices, the
@@ -101,7 +101,7 @@ const banner = () =>
 const asking = () =>
   screen.queryByRole('dialog', { name: 'Ice Knife: Shard Explosion' })
 
-describe('the dice the game asks for, from the table’s view, from module 0.45.0', () => {
+describe('the dice the game asks for, from the table’s view, from module 0.44.0', () => {
   beforeEach(() => {
     jest.useFakeTimers()
     globalThis.localStorage.clear()

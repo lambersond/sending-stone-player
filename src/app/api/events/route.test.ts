@@ -57,7 +57,7 @@ const FEATURES = {
   removals: 1,
   // From module 0.34.0: journal notes, fetched for with rolls, moves and removals off; 2 from
   // module 0.35.0, as the app reads who changed a journal in Foundry and sends orders of notes;
-  // and 3 from module 0.45.0, as it reads a character's Tidy 5e Sheets journal.
+  // and 3 from module 0.44.0, as it reads a character's Tidy 5e Sheets journal.
   notes: 3,
   // Changed on purpose (round 0.36.0 §7.12): from module 0.36.0, the campaign's characters'
   // companions; and (round 0.41.0 §8.3) 2 from module 0.41.0, the saves the game asks of them.
@@ -80,7 +80,7 @@ const FEATURES = {
   // Changed on purpose (v0.44): from module 0.44.0, hit points and temporary hit points set from
   // the app, fetched for with everything else off.
   hitPoints: 1,
-  // Changed on purpose (item 11): from module 0.45.0, the dice the game rolls later in a typed
+  // Changed on purpose (item 11): from module 0.44.0, the dice the game rolls later in a typed
   // roll's run, asked of its player, and the `dice` command answering one.
   diceAsks: 1,
 }
@@ -932,7 +932,7 @@ describe('app/api/events', () => {
       }
     })
 
-    it('says it reads the dice the game asks for, from module 0.45.0, after hit points, last, as a whole number', async () => {
+    it('says it reads the dice the game asks for, from module 0.44.0, after hit points, last, as a whole number', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       for (const type of ['bridge.hello', 'bridge.heartbeat']) {

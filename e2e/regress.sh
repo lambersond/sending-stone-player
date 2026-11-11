@@ -72,7 +72,7 @@ run manualdice 18 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 # Round 0.42.1: Elven Accuracy's third d20 on its own line, with Skip, and module 0.42.1's Bardic
 # Inspiration offered, spent and its Inspired removed (step 5c, its pictures in shots-0421), which
 # bring the plain and Midi-QOL runs to 260-330 seconds alone, near the usual limit of 400.
-# Module 0.45.0 (item 11): step 7b's exploding 1d6x has its die more asked under dnd5e 5, one check
+# Module 0.44.0 (item 11): step 7b's exploding 1d6x has its die more asked under dnd5e 5, one check
 # more in the plain and Midi-QOL runs; under dnd5e 6 it's Foundry's, as before.
 run typed 160 TIMEOUT=600 SHOTS=$O/shots-032
 run typed 61 DND5E6=1 SHOTS=$O/shots-032
@@ -83,7 +83,7 @@ run typed 7 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 run typed 15 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
 # And module 0.42.0: Bless's die typed, the greatsword's typed 1 kept, and no Bardic Inspiration offered.
 run typed 12 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-042
-# Module 0.45.0 (item 11): the dice the game rolls later, asked of a player typing theirs, on a
+# Module 0.44.0 (item 11): the dice the game rolls later, asked of a player typing theirs, on a
 # phone and a wide page: an exploding die's die more, Let the game roll, the dialog only where the
 # roll came from and not over a focused text field, the banner on the other device, the
 # Gamemaster's Roll it now, the die more typed 6 at 40 s asked again, then a minute's wait, the roll
@@ -145,7 +145,7 @@ run partynotes 58 SHOTS=$O/shots-035
 run notesoffline 47 TIMEOUT=600 SHOTS=$O/shots-035
 run notesorder 66 SHOTS=$O/shots-035
 run notesorder 9 SKEW=034 MODULE=$O/module-0.34.0 SHOTS=$O/shots-035
-# Module 0.45.0: Tidy 5e Sheets' journal, read only, last in the character's journal: the hello and
+# Module 0.44.0: Tidy 5e Sheets' journal, read only, last in the character's journal: the hello and
 # the settings card, its section, chips and dates, Tidy's edits in Foundry, the Gamemaster and another
 # player, Tidy off and uninstalled; dnd5e 6.0.5 with Tidy 14 (its _del, the Classic boxes it no longer
 # shows); and module 0.42.0 (nothing new).

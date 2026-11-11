@@ -56,8 +56,8 @@ export const BRIDGE_SWITCHES = [
  * mode and with each ammunition, and what it would spend (`aloneChoices`), which the module sends
  * only then; and from module 0.44.0 hit points and temporary hit points set from here, of the
  * characters, their Wild Shape forms and their companions, which the module fetches for only then;
- * and from module 0.45.0 the dice the game rolls later in a typed roll's run, asked of its player,
- * which the module asks, and takes the `dice` answer to, only then.
+ * and from module 0.44.0 too the dice the game rolls later in a typed roll's run, asked of its
+ * player, which the module asks, and takes the `dice` answer to, only then.
  */
 export const FEATURES = {
   commands: true,

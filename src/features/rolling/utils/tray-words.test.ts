@@ -80,7 +80,7 @@ describe('features/rolling/utils/tray-words, hit points set', () => {
   })
 })
 
-describe('features/rolling/utils/tray-words, the dice the game asks for (module 0.45.0)', () => {
+describe('features/rolling/utils/tray-words, the dice the game asks for (module 0.44.0)', () => {
   it('says a roll the game holds asking for them waits for the player’s dice', () => {
     expect(
       onItsWayWords({ status: 'rolling', diceAsked: true }, 'player'),

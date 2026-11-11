@@ -1,9 +1,9 @@
 -- CreateEnum
--- Where a Tidy 5e Sheets journal entry is kept on its character, from module 0.45.0: an entry of Tidy's current sheet's Journal tab, or one of its Classic sheet's five boxes.
+-- Where a Tidy 5e Sheets journal entry is kept on its character, from module 0.44.0: an entry of Tidy's current sheet's Journal tab, or one of its Classic sheet's five boxes.
 CREATE TYPE "TidySource" AS ENUM ('journal', 'classic');
 
 -- AlterTable
--- Whether Tidy 5e Sheets is active in the world, and its version, from module 0.45.0's bridge.hello: both unset where the hello says nothing of Tidy.
+-- Whether Tidy 5e Sheets is active in the world, and its version, from module 0.44.0's bridge.hello: both unset where the hello says nothing of Tidy.
 ALTER TABLE "campaign" ADD COLUMN     "tidyActive" BOOLEAN,
 ADD COLUMN     "tidyVersion" TEXT;
 

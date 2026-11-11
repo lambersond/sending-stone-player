@@ -135,7 +135,7 @@ export function offers(
  * as Midi-QOL has it rolled, never with advantage the player chose, nor anything added.
  * @param prompt - The save the game asked for, if held.
  * @param answers - The character's other answers to it, each with the time its dice asks held it,
- *   where they may have (module 0.45.0).
+ *   where they may have (module 0.44.0).
  * @returns Why not, or nothing when it can.
  */
 export function checkPrompt(

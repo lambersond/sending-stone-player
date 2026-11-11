@@ -9,7 +9,7 @@ import { typingRosterEntry } from '@/mocks/sending-stone'
 import { prismaMock } from '@/utils/test-utils-node'
 import type { RollRequestInput } from '@/types/roll'
 
-// Dice the game asks a typing player for, from module 0.45.0: their answer, taken as its own
+// Dice the game asks a typing player for, from module 0.44.0: their answer, taken as its own
 // command and held to its ask, never to the seat's limits; and the typed roll the asks hold, which
 // isn't lost meanwhile.
 
@@ -74,7 +74,7 @@ const fetched = (typed: boolean, kind = 'damage') =>
     claimedAt: ago(90_000),
   } as any)
 
-describe('db/roll-requests, dice the game asked for (module 0.45.0)', () => {
+describe('db/roll-requests, dice the game asked for (module 0.44.0)', () => {
   beforeEach(() => jest.useFakeTimers({ now: NOW }))
   afterEach(() => jest.useRealTimers())
 

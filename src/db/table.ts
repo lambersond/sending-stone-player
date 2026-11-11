@@ -370,7 +370,7 @@ export async function getTableView(
 /**
  * What a table shows, read at once: the chat the seat may read, the combats, its sheet, the saves
  * the game asks of the character, the Gamemaster's rolls as it its player is shown, those its game
- * asks of its companions, and from module 0.45.0 the dice its game asks its player for, its own
+ * asks of its companions, and from module 0.44.0 the dice its game asks its player for, its own
  * and in its companions' runs.
  */
 function readTable(
