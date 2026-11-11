@@ -1764,18 +1764,20 @@ async function cardOf(who, speaker, { text = '', after = 0 } = {}) {
   return items.nth(index)
 }
 /**
- * A roll's own message in a chat, by when it was made, once it shows its roll and names whom it was
- * aimed at. Without Midi-QOL, an attack from the app posts two messages a few milliseconds apart:
- * the item's card, which names the same targets but never whether it hit, then the attack's roll.
- * A page whose last poll came between them shows the card alone, and the newest message by its
- * speaker is that card until its next poll.
+ * A message's own entry in a chat, once it names whom it was aimed at: the one made when it was,
+ * with a roll's total where the module told the app of its rolls, without one where it told none.
+ * Without Midi-QOL, an attack from the app posts two messages milliseconds apart, perhaps within
+ * one: the item's card, which names the same targets but never whether it hit, then the attack's
+ * roll. A page whose last poll came between them shows the card alone, and the newest message by
+ * its speaker is that card until its next poll. Midi-QOL's card is one message, whose rolls Midi
+ * writes on it later, so the app may hold it without them until the card is next updated.
  */
-async function rollOf(who, message) {
+async function entryOf(who, message) {
   const at = new Date(message.timestamp).toISOString()
-  const item = who.log.locator(':scope > li')
-    .filter({ has: who.page.locator(`time[datetime="${at}"]`) })
-    .filter({ has: who.page.locator('span.sr-only', { hasText: 'Total' }) })
-  await until(async () => ((await item.count()) === 1) && ((await targetsOf(item)) !== null), `the roll made at ${at}, with its targets, at ${who.width} px`)
+  const made = who.log.locator(':scope > li').filter({ has: who.page.locator(`time[datetime="${at}"]`) })
+  const total = who.page.locator('span.sr-only', { hasText: 'Total' })
+  const item = toldOf(message.id)?.rolls?.length ? made.filter({ has: total }) : made.filter({ hasNot: total })
+  await until(async () => ((await item.count()) === 1) && ((await targetsOf(item)) !== null), `the message made at ${at}, with its targets, at ${who.width} px`)
   return item
 }
 const roll20 = async (face, bonus, options = {}) => {
@@ -1805,7 +1807,7 @@ if (firstAttack) {
   const card = MIDI ? useCard(firstAttack.request.id) : madeFor(firstAttack.request.id)
   await until(() => toldOf(card.id), 'the attack in the app')
   check(toldOf(card.id).dnd5e.targets.every(t => !('outcome' in t) && !('ac' in t)), `under Attack Roll Visibility "None", the module tells the app nothing of the hit (${JSON.stringify(toldOf(card.id).dnd5e.targets)})`)
-  attackItem = await rollOf(phone, card)
+  attackItem = await entryOf(phone, card)
   check(same(await targetsOf(attackItem), ['Goblin']), `and the app shows the goblin with no pill (${JSON.stringify(await targetsOf(attackItem))})`)
 }
 settings.set('attackRollVisibility', 'hideAC')
@@ -1839,7 +1841,7 @@ async function rapierAt(face) {
   const { made, card } = await rapierAt(15)
   await settle()
   const told = toldOf(card.id).dnd5e.targets[0]
-  attackItem = await rollOf(phone, card)
+  attackItem = await entryOf(phone, card)
   if (!SKEW) check(told.outcome === 'hit' && !('ac' in told), `${MIDI ? 'Midi\'s check made, under Auto Check Hits "all"' : 'under "Hide AC"'}, the module tells the app the rapier hit, never the goblin's armor class (${JSON.stringify(told)})`)
   if (NEW) check(same(await targetsBecome(attackItem, ['Goblin, Hit']), ['Goblin, Hit']) && made.result.attack?.outcome === 'hit', `and the app pills it "Hit" (${JSON.stringify(await targetsOf(attackItem))})`)
   else check(same(await targetsOf(attackItem), ['Goblin']), `${SKEW ? 'module 0.28.0 tells nothing of it' : 'the app from before shows nothing of it'}: the goblin has no pill`)
@@ -1848,7 +1850,7 @@ async function rapierAt(face) {
 {
   const { card } = await rapierAt(2)
   await settle()
-  const item = await rollOf(phone, card)
+  const item = await entryOf(phone, card)
   if (NEW) {
     check(toldOf(card.id).dnd5e.targets[0].outcome === 'miss' && same(await targetsBecome(item, ['Goblin, Miss ✗']), ['Goblin, Miss ✗']), `a 2 misses: "Miss", muted, after a cross (${JSON.stringify(await targetsOf(item))})`)
     await shootBoth(phone, 'chat-miss', item)
