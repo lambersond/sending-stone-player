@@ -3,7 +3,7 @@ import { typedSoFar } from '@/features/rolling/utils/entry-terms'
 import { leftToTheGame } from '@/features/rolling/utils/tray-words'
 import type { AskTerm } from '@/features/rolling/types'
 import type { DiceEntry } from '@/types/dice-entry'
-import type { DiceAnswerTerm, LocalFormula } from '@/types/roll'
+import type { DiceAnswerTerm, LocalExtra, LocalFormula } from '@/types/roll'
 import type { DiceAskRoll } from '@/types/sending-stone'
 import type { TableDiceAsk } from '@/types/table'
 
@@ -139,22 +139,22 @@ export function answerOf(
 
 /**
  * What the tray keeps of an answer, as a formula rolled: the ask's label, each term with the dice
- * typed, or left to the game, and what the dice typed came to, the game's total in its place once
- * it says, as it adds what its formulas add and throws what was left to it. Of a die thrown again,
- * the die typed alone, and why it was thrown again: the game's total is its whole roll's, which
- * that roll's own line says.
+ * typed, or left to the game, with no number of its own, and what the dice typed came to, the
+ * game's total in its place once it says, as it adds what its formulas add and throws what was left
+ * to it. Of a die thrown again, the die typed alone, and why it was thrown again: the game's total
+ * is its whole roll's, which that roll's own line says.
  */
 export function answeredRoll(
   ask: TableDiceAsk,
   values: number[][] = [],
 ): Omit<LocalFormula, 'kind' | 'id' | 'at'> {
-  const terms = termsOf(ask).map(({ label }, at) => {
+  const terms = termsOf(ask).map(({ label }, at): LocalExtra => {
     const text = at === 0 ? label : `+${label}`
     const typed = values[at] ?? []
     const value = typed.reduce((sum, each) => sum + each, 0)
     return typed.length > 0
       ? { text, values: typed, value }
-      : { text: leftToTheGame(text), values: [], value: 0 }
+      : { text: leftToTheGame(text), values: [], value: 0, left: true }
   })
   return {
     label: askName(ask),

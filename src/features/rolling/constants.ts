@@ -45,3 +45,10 @@ export const ADDED_WORDS = 'Added to its roll at the table'
 
 /** The same, among the earlier rolls, after the die. */
 export const ADDED_WORDS_AFTER = 'added to its roll'
+
+/**
+ * A die the game asked for that the player left to it to roll (module 0.44.0), in place of its
+ * number: after its term, as "+1d6 Fire, left to the game"; and among the earlier rolls, and in a
+ * toast, in place of the roll's numbers, or after the dice typed, "the rest left to the game".
+ */
+export const LEFT_WORDS = 'left to the game'

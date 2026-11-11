@@ -12,7 +12,7 @@ import { Effecting } from '@/features/sheet/components/effect-controls/effecting
 import { CreatureContext } from '@/hooks/use-creature'
 import { RollsLocked } from '@/hooks/use-rolls-locked'
 import { TableApiContext } from '@/hooks/use-table-api'
-import { sparksAgain } from '@/mocks/dice-asks'
+import { sparksAgain, twoRollsAsk } from '@/mocks/dice-asks'
 import type { RollBrief, TableRolls } from '../../types'
 import type { Effects } from '@/features/sheet/components/effect-controls/types'
 import type { TableSeat } from '@/types/character'
@@ -5270,12 +5270,15 @@ describe('a spell prepared or unprepared, from module 0.42.1 (round 0.42.1 §P.1
   })
 })
 
-/** Wild Sparks' die more, as the tray keeps its answer: typed, or left to the game. */
-const answered = (values?: number[][]): LocalFormula => ({
+/**
+ * A dice ask's answer, as the tray keeps it: typed, or left to the game. Wild Sparks' die more,
+ * unless another ask is named.
+ */
+const answered = (values?: number[][], ask = sparksAgain()): LocalFormula => ({
   kind: 'formula',
   id: 'a1',
   at: 0,
-  ...answeredRoll(sparksAgain(), values),
+  ...answeredRoll(ask, values),
 })
 
 describe('components/character-sheet/roll-tray, a die thrown again, answered, from module 0.44.0', () => {
@@ -5331,4 +5334,48 @@ describe('components/character-sheet/roll-tray, a die thrown again, answered, fr
       /^Wild Sparks: Burstleft to the game· added to its roll$/,
     )
   })
+})
+
+describe('components/character-sheet/roll-tray, the dice the game asked for, left to it, from module 0.44.0', () => {
+  // Ice Knife's 3d6 cold and 1d4 + 1d6 fire.
+  const ask = twoRollsAsk()
+  const rolling = tableOf([['a1', { status: 'rolling', visible: true }]])
+  const made = tableOf([['a1', { status: 'done', visible: true, total: 17 }]])
+
+  it('shows no number for the dice left to the game, nor 0 for their total until the game says', () => {
+    const left = answered(undefined, ask)
+    const { rerender } = render(
+      <RollTray rolls={[left]} rolling={false} table={rolling} />,
+    )
+    expect(latestTotal()).toHaveTextContent(/^…$/)
+    expect(briefOf(left, rolling.states.get('a1'))).toMatchObject({
+      total: '…',
+      dice: 'left to the game',
+    })
+
+    rerender(<RollTray rolls={[left]} rolling={false} table={made} />)
+    expect(latestTotal()).toHaveTextContent(/^17$/)
+  })
+
+  it.each([
+    ['every die', undefined, 'left to the game'],
+    ['the 1d4', [[1, 6, 3], [], [5]], '10 +5, the rest left to the game'],
+  ])(
+    'shows among the earlier rolls %s left to the game with no number, and the table’s total',
+    async (_, values, dice) => {
+      const user = userEvent.setup()
+      render(
+        <RollTray
+          rolls={[roll({ id: 'r2' }), answered(values, ask)]}
+          rolling={false}
+          table={made}
+        />,
+      )
+      await user.click(screen.getByText('Earlier rolls (1)'))
+      expect(screen.getByRole('listitem')).toHaveTextContent(
+        `Ice Knife: Shard Explosion${dice}· table 17`,
+        { normalizeWhitespace: true },
+      )
+    },
+  )
 })

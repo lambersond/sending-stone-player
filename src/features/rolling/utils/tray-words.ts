@@ -1,4 +1,5 @@
 import { NOT_MADE } from '@/constants/lifecycle'
+import { LEFT_WORDS } from '@/features/rolling/constants'
 import { choicesOf } from '@/features/rolling/utils/damage-due'
 import { favoriteReasons } from '@/features/rolling/utils/favorite-words'
 import { effectReasons, EFFECT_WORDS } from '@/utils/effect-words'
@@ -161,7 +162,7 @@ export function onItsWayWords(
  * tray writes its terms: such as "+1d6 Fire, left to the game".
  */
 export function leftToTheGame(term: string): string {
-  return `${term}, left to the game`
+  return `${term}, ${LEFT_WORDS}`
 }
 
 /**
@@ -529,15 +530,19 @@ function thrownAgain(terms: LocalExtra[]): boolean {
 }
 
 /**
+ * Did the player leave any of this roll's dice to the game, when it asked for them (module
+ * 0.44.0)? Those have no number here, and what the roll came to is the game's to say.
+ */
+export function leftSome(roll: LocalRoll): boolean {
+  return roll.kind === 'formula' && roll.terms.some(({ left }) => left)
+}
+
+/**
  * Is this a die thrown again whose answer left it to the game (module 0.44.0)? Its value is the
  * game's alone, counted in its roll's total, so no number is shown for it.
  */
 export function leftAgain(roll: LocalRoll): boolean {
-  return (
-    roll.kind === 'formula' &&
-    roll.again !== undefined &&
-    roll.terms.every(({ values }) => values.length === 0)
-  )
+  return roll.kind === 'formula' && roll.again !== undefined && leftSome(roll)
 }
 
 /** Is this damage the game's to roll, with no dice thrown here? */

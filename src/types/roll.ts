@@ -755,6 +755,11 @@ export type LocalExtra = {
    * first throw and then any rerolled or exploded, and what became of each.
    */
   thrown?: ThrownDie[]
+  /**
+   * A term of the dice the game asked for that the player left to it to roll (module 0.44.0): it
+   * has no number here, and counts nothing in the total, which is the game's to say.
+   */
+  left?: true
 }
 
 /** A d20 roll as this page keeps it. */
