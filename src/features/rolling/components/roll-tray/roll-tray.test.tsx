@@ -5379,20 +5379,26 @@ describe('components/character-sheet/roll-tray, the dice the game asked for, lef
   const rolling = tableOf([['a1', { status: 'rolling', visible: true }]])
   const made = tableOf([['a1', { status: 'done', visible: true, total: 17 }]])
 
-  it('shows no number for the dice left to the game, nor 0 for their total until the game says', () => {
-    const left = answered(undefined, ask)
-    const { rerender } = render(
-      <RollTray rolls={[left]} rolling={false} table={rolling} />,
-    )
-    expect(latestTotal()).toHaveTextContent(/^…$/)
-    expect(briefOf(left, rolling.states.get('a1'))).toMatchObject({
-      total: '…',
-      dice: 'left to the game',
-    })
+  it.each([
+    ['every die', undefined, 'left to the game'],
+    ['the 1d4', [[1, 6, 3], [], [5]], '10 +5, the rest left to the game'],
+  ])(
+    'shows no number for %s left to the game, nor a total of its own until the game says',
+    (_, values, dice) => {
+      const left = answered(values, ask)
+      const { rerender } = render(
+        <RollTray rolls={[left]} rolling={false} table={rolling} />,
+      )
+      expect(latestTotal()).toHaveTextContent(/^…$/)
+      expect(briefOf(left, rolling.states.get('a1'))).toMatchObject({
+        total: '…',
+        dice,
+      })
 
-    rerender(<RollTray rolls={[left]} rolling={false} table={made} />)
-    expect(latestTotal()).toHaveTextContent(/^17$/)
-  })
+      rerender(<RollTray rolls={[left]} rolling={false} table={made} />)
+      expect(latestTotal()).toHaveTextContent(/^17$/)
+    },
+  )
 
   it.each([
     ['every die', undefined, 'left to the game'],
