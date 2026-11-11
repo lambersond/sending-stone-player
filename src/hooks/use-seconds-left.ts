@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { secondsLeft } from './utils'
+import { secondsLeft } from '@/utils/countdown'
 
 /**
  * The whole seconds left until a moment, by this page's clock, ticking down each second until it

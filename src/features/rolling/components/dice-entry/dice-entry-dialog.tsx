@@ -26,6 +26,8 @@ import {
 } from '@/features/rolling/components/dice-entry/faces'
 import { dieWords } from '@/features/rolling/utils/effect-dice'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { useSecondsLeft } from '@/hooks/use-seconds-left'
+import { clock } from '@/utils/countdown'
 import type { DiceKey } from './types'
 import type { DiceEntry, DiceEntrySides } from '@/types/dice-entry'
 
@@ -42,38 +44,6 @@ const SHORT = '(max-height: 30rem)'
  */
 function scrollDown(scroller: HTMLElement, by: number) {
   scroller.scrollTop += by
-}
-
-/** The whole seconds from one moment until another, none once it's come. */
-function secondsLeft(at: number, now: number): number {
-  return Math.max(0, Math.ceil((at - now) / 1000))
-}
-
-/**
- * The whole seconds left until a moment, by this page's clock, ticking down each second until it
- * comes, at none: as the prompt banner counts down what the game asks.
- */
-function useSecondsLeft(until: string): number {
-  const at = Date.parse(until)
-  const [now, setNow] = useState(() => Date.now())
-  const left = secondsLeft(at, now)
-  useEffect(() => {
-    if (left <= 0) return
-    // Checked often, to turn with the clock's seconds, but drawn again only as it does.
-    const timer = setInterval(() => {
-      const moment = Date.now()
-      setNow(seen =>
-        secondsLeft(at, moment) === secondsLeft(at, seen) ? seen : moment,
-      )
-    }, 200)
-    return () => clearInterval(timer)
-  }, [at, left])
-  return left
-}
-
-/** Such as "0:42". */
-function clock(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
 /**

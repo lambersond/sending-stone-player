@@ -2,10 +2,10 @@
 
 import { type Ref } from 'react'
 import { Dices, Timer } from 'lucide-react'
-import { useSecondsLeft } from '../prompt-banner/use-seconds-left'
-import { clock } from '../prompt-banner/utils'
 import { askName, diceWords } from '@/features/rolling/utils/dice-ask-entry'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
+import { useSecondsLeft } from '@/hooks/use-seconds-left'
+import { clock } from '@/utils/countdown'
 import type { TableDiceAsk } from '@/types/table'
 
 /**
