@@ -252,9 +252,9 @@ describe('db/table', () => {
           hitPointsEnabled: true,
           // Changed on purpose (v0.44 item 8): when its chat was last cleared.
           chatClearedAt: true,
-          // Changed on purpose (round 3, decision 3): what its game said last of itself, its
-          // module's version and game system, for Help's dice an item rolls later.
-          foundry: true,
+          // Changed on purpose (round 3, decision 3): whether its module is one that asks for the
+          // dice an item rolls later, by its versions, for Help; never what Foundry says of itself.
+          laterDice: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -1589,15 +1589,6 @@ describe('db/table, typing in their own dice, from module 0.32.0', () => {
   )
 })
 
-/** What the app keeps of the game's hello: its module's version, under dnd5e 5.3.3. */
-const said = (module: string) => ({
-  foundry: {
-    receivedAt: '2026-11-11T12:00:00.000Z',
-    module: { id: 'sending-stone', version: module },
-    system: { id: 'dnd5e', title: 'D&D Fifth Edition', version: '5.3.3' },
-  },
-})
-
 /** Ice Knife's ask, open 40 s more. */
 const openAsk = () => heldIceKnife({ expiresAt: new Date(Date.now() + 40_000) })
 
@@ -1668,10 +1659,10 @@ describe('db/table, the dice the game asks for, from module 0.44.0', () => {
   ])(
     'tells %s, for Help, whether its module is one that asks for them, by its version as it said last, whatever its switches and however long ago it polled',
     async (_, seat) => {
-      // Module 0.44.0, its players not let to type in their dice, last polled an hour ago.
+      // Module 0.44.0 under dnd5e 5, its players not let to type in their dice, polled an hour ago.
       givenCampaign({
         ...taking([], ['damage']),
-        ...said('0.44.0'),
+        laterDice: true,
         bridgePolledAt: new Date(Date.now() - 3_600_000),
       })
       prismaMock.diceAsk.findMany.mockResolvedValue([])
@@ -1679,8 +1670,8 @@ describe('db/table, the dice the game asks for, from module 0.44.0', () => {
       expect(view.laterDice).toBe(true)
       expect(view.rollsToTable).toEqual([])
 
-      // An older module, whatever its flags say.
-      givenCampaign({ ...asking, ...said('0.42.0') })
+      // Not one that does, whatever its flags say.
+      givenCampaign({ ...asking, laterDice: false })
       expect(await getTableView(seat)).not.toHaveProperty('laterDice')
     },
   )

@@ -8,7 +8,6 @@ import {
 import { companionDiceAsks, viewDiceAsks } from '@/db/dice-asks'
 import { companionAsks } from '@/utils/companion-asks'
 import { companionRoster, tableCompanion } from '@/utils/companions'
-import { asksLaterDice } from '@/utils/dice-asks'
 import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
 import { gmRollParts, gmRollsKey } from '@/utils/gm-rolls'
@@ -35,7 +34,6 @@ import { transfersAvailable } from '@/utils/transfers'
 import { wildShapeAvailable } from '@/utils/wild-shape'
 import type { CampaignStatus } from './types'
 import type { SheetSeat } from '@/types/character'
-import type { FoundrySnapshot } from '@/types/foundry-settings'
 import type {
   CharacterSheet,
   CombatSnapshot,
@@ -270,8 +268,8 @@ const TABLE_CAMPAIGN = {
   wildShapeEnabled: true,
   hitPointsEnabled: true,
   chatClearedAt: true,
-  // What its game said last of itself: its module's version and its game system, for Help.
-  foundry: true,
+  // Whether its module is one that asks for the dice an item rolls later, for Help.
+  laterDice: true,
 } as const
 
 /**
@@ -368,12 +366,10 @@ export async function getTableView(
         on: seat.manualDice === true,
       },
     }),
-    // Whether its module is one that asks a typing player for the dice an item rolls later, as it
-    // said last, at either seat, for Help: by its version and game system, never its switches,
-    // and stored, never whether it polled lately (the owner's round 3 decision 3).
-    ...(asksLaterDice(campaign.foundry as FoundrySnapshot | null) && {
-      laterDice: true as const,
-    }),
+    // Whether its module is one that asks a typing player for the dice an item rolls later, as its
+    // hello said last, at either seat, for Help: by its versions, never its switches, and stored,
+    // never whether it polled lately (the owner's round 3 decision 3).
+    ...(campaign.laterDice && { laterDice: true as const }),
   }
 }
 

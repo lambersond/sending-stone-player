@@ -426,8 +426,9 @@ export type TableView = {
   /**
    * At either seat: whether the campaign's module is one that asks a player typing in their dice
    * for the dice an item rolls later wherever its switches let it, module 0.44.0 or later under
-   * dnd5e 5, as its hello said last (`asksLaterDice`), stored, never whether it polled lately nor
-   * how the switches stand, so that Help's text says the same as they change. Unset where it isn't.
+   * dnd5e 5, as its hello said last (the campaign's `laterDice`), stored, never whether it polled
+   * lately nor how the switches stand, so that Help's text says the same as they change. Unset
+   * where it isn't.
    */
   laterDice?: true
 }

@@ -20,6 +20,7 @@ import {
 import { applyJournalTidy, drawTidy, reconcileTidy } from '@/db/tidy-sync'
 import { postedBeforeClear } from '@/utils/chat-clear'
 import { companionRoster } from '@/utils/companions'
+import { asksLaterDice } from '@/utils/dice-asks'
 import { helloCampaignData, helloCompanionData } from '@/utils/hello-features'
 import { groupRoster } from '@/utils/roster'
 import { sortTurnOrder } from '@/utils/turn-order'
@@ -351,6 +352,10 @@ async function applyHello(
       // they roll (`helloCompanionData`).
       companions: companions.map(entry => toJson(entry)),
       ...helloCompanionData(features),
+      // Whether its module is one that asks a typing player for the dice an item rolls later, by
+      // its versions, whatever its switches, for Help at either seat: apart from what follows,
+      // which a player's view never reads.
+      laterDice: asksLaterDice({ module, system }),
       // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
       // module before 0.30.0, which reports no settings, clears those an earlier one sent.
       foundry: toJson({

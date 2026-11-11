@@ -40,8 +40,8 @@ const LATER_DICE_FROM = [0, 44, 0] as const
 
 /**
  * Is the campaign's module one that asks a player typing in their dice for the dice an item rolls
- * later, wherever its Gamemaster's switches let it, as its hello said last (the campaign's stored
- * `foundry`), whether or not the game polls now: from module 0.44.0, under dnd5e 5 alone, as the
+ * later, wherever its Gamemaster's switches let it, as a hello says (its `module` and `system`,
+ * which the campaign keeps in its `foundry` too): from module 0.44.0, under dnd5e 5 alone, as the
  * module checks it (PROTOCOL.md, "Dice the game rolls later"; later-dice.mjs, `dnd5e5`). Under
  * any other system, dnd5e 6 among them, it never asks, whatever the switches. Whether it asks now,
  * which the switches and its self-test decide, is the hello's `diceAsks`, never read here.
