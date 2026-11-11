@@ -148,10 +148,14 @@ describe('components/character-sheet/character-sheet', () => {
     expect(container.querySelector(`.${color}[style]`)).toBeInTheDocument()
   })
 
-  it("lists the character's traits", () => {
+  it("lists the character's traits, without D&D Beyond's tags", () => {
     renderSheet({
       traits: [
-        { id: 'senses', label: 'Senses', values: ['Darkvision 60 ft'] },
+        {
+          id: 'senses',
+          label: 'Senses',
+          values: ['[sense]Darkvision[/sense] 60 ft'],
+        },
         { id: 'languages', label: 'Languages', values: ['Common', 'Dwarvish'] },
       ],
     })

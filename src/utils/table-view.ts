@@ -1,4 +1,5 @@
 import { askTitle, isAbility } from './ask-words'
+import { withoutTags } from './beyond-tags'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
 import { MAX_CHECKS, toolOrSkillName } from '@/utils/description-links'
 import { ownName } from '@/utils/own-name'
@@ -1088,7 +1089,11 @@ export function toTableSheet(
         img: iconUrl(spell.img, origin),
       })),
     })),
-    traits: sheet.traits ?? [],
+    // Each value without the tags D&D Beyond's markup may have left in it, as an import does.
+    traits: (sheet.traits ?? []).map(trait => ({
+      ...trait,
+      values: trait.values.map(value => withoutTags(value)),
+    })),
     deathSaves: sheet.deathSaves ?? BEFORE_0_7_0.deathSaves,
     details: sheet.details ?? BEFORE_0_7_0.details,
     // Nor these, before module 0.8.0.
