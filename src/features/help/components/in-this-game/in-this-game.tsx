@@ -24,16 +24,17 @@ export function InThisGame({ box }: Readonly<{ box: HelpBox }>) {
             className='flex justify-between gap-3 border-t border-border px-3 py-2 text-[13px]'
           >
             <dt className='min-w-0 flex-1 text-text-secondary'>{row.label}</dt>
+            {/* The dot in the answer's line, beside its first word as it wraps. */}
             <dd
               className={clsx(
-                'flex max-w-[65%] shrink-0 items-start justify-end gap-1.5 text-right',
+                'max-w-[65%] shrink-0 text-right',
                 row.on ? 'font-medium' : 'text-text-secondary',
               )}
             >
               <span
                 aria-hidden
                 className={clsx(
-                  'mt-1.5 size-2 shrink-0 rounded-full',
+                  'mr-1.5 inline-block size-2 rounded-full align-middle',
                   row.on
                     ? 'bg-primary'
                     : 'border-[1.5px] border-text-secondary',
