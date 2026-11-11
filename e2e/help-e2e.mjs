@@ -205,15 +205,18 @@ part('3. the settings menu’s How to use Sending Stone')
   // This device's Send to the table, off: what he rolls here stays here, whatever the game takes.
   const send = async on => {
     await phone.page.getByRole('button', { name: 'Settings', exact: true }).click()
+    // Its label, as a finger taps it: the switch itself is drawn over its hidden checkbox.
     const toggle = menu.getByRole('switch', { name: 'Send to the table', exact: true })
-    if ((await toggle.isChecked()) !== on) await toggle.click()
+    if ((await toggle.isChecked()) !== on) await menu.getByText('Send to the table', { exact: true }).click()
+    await until(async () => (await toggle.isChecked()) === on, `Send to the table ${on ? 'on' : 'off'}`, 5_000)
     await phone.page.keyboard.press('Escape')
     await menu.waitFor({ state: 'hidden' })
   }
   await send(false)
   await openHelp(phone)
   const rows = await rowsOf(phone)
-  check(same(rows.slice(0, 5), ['Your rolls: Stay here: only you see them', 'Attacks, spells and features: Stay here', 'Saves the game asks: Asked here', 'Dice tray: Rolls here only', 'End turn: Not from here']),
+  // Saves the game asks are the campaign's, Send or not: this one asks them in Foundry.
+  check(same(rows.slice(0, 5), ['Your rolls: Stay here: only you see them', 'Attacks, spells and features: Stay here', 'Saves the game asks: Asked in Foundry', 'Dice tray: Rolls here only', 'End turn: Not from here']),
     `with the cog's Send to the table off, the box says his rolls stay here: ${JSON.stringify(rows.slice(0, 5))}`)
   await closeHelp(phone)
   await send(true)
