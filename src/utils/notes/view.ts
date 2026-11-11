@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { MOST_NOTE_BODY, MOST_NOTE_TITLE } from '@/constants/notes'
+import { tidyViewOf } from '@/utils/notes/tidy'
 import type {
   NoteBookKind,
   NoteChapterView,
@@ -581,6 +582,8 @@ export function viewOf(
   )
   const withheld = withheldOf(held)
   const lastChange = lastChangeOf(held, [...chapters, ...entries])
+  // Its character's Tidy 5e Sheets journal, read only, in a personal book alone (module 0.44.0).
+  const tidy = book.kind === 'personal' ? tidyViewOf(held.tidy) : undefined
   return {
     view: {
       version: held.row?.version ?? 0,
@@ -599,6 +602,7 @@ export function viewOf(
       entries: [...groups.values()].flatMap(({ ids }) =>
         ids.map(id => byId.get(id)!),
       ),
+      ...(tidy && { tidy }),
     },
     groups,
   }

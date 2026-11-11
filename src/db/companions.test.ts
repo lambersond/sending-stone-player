@@ -6,6 +6,7 @@ import {
   getCompanionView,
 } from './companions'
 import { playerSeat } from './seats'
+import { heldIceKnife, tableIceKnife } from '@/mocks/dice-asks'
 import {
   combat,
   combatant,
@@ -444,6 +445,31 @@ describe('db/companions', () => {
             'companionPrompts',
           ],
         })
+      })
+    })
+
+    it('gives the dice the game asks of its character’s player for its own typed rolls’ runs, from module 0.44.0, never its character’s', async () => {
+      const seat = await seatAt({ ...thorin, manualDice: true }, 'wolfBrakka')
+      held({
+        rollKinds: ['attack', 'damage', 'dice'],
+        companionKinds: ['attack', 'damage', 'dice'],
+      })
+      const ask = heldIceKnife({
+        actorId: 'wolfBrakka',
+        ofActorId: PARTY.thorin,
+        expiresAt: new Date(Date.now() + 40_000),
+      })
+      prismaMock.diceAsk.findMany.mockResolvedValue([ask] as any)
+
+      const view = await getCompanionView(seat)
+      expect(view.diceAsks).toEqual([
+        tableIceKnife({ expiresAt: ask.expiresAt.toISOString() }),
+      ])
+      const [[query]] = prismaMock.diceAsk.findMany.mock.calls as any
+      expect(query.where).toMatchObject({
+        campaignId: 'c1',
+        actorId: 'wolfBrakka',
+        ofActorId: PARTY.thorin,
       })
     })
 

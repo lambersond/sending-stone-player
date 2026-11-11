@@ -8,6 +8,7 @@ import type {
 import type {
   JournalNote,
   JournalOrder,
+  JournalTidyEntry,
   JournalWrite,
   Prisma,
 } from '@prisma/client'
@@ -37,6 +38,28 @@ export type HeldBook = {
   origin: string
   /** Each of the campaign's characters' names, by actor, to write as. */
   names: Map<string, string>
+  /**
+   * Its character's Tidy 5e Sheets journal (module 0.44.0), read only where it's to be shown: its
+   * entries, and Tidy's state as the campaign's latest hello said it, unset where it said nothing.
+   */
+  tidy?: HeldTidy
+}
+
+/** A character's Tidy 5e Sheets journal as held (module 0.44.0). */
+export type HeldTidy = {
+  entries: Pick<
+    JournalTidyEntry,
+    | 'source'
+    | 'entryId'
+    | 'title'
+    | 'html'
+    | 'sort'
+    | 'secret'
+    | 'firstSeenAt'
+    | 'changedAt'
+  >[]
+  active: boolean | null
+  version: string | null
 }
 
 /** A change waiting or refused: the module hasn't made it, or didn't. */

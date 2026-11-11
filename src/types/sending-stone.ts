@@ -1,5 +1,8 @@
 import type {
   REFUSAL,
+  DICE_ASK_AGAIN,
+  DICE_ASK_FACES,
+  DICE_ASK_PURPOSES,
   EFFECT_OPS,
   PREPARE_OPS,
   WILD_SHAPE_OPS,
@@ -9,7 +12,7 @@ import type {
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import type { FoundrySettings } from '@/types/foundry-settings'
-import type { NoteBookKind, NoteRole } from '@/types/notes'
+import type { NoteBookKind, NoteRole, TidySource } from '@/types/notes'
 import type { DieSides } from '@lambersond/3d-dice-core'
 
 /**
@@ -1517,6 +1520,12 @@ export type BridgeFeatures = {
      * Module 0.42.0.
      */
     keptRerolls?: boolean
+    /**
+     * Whether a player typing in their dice is asked for the dice the game rolls later in their
+     * roll's run, by an app that says `diceAsks: 1`: where `manualDice` is, under dnd5e 5, its
+     * self-test passed. `"dice"`, the answer, is then among the kinds. Module 0.44.0.
+     */
+    diceAsks?: boolean
   } | null
   /**
    * Whether its players may move items and coins from here, apart from the rolls: on, with
@@ -1554,6 +1563,12 @@ export type BridgeFeatures = {
      */
     orders?: boolean
     changes?: boolean
+    /**
+     * Module 0.44.0, under dnd5e where Tidy 5e Sheets is installed or a character holds its
+     * journal's entries: whether Tidy is active, its version (null where it isn't installed), and
+     * the campaign's characters holding at least one entry, whose `journal.tidy` follows.
+     */
+    tidy?: { active: boolean; version: string | null; actors: string[] }
   } | null
   /**
    * The kinds a companion's rolls may be, as the campaign takes them now, and how its companions
@@ -1643,6 +1658,36 @@ export type JournalUpdated = {
     { reason: 'private' } | { reason: 'tooLarge'; bytes: number; limit: number }
 }
 
+/**
+ * A character's Tidy 5e Sheets journal, whole, as Foundry holds it (module 0.44.0), shown here
+ * read only: none where `entries` is `[]`; held back, its entries kept as they were, `withheld`.
+ */
+export type JournalTidy = {
+  actorId: string
+  /** In the order Tidy shows them: its current sheet's entries, then its Classic sheet's boxes. */
+  entries: TidyPage[]
+  withheld?: { reason: 'tooLarge'; bytes: number; limit: number }
+}
+
+/** One of a character's Tidy 5e Sheets journal entries, known by where it's kept and its key. */
+export type TidyPage = {
+  /** An entry of Tidy's current sheet's Journal tab, or one of its Classic sheet's five boxes. */
+  from: TidySource
+  /** Tidy's key: a journal entry's, or notes1 to notes4 or notes for a Classic box. */
+  id: string
+  /** As Tidy keeps it: "" where it has none. */
+  title: string
+  /** HTML, as written in Tidy: not enriched. */
+  html: string
+  cut?: true
+  /** Its secret sections were left out, as no player owns the character in Foundry. */
+  secret?: true
+  /** Its place within its `from`, from 1. */
+  sort: number
+  /** Its revision, of Tidy's own title and text, 14 hexadecimal digits. */
+  rev: string
+}
+
 /** One of a journal's notes as Foundry holds it: a chapter or an entry, by its page's id. */
 export type JournalPage = {
   id: string
@@ -1710,6 +1755,53 @@ export type GamePrompt = {
 
 /** Where Midi-QOL asks what it asks of a character from. Module 0.27.0. */
 export type PromptSource = (typeof PROMPT_SOURCES)[number]
+
+/** What a dice ask's roll is, such as damage or a use's cost. Module 0.44.0. */
+export type DiceAskPurpose = (typeof DICE_ASK_PURPOSES)[number]
+
+/** One of a dice ask's rolls' dice terms: its die, and how many. Module 0.44.0. */
+export type DiceAskTerm = {
+  faces: (typeof DICE_ASK_FACES)[number]
+  /** 1 to 40. */
+  number: number
+}
+
+/** One of the rolls a dice ask lists, in the order thrown. Module 0.44.0. */
+export type DiceAskRoll = {
+  /** As Foundry writes it, such as "2d6". */
+  formula: string
+  /** A damage or healing roll's dnd5e type key, such as "cold", where it has one. */
+  type?: string
+  flavor?: string
+  /** Its own dice terms, in order: a die not listed is Foundry's. */
+  terms: DiceAskTerm[]
+}
+
+/**
+ * The dice of a later roll in a typed roll's run, which the game asks of its player before it
+ * throws them, as Foundry's Manual Dice would at the table: Ice Knife's 2d6 cold after its 1d10,
+ * say. Module 0.44.0. Unanswered within its wait, Foundry's computer dice roll it.
+ */
+export type GameDiceAsk = {
+  id: string
+  /** The character asked, its form's rolls among them, or a companion's key. */
+  actorId: string
+  /** For a companion's, its character, as the typed roll named it. */
+  of?: string
+  /** The typed roll whose run makes it, by its id here; for `again`, the roll whose die it is. */
+  command: string
+  /** What rolls, such as "Ice Knife: Shard Explosion". */
+  label: string
+  purpose: DiceAskPurpose
+  /** For `again` only, why the die is thrown again. */
+  again?: (typeof DICE_ASK_AGAIN)[number]
+  /** A critical hit's damage, its dice already counted as dnd5e throws them. */
+  critical: boolean
+  rolls: DiceAskRoll[]
+  /** When it was asked, and when its wait ends, by the game's clock. */
+  askedAt: string
+  expiresAt: string
+}
 
 /** What became of a command the module fetched, such as a player's roll. Module 0.10.0. */
 export type CommandResult = {
@@ -2007,6 +2099,8 @@ export type GameEvent =
         features?: BridgeFeatures | null
         /** The saves the game is asking its players for. Module 0.13.0. */
         prompts?: GamePrompt[]
+        /** The dice asks open for the campaign, in the order asked. Module 0.44.0. */
+        diceAsks?: GameDiceAsk[]
         /**
          * Its characters carry no sheets, which follow it, each in a post of its own. Module
          * 0.22.0.
@@ -2050,6 +2144,8 @@ export type GameEvent =
   | { type: 'dish.dismissed'; data: DishDismissed }
   | { type: 'roll.prompt.opened'; data: { prompt: GamePrompt } }
   | { type: 'roll.prompt.closed'; data: { id: string; reason: string } }
+  | { type: 'roll.dice.asked'; data: { ask: GameDiceAsk } }
+  | { type: 'roll.dice.closed'; data: { id: string; reason: string } }
   | {
       type: 'group.updated'
       data: {
@@ -2062,6 +2158,7 @@ export type GameEvent =
   | { type: 'group.removed'; data: { id: string } }
   | { type: 'bridge.settings'; data: { settings?: FoundrySettings } }
   | { type: 'journal.updated'; data: JournalUpdated }
+  | { type: 'journal.tidy'; data: JournalTidy }
   | { type: 'companions.listed'; data: CompanionsListed }
   | { type: 'companion.updated'; data: CompanionUpdated }
 

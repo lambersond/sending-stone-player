@@ -1250,7 +1250,9 @@ exports[`the routes of a book of notes note DELETE, gm: note DELETE, gm 1`] = `
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -1274,7 +1276,8 @@ exports[`the routes of a book of notes note DELETE, gm: note DELETE, gm 1`] = `
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -1402,7 +1405,9 @@ exports[`the routes of a book of notes note DELETE, player: note DELETE, player 
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -1426,7 +1431,8 @@ exports[`the routes of a book of notes note DELETE, player: note DELETE, player 
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -1555,7 +1561,9 @@ exports[`the routes of a book of notes note PATCH, gm: note PATCH, gm 1`] = `
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -1579,7 +1587,8 @@ exports[`the routes of a book of notes note PATCH, gm: note PATCH, gm 1`] = `
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -1725,7 +1734,9 @@ exports[`the routes of a book of notes note PATCH, player, a resolve: note PATCH
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -1749,7 +1760,8 @@ exports[`the routes of a book of notes note PATCH, player, a resolve: note PATCH
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -1804,7 +1816,9 @@ exports[`the routes of a book of notes note PATCH, player: note PATCH, player 1`
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -1828,7 +1842,8 @@ exports[`the routes of a book of notes note PATCH, player: note PATCH, player 1`
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -2030,7 +2045,9 @@ exports[`the routes of a book of notes notes GET, gm: notes GET, gm 1`] = `
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2054,7 +2071,19 @@ exports[`the routes of a book of notes notes GET, gm: notes GET, gm 1`] = `
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": {
+     "select": {
+      "source": true,
+      "entryId": true,
+      "title": true,
+      "html": true,
+      "sort": true,
+      "secret": true,
+      "firstSeenAt": true,
+      "changedAt": true
+     }
+    }
    }
   }
  }
@@ -2176,7 +2205,9 @@ exports[`the routes of a book of notes notes GET, player: notes GET, player 1`] 
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2200,7 +2231,19 @@ exports[`the routes of a book of notes notes GET, player: notes GET, player 1`] 
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": {
+     "select": {
+      "source": true,
+      "entryId": true,
+      "title": true,
+      "html": true,
+      "sort": true,
+      "secret": true,
+      "firstSeenAt": true,
+      "changedAt": true
+     }
+    }
    }
   }
  }
@@ -2294,7 +2337,9 @@ exports[`the routes of a book of notes notes POST, gm: notes POST, gm 1`] = `
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2318,7 +2363,8 @@ exports[`the routes of a book of notes notes POST, gm: notes POST, gm 1`] = `
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -2460,7 +2506,9 @@ exports[`the routes of a book of notes notes POST, player: notes POST, player 1`
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2484,7 +2532,8 @@ exports[`the routes of a book of notes notes POST, player: notes POST, player 1`
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -2616,7 +2665,9 @@ exports[`the routes of a book of notes notes order PATCH, gm: notes order PATCH,
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2640,7 +2691,8 @@ exports[`the routes of a book of notes notes order PATCH, gm: notes order PATCH,
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -2695,7 +2747,9 @@ exports[`the routes of a book of notes notes order PATCH, player: notes order PA
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2719,7 +2773,8 @@ exports[`the routes of a book of notes notes order PATCH, player: notes order PA
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -2764,7 +2819,9 @@ exports[`the routes of a book of notes notes order PUT, gm: notes order PUT, gm 
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2788,7 +2845,8 @@ exports[`the routes of a book of notes notes order PUT, gm: notes order PUT, gm 
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -2843,7 +2901,9 @@ exports[`the routes of a book of notes notes order PUT, player: notes order PUT,
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -2867,7 +2927,8 @@ exports[`the routes of a book of notes notes order PUT, player: notes order PUT,
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -3009,7 +3070,9 @@ exports[`the routes of a book of notes party note DELETE, gm: party note DELETE,
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3033,7 +3096,8 @@ exports[`the routes of a book of notes party note DELETE, gm: party note DELETE,
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -3109,7 +3173,9 @@ exports[`the routes of a book of notes party note DELETE, player: party note DEL
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3133,7 +3199,8 @@ exports[`the routes of a book of notes party note DELETE, player: party note DEL
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -3183,7 +3250,9 @@ exports[`the routes of a book of notes party note PATCH, gm: party note PATCH, g
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3207,7 +3276,8 @@ exports[`the routes of a book of notes party note PATCH, gm: party note PATCH, g
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -3283,7 +3353,9 @@ exports[`the routes of a book of notes party note PATCH, player: party note PATC
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3307,7 +3379,8 @@ exports[`the routes of a book of notes party note PATCH, player: party note PATC
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -3449,7 +3522,9 @@ exports[`the routes of a book of notes party notes GET, gm: party notes GET, gm 
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3473,7 +3548,8 @@ exports[`the routes of a book of notes party notes GET, gm: party notes GET, gm 
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -3549,7 +3625,9 @@ exports[`the routes of a book of notes party notes GET, player: party notes GET,
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3573,7 +3651,8 @@ exports[`the routes of a book of notes party notes GET, player: party notes GET,
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -3623,7 +3702,9 @@ exports[`the routes of a book of notes party notes POST, gm: party notes POST, g
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3647,7 +3728,8 @@ exports[`the routes of a book of notes party notes POST, gm: party notes POST, g
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -3810,7 +3892,9 @@ exports[`the routes of a book of notes party notes POST, player: party notes POS
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3834,7 +3918,8 @@ exports[`the routes of a book of notes party notes POST, player: party notes POS
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  },
@@ -3971,7 +4056,9 @@ exports[`the routes of a book of notes party notes order PATCH, gm: party notes 
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -3995,7 +4082,8 @@ exports[`the routes of a book of notes party notes order PATCH, gm: party notes 
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -4071,7 +4159,9 @@ exports[`the routes of a book of notes party notes order PATCH, player: party no
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -4095,7 +4185,8 @@ exports[`the routes of a book of notes party notes order PATCH, player: party no
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -4145,7 +4236,9 @@ exports[`the routes of a book of notes party notes order PUT, gm: party notes or
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -4169,7 +4262,8 @@ exports[`the routes of a book of notes party notes order PUT, gm: party notes or
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -4245,7 +4339,9 @@ exports[`the routes of a book of notes party notes order PUT, player: party note
     "characters": true,
     "notesEnabled": true,
     "noteFeatures": true,
-    "bridgePolledAt": true
+    "bridgePolledAt": true,
+    "tidyActive": true,
+    "tidyVersion": true
    }
   }
  },
@@ -4269,7 +4365,8 @@ exports[`the routes of a book of notes party notes order PUT, player: party note
     "changedBy": true,
     "notes": true,
     "writes": true,
-    "orders": true
+    "orders": true,
+    "tidy": false
    }
   }
  }
@@ -4671,7 +4768,10 @@ exports[`the routes of a companion companion rolls POST, gm: companion rolls POS
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -4686,6 +4786,9 @@ exports[`the routes of a companion companion rolls POST, gm: companion rolls POS
     "requestedById": "u-gm",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -4846,7 +4949,10 @@ exports[`the routes of a companion companion rolls POST, player: companion rolls
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -4858,6 +4964,9 @@ exports[`the routes of a companion companion rolls POST, player: companion rolls
     "characterId": "char-1",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -6610,7 +6719,10 @@ exports[`the routes of a sheet rolls POST, gm, labelled: rolls POST, gm, labelle
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -6625,6 +6737,9 @@ exports[`the routes of a sheet rolls POST, gm, labelled: rolls POST, gm, labelle
     "requestedById": "u-gm",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -6795,7 +6910,10 @@ exports[`the routes of a sheet rolls POST, player, a favorite: rolls POST, playe
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -6807,6 +6925,9 @@ exports[`the routes of a sheet rolls POST, player, a favorite: rolls POST, playe
     "characterId": "char-1",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -7046,7 +7167,10 @@ exports[`the routes of a sheet rolls POST, player: rolls POST, player 1`] = `
        "gt": "2026-10-04T19:28:45.000Z"
       }
      }
-    ]
+    ],
+    "kind": {
+     "not": "dice"
+    }
    }
   }
  },
@@ -7058,6 +7182,9 @@ exports[`the routes of a sheet rolls POST, player: rolls POST, player 1`] = `
     "characterId": "char-1",
     "createdAt": {
      "gt": "2026-10-04T19:29:00.000Z"
+    },
+    "kind": {
+     "not": "dice"
     }
    }
   }
@@ -14801,7 +14928,7 @@ exports[`the routes of the module events POST, declared too large: events POST, 
 
 exports[`the routes of the module events POST, heartbeat of another session: events POST, heartbeat of another session 1`] = `
 {
-  "body": "{"resend":"hello","features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":2,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1}}",
+  "body": "{"resend":"hello","features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":3,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1,"diceAsks":1}}",
   "calls": "[
  {
   "model": "campaign",
@@ -14847,7 +14974,7 @@ exports[`the routes of the module events POST, heartbeat of another session: eve
 
 exports[`the routes of the module events POST, heartbeat: events POST, heartbeat 1`] = `
 {
-  "body": "{"features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":2,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1}}",
+  "body": "{"features":{"commands":true,"slimSheets":1,"maxBytes":4000000,"midiPrompts":1,"groups":1,"settings":1,"transfers":1,"removals":1,"notes":3,"companions":2,"favorites":1,"dishes":1,"effects":1,"wildShape":1,"aloneChoices":1,"hitPoints":1,"diceAsks":1}}",
   "calls": "[
  {
   "model": "campaign",

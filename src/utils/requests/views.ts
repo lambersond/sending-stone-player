@@ -4,7 +4,7 @@ import { rollStatus } from '@/utils/requests/status'
 import { toTableRoll, healingRolls, damageKinds } from '@/utils/table-view'
 import type { RollRequestView, RollKind, GmRollView } from '@/types/roll'
 import type { CommandResult, SpellSlotOp } from '@/types/sending-stone'
-import type { HeldRollRequest } from '@/utils/requests/types'
+import type { HeldRollRequest, RollAsks } from '@/utils/requests/types'
 
 /**
  * A roll as its player is told of it: where it stands, and what the game made of it. Of hit dice
@@ -12,17 +12,30 @@ import type { HeldRollRequest } from '@/utils/requests/types'
  * see them, or where it stopped part way, even where they can't; and where they can, what those it
  * made came to, all together, and gave back. Of an enchant activity used, or an enchantment ended,
  * what it applied and ended, seen or not; and of one that failed, whether no card of it is left.
+ * From module 0.44.0, of a typed roll, whether the game is asking its player for its run's later
+ * dice now, the time they held it not counted (`asks`).
  */
 export function toRollRequestView(
   request: HeldRollRequest,
   now = Date.now(),
+  asks: RollAsks = NOT_ASKED,
 ): RollRequestView {
-  const status = rollStatus(request, now)
+  const status = rollStatus(request, now, asks.held)
   const result = request.result as CommandResult | null
   if (status === 'failed') return failedView(request, result)
-  if (status !== 'done' || !result) return { id: request.id, status }
+  if (status !== 'done' || !result) {
+    return {
+      id: request.id,
+      status,
+      // Held by the game, asking its player for its run's later dice (module 0.44.0).
+      ...(status === 'rolling' && asks.waiting && { diceAsked: true as const }),
+    }
+  }
   return doneView(request, result)
 }
+
+/** A roll none of whose run's later dice the game asked for. */
+const NOT_ASKED: RollAsks = { held: 0, waiting: false }
 
 /**
  * What a command's result says of what it did besides its rolls, as its player is told of it,

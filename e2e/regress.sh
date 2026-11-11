@@ -72,15 +72,28 @@ run manualdice 18 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 # Round 0.42.1: Elven Accuracy's third d20 on its own line, with Skip, and module 0.42.1's Bardic
 # Inspiration offered, spent and its Inspired removed (step 5c, its pictures in shots-0421), which
 # bring the plain and Midi-QOL runs to 260-330 seconds alone, near the usual limit of 400.
-run typed 159 TIMEOUT=600 SHOTS=$O/shots-032
+# Module 0.44.0 (item 11): step 7b's exploding 1d6x has its die more asked under dnd5e 5, one check
+# more in the plain and Midi-QOL runs; under dnd5e 6 it's Foundry's, as before.
+run typed 160 TIMEOUT=600 SHOTS=$O/shots-032
 run typed 61 DND5E6=1 SHOTS=$O/shots-032
-run typed 163 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-032
+run typed 164 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-032
 run typed 7 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 # Module 0.42.0: the dice effects add, typed or skipped, and rerolls kept at the table;
 # and module 0.41.0 (none of it; since app 0.42.1, Elven Accuracy's Skip, and no offer).
 run typed 15 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
 # And module 0.42.0: Bless's die typed, the greatsword's typed 1 kept, and no Bardic Inspiration offered.
 run typed 12 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-042
+# Module 0.44.0 (item 11): the dice the game rolls later, asked of a player typing theirs, on a
+# phone and a wide page: an exploding die's die more, Let the game roll, the dialog only where the
+# roll came from and not over a focused text field, the banner on the other device, the
+# Gamemaster's Roll it now, the die more typed 6 at 40 s asked again, then a minute's wait, the roll
+# held past its own minute and never timed out (the plain and Midi-QOL runs about 45 s longer),
+# nothing for a 3D player or the Gamemaster's own roll; Midi-QOL's copy of Ice Knife's activities
+# and a Sneak Attack bonus; dnd5e 6.0.5 (off, said so); and module 0.42.0.
+run laterdice 26 SHOTS=$O/shots-044
+run laterdice 32 MIDI=1 SHOTS=$O/shots-044
+run laterdice 9 DND5E6=1 SHOTS=$O/shots-044
+run laterdice 9 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 run theme 15 SHOTS=$O/shots-026
 # One damage card (module 0.28.0): plain dnd5e, Midi-QOL's card, and module 0.27.0 under Midi.
 run damagecard 31 SHOTS=$O/shots-028
@@ -132,6 +145,13 @@ run partynotes 58 SHOTS=$O/shots-035
 run notesoffline 47 TIMEOUT=600 SHOTS=$O/shots-035
 run notesorder 66 SHOTS=$O/shots-035
 run notesorder 9 SKEW=034 MODULE=$O/module-0.34.0 SHOTS=$O/shots-035
+# Module 0.44.0: Tidy 5e Sheets' journal, read only, last in the character's journal: the hello and
+# the settings card, its section, chips and dates, Tidy's edits in Foundry, the Gamemaster and another
+# player, Tidy off and uninstalled; dnd5e 6.0.5 with Tidy 14 (its _del, the Classic boxes it no longer
+# shows); and module 0.42.0 (nothing new).
+run tidy 38 SHOTS=$O/shots-044
+run tidy 38 DND5E6=1 SHOTS=$O/shots-044
+run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 # Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
 # shown beside the character and acting from the app; damage on its own and recharges; and
 # module 0.35.0 (neither).

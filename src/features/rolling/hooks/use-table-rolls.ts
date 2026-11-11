@@ -62,6 +62,7 @@ import type {
   SheetFormulaRoll,
   SheetRoll,
   AttackSource,
+  DiceAnswerTerm,
 } from '@/types/roll'
 import type { SheetEffect } from '@/types/sending-stone'
 
@@ -635,6 +636,24 @@ export function useTableRolls(
     [start],
   )
 
+  /**
+   * Answer the dice the game asks for, from module 0.44.0, with what the player typed, term by
+   * term, as the tray keeps it: none at all leaves the game every die. No switch of this device's
+   * holds it back, as the roll it answers is on its way already; only the game taking it.
+   */
+  const sendDiceAnswer = useCallback(
+    (answered: LocalFormula, diceAsk: string, answer: DiceAnswerTerm[]) => {
+      if (!latest.current.kinds.includes('dice')) return
+      start(
+        answered.id,
+        { kind: 'dice', diceAsk, answer, typed: true, ...NO_DICE },
+        {},
+        answered.label,
+      )
+    },
+    [start],
+  )
+
   const setSending = useCallback(
     (next: boolean) => choose(next ? 'on' : 'off'),
     [choose],
@@ -667,6 +686,7 @@ export function useTableRolls(
     readWildShapeForms,
     sendAsk,
     sendRecharge,
+    sendDiceAnswer,
     offerDamage,
     states,
     /** Whether the game takes any of the player's rolls now. */

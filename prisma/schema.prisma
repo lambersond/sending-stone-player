@@ -57,6 +57,13 @@ enum NoteWriteStatus {
   made
 }
 
+// Where a Tidy 5e Sheets journal entry is kept on its character (module 0.44.0): an entry of Tidy's
+// current sheet's Journal tab, or one of its Classic sheet's five boxes.
+enum TidySource {
+  journal
+  classic
+}
+
 // Where a dish from the Magical Recipe Book stands, on its way to Foundry and after.
 enum CookbookDishStatus {
   queued // stored, waiting for the module to fetch it
@@ -276,6 +283,12 @@ model Campaign {
   // bridge.hello: by the campaign's own switch, on by default, under dnd5e. A module before it
   // says nothing, which clears it.
   hitPointsEnabled    Boolean          @default(false)
+  // Whether Tidy 5e Sheets is active in the world, and its version, from module 0.44.0's
+  // bridge.hello, under dnd5e, where Tidy is installed or a character holds its journal's entries:
+  // a version unset while it isn't installed. Both unset where the hello says nothing of Tidy, as a
+  // module before it does, which clears them.
+  tidyActive          Boolean?
+  tidyVersion         String?
   // When the campaign's chat was last cleared (v0.44): by its Gamemaster on its card here, or by
   // Foundry's Clear Chat Log. A later change to a message posted before then and no longer held
   // brings nothing back, so a dish card cleared stays cleared once it's served. Unset until then.
@@ -306,6 +319,7 @@ model Campaign {
   players             Character[]
   rollRequests        RollRequest[]
   rollPrompts         RollPrompt[]
+  diceAsks            DiceAsk[]
   journalBooks        JournalBook[]
   cookbookLinks       CookbookLink[]
   cookbookDishes      CookbookDish[]
@@ -492,35 +506,78 @@ model RollPrompt {
   @@map("roll_prompt")
 }
 
+// The dice of a later roll in a typed roll's run, which the game asks of its player before it
+// throws them, from module 0.44.0: from the module's roll.dice.asked until its roll.dice.closed, or
+// its wait runs out, when Foundry's computer dice roll them. Kept apart from the saves the game
+// asks, which every reader of those would otherwise have to tell from these. Deleted a day after it
+// closed or ran out.
+model DiceAsk {
+  id           String    @id @default(cuid())
+  campaignId   String
+  campaign     Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // The module's id for it, a key of its own.
+  askId        String
+  // The Foundry actor asked: the character, or a companion's key.
+  actorId      String
+  // For a companion's, the character whose typed roll's run it's in. Unset for a character's own.
+  ofActorId    String?
+  // The typed roll whose run asks it, by its id here: the roll it holds while it waits.
+  commandId    String
+  // What it asks, as the module described it: its label, purpose, and its rolls' dice.
+  data         Json
+  // When it was asked, and when its wait ends, by this app's clock, counted from the envelope's
+  // time as a Midi prompt's is.
+  askedAt      DateTime
+  expiresAt    DateTime
+  // Once closed: when, and why, such as "answered" or "expired".
+  closedAt     DateTime?
+  closedReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([campaignId, askId], name: "campaignAsk")
+  @@index([campaignId, actorId, closedAt])
+  @@index([campaignId, commandId])
+  @@map("dice_ask")
+}
+
 // A character's or a party's journal of notes, from module 0.34.0: the app's mirror of Foundry's
 // journal, and the changes made here waiting for it. Keyed on the actor, never the Character, so a
 // player leaving deletes none of it.
 model JournalBook {
-  id          String         @id @default(cuid())
-  campaignId  String
-  campaign    Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  kind        JournalKind
+  id           String             @id @default(cuid())
+  campaignId   String
+  campaign     Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kind         JournalKind
   // The character's actor, or the party's Group actor.
-  actorId     String
+  actorId      String
   // Bumped on every change to its notes or its changes waiting, here or from Foundry.
-  version     Int            @default(0)
+  version      Int                @default(0)
   // Foundry's journal, as the module last said: unset while it has none.
-  journalId   String?
-  journalName String?
+  journalId    String?
+  journalName  String?
   // Why Foundry last sent no notes: { reason: 'private' } or { reason: 'tooLarge', bytes, limit }.
-  withheld    Json?
-  syncedAt    DateTime?
+  withheld     Json?
+  syncedAt     DateTime?
   // The journal's last change that leaves no note to show it, from module 0.35.0: a note deleted,
   // or a group's notes put in order, here or in Foundry; by whom, when, and where, 'app' or
   // 'foundry'. Unset until one is made.
-  changedAt   DateTime?
-  changedBy   String?
-  changedIn   String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  notes       JournalNote[]
-  writes      JournalWrite[]
-  orders      JournalOrder[]
+  changedAt    DateTime?
+  changedBy    String?
+  changedIn    String?
+  // When the app last knew its character's Tidy 5e Sheets journal, from module 0.44.0: when it was
+  // last sent, or a hello said the character holds none. Unset until then, so the entries of the
+  // first sent are undated, as they were there before the app could see them; and unset again by a
+  // hello that says nothing of Tidy, as an older module's. And why the last was held back,
+  // { reason: 'tooLarge', bytes, limit }, its entries kept as they were.
+  tidySyncedAt DateTime?
+  tidyWithheld Json?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  notes        JournalNote[]
+  writes       JournalWrite[]
+  orders       JournalOrder[]
+  tidy         JournalTidyEntry[]
 
   @@unique([campaignId, kind, actorId], name: "campaignBook")
   @@map("journal_book")
@@ -559,6 +616,36 @@ model JournalNote {
 
   @@id([bookId, noteId])
   @@map("journal_note")
+}
+
+// An entry of Tidy 5e Sheets' journal on a character, as the module last sent it (module 0.44.0):
+// read only here, changed only in Foundry, and never written there from here. Only a personal
+// book's. Tidy keeps no dates, so the app keeps its own.
+model JournalTidyEntry {
+  bookId      String
+  book        JournalBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  source      TidySource
+  // Tidy's key for it: a journal entry's, or a Classic box's, notes1 to notes4 or notes.
+  entryId     String
+  // As Tidy keeps it: "" where it has none, which the page names.
+  title       String
+  // As drawn here: enriched, sanitised, secrets kept (the module leaves them out where no player
+  // owns the character).
+  html        String
+  // Its place within its source, from 1, in Tidy's order.
+  sort        Int
+  cut         Boolean     @default(false)
+  // Secret sections were left out.
+  secret      Boolean     @default(false)
+  // Its revision, of Tidy's own title and text: it changes only when it's changed in Foundry.
+  revision    String
+  // When the app first heard of it, and when its revision last changed: unset for an entry there
+  // when the book's first Tidy journal came, and for one never changed since.
+  firstSeenAt DateTime?
+  changedAt   DateTime?
+
+  @@id([bookId, source, entryId], name: "bookEntry")
+  @@map("journal_tidy_entry")
 }
 
 // A change made here to a note, waiting for the module to make it in Foundry: at most one per note.

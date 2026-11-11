@@ -1,8 +1,9 @@
 # Roadmap
 
 Sending Stone is two projects released together: this app and the Foundry module
-[fvtt-sending-stone](https://github.com/lambersond/fvtt-sending-stone). Each version below ships as
-one app release and one module release, the app deployed first.
+[fvtt-sending-stone](https://github.com/lambersond/fvtt-sending-stone). Each module version below
+ships with the app deployed for it, the app first. The app has no version numbers of its own:
+app-only work ships with its next deploy.
 
 The further out a version is, the less settled it is, and that's expected: each one is planned in
 full when work on it starts. Open questions stay with their version until then. Any version may
@@ -10,114 +11,56 @@ gain items from feedback or bugs.
 
 Released: module v0.42.1 and its app.
 
-## v0.43
-
-1. **Refactor (done in v0.43's PR):** the app's code laid out by feature under `src/features/`, each
-   `.tsx` exporting one component, named types in `types.ts`, rules in utilities and behaviour in
-   hooks; one request-kind table, one command pipeline on the server, one request lifecycle, one
-   settle hook and one seat resolver; no import cycles or barrels; CLAUDE.md's rules enforced by the
-   linter. No behaviour changed: the module and its protocol are untouched, and the bugs found are
-   below, under v0.44.
-2. **Supported versions (done in v0.44's PR):** a breakdown of which module versions each app
-   version supports.
-
 ## v0.44 (release candidate)
 
-From the table's first session with v0.42.1, after the refactor.
+From the table's first session with v0.42.1, after the refactor: built and merged.
 
-Done in v0.44's PRs:
+**To check at the table before module v0.44.0 is tagged** (built and tested against stand-ins
+only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
 
-- **Favorites on the Character tab:** a setting to show the favorites between skills and traits.
-- **Larger icon buttons on tablets:** icon-only buttons grow above a small screen, and can shrink
-  again where the screen is wide enough for their words.
-- **Hit points from the app:** players set their own character's hit points and temporary hit
-  points as numbers, its Wild Shape form's and its companions' too, for what the rolls don't do
-  ("you fall through the floor and take 4 damage"), by a switch on the Player actions tab of the
-  module's settings, on by default; a drop asks a concentration save, and no chat line is posted.
-  The Hit points tile, and each companion's, opens an editor of the two.
-- **Manual dice said in the dice dialog:** a "Manual Dice" chip in its header, that the die results
-  are typed in.
-- **A plain die roll:** a dice tray under the chat, for what the Gamemaster asks: dice of any of d4,
-  d6, d8, d10, d12, d20 and d100 added and removed, several sizes at once, with a modifier and no
-  advantage or disadvantage, made in the game where the rolls are on; its dice tumble over the
-  whole character page.
-- **The Gamemaster clears a campaign's chat:** including messages from the cookbook, whose whispers
-  now stay.
-- **The bugs the v0.43 refactor found,** fixed, and the favorites in one list until their card is
-  720 pixels wide.
+- **The dice an item rolls later**, when typing in dice:
+  - **What's asked:** Ice Knife's 2d6 after its 1d10, a critical's and an upcast's too, and
+    another activity's damage and dice cost that Midi rolls once saves are checked. D20s are never
+    asked, and nothing is asked under dnd5e 6.
+  - **Explosions and timing:** a typed die that explodes is asked again, one die at a time, never
+    told as timed out when the asks run past a minute. The ask opens by itself on the device the
+    roll came from, not the one the exploding die was typed on.
+  - **The dialog:** never over a focused text field, with a banner on the other devices, and focus
+    back where it was. A skip, an expiry, a failed send offered again, two devices answering at
+    once.
+  - **The Gamemaster:** their window counts down, with Roll it now, leaving their chat typing
+    alone; two players' Hunter's Mark at once, and a homebrew bonus macro; the Gamemaster using
+    the same item meanwhile.
+- **A use's cost check:** with the Gamemaster's Manual Dice on, a use from the app of an item with
+  a `1d4` cost, with Midi-QOL too, asks them once, for the cost spent, or nothing where the player
+  typed.
+- **Tidy 5e Sheets' journal:**
+  - an entry added, changed, dragged and deleted on the Journal tab reaches the app within
+    seconds, a first one dated "First seen";
+  - the Classic sheet's boxes;
+  - secrets on a character no player owns;
+  - Tidy turned off, then uninstalled, leaving the entries readable and the campaign card saying
+    "(not enabled)";
+  - an entry written on a Wild Shape form's Journal tab lost when the form ends, as the app's line
+    says.
 
-Left, in two batches. Pick from the list by number.
+Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
+for a while before v1.0 is tagged.
 
-**Batch 1: what's left from the refactor, the fixes and the last two PRs**
+## Next slice
 
-1. **Rules out of the database modules (done):** `src/db/roll-requests.ts` still holds a roll's pure
-   refusal rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
-   `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
-   `seatAllows`) and `src/db/notes.ts` the notes' view overlay; move them to `src/utils/`, where
-   they can be tested without the database's mocks.
-2. **Coverage (done):** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
-3. **Test tooling (done):** a chapter line's test can race the clock, about once in 200 runs: its
-   "just added" case reads the time twice (`note-lines.test.tsx`, and the same case in
-   `chapter-pane.test.tsx`); the `@test-utils` path alias in `tsconfig.json` has no match in
-   `jest.config.ts`, so a suite importing the kit by it fails in Jest only; and unicorn's
-   `prefer-native-coercion-functions` autofix turns a type-guard filter into `.filter(Boolean)`,
-   which no longer typechecks.
-4. **The Beast list blames the game (done)** when its forms read is taken with no id to follow: no
-   forms come back, and the list says the game failed (`use-table-rolls.ts`, `readWildShapeForms`).
-5. **A hit die told as made that may not be (done):** in a one-at-a-time hit-dice run (a module
-   before 0.20.0), a die taken with no id to follow counts as made when a later die is not.
-6. **Focus left on End Turn (done):** after an End Turn taken with no id to follow, keyboard focus
-   stays on the End Turn button when the panel moves to another of the seat's turns.
-7. **The dice tray's accessibility (done):** keyboard focus kept when the last die of a size is
-   removed (today it's lost with that chip); the formula announced as dice are added and removed;
-   and the open tray's height capped by the chat pane, not the screen, on short landscape screens.
-8. **e2e's known races (done),** written into `e2e/README.md`: transfers under dnd5e 6 ("the module
-   fetches for moves with rolls off"), companions under dnd5e 6 (a broken portrait shown for two
-   frames), toasts T7 (a toast pushed out by the three-toast cap pops back when the game answers
-   late), and alone's Fire Breath recharge at 768 and its spell picker's first focus under dnd5e 6.
-   Each has failed only under three lanes' load and passed alone.
-9. **e2e coverage gaps (done):** runs against module 0.42.0 (`SKEW=042`); the dice tray at 768
-   pixels, with the campaign's rolls turned off, and against an older module; and hit points under
-   dnd5e 6 and Midi-QOL.
-10. **Questions to settle (done)** (decisions, then any work they lead to):
-    - a companion's refusals for its own-switch kinds: 409 or 422 (decided: all answer 409
-      'unavailable'; done);
-    - whether a list in the module's settings is cut to its limit before or after its malformed
-      entries are dropped (the two readers differ) (decided: both drop what they can't read, then
-      cut, in one shared helper; done);
-    - where the turn's refusal line clears (decided: in both layouts it stays until the turn moves
-      on or End Turn is pressed again; done);
-    - "the seat's own turn" for an empty companion key (decided: one shared rule in all three
-      places, an empty key meaning no companion, as End Turn has it; done);
-    - the hand-written types that differ from their schemas (decided: each schema checked against
-      its hand-written type, not derived from it, and those that differ corrected or explained;
-      the three real mismatches found are fixed as bugs; done);
-    - the double reads on the table, party and module polls (measured: while a table is open, the
-      module's command wait makes about 636 queries a minute per campaign, half of the ~223,000 in
-      a 3-hour session with four players; decided: the campaign read once per command check and
-      the notes' old changes pruned once in 10 minutes, measured at 252 fewer queries a minute,
-      40% of the command wait, and about 45,000 fewer in a session, 20%; the table and party
-      double reads, about 3%, left as they are; done);
-    - the overlapping route and table tests (decided: the notes routes' repeats trimmed, one table
-      checking 401 and 404 for all 16 routes and each route's file keeping its wiring check, done;
-      the other three overlaps trimmed when those areas next change);
-    - the five `console.error` logs (decided: kept as they are; error tracking revisited after
-      v1.0 if failures go unnoticed);
-    - whether the favorites' resource and check rows should draw the sheet's own uses chips and
-      row names, which would change their markup (decided: kept as they are; revisited if players
-      ask for a Recharge button in Favorites).
+Picked by the owner, to follow v0.44. Whatever of it changes the module ships in module v0.45.0;
+what's app-only ships with the app, which has no version numbers of its own. Pick from the list by
+number.
 
-**Batch 2, last: typed dice and Help**
+**Help**
 
-11. **Typed dice for every roll an item makes:** when typing in dice, the dice an item rolls after
-    its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by Foundry,
-    as Foundry's Manual Dice does. One general way that follows whatever the item's workflow rolls,
-    homebrew and custom ones included, never a handler per spell.
 12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
     dice), what each long press offers (damage, attack and other rolls), the settings, how manual
-    dice work (item 11 included), and that the Gamemaster applies short and long rests.
+    dice work (the dice an item rolls later included), and that the Gamemaster applies short and
+    long rests. (Planned; held for a prototype first.)
 
-**Found in Batch 1's item 10 work**
+**Found while building Batch 1**
 
 13. **A chat line's roll label can name a function:** the table view looks up a message's ability
     and skill, and a sheet skill's id, in plain objects (`rollLabel` and `toTableSheet` in
@@ -135,9 +78,80 @@ Left, in two batches. Pick from the list by number.
     passes only while no earlier test has left `journalOrder.findUnique` finding an order, as the
     order results' tests do (Jest's `clearMocks` keeps what a mock returns), so under
     `--randomize` it fails. The test should say that no order has the id, as its name does.
+16. **e2e's feedback race against module 0.42.0:** "and the app pills it 'Hit'" under Hide AC
+    (`e2e/feedback-e2e.mjs`), one of the known load races in `e2e/README.md`, failed under three
+    lanes' load in both of Batch 1's full passes, at the same check, and passed alone each time:
+    not a one-off, so its wait should be looked at rather than left to the retry.
 
-Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
-for a while before v1.0 is tagged.
+**Feedback from the table**
+
+17. **Long names overflow:** a very long character name on the campaign page pushes the second
+    pane to the right, squeezing its text until it overflows.
+    - The same long text on a character's Biography tab, in the journal's container, pushes the
+      rest around: buttons shrink instead of wrapping, leaving a lot of empty space.
+18. **Companions and sidekicks wherever they are:** a companion or sidekick has its own tab and can
+    be rolled with even when it isn't on its player's scene or level, with a warning that it isn't
+    there. Today the module lists a linked NPC wherever its tokens are, but an unlinked token and a
+    summoned creature only while they're visible on the active scene, and never looks at levels
+    (`scripts/creatures.mjs`).
+19. **Initiative only in an active combat:** no initiative order is shown when there's no active
+    combat.
+    - With two Sending Stone campaigns on one Foundry server, one campaign sees the other's combat
+      and initiative even when none of its characters are in it. A campaign should get only the
+      combats its characters are in (`PROTOCOL.md`, the hello's `combats`), so this is a bug to
+      find.
+
+**Found while building Batch 2**
+
+25. **Two copies of one countdown:** the dice dialog
+    (`src/features/rolling/components/dice-entry/dice-entry-dialog.tsx`, since v0.42) keeps its own
+    `secondsLeft`, `useSecondsLeft` and `clock`, line for line the prompt banner's
+    (`src/features/sheet/components/prompt-banner/use-seconds-left.ts` and `utils.ts`), which item
+    11's dice ask banner reuses. One shared home, their lowest common ancestor, would remove the
+    copy.
+26. **A die asked again named by its activity, not its roll:** the chip and the tray call Wild
+    Sparks' formula "Wild Sparks: Burst", its roll's name, but the ask for its exploded die, in the
+    dialog's title, the banner, the tray's answer line and the Gamemaster's window, says "Wild
+    Sparks: Use", the item and its activity, as the module's `PROTOCOL.md` defines an ask's `label`,
+    so a player sees two names for one roll within seconds. A wording choice, for the module (a
+    formula's die named by its roll's name where it has one) or the app (`askName` in
+    `src/features/rolling/utils/dice-ask-entry.ts`). Under real dnd5e an unnamed utility activity is
+    named by its type, so the words at a table may differ.
+27. **A die asked again shows its whole roll's total in the tray:** with 6 typed on Wild Sparks'
+    `1d6x` and 3 typed for its die more, the tray reads "Wild Sparks: Use 3 = 3 · table 9" above
+    "Wild Sparks: Burst 6 = 6 · table 9", and while it's the newest roll its big total says 9, "At
+    the table: 9", as if a typed 3 came to 9. The answer's line takes the game's total of the roll
+    its ask lists (`answeredRoll` in `src/features/rolling/utils/dice-ask-entry.ts`, shown by
+    `MadeMark` in `src/features/rolling/components/roll-tray/table-mark.tsx`), and for a die thrown
+    again that's the whole exploding formula. Code and `PROTOCOL.md` agree; such an answer could say
+    it's added to its roll's total instead. The e2e doesn't check these words.
+
+## Follow-up batch
+
+After the next slice, by number.
+
+**Found while building Batch 2**
+
+23. **Midi-QOL's reaction checks ask the Gamemaster for dice:** as it looks for the reactions an
+    attack's targets could take, Midi-QOL works out what each would spend and throws that away
+    (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
+    with the Gamemaster's dice settings, and under Manual Dice Foundry asks them for a roll nobody
+    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
+    `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
+    dice, as it now does Midi's check as a use from the app begins.
+24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
+    `commands.mjs`, `transport.mjs`, `chat-data.mjs`, `creatures.mjs`, `midi-prompts.mjs`,
+    `command-rolls.mjs` and others) already imported one another in one loop before the later dice,
+    and `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No
+    top-level code depends on the loop; untangling it is a refactor of modules older than the later
+    dice.
+
+**Moved up from v1.x**
+
+28. **Favorites reordered** from the app.
+29. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
+    cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
+    concentration.
 
 ## v1.0
 
@@ -154,29 +168,19 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 2. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
    actual hit points (off by default, as it gives information away).
 3. **Summon activities** used from the app.
-4. **Favorites reordered** from the app.
-5. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
+4. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
    campaign's compendiums, such as another compendium or a world actor, used from the app too,
    where its player could use it in Foundry.
-6. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
-   cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
-   concentration.
-7. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
+5. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
    to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
    case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
    offline as it connects.
-8. **Tidy 5e Sheets' journal** (to be planned): the character-specific journal notes Tidy 5e
-   Sheets adds to a character, which aren't part of dnd5e's own character data (its
-   [`documentJournal` flag](https://kgar.github.io/foundry-vtt-tidy-5e-sheets/classes/TidyFlags.html#documentjournal)),
-   merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
-   with in the campaign's settings, as the others are. Where entries can be deconflicted by when
-   each was created, the app shows a chip on the journal pages that come from Tidy 5e Sheets.
-9. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
+6. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
    player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
    signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
    until the cache expires, so its lifetime is chosen with that in mind.
-10. Bug fixes and polish.
+7. Bug fixes and polish.
 
 ## v2.0
 
@@ -215,9 +219,13 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - When typing in dice in a world on the legacy (2014) rules, a Bardic Inspiration feature that
   doesn't say which rules it's for counts as 2014's and isn't offered; dnd5e's 2024 compendium
   feature, which says, is.
-- An exploding die typed in still has Foundry throw its extra die.
+- An exploding die typed in still has Foundry throw its extra die under dnd5e 6, or with a module
+  before 0.44.0: with 0.44.0 under dnd5e 5, its player is asked for it.
 - Midi-QOL's optional bonuses, its Bardic Inspiration among them, are offered on the Gamemaster's
   screen after the roll, with Foundry's dice.
+- When typing in dice, two players' attacks awaiting the same Midi-QOL bonus damage at once, such
+  as two Hunter's Marks, have it rolled by Foundry for both, until each has rolled its bonus
+  damage; a bonus only one of them awaits, such as Sneak Attack, is still asked.
 - Moving several items at once isn't planned unless it's asked for.
 - Summon activities are used in Foundry (planned for v1.x).
 - A companion shared by several characters is asked a save card's save only where every one of

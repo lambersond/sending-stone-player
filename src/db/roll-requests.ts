@@ -14,9 +14,10 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
-import { ago, due, holdCommand, madeBy, onItsWay } from '@/db/commands'
+import { ago, COUNTED, due, holdCommand, madeBy, onItsWay } from '@/db/commands'
 import { FOUNDRY_ID } from '@/db/constants'
 import { recordDishResult } from '@/db/cookbook'
+import { rollDiceAsks, withHeldTime } from '@/db/dice-asks'
 import { createEffectRequest } from '@/db/effects'
 import { createFavoriteRequest } from '@/db/favorites'
 import { createHitPointsRequest } from '@/db/hit-points'
@@ -26,8 +27,10 @@ import { createTransferRequest } from '@/db/transfers'
 import { createWildShapeRequest, shapedRefusal } from '@/db/wild-shape'
 import { sheetLinks } from '@/lib/sheet-html'
 import { companionRoster } from '@/utils/companions'
+import { heldTime, waitsOnDice } from '@/utils/dice-asks'
 import { checkPrompt } from '@/utils/prompts'
 import { checkDamage } from '@/utils/requests/check-damage'
+import { checkDiceAnswer } from '@/utils/requests/check-dice'
 import { checkEndTurn, checkUndoTurn } from '@/utils/requests/check-turns'
 import { checkRoll } from '@/utils/requests/checks'
 import { toCommand } from '@/utils/requests/commands'
@@ -163,14 +166,20 @@ export async function createRollRequest(
   const now = Date.now()
   const context = await readRollContext(seat, input, campaignId, actorId, now)
   const { inFlight, lastMinute, asks } = context
+  // An answer to a dice ask (module 0.44.0) is held to its ask instead, one an ask: the roll it
+  // answers, waiting on it, may be one of those on their way.
+  const answering = input.kind === 'dice'
   if (
-    inFlight >= ROLLS_IN_FLIGHT ||
-    lastMinute >= ROLLS_PER_MINUTE ||
-    asks >= ASKS_PER_MINUTE
+    !answering &&
+    (inFlight >= ROLLS_IN_FLIGHT ||
+      lastMinute >= ROLLS_PER_MINUTE ||
+      asks >= ASKS_PER_MINUTE)
   ) {
     return { status: 429, reason: 'busy' }
   }
-  const refusal = rollRefusal(companion, input, campaign, context)
+  const refusal = answering
+    ? checkDiceAnswer(input, context.diceAsk, seat, context.diceAnswers, now)
+    : rollRefusal(companion, input, campaign, context)
   if (refusal) return { status: 422, reason: refusal }
 
   // What it's called is the app's alone: the module is sent only what to roll. The Gamemaster's is
@@ -219,7 +228,8 @@ const ROLL_CAMPAIGN = {
  * What a roll is checked against, read at once: its sheet, its combat, for damage the attack or use
  * it follows and what else followed it, the seat's rolls on their way and of the last minute, what
  * the game asked and its answers so far, the description a link was in, the seat's asks of the
- * last minute, and for a turn taken back, the End Turn it names.
+ * last minute, for a turn taken back, the End Turn it names, and from module 0.44.0 for dice the
+ * game asked for, its ask and the answers to it so far.
  */
 async function readRollContext(
   seat: SheetSeat,
@@ -234,6 +244,7 @@ async function readRollContext(
   const combatId = combatOf(input)
   const prompt = input.prompt
   const text = input.text
+  const diceAsk = input.kind === 'dice' ? input.diceAsk : undefined
   const [
     sheet,
     combats,
@@ -246,6 +257,8 @@ async function readRollContext(
     described,
     asks,
     ended,
+    heldAsk,
+    diceAnswers,
   ] = await Promise.all([
     // A companion's own sheet, kept apart from the characters'.
     companion
@@ -272,16 +285,17 @@ async function readRollContext(
     damage
       ? prisma.rollRequest.findMany({
           where: { useId: damage, ...madeBy(seat) },
-          select: { status: true, createdAt: true, claimedAt: true },
+          select: { id: true, status: true, createdAt: true, claimedAt: true },
         })
       : [],
     prisma.rollRequest.count({
-      where: { ...madeBy(seat), ...onItsWay(now) },
+      where: { ...madeBy(seat), ...onItsWay(now), ...COUNTED },
     }),
     prisma.rollRequest.count({
       where: {
         ...madeBy(seat),
         createdAt: { gt: ago(now, 60_000) },
+        ...COUNTED,
       },
     }),
     prompt
@@ -305,7 +319,7 @@ async function readRollContext(
             kind: { in: [...ANSWER_KINDS] },
             payload: { path: ['prompt'], equals: prompt },
           },
-          select: { status: true, createdAt: true, claimedAt: true },
+          select: { id: true, status: true, createdAt: true, claimedAt: true },
         })
       : [],
     text
@@ -338,6 +352,37 @@ async function readRollContext(
           select: { status: true, completedAt: true, payload: true },
         })
       : undefined,
+    diceAsk
+      ? prisma.diceAsk.findUnique({
+          where: { campaignAsk: { campaignId, askId: diceAsk } },
+          select: {
+            actorId: true,
+            ofActorId: true,
+            data: true,
+            expiresAt: true,
+            closedAt: true,
+            closedReason: true,
+          },
+        })
+      : undefined,
+    // Any answer to it of the actor's: the first, from any of its player's devices, answers it.
+    diceAsk
+      ? prisma.rollRequest.findMany({
+          where: {
+            campaignId,
+            actorId,
+            kind: 'dice',
+            payload: { path: ['diceAsk'], equals: diceAsk },
+          },
+          select: { status: true, createdAt: true, claimedAt: true },
+        })
+      : [],
+  ])
+  // From module 0.44.0, a typed damage or answer the game holds asking for its run's later dice is
+  // still on its way, past its own time.
+  const [othersHeld, answersHeld] = await Promise.all([
+    withHeldTime(campaignId, others, now),
+    withHeldTime(campaignId, answers, now),
   ])
   return {
     actorId,
@@ -348,14 +393,16 @@ async function readRollContext(
     sheet: sheet?.data as unknown as CharacterSheet | undefined,
     fights: combats.map(({ data }) => data as unknown as CombatSnapshot),
     use,
-    others,
+    others: othersHeld,
     inFlight,
     lastMinute,
     asked,
-    answers,
+    answers: answersHeld,
     described,
     asks,
     ended,
+    diceAsk: heldAsk,
+    diceAnswers,
   }
 }
 
@@ -412,7 +459,9 @@ function rollRefusal(
 /**
  * A roll a seat sent, as it is told of it. At a companion's, from module 0.36.0, only one the seat
  * sent for that companion from that character's seat: never the character's own, nor another
- * companion's, which a player's rolls, all kept by their Character, would otherwise match.
+ * companion's, which a player's rolls, all kept by their Character, would otherwise match. From
+ * module 0.44.0, a typed roll the game is making is told whether it waits on the dice the game asks
+ * for its run, the time they held it not counted against it, as the module doesn't count it.
  * @returns Undefined for a roll that isn't the seat's: another character's, or the other seat's.
  */
 export async function getRollRequestView(
@@ -430,7 +479,20 @@ export async function getRollRequestView(
     },
     select: heldSelect,
   })
-  return request ? toRollRequestView(request as HeldRollRequest) : undefined
+  if (!request) return undefined
+  const now = Date.now()
+  // A typed roll the game is making may be held asking for its run's later dice (module 0.44.0):
+  // never an answer to one, whose asks are its roll's.
+  const typed = (request.payload as RollRequestInput | null)?.typed === true
+  const runs = typed && request.kind !== 'dice'
+  if (request.status !== 'claimed' || !runs || !seat.campaignId) {
+    return toRollRequestView(request as HeldRollRequest, now)
+  }
+  const asks = await rollDiceAsks(seat.campaignId, request.id)
+  return toRollRequestView(request as HeldRollRequest, now, {
+    held: heldTime(asks, now),
+    waiting: waitsOnDice(asks, now),
+  })
 }
 
 /**

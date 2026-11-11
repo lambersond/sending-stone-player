@@ -60,6 +60,13 @@ export function onItsWay(now: number): Prisma.RollRequestWhereInput {
   }
 }
 
+/**
+ * A seat's rows that count against its limits: all but its answers to the dice the game asks for
+ * (module 0.44.0), which the roll they answer, itself on its way, waits on; one an ask is allowed
+ * instead.
+ */
+export const COUNTED: Prisma.RollRequestWhereInput = { kind: { not: 'dice' } }
+
 /** The moment this many milliseconds before another. */
 export function ago(now: number, ms: number): Date {
   return new Date(now - ms)
@@ -67,13 +74,19 @@ export function ago(now: number, ms: number): Date {
 
 /**
  * Whether a seat is sending too many to take another: its rolls and everything else it sends,
- * counted together, on their way or sent in the last minute.
+ * counted together, on their way or sent in the last minute; never its answers to dice asks.
  */
 export async function seatBusy(seat: RollSeat, now: number): Promise<boolean> {
   const [inFlight, lastMinute] = await Promise.all([
-    prisma.rollRequest.count({ where: { ...madeBy(seat), ...onItsWay(now) } }),
     prisma.rollRequest.count({
-      where: { ...madeBy(seat), createdAt: { gt: ago(now, 60_000) } },
+      where: { ...madeBy(seat), ...onItsWay(now), ...COUNTED },
+    }),
+    prisma.rollRequest.count({
+      where: {
+        ...madeBy(seat),
+        createdAt: { gt: ago(now, 60_000) },
+        ...COUNTED,
+      },
     }),
   ])
   return inFlight >= ROLLS_IN_FLIGHT || lastMinute >= ROLLS_PER_MINUTE

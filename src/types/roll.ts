@@ -264,6 +264,13 @@ export type EndedTurn = { combatId: string; round: number; combatantId: string }
 /** The dice of one roll of a kind of die, in the order they were thrown. */
 export type RolledDice = { faces: number; results: number[] }
 
+/**
+ * The values a player typed for one of a dice ask's terms (module 0.44.0): the term by its roll's
+ * place among the ask's rolls and its own among that roll's terms, and a value for each of its
+ * dice, in order.
+ */
+export type DiceAnswerTerm = { roll: number; term: number; results: number[] }
+
 /** A roll, as its player asks for it to be made in the game. */
 export type RollRequestInput = {
   kind: RollKind
@@ -406,6 +413,13 @@ export type RollRequestInput = {
    * and typed the dice they kept, which the game then rerolls none of.
    */
   rerolls?: 'kept'
+  /** For dice the game asked for, from module 0.44.0: the ask they answer, by its id. */
+  diceAsk?: string
+  /**
+   * For dice the game asked for, from module 0.44.0: what the player typed, term by term. A term
+   * left out is the game's to roll; none at all leaves it every die.
+   */
+  answer?: DiceAnswerTerm[]
 }
 
 /**
@@ -419,6 +433,11 @@ export type RollStatus =
 export type RollRequestView = {
   id: string
   status: RollStatus
+  /**
+   * The game is asking its player for the dice of a later roll in its run now, from module 0.44.0:
+   * it waits on them, and isn't lost meanwhile.
+   */
+  diceAsked?: true
   /** Why the game didn't make it, such as "off" or "not-dying". */
   reason?: string
   /** Whether its player may see the game's roll: not one the game made blind. */

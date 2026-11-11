@@ -9,9 +9,11 @@ import type { RowCompanion, TableView } from '@/types/table'
  * then its companions in the row's order, each with its news, what its tab says of it while it
  * isn't the one shown.
  * @param character - The character's name.
- * @param asking - Whether the game asks a save of the character that still waits.
+ * @param asking - Whether the game asks a save of the character, or its player's dice, that still
+ *   waits.
  * @param asksForRoll - How the seat's tabs say the game asks one.
- * @param waitingKeys - The companions asked a save that still waits, by key.
+ * @param waitingKeys - The companions asked a save, or their player's dice, that still waits, by
+ *   key.
  * @param paneMarks - What each companion's pane says of itself.
  */
 export function switcherCreatures({

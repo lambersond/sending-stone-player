@@ -2,6 +2,12 @@ import prisma from '@/clients/prisma'
 import { MIDI_PROMPT_WAIT, ROLL_ANSWER_WITHIN } from '@/constants/sending-stone'
 import { clearChat } from '@/db/chat'
 import {
+  closeDiceAsk,
+  closeUnlistedDiceAsks,
+  pruneAsked,
+  saveDiceAsk,
+} from '@/db/dice-asks'
+import {
   applyJournalUpdated,
   drawJournal,
   reconcileJournals,
@@ -11,6 +17,7 @@ import {
   lacksSheetTexts,
   saveSheetTexts,
 } from '@/db/sheet-texts'
+import { applyJournalTidy, drawTidy, reconcileTidy } from '@/db/tidy-sync'
 import { postedBeforeClear } from '@/utils/chat-clear'
 import { companionRoster } from '@/utils/companions'
 import { helloCampaignData, helloCompanionData } from '@/utils/hello-features'
@@ -44,13 +51,30 @@ type World = { id: string; title: string }
  * The events that leave the campaign's version alone: descriptions change nothing anyone sees
  * until a sheet refers to them, and Foundry's settings only the Gamemaster's campaign card shows,
  * which no table page watches. A journal of notes (module 0.34.0) has its own version, as no table
- * or party view shows notes.
+ * or party view shows notes; so has a character's Tidy 5e Sheets journal (module 0.44.0), which
+ * its personal book shows.
  */
 const VERSION_SILENT: ReadonlySet<string> = new Set([
   'character.texts',
   'bridge.settings',
   'journal.updated',
+  'journal.tidy',
 ])
+
+/**
+ * Draw what an event holds ahead, before its transaction: a large journal's notes, or a Tidy
+ * journal's entries, take longer to draw than a transaction may stay open.
+ */
+function drawAhead(
+  campaignId: string,
+  event: GameEvent,
+): Promise<JournalDrawings | undefined> {
+  if (event.type === 'journal.updated') {
+    return drawJournal(campaignId, event.data)
+  }
+  if (event.type === 'journal.tidy') return drawTidy(campaignId, event.data)
+  return Promise.resolve(undefined)
+}
 
 /**
  * Apply an event from a game's Gamemaster to what is held for one of its campaigns.
@@ -72,10 +96,7 @@ export async function applyCampaignEvent(
   sentAt: string,
 ): Promise<{ lacksTexts: boolean }> {
   // A journal's notes are drawn first: a large book's drawing would outlast the transaction.
-  const drawings =
-    event.type === 'journal.updated'
-      ? await drawJournal(campaignId, event.data)
-      : undefined
+  const drawings = await drawAhead(campaignId, event)
   return prisma.$transaction(async tx => {
     const lacksTexts = await apply(event, {
       tx,
@@ -183,12 +204,25 @@ const EVENT_HANDLERS: {
     )
     return false
   },
+  // What's asked of a campaign's players is pruned as more is asked (`pruneAsked`): the saves the
+  // game asks too, from v0.44 (ROADMAP item 20), as the dice it asks.
   'roll.prompt.opened': async ({ prompt }, { tx, campaignId, sentAt }) => {
     await savePrompt(tx, campaignId, prompt, sentAt)
+    await pruneAsked(tx, campaignId, Date.now())
     return false
   },
   'roll.prompt.closed': async ({ id, reason }, { tx, campaignId }) => {
     await closePrompt(tx, campaignId, id, reason)
+    return false
+  },
+  // The dice of a later roll in a player's typed roll's run, asked of them, from module 0.44.0.
+  'roll.dice.asked': async ({ ask }, { tx, campaignId, sentAt }) => {
+    await saveDiceAsk(tx, campaignId, ask, sentAt)
+    await pruneAsked(tx, campaignId, Date.now())
+    return false
+  },
+  'roll.dice.closed': async ({ id, reason }, { tx, campaignId }) => {
+    await closeDiceAsk(tx, campaignId, id, reason)
     return false
   },
   'group.updated': async ({ group }, { tx, campaignId }) => {
@@ -208,6 +242,10 @@ const EVENT_HANDLERS: {
   },
   'journal.updated': async (data, { tx, campaignId, drawings }) => {
     await applyJournalUpdated(tx, campaignId, data, drawings)
+    return false
+  },
+  'journal.tidy': async (data, { tx, campaignId, drawings }) => {
+    await applyJournalTidy(tx, campaignId, data, drawings)
     return false
   },
   'companions.listed': async ({ companions }, { tx, campaignId }) => {
@@ -279,7 +317,8 @@ async function keepCombatant(
 /**
  * Apply a hello: the campaign's full current state, its roster, its groups, what its game does,
  * its companions and what Foundry says of itself, replacing what was held; and the saves its game
- * is asking, its combats and its sheets. It carries no chat, so the chat log is kept.
+ * is asking, from module 0.44.0 the dice it's asking for, its combats and its sheets. It carries
+ * no chat, so the chat log is kept.
  * @returns Whether the campaign then lacks a description its sheets refer to.
  */
 async function applyHello(
@@ -290,6 +329,8 @@ async function applyHello(
 ): Promise<boolean> {
   // The campaign's full current state. It carries no chat, so the chat log is kept.
   const { characters, features, prompts = [], groups = [] } = data
+  // The dice asks open, from module 0.44.0; none from an older module, which closes any held.
+  const { diceAsks = [] } = data
   // Its characters' companions, from module 0.36.0, whose sheets follow it; none from an
   // older module, which clears them.
   const { companions = [] } = data
@@ -297,7 +338,7 @@ async function applyHello(
   const switches = helloCampaignData(features)
   const before = await tx.campaign.findUnique({
     where: { id: campaignId },
-    select: { noteFeatures: true },
+    select: { noteFeatures: true, tidyActive: true, tidyVersion: true },
   })
   await tx.campaign.update({
     where: { id: campaignId },
@@ -333,10 +374,22 @@ async function applyHello(
   for (const prompt of prompts) {
     await savePrompt(tx, campaignId, prompt, sentAt)
   }
+  // The dice its game is asking for, from module 0.44.0: any other still open has closed, as after
+  // the Gamemaster reloads; a hello sent again, as when a setting changes, closes none it lists.
+  await closeUnlistedDiceAsks(
+    tx,
+    campaignId,
+    diceAsks.map(({ id }) => id),
+  )
+  for (const ask of diceAsks) {
+    await saveDiceAsk(tx, campaignId, ask, sentAt)
+  }
   // Pages showing an order "kept here for now" learn that the game now takes it, or no longer
-  // does: every book of the campaign is new where what the module does with notes changed.
-  const noteFeatures = switches.noteFeatures.join(',')
-  if (before && before.noteFeatures.join(',') !== noteFeatures) {
+  // does: every book of the campaign is new where what the module does with notes changed; and,
+  // from module 0.44.0, where Tidy 5e Sheets was turned on or off, installed, removed or upgraded,
+  // which its entries' lines say.
+  const notesNow = notesSaid(switches)
+  if (before && notesSaid(before) !== notesNow) {
     await tx.journalBook.updateMany({
       where: { campaignId },
       data: { version: { increment: 1 } },
@@ -353,6 +406,15 @@ async function applyHello(
       features.notes.journals,
     )
   }
+  // The Tidy 5e Sheets journals of the characters it doesn't list as holding one, from module
+  // 0.44.0, and those it says hold none known, empty; an older module lists none, and sends none,
+  // and every one goes, none known.
+  await reconcileTidy(
+    tx,
+    campaignId,
+    characters.map(({ id }) => id),
+    features?.notes?.tidy?.actors,
+  )
   await tx.combat.deleteMany({ where: { campaignId } })
   await tx.combat.createMany({
     data: data.combats.map(combat => ({
@@ -383,6 +445,15 @@ async function applyHello(
   const companionSheets = await keptCompanionSheets(tx, campaignId)
   await keepOnlySheetTexts(tx, campaignId, sheets, [], companionSheets)
   return lacksSheetTexts(tx, campaignId, sheets, [], companionSheets)
+}
+
+/** What a campaign's hello said of journal notes, as one string to compare. */
+function notesSaid(said: {
+  noteFeatures: string[]
+  tidyActive: boolean | null
+  tidyVersion: string | null
+}): string {
+  return JSON.stringify([said.noteFeatures, said.tidyActive, said.tidyVersion])
 }
 
 /**

@@ -1,12 +1,23 @@
 import { z } from 'zod'
 import { ABILITIES } from '@/constants/dnd5e'
-import { MOST_NOTE_TEXT, MOST_NOTE_TITLE, MOST_NOTES } from '@/constants/notes'
+import {
+  MOST_NOTE_TEXT,
+  MOST_NOTE_TITLE,
+  MOST_NOTES,
+  MOST_TIDY_ENTRIES,
+  TIDY_CLASSIC,
+  TIDY_SOURCES,
+} from '@/constants/notes'
 import {
   ALONE_SPENDS,
   ATTACK_MODE,
   COMPANION_INITIATIVE,
   COMPANION_KEY,
   DAMAGE_TYPE,
+  DICE_ASK_AGAIN,
+  DICE_ASK_FACES,
+  DICE_ASK_ID,
+  DICE_ASK_PURPOSES,
   EFFECT_DIE_FACES,
   EFFECT_ID,
   EFFECT_OPS,
@@ -18,6 +29,9 @@ import {
   MAX_USE_TARGETS,
   MOST_ALONE_CHOICES,
   MOST_AMONG,
+  MOST_ASK_DICE,
+  MOST_ASK_ROLLS,
+  MOST_ASK_TERMS,
   MOST_COMPANIONS,
   MOST_EFFECT_DICE,
   MOST_FORMS,
@@ -46,12 +60,14 @@ import type {
   CompanionEntry,
   ConnectedCharacter,
   DamagePreview,
+  DiceAskRoll,
   DishApplied,
   DishDismissed,
   Dnd5eMessageData,
   Dnd5eSave,
   Dnd5eTarget,
   Envelope,
+  GameDiceAsk,
   GameEvent,
   GamePrompt,
   GroupEntry,
@@ -59,6 +75,7 @@ import type {
   GroupSheet,
   HitPointsNow,
   JournalPage,
+  JournalTidy,
   JournalUpdated,
   KnownForm,
   MessageAsk,
@@ -92,6 +109,7 @@ import type {
   SheetUses,
   SheetWildShape,
   SheetWithheld,
+  TidyPage,
 } from '@/types/sending-stone'
 
 // Payloads may gain fields at any time, so objects are loose: unknown keys are kept, not
@@ -1587,6 +1605,9 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // typed them, and whether a typed roll keeps the dice its player rerolled at the table.
         effectDice: z.boolean().optional().catch(false),
         keptRerolls: z.boolean().optional().catch(false),
+        // From module 0.44.0: whether a typing player is asked for the dice the game rolls later
+        // in their roll's run.
+        diceAsks: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()
@@ -1637,6 +1658,16 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // journal in Foundry. Anything but a boolean is read as unsaid.
         orders: leftOut(z.boolean()),
         changes: leftOut(z.boolean()),
+        // From module 0.44.0, under dnd5e: Tidy 5e Sheets, whether it's active, its version, null
+        // where it isn't installed, and which characters hold its journal's entries. An odd one is
+        // read as unsaid, as from a module before it.
+        tidy: leftOut(
+          z.looseObject({
+            active: z.boolean(),
+            version: z.string().max(100).nullable(),
+            actors: z.array(z.string().regex(ACTOR_ID)).max(2000),
+          }),
+        ),
       })
       .nullable()
       .optional()
@@ -1777,6 +1808,45 @@ const journalUpdatedSchema: z.ZodType<JournalUpdated> = z.looseObject({
         limit: z.int().min(0),
       }),
     ])
+    .optional(),
+})
+
+/** A Tidy 5e Sheets journal entry's key: Tidy's own, 1 to 64 letters and digits. */
+const TIDY_ID = /^[\dA-Za-z]{1,64}$/
+
+/**
+ * One of a character's Tidy 5e Sheets journal entries, from module 0.44.0, which sends only what
+ * this takes, as one that can't be read fails the whole event: a Classic box by one of its five
+ * keys.
+ */
+const tidyPageSchema: z.ZodType<TidyPage> = z
+  .object({
+    from: z.enum(TIDY_SOURCES),
+    id: z.string().regex(TIDY_ID),
+    title: z.string().max(MOST_NOTE_TITLE),
+    html: z.string().max(MOST_NOTE_TEXT),
+    cut: z.literal(true).optional(),
+    secret: z.literal(true).optional(),
+    sort: z.int().min(1),
+    rev: z.string().regex(NOTE_REV),
+  })
+  .refine(
+    page => page.from === 'journal' || Object.hasOwn(TIDY_CLASSIC, page.id),
+  )
+
+/**
+ * A character's Tidy 5e Sheets journal as Foundry holds it, from module 0.44.0: its entries, or
+ * held back as too large, its entries `[]`.
+ */
+const journalTidySchema: z.ZodType<JournalTidy> = z.looseObject({
+  actorId: z.string().regex(ACTOR_ID),
+  entries: z.array(tidyPageSchema).max(MOST_TIDY_ENTRIES),
+  withheld: z
+    .object({
+      reason: z.literal('tooLarge'),
+      bytes: z.int().min(0),
+      limit: z.int().min(0),
+    })
     .optional(),
 })
 
@@ -2174,6 +2244,47 @@ const cut = (most: number) =>
 const cutOrNull = (most: number) => orNull(cut(most))
 
 /**
+ * One of the rolls a dice ask lists (module 0.44.0): its formula, its type and flavor, which are
+ * only shown, and its dice terms, each die one a player types in, 1 to 40 of it. Its type, where it
+ * isn't one of dnd5e's keys, and its flavor, where it can't be read, are left out; a term that
+ * can't be read fails it, as its dice couldn't be answered as asked.
+ */
+const diceAskRollSchema: z.ZodType<DiceAskRoll> = z.looseObject({
+  formula: cutTo(400),
+  type: leftOut(z.string().regex(DAMAGE_TYPE)),
+  flavor: leftOut(z.string().transform(text => storable(text, 200))),
+  terms: z
+    .array(
+      z.looseObject({
+        faces: z.union(DICE_ASK_FACES.map(faces => z.literal(faces))),
+        number: z.int().min(1).max(MOST_ASK_DICE),
+      }),
+    )
+    .min(1)
+    .max(MOST_ASK_TERMS),
+})
+
+/**
+ * The dice of a later roll in a typed roll's run, asked of its player (module 0.44.0). What it
+ * asks of, which roll's run it's in, its rolls and when it waits until must be read, or it can't be
+ * answered; its label is only shown, cut; a purpose this app doesn't know reads as "other", and a
+ * critical hit's mark that can't be read as none.
+ */
+const diceAskSchema: z.ZodType<GameDiceAsk> = z.looseObject({
+  id: z.string().regex(DICE_ASK_ID),
+  actorId: z.string().regex(COMPANION_KEY),
+  of: leftOut(z.string().regex(ACTOR_ID)),
+  command: z.string().regex(/^[\w-]{1,64}$/),
+  label: cut(200),
+  purpose: z.enum(DICE_ASK_PURPOSES).catch('other'),
+  again: leftOut(z.enum(DICE_ASK_AGAIN)),
+  critical: z.boolean().catch(false),
+  rolls: z.array(diceAskRollSchema).min(1).max(MOST_ASK_ROLLS),
+  askedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+})
+
+/**
  * This app's id for a dish from the Magical Recipe Book, from the command's: the one field of a
  * dish event that refuses it. The module never re-sends a refused event, so every other field is
  * caught or cut, as one over-long actor name would otherwise lose the Gamemaster's choice for good.
@@ -2236,6 +2347,9 @@ const helloSchema = z.looseObject({
   features: featuresSchema,
   // Sent from module 0.13.0; none from an older module.
   prompts: listOf(promptSchema),
+  // From module 0.44.0, the dice asks open; none from an older module. One that can't be read is
+  // dropped, and closes as one the hello doesn't list.
+  diceAsks: listOf(diceAskSchema),
   // From module 0.22.0: its characters carry no sheets, which follow it.
   sheetsApart: z.boolean().optional().catch(false),
   // What Foundry says of itself, for the Gamemaster's card alone: its versions, from
@@ -2311,6 +2425,11 @@ const EVENT_SCHEMAS: {
     id: z.string().regex(PROMPT_ID),
     reason: z.string().max(32).catch('gone'),
   }),
+  [EVENTS.DICE_ASKED]: z.looseObject({ ask: diceAskSchema }),
+  [EVENTS.DICE_CLOSED]: z.looseObject({
+    id: z.string().regex(DICE_ASK_ID),
+    reason: z.string().max(32).catch('gone'),
+  }),
   [EVENTS.GROUP_UPDATED]: z.looseObject({
     group: z.looseObject({ ...groupEntryFields, sheet: groupSheetSchema }),
   }),
@@ -2319,6 +2438,7 @@ const EVENT_SCHEMAS: {
     settings: leftOut(foundrySettingsSchema),
   }),
   [EVENTS.JOURNAL_UPDATED]: journalUpdatedSchema,
+  [EVENTS.JOURNAL_TIDY]: journalTidySchema,
   [EVENTS.COMPANIONS_LISTED]: z.looseObject({ companions: companionsSchema }),
   [EVENTS.COMPANION_UPDATED]: z.looseObject({
     companion: companionEntrySchema,

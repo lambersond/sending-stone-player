@@ -86,10 +86,17 @@ export function waitingCompanions(
   row: readonly RowCompanion[],
   names: ReadonlyMap<string, string>,
 ): WaitingCompanion[] {
-  return asked.flatMap(({ key, label }) => {
+  return asked.flatMap(({ key, label, dice }) => {
     const shown = row.find(companion => companion.key === key)
     return shown && !shown.gone
-      ? [{ key, label, name: names.get(key) ?? shown.name }]
+      ? [
+          {
+            key,
+            label,
+            name: names.get(key) ?? shown.name,
+            ...(dice && { dice }),
+          },
+        ]
       : []
   })
 }

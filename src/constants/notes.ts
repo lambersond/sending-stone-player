@@ -17,3 +17,24 @@ export const NOTES_PER_MINUTE = 30
 /** The changes one fetch hands over, at most, by count and by characters of titles and bodies. */
 export const NOTE_CLAIM_LIMIT = 5
 export const NOTE_CLAIM_CHARS = 500_000
+
+/**
+ * Where a Tidy 5e Sheets journal entry is kept on its character (module 0.44.0): an entry of Tidy's
+ * current sheet's Journal tab, or one of its Classic sheet's five boxes.
+ */
+export const TIDY_SOURCES = ['journal', 'classic'] as const
+/** The most entries one journal.tidy lists. */
+export const MOST_TIDY_ENTRIES = 400
+/**
+ * The Classic sheet's five boxes, in its Journal tab's order, each by its key and the heading Tidy
+ * shows it under until it's named; Journal Entries is never named.
+ */
+export const TIDY_CLASSIC = {
+  notes1: 'Persons of Interest',
+  notes2: 'Locations of Interest',
+  notes3: 'Quests',
+  notes4: 'Miscellaneous',
+  notes: 'Journal Entries',
+} as const
+/** The first Tidy 5e Sheets release that no longer shows the Classic sheet's boxes. */
+export const TIDY_CLASSIC_GONE = 14

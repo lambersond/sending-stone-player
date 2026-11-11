@@ -36,7 +36,7 @@ import { isMyTurn } from '@/features/table/utils/combat'
 import { pageConnection } from '@/features/table/utils/header'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { TurnToastContext } from '@/hooks/use-turn-toast-foot'
-import { useWaitingPrompts } from '@/hooks/use-waiting-prompts'
+import { useStillWaiting, useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { seatWords } from '@/utils/seat-words'
 import type { NotesPlace } from '@/features/notes/types'
 import type { GameTableProps, Tab } from '@/features/table/types'
@@ -83,8 +83,12 @@ export function GameTable({
     sideBySide: tabs.sideBySide,
     combatShown: tabs.combatShown,
   })
-  // The saves the game asks of the character, which its tab marks while they wait.
+  // The saves the game asks of the character, and from module 0.44.0 the dice it asks its player
+  // for, which its tab marks while they wait: an ask on the sheet's banner, out of sight behind
+  // Chat or Combat, rolled by the game once its minute is up.
   const asked = useWaitingPrompts(view.connected ? view.prompts : undefined)
+  const diceAsked = useStillWaiting(view.connected ? view.diceAsks : undefined)
+  const asking = asked.length > 0 || diceAsked.length > 0
   const companions = useCompanionRow({
     view,
     seatKey: seat.key,
@@ -153,7 +157,7 @@ export function GameTable({
         view={view}
         companions={companions}
         words={words}
-        asking={asked.length > 0}
+        asking={asking}
         header={header}
         diceSwitch={diceSwitch}
         notes={notes}
@@ -255,7 +259,7 @@ export function GameTable({
         </div>
         <TableNav
           tab={tabs.tab}
-          asking={asked.length > 0 || companions.waitingKeys.size > 0}
+          asking={asking || companions.waitingKeys.size > 0}
           asksForRoll={words.asksForRoll}
           myTurn={myTurn}
           unread={unread}

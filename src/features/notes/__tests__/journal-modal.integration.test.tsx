@@ -22,6 +22,7 @@ import {
   noteChapter,
   noteEntry,
   serveNotes,
+  tidyJournal,
 } from '@/mocks/notes-server'
 import { minutesAgo as ago } from '@/utils/test-utils'
 import type { NotesView } from '@/types/notes'
@@ -776,6 +777,147 @@ describe('components/notes/journal-modal', () => {
       expect(reader(dialog)).toHaveTextContent('A rumour')
       await remove('rumourNote000001')
       expect(reader(dialog)).toHaveTextContent('Not in a chapter')
+    })
+  })
+
+  // Module 0.44.0: the character's Tidy 5e Sheets entries, read only, last.
+  describe('Tidy 5e Sheets’ journal', () => {
+    it('lists the entries last, read only with their chips, and reads one with its dates and where to change it', async () => {
+      const user = userEvent.setup()
+      serveNotes({ [API]: book({ tidy: tidyJournal() }) })
+      renderCard()
+      expect(
+        await screen.findByText(/1 chapter · 3 notes · 2 from Tidy 5e Sheets/),
+      ).toBeInTheDocument()
+      const dialog = await openJournal(user)
+      const listed = within(contents(dialog))
+        .getAllByRole('button')
+        .map(button => button.getAttribute('aria-label'))
+      expect(listed.slice(-3)).toEqual([
+        'From Tidy 5e Sheets',
+        'Ravenhill',
+        'Quests',
+      ])
+      // Each named by its title alone, and described by its chip's words.
+      for (const [name, chip] of [
+        ['Ravenhill', 'Tidy 5e'],
+        ['Quests', 'Tidy 5e Classic'],
+      ]) {
+        expect(
+          within(contents(dialog)).getByRole('button', { name }),
+        ).toHaveAccessibleDescription(chip)
+      }
+      await user.click(
+        within(contents(dialog)).getByRole('button', { name: 'Quests' }),
+      )
+      expect(reader(dialog)).toHaveTextContent('Quests')
+      expect(within(dialog).getAllByText('Tidy 5e Classic')).toHaveLength(2)
+      expect(within(dialog).getByText('Return the key to Dale.')).toBeVisible()
+      expect(
+        within(dialog).getByText(
+          'Change it on Thorin’s Journal tab in Foundry.',
+        ),
+      ).toBeInTheDocument()
+      for (const name of [/^Edit/, /^Delete/, /^Move/]) {
+        expect(within(dialog).queryByRole('button', { name })).toBeNull()
+      }
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Previous note' }),
+      )
+      expect(reader(dialog)).toHaveTextContent('Ravenhill')
+      expect(within(dialog).getByText(/First seen/)).toBeInTheDocument()
+    })
+
+    it('opens on their page where they’re all the journal holds, never the empty journal', async () => {
+      const user = userEvent.setup()
+      serveNotes({
+        [API]: emptyBook({ tidy: tidyJournal({ active: false }) }),
+      })
+      renderCard()
+      expect(
+        await screen.findByText('2 from Tidy 5e Sheets'),
+      ).toBeInTheDocument()
+      const dialog = await openJournal(user)
+      expect(within(dialog).queryByText('No notes yet')).toBeNull()
+      expect(
+        within(dialog).getByRole('button', { name: 'New note' }),
+      ).toBeInTheDocument()
+      expect(reader(dialog)).toHaveTextContent('Ravenhill')
+      await user.click(
+        within(contents(dialog)).getByRole('button', {
+          name: 'From Tidy 5e Sheets',
+        }),
+      )
+      expect(reader(dialog)).toHaveTextContent('From Tidy 5e Sheets')
+      expect(
+        within(dialog).getByText(
+          'Tidy 5e Sheets is turned off in Foundry: these are kept on Thorin, but can’t be changed until it’s back on.',
+        ),
+      ).toBeInTheDocument()
+      expect(within(dialog).getByText('In Tidy 5e Sheets')).toBeInTheDocument()
+    })
+
+    it('finds them by their text, as it finds notes', async () => {
+      const user = userEvent.setup()
+      serveNotes({ [API]: book({ tidy: tidyJournal() }) })
+      renderCard()
+      const dialog = await openJournal(user)
+      await user.type(
+        within(dialog).getByRole('searchbox', { name: 'Search notes' }),
+        'dale',
+      )
+      const nav = within(contents(dialog))
+      expect(nav.getByRole('button', { name: 'Quests' })).toBeInTheDocument()
+      expect(nav.queryByRole('button', { name: 'Ravenhill' })).toBeNull()
+      expect(nav.queryByText(/No notes match/)).toBeNull()
+    })
+
+    it('gives way to the next entry as the one shown is deleted in Foundry, as a note does', async () => {
+      jest.useFakeTimers()
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+      const server = serveNotes({ [API]: book({ tidy: tidyJournal() }) })
+      renderCard()
+      const dialog = await openJournal(user)
+      await user.click(
+        within(contents(dialog)).getByRole('button', { name: 'Ravenhill' }),
+      )
+      const held = server.books[API]
+      held.tidy = tidyJournal({ entries: held.tidy!.entries.slice(1) })
+      held.version += 1
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(POLL_INTERVAL)
+      })
+      expect(reader(dialog)).toHaveTextContent('Quests')
+    })
+
+    it('reads on from the book’s last note to the first entry, and back', async () => {
+      const user = userEvent.setup()
+      serveNotes({ [API]: book({ tidy: tidyJournal() }) })
+      renderCard()
+      const dialog = await openJournal(user)
+      await user.click(
+        within(contents(dialog)).getByRole('button', { name: 'Wolves' }),
+      )
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Next note' }),
+      )
+      expect(reader(dialog)).toHaveTextContent('Ravenhill')
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Previous note' }),
+      )
+      expect(reader(dialog)).toHaveTextContent('Wolves')
+      expect(
+        within(dialog).getByRole('navigation', { name: 'Other notes' }),
+      ).toHaveTextContent('NextRavenhill')
+    })
+
+    it('shows nothing of them from a module before 0.44.0', async () => {
+      const user = userEvent.setup()
+      serveNotes({ [API]: book() })
+      renderCard()
+      const dialog = await openJournal(user)
+      expect(within(dialog).queryByText(/Tidy 5e/)).toBeNull()
+      expect(screen.queryByText(/from Tidy 5e Sheets/)).toBeNull()
     })
   })
 

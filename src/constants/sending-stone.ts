@@ -82,11 +82,14 @@ export const EVENTS = {
   GROUP_UPDATED: 'group.updated',
   GROUP_REMOVED: 'group.removed',
   JOURNAL_UPDATED: 'journal.updated',
+  JOURNAL_TIDY: 'journal.tidy',
   BRIDGE_SETTINGS: 'bridge.settings',
   COMPANIONS_LISTED: 'companions.listed',
   COMPANION_UPDATED: 'companion.updated',
   DISH_APPLIED: 'dish.applied',
   DISH_DISMISSED: 'dish.dismissed',
+  DICE_ASKED: 'roll.dice.asked',
+  DICE_CLOSED: 'roll.dice.closed',
 } as const
 
 /**
@@ -113,6 +116,8 @@ export const EVENTS = {
  * And from module 0.44.0, a plain roll of the dice the player picks, any mix of sizes with a flat
  * number, made as any roll is; and the hit points and temporary hit points of the character, its
  * Wild Shape form or a companion set to the numbers the player entered, no roll either.
+ * And from module 0.44.0, the dice a typing player types in for a later roll of a typed roll's
+ * run, which the game asks of them: no roll of its own, but the dice of one.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -147,6 +152,7 @@ export const ROLL_KINDS = [
   'wildShape',
   'prepare',
   'hitPoints',
+  'dice',
 ] as const
 
 /**
@@ -338,6 +344,53 @@ export const WILD_SHAPE = 1
 export const HIT_POINTS = 1
 
 /**
+ * The format of dice asks this app reads, as it tells the module (`diceAsks`): from module 0.44.0,
+ * the dice the game rolls later in a typed roll's run, asked of its player, the hello's `diceAsks`,
+ * `roll.dice.asked` and `roll.dice.closed`, and the `dice` command answering one, which the module
+ * asks, and takes, only then.
+ */
+export const DICE_ASKS = 1
+
+/** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
+export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/
+
+/**
+ * What a dice ask's roll is (module 0.44.0): damage, healing, a utility's formula, dice a use
+ * spends, a Midi-QOL bonus damage macro's formula, one die of a roll thrown again, or other.
+ */
+export const DICE_ASK_PURPOSES = [
+  'damage',
+  'healing',
+  'formula',
+  'cost',
+  'bonus',
+  'again',
+  'other',
+] as const
+
+/** Why a die of a roll is thrown again, for a dice ask's `again` (module 0.44.0). */
+export const DICE_ASK_AGAIN = ['explode', 'reroll'] as const
+
+/** The dice a dice ask lists, by their faces (module 0.44.0): every other is Foundry's. */
+export const DICE_ASK_FACES = [4, 6, 8, 10, 12, 20, 100] as const
+
+/**
+ * The most of each a dice ask lists (module 0.44.0): rolls, each roll's dice terms, and each
+ * term's dice; and the most entries its answer names.
+ */
+export const MOST_ASK_ROLLS = 10
+export const MOST_ASK_TERMS = 10
+export const MOST_ASK_DICE = 40
+export const MOST_ANSWER_ENTRIES = 100
+
+/**
+ * The longest the game waits for a dice ask's answer, from when it asks, in milliseconds (module
+ * 0.44.0): then Foundry's computer dice roll it. One that says it waits longer is held as waiting
+ * this long, from when it came.
+ */
+export const DICE_ASK_WAIT = 60_000
+
+/**
  * The most hit points, or temporary hit points, a player sets from here, from module 0.44.0's
  * `hitPoints` command, as the module takes them: well above any pool a sheet has.
  */
@@ -386,9 +439,11 @@ export const ENDING_STATUSES = [
  * The format of journal notes this app takes, as it tells the module (`notes`): from module 0.34.0,
  * the `note` command, `journal.updated` and the hello's `features.notes`. The module fetches for
  * them, and sends journals, only then. From module 0.35.0, 2: it reads who changed a journal in
- * Foundry, `journal.changed`, and sends orders of a group's notes, `op: "order"`.
+ * Foundry, `journal.changed`, and sends orders of a group's notes, `op: "order"`. From module
+ * 0.44.0, 3: it reads a character's Tidy 5e Sheets journal, `journal.tidy`, which the module sends
+ * only then; a module before it reads 3 as 2.
  */
-export const NOTES = 2
+export const NOTES = 3
 
 /**
  * The format of companions this app takes, as it tells the module (`companions`): from module

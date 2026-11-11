@@ -9,8 +9,9 @@ import type { RefObject } from 'react'
 /**
  * The table's tabs on a phone or tablet: a bar at the bottom, or a rail beside the page from 768
  * pixels, gone from 1024 where the sheet and the column sit side by side. Each marks what waits
- * on it: a save asked, the seat's turn, unread messages.
- * @param asking - Whether the game asks a save of the character, or of a companion, that waits.
+ * on it: a save asked, or dice, the seat's turn, unread messages.
+ * @param asking - Whether the game asks a save of the character, or of a companion, or from module
+ *   0.44.0 its player's dice, that waits.
  * @param quiet - Whether the tabs ignore clicks now, just after a hold has ended the turn.
  * @param onShow - Shows a tab.
  * @param combatTab - The Combat tab, where focus on the turn may go.

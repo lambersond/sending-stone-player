@@ -104,8 +104,16 @@ function orderFrom(order: JournalOrder): Prisma.JournalOrderWhereInput {
     : { status: order.status }
 }
 
-/** Read a book for a seat: its notes and its changes waiting, and the campaign around it. */
-async function readBook(book: NotesBook): Promise<HeldBook | undefined> {
+/**
+ * Read a book for a seat: its notes and its changes waiting, and the campaign around it; and where
+ * it's to be shown, a personal book's Tidy 5e Sheets journal (module 0.44.0), which no change here
+ * reads.
+ */
+async function readBook(
+  book: NotesBook,
+  { tidy = false }: { tidy?: boolean } = {},
+): Promise<HeldBook | undefined> {
+  const withTidy = tidy && book.kind === 'personal'
   const [campaign, row] = await Promise.all([
     prisma.campaign.findUnique({
       where: { id: book.campaignId },
@@ -115,6 +123,8 @@ async function readBook(book: NotesBook): Promise<HeldBook | undefined> {
         notesEnabled: true,
         noteFeatures: true,
         bridgePolledAt: true,
+        tidyActive: true,
+        tidyVersion: true,
       },
     }),
     prisma.journalBook.findUnique({
@@ -135,6 +145,18 @@ async function readBook(book: NotesBook): Promise<HeldBook | undefined> {
         notes: true,
         writes: true,
         orders: true,
+        tidy: withTidy && {
+          select: {
+            source: true,
+            entryId: true,
+            title: true,
+            html: true,
+            sort: true,
+            secret: true,
+            firstSeenAt: true,
+            changedAt: true,
+          },
+        },
       },
     }),
   ])
@@ -171,6 +193,13 @@ async function readBook(book: NotesBook): Promise<HeldBook | undefined> {
     enabled: campaign.notesEnabled,
     origin: campaign.origin,
     names: new Map(roster.map(({ id, name }) => [id, name])),
+    ...(withTidy && {
+      tidy: {
+        entries: row?.tidy ?? [],
+        active: campaign.tidyActive,
+        version: campaign.tidyVersion,
+      },
+    }),
   }
 }
 
@@ -187,7 +216,7 @@ export async function getNotesView(
   seat: NotesSeat,
   book: NotesBook,
 ): Promise<NotesView | undefined> {
-  const held = await readBook(book)
+  const held = await readBook(book, { tidy: true })
   if (!held) return undefined
   return viewOf(held, seat).view
 }

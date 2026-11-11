@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { CompanionPane } from '../components/companion-pane/companion-pane'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { useCreature } from '@/hooks/use-creature'
+import { tableIceKnife } from '@/mocks/dice-asks'
 import {
   biteAction,
   mockCompanionSheet,
@@ -175,6 +176,20 @@ const brakkaView = (fields: Partial<CompanionView> = {}): CompanionView =>
     rollsToTable: ['ability', 'skill', 'attack', 'damage', 'use', 'formula'],
     rollFeatures: [],
     ...fields,
+  })
+
+/** Its view while the game asks for its Bite's later 2d6, in its own roll's run (module 0.44.0). */
+const bitten = () =>
+  brakkaView({
+    rollsToTable: ['attack', 'damage', 'dice'],
+    rollFeatures: ['manualDice'],
+    diceAsks: [
+      tableIceKnife({
+        command: 'req-9',
+        label: 'Bite: Rend',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      }),
+    ],
   })
 
 type Props = Partial<Parameters<typeof CompanionPane>[0]>
@@ -642,6 +657,41 @@ describe('CompanionPane, the saves the game asks of it, from module 0.41.0 (roun
     expect(
       await screen.findByRole('region', { name: 'Your game asks' }),
     ).toBeInTheDocument()
+  })
+
+  describe('the dice the game asks for in its own typed rolls’ runs, from module 0.44.0', () => {
+    const BANNER = { name: 'The game asks for your dice' }
+
+    it('asks on its own banner, and answers through its own routes', async () => {
+      const user = userEvent.setup()
+      const asked = routes([bitten()])
+      render(pane())
+
+      const banner = await screen.findByRole('region', BANNER)
+      await user.click(
+        within(banner).getByRole('button', {
+          name: 'Let the game roll 2d6 Cold for Bite: Rend',
+        }),
+      )
+
+      expect(posts(asked)).toEqual([
+        expect.objectContaining({
+          url: `${API}/rolls`,
+          body: expect.objectContaining({
+            kind: 'dice',
+            diceAsk: 'ask1',
+            answer: [],
+          }),
+        }),
+      ])
+    })
+
+    it('has no banner once it’s no longer its character’s', async () => {
+      routes([bitten()])
+      render(pane({ gone: true }))
+      await screen.findByRole('tablist', { name: 'Character sheet' })
+      expect(screen.queryByRole('region', BANNER)).toBeNull()
+    })
   })
 
   describe('hit points set from its header’s tile, from module 0.44.0', () => {

@@ -20,6 +20,7 @@ import type { SheetAction, SpellSlotOp } from '@/types/sending-stone'
 import type {
   CreatureFacts,
   TableCombat,
+  TableDiceAsk,
   TablePrompt,
   TableSheet,
 } from '@/types/table'
@@ -83,6 +84,11 @@ export type CharacterPaneProps = {
   rollFeatures?: RollFeature[]
   /** The saving throws the game asks of the character, for its player to roll here. */
   prompts?: TablePrompt[]
+  /**
+   * The dice the game asks its player for, for later rolls in their typed rolls' runs, from module
+   * 0.44.0: on the device that sent the roll, its dialog opens by itself; else its banner.
+   */
+  diceAsks?: TableDiceAsk[]
   /**
    * For its player, the rolls the campaign's Gamemaster made as the character lately (#156), shown
    * among their own.

@@ -1,4 +1,4 @@
-import { usedWords } from './tray-words'
+import { onItsWayWords, usedWords } from './tray-words'
 import type { Creature } from '../types'
 import type { LocalUse, TableRollState } from '@/types/roll'
 
@@ -77,5 +77,16 @@ describe('features/rolling/utils/tray-words, hit points set', () => {
     ],
   ])('says one %s', (_name, state, creature, words) => {
     expect(usedWords(fall, state, 'player', creature)).toBe(words)
+  })
+})
+
+describe('features/rolling/utils/tray-words, the dice the game asks for (module 0.44.0)', () => {
+  it('says a roll the game holds asking for them waits for the player’s dice', () => {
+    expect(
+      onItsWayWords({ status: 'rolling', diceAsked: true }, 'player'),
+    ).toBe('Waiting for your dice…')
+    expect(onItsWayWords({ status: 'rolling' }, 'player')).toBe(
+      'Rolling in your Gamemaster’s game…',
+    )
   })
 })

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { useTableView } from '@/features/table/hooks/use-table-view'
+import { tableIceKnife } from '@/mocks/dice-asks'
 import { fakeFullscreen } from '@/mocks/fullscreen'
 import {
   characterSheet,
@@ -412,6 +413,43 @@ describe('components/game-table/game-table', () => {
       'aria-current',
       'page',
     )
+  })
+
+  // Below 1024 pixels the sheet, and the banner of the dice the game asks for, is a hidden tab
+  // while Chat or Combat shows: there, as on another of the player's devices, the game rolls them
+  // once their minute is up.
+  it('marks the character tab while the game asks the player for their dice, until their minute is up though the view still lists them, from module 0.44.0', async () => {
+    jest.useFakeTimers()
+    try {
+      const user = userEvent.setup({
+        advanceTimers: jest.advanceTimersByTime,
+      })
+      renderTable(
+        view({
+          diceAsks: [
+            tableIceKnife({
+              expiresAt: new Date(Date.now() + 5000).toISOString(),
+            }),
+          ],
+        }),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Chat' }))
+      expect(
+        screen.getByRole('button', {
+          name: 'Character , your Gamemaster asks for a roll',
+        }),
+      ).toBeInTheDocument()
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5200)
+      })
+      expect(
+        screen.getByRole('button', { name: 'Character' }),
+      ).toBeInTheDocument()
+    } finally {
+      jest.useRealTimers()
+    }
   })
 
   it('marks the character tab for no notice of how what Midi-QOL asked closed, nor for one whose time is up (module 0.27.0)', async () => {

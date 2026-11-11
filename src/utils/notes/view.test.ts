@@ -343,6 +343,50 @@ describe('utils/notes/view', () => {
     })
   })
 
+  describe('viewOf, with a character’s Tidy 5e Sheets journal (module 0.44.0)', () => {
+    const tidy = {
+      entries: [
+        {
+          source: 'journal' as const,
+          entryId: 'tidyRavenhill01',
+          title: 'Ravenhill',
+          html: '<p>Ravens.</p>',
+          sort: 1,
+          secret: false,
+          firstSeenAt: null,
+          changedAt: null,
+        },
+      ],
+      active: false,
+      version: '13.10.5',
+    }
+
+    it.each([
+      ['the character’s player', thorin],
+      ['the Gamemaster', gm],
+    ])('shows it to %s, read only beside the book', (_name, seat) => {
+      expect(viewOf(heldBook({ tidy }), seat).view.tidy).toEqual({
+        active: false,
+        installed: true,
+        classicGone: false,
+        entries: [expect.objectContaining({ key: 'journal:tidyRavenhill01' })],
+      })
+    })
+
+    it('never shows it in a party’s book', () => {
+      const party = heldBook({
+        tidy,
+        book: {
+          campaignId: 'c1',
+          kind: 'party',
+          actorId: 'company',
+          private: false,
+        },
+      })
+      expect(viewOf(party, gm).view).not.toHaveProperty('tidy')
+    })
+  })
+
   describe('viewOf', () => {
     const chapter = mirrorNote({
       noteId: SESSION,

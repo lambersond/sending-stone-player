@@ -52,6 +52,8 @@ describe('utils/hello-features', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         companionKinds: [],
         companionInitiative: 'own',
       }),
@@ -97,6 +99,30 @@ describe('utils/hello-features', () => {
     [undefined, false],
   ])('keeps hit points on from features.hitPoints %j: %s', (hitPoints, on) => {
     expect(helloCampaignData({ hitPoints }).hitPointsEnabled).toBe(on)
+  })
+
+  // Module 0.44.0: Tidy 5e Sheets, active or not, installed or not, as the hello's notes say it.
+  it.each([
+    [{ active: true, version: '14.4.1', actors: [] }, true, '14.4.1'],
+    [
+      { active: false, version: '13.10.5', actors: ['thorin'] },
+      false,
+      '13.10.5',
+    ],
+    [{ active: false, version: null, actors: ['thorin'] }, false, null],
+    [undefined, null, null],
+  ])('keeps Tidy from features.notes.tidy %j', (tidy, active, version) => {
+    const notes = {
+      enabled: true,
+      kinds: ['personal', 'party'],
+      reason: null,
+      journals: [],
+      tidy,
+    }
+    expect(helloCampaignData({ notes })).toMatchObject({
+      tidyActive: active,
+      tidyVersion: version,
+    })
   })
 
   it('takes neither hit points nor a plain roll as a companion’s roll', () => {

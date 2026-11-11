@@ -13,6 +13,7 @@ import {
 import { SearchField } from '@/components/search-field/search-field'
 import { StateMark } from '@/features/notes/components/note-lines/state-mark'
 import { OrderMark } from '@/features/notes/components/order-state/order-mark'
+import { TidyContents } from '@/features/notes/components/tidy-contents/tidy-contents'
 import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
 import { groupNeedsChoice, keyOf } from '@/features/notes/utils/groups'
 import type { ContentsProps } from './types'
@@ -25,7 +26,8 @@ const OUTLINE =
 
 /**
  * The journal's contents (round 0.35.0 §8.6): a search, then the notes in no chapter and every
- * chapter, each shut or open, with its notes; and New note and New chapter. From 640 px of the
+ * chapter, each shut or open, with its notes; from module 0.44.0 the character's Tidy 5e Sheets
+ * entries last, read only; and New note and New chapter. From 640 px of the
  * modal they're a pane at its left; below, a drawer, opened by the reader's Contents button, which
  * is inert while it's closed, so Tab never reaches it. While the editor or a Reorder fills the
  * reader, they're inert and say why.
@@ -36,6 +38,8 @@ export function Contents({
   query,
   onQuery,
   hits,
+  tidy,
+  tidyHits,
   shown,
   draftNote,
   locked,
@@ -135,7 +139,7 @@ export function Contents({
             aria-label='Contents'
             className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3'
           >
-            {searching && listed.length === 0 && (
+            {searching && listed.length === 0 && !tidyHits?.size && (
               <p className='px-3 py-2 text-sm text-text-secondary'>
                 No notes match “{query.trim()}”.
               </p>
@@ -229,6 +233,14 @@ export function Contents({
                 </div>
               )
             })}
+            {tidy && (
+              <TidyContents
+                tidy={tidy}
+                hits={tidyHits}
+                shown={shown}
+                onPick={onPick}
+              />
+            )}
           </nav>
         ) : (
           <div aria-hidden className='flex flex-col gap-5 p-4'>

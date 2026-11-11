@@ -1,6 +1,7 @@
 import {
   ALONE_CHOICES,
   COMPANIONS,
+  DICE_ASKS,
   DISHES,
   EFFECTS,
   EVENTS,
@@ -54,7 +55,9 @@ export const BRIDGE_SWITCHES = [
  * of companions (`companions` 2), and the plans of damage on its own at each level, in each attack
  * mode and with each ammunition, and what it would spend (`aloneChoices`), which the module sends
  * only then; and from module 0.44.0 hit points and temporary hit points set from here, of the
- * characters, their Wild Shape forms and their companions, which the module fetches for only then.
+ * characters, their Wild Shape forms and their companions, which the module fetches for only then;
+ * and from module 0.44.0 too the dice the game rolls later in a typed roll's run, asked of its
+ * player, which the module asks, and takes the `dice` answer to, only then.
  */
 export const FEATURES = {
   commands: true,
@@ -73,6 +76,7 @@ export const FEATURES = {
   wildShape: WILD_SHAPE,
   aloneChoices: ALONE_CHOICES,
   hitPoints: HIT_POINTS,
+  diceAsks: DICE_ASKS,
 }
 
 /**

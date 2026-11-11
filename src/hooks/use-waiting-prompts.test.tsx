@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import {
   useShownPrompts,
-  useWaitingCompanions,
+  useStillWaiting,
   useWaitingPrompts,
 } from './use-waiting-prompts'
 import type { CompanionAsked, TablePrompt } from '@/types/table'
@@ -146,7 +146,7 @@ describe('hooks/use-waiting-prompts, companions asked, from module 0.41.0 (round
       asked('arena-bat2', '2026-10-08T12:08:00.000Z'),
       asked('brakka', '2026-10-08T12:04:00.000Z'),
     ]
-    const { result } = renderHook(() => useWaitingCompanions(companions))
+    const { result } = renderHook(() => useStillWaiting(companions))
     expect(result.current.map(({ key }) => key)).toEqual([
       'arena-bat1',
       'arena-bat2',
@@ -160,7 +160,7 @@ describe('hooks/use-waiting-prompts, companions asked, from module 0.41.0 (round
   })
 
   it('is empty while the game asks no companion', () => {
-    const { result } = renderHook(() => useWaitingCompanions())
+    const { result } = renderHook(() => useStillWaiting())
     expect(result.current).toEqual([])
   })
 })

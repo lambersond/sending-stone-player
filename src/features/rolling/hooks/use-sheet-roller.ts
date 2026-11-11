@@ -639,6 +639,22 @@ export function useSheetRoller(
     [keep],
   )
 
+  // Keeps the dice the game asked for, from module 0.44.0, first among the rolls, as a formula
+  // rolled is: what was typed, and what was left to the game, whose total follows.
+  const logDiceAnswer = useCallback(
+    (answered: Omit<LocalFormula, 'kind' | 'id' | 'at'>): LocalFormula => {
+      const kept: LocalFormula = {
+        kind: 'formula',
+        id: `dice-${Date.now()}-${++uses}`,
+        ...answered,
+        at: Date.now(),
+      }
+      setRolls(earlier => keeping(earlier, kept))
+      return kept
+    },
+    [],
+  )
+
   return {
     roll,
     rollDamage,
@@ -653,6 +669,7 @@ export function useSheetRoller(
     logWildShape,
     logHitPoints,
     logAsk,
+    logDiceAnswer,
     rolls,
     rolling: inFlight > 0,
   }

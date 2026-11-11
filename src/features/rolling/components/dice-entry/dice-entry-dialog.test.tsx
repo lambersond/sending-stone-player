@@ -1398,6 +1398,31 @@ describe('components/dice-entry/dice-entry-dialog', () => {
       expect(screen.queryByText(note)).toBeNull()
     })
 
+    it('says the subtitle and the Cancel its entry gives, as for the dice the game asks for later (module 0.44.0)', async () => {
+      const onCancel = jest.fn()
+      render(
+        <DiceEntryDialog
+          entry={entry({
+            title: 'Ice Knife: Shard Explosion',
+            subtitle: 'The game asks for these dice',
+            cancelLabel: 'Let the game roll',
+          })}
+          onDone={jest.fn()}
+          onCancel={onCancel}
+        />,
+      )
+
+      const dialog = screen.getByRole('dialog', {
+        name: 'Ice Knife: Shard Explosion',
+      })
+      expect(dialog).toHaveTextContent('The game asks for these dice')
+      expect(dialog).not.toHaveTextContent('Type in what your dice show')
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Let the game roll' }),
+      )
+      expect(onCancel).toHaveBeenCalledTimes(1)
+    })
+
     it('makes Skip and Type it in as tall as a fingertip on a phone, as Cancel from a tablet up, beside their heading until they wrap', () => {
       open(BLESSED)
 

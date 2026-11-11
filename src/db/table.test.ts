@@ -1,5 +1,6 @@
 import { playerSeat } from './seats'
 import { getCampaignStatus, getTableView, MESSAGE_LIMIT } from './table'
+import { heldIceKnife, tableIceKnife } from '@/mocks/dice-asks'
 import {
   characterSheet,
   chatMessage,
@@ -1583,6 +1584,68 @@ describe('db/table, typing in their own dice, from module 0.32.0', () => {
   )
 })
 
+/** Ice Knife's ask, open 40 s more. */
+const openAsk = () => heldIceKnife({ expiresAt: new Date(Date.now() + 40_000) })
+
+describe('db/table, the dice the game asks for, from module 0.44.0', () => {
+  const thorin = { ...character, actorId: roster[0].id, manualDice: true }
+  /** A game asking typing players for the dice it rolls later, as it takes their answers. */
+  const asking = taking(['manualDice', 'diceAsks'], ['damage', 'dice'])
+
+  it('lists those still open of a player typing in their dice, as their page reads them', async () => {
+    givenCampaign(asking)
+    const ask = openAsk()
+    prismaMock.diceAsk.findMany.mockResolvedValue([ask] as any)
+
+    const view = await getTableView(thorin)
+    expect(view.diceAsks).toEqual([
+      tableIceKnife({ expiresAt: ask.expiresAt.toISOString() }),
+    ])
+    expect(prismaMock.diceAsk.findMany).toHaveBeenCalledWith({
+      where: {
+        campaignId: 'c1',
+        actorId: roster[0].id,
+        // The character's own, never a companion's of its runs.
+        ofActorId: null,
+        closedAt: null,
+        expiresAt: { gt: expect.any(Date) },
+      },
+      orderBy: { askedAt: 'asc' },
+      select: {
+        askId: true,
+        commandId: true,
+        data: true,
+        expiresAt: true,
+        closedAt: true,
+      },
+    })
+  })
+
+  it.each([
+    [
+      'a player not typing in their dice',
+      { ...thorin, manualDice: false },
+      asking,
+    ],
+    [
+      "the Gamemaster's seat, whose rolls open no run",
+      { ...thorin, role: 'gm' as const, userId: 'gm-1', characterId: null },
+      taking(['manualDice', 'diceAsks', 'gmRolls'], ['damage', 'dice']),
+    ],
+    [
+      'a game not taking the answer now',
+      thorin,
+      taking(['manualDice'], ['damage']),
+    ],
+  ])('lists none, and reads none, for %s', async (_, seat, found) => {
+    givenCampaign(found)
+    prismaMock.diceAsk.findMany.mockResolvedValue([openAsk()] as any)
+
+    expect(await getTableView(seat)).not.toHaveProperty('diceAsks')
+    expect(prismaMock.diceAsk.findMany).not.toHaveBeenCalled()
+  })
+})
+
 /** The campaign, its game removing items as given, and fetching as lately as given. */
 const removing = (
   removalsEnabled = true,
@@ -2166,6 +2229,15 @@ describe('db/table, companions, from module 0.36.0', () => {
 })
 
 /** The companions' prompts held, oldest first; the character's own, none. */
+/** A dice ask of one of Thorin's companions, in his own run (module 0.44.0). */
+const diceAsked = (actorId: string, label: string, expiresAt: Date) =>
+  heldIceKnife({
+    actorId,
+    ofActorId: PARTY.thorin,
+    expiresAt,
+    data: { label },
+  })
+
 const askingCompanions = (companions: object[]) =>
   prismaMock.rollPrompt.findMany.mockImplementation(((query: any) =>
     Promise.resolve(
@@ -2202,7 +2274,7 @@ describe("db/table, the saves the game asks of the character's companions, from 
     data: { dc: 13, label: 'Burning Hands', messageId: 'msg1', ...data },
     expiresAt,
   })
-  const held = (features = ['prompts', 'companionPrompts']) =>
+  const held = (features = ['prompts', 'companionPrompts'], kinds = ['save']) =>
     prismaMock.campaign.findUnique.mockResolvedValue({
       ...campaign,
       origin: ORIGIN,
@@ -2212,7 +2284,7 @@ describe("db/table, the saves the game asks of the character's companions, from 
       ],
       companions: [wolf, imp, hound],
       rollsEnabled: true,
-      rollKinds: ['save'],
+      rollKinds: kinds,
       rollFeatures: features,
       bridgePolledAt: new Date(NOW - 5000),
     } as any)
@@ -2336,5 +2408,72 @@ describe("db/table, the saves the game asks of the character's companions, from 
     expect(
       queries.some(([query]) => typeof query.where.actorId === 'object'),
     ).toBe(false)
+  })
+
+  describe('and from module 0.44.0, the dice the game asks of its player in their runs', () => {
+    /** Thorin's player, typing in their dice. */
+    const typing = { ...thorin, manualDice: true }
+    beforeEach(() => {
+      held(
+        ['prompts', 'companionPrompts', 'manualDice', 'diceAsks'],
+        ['save', 'dice'],
+      )
+    })
+
+    it('marks each companion its dice are asked of after those asked a save, its first ask named, the soonest time one stops', async () => {
+      askingCompanions([
+        asked(
+          'wolfBrakka',
+          { type: 'save', abilities: ['dex'] },
+          at('12:10:00'),
+        ),
+      ])
+      prismaMock.diceAsk.findMany.mockImplementation(((query: any) =>
+        Promise.resolve(
+          typeof query.where.actorId === 'object'
+            ? [
+                diceAsked('sceneFrost-tokenImp', 'Bite', at('12:06:00')),
+                diceAsked('wolfBrakka', 'Bite: Rend', at('12:05:30')),
+              ]
+            : [],
+        )) as any)
+
+      const view = await getTableView(typing)
+      expect(view.companionPrompts).toEqual([
+        {
+          key: 'wolfBrakka',
+          label: 'Dexterity saving throw',
+          expiresAt: '2026-10-08T12:05:30.000Z',
+        },
+        {
+          key: 'sceneFrost-tokenImp',
+          label: 'Bite',
+          expiresAt: '2026-10-08T12:06:00.000Z',
+          dice: true,
+        },
+      ])
+      // Only the character's own companions', in its own runs, still open.
+      expect(prismaMock.diceAsk.findMany).toHaveBeenCalledWith({
+        where: {
+          campaignId: 'c1',
+          actorId: { in: ['wolfBrakka', 'sceneFrost-tokenImp'] },
+          ofActorId: PARTY.thorin,
+          closedAt: null,
+          expiresAt: { gt: new Date(NOW) },
+        },
+        orderBy: { askedAt: 'asc' },
+        select: { actorId: true, data: true, expiresAt: true },
+      })
+    })
+
+    it('reads none for a player not typing in their dice', async () => {
+      askingCompanions([])
+      prismaMock.diceAsk.findMany.mockResolvedValue([
+        diceAsked('wolfBrakka', 'Bite: Rend', at('12:05:30')),
+      ] as any)
+
+      expect(await getTableView(thorin)).not.toHaveProperty('companionPrompts')
+      expect(prismaMock.diceAsk.findMany).not.toHaveBeenCalled()
+    })
   })
 })

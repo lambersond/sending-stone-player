@@ -42,7 +42,14 @@ export function BiographyTab({
   const biographyId = useSheetId('biography-heading')
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
-      {notes && <JournalCard kind='personal' look='sheet' {...notes} />}
+      {notes && (
+        <JournalCard
+          kind='personal'
+          look='sheet'
+          {...notes}
+          form={sheet.form?.kind}
+        />
+      )}
 
       {(xp || about.length > 0) && (
         <section aria-labelledby={detailsId} className='flex flex-col gap-2'>

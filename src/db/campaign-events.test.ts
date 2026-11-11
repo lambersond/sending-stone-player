@@ -12,6 +12,7 @@ import {
   EFFECTS_SWITCHED_OFF,
   FAVORITING,
   fullerSheet,
+  mockJournalTidy,
   mockJournalUpdated,
   NOT_FAVORITING,
   TAKING_DISHES,
@@ -186,6 +187,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -243,6 +246,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -301,6 +306,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -343,6 +350,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -460,6 +469,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -501,6 +512,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -550,6 +563,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -591,6 +606,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -645,6 +662,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -688,6 +707,8 @@ describe('db/campaign-events', () => {
           hitPointsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
+          tidyActive: null,
+          tidyVersion: null,
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
           companions: [],
           companionKinds: [],
@@ -734,6 +755,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -889,6 +912,30 @@ describe('db/campaign-events', () => {
     }
   })
 
+  it('bridge.hello keeps whether a typing player is asked for the dice the game rolls later, last, from module 0.44.0', async () => {
+    const rolls = { enabled: true, kinds: ['damage', 'dice'], reason: null }
+    for (const [diceAsks, rollFeatures] of [
+      [true, ['manualDice', 'keptRerolls', 'diceAsks']],
+      ['yes', ['manualDice', 'keptRerolls']],
+    ] as const) {
+      prismaMock.campaign.update.mockClear()
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          features: {
+            rolls: { ...rolls, manualDice: true, keptRerolls: true, diceAsks },
+          },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rollFeatures }),
+        }),
+      )
+    }
+  })
+
   it("bridge.hello keeps a sheet's dice its effects add, from module 0.42.0", async () => {
     await apply(
       parseGameEvent('bridge.hello', {
@@ -1029,6 +1076,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -1077,6 +1126,8 @@ describe('db/campaign-events', () => {
         hitPointsEnabled: false,
         notesEnabled: false,
         noteFeatures: [],
+        tidyActive: null,
+        tidyVersion: null,
         // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
         companions: [],
         companionKinds: [],
@@ -1123,6 +1174,8 @@ describe('db/campaign-events', () => {
           hitPointsEnabled: false,
           notesEnabled: false,
           noteFeatures: [],
+          tidyActive: null,
+          tidyVersion: null,
           // Changed on purpose (round 0.36.0 §7.12): none from a module before it.
           companions: [],
           companionKinds: [],
@@ -2662,29 +2715,35 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
           noteFeatures,
         } as any)
 
+      // Every book's, as Tidy's reconciling bumps only the books it empties.
+      const everyBook = {
+        where: { campaignId: 'c1' },
+        data: { version: { increment: 1 } },
+      }
+      const bumps = () =>
+        prismaMock.journalBook.updateMany.mock.calls.filter(
+          ([args]) => JSON.stringify(args) === JSON.stringify(everyBook),
+        ).length
       held([])
       await stored({ rolls, notes: ORDERING })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
-        select: { noteFeatures: true },
+        select: { noteFeatures: true, tidyActive: true, tidyVersion: true },
       })
-      expect(prismaMock.journalBook.updateMany).toHaveBeenCalledWith({
-        where: { campaignId: 'c1' },
-        data: { version: { increment: 1 } },
-      })
+      expect(bumps()).toBe(1)
 
       // Module 0.34.0 again, as when it's rolled back: the orders kept here wait again.
       prismaMock.journalBook.updateMany.mockClear()
       held(['orders'])
       await stored({ rolls, notes: KEEPING })
-      expect(prismaMock.journalBook.updateMany).toHaveBeenCalledTimes(1)
+      expect(bumps()).toBe(1)
 
       prismaMock.journalBook.updateMany.mockClear()
       held(['orders'])
       await stored({ rolls, notes: ORDERING })
       held([])
       await stored({ rolls, notes: KEEPING })
-      expect(prismaMock.journalBook.updateMany).not.toHaveBeenCalled()
+      expect(bumps()).toBe(0)
     })
   })
 
@@ -2714,6 +2773,109 @@ describe('db/campaign-events, journal notes, from module 0.34.0', () => {
     expect(prismaMock.journalNote.deleteMany.mock.calls).toEqual([
       [{ where: { bookId: 'b-vex' } }],
     ])
+  })
+
+  // Module 0.44.0: the Tidy 5e Sheets journals of characters the hello doesn't list as holding
+  // one go, and theirs are known, empty, so a first entry is dated; where it says nothing of Tidy,
+  // as an older module, every one goes and none is known. And every book is new where Tidy was
+  // turned off, for the line its entries then say.
+  it.each([
+    [
+      'those it doesn’t list',
+      { active: true, version: '14.4.1', actors: [PARTY.thorin] },
+      [PARTY.thorin],
+      [PARTY.vex],
+    ],
+    ['every one where it says nothing of Tidy', undefined, [], []],
+  ])(
+    'drops the hello’s characters’ Tidy entries: %s',
+    async (_name, tidy, kept, known) => {
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: [
+            { id: PARTY.thorin, name: 'Thorin' },
+            { id: PARTY.vex, name: 'Vex' },
+          ],
+          combats: [],
+          features: { rolls, notes: { ...KEEPING, tidy } },
+        }) as GameEvent,
+      )
+
+      expect(prismaMock.journalTidyEntry.deleteMany).toHaveBeenCalledWith({
+        where: {
+          book: {
+            campaignId: 'c1',
+            kind: 'personal',
+            actorId: { notIn: kept },
+          },
+        },
+      })
+      const made = prismaMock.journalBook.createMany.mock.calls.flatMap(
+        ([args]) => (args?.data as { actorId: string }[]).map(b => b.actorId),
+      )
+      expect(made).toEqual(known)
+    },
+  )
+
+  it('keeps whether Tidy is active and its version, and makes every book new where they change', async () => {
+    const everyBook = {
+      where: { campaignId: 'c1' },
+      data: { version: { increment: 1 } },
+    }
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      noteFeatures: [],
+      tidyActive: true,
+      tidyVersion: '13.10.5',
+    } as any)
+
+    await expect(
+      stored({
+        rolls,
+        notes: {
+          ...KEEPING,
+          tidy: { active: false, version: '13.10.5', actors: [] },
+        },
+      }),
+    ).resolves.toMatchObject({ tidyActive: false, tidyVersion: '13.10.5' })
+    expect(prismaMock.journalBook.updateMany).toHaveBeenCalledWith(everyBook)
+
+    prismaMock.journalBook.updateMany.mockClear()
+    await stored({
+      rolls,
+      notes: {
+        ...KEEPING,
+        tidy: { active: true, version: '13.10.5', actors: [] },
+      },
+    })
+    expect(prismaMock.journalBook.updateMany).not.toHaveBeenCalledWith(
+      everyBook,
+    )
+  })
+
+  it('draws a Tidy journal’s entries before its transaction, leaving the campaign’s version alone', async () => {
+    prismaMock.campaign.findUnique.mockResolvedValue({
+      origin: 'https://my-game.forge-vtt.com',
+      characters: [{ id: 'thorin' }],
+      groups: [],
+    } as any)
+    prismaMock.journalBook.upsert.mockResolvedValue({
+      id: 'book-1',
+      tidySyncedAt: null,
+      tidyWithheld: null,
+      tidy: [],
+    } as any)
+
+    await apply(parseGameEvent('journal.tidy', mockJournalTidy()) as GameEvent)
+
+    const draws = jest.mocked(noteHtml).mock.invocationCallOrder
+    expect(draws).toHaveLength(5)
+    const began = prismaMock.$transaction.mock.invocationCallOrder[0]
+    expect(Math.max(...draws)).toBeLessThan(began)
+    expect(prismaMock.journalTidyEntry.createMany).toHaveBeenCalledTimes(1)
+    expect(prismaMock.campaign.update).toHaveBeenLastCalledWith({
+      where: { id: 'c1' },
+      data: expect.not.objectContaining({ version: expect.anything() }),
+    })
   })
 
   it('applies a book as Foundry holds it, leaving the campaign’s version alone', async () => {

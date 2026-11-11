@@ -15,6 +15,7 @@ import type {
   CompanionEntry,
   ConnectedCharacter,
   GamePrompt,
+  JournalTidy,
   JournalUpdated,
   KnownForm,
   SerializedMessage,
@@ -1983,6 +1984,13 @@ export function foundrySettings(
         active: true,
       },
       { id: 'manual-dice', title: 'Manual Dice', version: null, active: false },
+      // Since module 0.44.0, last: Tidy 5e Sheets, whose journal the app shows.
+      {
+        id: 'tidy5e-sheet',
+        title: 'Tidy 5e Sheets',
+        version: '13.10.5',
+        active: true,
+      },
     ],
     sections: [
       {
@@ -3813,6 +3821,63 @@ export function mockJournalUpdated(
         },
       ],
     },
+    ...fields,
+  }
+}
+
+/**
+ * Thorin's Tidy 5e Sheets journal as module 0.44.0 sends it: three entries of Tidy's current
+ * sheet, the second untitled and the third with its secret left out, then two of its Classic
+ * sheet's boxes, Quests renamed and Journal Entries.
+ */
+export function mockJournalTidy(
+  fields: Partial<JournalTidy> = {},
+): JournalTidy {
+  return {
+    actorId: PARTY.thorin,
+    entries: [
+      {
+        from: 'journal',
+        id: 'tidyRavenhill01',
+        title: 'Ravenhill',
+        html: '<p>The ravens speak of @UUID[JournalEntry.abc]{the old watch}.</p>',
+        sort: 1,
+        rev: rev(41),
+      },
+      {
+        from: 'journal',
+        id: 'tidyUntitled002',
+        title: '',
+        html: '<p>Ask Balin about the map.</p>',
+        sort: 2,
+        rev: rev(42),
+      },
+      {
+        from: 'journal',
+        id: 'tidySecrets0003',
+        title: 'What Bard knows',
+        html: '<p>He is not what he seems.</p>',
+        secret: true,
+        sort: 3,
+        rev: rev(43),
+      },
+      {
+        from: 'classic',
+        id: 'notes3',
+        title: 'Errands',
+        html: '<p>Return the key to Dale.</p>',
+        sort: 3,
+        rev: rev(44),
+      },
+      {
+        from: 'classic',
+        id: 'notes',
+        title: '',
+        html: '<p>We left at dawn.</p>',
+        sort: 5,
+        rev: rev(45),
+      },
+    ],
     ...fields,
   }
 }

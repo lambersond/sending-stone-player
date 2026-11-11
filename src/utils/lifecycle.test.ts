@@ -1,5 +1,5 @@
 import { follow } from './lifecycle'
-import { CHECK_EVERY } from '@/constants/lifecycle'
+import { CHECK_EVERY, FOLLOW_FOR } from '@/constants/lifecycle'
 import { advance, respond } from '@/utils/test-utils'
 import type { RollRequestInput } from '@/types/roll'
 
@@ -50,6 +50,32 @@ describe('utils/lifecycle, follow', () => {
       rolls: [],
       hitPointsNow: hitPoints,
       requestId: 'req-hp',
+    })
+  })
+  it('holds its time to be made while the game asks for the dice of a later roll in its run (module 0.44.0)', async () => {
+    const held = { id: 'req-ice', status: 'rolling', diceAsked: true }
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-ice' }))
+      .mockResolvedValue(respond(200, held))
+    const update = jest.fn()
+
+    void follow(api, fall, new AbortController().signal, update, jest.fn())
+    // Long past its time, it's still followed while it's held, never told lost.
+    await advance(FOLLOW_FOR + 10 * CHECK_EVERY)
+    expect(update).toHaveBeenLastCalledWith({ ...held, requestId: 'req-ice' })
+    expect(update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'lost' }),
+    )
+
+    // Once no longer held, its time runs on from where it stood.
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(respond(200, { id: 'req-ice', status: 'rolling' }))
+    await advance(FOLLOW_FOR + CHECK_EVERY)
+    expect(update).toHaveBeenLastCalledWith({
+      status: 'lost',
+      requestId: 'req-ice',
     })
   })
 })

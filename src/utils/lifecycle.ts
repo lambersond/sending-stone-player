@@ -44,10 +44,16 @@ export async function follow(
   const { id } = sent
   let until = Date.now() + FOLLOW_FOR
   let late = false
+  let asked = Date.now()
   while (Date.now() < until) {
     await pause(CHECK_EVERY, signal)
     if (signal.aborted) return
     const heard = await look(api, id, signal, update)
+    // While the game asks for the dice of a later roll in its run (module 0.44.0), the time it has
+    // to be made stands still, as the game's own does.
+    const now = Date.now()
+    if (heard === 'held') until += now - asked
+    asked = now
     if (heard === 'gone') break
     if (heard === 'settled') return
     // One the game took too long to make is asked after for longer, once.
@@ -109,7 +115,8 @@ async function takenId(response: Response): Promise<string | undefined> {
 /**
  * Ask once after a roll sent, telling `update` where it stands: whether it's made, or given up on
  * (`settled`); one this page can't see any more (`gone`); one the game took too long to make,
- * which may still be made (`late`); or else, or where the app couldn't be asked, one to ask after
+ * which may still be made (`late`); from module 0.44.0, one the game holds asking for the dice of
+ * a later roll in its run (`held`); or else, or where the app couldn't be asked, one to ask after
  * again (`again`).
  */
 async function look(
@@ -117,7 +124,7 @@ async function look(
   id: string,
   signal: AbortSignal,
   update: (state: TableRollState) => void,
-): Promise<'settled' | 'gone' | 'late' | 'again'> {
+): Promise<'settled' | 'gone' | 'late' | 'held' | 'again'> {
   try {
     const response = await fetch(`${api}/rolls/${id}`, {
       cache: 'no-store',
@@ -150,6 +157,7 @@ async function look(
     if (view.status === 'failed' && view.reason === 'timeout' && !view.spent) {
       return 'late'
     }
+    if (view.status === 'rolling' && view.diceAsked) return 'held'
     return SETTLED.has(view.status) ? 'settled' : 'again'
   } catch {
     // Asked again next time.

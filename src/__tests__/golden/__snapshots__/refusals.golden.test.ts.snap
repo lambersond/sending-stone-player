@@ -471,6 +471,12 @@ exports[`foundrySettingsSchema the settings: settings the settings 1`] = `
     "title": "Manual Dice",
     "version": null,
     "active": false
+   },
+   {
+    "id": "tidy5e-sheet",
+    "title": "Tidy 5e Sheets",
+    "version": "13.10.5",
+    "active": true
    }
   ],
   "sections": [
@@ -900,6 +906,7 @@ exports[`parseGameEvent reads bridge.hello: bridge.hello read 1`] = `
     }
    },
    "prompts": [],
+   "diceAsks": [],
    "sheetsApart": true,
    "module": {
     "id": "sending-stone",
@@ -935,6 +942,12 @@ exports[`parseGameEvent reads bridge.settings: bridge.settings read 1`] = `
       "title": "Manual Dice",
       "version": null,
       "active": false
+     },
+     {
+      "id": "tidy5e-sheet",
+      "title": "Tidy 5e Sheets",
+      "version": "13.10.5",
+      "active": true
      }
     ],
     "sections": [
@@ -2169,6 +2182,60 @@ exports[`parseGameEvent reads group.updated: group.updated read 1`] = `
 }"
 `;
 
+exports[`parseGameEvent reads journal.tidy: journal.tidy read 1`] = `
+"{
+ "event": {
+  "type": "journal.tidy",
+  "data": {
+   "actorId": "thorin",
+   "entries": [
+    {
+     "from": "journal",
+     "id": "tidyRavenhill01",
+     "title": "Ravenhill",
+     "html": "<p>The ravens speak of @UUID[JournalEntry.abc]{the old watch}.</p>",
+     "sort": 1,
+     "rev": "00000000000029"
+    },
+    {
+     "from": "journal",
+     "id": "tidyUntitled002",
+     "title": "",
+     "html": "<p>Ask Balin about the map.</p>",
+     "sort": 2,
+     "rev": "0000000000002a"
+    },
+    {
+     "from": "journal",
+     "id": "tidySecrets0003",
+     "title": "What Bard knows",
+     "html": "<p>He is not what he seems.</p>",
+     "secret": true,
+     "sort": 3,
+     "rev": "0000000000002b"
+    },
+    {
+     "from": "classic",
+     "id": "notes3",
+     "title": "Errands",
+     "html": "<p>Return the key to Dale.</p>",
+     "sort": 3,
+     "rev": "0000000000002c"
+    },
+    {
+     "from": "classic",
+     "id": "notes",
+     "title": "",
+     "html": "<p>We left at dawn.</p>",
+     "sort": 5,
+     "rev": "0000000000002d"
+    }
+   ]
+  }
+ }
+}"
+`;
+
 exports[`parseGameEvent reads journal.updated: journal.updated read 1`] = `
 "{
  "event": {
@@ -2238,6 +2305,51 @@ exports[`parseGameEvent reads journal.updated: journal.updated read 1`] = `
      "at": 1792609800000
     }
    }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads roll.dice.asked: roll.dice.asked read 1`] = `
+"{
+ "event": {
+  "type": "roll.dice.asked",
+  "data": {
+   "ask": {
+    "id": "ask1",
+    "actorId": "actor-thorin",
+    "command": "roll-thorin-1",
+    "label": "Ice Knife: Shard Explosion",
+    "purpose": "damage",
+    "critical": false,
+    "rolls": [
+     {
+      "formula": "2d6",
+      "type": "cold",
+      "flavor": "Cold",
+      "terms": [
+       {
+        "faces": 6,
+        "number": 2
+       }
+      ]
+     }
+    ],
+    "askedAt": "2026-11-10T12:00:00.000Z",
+    "expiresAt": "2026-11-10T12:01:00.000Z"
+   }
+  }
+ }
+}"
+`;
+
+exports[`parseGameEvent reads roll.dice.closed: roll.dice.closed read 1`] = `
+"{
+ "event": {
+  "type": "roll.dice.closed",
+  "data": {
+   "id": "ask1",
+   "reason": "answered"
   }
  }
 }"
@@ -2431,9 +2543,27 @@ exports[`parseGameEvent refuses a malformed group.updated: group.updated malform
 }"
 `;
 
+exports[`parseGameEvent refuses a malformed journal.tidy: journal.tidy malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected array, received undefined\\n  → at entries"
+}"
+`;
+
 exports[`parseGameEvent refuses a malformed journal.updated: journal.updated malformed 1`] = `
 "{
  "prettified": "✖ Invalid input: expected string, received undefined\\n  → at actorId\\n✖ Invalid input: expected object, received undefined\\n  → at journal"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed roll.dice.asked: roll.dice.asked malformed 1`] = `
+"{
+ "prettified": "✖ Invalid input: expected string, received undefined\\n  → at ask.actorId\\n✖ Invalid input: expected string, received undefined\\n  → at ask.command\\n✖ Invalid input: expected array, received undefined\\n  → at ask.rolls\\n✖ Invalid input: expected string, received undefined\\n  → at ask.askedAt\\n✖ Invalid input: expected string, received undefined\\n  → at ask.expiresAt"
+}"
+`;
+
+exports[`parseGameEvent refuses a malformed roll.dice.closed: roll.dice.closed malformed 1`] = `
+"{
+ "prettified": "✖ Invalid string: must match pattern /^[A-Za-z0-9]{1,64}$/\\n  → at id"
 }"
 `;
 

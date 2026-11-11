@@ -24,6 +24,7 @@ import { EVENTS } from '@/constants/sending-stone'
 import { hashCookbookCode } from '@/lib/cookbook-code'
 import { getCurrentUser } from '@/lib/session'
 import { fireberryBoon } from '@/mocks/cookbook'
+import { iceKnifeAsk } from '@/mocks/dice-asks'
 import {
   characterSheet,
   chatMessage,
@@ -35,6 +36,7 @@ import {
   mockCompanionEntry,
   mockCompanionPrompt,
   mockCompanionSheet,
+  mockJournalTidy,
   mockJournalUpdated,
   NOTE_IDS,
   PARTY,
@@ -536,6 +538,7 @@ const GAME_EVENTS: [type: string, good: unknown, malformed: unknown][] = [
   ],
   [EVENTS.GROUP_REMOVED, { id: 'company' }, { id: '' }],
   [EVENTS.JOURNAL_UPDATED, mockJournalUpdated('party'), { kind: 'party' }],
+  [EVENTS.JOURNAL_TIDY, mockJournalTidy(), { actorId: 'thorin' }],
   [EVENTS.BRIDGE_SETTINGS, { settings: foundrySettings() }, 'junk'],
   [EVENTS.COMPANIONS_LISTED, { companions: [mockCompanionEntry()] }, 'junk'],
   [
@@ -579,6 +582,9 @@ const GAME_EVENTS: [type: string, good: unknown, malformed: unknown][] = [
     },
     { id: 'cmh2k8q0n0001ab12cd34ef56' },
   ],
+  // Added on purpose (item 11): the dice the game rolls later, from module 0.44.0.
+  [EVENTS.DICE_ASKED, { ask: iceKnifeAsk() }, { ask: { id: 'ask1' } }],
+  [EVENTS.DICE_CLOSED, { id: 'ask1', reason: 'answered' }, { id: 'ask-1' }],
 ]
 
 describe('parseGameEvent', () => {
