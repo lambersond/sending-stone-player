@@ -848,10 +848,10 @@ function rollLabel(
   roll: NonNullable<NonNullable<SerializedMessage['dnd5e']>['roll']>,
   item: string | undefined,
 ): string | undefined {
-  const ability = ABILITIES[String(roll.ability)]
+  const ability = ownName(ABILITIES, roll.ability)
   switch (roll.type) {
     case 'skill': {
-      return named(SKILLS[String(roll.skillId)], 'check')
+      return named(ownName(SKILLS, roll.skillId), 'check')
     }
     case 'ability': {
       return named(ability, 'check')
@@ -888,6 +888,15 @@ function rollLabel(
 /** A check's or save's name, as "Perception check"; none for no name. */
 const named = (name: string | undefined, roll: 'check' | 'save') =>
   name ? `${name} ${roll}` : undefined
+
+/**
+ * A key's entry in a table of names, such as `ABILITIES`: the table's own, never one every object
+ * answers to, such as `constructor`; none for a key not in it.
+ */
+const ownName = (names: Record<string, string>, key: unknown) => {
+  const id = String(key)
+  return Object.hasOwn(names, id) ? names[id] : undefined
+}
 
 const textOf = (value: unknown) =>
   typeof value === 'string' ? value.trim() || undefined : undefined
@@ -928,7 +937,7 @@ export function htmlToText(html: string): string | undefined {
             : Number.parseInt(code.slice(1), 10)
         return Number.isFinite(point) ? String.fromCodePoint(point) : entity
       }
-      return ENTITIES[code.toLowerCase()] ?? entity
+      return ownName(ENTITIES, code.toLowerCase()) ?? entity
     })
     .replaceAll(/\s+/g, ' ')
     .trim()
@@ -1035,12 +1044,12 @@ export function toTableSheet(
     portrait: portraitUrl(img, origin),
     abilities: sheet.abilities.map(ability => ({
       ...ability,
-      label: ability.label || ABILITIES[ability.id] || ability.id,
+      label: ability.label || ownName(ABILITIES, ability.id) || ability.id,
       abbreviation: ability.abbreviation || ability.id.toUpperCase(),
     })),
     skills: sheet.skills.map(skill => ({
       ...skill,
-      label: skill.label || SKILLS[skill.id] || skill.id,
+      label: skill.label || ownName(SKILLS, skill.id) || skill.id,
     })),
     // Sheets from before module 0.18.0 have none.
     ...(sheet.tools && {

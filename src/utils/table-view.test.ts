@@ -405,6 +405,9 @@ describe('utils/table-view', () => {
       { type: 'skill', skillId: 'nope' },
       { type: 'ability', ability: 'nope' },
       { type: 'save' },
+      // A key every object answers to names no skill or ability.
+      { type: 'skill', skillId: 'constructor' },
+      { type: 'save', ability: 'constructor' },
       { type: 'generic' },
       { type: 'attack' },
       { type: 'damage' },
@@ -1664,9 +1667,9 @@ describe('utils/table-view', () => {
     it('drops tags, decodes entities and keeps content link labels', () => {
       expect(
         htmlToText(
-          '<h4>Fire &amp; Ice&nbsp;&#8212;&#x2014;</h4> @UUID[Item.x]{Frost Brand} &lt;3 &unknown; &#xZZ;',
+          '<h4>Fire &amp; Ice&nbsp;&#8212;&#x2014;</h4> @UUID[Item.x]{Frost Brand} &lt;3 &unknown; &constructor; &#xZZ;',
         ),
-      ).toBe('Fire & Ice —— Frost Brand <3 &unknown; &#xZZ;')
+      ).toBe('Fire & Ice —— Frost Brand <3 &unknown; &constructor; &#xZZ;')
     })
 
     it('has nothing to say for empty markup', () => {
@@ -2026,10 +2029,14 @@ describe('utils/table-view', () => {
       const view = toTableSheet(
         {
           ...sheet,
-          abilities: [{ ...sheet.abilities[0], label: '', abbreviation: '' }],
+          abilities: [
+            { ...sheet.abilities[0], label: '', abbreviation: '' },
+            { ...sheet.abilities[0], id: 'constructor', label: '' },
+          ],
           skills: [
             { ...sheet.skills[0], label: '' },
             { ...sheet.skills[0], id: 'xyz', label: '' },
+            { ...sheet.skills[0], id: 'constructor', label: '' },
           ],
         },
         origin,
@@ -2039,9 +2046,11 @@ describe('utils/table-view', () => {
         label: 'Strength',
         abbreviation: 'STR',
       })
+      expect(view.abilities[1].label).toBe('constructor')
       expect(view.skills.map(({ label }) => label)).toEqual([
         'Athletics',
         'xyz',
+        'constructor',
       ])
     })
   })
