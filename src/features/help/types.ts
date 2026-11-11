@@ -14,6 +14,17 @@ export type HelpSection = { id: string; title: string; parts: HelpPart[] }
 /** A row of the "In this game" box: what it's about, what it says now, and whether that's on. */
 export type BoxRow = { label: string; says: string; on: boolean }
 
+/**
+ * A row's own words: what it's about, and what it says while on and off; for one about something
+ * this device sends the game that has words of its own for Send to the table off here, those.
+ */
+export type RowWords = {
+  label: string
+  on: string
+  off: string
+  unsent?: string
+}
+
 /** A line under the box's rows; `warn` while the Gamemaster's game isn't connected. */
 export type BoxNote = { text: string; warn?: true }
 

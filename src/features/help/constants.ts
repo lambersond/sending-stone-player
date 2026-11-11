@@ -278,7 +278,14 @@ const FROM_HERE = { on: 'From here', off: 'Not from here' } as const
 /** Where rolls made here stay while the game takes none from this device, at either seat. */
 const ONLY_YOU = 'Stay here: only you see them'
 
-/** The rows at the player's seat, in their order. */
+/** The typed dice the game asks for, of no roll kept here, while Send to the table is off here. */
+const NOT_WHILE_UNSENT = 'Not while Send is off'
+
+/**
+ * The rows at the player's seat, in their order. Those about something this device sends the game,
+ * its rolls and their dice, the saves the game asks answered and End turn, say their off words, or
+ * the words they have for it (`unsent`), while this device's Send to the table is off.
+ */
 export const PLAYER_ROWS = {
   rolls: {
     label: 'Your rolls',
@@ -311,11 +318,13 @@ export const PLAYER_ROWS = {
     label: 'Dice your effects add',
     on: 'Asked for',
     off: 'Rolled by the game',
+    unsent: NOT_WHILE_UNSENT,
   },
   laterDice: {
     label: 'Dice an item rolls later',
     on: 'Asked for',
     off: 'Rolled by the game',
+    unsent: NOT_WHILE_UNSENT,
   },
   hitPoints: {
     label: 'Hit points',

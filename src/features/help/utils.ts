@@ -5,7 +5,14 @@ import {
   HELP_SECTIONS,
   PLAYER_ROWS,
 } from './constants'
-import type { BoxNote, BoxRow, HelpBox, HelpFacts, HelpSection } from './types'
+import type {
+  BoxNote,
+  BoxRow,
+  HelpBox,
+  HelpFacts,
+  HelpSection,
+  RowWords,
+} from './types'
 
 /** Help's words with the character's name in place of `{name}`. */
 export function named(words: string, name: string): string {
@@ -44,40 +51,48 @@ export function helpBox(facts: HelpFacts): HelpBox | undefined {
 }
 
 /** A row saying its on or its off words. */
-function row(
-  { label, on: yes, off: no }: { label: string; on: string; off: string },
-  on: boolean,
-): BoxRow {
+function row({ label, on: yes, off: no }: RowWords, on: boolean): BoxRow {
   return { label, says: on ? yes : no, on }
+}
+
+/**
+ * A row about something this device sends the game, which reaches it only while this device's Send
+ * to the table is on (the owner's round 3 decision 2, "Every row about something sent to the game
+ * follows Send"): what the campaign allows while it's on; while it's off, the row's own words for
+ * that (`unsent`), or else its off words, as nothing of it reaches the game from here.
+ */
+function sentRow(words: RowWords, on: boolean, send: boolean): BoxRow {
+  if (send) return row(words, on)
+  return { label: words.label, says: words.unsent ?? words.off, on: false }
 }
 
 /**
  * The player's rows, in the brief's order, each from the view their page already has: the rolls
  * and what else the game takes now, none while the character isn't one of its campaign's (as the
- * dice tray reads them), those made, rolled or ended there only while this device's Send to the
- * table is on, as the page's own rolls are; typing in their dice by their own switch; and the
- * campaign's own switches. The dice their effects add and those an item rolls later only while they
- * type theirs in, the later ones only where the campaign's module asks for them (H6 B); Wild Shape
- * only for a sheet that has it.
+ * dice tray reads them); typing in their dice by their own switch; and the campaign's own switches.
+ * Those about something this device sends the game follow its Send to the table (`sentRow`), as
+ * the page does: its rolls, attacks, dice tray and End turn, the saves the game asks, answered here
+ * only while it's on, and the dice their effects add and an item rolls later, asked only of a roll
+ * sent. Those dice only while they type theirs in, the later ones only where the campaign's module
+ * asks for them (H6 B); Wild Shape only for a sheet that has it.
  */
 function playerRows({ view, typing, send }: HelpFacts): BoxRow[] {
   const kinds = view.connected ? (view.rollsToTable ?? []) : []
   const features = view.connected ? (view.rollFeatures ?? []) : []
-  // What this device sends the game: nothing with Send to the table off here.
-  const sent = send ? kinds : []
+  const sent = (words: RowWords, on: boolean) => sentRow(words, on, send)
   const typed = typing?.on === true
   const rows = [
-    row(PLAYER_ROWS.rolls, sent.length > 0),
-    row(PLAYER_ROWS.attacks, sent.includes('attack')),
-    row(PLAYER_ROWS.prompts, features.includes('prompts')),
-    row(PLAYER_ROWS.tray, sent.includes('plainRoll')),
-    row(PLAYER_ROWS.endTurn, sent.includes('endTurn')),
+    sent(PLAYER_ROWS.rolls, kinds.length > 0),
+    sent(PLAYER_ROWS.attacks, kinds.includes('attack')),
+    sent(PLAYER_ROWS.prompts, features.includes('prompts')),
+    sent(PLAYER_ROWS.tray, kinds.includes('plainRoll')),
+    sent(PLAYER_ROWS.endTurn, kinds.includes('endTurn')),
     typingRow(typing),
   ]
   if (typed)
-    rows.push(row(PLAYER_ROWS.effectDice, features.includes('effectDice')))
+    rows.push(sent(PLAYER_ROWS.effectDice, features.includes('effectDice')))
   if (typed && view.laterDice)
-    rows.push(row(PLAYER_ROWS.laterDice, kinds.includes('dice')))
+    rows.push(sent(PLAYER_ROWS.laterDice, kinds.includes('dice')))
   rows.push(
     row(PLAYER_ROWS.hitPoints, view.hitPoints === true),
     row(PLAYER_ROWS.moves, view.moves !== undefined),

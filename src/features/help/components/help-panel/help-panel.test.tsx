@@ -88,20 +88,44 @@ describe('features/help/components/help-panel', () => {
   })
 
   it.each([
-    ['player', false, SEND_KEY, 'Your rolls'],
-    ['Gamemaster', true, GM_SEND_KEY, 'Your rolls here'],
+    [
+      'player',
+      false,
+      SEND_KEY,
+      {
+        'Your rolls': 'Stay here: only you see them',
+        'Dice your effects add': 'Not while Send is off',
+        'Dice an item rolls later': 'Not while Send is off',
+      },
+    ],
+    [
+      'Gamemaster',
+      true,
+      GM_SEND_KEY,
+      { 'Your rolls here': 'Stay here: only you see them' },
+    ],
   ])(
-    'says the %s’s rolls stay here while this device’s Send to the table is off',
-    (_seat, gm, key, label) => {
+    'says what the %s’s seat sends the game stays here while this device’s Send to the table is off',
+    (_seat, gm, key, says) => {
       localStorage.setItem(key, 'off')
       renderPanel({
         gm,
-        shown: view({ rollsToTable: ['skill'], gm: { rolls: 'made' } }),
+        shown: view({
+          rollsToTable: ['skill', 'dice'],
+          rollFeatures: ['effectDice'],
+          gm: { rolls: 'made' },
+          laterDice: true,
+        }),
       })
 
-      expect(
-        within(panel()).getByText(label, { selector: 'dt' }).nextSibling,
-      ).toHaveTextContent('Stay here: only you see them')
+      const box = within(panel()).getByRole('region', {
+        name: 'In this game, for Thorin',
+      })
+      const rows = within(box)
+        .getAllByRole('term')
+        .map(term => [term.textContent, term.nextSibling?.textContent])
+        .filter(([label]) => /^(Your rolls|Dice (your|an))/.test(label ?? ''))
+      expect(Object.fromEntries(rows)).toEqual(says)
     },
   )
 

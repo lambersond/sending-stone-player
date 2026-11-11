@@ -85,6 +85,30 @@ describe('features/help/utils', () => {
         ],
       ],
       [
+        'a campaign that takes everything, typing on, while this device’s Send to the table is off, a druid’s',
+        facts({
+          view: everything({ sheet: toTableSheet(druidSheet(), GAME) }),
+          typing: { on: true },
+          send: false,
+        }),
+        [
+          '○ Your rolls: Stay here: only you see them',
+          '○ Attacks, spells and features: Stay here',
+          '○ Saves the game asks: Asked in Foundry',
+          '○ Dice tray: Rolls here only',
+          '○ End turn: Not from here',
+          '● Typing in your dice: On',
+          '○ Dice your effects add: Not while Send is off',
+          '○ Dice an item rolls later: Not while Send is off',
+          '● Hit points: Set from here',
+          '● Moving items and coins: From here',
+          '● Removing items: From here',
+          '● Favorites: From here',
+          '● Your own effects: From here',
+          '● Wild Shape: From here',
+        ],
+      ],
+      [
         'a campaign that takes nothing, typing not offered',
         facts(),
         [
@@ -153,17 +177,6 @@ describe('features/help/utils', () => {
         )
       },
     )
-
-    it('says the rolls made, rolled or ended in the game stay here while this device’s Send to the table is off', () => {
-      const rows = rowsOf(facts({ view: everything(), send: false }))
-      expect(rows?.slice(0, 5)).toEqual([
-        '○ Your rolls: Stay here: only you see them',
-        '○ Attacks, spells and features: Stay here',
-        '● Saves the game asks: Asked here',
-        '○ Dice tray: Rolls here only',
-        '○ End turn: Not from here',
-      ])
-    })
 
     it('takes nothing as made in the game for a character no longer among its campaign’s', () => {
       const rows = rowsOf(facts({ view: everything({ connected: false }) }))
