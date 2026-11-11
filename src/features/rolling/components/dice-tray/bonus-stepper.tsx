@@ -3,15 +3,18 @@ import { Minus, Plus } from 'lucide-react'
 import { TRAY_STEP } from './constants'
 import { canStep } from './utils'
 import { formatModifier } from '@/utils/format-modifier'
+import type { Live } from './types'
 
 /**
  * The number added to the tray's dice, or taken away, one up or down a tap, from −100 to +100: +0
  * until changed.
+ * @param live - Whether its change is said, as a step is, or made unsaid, as a clear's is.
  */
 export function BonusStepper({
   bonus,
+  live,
   onStep,
-}: Readonly<{ bonus: number; onStep: (by: 1 | -1) => void }>) {
+}: Readonly<{ bonus: number; live: Live; onStep: (by: 1 | -1) => void }>) {
   const label = useId()
   return (
     <div
@@ -33,7 +36,7 @@ export function BonusStepper({
           <Minus aria-hidden className='size-4' />
         </button>
         <output
-          aria-live='polite'
+          aria-live={live}
           className='min-w-10 text-center text-sm font-semibold tabular-nums'
         >
           {formatModifier(bonus)}

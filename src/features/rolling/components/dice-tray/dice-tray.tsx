@@ -114,7 +114,11 @@ export function DiceTray({
           >
             {said.words}
           </output>
-          <BonusStepper bonus={tray.bonus} onStep={tray.step} />
+          <BonusStepper
+            bonus={tray.bonus}
+            live={said.modifier}
+            onStep={tray.step}
+          />
           <button
             type='button'
             aria-disabled={empty}
