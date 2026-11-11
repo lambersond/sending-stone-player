@@ -60,35 +60,8 @@ number.
     dice work (the dice an item rolls later included), and that the Gamemaster applies short and
     long rests. (Planned; held for a prototype first.)
 
-**Found while building Batch 1**
-
-13. **A chat line's roll label can name a function:** the table view looks up a message's ability
-    and skill, and a sheet skill's id, in plain objects (`rollLabel` and `toTableSheet` in
-    `src/utils/table-view.ts`), so a key every object inherits, such as `constructor`, is found,
-    and the chat line reads "function Object() { [native code] } save". dnd5e only sends its own
-    keys, so only a broken or hand-made message shows it; the lookup should check the key is the
-    table's own, as the schemas' `abilityId` does.
-14. **Clear said twice in the dice tray:** with dice and a modifier other than +0 in the tray,
-    Clear is announced twice, "No dice" and then "+0": `@lambersond/3d-dice-core`'s tray reducer
-    resets the modifier with the dice (its `clear`, in `dist/tray-reducer.js`), and the modifier's
-    own live output speaks as well as the tray's formula. A clear should be said once, as
-    `useDiceSaid` already keeps a modifier's step from being said twice.
-15. **A notes test that depends on the tests' order:** recordNoteResult's "changes nothing for a
-    result for an earlier hand-over, the change since moved on" (`src/db/note-sync.test.ts`)
-    passes only while no earlier test has left `journalOrder.findUnique` finding an order, as the
-    order results' tests do (Jest's `clearMocks` keeps what a mock returns), so under
-    `--randomize` it fails. The test should say that no order has the id, as its name does.
-16. **e2e's feedback race against module 0.42.0:** "and the app pills it 'Hit'" under Hide AC
-    (`e2e/feedback-e2e.mjs`), one of the known load races in `e2e/README.md`, failed under three
-    lanes' load in both of Batch 1's full passes, at the same check, and passed alone each time:
-    not a one-off, so its wait should be looked at rather than left to the retry.
-
 **Feedback from the table**
 
-17. **Long names overflow:** a very long character name on the campaign page pushes the second
-    pane to the right, squeezing its text until it overflows.
-    - The same long text on a character's Biography tab, in the journal's container, pushes the
-      rest around: buttons shrink instead of wrapping, leaving a lot of empty space.
 18. **Companions and sidekicks wherever they are:** a companion or sidekick has its own tab and can
     be rolled with even when it isn't on its player's scene or level, with a warning that it isn't
     there. Today the module lists a linked NPC wherever its tokens are, but an unlinked token and a
@@ -101,30 +74,41 @@ number.
       combats its characters are in (`PROTOCOL.md`, the hello's `combats`), so this is a bug to
       find.
 
-**Found while building Batch 2**
+**Found while building the next slice**
 
-25. **Two copies of one countdown:** the dice dialog
-    (`src/features/rolling/components/dice-entry/dice-entry-dialog.tsx`, since v0.42) keeps its own
-    `secondsLeft`, `useSecondsLeft` and `clock`, line for line the prompt banner's
-    (`src/features/sheet/components/prompt-banner/use-seconds-left.ts` and `utils.ts`), which item
-    11's dice ask banner reuses. One shared home, their lowest common ancestor, would remove the
-    copy.
-26. **A die asked again named by its activity, not its roll:** the chip and the tray call Wild
-    Sparks' formula "Wild Sparks: Burst", its roll's name, but the ask for its exploded die, in the
-    dialog's title, the banner, the tray's answer line and the Gamemaster's window, says "Wild
-    Sparks: Use", the item and its activity, as the module's `PROTOCOL.md` defines an ask's `label`,
-    so a player sees two names for one roll within seconds. A wording choice, for the module (a
-    formula's die named by its roll's name where it has one) or the app (`askName` in
-    `src/features/rolling/utils/dice-ask-entry.ts`). Under real dnd5e an unnamed utility activity is
-    named by its type, so the words at a table may differ.
-27. **A die asked again shows its whole roll's total in the tray:** with 6 typed on Wild Sparks'
-    `1d6x` and 3 typed for its die more, the tray reads "Wild Sparks: Use 3 = 3 · table 9" above
-    "Wild Sparks: Burst 6 = 6 · table 9", and while it's the newest roll its big total says 9, "At
-    the table: 9", as if a typed 3 came to 9. The answer's line takes the game's total of the roll
-    its ask lists (`answeredRoll` in `src/features/rolling/utils/dice-ask-entry.ts`, shown by
-    `MadeMark` in `src/features/rolling/components/roll-tray/table-mark.tsx`), and for a die thrown
-    again that's the whole exploding formula. Code and `PROTOCOL.md` agree; such an answer could say
-    it's added to its roll's total instead. The e2e doesn't check these words.
+30. **e2e's alone race under dnd5e 6 too:** "Timed out waiting for Fire Breath's failed recharge at
+    768 to be sent", part 15 of `e2e/alone-e2e.mjs`, one of the known load races in
+    `e2e/README.md` for alone and alone MIDI=1 only, failed the same way in alone DND5E6=1 under
+    three lanes' load. The README's entry should name it too, or its wait be looked at.
+31. **A die left to the game reads as 0 in the tray:** a dice ask answered with Let the game roll,
+    or with every die skipped, is kept in the tray with each term's value 0 (`answeredRoll` in
+    `src/features/rolling/utils/dice-ask-entry.ts`), so among the earlier rolls it reads "Ice Knife:
+    Shard Explosion 0 +0 +0 = 0 · table 17", as if its dice came to 0, and while it's the newest
+    its big total is 0 until the game says. A die thrown again left to the game already reads "left
+    to the game", with no number; a term left to the game could say the same.
+32. **A companion's held save can name a function too:** the companions' asks look a held prompt's
+    abilities and skills up in plain objects (`either` and the concentration line in
+    `src/utils/companion-asks.ts`), so a key every object inherits, such as `constructor`, which a
+    prompt's keys may be (`promptKey` in `src/schemas/sending-stone.ts`), is found, and a broken or
+    hand-made save held for a companion throws as the character's table view is built
+    (`src/db/table.ts`). The lookup should check the key is the table's own, as the chat's roll
+    labels now do (`ownName` in `src/utils/table-view.ts`).
+33. **A long name squeezes the combat tracker's round:** a long name after "Next:" in the tracker's
+    round line (`RoundLine` in `src/features/table/components/combat-tracker/turn-panel.tsx`) is cut
+    short, but squeezes "Round 1" beside it onto two lines, as long names did on the campaign page.
+    The label should keep its width; the layout suite's combat has no long name, so nothing measures
+    it.
+34. **A rerolled die reads "added to its roll":** the tray, its toast and the earlier rolls say a
+    die thrown again was "Added to its roll at the table" whether it exploded or was rerolled
+    (`ADDED_WORDS` in `src/features/rolling/constants.ts`), but a rerolled die takes the place of
+    the die it rerolls. It's rare from the app, which has typed rolls keep rerolls made at the
+    table. Words for both, or a reroll's own, want a test with `again: 'reroll'`; and the rule for
+    such an answer, now in both `MadeMark` (`roll-tray/table-mark.tsx`) and `madeAtTable`
+    (`utils/brief.ts`), could live in one place.
+35. **The tests' READMEs miscount their runs:** the app's `e2e/README.md` says 53 suites and 120
+    runs, and that twenty-four suites share `world-030.mjs`, where `regress.sh` has 54 and 121 since
+    the long names' suite, and 25 share it; the module's `test/README.md` says 114 runs, where
+    `harness-all.sh` has 115.
 
 ## Follow-up batch
 
