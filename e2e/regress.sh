@@ -218,3 +218,7 @@ run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041
 run hitpoints 36 SHOTS=$O/shots-044
 run hitpoints 36 DND5E6=1 SHOTS=$O/shots-044
 run hitpoints 36 MIDI=1 SHOTS=$O/shots-044
+# Item 12: Help, from the header's ? and the cog's How to use Sending Stone, at 360 and 1280, for a
+# player and the Gamemaster: the box reading the campaign, typing off, allowed and on; the panel's
+# layout, the chips and reduced motion, focus going back; the Gamemaster's long name at 360.
+run help 25 SHOTS=$O/shots-help
