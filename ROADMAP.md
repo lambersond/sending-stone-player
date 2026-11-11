@@ -10,134 +10,20 @@ gain items from feedback or bugs.
 
 Released: module v0.42.1 and its app.
 
-## v0.43
-
-1. **Refactor (done in v0.43's PR):** the app's code laid out by feature under `src/features/`, each
-   `.tsx` exporting one component, named types in `types.ts`, rules in utilities and behaviour in
-   hooks; one request-kind table, one command pipeline on the server, one request lifecycle, one
-   settle hook and one seat resolver; no import cycles or barrels; CLAUDE.md's rules enforced by the
-   linter. No behaviour changed: the module and its protocol are untouched, and the bugs found are
-   below, under v0.44.
-2. **Supported versions (done in v0.44's PR):** a breakdown of which module versions each app
-   version supports.
-
 ## v0.44 (release candidate)
 
 From the table's first session with v0.42.1, after the refactor.
 
-Done in v0.44's PRs:
+What's left. Pick from the list by number.
 
-- **Favorites on the Character tab:** a setting to show the favorites between skills and traits.
-- **Larger icon buttons on tablets:** icon-only buttons grow above a small screen, and can shrink
-  again where the screen is wide enough for their words.
-- **Hit points from the app:** players set their own character's hit points and temporary hit
-  points as numbers, its Wild Shape form's and its companions' too, for what the rolls don't do
-  ("you fall through the floor and take 4 damage"), by a switch on the Player actions tab of the
-  module's settings, on by default; a drop asks a concentration save, and no chat line is posted.
-  The Hit points tile, and each companion's, opens an editor of the two.
-- **Manual dice said in the dice dialog:** a "Manual Dice" chip in its header, that the die results
-  are typed in.
-- **A plain die roll:** a dice tray under the chat, for what the Gamemaster asks: dice of any of d4,
-  d6, d8, d10, d12, d20 and d100 added and removed, several sizes at once, with a modifier and no
-  advantage or disadvantage, made in the game where the rolls are on; its dice tumble over the
-  whole character page.
-- **The Gamemaster clears a campaign's chat:** including messages from the cookbook, whose whispers
-  now stay.
-- **The bugs the v0.43 refactor found,** fixed, and the favorites in one list until their card is
-  720 pixels wide.
+**Help**
 
-Left, in two batches. Pick from the list by number.
-
-**Batch 1: what's left from the refactor, the fixes and the last two PRs**
-
-1. **Rules out of the database modules (done):** `src/db/roll-requests.ts` still holds a roll's pure
-   refusal rules (`rollGate`, `lacksFeature`, `combatOf`, `rollPayload`, `namesAloneChoices`,
-   `companionRefusal`), `src/db/table.ts` the table view's parts (`viewerOf`, `gmRollParts`,
-   `seatAllows`) and `src/db/notes.ts` the notes' view overlay; move them to `src/utils/`, where
-   they can be tested without the database's mocks.
-2. **Coverage (done):** `jest.config.ts` leaves `campaign-index.tsx` out of the coverage count.
-3. **Test tooling (done):** a chapter line's test can race the clock, about once in 200 runs: its
-   "just added" case reads the time twice (`note-lines.test.tsx`, and the same case in
-   `chapter-pane.test.tsx`); the `@test-utils` path alias in `tsconfig.json` has no match in
-   `jest.config.ts`, so a suite importing the kit by it fails in Jest only; and unicorn's
-   `prefer-native-coercion-functions` autofix turns a type-guard filter into `.filter(Boolean)`,
-   which no longer typechecks.
-4. **The Beast list blames the game (done)** when its forms read is taken with no id to follow: no
-   forms come back, and the list says the game failed (`use-table-rolls.ts`, `readWildShapeForms`).
-5. **A hit die told as made that may not be (done):** in a one-at-a-time hit-dice run (a module
-   before 0.20.0), a die taken with no id to follow counts as made when a later die is not.
-6. **Focus left on End Turn (done):** after an End Turn taken with no id to follow, keyboard focus
-   stays on the End Turn button when the panel moves to another of the seat's turns.
-7. **The dice tray's accessibility (done):** keyboard focus kept when the last die of a size is
-   removed (today it's lost with that chip); the formula announced as dice are added and removed;
-   and the open tray's height capped by the chat pane, not the screen, on short landscape screens.
-8. **e2e's known races (done),** written into `e2e/README.md`: transfers under dnd5e 6 ("the module
-   fetches for moves with rolls off"), companions under dnd5e 6 (a broken portrait shown for two
-   frames), toasts T7 (a toast pushed out by the three-toast cap pops back when the game answers
-   late), and alone's Fire Breath recharge at 768 and its spell picker's first focus under dnd5e 6.
-   Each has failed only under three lanes' load and passed alone.
-9. **e2e coverage gaps (done):** runs against module 0.42.0 (`SKEW=042`); the dice tray at 768
-   pixels, with the campaign's rolls turned off, and against an older module; and hit points under
-   dnd5e 6 and Midi-QOL.
-10. **Questions to settle (done)** (decisions, then any work they lead to):
-    - a companion's refusals for its own-switch kinds: 409 or 422 (decided: all answer 409
-      'unavailable'; done);
-    - whether a list in the module's settings is cut to its limit before or after its malformed
-      entries are dropped (the two readers differ) (decided: both drop what they can't read, then
-      cut, in one shared helper; done);
-    - where the turn's refusal line clears (decided: in both layouts it stays until the turn moves
-      on or End Turn is pressed again; done);
-    - "the seat's own turn" for an empty companion key (decided: one shared rule in all three
-      places, an empty key meaning no companion, as End Turn has it; done);
-    - the hand-written types that differ from their schemas (decided: each schema checked against
-      its hand-written type, not derived from it, and those that differ corrected or explained;
-      the three real mismatches found are fixed as bugs; done);
-    - the double reads on the table, party and module polls (measured: while a table is open, the
-      module's command wait makes about 636 queries a minute per campaign, half of the ~223,000 in
-      a 3-hour session with four players; decided: the campaign read once per command check and
-      the notes' old changes pruned once in 10 minutes, measured at 252 fewer queries a minute,
-      40% of the command wait, and about 45,000 fewer in a session, 20%; the table and party
-      double reads, about 3%, left as they are; done);
-    - the overlapping route and table tests (decided: the notes routes' repeats trimmed, one table
-      checking 401 and 404 for all 16 routes and each route's file keeping its wiring check, done;
-      the other three overlaps trimmed when those areas next change);
-    - the five `console.error` logs (decided: kept as they are; error tracking revisited after
-      v1.0 if failures go unnoticed);
-    - whether the favorites' resource and check rows should draw the sheet's own uses chips and
-      row names, which would change their markup (decided: kept as they are; revisited if players
-      ask for a Recharge button in Favorites).
-
-**Batch 2, last: typed dice and Help**
-
-11. **Typed dice for every roll an item makes (done):** when typing in dice, the dice an item rolls
-    after its first roll (Ice Knife's 2d6 splash after its d10) are asked for too, not rolled by
-    Foundry, as Foundry's Manual Dice does. One general way that follows whatever the item's
-    workflow rolls, homebrew and custom ones included, never a handler per spell. (Done, module
-    0.44.0, for dnd5e 5 alone and with its Midi-QOL line; off under dnd5e 6, whose hello says why,
-    and with an older module, where the game rolls them as before; tested against stand-ins, not
-    yet at a table. Decided: every roll of the item's run that the typed dice don't cover is paused
-    and asked for, Midi-QOL's bonus damage of that item included (Sneak Attack, Hunter's Mark,
-    homebrew); a die that explodes or is rerolled is asked for too, one at a time; after 60 seconds
-    the computer rolls, and the Gamemaster's Foundry shows the wait with a "Roll it now" button; the
-    dice dialog opens by itself on the device the roll came from, a banner on the player's others;
-    no new switch; a player rolling the app's 3D dice keeps Foundry's later dice. To check at the
-    table, with dnd5e 5.3.3 and Midi-QOL v14.0.x: Ice Knife's 2d6 asked after its 1d10, a critical's
-    and an upcast's too, and another activity's damage and dice cost that Midi rolls once saves are
-    checked; d20s never asked; a typed die that explodes asked again one die at a time, never told
-    timed out as the asks run past a minute, the ask opening by itself on the device the roll came
-    from, not the one the exploding die was typed on; the dialog never over a focused text field, a
-    banner on the other devices, focus back where it was; a skip, an expiry, a failed send offered
-    again, two devices answering at once; the Gamemaster's window counting down, with Roll it now,
-    leaving their chat typing alone; two players' Hunter's Mark at once, and a homebrew bonus macro;
-    the Gamemaster using the same item meanwhile; and nothing asked under dnd5e 6.)
 12. **Help:** a question mark at the top opens a side panel explaining how to roll (an attack, hit
     dice), what each long press offers (damage, attack and other rolls), the settings, how manual
-    dice work (item 11 included), and that the Gamemaster applies short and long rests. (Planned;
-    held for a prototype first.)
+    dice work (the dice an item rolls later included), and that the Gamemaster applies short and
+    long rests. (Planned; held for a prototype first.)
 
-Built early, beside item 11, in module 0.44.0: v1.x item 8, Tidy 5e Sheets' journal (done).
-
-**Found in Batch 1's item 10 work**
+**Found while building Batch 1**
 
 13. **A chat line's roll label can name a function:** the table view looks up a message's ability
     and skill, and a sheet skill's id, in plain objects (`rollLabel` and `toTableSheet` in
@@ -160,7 +46,7 @@ Built early, beside item 11, in module 0.44.0: v1.x item 8, Tidy 5e Sheets' jour
     lanes' load in both of Batch 1's full passes, at the same check, and passed alone each time:
     not a one-off, so its wait should be looked at rather than left to the retry.
 
-**After Batch 2: feedback from the table**
+**Feedback from the table**
 
 17. **Long names overflow:** a very long character name on the campaign page pushes the second
     pane to the right, squeezing its text until it overflows.
@@ -178,35 +64,8 @@ Built early, beside item 11, in module 0.44.0: v1.x item 8, Tidy 5e Sheets' jour
       combats its characters are in (`PROTOCOL.md`, the hello's `combats`), so this is a bug to
       find.
 
-**Found while planning Batch 2**
+**Found while building Batch 2**
 
-20. **The game's save and check prompts were never pruned (done, with item 11):** `RollPrompt` rows
-    were only found, updated and upserted (`src/db/table.ts`, `src/db/campaign-events.ts`,
-    `src/db/roll-requests.ts`), never deleted, so a campaign kept every prompt it was ever asked
-    until the campaign itself was deleted. Now they're pruned a day after they close or run out,
-    with item 11's dice asks, as either is asked, on the dice asks' throttle: at most once every 10
-    minutes per campaign (`pruneAsked` in `src/db/dice-asks.ts`).
-
-**Found while building item 11 and the Tidy journal**
-
-21. **The hello's order told wrongly (done, in module 0.44.0's `PROTOCOL.md`):** the module's
-    `PROTOCOL.md`, after the hello's table, read as if each companion the hello lists followed the
-    books in its `companion.updated`, but the module sends the companions before the books
-    (`helloDelivered` in `scripts/character-sync.mjs` calls `companionsDelivered` before
-    `sendBooks`). Nothing in the app depends on that order; the paragraph now says what the module
-    does.
-22. **A use's cost check asked the Gamemaster for dice (done, in module 0.44.0):** before an item
-    is used from the app, the module works out what the use would spend with dnd5e's
-    `_prepareUsageUpdates` and throws the result away (`prepareUse` in `scripts/command-uses.mjs`,
-    and twice in `scripts/command-alone.mjs` for damage on its own). A cost that is a dice formula,
-    such as `1d4` charges, was rolled there with the Gamemaster's dice settings, so under Manual
-    Dice Foundry asked the Gamemaster for a roll nobody uses, once per use from the app, typed or
-    not; one that explodes, such as `1d4x`, asked again for each highest face typed. Now those
-    checks, Midi-QOL's own as its use from the app begins, and the module's dice self-test as it
-    starts are rolled with Foundry's computer dice, never anyone's Manual Dice, under dnd5e 5 and 6,
-    and never taken for item 11's run's cost; the cost the use spends is rolled as ever. To check
-    at the table: with the Gamemaster's Manual Dice on, a use from the app of an item with a `1d4`
-    cost, with Midi-QOL too, asks them once, for the cost spent, or nothing where the player typed.
 23. **Midi-QOL's reaction checks ask the Gamemaster for dice:** as it looks for the reactions an
     attack's targets could take, Midi-QOL works out what each would spend and throws that away
     (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
@@ -216,9 +75,10 @@ Built early, beside item 11, in module 0.44.0: v1.x item 8, Tidy 5e Sheets' jour
     dice, as it now does Midi's check as a use from the app begins.
 24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
     `commands.mjs`, `transport.mjs`, `chat-data.mjs`, `creatures.mjs`, `midi-prompts.mjs`,
-    `command-rolls.mjs` and others) already imported one another in one loop before item 11, and
-    `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No top-level
-    code depends on the loop; untangling it is a refactor of modules older than item 11.
+    `command-rolls.mjs` and others) already imported one another in one loop before the later dice,
+    and `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No
+    top-level code depends on the loop; untangling it is a refactor of modules older than the later
+    dice.
 25. **Two copies of one countdown:** the dice dialog
     (`src/features/rolling/components/dice-entry/dice-entry-dialog.tsx`, since v0.42) keeps its own
     `secondsLeft`, `useSecondsLeft` and `clock`, line for line the prompt banner's
@@ -271,30 +131,12 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
    case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
    offline as it connects.
-8. **Tidy 5e Sheets' journal (done early, in v0.44):** the character-specific journal notes Tidy 5e
-   Sheets adds to a character, which aren't part of dnd5e's own character data (its
-   [`documentJournal` flag](https://kgar.github.io/foundry-vtt-tidy-5e-sheets/classes/TidyFlags.html#documentjournal)),
-   merged with the app's own journal. Tidy 5e Sheets is listed among the modules the app works
-   with in the campaign's settings, as the others are. Where entries can be deconflicted by when
-   each was created, the app shows a chip on the journal pages that come from Tidy 5e Sheets.
-   (Done, module 0.44.0, for dnd5e 5 with Tidy 13, and for dnd5e 6 with Tidy 14, which keeps the
-   same flags; tested against stand-ins, not yet at a table. Tidy keeps no times for its entries,
-   so: read only in the app, edited in Foundry; shown side by side, in a "From Tidy 5e Sheets"
-   section at the end of the character's journal, in Tidy's order, each with its chip and the date
-   the app first saw it and last saw it change; the Classic sheet's five boxes too, chipped "Tidy
-   5e Classic"; secrets left out where no player owns the character, as in the app's own journal;
-   still shown, read only, while Tidy is off or uninstalled, with a line saying so. To check at
-   the table, with dnd5e 5.3.3 and Tidy 13.10.5: an entry added, changed, dragged and deleted on
-   the Journal tab reaches the app within seconds, a first one dated "First seen"; the Classic
-   sheet's boxes; secrets on a character no player owns; Tidy turned off, then uninstalled,
-   leaving the entries readable and the campaign card saying "(not enabled)"; and an entry written
-   on a Wild Shape form's Journal tab lost when the form ends, as the app's line says.)
-9. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
+8. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
    player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
    signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
    until the cache expires, so its lifetime is chosen with that in mind.
-10. Bug fixes and polish.
+9. Bug fixes and polish.
 
 ## v2.0
 
