@@ -446,7 +446,7 @@ describe('a creature’s pane', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('has its Condition Immunities’ conditions as a description’s, a hover their rules and a click the panel at one, D&D Beyond’s tags never shown', async () => {
+  it('has its Condition Immunities’ conditions as a description’s, a hover their rules and a click the panel at one, a condition under another trait plain text and D&D Beyond’s tags never shown', async () => {
     const scrolled = jest.fn()
     Element.prototype.scrollIntoView = scrolled
     const user = userEvent.setup()
@@ -460,7 +460,15 @@ describe('a creature’s pane', () => {
     render(
       pane({
         sheet: wolf({
-          traits: [{ id: 'ci', label: 'Condition Immunities', values }],
+          traits: [
+            // A condition an import filed under another trait: its text alone, no button.
+            {
+              id: 'di',
+              label: 'Damage Immunities',
+              values: ['[condition]Poisoned[/condition]'],
+            },
+            { id: 'ci', label: 'Condition Immunities', values },
+          ],
         }),
       }),
     )
@@ -468,7 +476,7 @@ describe('a creature’s pane', () => {
 
     const traits = screen.getByRole('region', { name: 'Traits' })
     expect(traits).toHaveTextContent(
-      'Condition ImmunitiesPoison, Charmed, Exhaustion, Poisoned',
+      'Damage ImmunitiesPoisonedCondition ImmunitiesPoison, Charmed, Exhaustion, Poisoned',
     )
     expect(
       within(traits)
