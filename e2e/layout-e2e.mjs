@@ -1,5 +1,9 @@
 // The game table with a long chat and a big fight, at phone, tablet and desktop sizes: does the
-// page itself scroll, as well as the pane? Screenshots to SHOTS.
+// page itself scroll, as well as the pane? Screenshots to SHOTS. And a very long character name
+// (item 17), at 360, 390, 768, 1024 and 1280 in the light theme: on the Gamemaster's campaigns
+// page it wraps inside its column, never under the invite link beside it nor past a phone's screen;
+// on the Gamemaster's page of the character the journal's card leaves its words room, Open's label
+// wrapping, and Combat and Chat keep their width beside it.
 import { actor, combat, combatant, message, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -52,6 +56,9 @@ await modal.getByRole('button', { name: 'Done' }).click()
 users.activeGM = user('gm', 'Gamemaster', true)
 user('alice', 'Alice')
 const thorin = actor('thorin', 'Thorin Oakenshield', ['alice'], 'character', { value: 31, max: 44, temp: 0 })
+// Item 17: a name as long as one at the table, Alice's too.
+const LONG = 'Seraphina Nightingale-Ashworth of the Ever-Burning Lighthouse'
+actor('sera', LONG, ['alice'], 'character', { value: 30, max: 38, temp: 0 })
 const goblins = Array.from({ length: 11 }, (_, i) => actor(`gob${i}`, `Goblin ${i + 1}`, [], 'npc', { value: 7, max: 7, temp: 0 }))
 await import(`${MODULE}/scripts/module.mjs`)
 await Hooks.callAll('init')
@@ -59,7 +66,7 @@ settings.set('listenerUrl', new URL(BASE).host)
 settings.set('campaignSecrets', { 'camp-ash': SECRET })
 settings.set('chatEvents', true)
 settings.set('combatEvents', true)
-settings.set('campaigns', [{ id: 'camp-ash', title: 'Ashlands', characters: ['thorin'] }])
+settings.set('campaigns', [{ id: 'camp-ash', title: 'Ashlands', characters: ['thorin', 'sera'] }])
 await Hooks.callAll('ready')
 await idle()
 
@@ -139,6 +146,61 @@ if (EXPECT === 'fixed') {
     check(!results[name].tabs, `${name}: combat and chat side by side, no tabs`)
   }
 }
+// ---- Item 17: a very long name ----
+const campaignId = sql(`select id from campaign where title = 'Ashlands'`)
+/** On the campaigns page: the long name's row against its column, and the page's sideways scroll. */
+const rowInColumn = page => page.getByRole('link', { name: `Open ${LONG}'s sheet` }).evaluate(link => {
+  const row = link.closest('li').getBoundingClientRect()
+  const column = link.closest('section').parentElement.getBoundingClientRect()
+  const root = document.scrollingElement
+  return { past: Math.round(row.right - column.right), pageX: root.scrollWidth - root.clientWidth }
+})
+/**
+ * On the Gamemaster's page of the character: the journal card's words against the card, Open's
+ * label against Open, the page's sideways scroll, and Combat and Chat's column beside the pane
+ * against the width it's given, clamp(320px, 40%, 500px) of the table's row.
+ */
+const cardRoom = page => page.getByRole('region', { name: 'Journal', exact: true }).evaluate((card, long) => {
+  const title = [...card.querySelectorAll('p')].find(p => p.textContent === `${long}’s Journal`)
+  const open = card.querySelector('button')
+  const pane = document.getElementById('character-pane')
+  const aside = pane.nextElementSibling
+  const row = pane.parentElement.getBoundingClientRect().width
+  const asideWidth = aside.getBoundingClientRect().width
+  const beside = getComputedStyle(pane).display !== 'none' && getComputedStyle(aside).display !== 'none'
+  const root = document.scrollingElement
+  return {
+    words: Math.round(title.getBoundingClientRect().width), card: Math.round(card.getBoundingClientRect().width),
+    spill: open.scrollWidth - open.clientWidth, pageX: root.scrollWidth - root.clientWidth,
+    aside: beside ? Math.round(asideWidth) : null, wanted: beside ? Math.round(Math.min(500, Math.max(320, 0.4 * row))) : null,
+  }
+}, LONG)
+const named = {}
+for (const width of [360, 390, 768, 1024, 1280]) {
+  const ctx = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 900 }, colorScheme: 'light' })
+  await ctx.addCookies([cookie])
+  const page = await ctx.newPage()
+  page.on('pageerror', e => problems.push(`${width} long name pageerror: ${e.message}`))
+  await page.goto(`${BASE}/campaigns?campaign=${campaignId}`)
+  await page.getByRole('link', { name: `Open ${LONG}'s sheet` }).waitFor()
+  named[width] = { campaigns: await rowInColumn(page) }
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-campaigns-${width}.png` })
+  await page.goto(`${BASE}/campaigns/${campaignId}/characters/sera`)
+  await page.getByRole('button', { name: `Open ${LONG}’s Journal` }).waitFor()
+  named[width].journal = await cardRoom(page)
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-journal-${width}.png` })
+  await ctx.close()
+}
+console.log(JSON.stringify(named, null, 1))
+if (EXPECT === 'fixed') {
+  for (const [width, { campaigns, journal }] of Object.entries(named)) {
+    check(campaigns.past <= 0 && campaigns.pageX === 0,
+      `${width}: on the campaigns page the long name wraps inside its column, the page not scrolling sideways (${JSON.stringify(campaigns)})`)
+    check(journal.words >= journal.card / 3 && journal.spill <= 0 && journal.pageX === 0 && journal.aside === journal.wanted,
+      `${width}: on its page the journal's card leaves its words a third of it, Open's label wrapping inside Open, Combat and Chat at their width beside it (${JSON.stringify(journal)})`)
+  }
+}
+
 console.log('problems:', problems)
 await browser.close()
 process.exit(0)

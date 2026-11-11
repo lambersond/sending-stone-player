@@ -404,7 +404,10 @@ describe('components/campaigns/campaign-card', () => {
       const link = screen.getByRole('link', { name: `Open ${name}'s sheet` })
       expect(link).toHaveAttribute('href', `/campaigns/c1/characters/${id}`)
       expect(link).toHaveTextContent(name)
-      expect(link).toHaveClass('truncate')
+      // Changed on purpose (item 17): a long name wraps, whole, where one kept on one line held
+      // its column wider than the card.
+      expect(link).toHaveClass('wrap-anywhere')
+      expect(link).not.toHaveClass('truncate')
       // Changed on purpose (round 0.39.0 §4.7): 44 px, as the design's rows.
       expect(link.closest('li')).toHaveClass('min-h-11')
     }

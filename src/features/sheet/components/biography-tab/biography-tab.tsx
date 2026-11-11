@@ -78,9 +78,13 @@ export function BiographyTab({
         >
           <SheetHeading id={personalityId}>Personality</SheetHeading>
           <dl className='grid gap-2 @2xl:grid-cols-2'>
+            {/* A word too long for its card breaks, as the biography's words do, rather than
+                running out of it. */}
             {personality.map(detail => (
               <SheetFact key={detail.id} label={detail.label}>
-                <p className='whitespace-pre-line'>{detail.value}</p>
+                <p className='whitespace-pre-line wrap-anywhere'>
+                  {detail.value}
+                </p>
               </SheetFact>
             ))}
           </dl>
@@ -90,7 +94,7 @@ export function BiographyTab({
       {appearance && (
         <section aria-labelledby={appearanceId} className='flex flex-col gap-2'>
           <SheetHeading id={appearanceId}>Appearance</SheetHeading>
-          <p className='rounded-2xl border border-border bg-card px-4 py-3 whitespace-pre-line'>
+          <p className='rounded-2xl border border-border bg-card px-4 py-3 whitespace-pre-line wrap-anywhere'>
             {appearance}
           </p>
         </section>

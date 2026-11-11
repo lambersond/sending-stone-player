@@ -141,6 +141,17 @@ describe('components/notes/journal-card', () => {
     expect(within(card()).getByText(who)).toBeInTheDocument()
   })
 
+  it('keeps Open, beside the words on a wide card, to half of it, its label wrapping (item 17)', async () => {
+    const name = 'Seraphina Nightingale-Ashworth of the Ever-Burning Lighthouse'
+    serveNotes({ [API]: book() })
+    renderCard({ role: 'gm', name })
+    // As wide as its label, a long name's left the card's words a letter's width; and its icon
+    // keeps its size as the label wraps.
+    const open = await ready(`Open ${name}’s Journal`)
+    expect(open).toHaveClass('@min-[640px]:max-w-1/2', 'wrap-anywhere')
+    expect(open.querySelector('svg')).toHaveClass('size-4', 'shrink-0')
+  })
+
   it('says it’s loading before the book comes', () => {
     globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
     renderCard()
