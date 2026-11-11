@@ -424,10 +424,10 @@ export type TableView = {
    */
   manualDice?: { offered: boolean; on: boolean }
   /**
-   * At either seat, from module 0.44.0: whether the campaign's module asks a player typing in their
-   * dice for the dice an item rolls later, as its hello said last (`features.rolls.diceAsks`),
-   * stored, never whether it polled lately, so that Help says the same as the game stops polling.
-   * Unset where it doesn't.
+   * At either seat: whether the campaign's module is one that asks a player typing in their dice
+   * for the dice an item rolls later wherever its switches let it, module 0.44.0 or later under
+   * dnd5e 5, as its hello said last (`asksLaterDice`), stored, never whether it polled lately nor
+   * how the switches stand, so that Help's text says the same as they change. Unset where it isn't.
    */
   laterDice?: true
 }

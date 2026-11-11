@@ -20,10 +20,11 @@ export function named(words: string, name: string): string {
 }
 
 /**
- * Help's sections, with "Dice an item rolls later" only where the campaign's module asks a typing
- * player for those dice, from module 0.44.0, as its hello said last (`TableView['laterDice']`), at
- * either seat, whether or not the game polls now (H6 B): Help never describes what isn't there, and
- * its words never shift as the game stops polling.
+ * Help's sections, with "Dice an item rolls later" only where the campaign's module is one that
+ * asks a typing player for those dice, module 0.44.0 or later under dnd5e 5, as its hello said last
+ * (`TableView['laterDice']`), at either seat, however its Gamemaster's switches stand and whether
+ * or not the game polls now (H6 B; the owner's round 3 decision 3): Help never describes what its
+ * game can't do, and its words never shift as the switches change.
  */
 export function helpSections(laterDice: boolean): HelpSection[] {
   if (laterDice) return HELP_SECTIONS
@@ -73,8 +74,9 @@ function sentRow(words: RowWords, on: boolean, send: boolean): BoxRow {
  * Those about something this device sends the game follow its Send to the table (`sentRow`), as
  * the page does: its rolls, attacks, dice tray and End turn, the saves the game asks, answered here
  * only while it's on, and the dice their effects add and an item rolls later, asked only of a roll
- * sent. Those dice only while they type theirs in, the later ones only where the campaign's module
- * asks for them (H6 B); Wild Shape only for a sheet that has it.
+ * sent. Those dice only while they type theirs in, the later ones only where the campaign's
+ * module is one that asks for them, as the paragraph on them shows (H6 B); Wild Shape only for a
+ * sheet that has it.
  */
 function playerRows({ view, typing, send }: HelpFacts): BoxRow[] {
   const kinds = view.connected ? (view.rollsToTable ?? []) : []

@@ -14,7 +14,7 @@ import type { HelpPanelProps } from '@/features/help/types'
  * player sees", after the seat's note (H3 B); the "In this game" box at the top while the character
  * plays (H2 B, D3), as this device's Send to the table has the seat's rolls made in the game or
  * not; then the "Go to" chips and the eight sections, "Dice an item rolls later" among them where
- * the campaign's module asks for those dice (H6 B).
+ * the campaign's module is one that asks for those dice, whatever its switches (H6 B).
  */
 export function HelpPanel({
   open,

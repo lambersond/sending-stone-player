@@ -158,16 +158,16 @@ describe('features/help/utils', () => {
 
     it.each<[string, TableView, string[]]>([
       [
-        'asks for them, and takes the answer now',
+        'is one that asks for them, and takes the answer now',
         everything(),
         ['● Dice an item rolls later: Asked for'],
       ],
       [
-        'asks for them, but the game isn’t polling now',
+        'is one that asks for them, but takes none now, as its switches or a game not polling leave it',
         everything({ rollsToTable: [], rollFeatures: [] }),
         ['○ Dice an item rolls later: Rolled by the game'],
       ],
-      ['asks for none', everything({ laterDice: undefined }), []],
+      ['is none that asks for them', everything({ laterDice: undefined }), []],
     ])(
       'has the row for the dice an item rolls later only where the campaign’s module %s',
       (_case, view, rows) => {

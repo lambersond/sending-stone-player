@@ -1,6 +1,7 @@
 import { DICE_ASK_WAIT } from '@/constants/sending-stone'
 import type { SheetSeat } from '@/types/character'
 import type { DiceAskData, HeldDiceAsk } from '@/types/dice-asks'
+import type { FoundrySnapshot } from '@/types/foundry-settings'
 import type { DiceAnswerTerm, RollKind } from '@/types/roll'
 import type { GameDiceAsk } from '@/types/sending-stone'
 import type { TableDiceAsk } from '@/types/table'
@@ -32,6 +33,44 @@ export function askTimes(
     askedAt: new Date(now - within(from - asked)),
     expiresAt: new Date(now + within(Date.parse(ask.expiresAt) - from)),
   }
+}
+
+/** The module from which the game asks a typing player for the dice it rolls later: 0.44.0. */
+const LATER_DICE_FROM = [0, 44, 0] as const
+
+/**
+ * Is the campaign's module one that asks a player typing in their dice for the dice an item rolls
+ * later, wherever its Gamemaster's switches let it, as its hello said last (the campaign's stored
+ * `foundry`), whether or not the game polls now: from module 0.44.0, under dnd5e 5 alone, as the
+ * module checks it (PROTOCOL.md, "Dice the game rolls later"; later-dice.mjs, `dnd5e5`). Under
+ * any other system, dnd5e 6 among them, it never asks, whatever the switches. Whether it asks now,
+ * which the switches and its self-test decide, is the hello's `diceAsks`, never read here.
+ */
+export function asksLaterDice(
+  foundry?: Pick<FoundrySnapshot, 'module' | 'system'> | null,
+): boolean {
+  const system = foundry?.system
+  return (
+    system?.id === 'dnd5e' &&
+    Number.parseInt(String(system.version)) === 5 &&
+    atLeast(foundry?.module?.version, LATER_DICE_FROM)
+  )
+}
+
+/** Is a version, such as "0.44.0", this one or a later one, by its numbers? One without is not. */
+function atLeast(
+  version: string | null | undefined,
+  from: readonly number[],
+): boolean {
+  const parts = String(version ?? '')
+    .split('.')
+    .map(part => Number.parseInt(part))
+  for (const [index, least] of from.entries()) {
+    const part = parts[index] ?? 0
+    if (Number.isNaN(part)) return false
+    if (part !== least) return part > least
+  }
+  return true
 }
 
 /**

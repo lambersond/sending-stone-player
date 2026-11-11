@@ -4,7 +4,8 @@ import type { TableView } from '@/types/table'
  * A part of a section of Help: its bold lead, where it has one, and what follows it, which carries
  * its own punctuation, such as " Tap an ability…" after "Checks and saves." or ": your checks…"
  * after "Players roll in the app". `later` marks "Dice an item rolls later", shown only where the
- * campaign's module asks for those dice (H6 B).
+ * campaign's module is one that asks for those dice, whatever its switches (H6 B, round 3's
+ * decision 3).
  */
 export type HelpPart = { lead?: string; text: string; later?: true }
 
