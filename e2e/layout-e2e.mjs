@@ -195,7 +195,8 @@ const chooserRoom = page => page.getByRole('group', { name: 'Which character are
 }, LONG)
 /**
  * On that page's Combat (item 33): the turn panel's round line, its round's lines, the name after
- * "Next:" cut short inside the line, and the page's sideways scroll.
+ * "Next:", whether it's cut short, whether it would fit whole beside the round, whether it stays
+ * inside the line, and the page's sideways scroll.
  */
 const roundRoom = page => page.locator('section[aria-labelledby="turn-heading"]').evaluate(panel => {
   const line = panel.firstElementChild
@@ -204,6 +205,7 @@ const roundRoom = page => page.locator('section[aria-labelledby="turn-heading"]'
   return {
     round: round.textContent, lines: Math.round(round.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(round).lineHeight)),
     next: next.textContent, cut: next.scrollWidth > next.clientWidth, inside: next.getBoundingClientRect().right <= line.getBoundingClientRect().right + 0.5,
+    fits: Math.ceil(round.getBoundingClientRect().width) + Number.parseFloat(getComputedStyle(line).columnGap) + next.scrollWidth <= Math.floor(line.getBoundingClientRect().width),
     pageX: root.scrollWidth - root.clientWidth,
   }
 })
@@ -254,8 +256,8 @@ if (EXPECT === 'fixed') {
       `${width}: on its page the journal's card leaves its words a third of it, Open's label wrapping inside Open, Combat and Chat at their width beside it (${JSON.stringify(journal)})`)
     check(join.past <= 0 && !join.cut && join.pageX === 0,
       `${width}: on the join page the long name wraps, whole, inside its card, the chooser inside its column, the page not scrolling sideways (${JSON.stringify(join)})`)
-    check(combat.round === 'Round 2' && combat.lines === 1 && combat.next === `Next: ${LONG_FOE}` && combat.cut && combat.inside && combat.pageX === 0,
-      `${width}: on Combat the long name after "Next:" is cut short inside the round line, "Round 2" kept on one line beside it, the page not scrolling sideways (${JSON.stringify(combat)})`)
+    check(combat.round === 'Round 2' && combat.lines === 1 && combat.next === `Next: ${LONG_FOE}` && combat.cut === !combat.fits && combat.inside && combat.pageX === 0,
+      `${width}: on Combat "Round 2" kept on one line beside the long name after "Next:", which is cut short inside the line wherever it doesn't fit whole, the page not scrolling sideways (${JSON.stringify(combat)})`)
   }
 }
 
