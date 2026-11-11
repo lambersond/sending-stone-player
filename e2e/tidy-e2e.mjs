@@ -28,7 +28,7 @@ const { TIDY, JOURNAL, entry, tidy } = await import('./fvtt/tidy-core.mjs')
 
 const GAME = 'https://erebor-tidy.forge-vtt.com'
 const ADDRESS = 'erebor-tidy.forge-vtt.com'
-const SECRET = 'erebor-tidy-secret-45'
+const SECRET = 'erebor-tidy-secret-44'
 const TITLE = 'Erebor'
 const MINE = 'My Journal'
 /** The Tidy for the system: 13.10.5 for dnd5e 5.3, 14.4.1 for dnd5e 6.0. */

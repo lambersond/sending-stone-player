@@ -38,7 +38,7 @@ import {
 import { combat, combatant } from './fvtt/stub.mjs'
 
 const GAME = 'https://rime-hollow.forge-vtt.com'
-const SECRET = 'rime-hollow-later-45'
+const SECRET = 'rime-hollow-later-44'
 const TITLE = 'Rime Hollow'
 /** Module 0.44.0 under dnd5e 5: the game asks for its later dice. */
 const ASKS = !SKEW042 && !DND5E6

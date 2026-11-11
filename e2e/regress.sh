@@ -90,10 +90,10 @@ run typed 12 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-042
 # held past its own minute and never timed out (the plain and Midi-QOL runs about 45 s longer),
 # nothing for a 3D player or the Gamemaster's own roll; Midi-QOL's copy of Ice Knife's activities
 # and a Sneak Attack bonus; dnd5e 6.0.5 (off, said so); and module 0.42.0.
-run laterdice 26 SHOTS=$O/shots-045
-run laterdice 32 MIDI=1 SHOTS=$O/shots-045
-run laterdice 9 DND5E6=1 SHOTS=$O/shots-045
-run laterdice 9 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-045
+run laterdice 26 SHOTS=$O/shots-044
+run laterdice 32 MIDI=1 SHOTS=$O/shots-044
+run laterdice 9 DND5E6=1 SHOTS=$O/shots-044
+run laterdice 9 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 run theme 15 SHOTS=$O/shots-026
 # One damage card (module 0.28.0): plain dnd5e, Midi-QOL's card, and module 0.27.0 under Midi.
 run damagecard 31 SHOTS=$O/shots-028
@@ -149,9 +149,9 @@ run notesorder 9 SKEW=034 MODULE=$O/module-0.34.0 SHOTS=$O/shots-035
 # the settings card, its section, chips and dates, Tidy's edits in Foundry, the Gamemaster and another
 # player, Tidy off and uninstalled; dnd5e 6.0.5 with Tidy 14 (its _del, the Classic boxes it no longer
 # shows); and module 0.42.0 (nothing new).
-run tidy 38 SHOTS=$O/shots-045
-run tidy 38 DND5E6=1 SHOTS=$O/shots-045
-run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-045
+run tidy 38 SHOTS=$O/shots-044
+run tidy 38 DND5E6=1 SHOTS=$O/shots-044
+run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 # Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
 # shown beside the character and acting from the app; damage on its own and recharges; and
 # module 0.35.0 (neither).
