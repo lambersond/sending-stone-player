@@ -118,7 +118,8 @@ export function TurnPanel({
 }
 
 /**
- * The round, and who acts next: a long name cut short, the round kept whole, on one line, beside it.
+ * The round, and who acts next: a long name cut short, the round kept whole, on one line,
+ * beside it.
  */
 function RoundLine({
   combat,
