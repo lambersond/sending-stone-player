@@ -103,6 +103,19 @@ const HINT = 'Or press and hold the Combat tab, from any tab.'
 const ROLL_LINE =
   'Your Gamemaster is setting up an encounter: roll initiative from the sheet.'
 
+/** An encounter being set up, round 0, with `who` still to roll initiative. */
+const waiting = (who: Partial<TableCombatant> & { id: string }) =>
+  encounter({
+    underWay: false,
+    round: 0,
+    currentId: undefined,
+    combatants: [
+      fighter({ id: 'boss', initiative: 15 }),
+      fighter({ id: 'thorin', side: 'me', initiative: 12 }),
+      fighter({ initiative: null, ...who }),
+    ],
+  })
+
 describe('components/game-table/combat-tracker', () => {
   it('says when there is no combat', () => {
     render(<CombatTracker />)
@@ -218,18 +231,6 @@ describe('components/game-table/combat-tracker', () => {
   })
 
   describe('an encounter not under way (item 19)', () => {
-    const waiting = (who: Partial<TableCombatant> & { id: string }) =>
-      encounter({
-        underWay: false,
-        round: 0,
-        currentId: undefined,
-        combatants: [
-          fighter({ id: 'boss', initiative: 15 }),
-          fighter({ id: 'thorin', side: 'me', initiative: 12 }),
-          fighter({ initiative: null, ...who }),
-        ],
-      })
-
     it.each([
       [
         'set up, the character waiting to roll',
@@ -252,8 +253,12 @@ describe('components/game-table/combat-tracker', () => {
         false,
       ],
       [
-        'begun, but not the encounter the tracker shows',
-        encounter({ underWay: false }),
+        'begun, but not the encounter the tracker shows, the character without initiative',
+        {
+          ...waiting({ id: 'thorin', side: 'me' }),
+          round: 2,
+          currentId: 'boss',
+        },
         false,
       ],
     ])('%s: no combat, its turn and order unshown', (_, combat, line) => {

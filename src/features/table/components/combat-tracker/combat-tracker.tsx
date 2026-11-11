@@ -15,8 +15,8 @@ import type { TableCombat } from '@/types/table'
  * the initiative order. From module 0.36.0, the character's companions are the player's own, and on
  * a companion's turn its panel says to roll for it on its tab, which it opens. And on the seat's
  * turn, the panel offers End Turn. Before then, or with none, there's no combat to show; while the
- * character or a companion of it waits for its initiative in the encounter held, it says to roll it
- * from the sheet.
+ * character or a companion of it waits for its initiative in an encounter being set up, it says to
+ * roll it from the sheet.
  * @param onOpen - Shows a companion's tab, by its key.
  * @param keys - The companions whose tabs the page shows.
  */
