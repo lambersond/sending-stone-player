@@ -1102,6 +1102,8 @@ describe('db/note-sync', () => {
 
     it('changes nothing for a result for an earlier hand-over, the change since moved on', async () => {
       prismaMock.journalWrite.updateMany.mockResolvedValue({ count: 0 })
+      // Nor is it an order's: no order has the id.
+      prismaMock.journalOrder.findUnique.mockResolvedValue(null)
 
       await recordNoteResult('c1', result({ id: `${W1}.0` }))
 
