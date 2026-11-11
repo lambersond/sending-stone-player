@@ -1,0 +1,39 @@
+import type { TableView } from '@/types/table'
+
+/**
+ * A part of a section of Help: its bold lead, where it has one, and what follows it, which carries
+ * its own punctuation, such as " Tap an ability…" after "Checks and saves." or ": your checks…"
+ * after "Players roll in the app". `later` marks "Dice an item rolls later", shown only where the
+ * campaign's module asks for those dice (H6 B).
+ */
+export type HelpPart = { lead?: string; text: string; later?: true }
+
+/** One of Help's sections, with the id its chip goes to it by. */
+export type HelpSection = { id: string; title: string; parts: HelpPart[] }
+
+/** A row of the "In this game" box: what it's about, what it says now, and whether that's on. */
+export type BoxRow = { label: string; says: string; on: boolean }
+
+/** A line under the box's rows; `warn` while the Gamemaster's game isn't connected. */
+export type BoxNote = { text: string; warn?: true }
+
+/** The "In this game" box (H2 B): what the character's campaign allows now. */
+export type HelpBox = { title: string; rows: BoxRow[]; notes: BoxNote[] }
+
+/** What Help reads of the character's page: whose seat, the character, and its campaign's view. */
+export type HelpFacts = {
+  /** At the Gamemaster's seat (H3 B). */
+  gm: boolean
+  /** The character's name, as its page's header shows it. */
+  name: string
+  /** Whether the character plays in its campaign: the box shows only then. */
+  playing: boolean
+  view: TableView
+  /** The player's Enter dice results manually, where the game lets them type in their dice. */
+  typing?: { on: boolean }
+}
+
+/** Opens Help, focus going back to `opener` once it closes: the header's button, or the cog. */
+export type ShowHelp = (opener: HTMLElement | null) => void
+
+export type HelpPanelProps = HelpFacts & { open: boolean; onClose: () => void }

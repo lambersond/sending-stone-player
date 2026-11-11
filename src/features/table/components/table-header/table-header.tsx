@@ -1,19 +1,25 @@
 'use client'
 
 import clsx from 'clsx'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, CircleQuestionMark, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { FullscreenButton } from '@/components/fullscreen-button/fullscreen-button'
 import { LiveStatus } from '@/components/live-status/live-status'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
-import { HEADER_ICON_BUTTON, ICON_TARGET } from '@/constants/buttons'
+import {
+  HEADER_ICON_BUTTON,
+  ICON_TARGET,
+  TABLE_HEADER_BUTTON,
+} from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
+import { HELP_TITLE } from '@/features/help/constants'
 import {
   campaignAndGame,
   headerLine,
   liveState,
   subtitle,
 } from '@/features/table/utils/header'
+import type { ShowHelp } from '@/features/help/types'
 import type { Tab } from '@/features/table/types'
 import type { Character } from '@/types/character'
 import type { Connection, TableView } from '@/types/table'
@@ -21,10 +27,11 @@ import type { Ref } from 'react'
 
 /**
  * The table's header: back to the character's campaigns or characters; its name, with the GM pill
- * at the Gamemaster's seat (#156), and what's happening in the tab shown; the live state, full
- * screen, and for its player, a way to delete it.
+ * at the Gamemaster's seat (#156), and what's happening in the tab shown; the live state, Help
+ * (ROADMAP item 12), full screen, and for its player, a way to delete it.
  * @param ref - The header, which the sheet's roll toasts start below while its tabs aren't shown.
  * @param playing - Whether the character plays one of its campaign's characters.
+ * @param onHelp - Opens Help, focus coming back to its button once it closes.
  */
 export function TableHeader({
   ref,
@@ -34,6 +41,7 @@ export function TableHeader({
   view,
   tab,
   connection,
+  onHelp,
   deleteCharacter,
 }: Readonly<{
   ref: Ref<HTMLElement>
@@ -43,6 +51,7 @@ export function TableHeader({
   view: TableView
   tab: Tab
   connection: Connection
+  onHelp: ShowHelp
   deleteCharacter?: () => Promise<void>
 }>) {
   return (
@@ -107,6 +116,16 @@ export function TableHeader({
       </div>
       <div className='flex shrink-0 items-center gap-1'>
         <LiveStatus state={liveState(playing, view, connection)} />
+        <button
+          type='button'
+          aria-label={HELP_TITLE}
+          title={HELP_TITLE}
+          aria-haspopup='dialog'
+          onClick={event => onHelp(event.currentTarget)}
+          className={TABLE_HEADER_BUTTON}
+        >
+          <CircleQuestionMark aria-hidden className='size-4' />
+        </button>
         <FullscreenButton />
         {!gm && deleteCharacter && (
           <ConfirmDialog

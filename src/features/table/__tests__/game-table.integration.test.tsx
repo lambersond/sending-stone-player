@@ -1471,7 +1471,13 @@ describe('components/game-table, full screen', () => {
   it('sits in the header after whether the game is live, before deleting the character, with no party there', () => {
     renderTable(view(party))
 
-    expect(cluster()).toEqual(['status', 'Full screen', 'Delete Thorin'])
+    // Changed on purpose (ROADMAP item 12): Help between them.
+    expect(cluster()).toEqual([
+      'status',
+      'Help',
+      'Full screen',
+      'Delete Thorin',
+    ])
   })
 
   it('stays in the header on every tab, and fills the screen with the whole page', async () => {
@@ -1509,7 +1515,8 @@ describe('components/game-table, full screen', () => {
       />,
     )
 
-    expect(cluster()).toEqual(['status', 'Full screen'])
+    // Changed on purpose (ROADMAP item 12): Help there too.
+    expect(cluster()).toEqual(['status', 'Help', 'Full screen'])
   })
 })
 

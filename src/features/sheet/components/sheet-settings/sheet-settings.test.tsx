@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useTheme } from 'next-themes'
 import { LAYOUTS } from '../actions-layout/constants'
 import { SheetSettings } from './sheet-settings'
+import { ShowHelpContext } from '@/features/help/hooks/use-show-help'
 import { TableApiContext } from '@/hooks/use-table-api'
 import type { TableSeat } from '@/types/character'
 
@@ -764,5 +765,47 @@ describe('components/character-sheet/sheet-settings', () => {
         )
       },
     )
+  })
+  describe('How to use Sending Stone (ROADMAP item 12)', () => {
+    it('comes first in Help where the page has Help, closing the settings and opening it from the cog', async () => {
+      const user = userEvent.setup()
+      const focused: unknown[] = []
+      const showHelp = jest.fn(() => focused.push(document.activeElement))
+      render(
+        <ShowHelpContext value={showHelp}>
+          <SheetSettings send={{ on: true, onChange: jest.fn() }} />
+        </ShowHelpContext>,
+      )
+      await user.click(cog())
+      const help = within(settings()).getByRole('group', { name: 'Help' })
+      const entries = [
+        ...within(help).getAllByRole('button'),
+        ...within(help).getAllByRole('link'),
+      ].map(entry => entry.textContent)
+      expect(entries).toEqual([
+        'How to use Sending Stone',
+        'Report a bug (opens in a new tab)',
+        'Request a feature (opens in a new tab)',
+      ])
+
+      await user.click(
+        within(help).getByRole('button', { name: 'How to use Sending Stone' }),
+      )
+      // Opened with the cog to go back to, which has focus already, as the settings close.
+      expect(showHelp).toHaveBeenCalledWith(cog())
+      expect(focused).toEqual([cog()])
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull()
+    })
+
+    it('is not there where no page provides Help', async () => {
+      const user = userEvent.setup()
+      render(<SheetSettings />)
+      await user.click(cog())
+      expect(
+        within(settings()).queryByRole('button', {
+          name: 'How to use Sending Stone',
+        }),
+      ).toBeNull()
+    })
   })
 })
