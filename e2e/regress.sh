@@ -34,8 +34,9 @@ run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
 # Item 17: a very long character name on the campaigns page, the journal's card and the join page,
 # at 360, 390, 768, 1024 and 1280.
 run layout 27 EXPECT=fixed
-# Item 17 in world-030: long names in Give coins' and Distribute coins' lists, at the same five widths.
-run names 11 SHOTS=$O/shots-names
+# Item 17 in world-030: a long party name on the campaigns page, a long word in Personality and
+# Appearance, and long names in Give coins' and Distribute coins' lists, at the same five widths.
+run names 21 SHOTS=$O/shots-names
 run favorites 59 X=1
 # v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate.
 run rolls 77 SHOTS=$O/shots-rolls
