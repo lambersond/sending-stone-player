@@ -23,19 +23,17 @@ export function InThisGame({ box }: Readonly<{ box: HelpBox }>) {
             key={row.label}
             className='flex justify-between gap-3 border-t border-border px-3 py-2 text-[13px]'
           >
-            <dt className='min-w-0 flex-[1_1_45%] text-text-secondary'>
-              {row.label}
-            </dt>
+            <dt className='min-w-0 flex-1 text-text-secondary'>{row.label}</dt>
             <dd
               className={clsx(
-                'flex flex-[0_1_55%] items-center justify-end gap-1.5 text-right',
+                'flex max-w-[65%] shrink-0 items-start justify-end gap-1.5 text-right',
                 row.on ? 'font-medium' : 'text-text-secondary',
               )}
             >
               <span
                 aria-hidden
                 className={clsx(
-                  'size-2 shrink-0 rounded-full',
+                  'mt-1.5 size-2 shrink-0 rounded-full',
                   row.on
                     ? 'bg-primary'
                     : 'border-[1.5px] border-text-secondary',
