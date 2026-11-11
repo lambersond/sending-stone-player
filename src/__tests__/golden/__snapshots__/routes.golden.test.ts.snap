@@ -442,7 +442,8 @@ exports[`the pages name their sheets, and say which are not open here, for the G
     "effectsEnabled": true,
     "wildShapeEnabled": true,
     "hitPointsEnabled": true,
-    "chatClearedAt": true
+    "chatClearedAt": true,
+    "laterDice": true
    }
   }
  },
@@ -866,7 +867,8 @@ exports[`the pages name their sheets, and say which are not open here, for the p
     "effectsEnabled": true,
     "wildShapeEnabled": true,
     "hitPointsEnabled": true,
-    "chatClearedAt": true
+    "chatClearedAt": true,
+    "laterDice": true
    }
   }
  },
@@ -7418,7 +7420,8 @@ exports[`the routes of a sheet table GET, gm, unchanged: table GET, gm, unchange
     "effectsEnabled": true,
     "wildShapeEnabled": true,
     "hitPointsEnabled": true,
-    "chatClearedAt": true
+    "chatClearedAt": true,
+    "laterDice": true
    }
   }
  },
@@ -7576,7 +7579,8 @@ exports[`the routes of a sheet table GET, gm: table GET, gm 1`] = `
     "effectsEnabled": true,
     "wildShapeEnabled": true,
     "hitPointsEnabled": true,
-    "chatClearedAt": true
+    "chatClearedAt": true,
+    "laterDice": true
    }
   }
  },
@@ -7792,7 +7796,8 @@ exports[`the routes of a sheet table GET, player, its sheet known: table GET, pl
     "effectsEnabled": true,
     "wildShapeEnabled": true,
     "hitPointsEnabled": true,
-    "chatClearedAt": true
+    "chatClearedAt": true,
+    "laterDice": true
    }
   }
  },
@@ -8078,7 +8083,8 @@ exports[`the routes of a sheet table GET, player: table GET, player 1`] = `
     "effectsEnabled": true,
     "wildShapeEnabled": true,
     "hitPointsEnabled": true,
-    "chatClearedAt": true
+    "chatClearedAt": true,
+    "laterDice": true
    }
   }
  },
