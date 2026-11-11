@@ -100,5 +100,20 @@ describe('utils/companion-asks', () => {
       )
       expect(wordsOf({ type: 'concentration' })).toBe('Concentration check')
     })
+
+    // A prompt's keys may name what every object answers to: never found as a name, nor thrown on.
+    it.each([
+      [
+        { type: 'save', abilities: ['constructor'] },
+        'constructor saving throw',
+      ],
+      [{ type: 'skill', skills: ['constructor'] }, 'constructor check'],
+      [
+        { type: 'concentration', abilities: ['constructor'] },
+        'Concentration check (constructor)',
+      ],
+    ])('words %j by its key as it is', (data, words) => {
+      expect(wordsOf(data)).toBe(words)
+    })
   })
 })

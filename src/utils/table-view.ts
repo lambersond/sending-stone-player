@@ -1,6 +1,7 @@
 import { askTitle, isAbility } from './ask-words'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
 import { MAX_CHECKS, toolOrSkillName } from '@/utils/description-links'
+import { ownName } from '@/utils/own-name'
 import type { TableRoll } from '@/types/roll'
 import type {
   AskedCheck,
@@ -888,15 +889,6 @@ function rollLabel(
 /** A check's or save's name, as "Perception check"; none for no name. */
 const named = (name: string | undefined, roll: 'check' | 'save') =>
   name ? `${name} ${roll}` : undefined
-
-/**
- * A key's entry in a table of names, such as `ABILITIES`: the table's own, never one every object
- * answers to, such as `constructor`; none for a key not in it.
- */
-const ownName = (names: Record<string, string>, key: unknown) => {
-  const id = String(key)
-  return Object.hasOwn(names, id) ? names[id] : undefined
-}
 
 const textOf = (value: unknown) =>
   typeof value === 'string' ? value.trim() || undefined : undefined
