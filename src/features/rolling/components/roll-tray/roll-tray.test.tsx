@@ -5312,6 +5312,43 @@ describe('components/character-sheet/roll-tray, a die thrown again, answered, fr
     )
   })
 
+  it('says a die rerolled takes the place of the die it rerolls, never that it was added to its roll', async () => {
+    const user = userEvent.setup()
+    const rerolled = answered(
+      [[4]],
+      sparksAgain({
+        label: 'Greatsword',
+        again: 'reroll',
+        rolls: [{ formula: '2d6r<=2', terms: [{ faces: 6, number: 1 }] }],
+      }),
+    )
+    const { rerender } = render(
+      <RollTray rolls={[rerolled]} rolling={false} table={made} />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /^4Greatsword1d6 \(4\)In place of the die rerolled at the table$/,
+    )
+    expect(briefOf(rerolled, made.states.get('a1'))).toMatchObject({
+      total: 4,
+      table: {
+        tone: 'made',
+        text: 'In place of the die rerolled at the table',
+      },
+    })
+
+    rerender(
+      <RollTray
+        rolls={[roll({ id: 'r2' }), rerolled]}
+        rolling={false}
+        table={made}
+      />,
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      /^Greatsword4 = 4· in place of the die rerolled$/,
+    )
+  })
+
   it('shows no number for a die left to the game', async () => {
     const user = userEvent.setup()
     const left = answered()

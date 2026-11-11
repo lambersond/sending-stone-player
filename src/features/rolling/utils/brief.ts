@@ -1,6 +1,5 @@
 import { NOT_MADE } from '@/constants/lifecycle'
 import {
-  ADDED_WORDS,
   GM_WORDS,
   GM_WORDS_AFTER,
   LEFT_WORDS,
@@ -8,6 +7,7 @@ import {
 import { missed } from '@/features/rolling/utils/damage-due'
 import { gmBadge, gmLine, gmShape } from '@/features/rolling/utils/gm-words'
 import {
+  againWords,
   askedWords,
   byTheGame,
   damageBadge,
@@ -366,7 +366,7 @@ function tableLine(
 
 /**
  * What the game made of a roll, as its total and what came of it; of a die thrown again (module
- * 0.44.0), that it was added to its roll; or that it's hidden.
+ * 0.44.0), what became of it in its roll (`againWords`); or that it's hidden.
  */
 function madeAtTable(
   roll: LocalRoll,
@@ -374,7 +374,8 @@ function madeAtTable(
   role: SeatRole,
 ): string {
   if (!state.visible) return seatWords(role).hidden
-  if (roll.kind === 'formula' && roll.again) return ADDED_WORDS
+  const again = againWords(roll)
+  if (again) return again.made
   const outcome =
     roll.kind === 'check'
       ? outcomeOf(state, role, roll.dc, roll.verdict)

@@ -1,5 +1,5 @@
 import { NOT_MADE } from '@/constants/lifecycle'
-import { LEFT_WORDS } from '@/features/rolling/constants'
+import { AGAIN_WORDS, LEFT_WORDS } from '@/features/rolling/constants'
 import { choicesOf } from '@/features/rolling/utils/damage-due'
 import { favoriteReasons } from '@/features/rolling/utils/favorite-words'
 import { effectReasons, EFFECT_WORDS } from '@/utils/effect-words'
@@ -9,7 +9,13 @@ import { prepareReasons, PREPARE_WORDS } from '@/utils/prepare-words'
 import { reasons, listed } from '@/utils/roll-reasons'
 import { seatWords } from '@/utils/seat-words'
 import { wildShapeReasons, WILD_SHAPE_WORDS } from '@/utils/wild-shape-words'
-import type { Creature, RollBrief, TableRolls, WayWords } from '../types'
+import type {
+  AgainWords,
+  Creature,
+  RollBrief,
+  TableRolls,
+  WayWords,
+} from '../types'
 import type { Spent } from '@/features/sheet/components/effect-controls/types'
 import type {
   TableRollState,
@@ -538,11 +544,22 @@ export function leftSome(roll: LocalRoll): boolean {
 }
 
 /**
+ * What the game made of a die thrown again that the player answered (module 0.44.0), in place of
+ * a total, by why it was thrown again (`AGAIN_WORDS`); none for any other roll. The one place that
+ * says whether a roll is such an answer, for its status line, its toast and its earlier row alike.
+ */
+export function againWords(roll: LocalRoll): AgainWords | undefined {
+  return roll.kind === 'formula' && roll.again
+    ? AGAIN_WORDS[roll.again]
+    : undefined
+}
+
+/**
  * Is this a die thrown again whose answer left it to the game (module 0.44.0)? Its value is the
  * game's alone, counted in its roll's total, so no number is shown for it.
  */
 export function leftAgain(roll: LocalRoll): boolean {
-  return roll.kind === 'formula' && roll.again !== undefined && leftSome(roll)
+  return againWords(roll) !== undefined && leftSome(roll)
 }
 
 /** Is this damage the game's to roll, with no dice thrown here? */

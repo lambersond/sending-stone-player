@@ -1,5 +1,5 @@
-import type { RollChoice } from '@/features/rolling/types'
-import type { GmRollView } from '@/types/roll'
+import type { AgainWords, RollChoice } from '@/features/rolling/types'
+import type { GmRollView, LocalFormula } from '@/types/roll'
 
 /** How long a touch must be held to open the roll's menu, in milliseconds. */
 export const LONG_PRESS = 500
@@ -39,12 +39,22 @@ export const GM_WORDS_AFTER = 'rolled by your Gamemaster'
 
 /**
  * What the game made of a die thrown again that the player answered (module 0.44.0), in place of
- * a total: it's added to its roll, whose own line says the game's total.
+ * a total, by why it was thrown again: an exploded die is added to its roll; a rerolled one takes
+ * the place of the die it rerolls. That roll's own line says the game's total.
  */
-export const ADDED_WORDS = 'Added to its roll at the table'
-
-/** The same, among the earlier rolls, after the die. */
-export const ADDED_WORDS_AFTER = 'added to its roll'
+export const AGAIN_WORDS: Record<
+  NonNullable<LocalFormula['again']>,
+  AgainWords
+> = {
+  explode: {
+    made: 'Added to its roll at the table',
+    after: 'added to its roll',
+  },
+  reroll: {
+    made: 'In place of the die rerolled at the table',
+    after: 'in place of the die rerolled',
+  },
+}
 
 /**
  * A die the game asked for that the player left to it to roll (module 0.44.0), in place of its

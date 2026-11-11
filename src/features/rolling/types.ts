@@ -246,6 +246,12 @@ export type RollBrief = {
 export type WayWords = { doing: string; done: string; not: string }
 
 /**
+ * What the game made of a die thrown again that the player answered (`againWords`), in place of a
+ * total: as the tray's status line and its toast say it; and among the earlier rolls, after it.
+ */
+export type AgainWords = { made: string; after: string }
+
+/**
  * A roll's toast: its roll's id, when it popped up, and when it goes: never, while its roll waits
  * for the player (`needsPlayer`).
  */
