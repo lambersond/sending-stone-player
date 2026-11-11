@@ -417,6 +417,13 @@ export type TableView = {
    * this character here, and whether they chose to. Unset for the Gamemaster's seat.
    */
   manualDice?: { offered: boolean; on: boolean }
+  /**
+   * At either seat, from module 0.44.0: whether the campaign's module asks a player typing in their
+   * dice for the dice an item rolls later, as its hello said last (`features.rolls.diceAsks`),
+   * stored, never whether it polled lately, so that Help says the same as the game stops polling.
+   * Unset where it doesn't.
+   */
+  laterDice?: true
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */

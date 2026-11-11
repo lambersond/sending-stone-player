@@ -309,8 +309,11 @@ export const PLAYER_ROWS = {
     on: 'Asked for',
     off: 'Rolled by the game',
   },
-  // Shown only where the game asks for them (H6 B), so it never says otherwise.
-  laterDice: { label: 'Dice an item rolls later', on: 'Asked for' },
+  laterDice: {
+    label: 'Dice an item rolls later',
+    on: 'Asked for',
+    off: 'Rolled by the game',
+  },
   hitPoints: {
     label: 'Hit points',
     on: 'Set from here',

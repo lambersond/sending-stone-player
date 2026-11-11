@@ -5,17 +5,18 @@
 // 780: the header's ? (after Live, before Full screen) opens Help in the side panel, the whole
 // width, its title focused, subtitled "Playing from Sending Stone", the "In this game, for Thorin" box
 // at the top reading the campaign (typing "Not in this game", no row or paragraph for the dice an
-// item rolls later), then the Go to chips and the eight sections; the panel's content measured (no
-// section cut short or overlapping, its content scrolling to the last section), nothing to scroll
-// sideways; a chip focuses its section's heading and scrolls it to 12 px from the top, smoothly, or
-// at once with reduced motion; Escape gives the ? its focus back. The cog's "How to use Sending
-// Stone", first in its Help group, opens the same panel at its title, and Escape gives the cog its
-// focus back. At 1280 × 800 the panel is 448 px at the right. The campaign lets players type in
-// their dice: "Allowed: turn it on in Settings"; Thorin's Enter dice results manually on: "On", the
-// dice his effects add and those an item rolls later "Asked for", and the paragraph shown. The
-// Gamemaster's page for Seraphina at 360 × 780: the room her name has in the header, with the ? and
-// without it, measured; Help "What your player sees", its note naming her, its own box; at 1280 the
-// same. Screenshots at twice the pixels, to SHOTS: the panel at 360, 390, 768 and 1280, in both
+// item rolls later, which a module asks for only where players may type theirs), then the Go to
+// chips and the eight sections; the panel's content measured (no section cut short or overlapping,
+// its content scrolling to the last section), nothing to scroll sideways; a chip focuses its
+// section's heading and scrolls it to 12 px from the top, smoothly, or at once with reduced motion;
+// Escape gives the ? its focus back. The cog's "How to use Sending Stone", first in its Help group,
+// opens the same panel at its title, and Escape gives the cog its focus back. At 1280 × 800 the
+// panel is 448 px at the right. The campaign lets players type in their dice: "Allowed: turn it on in
+// Settings", and the paragraph on the dice an item rolls later shown, its module asking for them;
+// Thorin's Enter dice results manually on: "On", the dice his effects add and those an item rolls
+// later "Asked for". The Gamemaster's page for Seraphina at 360 × 780: the room her name has in the
+// header, with the ? and without it, measured; Help "What your player sees", its note naming her, its
+// own box, the same sections and paragraphs as her player's; at 1280 the same. Screenshots at twice the pixels, to SHOTS: the panel at 360, 390, 768 and 1280, in both
 // themes at 390 and 1280; the Gamemaster's at 390 and 1280; the box with typing off and on; the
 // settings menu; the Gamemaster's header at 360. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
@@ -261,7 +262,8 @@ await openHelp(gm)
     && await panelOf(gm).getByText('Your switches are on the Player actions tab of Sending Stone’s settings in Foundry.', { exact: true }).isVisible(),
     `its own box: ${JSON.stringify(rows)}`)
   const sections = await panelOf(gm).locator('section h3').allTextContents()
-  check(same(sections, [`In this game, for ${LONG}`, ...SECTIONS]) && !(await shown(gm, LATER)), 'the same eight sections; the dice an item rolls later, a typing player\'s alone, not there')
+  check(same(sections, [`In this game, for ${LONG}`, ...SECTIONS]) && await shown(gm, LATER),
+    'the same eight sections, with the paragraph on the dice an item rolls later, as the campaign\'s module asks for them')
 }
 await closeHelp(gm)
 check(await focused(gm) === 'button Help', 'Escape gives the Gamemaster\'s ? its focus back')

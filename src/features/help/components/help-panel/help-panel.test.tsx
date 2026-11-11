@@ -44,7 +44,9 @@ describe('features/help/components/help-panel', () => {
   })
 
   it('opens at its title for the player: the box, then the Go to chips and the eight sections', () => {
-    renderPanel({ shown: view({ rollsToTable: ['skill', 'dice'] }) })
+    renderPanel({
+      shown: view({ rollsToTable: ['skill', 'dice'], laterDice: true }),
+    })
 
     expect(
       screen.getByRole('heading', { level: 2, name: 'Help' }),
@@ -60,12 +62,15 @@ describe('features/help/components/help-panel', () => {
     expect(
       sections.map(section => within(section).getByRole('heading').textContent),
     ).toEqual(SECTIONS)
-    // Shown where the game asks for those dice (H6 B).
+    // Shown where the campaign's module asks for those dice (H6 B).
     expect(screen.getByText('Dice an item rolls later.')).toBeVisible()
   })
 
-  it('shows the Gamemaster what their player sees, after the seat’s note, without the later dice their view never carries', () => {
-    renderPanel({ gm: true, shown: view({ gm: { rolls: 'made' } }) })
+  it('shows the Gamemaster what their player sees, after the seat’s note, the same words where the game isn’t polling now', () => {
+    renderPanel({
+      gm: true,
+      shown: view({ gm: { rolls: 'off' }, rollsToTable: [], laterDice: true }),
+    })
 
     expect(panel()).toHaveTextContent(/^HelpWhat your player sees/)
     expect(
@@ -76,7 +81,8 @@ describe('features/help/components/help-panel', () => {
         .getAllByRole('heading', { level: 3 })
         .map(heading => heading.textContent),
     ).toEqual(['In this game, for Thorin', ...SECTIONS])
-    expect(screen.queryByText('Dice an item rolls later.')).toBeNull()
+    // As the campaign's module said last, at either seat, polling or not (H6 B).
+    expect(screen.getByText('Dice an item rolls later.')).toBeVisible()
   })
 
   it.each([

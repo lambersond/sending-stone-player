@@ -1,4 +1,4 @@
-import { asksLaterDice, helpBox, helpSections } from './utils'
+import { helpBox, helpSections } from './utils'
 import { druidSheet, shapedSheet } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { HelpFacts } from './types'
@@ -16,7 +16,10 @@ const quiet = (fields: Partial<TableView> = {}): TableView => ({
   ...fields,
 })
 
-/** One that takes everything module 0.44.0 does, with dice asks, under dnd5e 5. */
+/**
+ * One that takes everything module 0.44.0 does, with dice asks, under dnd5e 5, its hello saying it
+ * asks for the dice an item rolls later.
+ */
 const everything = (fields: Partial<TableView> = {}): TableView =>
   quiet({
     rollsToTable: [
@@ -35,6 +38,7 @@ const everything = (fields: Partial<TableView> = {}): TableView =>
     effects: true,
     wildShape: true,
     hitPoints: true,
+    laterDice: true,
     ...fields,
   })
 
@@ -113,15 +117,37 @@ describe('features/help/utils', () => {
         [
           '● Typing in your dice: On',
           '○ Dice your effects add: Rolled by the game',
+          '● Dice an item rolls later: Asked for',
         ],
       ],
     ])(
-      'says typing is %s, the dice it asks for only while it is on, and those an item rolls later only where the game asks for them',
+      'says typing is %s, and the dice it asks for only while it is on',
       (_case, typing, rows) => {
-        const shown = rowsOf(
-          facts({ view: quiet({ rollsToTable: ['skill'] }), typing }),
-        )
+        const view = quiet({ rollsToTable: ['skill', 'dice'], laterDice: true })
+        const shown = rowsOf(facts({ view, typing }))
         expect(shown?.filter(row => /Typing|Dice (your|an)/.test(row))).toEqual(
+          rows,
+        )
+      },
+    )
+
+    it.each<[string, TableView, string[]]>([
+      [
+        'asks for them, and takes the answer now',
+        everything(),
+        ['● Dice an item rolls later: Asked for'],
+      ],
+      [
+        'asks for them, but the game isn’t polling now',
+        everything({ rollsToTable: [], rollFeatures: [] }),
+        ['○ Dice an item rolls later: Rolled by the game'],
+      ],
+      ['asks for none', everything({ laterDice: undefined }), []],
+    ])(
+      'has the row for the dice an item rolls later only where the campaign’s module %s',
+      (_case, view, rows) => {
+        const shown = rowsOf(facts({ view, typing: { on: true } }))
+        expect(shown?.filter(row => row.includes('an item rolls'))).toEqual(
           rows,
         )
       },
@@ -190,22 +216,6 @@ describe('features/help/utils', () => {
   })
 
   describe('the dice an item rolls later (H6 B)', () => {
-    it.each([
-      ['asks for them where the game takes the answer', everything(), true],
-      [
-        'never for a character no longer in the roster',
-        everything({ connected: false }),
-        false,
-      ],
-      [
-        'nor where the module asks none, or the game is closed',
-        quiet({ rollsToTable: ['skill'] }),
-        false,
-      ],
-    ])('%s', (_case, view, asks) => {
-      expect(asksLaterDice(view)).toBe(asks)
-    })
-
     it('describes them only where the game asks for them, every other part kept', () => {
       const typingOf = (laterDice: boolean) =>
         helpSections(laterDice)

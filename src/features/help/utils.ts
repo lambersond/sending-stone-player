@@ -6,7 +6,6 @@ import {
   PLAYER_ROWS,
 } from './constants'
 import type { BoxNote, BoxRow, HelpBox, HelpFacts, HelpSection } from './types'
-import type { TableView } from '@/types/table'
 
 /** Help's words with the character's name in place of `{name}`. */
 export function named(words: string, name: string): string {
@@ -14,17 +13,10 @@ export function named(words: string, name: string): string {
 }
 
 /**
- * Whether the campaign's module asks a player typing in their dice for the dice an item rolls
- * later, from module 0.44.0: its hello's `diceAsks`, which puts their answer, `dice`, among the
- * kinds the game takes now. Never at the Gamemaster's seat, whose view never carries it.
- */
-export function asksLaterDice(view: TableView): boolean {
-  return view.connected && view.rollsToTable?.includes('dice') === true
-}
-
-/**
- * Help's sections, with "Dice an item rolls later" only where the campaign's module asks for those
- * dice (H6 B): Help never describes what isn't there.
+ * Help's sections, with "Dice an item rolls later" only where the campaign's module asks a typing
+ * player for those dice, from module 0.44.0, as its hello said last (`TableView['laterDice']`), at
+ * either seat, whether or not the game polls now (H6 B): Help never describes what isn't there, and
+ * its words never shift as the game stops polling.
  */
 export function helpSections(laterDice: boolean): HelpSection[] {
   if (laterDice) return HELP_SECTIONS
@@ -64,7 +56,8 @@ function row(
  * and what else the game takes now, none while the character isn't one of its campaign's (as the
  * dice tray reads them); typing in their dice by their own switch; and the campaign's own switches.
  * The dice their effects add and those an item rolls later only while they type theirs in, the
- * later ones only where the game asks for them (H6 B); Wild Shape only for a sheet that has it.
+ * later ones only where the campaign's module asks for them (H6 B); Wild Shape only for a sheet
+ * that has it.
  */
 function playerRows({ view, typing }: HelpFacts): BoxRow[] {
   const kinds = view.connected ? (view.rollsToTable ?? []) : []
@@ -80,10 +73,8 @@ function playerRows({ view, typing }: HelpFacts): BoxRow[] {
   ]
   if (typed)
     rows.push(row(PLAYER_ROWS.effectDice, features.includes('effectDice')))
-  if (typed && asksLaterDice(view)) {
-    const { label, on } = PLAYER_ROWS.laterDice
-    rows.push({ label, says: on, on: true })
-  }
+  if (typed && view.laterDice)
+    rows.push(row(PLAYER_ROWS.laterDice, kinds.includes('dice')))
   rows.push(
     row(PLAYER_ROWS.hitPoints, view.hitPoints === true),
     row(PLAYER_ROWS.moves, view.moves !== undefined),

@@ -38,6 +38,8 @@ const campaign = {
   worldTitle: 'Return to Erebor',
   lastSeenAt: recently(),
   characters: roster,
+  // What else its game does with rolls, as its last hello said: nothing, as a row always has.
+  rollFeatures: [],
 }
 
 beforeEach(() => {
@@ -1644,6 +1646,29 @@ describe('db/table, the dice the game asks for, from module 0.44.0', () => {
     expect(await getTableView(seat)).not.toHaveProperty('diceAsks')
     expect(prismaMock.diceAsk.findMany).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['the player', thorin],
+    [
+      'the Gamemaster',
+      { ...thorin, role: 'gm' as const, userId: 'gm-1', characterId: null },
+    ],
+  ])(
+    'tells %s, for Help, whether its module asks for them, as it said last, however long ago it polled',
+    async (_, seat) => {
+      givenCampaign({
+        ...asking,
+        bridgePolledAt: new Date(Date.now() - 3_600_000),
+      })
+      prismaMock.diceAsk.findMany.mockResolvedValue([])
+      const view = await getTableView(seat)
+      expect(view.laterDice).toBe(true)
+      expect(view.rollsToTable).toEqual([])
+
+      givenCampaign(taking(['manualDice'], ['damage']))
+      expect(await getTableView(seat)).not.toHaveProperty('laterDice')
+    },
+  )
 })
 
 /** The campaign, its game removing items as given, and fetching as lately as given. */

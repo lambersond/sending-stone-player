@@ -364,6 +364,11 @@ export async function getTableView(
         on: seat.manualDice === true,
       },
     }),
+    // Whether its module asks a typing player for the dice an item rolls later, as it said last,
+    // at either seat, for Help: stored, as typing is, never whether it polled lately.
+    ...(campaign.rollFeatures.includes('diceAsks') && {
+      laterDice: true as const,
+    }),
   }
 }
 
