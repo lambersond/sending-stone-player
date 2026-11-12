@@ -132,8 +132,8 @@ run results 12 DND5E6=1 SHOTS=$O/shots-030
 run results 17 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
 # Module 0.31.0: moving items and coins (party ↔ character, character → character), dnd5e 6.0.5's
 # fractional coins, and module 0.30.0 (no moves); and Hit/miss and save results in the app.
-run transfers 75 SHOTS=$O/shots-031
-run transfers 79 DND5E6=1 SHOTS=$O/shots-031
+run transfers 76 SHOTS=$O/shots-031
+run transfers 80 DND5E6=1 SHOTS=$O/shots-031
 run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
 # to; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
