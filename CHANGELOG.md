@@ -32,12 +32,11 @@ one. Versions before v0.44.0 are in README.md's
   sees a party sheet only as its own players may. In Foundry, a dish's card is whispered only to
   the campaign's own players, and the dish's Apply dialog names each character's players. (module,
   item 38)
-- **A Recharge chip goes with "recharged".** After a recharge rolled at the table, the sheet's
-  Recharge chip now goes as the tray says "recharged", where it stayed up to 3 seconds and a tap on
-  it was refused. Whenever the game answers a roll or change sent from the sheet or a companion's
-  pane, End Turn and Undo aside, the page reads the table again at once and half a second later,
-  instead of waiting for its next poll; a move from a party sheet still waits for it (item 43).
-  (app, item 39)
+- **The Recharge chip clears when the tray says "recharged".** After a recharge rolled at the
+  table, the sheet's Recharge chip now clears as the dice tray says "recharged", where it stayed up
+  to 3 seconds and a tap on it was refused. The same goes for any roll or change sent from the sheet
+  or a companion's pane, End Turn and Undo aside: the page shows the game's answer at once, not at
+  its next refresh, though a move from a party sheet still waits for it. (app, item 39)
 - **No DC of another player's save at a shared character.** A character shared with All Players as
   Owner is no longer shown the DC of a save another player's card asks, which dnd5e's Challenge
   Visibility hides from its player in Foundry. Only its own players' cards show it their DC, in
@@ -50,11 +49,11 @@ one. Versions before v0.44.0 are in README.md's
 ### Enhancements
 
 - **A character assigned to a player is theirs.** A character no player owns, but assigned to a
-  player in User Configuration, now counts as that player's for everything, where in v0.45.0 that
-  counted only for which sidekicks it lists. It gets their whispers, private rolls, check outcomes
-  and save DCs, sees a party sheet as they may, and the app is told they own it. A change in User
-  Configuration, of a player's character or role, or a player added or removed, reaches the party
-  sheets at once. (module)
+  player in User Configuration, now gets that player's whispers, private rolls, check outcomes and
+  save DCs, sees a party sheet as they may and its roster names them, where in v0.45.0 the
+  assignment counted only for which sidekicks it lists; its journals, and who may type in its dice,
+  still follow who owns it in Foundry. A change of a player's character or role in User
+  Configuration, or a player added or removed, now reaches the party sheets at once. (module)
 
 ### Maintenance
 
@@ -63,21 +62,21 @@ one. Versions before v0.44.0 are in README.md's
   `group.updated` now saying a user's change sends groups at once. The module's `README.md` says
   how to make a player a character's player and what the dish Apply dialog names, and comments in
   `scripts/characters.mjs`, `chat-data.mjs` and `chat.mjs` name the rule. (app and module)
-- **ROADMAP kept current, and this changelog.** ROADMAP.md gains v0.46's section with its checks at
-  the table, takes out items 37 to 40 as done, adds items 41 to 45 found while building v0.46, and
-  takes out v0.44's and v0.45's sections once they were released. Its follow-up batch is renamed
-  "Not yet scheduled", and done work now moves from the ROADMAP to this CHANGELOG.md. (app)
-- **The read again written once.** The table's and a companion's way of reading their view again
-  is one hook, `src/hooks/use-read-again.ts`, in place of two copies, and the companion's test says
-  what it pins. (app)
+- **ROADMAP kept current.** ROADMAP.md gains v0.46's section with its checks at the table, takes out
+  items 37 to 40 as done, adds items 41 to 45 found while building v0.46, and takes out v0.44's and
+  v0.45's sections once they were released. Its follow-up batch is renamed "Not yet scheduled".
+  (app)
 - **End-to-end checks.** `alone` part 15 checks the Recharge chip goes within 2 s of "recharged"
   and the next read comes within 850 ms, `rolls` checks the Initiative tile in an encounter
   switched away from, and `typed` part 12 lets the asked save open at 10:00 left, as it now can.
   `uses` part 5 waits for Bless's Prepare to be enabled before reading its menu, and
   `e2e/README.md` lists two more known load races (items 41 and 42). (app)
-- **The module harness.** Its stand-in Foundry (`test/fvtt/stub.mjs`) keeps each actor's ownership
-  by user id, as Foundry does, and new cases in `test/fvtt/prompts.mjs` and `midi-prompts.mjs`
-  check that a shared character is shown only its own players' save DCs. (module)
+- **The module harness.** Its stand-ins keep each actor's ownership by user id, as Foundry does
+  (`test/fvtt/stub.mjs`), and let a player make Midi-QOL's concentration card (`dnd5e-cards.mjs`).
+  New cases check a character shared with All Players, owned by name or assigned: its whispers,
+  private rolls, check outcomes, roster, dish cards and party sheet in `test/fvtt/companions.mjs`,
+  a change of a player's character re-sending its party sheets in `groups.mjs`, a dish's card in
+  `dishes.mjs`, and its save DCs in `prompts.mjs` and `midi-prompts.mjs`. (module)
 
 ## v0.45.0 — 2026-11-11
 
@@ -153,10 +152,9 @@ one. Versions before v0.44.0 are in README.md's
   Gamemaster, and long names in Chromium. Others now check the Combat tab with no fight under way,
   a die thrown again named by its roll, condition immunities from D&D Beyond and a campaign's chat
   without another campaign's fight cards. (app)
-- **Shared pieces for Help and Combat.** The header's icon-button look, the "Go to" chips and
-  their scroll are shared (`src/constants/buttons.ts`, `src/utils/scroll.ts`), and a side panel can
-  open at its title. Who's next and the turn panel's focus leave the under-way rule to the Combat
-  tab's tracker. (app)
+- **Shared pieces for Help.** The header's icon-button look, and the Conditions reference's "Go to"
+  chips and their scroll, are shared with Help (`src/constants/buttons.ts`, `src/utils/scroll.ts`),
+  and a side panel can open at its title. (app)
 - **Docs and ROADMAP for v0.45.** README.md's supported-versions table gains v0.45.0, and the
   module's `PROTOCOL.md` gains a "Module 0.45.0" entry, its `README.md` says the same and its
   harness notes are corrected. ROADMAP.md takes out items 12 to 17, 19, 25 to 27 and 30 to
@@ -166,12 +164,14 @@ one. Versions before v0.44.0 are in README.md's
 
 ## v0.44.0 — 2026-11-10
 
-Some of v0.44 came out earlier, and isn't written out below. Hit points and temporary hit points
-set from the app, of the character, its Wild Shape form and its companions, and the dice tray under
-the chat, its rolls made in the game, came on 2026-11-06 with module v0.43.0 and the app deployed
-with it, though the module's `PROTOCOL.md` and README.md's table call them 0.44.0. The app's
+Some work planned for v0.44 came out earlier, with module v0.43.0, and isn't written out below. Hit
+points and temporary hit points set from the app, of the character, its Wild Shape form and its
+companions, and the dice tray under the chat, its rolls made in the game, came on 2026-11-06 in the
+module tagged v0.43.0 and the app deployed with it, though the module's `PROTOCOL.md` and
+README.md's table list them under 0.44.0, and the table's v0.43 row as the app's alone. The app's
 favorites on the Character tab, larger icon buttons on tablets, Manual Dice in the dice dialog's
-header and the Gamemaster clearing a campaign's chat came on 2026-11-04, with a round of fixes.
+header and the Gamemaster clearing a campaign's chat came before it, on 2026-11-04, with a round of
+fixes.
 
 ### Features
 
@@ -183,18 +183,17 @@ header and the Gamemaster clearing a campaign's chat came on 2026-11-04, with a 
   roll them. (app and module, item 11)
 - **Tidy 5e Sheets' journal.** A character's Tidy 5e Sheets journal entries, the Classic sheet's
   boxes too, show read only in a "From Tidy 5e Sheets" section at the end of its journal, each with
-  a chip and when the app first saw it and last saw it change. Secrets stay hidden where no player
-  owns the character, and the entries stay readable while Tidy is off or uninstalled, with a line
-  saying they can't be changed until it's back. While the character is in Wild Shape, a line says
-  entries changed on the beast's Journal tab are lost when it ends. Tidy 5e Sheets joins the
-  modules listed on the campaign card and in the module's settings window. (app and module, v1.x
-  item 8)
+  a chip and when the app first saw it and last saw it change, and Tidy joins the modules listed on
+  the campaign card and in the module's settings window. Secrets stay hidden where no player owns
+  the character; while Tidy is off or uninstalled the entries stay readable, with a line saying
+  they can't be changed until it's back; and in Wild Shape a line warns that entries changed on the
+  beast's Journal tab are lost when it ends. (app and module, v1.x item 8)
 
 ### Fixes
 
 - **Cost checks no longer ask the Gamemaster.** With the Gamemaster's Manual Dice on, using an item
   from the app no longer asks the Gamemaster for an unused roll of its dice cost, such as 1d4
-  charges. The module's check of what a use would spend, Midi-QOL's own check as the use begins
+  charges: the module's check of what a use would spend, Midi-QOL's own check as the use begins
   and the module's dice self-test at start-up now roll Foundry's computer dice. The cost a use
   actually spends is still rolled with the Gamemaster's dice, or asked of a player typing in their
   dice. (module, item 22)
@@ -232,8 +231,8 @@ header and the Gamemaster clearing a campaign's chat came on 2026-11-04, with a 
 - **Favorites in one list on tablets.** Favorites stay in one list until their card is 720 pixels
   wide, so they no longer split into two narrow lists on a portrait tablet. (app)
 - **Fewer database reads at the table.** While a table is open, the app's wait for the game's
-  commands makes about 40% fewer database queries, about 20% fewer over a three-hour session.
-  (app, item 10)
+  commands makes about 40% fewer database queries: about 45,000 fewer in a three-hour session, a
+  fifth of all the queries the app makes in one. (app, item 10)
 
 ### Maintenance
 
