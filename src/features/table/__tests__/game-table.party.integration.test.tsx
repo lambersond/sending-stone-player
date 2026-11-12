@@ -114,7 +114,9 @@ const renderTable = (
   fields: Partial<Character> = {},
 ) => {
   current = { view: initial, connection: 'live' }
-  jest.mocked(useTableView).mockImplementation(() => current)
+  jest
+    .mocked(useTableView)
+    .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   const who: Character = {
     ...character,
     ...(seat?.role === 'gm' && { id: 'gm:c1:thorin' }),

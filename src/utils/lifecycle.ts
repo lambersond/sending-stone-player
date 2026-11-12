@@ -152,11 +152,7 @@ async function look(
       ...(hitPointsNow && { hitPointsNow }),
       requestId: id,
     })
-    // A roll that took too long may still be made, once the Gamemaster answers; but not hit dice
-    // the game says it made some of before it stopped, as it does once it had to.
-    if (view.status === 'failed' && view.reason === 'timeout' && !view.spent) {
-      return 'late'
-    }
+    if (mayYetBeMade(view)) return 'late'
     if (view.status === 'rolling' && view.diceAsked) return 'held'
     return SETTLED.has(view.status) ? 'settled' : 'again'
   } catch {
@@ -192,4 +188,30 @@ export function pause(ms: number, signal: AbortSignal): Promise<void> {
 /** Whether a request is on its way: sent and not yet heard of, or being made at the table. */
 export function onItsWay(state?: Pick<TableRollState, 'status'>): boolean {
   return state?.status === 'sending' || state?.status === 'rolling'
+}
+
+/**
+ * Whether the game has said a roll took it too long to make, which it may still make, once the
+ * Gamemaster answers; but not hit dice it says it made some of before it stopped, as it does once
+ * it had to.
+ */
+function mayYetBeMade(
+  state: Pick<TableRollState, 'status' | 'reason' | 'spent'>,
+): boolean {
+  return state.status === 'failed' && state.reason === 'timeout' && !state.spent
+}
+
+/**
+ * Whether the game has answered a request: made, or not made as it said, and not one it may yet
+ * make, which `follow` asks after for longer, hearing the same each time. Its answer may have
+ * changed the sheet (ROADMAP item 39), which the game sends a moment after it. It's the last a
+ * follow hears of a request, so each request is answered once.
+ */
+export function answeredByGame(
+  state: Pick<TableRollState, 'status' | 'reason' | 'spent'>,
+): boolean {
+  return (
+    state.status === 'done' ||
+    (state.status === 'failed' && !mayYetBeMade(state))
+  )
 }

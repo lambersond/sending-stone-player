@@ -9,78 +9,30 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.42.1 and its app.
+Released: module v0.45.0 and its app, with v0.44.0 before it.
 
-## v0.44 (release candidate)
+## v0.46 (release candidate)
 
-From the table's first session with v0.42.1, after the refactor: built and merged.
+Before Friday's session, built and merged: module 0.46.0 holds items 37, 38 and 40 (a character
+shared with All Players kept to its own players), with the app's item 39 (a Recharge chip gone with
+the tray's "recharged") and the Initiative tile in an encounter begun elsewhere.
 
-**To check at the table before module v0.44.0 is tagged** (built and tested against stand-ins
-only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
-
-- **The dice an item rolls later**, when typing in dice:
-  - **What's asked:** Ice Knife's 2d6 after its 1d10, a critical's and an upcast's too, and
-    another activity's damage and dice cost that Midi rolls once saves are checked. D20s are never
-    asked, and nothing is asked under dnd5e 6.
-  - **Explosions and timing:** a typed die that explodes is asked again, one die at a time, never
-    told as timed out when the asks run past a minute. The ask opens by itself on the device the
-    roll came from, not the one the exploding die was typed on.
-  - **The dialog:** never over a focused text field, with a banner on the other devices, and focus
-    back where it was. A skip, an expiry, a failed send offered again, two devices answering at
-    once.
-  - **The Gamemaster:** their window counts down, with Roll it now, leaving their chat typing
-    alone; two players' Hunter's Mark at once, and a homebrew bonus macro; the Gamemaster using
-    the same item meanwhile.
-- **A use's cost check:** with the Gamemaster's Manual Dice on, a use from the app of an item with
-  a `1d4` cost, with Midi-QOL too, asks them once, for the cost spent, or nothing where the player
-  typed.
-- **Tidy 5e Sheets' journal:**
-  - an entry added, changed, dragged and deleted on the Journal tab reaches the app within
-    seconds, a first one dated "First seen";
-  - the Classic sheet's boxes;
-  - secrets on a character no player owns;
-  - Tidy turned off, then uninstalled, leaving the entries readable and the campaign card saying
-    "(not enabled)";
-  - an entry written on a Wild Shape form's Journal tab lost when the form ends, as the app's line
-    says.
-
-Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
-for a while before v1.0 is tagged.
-
-## v0.45 (release candidate)
-
-The next slice, built and merged: module 0.45.0 holds item 26 (a die asked again named by its roll)
-and item 19's chat and sidekick fixes, with the app's Help, Combat tab and fixes.
-
-**To check at the table before module v0.45.0 is tagged** (built and tested against stand-ins
+**To check at the table before module v0.46.0 is tagged** (built and tested against stand-ins
 only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 
-- **A die asked again named by its roll:** a real dnd5e 5.3.3 utility with a named roll, such as
-  Wild Sparks: Burst, its die thrown again asked of a player typing in dice by that name.
-- **Two campaigns on one world:**
-  - each campaign's chat holds none of the other's cards, and the Gamemaster's narration reaches
-    both;
-  - a fight both campaigns are in: each sees the whole fight's cards (the owner's answer);
-  - a linked NPC left in one campaign's old, un-ended encounter, speaking in the other campaign's
-    session: its cards stay out of that campaign until the encounter is ended;
-  - a card's edits go where the card went as it was made; after the Gamemaster reloads the browser
-    mid-fight, an edit of a card from before the reload, made once that fight is over, is judged by
-    the fights at the edit.
-- **A character shared as All Players: Owner:** no other campaign's sidekicks or fights.
-- **The Combat tab** before and after Begin Combat, with the line to roll initiative before it
-  while the character has none; in an encounter begun and then switched away on the tracker, the
-  tab says only "No combat right now".
-- **Help at the table:** the box's rows match the campaign's switches and this device's Send to the
-  table: with Send to the table off, every row about something sent reads off.
-- **Condition immunities** on a sidekick imported from D&D Beyond: no tags shown, each condition
-  shows its rules on hover and opens the Conditions panel on a tap.
+- **A character shared as All Players: Owner:** no other player's whispers or private rolls at its
+  seat, no other owners in its roster, no DC of another player's save.
+- **A recharge rolled at the table:** its chip goes as the tray says "recharged".
+- **The Initiative tile:** in an encounter begun and then switched away on the tracker, the sheet's
+  Initiative tile doesn't offer to roll for it.
 
-Then module v0.45.0 is tagged, and v0.45 is the release candidate for v1.0: it runs at the table
+Then module v0.46.0 is tagged, and v0.46 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
 
-## Follow-up batch
+## Not yet scheduled
 
-After v0.45, by number.
+Known work not yet planned for any version, by number. Each batch picks a few of these; none is
+promised to a version until it's picked.
 
 **Found while building Batch 2**
 
@@ -130,41 +82,41 @@ And from the owner's answers on item 19, later work too:
 
 **Found while building the next slice**
 
-37. **A player's whispers reach a campaign through a character shared with All Players:** under
-    "Which messages: All its players can read", a whisper or private roll another campaign's player
-    can read reaches every campaign with a character shared with All Players as Owner, at that
-    character's seat. The module names a whispered message's characters by `charactersSeenBy`
-    (`scripts/characters.mjs`), which counts `default`, and `isInScope` (`scripts/chat.mjs`) keeps
-    it; a check's outcome names its author's characters the same way (`rollResult`,
-    `scripts/chat-data.mjs`). A whisper's readers could be read as module 0.45.0 reads a
-    character's players for its sidekicks.
-38. **A campaign's roster names every player as owner of a character shared with All Players:**
-    `rosterEntry` (`scripts/characters.mjs`) lists `owners` by `playerOwners`, which counts
-    `default`, so the hello and `character.updated` name every player of the world, other
-    campaigns' among them, as its owners (names and user ids; the app keeps them in the campaign's
-    roster, `src/db/campaign-events.ts`, and shows them nowhere today). In Foundry alone, a dish's
-    card is whispered to all of them (`readersOf`, `dish-card.mjs`) and a group the Gamemaster
-    listed for the campaign takes the best access any of them has (`accessFor`, `groups.mjs`).
-39. **A Recharge chip stays up to a poll after its roll:** after a recharge rolled at the table, the
-    tray says "recharged" within about a second, but the sheet's Recharge chip stays until the
-    page's next read of the table, up to 3 s later, and a tap on it then is refused ("it's charged
-    already"). Nothing wrong is sent or spent. The tray follows a roll each second (`follow`,
-    `src/utils/lifecycle.ts`) and the table is polled every 3 s (`use-table-view.ts`); nothing reads
-    the table again as a roll ends. Found by part 15 of `e2e/alone-e2e.mjs`, which now waits for the
-    chip to go.
-40. **A save's DC shown for any player's card at a character shared with All Players:**
-    `showsChallenge` (`scripts/prompts.mjs`) counts a card as the character's player's own when its
-    author is among `playerOwners`, which counts `default`. For a character shared with All Players
-    as Owner, every player's card is then its own, so its seat is shown the DC of a save another
-    campaign's player's spell asks (and Midi-QOL's, `midi-prompts.mjs`), which dnd5e's Challenge
-    Visibility would hide from its player. It could read the author against `companionPlayers`, as
-    module 0.45.0 reads a character's players for its sidekicks. `typed-dice.mjs`, `journals.mjs`
-    and `tidy-journal.mjs` read players the same way, no further than Foundry's own sharing.
+41. **e2e's removals focus race:** part 13 of `e2e/removals-e2e.mjs`, plain, "while its removal is
+    on its way: … focus inside it", failed under three lanes' load in v0.45's full e2e pass and on
+    its retry there, and passed alone (81 of 81): the row's context menu opened with the right
+    items, but focus wasn't inside it just after the Remove dialog closed (`inside: false`). Most
+    likely the menu's first focus loses a race with focus going back from the closed dialog, or with
+    a re-render as the removal's waiting state arrives. The e2e README lists it among its known load
+    races.
+42. **e2e's endturn Undo under load:** part 3 of `e2e/endturn-e2e.mjs` with MIDI=1 failed in v0.45's
+    full e2e pass, End turn offered 578 ms after the panel shows the turn where the check wants 590
+    to 900 ms (the 600 ms arm), and passed on its retry: the arm's countdown starts before the
+    page's MutationObserver records the heading's text, and under load the gap grows. The e2e
+    README lists it among its known load races.
+43. **A move from a party sheet waits for the table's poll:** since item 39 the page reads the table
+    again as the game answers a request the character's or a companion's pane sent
+    (`useTableRolls`), but a move of items or coins sent from a party sheet (`useTransfers`,
+    `src/features/transfers/hooks/use-transfers.ts`) reads none, so the character's sheet beside it
+    shows what it took in only at the table's next poll, up to 3 s later. Nothing is refused or
+    spent wrongly. The party sheet is drawn outside `GameTable`'s `TableReadContext`.
+44. **A followed request whose state callback throws stays followed:** `look`
+    (`src/utils/lifecycle.ts`) calls its `update` callback inside its `try`, so an error the
+    callback throws is taken as a failed read, and a request the game has made is asked after once
+    a second for up to `FOLLOW_FOR` (110 s) instead of settling. No callback in the app throws
+    today; seen while building item 39, when page tests' mocks lacked its `readAgain`.
+45. **A roll from the app made as the Gamemaster for a character with a player by name:**
+    `authorFor` (`scripts/command-rolls.mjs`) makes a roll as the character's assigned player, else
+    its only owner among the players, else the Gamemaster, and counts owners through `default`. So a
+    character shared with All Players as Owner and owned by one player by name, but assigned to no
+    one, rolls from the app as the Gamemaster, and dnd5e takes its card as the Gamemaster's, as
+    before module 0.46.0; nothing reaches another campaign. It could read module 0.46.0's rule for a
+    character's players (`characterPlayers`, `scripts/characters.mjs`).
 
 ## v1.0
 
-The major release of the app and the module, once the v0.44 release candidate holds up, before
-work starts on v1.x.
+The major release of the app and the module, once the latest release candidate holds up at the
+table, before work starts on v1.x.
 
 The module keeps its id, `sending-stone`, though its title changed in v0.37: Foundry keeps the
 campaigns, their secrets and every flag under it, and installs follow its manifest URL.

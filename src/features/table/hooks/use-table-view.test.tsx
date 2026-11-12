@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
 import { useTableView } from './use-table-view'
-import { POLL_INTERVAL } from '@/constants/polling'
+import { POLL_INTERVAL, READ_AGAIN_AFTER } from '@/constants/polling'
 import { advance, respond } from '@/utils/test-utils'
 import type { TableView } from '@/types/table'
 
@@ -45,7 +45,11 @@ describe('hooks/use-table-view', () => {
       useTableView('/api/characters/char-1', initial),
     )
 
-    expect(result.current).toEqual({ view: initial, connection: 'live' })
+    expect(result.current).toEqual({
+      view: initial,
+      connection: 'live',
+      readAgain: expect.any(Function),
+    })
     await advance(POLL_INTERVAL)
 
     expect(fetch).toHaveBeenCalledWith(
@@ -254,6 +258,41 @@ describe('hooks/use-table-view', () => {
 
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads again at once as a roll the game answered ends, and once more a moment later, then at its own pace (ROADMAP item 39)', async () => {
+    jest.mocked(fetch).mockResolvedValue(respond(204))
+    const { result } = renderHook(() =>
+      useTableView('/api/characters/char-1', initial),
+    )
+
+    await advance(POLL_INTERVAL - 1)
+    act(() => result.current.readAgain())
+    await advance(0)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await advance(READ_AGAIN_AFTER)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await advance(POLL_INTERVAL - 1)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await advance(1)
+    expect(fetch).toHaveBeenCalledTimes(3)
+
+    // With a read on its way, the next comes a moment after it rather than at once.
+    let answer: ((response: Response) => void) | undefined
+    jest.mocked(fetch).mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          answer = resolve
+        }),
+    )
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenCalledTimes(4)
+    act(() => result.current.readAgain())
+    await advance(0)
+    expect(fetch).toHaveBeenCalledTimes(4)
+    await act(async () => answer?.(respond(204)))
+    await advance(READ_AGAIN_AFTER)
+    expect(fetch).toHaveBeenCalledTimes(5)
   })
 
   it('rests in the background and catches up on return', async () => {

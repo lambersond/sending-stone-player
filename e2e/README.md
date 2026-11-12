@@ -196,7 +196,7 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
 
   If a run fails only in lanes, read its FAIL line before blaming the lanes. Rerun it with `ONLY=name`,
   serially, or with `RETRY=1`. Never loosen the check.
-- **Four known load races**, each failed only on a loaded machine and passed when rerun alone:
+- **Six known load races**, each failed only on a loaded machine and passed when rerun alone:
   - **transfers DND5E6=1**, "the module fetches for moves with rolls off, and no 60 s wait holds it
     after the hello's answer": the check gives the module 1.5 s from the hello's answer to begin a
     fetch for commands. Under load none had begun by then, and none had been answered with a 60 s
@@ -218,6 +218,15 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     slot reached it, with one level and so no row of levels, where the switch takes focus; and the poll
     bringing the slot landed before the suite's first look at the picker, so `openPicker` took it as
     ready. Under load more time passes between the two.
+  - **removals**, part 13, "while its removal is on its way: … the menu not described, focus inside
+    it": the row's context menu opened with the right items, but focus wasn't inside it just after
+    the Remove dialog closed (`inside: false`). Most likely the menu's first focus loses a race with
+    focus going back from the closed dialog, or with a re-render as the removal's waiting state
+    arrives. It failed in three lanes and on its retry there, then passed alone (ROADMAP item 41).
+  - **endturn MIDI=1**, part 3, "the panel "Your turn" again, the toast gone; End turn offered … ms
+    after the panel shows the turn (600 ms)": offered 578 ms after, where the check wants 590 to
+    900 ms. The arm's countdown starts before the page's MutationObserver records the heading's
+    text, and under load the gap grows. It passed on its retry (ROADMAP item 42).
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across

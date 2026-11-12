@@ -147,7 +147,9 @@ const page = (seat?: TableSeat) => (
 
 const renderTable = (initial: TableView = view(), seat?: TableSeat) => {
   current = { view: initial, connection: 'live' }
-  jest.mocked(useTableView).mockImplementation(() => current)
+  jest
+    .mocked(useTableView)
+    .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   const rendered = render(page(seat))
   return {
     ...rendered,

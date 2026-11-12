@@ -154,7 +154,9 @@ const renderTable = (
   options: { choice?: typeof choice } = {},
 ) => {
   current = { view: initial, connection: 'live' }
-  jest.mocked(useTableView).mockImplementation(() => current)
+  jest
+    .mocked(useTableView)
+    .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   return render(table(initial, who, options))
 }
 
@@ -1274,7 +1276,9 @@ describe("components/game-table/game-table, the Gamemaster's seat (#156)", () =>
   })
   const renderGm = (initial = view({ gm: { rolls: 'made' } })) => {
     current = { view: initial, connection: 'live' }
-    jest.mocked(useTableView).mockImplementation(() => current)
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain: () => {} }))
     return render(gmTable(initial))
   }
   it('shows the sheet through the seat’s own API, marked GM, with a way back to the campaigns and none to delete it', () => {
@@ -1508,7 +1512,9 @@ describe('components/game-table, full screen', () => {
 
   it("is on the Gamemaster's page too, where nothing is deleted", () => {
     current = { view: view(party), connection: 'live' }
-    jest.mocked(useTableView).mockImplementation(() => current)
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain: () => {} }))
     render(
       <GameTable
         character={{ ...character, id: 'gm:c1:thorin', actorId: 'thorin' }}

@@ -63,7 +63,9 @@ const tableView = (
   })
 
 const renderTable = async (shown: TableView) => {
-  jest.mocked(useTableView).mockReturnValue({ view: shown, connection: 'live' })
+  jest
+    .mocked(useTableView)
+    .mockReturnValue({ view: shown, connection: 'live', readAgain: () => {} })
   const user = userEvent.setup()
   render(<GameTable character={thorin} initialView={shown} />)
   await user.click(screen.getByRole('tab', { name: /^Inventory/ }))

@@ -31,6 +31,7 @@ import { classLine } from '@/features/sheet/utils/class-line'
 import { checkLabel, detailWords } from '@/features/sheet/utils/roll-labels'
 import { formatModifier } from '@/utils/format-modifier'
 import { hitDicePools } from '@/utils/formulas'
+import { waitsForInitiative } from '@/utils/initiative'
 import { articled } from '@/utils/wild-shape'
 import {
   formLineOf,
@@ -64,13 +65,11 @@ export function CharacterSheet({
   const abbreviation = (id: string) =>
     sheet.abilities.find(ability => ability.id === id)?.abbreviation ??
     id.toUpperCase()
-  // The character's place in the encounter, while it has no initiative yet; not a companion's that
+  // The character's place in the encounter, while it may roll initiative into it, as the Combat
+  // tab's line and the app's check have it: the tracker's, with none yet; not a companion's that
   // acts right after its character, which rolls none.
   const waiting =
-    !follows &&
-    combat?.combatants.some(
-      ({ side, initiative }) => side === 'me' && initiative === null,
-    )
+    !follows && waitsForInitiative(combat, ({ side }) => side === 'me')
   const combatId = waiting ? combat?.id : undefined
   const abilitiesId = useSheetId('abilities-heading')
   const skillsId = useSheetId('skills-heading')

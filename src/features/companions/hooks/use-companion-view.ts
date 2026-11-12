@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
+import { useReadAgain } from '@/hooks/use-read-again'
 import { retryDelay } from '@/utils/polling'
 import { rollsKey } from '@/utils/requests/availability'
 import { seenQuery } from '@/utils/seen-query'
@@ -34,14 +35,21 @@ function queryOf(view: CompanionView | undefined): URLSearchParams {
  * does. A sheet left out is the one the pane has already. Once its API answers 404, the companion
  * is no longer the seat's character's, or the seat's own: it's gone, and asked for no more, its
  * last view kept with nothing to roll and not connected. A 404 or a 401 is the server's answer, so
- * neither leaves it reconnecting.
+ * neither leaves it reconnecting. While it's shown, as a roll the game answered ends (ROADMAP item
+ * 39), `readAgain` reads it at once, or as soon as a read on its way has come, and once more a
+ * moment later, as the character's table is read.
  * @param api - The companion's API base: the seat's own API and `/companions/<key>`.
  * @param active - Whether its pane is the one shown.
  */
 export function useCompanionView(
   api: string,
   { active }: { active: boolean },
-): { view?: CompanionView; gone: boolean; connection: Connection } {
+): {
+  view?: CompanionView
+  gone: boolean
+  connection: Connection
+  readAgain: () => void
+} {
   const [view, setView] = useState<CompanionView>()
   const [gone, setGone] = useState(false)
   const [connection, setConnection] = useState<Connection>('live')
@@ -50,6 +58,7 @@ export function useCompanionView(
   const stopped = useRef(false)
   // Whether the server has answered yet: asked as it mounts, shown or not, until it has.
   const answered = useRef(false)
+  const { readAgain, pace } = useReadAgain()
 
   useEffect(() => {
     // After the first answer, asked only while shown.
@@ -106,17 +115,21 @@ export function useCompanionView(
       timer = undefined
       if (document.visibilityState !== 'hidden') await poll()
       if (!active || stopped.current || controller.signal.aborted) return
-      timer = setTimeout(
-        tick,
-        retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY),
-      )
+      const wait = paced(retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY))
+      timer = setTimeout(tick, wait)
     }
 
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && timer) {
+    // Read at once, unless a read is on its way.
+    const readNow = () => {
+      if (timer) {
         clearTimeout(timer)
         void tick()
       }
+    }
+    const paced = pace(controller.signal, readNow)
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') readNow()
     }
 
     void tick()
@@ -126,7 +139,7 @@ export function useCompanionView(
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [api, active])
+  }, [api, active, pace])
 
-  return { view, gone, connection }
+  return { view, gone, connection, readAgain }
 }

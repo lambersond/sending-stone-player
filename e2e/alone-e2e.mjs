@@ -1011,9 +1011,35 @@ async function spendBreath() {
 }
 /** The row of Fire Breath as a list or a table shows it. */
 const breathOf = view => rowOf(view, 'Fire Breath').or(panelOf(view).locator('tr').filter({ hasText: 'Fire Breath' })).first()
+/**
+ * A page's reads of the table, each as it starts and ends, and what its follows heard of each roll
+ * and when: for item 39's check that the page reads the table again as the game answers a roll.
+ */
+function watchReads(who) {
+  const reads = []
+  const answers = []
+  const ended = request => {
+    const read = reads.find(each => each.request === request)
+    if (read) read.end ??= Date.now()
+  }
+  who.page.on('request', request => {
+    if (request.method() === 'GET' && new URL(request.url()).pathname === `${API}/table`) reads.push({ request, start: Date.now() })
+  })
+  who.page.on('requestfinished', ended)
+  who.page.on('requestfailed', ended)
+  who.page.on('response', async response => {
+    const at = Date.now()
+    const { pathname } = new URL(response.url())
+    if (response.request().method() !== 'GET' || !pathname.startsWith(`${API}/rolls/`)) return
+    const { status } = await response.json().catch(() => ({}))
+    answers.push({ id: pathname.split('/').at(-1), status, at })
+  })
+  return { reads, answers }
+}
 for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]) {
   const view = await browse({ width, height, path: '/characters/sheet-thorin', toasts: false })
   watchRefusals(view)
+  const watched = watchReads(view)
   await view.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
   await view.tab('Actions')
   await spendBreath()
@@ -1058,11 +1084,39 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
     await shootBoth(view, 'alone-alone-tray', trayOf(view))
     // Its recharge, done and failed, and refused.
     await force(view, 6, 6)
-    await sent(() => rowChip.click(), `Fire Breath's recharge at ${width}`)
+    const { request: breathed } = await sent(() => rowChip.click(), `Fire Breath's recharge at ${width}`)
     await statusOf(view).getByText('At the table: 6 · recharged').waitFor({ timeout: 30_000 })
+    // Item 39: the page reads the table again as the game answers the roll, and once more a moment
+    // after, for the sheet the module sends a moment after the roll's answer; so the chip goes with
+    // the tray's "recharged", not up to a poll later.
+    {
+      const said = Date.now()
+      const gone = await rowChip.waitFor({ state: 'detached', timeout: 2_000 }).then(() => Date.now() - said, () => null)
+      check(gone !== null, `at ${width} the chip gone within 2 s of the tray's "recharged" (${gone === null ? 'still there' : `${gone} ms`})`)
+    }
+    // And the reads themselves, which the stand-in's timing can't hide: the sheet comes with the
+    // answer here, so the chip alone can't tell a read at once from a poll that came soon. The read
+    // on its way as the answer came, or else the first after it, within 1 s; then the next within
+    // 850 ms of its end: the page's 500 ms wait, with room for a loaded machine, and short of the
+    // 1 s it waited before (986 ms and more measured with it), where a 3 s poll's comes 3 s after.
+    {
+      const { reads, answers } = watched
+      let answered, first, next
+      await until(() => {
+        answered = answers.find(each => each.id === breathed.id && each.status === 'done')?.at
+        if (answered === undefined) return false
+        first = reads.find(each => each.start <= answered && (each.end ?? Infinity) >= answered) ?? reads.find(each => each.start >= answered)
+        next = first && reads[reads.indexOf(first) + 1]
+        return next !== undefined && first.end !== undefined
+      }, `the reads of the table after Fire Breath's recharge at ${width}`, 6_000).catch(() => {})
+      const firstWords = first ? (first.start <= answered ? 'on its way' : `${first.start - answered} ms after it`) : 'none after it'
+      const gap = next && first.end !== undefined ? next.start - first.end : null
+      check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && gap !== null && gap <= 850,
+        `at ${width} the page read the table as the game answered the recharge (${answered === undefined ? 'no answer heard' : firstWords}), and again ${gap === null ? 'not within 6 s' : `${gap} ms after that read`}`)
+    }
     await shootBoth(view, 'alone-recharge-done', trayOf(view))
     // The chip gone first, as part 12 waits for it: the tray hears of the recharge as it's made, the
-    // page of the sheet the module sends after it only at its next poll of the table, and till then
+    // page of the sheet the module sends after it only as it next reads the table, and till then
     // the chip still shows from before it. Tapped then, as Fire Breath is spent again, it's refused
     // by the app, which has the recharged sheet and not yet the spent one. Gone first, the chip that
     // comes back is the spent sheet's, which the app has.

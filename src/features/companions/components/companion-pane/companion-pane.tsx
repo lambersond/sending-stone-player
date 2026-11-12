@@ -6,6 +6,7 @@ import { LoaderCircle, Package } from 'lucide-react'
 import { useCompanionView } from '@/features/companions/hooks/use-companion-view'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { TableReadContext } from '@/hooks/use-table-read'
 import { megabytes } from '@/utils/format-amount'
 import { seatWords } from '@/utils/seat-words'
 import type { TableSeat } from '@/types/character'
@@ -73,6 +74,7 @@ export function CompanionPane({
     view,
     gone: lost,
     connection,
+    readAgain,
   } = useCompanionView(api, { active: shown })
   const left = gone || lost || view?.connected === false
   // What a companion still its character's has made in the game; nothing once it's left.
@@ -171,7 +173,8 @@ export function CompanionPane({
           shown ? 'flex' : 'hidden',
         )}
       >
-        {body}
+        {/* Its own view read again as the game answers one of its rolls (ROADMAP item 39). */}
+        <TableReadContext value={readAgain}>{body}</TableReadContext>
       </div>
     </TableApiContext>
   )

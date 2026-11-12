@@ -8,6 +8,7 @@ import {
   biteAction,
   characterSheet,
   druidSheet,
+  frostBreathAction,
   mockCompanionSheet,
   mockCompanionView,
   sheetAction,
@@ -101,6 +102,14 @@ const HIT = {
       { formula: '1d8 + 3', type: 'slashing', dice: [{ faces: 8, number: 1 }] },
     ],
   },
+}
+
+/** A recharge the game made, its uses back. */
+const DONE_RECHARGE = {
+  status: 'done',
+  visible: true,
+  rolls: [],
+  outcome: 'success',
 }
 
 /** Thorin's sheet, with a warhammer whose attacks the game makes. */
@@ -212,7 +221,9 @@ const page = (who: Character = character) => (
 
 const renderTable = (initial: TableView, who: Character = character) => {
   current = { view: initial, connection: 'live' }
-  jest.mocked(useTableView).mockImplementation(() => current)
+  jest
+    .mocked(useTableView)
+    .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   return render(page(who))
 }
 
@@ -468,6 +479,62 @@ describe('components/game-table/game-table, with companions', () => {
       await user.click(creatureTab('Thorin'))
       expect(toasted('Strength check')).toBe(false)
     })
+  })
+
+  it('reads the table again as the game answers a recharge from the character’s pane, and a companion’s own view for its own (ROADMAP item 39)', async () => {
+    const user = userEvent.setup()
+    const readAgain = jest.fn()
+    companionViews.set(
+      BRAKKA.key,
+      companionView(BRAKKA, { rollsToTable: ['recharge'] }),
+    )
+    current = {
+      view: view({
+        companions: [BRAKKA],
+        sheet: toTableSheet(
+          characterSheet({
+            actions: [
+              {
+                id: 'action',
+                label: 'Actions',
+                actions: [frostBreathAction()],
+              },
+            ],
+          }),
+          GAME,
+        ),
+        rollsToTable: ['recharge'],
+      }),
+      connection: 'live',
+    }
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain }))
+    render(page())
+    const recharge = { name: 'Roll Frost Breath’s recharge: 5 or more on a d6' }
+    const thorin = within(panelOf('self') as HTMLElement)
+    await user.click(thorin.getByRole('tab', { name: 'Actions' }))
+    await user.click(thorin.getByRole('button', recharge))
+    await waitFor(() => expect(follows('req-1')).toBe(1), { timeout: 3000 })
+    expect(readAgain).not.toHaveBeenCalled()
+    answers['req-1'] = DONE_RECHARGE
+    await waitFor(() => expect(readAgain).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    })
+
+    // The companion's, its own view read again at once, not a poll later, and not the table.
+    await user.click(creatureTab('Brakka'))
+    const brakka = await sheetOf('wolfBrakka')
+    await user.click(brakka.getByRole('tab', { name: 'Actions' }))
+    answers['req-2'] = DONE_RECHARGE
+    const before = tableAsks('wolfBrakka')
+    await user.click(brakka.getByRole('button', recharge))
+    await waitFor(() => expect(follows('req-2')).toBe(1), { timeout: 3000 })
+    await waitFor(
+      () => expect(tableAsks('wolfBrakka')).toBeGreaterThan(before),
+      { timeout: 500 },
+    )
+    expect(readAgain).toHaveBeenCalledTimes(1)
   })
 
   it('prefixes every id in a companion’s pane, so that none on the page is repeated', async () => {
@@ -890,7 +957,9 @@ describe('components/game-table/game-table, with companions', () => {
         view: view({ sheet: undefined, companions: [BRAKKA] }),
         connection: 'live',
       }
-      jest.mocked(useTableView).mockImplementation(() => current)
+      jest
+        .mocked(useTableView)
+        .mockImplementation(() => ({ ...current, readAgain: () => {} }))
       render(
         <GameTable
           character={choosing}
@@ -960,7 +1029,9 @@ describe('components/game-table/game-table, companions’ saves, from module 0.4
 
   it('says it in the Gamemaster’s words at their seat', () => {
     current = { view: asking(), connection: 'live' }
-    jest.mocked(useTableView).mockImplementation(() => current)
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain: () => {} }))
     render(
       <GameTable
         character={character}

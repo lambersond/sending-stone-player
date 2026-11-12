@@ -30,8 +30,9 @@ import {
 import { useFollow } from '@/hooks/use-follow'
 import { useStoredChoice } from '@/hooks/use-stored'
 import { useTableApi, useTableRole } from '@/hooks/use-table-api'
+import { useTableRead } from '@/hooks/use-table-read'
 import { changes } from '@/utils/damage-modifiers'
-import { labelled, follow, pause } from '@/utils/lifecycle'
+import { answeredByGame, labelled, follow, pause } from '@/utils/lifecycle'
 import { moveLabel } from '@/utils/move-words'
 import type { WildShapeForms, RechargeRoll } from '@/features/rolling/types'
 import type {
@@ -96,10 +97,13 @@ export function useTableRolls(
     'off',
   )
   const sendsAlone = on && alone === 'on' && kinds.includes('itemDamage')
+  // The pane's view read again as the game answers a roll (ROADMAP item 39), so that what the
+  // roll changed on the sheet, such as a recharge's chip, goes as the tray says it's made.
+  const readAgain = useTableRead()
   // As the latest render has them, for `send` to stay the same function.
-  const latest = useRef({ api, kinds, features, on, gm, sendsAlone })
+  const latest = useRef({ api, kinds, features, on, gm, sendsAlone, readAgain })
   useEffect(() => {
-    latest.current = { api, kinds, features, on, gm, sendsAlone }
+    latest.current = { api, kinds, features, on, gm, sendsAlone, readAgain }
   })
   const followRoll = useFollow()
   // The requests awaited here, as rolls sent one after another are, each given up on as the page
@@ -132,6 +136,7 @@ export function useTableRolls(
           rollStates(held, { type: 'way', id: localId, kept, state }),
         )
         heard?.(state)
+        if (answeredByGame(state)) latest.current.readAgain()
       }
       update({ status: 'sending' })
       followRoll(latest.current.api, input, update, id => {
@@ -187,6 +192,7 @@ export function useTableRolls(
               if (again) return
               each[index] = state
               update()
+              if (answeredByGame(state)) latest.current.readAgain()
             },
             () => {},
           )

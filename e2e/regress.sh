@@ -41,8 +41,9 @@ run favorites 59 X=1
 # v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate. Item 19:
 # the tracker's encounter not begun shows no turn nor order, but the line to roll initiative; begun,
 # both; begun but no longer the tracker's, "No combat right now" alone, even with Thorin's
-# initiative cleared (v0.45, the owner's decision 1).
-run rolls 82 SHOTS=$O/shots-rolls
+# initiative cleared (v0.45, the owner's decision 1), and the sheet's Initiative tile not offering
+# to roll for it (v0.46).
+run rolls 83 SHOTS=$O/shots-rolls
 # v0.44: the dice tray under the chat (module 0.44.0's plain roll): at 390, 1280, 1024 and on a
 # 768 tablet, a d100 and a modifier, 20 dice the most, Send to the table off, typed in, the
 # Gamemaster's page, and the campaign's rolls off; and module 0.42.0 (no plain rolls in the game).
@@ -168,9 +169,12 @@ run companions 138 SHOTS=$O/shots-036f
 run companions 139 MIDI=1 SHOTS=$O/shots-036f
 run companions 138 DND5E6=1 SHOTS=$O/shots-036f
 run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
-run alone 122 SHOTS=$O/shots-036
-run alone 127 MIDI=1 SHOTS=$O/shots-036
-run alone 122 DND5E6=1 SHOTS=$O/shots-036
+# v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
+# "recharged", and the page reading the table as the game answers the recharge and again a moment
+# after that read.
+run alone 126 SHOTS=$O/shots-036
+run alone 131 MIDI=1 SHOTS=$O/shots-036
+run alone 126 DND5E6=1 SHOTS=$O/shots-036
 run alone 7 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036
 # Module 0.41.0: the runs above add part 17, damage on its own with its choices, a spell's level, a
 # weapon's mode and ammunition and the Spend switch (its pictures in shots-041); and module 0.40.0

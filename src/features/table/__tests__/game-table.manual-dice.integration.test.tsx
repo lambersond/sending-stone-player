@@ -88,7 +88,9 @@ describe('components/game-table, typing in their own dice', () => {
     globalThis.localStorage.clear()
     globalThis.localStorage.setItem(TOASTS_KEY, 'off')
     current = { view: offeredDiceView({ sheet }), connection: 'live' }
-    jest.mocked(useTableView).mockImplementation(() => current)
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   })
 
   afterEach(() => {
@@ -270,7 +272,9 @@ describe('components/game-table, typing in their own dice on another tab', () =>
       ),
       connection: 'live',
     }
-    jest.mocked(useTableView).mockImplementation(() => current)
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   })
 
   afterEach(() => {

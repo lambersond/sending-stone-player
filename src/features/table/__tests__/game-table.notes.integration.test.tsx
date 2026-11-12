@@ -103,7 +103,9 @@ const renderTable = (
   }: { seat?: TableSeat; who?: Character; choice?: CampaignChoice } = {},
 ) => {
   current = { view: initial, connection: 'live' }
-  jest.mocked(useTableView).mockImplementation(() => current)
+  jest
+    .mocked(useTableView)
+    .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   const table = () => (
     <GameTable
       character={who}
