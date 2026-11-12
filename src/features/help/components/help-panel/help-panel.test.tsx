@@ -85,13 +85,13 @@ describe('features/help/components/help-panel', () => {
   })
 
   it.each([
-    ['player', false, 'is', true],
-    ['Gamemaster', true, 'is', true],
-    ['player', false, 'isn’t', undefined],
-    ['Gamemaster', true, 'isn’t', undefined],
+    ['player', 'is', false, true],
+    ['Gamemaster', 'is', true, true],
+    ['player', 'isn’t', false, undefined],
+    ['Gamemaster', 'isn’t', true, undefined],
   ] as const)(
     'at the %s’s seat, typing not allowed and no rolls taken now, describes the dice an item rolls later where the campaign’s module %s one that asks for them',
-    (_seat, gm, _is, laterDice) => {
+    (_seat, _is, gm, laterDice) => {
       renderPanel({
         gm,
         typing: undefined,
