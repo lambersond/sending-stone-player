@@ -7,15 +7,15 @@ app-only work ships with its next deploy.
 
 The further out a version is, the less settled it is, and that's expected: each one is planned in
 full when work on it starts. Open questions stay with their version until then. Any version may
-gain items from feedback or bugs.
+gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
+version.
 
 Released: module v0.45.0 and its app, with v0.44.0 before it.
 
 ## v0.46 (release candidate)
 
-Before Friday's session, built and merged: module 0.46.0 holds items 37, 38 and 40 (a character
-shared with All Players kept to its own players), with the app's item 39 (a Recharge chip gone with
-the tray's "recharged") and the Initiative tile in an encounter begun elsewhere.
+Built and merged before Friday's session: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s
+v0.46.0 entry.
 
 **To check at the table before module v0.46.0 is tagged** (built and tested against stand-ins
 only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
