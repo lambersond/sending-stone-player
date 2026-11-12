@@ -2192,7 +2192,9 @@ await asks.waitFor({ timeout: 15_000 })
 entry = await asked(alice, () => asks.getByRole('button', { name: /^Roll Dexterity saving throw/ }).click(), 'the asked save')
 {
   const timer = await entry.dialog.getByRole('timer').textContent()
-  check(/^9:5\d left to answer$/.test(timer.trim()) && await entry.dialog.locator('[aria-live]').filter({ has: entry.dialog.getByRole('timer') }).count() === 0,
+  // The ask gives 10 minutes and its countdown rounds up, so a dialog open within the ask's first
+  // second reads 10:00, as it can since the page reads the table again 500 ms after the death save.
+  check(/^(10:00|9:5\d) left to answer$/.test(timer.trim()) && await entry.dialog.locator('[aria-live]').filter({ has: entry.dialog.getByRole('timer') }).count() === 0,
     `the dialog shows the time left to answer, a timer, never read out: "${timer.trim()}"`)
   await keys(entry.dialog, '1', '6')
   made = await done(alice, entry)
