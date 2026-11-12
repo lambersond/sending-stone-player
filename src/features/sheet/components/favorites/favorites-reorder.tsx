@@ -1,15 +1,10 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import clsx from 'clsx'
-import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react'
+import { ReorderRow } from '@/components/sortable/reorder-row'
 import { Sortable } from '@/components/sortable/sortable'
 import { entryName } from '@/features/sheet/utils/favorite-order'
 import type { FavoritesReorderProps } from './types'
-
-/** A row's arrows, as Reorder's notes have theirs. */
-const ARROW =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary disabled:opacity-40 disabled:hover:bg-transparent'
 
 /**
  * The favorites put in order, from module 0.47.0, in the list's place, as the journal's notes
@@ -62,50 +57,14 @@ export function FavoritesReorder({
         row={(key, index, handles) => {
           const name = nameOf(key)
           return (
-            <div
-              className={clsx(
-                'flex items-center gap-1 rounded-xl border bg-card p-1',
-                handles.dragging ? 'border-primary shadow-lg' : 'border-border',
-              )}
-            >
-              {/* A finger on it drags the row, not the pane; anywhere else scrolls it. */}
-              <button
-                type='button'
-                {...handles.grip}
-                aria-label={`Reorder ${name}: drag it, or press the up and down arrows`}
-                title='Drag to reorder'
-                className='flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-primary/5 active:cursor-grabbing'
-              >
-                <GripVertical aria-hidden className='size-5' />
-              </button>
-              <span className='min-w-5 shrink-0 text-right text-xs text-text-secondary tabular-nums'>
-                {index + 1}
-              </span>
+            <ReorderRow name={name} index={index} handles={handles}>
               <span
                 title={name}
                 className='min-w-0 flex-1 truncate px-1.5 font-medium'
               >
                 {name}
               </span>
-              <button
-                type='button'
-                aria-label={`Move ${name} up`}
-                disabled={handles.first}
-                onClick={handles.up}
-                className={ARROW}
-              >
-                <ArrowUp aria-hidden className='size-5' />
-              </button>
-              <button
-                type='button'
-                aria-label={`Move ${name} down`}
-                disabled={handles.last}
-                onClick={handles.down}
-                className={ARROW}
-              >
-                <ArrowDown aria-hidden className='size-5' />
-              </button>
-            </div>
+            </ReorderRow>
           )
         }}
       />

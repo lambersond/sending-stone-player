@@ -1,18 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import clsx from 'clsx'
-import { ArrowDown, ArrowUp, GripVertical, LoaderCircle } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react'
 import { Pane } from '../pane/pane'
+import { ReorderRow } from '@/components/sortable/reorder-row'
 import { Sortable } from '@/components/sortable/sortable'
-import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
 import {
   orderRefusalWords,
   reorderLine,
 } from '@/features/notes/utils/order-words'
 import type { ReorderPaneProps } from './types'
-import type { SortableHandles } from '@/components/sortable/types'
-import type { NoteEntryView } from '@/types/notes'
 
 /**
  * A group's notes put in order (round 0.35.0 §9.4), in the reader's place: dragged by their grips,
@@ -118,84 +115,30 @@ export function ReorderPane({
           row={(id, index, handles) => {
             const entry = byId.get(id)
             return entry ? (
-              <Row
-                entry={entry}
+              <ReorderRow
+                name={entry.title}
                 index={index}
                 handles={handles}
                 locked={saving}
-              />
+              >
+                <span className='min-w-0 flex-1 px-1.5'>
+                  <span
+                    title={entry.title}
+                    className='block truncate font-medium'
+                  >
+                    {entry.title}
+                  </span>
+                  <span className='block truncate text-xs text-text-secondary'>
+                    {entry.author
+                      ? `Written by ${entry.author.name}`
+                      : 'Written in Foundry'}
+                  </span>
+                </span>
+              </ReorderRow>
             ) : undefined
           }}
         />
       </div>
     </Pane>
-  )
-}
-
-const ARROW = `${JOURNAL_ICON_BUTTON} disabled:opacity-40 disabled:hover:bg-transparent`
-
-/** A note in the list: its grip, its place from 1, its title and author, and its arrows. */
-function Row({
-  entry,
-  index,
-  handles,
-  locked,
-}: Readonly<{
-  entry: NoteEntryView
-  index: number
-  handles: SortableHandles
-  /** The order is being saved: its grip and arrows are off. */
-  locked: boolean
-}>) {
-  return (
-    <div
-      className={clsx(
-        'flex items-center gap-1 rounded-xl border bg-card p-1',
-        handles.dragging ? 'border-primary shadow-lg' : 'border-border',
-      )}
-    >
-      {/* A finger on it drags the row, not the pane; anywhere else on the list scrolls it. */}
-      <button
-        type='button'
-        {...handles.grip}
-        disabled={locked}
-        aria-label={`Reorder ${entry.title}: drag it, or press the up and down arrows`}
-        title='Drag to reorder'
-        className='flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-primary/5 active:cursor-grabbing disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent'
-      >
-        <GripVertical aria-hidden className='size-5' />
-      </button>
-      <span className='min-w-5 shrink-0 text-right text-xs text-text-secondary tabular-nums'>
-        {index + 1}
-      </span>
-      <span className='min-w-0 flex-1 px-1.5'>
-        <span title={entry.title} className='block truncate font-medium'>
-          {entry.title}
-        </span>
-        <span className='block truncate text-xs text-text-secondary'>
-          {entry.author
-            ? `Written by ${entry.author.name}`
-            : 'Written in Foundry'}
-        </span>
-      </span>
-      <button
-        type='button'
-        aria-label={`Move ${entry.title} up`}
-        disabled={handles.first || locked}
-        onClick={handles.up}
-        className={ARROW}
-      >
-        <ArrowUp aria-hidden className='size-5' />
-      </button>
-      <button
-        type='button'
-        aria-label={`Move ${entry.title} down`}
-        disabled={handles.last || locked}
-        onClick={handles.down}
-        className={ARROW}
-      >
-        <ArrowDown aria-hidden className='size-5' />
-      </button>
-    </div>
   )
 }
