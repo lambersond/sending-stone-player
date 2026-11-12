@@ -457,8 +457,8 @@ describe('components/game-table/combat-tracker', () => {
       ['a party member’s', encounter({ currentId: 'vex' })],
       ['a foe’s', encounter()],
       [
-        'the player’s, not under way',
-        fight({ underWay: false, currentId: 'thorin' }),
+        'the player’s, begun, not the tracker’s',
+        fight({ underWay: false, active: false, currentId: 'thorin' }),
       ],
     ])('offers nothing on %s turn', (_, combat) => {
       render(<CombatTracker combat={combat} ending={endingOf(combat)} />)

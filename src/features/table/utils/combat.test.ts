@@ -47,7 +47,11 @@ describe('features/table/utils/combat', () => {
       ['the character’s, under way', true, {}],
       ['a companion’s, under way', true, { currentId: 'c-brakka' }],
       ['a foe’s', false, { currentId: 'c-goblin' }],
-      ['the character’s, not under way', false, { underWay: false }],
+      [
+        'the character’s, begun, not the tracker’s',
+        false,
+        { underWay: false, active: false },
+      ],
     ])('takes a turn, %s, as the seat’s: %p', (_, mine, fields) => {
       expect(isMyTurn(mockTurnCombat(fields))).toBe(mine)
     })

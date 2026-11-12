@@ -352,7 +352,7 @@ describe('components/game-table/turn-toast', () => {
     update({ via: 'button', sent: { turn, way: { status: 'sending' } } })
     update({
       sent: { turn, way: { status: 'done', requestId: 'req-1' } },
-      combat: on('c-thorin', { underWay: false }),
+      combat: on('c-thorin', { underWay: false, active: false }),
     })
     expect(said()).toEqual(['Your turn has ended.'])
   })

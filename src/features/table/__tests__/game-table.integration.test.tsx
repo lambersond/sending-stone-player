@@ -507,7 +507,10 @@ describe('components/game-table/game-table', () => {
   })
 
   it.each([
-    [combat({ underWay: false, currentId: undefined }), 'No combat'],
+    [
+      combat({ underWay: false, active: false, currentId: undefined }),
+      'No combat',
+    ],
     [combat({ currentId: undefined }), 'Round 3'],
   ])('describes the encounter', async (encounter, text) => {
     const user = userEvent.setup()
@@ -857,7 +860,10 @@ describe('components/game-table/game-table', () => {
     // player, but it isn't under way, so the page opens on the chat and marks no turn of it.
     it('opens on the chat beside the sheet, its Combat tab unmarked, where the encounter isn’t under way', () => {
       renderTable(
-        view({ sheet, combat: combat({ currentId: 'me', underWay: false }) }),
+        view({
+          sheet,
+          combat: combat({ currentId: 'me', underWay: false, active: false }),
+        }),
       )
 
       expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute(

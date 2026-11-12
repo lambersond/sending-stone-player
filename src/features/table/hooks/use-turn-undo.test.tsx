@@ -25,6 +25,9 @@ const brakkas: EndableTurn = {
 /** The fight as the page shows it, on someone's turn. */
 const on = (currentId: string, fields: Partial<TableCombat> = {}) =>
   mockTurnCombat({ currentId, ...fields })
+/** The fight begun but no longer the one the Gamemaster's tracker shows: not under way. */
+const elsewhere = (currentId: string) =>
+  on(currentId, { underWay: false, active: false })
 /** The fight while a combatant hidden from players acts, which the page shows as no one. */
 const hiddenActing = () => {
   const combat = mockTurnCombat()
@@ -217,19 +220,20 @@ describe('hooks/use-turn-undo', () => {
     })
   })
 
-  it('offers nothing for a combat not started, though it names who was acting, nor once it starts again', () => {
-    // Reset straight after the End Turn: no turn is shown, so there's none to take back to.
+  it('offers nothing for a combat not under way, though it names who was acting, nor once it’s under way again', () => {
+    // Switched away on the tracker straight after the End Turn: no turn is shown, so there's none
+    // to take back to.
     const { result, rerender } = render({ sent: done() })
-    rerender({ combat: on('c-brakka', { underWay: false }), sent: done() })
+    rerender({ combat: elsewhere('c-brakka'), sent: done() })
     expect(result.current.offer).toBeUndefined()
     rerender({ combat: on('c-brakka'), sent: done() })
     expect(result.current.offer).toBeUndefined()
 
-    // Offered on Brakka's turn, then the combat reset.
+    // Offered on Brakka's turn, then the tracker switched away.
     const sent = done()
     const reset = render({ combat: on('c-brakka'), sent })
     expect(reset.result.current.offer).toBeDefined()
-    reset.rerender({ combat: on('c-brakka', { underWay: false }), sent })
+    reset.rerender({ combat: elsewhere('c-brakka'), sent })
     expect(reset.result.current.offer).toBeUndefined()
     reset.rerender({ combat: on('c-brakka'), sent })
     expect(reset.result.current.offer).toBeUndefined()
