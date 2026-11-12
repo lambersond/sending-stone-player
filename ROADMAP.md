@@ -42,6 +42,15 @@ only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   one, a roll from the app is that player's card in Foundry, not the Gamemaster's.
 - **A move from a party sheet:** what a character takes from the party sheet over its own shows on
   its sheet within about a second.
+- **A move from a party sheet closed at once:** on a phone, what a character takes from the party
+  sheet shows on its sheet within about a second of the game making it, though the party sheet was
+  closed before then.
+- **A favorite added just after an order:** within 10 seconds of Save order or a Move up, a
+  favorite added from a row's menu, or in Foundry, moves with Move up, Move down and Reorder, and so
+  do the others, none refused.
+- **Module 0.43.0 named:** where a game still runs module 0.43.0 with Allow Players to change their
+  hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
+  module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
 
 Then module v0.47.0 is tagged, and v0.47 is the release candidate for v1.0 after v0.46: it runs at
 the table for a while before v1.0 is tagged.
@@ -113,41 +122,26 @@ And from the owner's answers on item 19, later work too:
 
 **Found while building v0.47**
 
-46. **A move from a party sheet closed before the game answers waits for the poll:** since item 43
-    the page reads the table again as the game answers a move sent from a party sheet, but closing
-    the party panel unmounts its sheet and `useFollow` (`src/hooks/use-follow.ts`) drops its
-    follows as it unmounts, so the character's sheet shows the move only at the table's next poll,
-    up to 3 s later. It matters most on a phone, where the panel covers the sheet and is closed to
-    see it. Nothing is refused or spent wrongly.
 47. **No Move up or Move down for a skill, tool or spell-slots favorite:** those rows among the
     favorites have no menu (`useFavoriteChoice`, in
     `src/features/sheet/components/favoriting/use-favorite-choice.ts`, gives Move up and Move down
     only where a row has a choice), so on a phone they're put in order only by Reorder's arrows,
     where the owner was told each favorite's menu would have them.
-48. **Moves among the favorites refused for 10 s after an order:** for up to `FAVORITE_SETTLE`
-    (10 s) after an order is sent, a favorite not in it reaching the sheet, added from a row's menu
-    or in Foundry, makes a move of it send an order the app's server refuses as invalid, and a move
-    of any other one refused as changed: `useFavoriteOrder`'s shown order falls back to the order
-    sent while `useSettle` waits, and `placeShown` drops a favorite it doesn't hold. Nothing wrong
-    is written, and it clears as the 10 s end.
-49. **Reorder's favorites row repeats the notes' Reorder row:**
-    `src/features/sheet/components/favorites/favorites-reorder.tsx` draws its grip, place number
-    and up and down arrows as `Row` in `src/features/notes/components/reorder-pane/reorder-pane.tsx`
-    does, its `ARROW` classes a copy of `JOURNAL_ICON_BUTTON`'s; the sortable list itself is
-    shared. One row for both would keep them alike.
-50. **A request whose `taken` callback throws reads as refused:** `post` (`src/utils/lifecycle.ts`)
-    calls `taken(id)` inside its `try`, so an error it throws tells the request "refused: network"
-    and stops following it, though the app took it and the game will make it: item 44's fault, on
-    the other callback. No caller's `taken` throws today.
-51. **The app names module 0.44.0 for what module 0.43.0 shipped:** hit points from the app and
-    the plain roll came with module tag v0.43.0 (labelled 0.44.0 in its docs at the time), but
-    `HIT_POINTS_FROM` (`src/features/campaigns/utils/feature-words.ts`) and `plainRollReach`
-    (`src/utils/plain-roll-words.ts`) say 0.44.0. So with module 0.43.0 and hit points switched
-    off, the campaign page says the module doesn't let players change them yet, where it should say
-    how to switch them on. README.md's v0.43 and v0.44.0 rows say the same, and `e2e/skew.conf`
-    has no 0.43.0; the owner decides whether the README rows change.
-52. **e2e's run count:** `e2e/README.md` counts 124 runs where `regress.sh` now makes 125, with
-    favoriting's run against module 0.46.0.
+
+And found while fixing items 46 and 48 to 52, the rest of this group, in v0.47:
+
+53. **Help names module 0.44.0 for what module 0.43.0 shipped:** item 51's kin. Help's Gamemaster
+    settings section (`src/features/help/constants.ts`) says "(0.44.0)" after Allow Players to
+    change their hit points from the app, and after "the dice tray made in their game", where module
+    tag v0.43.0 shipped both. Item 51 fixed the campaign page's and the dice tray's own lines, the
+    two the owner chose. The help suite's e2e checks would need a look.
+54. **README.md's Tested line leaves out module 0.46.0:** its Supported module versions section
+    says the app is tested end to end against "0.22.0, 0.24.0, 0.26.0 to 0.37.0, 0.38.1 and 0.39.0
+    to 0.42.0", but `e2e/skew.conf` has listed 046 too since v0.47, for favoriting's run against
+    module 0.46.0.
+55. **`e2e/README.md` isn't prettier clean:** its Outputs table is unpadded, so
+    `npx prettier --check e2e/README.md` warns, as it did before v0.47's follow-up. Prettier's
+    `--write` pads that table only.
 
 ## v1.0
 

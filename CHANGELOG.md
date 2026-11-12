@@ -45,14 +45,25 @@ version's list names that version, such as v1.x item 8.
 - **A move from a party sheet shows on the sheet at once.** After a move of items or coins sent
   from a party sheet open over a character's, the character's sheet beside it now shows it as the
   game makes it, where it waited up to 3 seconds for the next refresh: the page reads the table
-  again as the game answers, as it has since v0.46.0 for a roll or change sent from the sheet. A
-  party sheet closed before the game answers still leaves it to that refresh (ROADMAP item 46).
-  (app, item 43)
+  again as the game answers, as it has since v0.46.0 for a roll or change sent from the sheet. It
+  does so too where the party sheet is closed before the game answers, as on a phone to see the
+  character's sheet beneath it. (app, items 43 and 46)
+- **Favorites move just after an order.** For the 10 seconds after an order is sent, a favorite
+  added meanwhile, from a row's menu or in Foundry, now moves with Move up, Move down and Reorder,
+  and so does every other one, where the app refused the order as invalid or the game as changed:
+  the order shown takes in a favorite it doesn't hold, where the sheet lists it, so the next order
+  names every favorite the app shows. Nothing wrong was written. (app, item 48)
 - **A request settles as the game answered it.** A roll, change or move sent from the app now
   settles as the game answered it, refused, made or lost, even where the page's own handling of
-  that answer fails: it's no longer asked after once a second for up to 110 seconds, nor said
-  refused for want of the network after it was made. Nothing in the app fails that way today.
-  (app, item 44)
+  that answer, or of the app taking it, fails: it's no longer asked after once a second for up to
+  110 seconds, nor said refused for want of the network once the app took it. Nothing in the app
+  fails that way today. (app, items 44 and 50)
+- **Module 0.43.0 named for hit points and the dice tray.** With module 0.43.0 and its Allow
+  Players to change their hit points from the app switch off, the campaign card's Players' hit
+  points line now says to tick it, where it said version 0.44.0 or later was needed; and with an
+  older module, the dice tray says the module makes its rolls from version 0.43.0, not 0.44.0.
+  README.md's supported-versions table lists both under v0.43.0, where its v0.44.0 row had them.
+  (app, item 51)
 
 ### Maintenance
 
@@ -60,25 +71,36 @@ version's list names that version, such as v1.x item 8.
   `PROTOCOL.md` gains the `favorite` command's order (`{ op: "order", order, was }`), the hello's
   `features.favorites.orders` and a "Module 0.47.0" entry, and says whom a roll from the app is
   made as by a character's players; its `README.md` says both. (app and module)
-- **ROADMAP kept current.** ROADMAP.md takes out items 28 and 43 to 45 as done, adds v0.47's
-  release-candidate section with its checks at the table and items 46 to 52, found while building
-  v0.47, and its known limits no longer send favorites to Foundry to be put in order. (app)
+- **ROADMAP kept current.** ROADMAP.md takes out items 28, 43 to 46 and 48 to 52 as done, adds
+  v0.47's release-candidate section with its checks at the table, and items 46 to 55, found while
+  building v0.47, of which 47 and 53 to 55 stay, and its known limits no longer send favorites to
+  Foundry to be put in order. (app)
 - **One sortable list, one class line and a migration.** The journal's sortable list and its drag
   move to `src/components/sortable`, shared by the notes' and the favorites' Reorder, and a class's
   name with its levels is one rule (`src/features/sheet/utils/class-line.ts`) for its favorite's
   row, the sheet's class line and Reorder. Migration `20261112090000_favorite_orders` keeps whether
   the campaign's module puts favorites in order, from its next hello. (app)
+- **One Reorder row.** The notes' and the favorites' Reorder draw one row, with its grip, place
+  and up and down arrows (`src/components/sortable/reorder-row.tsx`), beside the sortable list they
+  share, the arrows' look written once (`SQUARE_ICON_BUTTON`). Both look and work as before.
+  (app, item 49)
 - **End-to-end checks.** `favoriting` part 14 puts Thorin's favorites in order by Reorder's drag
   and keys and by Move up and Move down at 390 px, under dnd5e 5 and 6, Foundry's actor keeping
-  each order, and a new run against module 0.46.0 (`e2e/skew.conf`'s 046) checks favorites are
-  offered but never put in order. `transfers` part 3 checks Thorin's sheet shows what he took from
-  the party within a second, the page asking for the table as the game's answer comes. (app)
+  each order, and moves the Wand of Frost, made a favorite in Foundry while an order is on its way
+  (item 48); a new run against module 0.46.0 (`e2e/skew.conf`'s 046) checks favorites are offered
+  but never put in order. `transfers` part 3 checks Thorin's sheet shows what he took from the
+  party within a second, the page asking for the table as the game's answer comes, and part 4 the
+  same at 390 px with the party sheet closed before it (item 46). The `dice` suite's run against
+  module 0.42.0 checks the tray names 0.43.0 (item 51), and `e2e/README.md` counts `regress.sh`'s
+  125 runs (item 52). (app)
 - **Jest tests.** New tests pin the favorites' order rules
   (`src/features/sheet/utils/favorite-order.ts`, Move up and Move down at each end), Reorder's
   focus and a favorite's menu, an order's request and the hello's `orders`, with the words golden
   recording an order's toasts and tray lines; the party page reading the table again as a move is
-  made; and a request whose callback throws settling. An order's request reads the campaign once,
-  with the command's other checks. (app)
+  made, its panel closed or not; and a request whose callback throws settling, or followed once
+  the app took it. Others pin an order naming a favorite added while the last one waits, the
+  Reorder row's dimmed arrows, and the words naming module 0.43.0. An order's request reads the
+  campaign once, with the command's other checks. (app)
 - **The module harness.** `test/fvtt/favoriting.mjs` checks an order written as dnd5e's sorts
   under dnd5e 5 and 6, the places kept, nothing written for the same order, "changed", "error" and
   the refusals; `wildshape.mjs` checks "shaped"; and `rolls.mjs` checks a character shared through
@@ -337,15 +359,16 @@ below:
 
 ## v0.43.0 — 2026-11-06
 
-Module v0.43.0 brought hit points set from the app and the dice tray's rolls made in the game.
-README.md's supported-versions table lists both under v0.44.0, as the module's `PROTOCOL.md` does,
-and its v0.43 row still reads "Nothing new: v0.43 changed only the app, with no module release". The
-app turns both on from what the module's opening post says it takes, not from its version, so they
-work with module v0.43.0. Two lines are wrong about it, both yet to be fixed. With module v0.43.0
-and its switch off, the campaign card's Players' hit points line says version 0.44.0 or later is
-needed. With an older module, which takes other rolls but not these, the dice tray says the module
-makes them from version 0.44.0, where v0.43.0 does, and README.md's v0.44.0 row repeats it. The
-rest is the app's: the refactor, and part of what was planned for v0.44.
+Module v0.43.0 brought hit points set from the app and the dice tray's rolls made in the game. The
+module's `PROTOCOL.md` lists both under 0.44.0, as README.md's supported-versions table did until
+v0.47.0, its v0.43 row reading "Nothing new: v0.43 changed only the app, with no module release".
+The app turns both on from what the module's opening post says it takes, not from its version, so
+they work with module v0.43.0. Two lines were wrong about it, both fixed in v0.47.0. With module
+v0.43.0 and its switch off, the campaign card's Players' hit points line said version 0.44.0 or
+later was needed. With an older module, which takes other rolls but not these, the dice tray said
+the module makes them from version 0.44.0, where v0.43.0 does, and README.md's v0.44.0 row repeated
+it. Help, from v0.45.0, still names 0.44.0 for both (ROADMAP item 53). The rest is the app's: the
+refactor, and part of what was planned for v0.44.
 
 ### Features
 
