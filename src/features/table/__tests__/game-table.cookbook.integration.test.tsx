@@ -88,7 +88,9 @@ const renderTable = (
     given?: Partial<ReturnType<typeof actions>>
   } = {},
 ) => {
-  jest.mocked(useTableView).mockReturnValue({ view: shown, connection: 'live' })
+  jest
+    .mocked(useTableView)
+    .mockReturnValue({ view: shown, connection: 'live', readAgain: () => {} })
   return render(
     <GameTable
       character={who}

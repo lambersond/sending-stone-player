@@ -80,7 +80,9 @@ const tableView = (fields: Partial<TableView> = {}): TableView =>
   })
 
 const renderTable = async (shown: TableView, seat?: TableSeat) => {
-  jest.mocked(useTableView).mockReturnValue({ view: shown, connection: 'live' })
+  jest
+    .mocked(useTableView)
+    .mockReturnValue({ view: shown, connection: 'live', readAgain: () => {} })
   const user = userEvent.setup()
   render(
     <GameTable

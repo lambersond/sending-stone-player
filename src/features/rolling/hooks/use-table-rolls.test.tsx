@@ -24,6 +24,7 @@ import {
 import { MAX_ROLL_LABEL } from '@/constants/sending-stone'
 import { aloneRollOf } from '@/features/sheet/utils/damage-alone'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { TableReadContext } from '@/hooks/use-table-read'
 import {
   aloneResult,
   aloneSpells,
@@ -3803,6 +3804,54 @@ describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.
       dice: [{ faces: 6, results: [2] }],
       typed: true,
     })
+  })
+
+  it("reads the pane's view again as the game answers a recharge, made or not, and not before, nor as the app refuses one (ROADMAP item 39)", async () => {
+    const readAgain = jest.fn()
+    const { result } = renderHook(() => useTableRolls('char-1', ['recharge']), {
+      wrapper: ({ children }) => (
+        <TableReadContext value={readAgain}>{children}</TableReadContext>
+      ),
+    })
+
+    act(() => result.current.sendRecharge(breath, recharged()))
+    await advance(0)
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(respond(200, { id: 'req-9', status: 'rolling' }))
+    await advance(CHECK_EVERY)
+    expect(readAgain).not.toHaveBeenCalled()
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-9',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        outcome: 'success',
+      }),
+    )
+    await advance(CHECK_EVERY)
+    expect(readAgain).toHaveBeenCalledTimes(1)
+
+    // Not made, as the game has it charged already: what it has may not be what the sheet shows.
+    jest.mocked(fetch).mockResolvedValue(respond(202, { id: 'req-10' }))
+    act(() => result.current.sendRecharge(breath, recharged({ id: 'f10' })))
+    await advance(0)
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        respond(200, { id: 'req-10', status: 'failed', reason: 'charged' }),
+      )
+    await advance(CHECK_EVERY)
+    expect(readAgain).toHaveBeenCalledTimes(2)
+
+    jest.mocked(fetch).mockResolvedValue(respond(422, { reason: 'charged' }))
+    act(() => result.current.sendRecharge(breath, recharged({ id: 'f11' })))
+    await advance(CHECK_EVERY)
+    expect(result.current.states.get('f11')).toMatchObject({
+      status: 'refused',
+    })
+    expect(readAgain).toHaveBeenCalledTimes(2)
   })
 
   it('sends no recharge where the game takes none, or Send to the table is off', () => {

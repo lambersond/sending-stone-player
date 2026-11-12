@@ -38,6 +38,7 @@ import { useTypedDice } from '@/features/table/hooks/use-typed-dice'
 import { isMyTurn } from '@/features/table/utils/combat'
 import { pageConnection } from '@/features/table/utils/header'
 import { TableApiContext } from '@/hooks/use-table-api'
+import { TableReadContext } from '@/hooks/use-table-read'
 import { TurnToastContext } from '@/hooks/use-turn-toast-foot'
 import { useStillWaiting, useWaitingPrompts } from '@/hooks/use-waiting-prompts'
 import { seatWords } from '@/utils/seat-words'
@@ -67,7 +68,7 @@ export function GameTable({
   const seat = useMemo<TableSeat>(() => ({ role, api, key }), [role, api, key])
   const gm = seat.role === 'gm'
   const words = seatWords(seat.role)
-  const { view, connection } = useTableView(seat.api, initialView)
+  const { view, connection, readAgain } = useTableView(seat.api, initialView)
   const tabs = useTableTabs(initialView.combat?.underWay === true)
   const { party, setPartyOpen } = usePartyOpen(view.groups)
   const unread = useChatRead({
@@ -261,9 +262,13 @@ export function GameTable({
             addBack={words.addBack}
             panels={panels}
           />
-          {/* Every pane's cog opens the page's one Help. */}
+          {/* Every pane's cog opens the page's one Help. The table is read again as the game
+              answers a roll from the sheet or the tray (ROADMAP item 39); a companion's pane reads
+              its own. */}
           <ShowHelpContext value={help.show}>
-            <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
+            <TableReadContext value={readAgain}>
+              <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
+            </TableReadContext>
           </ShowHelpContext>
         </div>
         <TableNav

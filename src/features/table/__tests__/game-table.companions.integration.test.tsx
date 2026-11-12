@@ -212,7 +212,9 @@ const page = (who: Character = character) => (
 
 const renderTable = (initial: TableView, who: Character = character) => {
   current = { view: initial, connection: 'live' }
-  jest.mocked(useTableView).mockImplementation(() => current)
+  jest
+    .mocked(useTableView)
+    .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   return render(page(who))
 }
 
@@ -890,7 +892,9 @@ describe('components/game-table/game-table, with companions', () => {
         view: view({ sheet: undefined, companions: [BRAKKA] }),
         connection: 'live',
       }
-      jest.mocked(useTableView).mockImplementation(() => current)
+      jest
+        .mocked(useTableView)
+        .mockImplementation(() => ({ ...current, readAgain: () => {} }))
       render(
         <GameTable
           character={choosing}
@@ -960,7 +964,9 @@ describe('components/game-table/game-table, companions’ saves, from module 0.4
 
   it('says it in the Gamemaster’s words at their seat', () => {
     current = { view: asking(), connection: 'live' }
-    jest.mocked(useTableView).mockImplementation(() => current)
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain: () => {} }))
     render(
       <GameTable
         character={character}

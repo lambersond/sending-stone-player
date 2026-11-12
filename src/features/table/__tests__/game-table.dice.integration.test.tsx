@@ -62,7 +62,7 @@ const table = (
 ) => {
   jest
     .mocked(useTableView)
-    .mockReturnValue({ view: initial, connection: 'live' })
+    .mockReturnValue({ view: initial, connection: 'live', readAgain: () => {} })
   return render(
     <GameTable
       character={thorin}

@@ -48,7 +48,9 @@ const view = (fields: Partial<TableView> = {}): TableView => ({
 })
 
 const renderTable = (shown: TableView, seat?: TableSeat) => {
-  jest.mocked(useTableView).mockReturnValue({ view: shown, connection: 'live' })
+  jest
+    .mocked(useTableView)
+    .mockReturnValue({ view: shown, connection: 'live', readAgain: () => {} })
   return render(
     <GameTable
       character={character}

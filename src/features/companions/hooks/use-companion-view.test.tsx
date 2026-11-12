@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { useCompanionView } from './use-companion-view'
-import { POLL_INTERVAL } from '@/constants/polling'
+import { POLL_INTERVAL, READ_AGAIN_AFTER } from '@/constants/polling'
 import { mockCompanionSheet, mockCompanionView } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import { advance, respond } from '@/utils/test-utils'
@@ -119,6 +119,28 @@ describe('hooks/use-companion-view', () => {
     expect(fetch).toHaveBeenCalledTimes(4)
   })
 
+  it('reads again at once while shown as a roll the game answered ends, and once more a moment later; never while hidden (ROADMAP item 39)', async () => {
+    const { result, rerender } = renderHook(
+      ({ active }) => useCompanionView(API, { active }),
+      { initialProps: { active: true } },
+    )
+    await advance(0)
+    expect(fetch).toHaveBeenCalledTimes(1)
+
+    act(() => result.current.readAgain())
+    await advance(0)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await advance(READ_AGAIN_AFTER)
+    expect(fetch).toHaveBeenCalledTimes(3)
+    await advance(POLL_INTERVAL - 1)
+    expect(fetch).toHaveBeenCalledTimes(3)
+
+    rerender({ active: false })
+    act(() => result.current.readAgain())
+    await advance(POLL_INTERVAL * 2)
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
   it('asks nothing while the page is in the background, and at once when it comes back', async () => {
     renderHook(() => useCompanionView(API, { active: true }))
     await advance(0)
@@ -183,9 +205,16 @@ describe('hooks/use-companion-view', () => {
     jest.mocked(fetch).mockResolvedValueOnce(respond(401))
     const { result } = renderHook(() => useCompanionView(API, { active: true }))
     await advance(POLL_INTERVAL * 3)
+    // Nor as a roll ends.
+    act(() => result.current.readAgain())
+    await advance(READ_AGAIN_AFTER)
 
     expect(fetch).toHaveBeenCalledTimes(1)
-    expect(result.current).toEqual({ gone: false, connection: 'live' })
+    expect(result.current).toEqual({
+      gone: false,
+      connection: 'live',
+      readAgain: expect.any(Function),
+    })
   })
 
   it('backs off while the server cannot be reached, saying it is reconnecting, then recovers', async () => {

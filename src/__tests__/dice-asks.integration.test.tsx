@@ -108,7 +108,9 @@ describe('the dice the game asks for, from the table’s view, from module 0.44.
     globalThis.localStorage.setItem(SEND_KEY, 'on')
     globalThis.localStorage.setItem(TOASTS_KEY, 'off')
     polled()
-    jest.mocked(useTableView).mockImplementation(() => current)
+    jest
+      .mocked(useTableView)
+      .mockImplementation(() => ({ ...current, readAgain: () => {} }))
   })
 
   afterEach(() => {

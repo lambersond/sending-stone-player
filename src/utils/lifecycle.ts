@@ -193,3 +193,11 @@ export function pause(ms: number, signal: AbortSignal): Promise<void> {
 export function onItsWay(state?: Pick<TableRollState, 'status'>): boolean {
   return state?.status === 'sending' || state?.status === 'rolling'
 }
+
+/**
+ * Whether the game has answered a request: made, or not made as it said. Its answer may have
+ * changed the sheet (ROADMAP item 39), which the game sends a moment after it.
+ */
+export function answeredByGame(state: Pick<TableRollState, 'status'>): boolean {
+  return state.status === 'done' || state.status === 'failed'
+}
