@@ -1,11 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  POLL_INTERVAL,
-  POLL_MOST_DELAY,
-  READ_AGAIN_AFTER,
-} from '@/constants/polling'
+import { useEffect, useRef, useState } from 'react'
+import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
+import { useReadAgain } from '@/hooks/use-read-again'
 import { retryDelay } from '@/utils/polling'
 import { rollsKey } from '@/utils/requests/availability'
 import { seenQuery } from '@/utils/seen-query'
@@ -61,8 +58,7 @@ export function useCompanionView(
   const stopped = useRef(false)
   // Whether the server has answered yet: asked as it mounts, shown or not, until it has.
   const answered = useRef(false)
-  // As the poll running has it; nothing while there's none.
-  const again = useRef(() => {})
+  const { readAgain, pace } = useReadAgain()
 
   useEffect(() => {
     // After the first answer, asked only while shown.
@@ -70,8 +66,6 @@ export function useCompanionView(
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
     let failures = 0
-    // Whether the next read waits only a moment, as a roll the game answered has ended.
-    let soon = false
 
     const poll = async () => {
       try {
@@ -121,28 +115,21 @@ export function useCompanionView(
       timer = undefined
       if (document.visibilityState !== 'hidden') await poll()
       if (!active || stopped.current || controller.signal.aborted) return
-      const wait = soon
-        ? READ_AGAIN_AFTER
-        : retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY)
-      soon = false
+      const wait = paced(retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY))
       timer = setTimeout(tick, wait)
     }
 
-    again.current = () => {
-      if (!active || stopped.current || controller.signal.aborted) return
-      soon = true
-      // Read at once, unless a read is on its way: the next comes a moment after it either way.
+    // Read at once, unless a read is on its way.
+    const readNow = () => {
       if (timer) {
         clearTimeout(timer)
         void tick()
       }
     }
+    const paced = pace(controller.signal, readNow)
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && timer) {
-        clearTimeout(timer)
-        void tick()
-      }
+      if (document.visibilityState === 'visible') readNow()
     }
 
     void tick()
@@ -152,8 +139,7 @@ export function useCompanionView(
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [api, active])
+  }, [api, active, pace])
 
-  const readAgain = useCallback(() => again.current(), [])
   return { view, gone, connection, readAgain }
 }

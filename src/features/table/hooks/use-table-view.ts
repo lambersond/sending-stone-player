@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  POLL_INTERVAL,
-  POLL_MOST_DELAY,
-  READ_AGAIN_AFTER,
-} from '@/constants/polling'
+import { POLL_INTERVAL, POLL_MOST_DELAY } from '@/constants/polling'
 import { seenOf, tableQuery } from '@/features/table/utils/table-query'
+import { useReadAgain } from '@/hooks/use-read-again'
 import { retryDelay } from '@/utils/polling'
 import type { TableView, Connection } from '@/types/table'
 
@@ -24,16 +21,13 @@ export function useTableView(api: string, initial: TableView) {
   const [view, setView] = useState(initial)
   const [connection, setConnection] = useState<Connection>('live')
   const seen = useRef(seenOf(initial))
-  // As the poll running has it; nothing before it starts, nor once it's stopped.
-  const again = useRef(() => {})
+  const { readAgain, pace } = useReadAgain()
 
   useEffect(() => {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
     let failures = 0
     let stopped = false
-    // Whether the next read waits only a moment, as a roll the game answered has ended.
-    let soon = false
 
     const poll = async () => {
       try {
@@ -73,28 +67,21 @@ export function useTableView(api: string, initial: TableView) {
       timer = undefined
       if (document.visibilityState !== 'hidden') await poll()
       if (stopped || controller.signal.aborted) return
-      const wait = soon
-        ? READ_AGAIN_AFTER
-        : retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY)
-      soon = false
+      const wait = paced(retryDelay(POLL_INTERVAL, failures, POLL_MOST_DELAY))
       timer = setTimeout(tick, wait)
     }
 
-    again.current = () => {
-      if (stopped || controller.signal.aborted) return
-      soon = true
-      // Read at once, unless a read is on its way: the next comes a moment after it either way.
+    // Read at once, unless a read is on its way.
+    const readNow = () => {
       if (timer) {
         clearTimeout(timer)
         void tick()
       }
     }
+    const paced = pace(controller.signal, readNow)
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && timer) {
-        clearTimeout(timer)
-        void tick()
-      }
+      if (document.visibilityState === 'visible') readNow()
     }
 
     timer = setTimeout(tick, POLL_INTERVAL)
@@ -104,8 +91,7 @@ export function useTableView(api: string, initial: TableView) {
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [api, router])
+  }, [api, router, pace])
 
-  const readAgain = useCallback(() => again.current(), [])
   return { view, connection, readAgain }
 }
