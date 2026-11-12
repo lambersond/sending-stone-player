@@ -29,9 +29,10 @@ only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 Then module v0.46.0 is tagged, and v0.46 is the release candidate for v1.0: it runs at the table
 for a while before v1.0 is tagged.
 
-## Follow-up batch
+## Not yet scheduled
 
-After v0.46, by number.
+Known work not yet planned for any version, by number. Each batch picks a few of these; none is
+promised to a version until it's picked.
 
 **Found while building Batch 2**
 
