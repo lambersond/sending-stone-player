@@ -264,6 +264,7 @@ const TABLE_CAMPAIGN = {
   companions: true,
   ...rollsSelect,
   favoritesEnabled: true,
+  favoriteFeatures: true,
   effectsEnabled: true,
   wildShapeEnabled: true,
   hitPointsEnabled: true,

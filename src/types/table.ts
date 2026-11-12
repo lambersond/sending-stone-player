@@ -401,6 +401,11 @@ export type TableView = {
    */
   favorites?: true
   /**
+   * From module 0.47.0: whether the seat may put the character's favorites in order too, where
+   * `favorites` is set and its module says it puts them in the order sent.
+   */
+  favoriteOrders?: true
+  /**
    * From module 0.39.0: whether the seat may turn off, turn on and delete the character's own
    * effects, its player's alone, as each effect's `ops` say: set only while the campaign lets them,
    * its module is fetching, and the character is in its roster.

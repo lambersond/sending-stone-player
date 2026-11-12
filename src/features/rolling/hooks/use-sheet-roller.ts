@@ -66,6 +66,7 @@ import type {
   HitPointsLogged,
   SheetOffer,
   RollKind,
+  FavoriteOp,
 } from '@/types/roll'
 import type { SheetEffectDie, EffectOp, PrepareOp } from '@/types/sending-stone'
 
@@ -594,9 +595,10 @@ export function useSheetRoller(
     [keep],
   )
 
-  // Keeps a favorite added or removed, from module 0.37.0, first among the rolls, as a use is.
+  // Keeps a favorite added or removed, from module 0.37.0, first among the rolls, as a use is; or
+  // from module 0.47.0 the favorites put in order.
   const logFavorite = useCallback(
-    (label: string, op: 'add' | 'remove'): LocalUse =>
+    (label: string, op: FavoriteOp): LocalUse =>
       keep('use', { label, spell: false, favorite: op }),
     [keep],
   )

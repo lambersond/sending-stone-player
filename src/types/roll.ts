@@ -201,8 +201,20 @@ export type RemoveInput = {
  */
 export type FavoriteTarget = NonNullable<FavoriteEntry['target']>
 
-/** A favorite added to or removed from the character's, from module 0.37.0. */
-export type FavoriteInput = FavoriteTarget & { op: 'add' | 'remove' }
+/**
+ * What's done to the character's favorites from here: one added or removed, from module 0.37.0;
+ * or from module 0.47.0 their order.
+ */
+export type FavoriteOp = 'add' | 'remove' | 'order'
+
+/**
+ * A favorite added to or removed from the character's, from module 0.37.0; or from module 0.47.0
+ * the character's favorites put in order: `was`, those the sheet showed, in its order, but its
+ * old-style resources, and `order`, the same in the order wanted.
+ */
+export type FavoriteInput =
+  | (FavoriteTarget & { op: 'add' | 'remove' })
+  | { op: 'order'; order: FavoriteTarget[]; was: FavoriteTarget[] }
 
 /**
  * One of the character's own effects turned off, turned on or deleted, from module 0.39.0: the
@@ -883,9 +895,9 @@ export type LocalUse = {
   move?: LocalMove
   /**
    * A favorite added or removed, rather than anything used, from module 0.37.0: what it's of is the
-   * label.
+   * label; or from module 0.47.0 the favorites put in order.
    */
-  favorite?: 'add' | 'remove'
+  favorite?: FavoriteOp
   /**
    * A spell prepared or unprepared, rather than anything used, from module 0.42.1: what it's of is
    * the label.
@@ -1267,8 +1279,8 @@ export type TableRollState = Omit<
   concentrating?: true
   /** A recharge rolled (module 0.36.0). */
   recharge?: true
-  /** A favorite added or removed (module 0.37.0). */
-  favorite?: 'add' | 'remove'
+  /** A favorite added or removed (module 0.37.0), or the favorites put in order (0.47.0). */
+  favorite?: FavoriteOp
   /** One of the character's own effects turned off, on or deleted (module 0.39.0): which. */
   effect?: EffectOp
   /** A spell prepared or unprepared (module 0.42.1): which. */

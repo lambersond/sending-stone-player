@@ -7,6 +7,7 @@ import { DiceAskBanner } from '../dice-ask-banner/dice-ask-banner'
 import { useEffectControls } from '../effect-controls/use-effect-controls'
 import { FavoritesStrip } from '../favorites/favorites'
 import { FavoritesColumn } from '../favorites/favorites-column'
+import { useFavoriteOrder } from '../favoriting/use-favorite-order'
 import { useFavorites } from '../favoriting/use-favorites'
 import { usePreparing } from '../preparing/use-preparing'
 import { PromptBanner } from '../prompt-banner/prompt-banner'
@@ -68,6 +69,7 @@ export function CharacterPane({
   moves,
   removes,
   favorites: favoritesOn,
+  favoriteOrders,
   effects: effectsOn,
   wildShape: wildShapeOn,
   hitPoints: hitPointsOn,
@@ -199,6 +201,13 @@ export function CharacterPane({
     states: table.states,
     send: commands.favoriteOf,
   })
+  // And put in order, from module 0.47.0, where its module takes orders.
+  const ordering = useFavoriteOrder({
+    on: offers.favorites && favoriteOrders === true,
+    favorites: sheet.favorites,
+    states: table.states,
+    send: commands.orderOf,
+  })
   // The character's spells prepared and unprepared from a row's menu, from module 0.42.1, where the
   // game takes it, whatever this device's Send to the table, as it has no version made here: the
   // player's alone, at the character's own pane, never while transformed, whose spells are the
@@ -307,6 +316,7 @@ export function CharacterPane({
       <SheetContext
         marks={marks}
         favoriting={favoriting}
+        ordering={ordering}
         preparing={preparing}
         effecting={effecting}
         wildShaping={wildShaping}

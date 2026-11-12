@@ -265,6 +265,9 @@ model Campaign {
   // Whether the module adds and removes characters' favorites for the app, from module 0.37.0's
   // hello: under dnd5e, with no switch of its own.
   favoritesEnabled    Boolean          @default(false)
+  // What else the module does with favorites, from module 0.47.0's hello: 'orders' where it puts
+  // them in the order the app sends. A module before it says nothing, which clears it.
+  favoriteFeatures    String[]         @default([])
   // Whether the module keeps journal notes for the app, from module 0.34.0's hello, with no switch.
   notesEnabled        Boolean          @default(false)
   // What else the module does with journal notes, from module 0.35.0's hello: 'orders' where it

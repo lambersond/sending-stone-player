@@ -14,5 +14,7 @@ export function favoriteReasons(role: SeatRole): Record<string, string> {
     off: `${game} isn’t taking favorites now`,
     unavailable: `${game} isn’t taking favorites now`,
     moving: 'it’s on its way already',
+    // An order of them, from module 0.47.0, made from favorites Foundry has changed since.
+    changed: `the favorites changed in ${game} meanwhile`,
   }
 }

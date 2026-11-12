@@ -1681,12 +1681,14 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
       }),
     ),
     // From module 0.37.0: whether favorites may be added and removed here, under dnd5e, with no
-    // switch of its own.
+    // switch of its own; and from module 0.47.0 whether they're put in the order the app sends.
+    // Anything but a boolean is read as unsaid.
     favorites: z
       .looseObject({
         enabled: z.boolean().catch(false),
         kinds: z.array(z.string()).catch([]),
         reason: nullableString.optional().transform(reason => reason ?? null),
+        orders: leftOut(z.boolean()),
       })
       .nullable()
       .optional()

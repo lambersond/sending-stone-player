@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp, GripVertical, LoaderCircle } from 'lucide-react'
 import { Pane } from '../pane/pane'
-import { Sortable } from '../sortable/sortable'
+import { Sortable } from '@/components/sortable/sortable'
 import { JOURNAL_ICON_BUTTON } from '@/features/notes/constants'
 import {
   orderRefusalWords,
   reorderLine,
 } from '@/features/notes/utils/order-words'
 import type { ReorderPaneProps } from './types'
-import type { SortableHandles } from '@/features/notes/components/sortable/types'
+import type { SortableHandles } from '@/components/sortable/types'
 import type { NoteEntryView } from '@/types/notes'
 
 /**

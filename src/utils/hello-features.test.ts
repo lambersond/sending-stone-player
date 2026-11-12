@@ -45,6 +45,7 @@ describe('utils/hello-features', () => {
         transferFeatures: [],
         removalsEnabled: false,
         favoritesEnabled: false,
+        favoriteFeatures: [],
         dishesEnabled: false,
         dishVersions: [],
         effectsEnabled: false,
@@ -100,6 +101,21 @@ describe('utils/hello-features', () => {
   ])('keeps hit points on from features.hitPoints %j: %s', (hitPoints, on) => {
     expect(helloCampaignData({ hitPoints }).hitPointsEnabled).toBe(on)
   })
+
+  // Module 0.47.0: favorites put in order, where they're taken at all.
+  it.each([
+    [
+      { enabled: true, kinds: ['favorite'], reason: null, orders: true },
+      ['orders'],
+    ],
+    [{ enabled: true, kinds: ['favorite'], reason: null }, []],
+    [{ enabled: false, kinds: [], reason: 'system', orders: true }, []],
+  ])(
+    'keeps favorites’ orders from features.favorites %j',
+    (favorites, kept) => {
+      expect(helloCampaignData({ favorites }).favoriteFeatures).toEqual(kept)
+    },
+  )
 
   // Module 0.44.0: Tidy 5e Sheets, active or not, installed or not, as the hello's notes say it.
   it.each([

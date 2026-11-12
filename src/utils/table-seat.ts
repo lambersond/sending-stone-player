@@ -128,6 +128,7 @@ export function seatAllows(
     transfersEnabled: boolean
     removalsEnabled: boolean
     favoritesEnabled: boolean
+    favoriteFeatures: string[]
     effectsEnabled: boolean
     wildShapeEnabled: boolean
     hitPointsEnabled: boolean
@@ -148,6 +149,12 @@ export function seatAllows(
     ...(at && removalsAvailable(campaign, now) && { removes: true as const }),
     ...(own &&
       favoritesAvailable(campaign, now) && { favorites: true as const }),
+    // From module 0.47.0, where its module puts them in the order sent.
+    ...(own &&
+      favoritesAvailable(campaign, now) &&
+      campaign.favoriteFeatures.includes('orders') && {
+        favoriteOrders: true as const,
+      }),
     ...(own && effectsAvailable(campaign, now) && { effects: true as const }),
     ...(own &&
       wildShapeAvailable(campaign, now) && { wildShape: true as const }),

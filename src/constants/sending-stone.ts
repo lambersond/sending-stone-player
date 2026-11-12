@@ -277,6 +277,9 @@ export const FAVORITES = 1
  */
 export const FAVORITE_SETTLE = 10_000
 
+/** The most favorites an order of them names, as the module takes it (module 0.47.0). */
+export const MOST_FAVORITE_ORDER = 400
+
 /**
  * How long, from when it's sent, an effect's control waits for the sheet to say what the game made
  * of it, in milliseconds: the sheet comes before its result (module 0.39.0), within a poll.

@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { movedTo } from '@/components/sortable/utils'
 import { ROLL_KINDS } from '@/constants/sending-stone'
 import { fullNoteTime, noteTime } from '@/features/notes/utils/note-time'
 import {
@@ -23,7 +24,6 @@ import {
   whoSeesShort,
 } from '@/features/notes/utils/note-words'
 import {
-  movedTo,
   movedWords,
   orderRefusalWords,
   orderSavedWords,

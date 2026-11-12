@@ -18,7 +18,7 @@ export type SortableHandles = {
 export type SortableProps = {
   ids: string[]
   onChange(ids: string[]): void
-  /** A note's title, for what's announced as it moves. */
+  /** A row's title, such as a note's, for what's announced as it moves. */
   titleOf(id: string): string
   row(id: string, index: number, handles: SortableHandles): ReactNode
   /**

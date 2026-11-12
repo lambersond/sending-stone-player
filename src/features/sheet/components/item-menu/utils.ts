@@ -1,4 +1,6 @@
 import {
+  ArrowDown,
+  ArrowUp,
   Power,
   PowerOff,
   Send,
@@ -11,7 +13,7 @@ import {
 import { EFFECT_WORDS } from '@/utils/effect-words'
 import { PREPARE_WORDS } from '@/utils/prepare-words'
 import type { EffectChoice } from '../effect-controls/types'
-import type { FavoriteChoice } from '../favoriting/types'
+import type { FavoriteChoice, FavoriteChoiceId } from '../favoriting/types'
 import type { PrepareChoice } from '../preparing/types'
 import type { MenuItem } from '@/features/rolling/types'
 import type { EffectOp, PrepareOp } from '@/types/sending-stone'
@@ -29,6 +31,22 @@ const REMOVE_FAVORITE: MenuItem<'favorite'> = {
   id: 'favorite',
   label: 'Remove from favorites',
   icon: StarOff,
+  tint: 'text-text-secondary',
+}
+
+/** Move up, in a favorite's menu among the favorites: from module 0.47.0. */
+const MOVE_UP: MenuItem<'up'> = {
+  id: 'up',
+  label: 'Move up',
+  icon: ArrowUp,
+  tint: 'text-text-secondary',
+}
+
+/** Move down, in a favorite's menu among the favorites: from module 0.47.0. */
+const MOVE_DOWN: MenuItem<'down'> = {
+  id: 'down',
+  label: 'Move down',
+  icon: ArrowDown,
   tint: 'text-text-secondary',
 }
 
@@ -111,8 +129,9 @@ export function effectItems(
 
 /**
  * What a row's menu offers, in order: Add to favorites or Remove from favorites, first, as the one
- * that changes nothing in the game; for a spell, Prepare or Unprepare (module 0.42.1); Send to…;
- * Remove…; and an effect's own (module 0.39.0). Each waits, saying why, while it's on its way.
+ * that changes nothing in the game, and among the favorites Move up and Move down where it may
+ * move so (module 0.47.0); for a spell, Prepare or Unprepare (module 0.42.1); Send to…; Remove…;
+ * and an effect's own (module 0.39.0). Each waits, saying why, while it's on its way.
  */
 export function menuItems({
   favorite,
@@ -126,7 +145,7 @@ export function menuItems({
   send?: () => void
   remove?: { open: () => void; waiting: boolean }
   effects: MenuItem<EffectOp>[]
-}): MenuItem<'favorite' | PrepareOp | 'send' | 'remove' | EffectOp>[] {
+}): MenuItem<FavoriteChoiceId | PrepareOp | 'send' | 'remove' | EffectOp>[] {
   return [
     // First, as the one that changes nothing in the game but where the sheet lists it; while it's
     // on its way, it waits, saying why.
@@ -138,6 +157,9 @@ export function menuItems({
           },
         ]
       : []),
+    // Among the favorites, from module 0.47.0: where it may move, Move up and Move down.
+    ...(favorite?.moves?.up ? [MOVE_UP] : []),
+    ...(favorite?.moves?.down ? [MOVE_DOWN] : []),
     // A spell's, from module 0.42.1, after its favorites entry: Prepare or Unprepare, as the sheet
     // has it now, waiting the same way.
     ...(prepare

@@ -866,6 +866,7 @@ exports[`golden C7: storage the campaign row a hello writes a full hello from mo
     ],
     "removalsEnabled": true,
     "favoritesEnabled": true,
+    "favoriteFeatures": [],
     "dishesEnabled": true,
     "dishVersions": [
      1
@@ -1086,6 +1087,7 @@ exports[`golden C7: storage the campaign row a hello writes a hello from before 
     "transferFeatures": [],
     "removalsEnabled": false,
     "favoritesEnabled": false,
+    "favoriteFeatures": [],
     "dishesEnabled": false,
     "dishVersions": [],
     "effectsEnabled": false,

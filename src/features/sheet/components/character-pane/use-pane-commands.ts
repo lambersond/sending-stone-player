@@ -75,6 +75,16 @@ export function usePaneCommands({
       ),
     [command, logFavorite, sendFavorite],
   )
+  // The favorites put in order, from module 0.47.0: a line among the rolls says how it went,
+  // named for what moved, as a favorite's.
+  const orderOf = useCallback(
+    (order: FavoriteTarget[], was: FavoriteTarget[], label: string) =>
+      command(
+        () => logFavorite(label, 'order'),
+        logged => sendFavorite(logged, { op: 'order', order, was }),
+      ),
+    [command, logFavorite, sendFavorite],
+  )
   // The character's spells prepared and unprepared from a row's menu, from module 0.42.1: a line
   // among the rolls says how it went, as for a favorite.
   const prepareOf = useCallback(
@@ -194,6 +204,7 @@ export function usePaneCommands({
   return {
     command,
     favoriteOf,
+    orderOf,
     prepareOf,
     effectOf,
     wildShapeOf,

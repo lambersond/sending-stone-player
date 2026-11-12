@@ -17,7 +17,7 @@ import type { ShowConditions } from '../conditions/types'
 import type { DescriptionActions } from '../description-actions/types'
 import type { Effects } from '../effect-controls/types'
 import type { EnchantActions } from '../enchantments/types'
-import type { Favorites } from '../favoriting/types'
+import type { FavoriteOrder, Favorites } from '../favoriting/types'
 import type { Preparations } from '../preparing/types'
 import type { WildShapeValue } from '../wild-shape/types'
 
@@ -31,6 +31,7 @@ import type { WildShapeValue } from '../wild-shape/types'
 export function SheetContext({
   marks,
   favoriting,
+  ordering,
   preparing,
   effecting,
   wildShaping,
@@ -43,6 +44,8 @@ export function SheetContext({
 }: Readonly<{
   marks: ReadonlySet<string>
   favoriting: Favorites
+  /** How the favorites are put in order, from module 0.47.0. */
+  ordering: FavoriteOrder
   preparing: Preparations
   effecting: Effects
   wildShaping: WildShapeValue
@@ -55,7 +58,7 @@ export function SheetContext({
 }>) {
   return (
     <FavoriteMarks keys={marks}>
-      <Favoriting value={favoriting}>
+      <Favoriting value={favoriting} ordering={ordering}>
         <Effecting value={effecting}>
           <WildShaping value={wildShaping}>
             <ConditionsOpener show={showConditions}>

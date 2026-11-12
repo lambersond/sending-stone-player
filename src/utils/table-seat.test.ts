@@ -165,6 +165,7 @@ describe('utils/table-seat', () => {
       transfersEnabled: true,
       removalsEnabled: true,
       favoritesEnabled: true,
+      favoriteFeatures: [] as string[],
       effectsEnabled: true,
       wildShapeEnabled: true,
       hitPointsEnabled: true,
@@ -209,6 +210,20 @@ describe('utils/table-seat', () => {
           hitPointsEnabled: false,
         }),
       ).toEqual({ removes: true, effects: true, wildShape: true })
+    })
+
+    it('lets a player put favorites in order, from module 0.47.0, where its module takes orders and favorites', () => {
+      expect(allows(thorin, { favoriteFeatures: ['orders'] })).toMatchObject({
+        favorites: true,
+        favoriteOrders: true,
+      })
+      for (const [at, fields] of [
+        [thorin, {}],
+        [thorin, { favoriteFeatures: ['orders'], favoritesEnabled: false }],
+        [gm, { favoriteFeatures: ['orders'] }],
+      ] as [SheetSeat, Partial<typeof switches>][]) {
+        expect(allows(at, fields)).not.toHaveProperty('favoriteOrders')
+      }
     })
 
     it("lets the Gamemaster only move and remove, as a player's own are theirs", () => {

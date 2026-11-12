@@ -2285,6 +2285,34 @@ describe('schemas/roll-request, favorites added and removed, from module 0.37.0'
     expect(parsed.data).toEqual({ ...favoriting, favorite: fields })
   })
 
+  // Module 0.47.0: the favorites put in order, the same ones as shown, each once.
+  it('takes an order of the favorites shown, and no other', () => {
+    const rope = { type: 'item', id: 'ropeThorin01' }
+    const perception = { type: 'skill', id: 'prc' }
+    const order = {
+      op: 'order',
+      order: [perception, rope],
+      was: [rope, perception],
+    }
+    expect(favorite(order)).toMatchObject({
+      success: true,
+      data: { ...favoriting, favorite: order },
+    })
+    for (const fields of [
+      { ...order, order: [rope, rope] },
+      { ...order, order: [perception] },
+      { op: 'order', order: [], was: [] },
+      { ...order, sort: 1 },
+      {
+        op: 'order',
+        order: [{ type: 'resource', id: 'primary' }],
+        was: [{ type: 'resource', id: 'primary' }],
+      },
+    ]) {
+      expect(favorite(fields).success).toBe(false)
+    }
+  })
+
   it.each([
     [
       'an old-style resource',
