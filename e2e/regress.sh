@@ -41,8 +41,9 @@ run favorites 59 X=1
 # v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate. Item 19:
 # the tracker's encounter not begun shows no turn nor order, but the line to roll initiative; begun,
 # both; begun but no longer the tracker's, "No combat right now" alone, even with Thorin's
-# initiative cleared (v0.45, the owner's decision 1).
-run rolls 82 SHOTS=$O/shots-rolls
+# initiative cleared (v0.45, the owner's decision 1), and the sheet's Initiative tile not offering
+# to roll for it (v0.46).
+run rolls 83 SHOTS=$O/shots-rolls
 # v0.44: the dice tray under the chat (module 0.44.0's plain roll): at 390, 1280, 1024 and on a
 # 768 tablet, a d100 and a modifier, 20 dice the most, Send to the table off, typed in, the
 # Gamemaster's page, and the campaign's rolls off; and module 0.42.0 (no plain rolls in the game).

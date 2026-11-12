@@ -708,6 +708,11 @@ check(true, 'once rolled, Initiative rolls only in the app')
     `and with Thorin's initiative cleared, still "No combat right now" alone: no line to roll it, no turn nor order (${JSON.stringify(cleared)})`)
   await shoot(page, 'phone-combat-begun-elsewhere')
   await tableNav.getByRole('button', { name: /^Character/ }).click()
+  // And the sheet's Initiative tile (v0.46) as with no encounter: it doesn't offer the roll for it,
+  // which the game wouldn't take, only one in the app.
+  await sheet.getByRole('button', { name: /^Initiative, \+1/ }).first().waitFor({ timeout: 15_000 })
+  const tile = { offered: await initiative.count(), plain: await sheet.getByRole('button', { name: 'Initiative, +1', exact: true }).count() }
+  check(tile.offered === 0 && tile.plain === 1, `there, the sheet's Initiative tile doesn't offer to roll for the combat: "Initiative, +1" alone (${JSON.stringify(tile)})`)
 }
 
 // ---- A death saving throw ----
