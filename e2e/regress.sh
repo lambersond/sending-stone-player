@@ -168,9 +168,11 @@ run companions 138 SHOTS=$O/shots-036f
 run companions 139 MIDI=1 SHOTS=$O/shots-036f
 run companions 138 DND5E6=1 SHOTS=$O/shots-036f
 run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
-run alone 122 SHOTS=$O/shots-036
-run alone 127 MIDI=1 SHOTS=$O/shots-036
-run alone 122 DND5E6=1 SHOTS=$O/shots-036
+# v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
+# "recharged".
+run alone 124 SHOTS=$O/shots-036
+run alone 129 MIDI=1 SHOTS=$O/shots-036
+run alone 124 DND5E6=1 SHOTS=$O/shots-036
 run alone 7 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036
 # Module 0.41.0: the runs above add part 17, damage on its own with its choices, a spell's level, a
 # weapon's mode and ammunition and the Spend switch (its pictures in shots-041); and module 0.40.0

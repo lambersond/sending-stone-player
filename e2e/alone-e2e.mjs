@@ -1060,9 +1060,17 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
     await force(view, 6, 6)
     await sent(() => rowChip.click(), `Fire Breath's recharge at ${width}`)
     await statusOf(view).getByText('At the table: 6 · recharged').waitFor({ timeout: 30_000 })
+    // Item 39: the page reads the table again as the game answers the roll, and once more a moment
+    // after, for the sheet the module sends a moment after the roll's answer; so the chip goes with
+    // the tray's "recharged", not up to a poll later.
+    {
+      const said = Date.now()
+      const gone = await rowChip.waitFor({ state: 'detached', timeout: 2_000 }).then(() => Date.now() - said, () => null)
+      check(gone !== null, `at ${width} the chip gone within 2 s of the tray's "recharged" (${gone === null ? 'still there' : `${gone} ms`})`)
+    }
     await shootBoth(view, 'alone-recharge-done', trayOf(view))
     // The chip gone first, as part 12 waits for it: the tray hears of the recharge as it's made, the
-    // page of the sheet the module sends after it only at its next poll of the table, and till then
+    // page of the sheet the module sends after it only as it next reads the table, and till then
     // the chip still shows from before it. Tapped then, as Fire Breath is spent again, it's refused
     // by the app, which has the recharged sheet and not yet the spent one. Gone first, the chip that
     // comes back is the spent sheet's, which the app has.
