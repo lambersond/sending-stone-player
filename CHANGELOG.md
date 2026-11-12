@@ -279,9 +279,10 @@ app's: the refactor, and part of what was planned for v0.44.
 
 - **Hit points from the app.** A player sets their character's hit points and temporary hit points
   from the Hit points tile, its Wild Shape form's and each companion's too, for what the rolls don't
-  do, such as falling through a floor. A drop still asks dnd5e's concentration save, nothing is
-  posted in chat, and the module's switch, Allow Players to change their hit points from the app, is
-  on by default. (app and module, v0.44 item 4)
+  do, such as falling through a floor. A drop still asks dnd5e's concentration save, a form set to 0
+  ends its Wild Shape, and nothing is posted in chat. The module's switch, Allow Players to change
+  their hit points from the app, is on by default, and the Gamemaster's campaign card says under
+  Players' hit points whether it's on. (app and module, v0.44 item 4)
 - **The dice tray under the chat.** Under the chat, on the player's page and the Gamemaster's, a
   dice tray rolls any mix of d4 to d100, up to 20 dice, with a number added, its dice tumbling over
   the whole page. Where the campaign's rolls are on, Foundry makes it with the player's dice, typed
@@ -352,12 +353,13 @@ app's: the refactor, and part of what was planned for v0.44.
   release pair saying what an older module can't do. (app, item 2)
 - **Project setup.** `CLAUDE.md` sets the engineering guidelines the refactor follows, README.md's
   starter text goes, and the unused starter icons in `public/` are removed. (app)
-- **Tests and docs for hit points and the tray.** New `hitpoints` and `dice` e2e suites, the
+- **Tests, docs, migrations and ROADMAP for v0.43.** New `hitpoints` and `dice` e2e suites, the
   module's `hitpoints.mjs` and `plain.mjs` harness runs, and e2e checks for Clear chat and
   favorites. The module's `PROTOCOL.md` and `README.md` describe hit points and the tray, labelled
   module 0.44.0, and ROADMAP.md marks v0.42.1 released, makes v0.43 the refactor and v0.44 the
   release candidate, and lists the refactor's bugs under v0.44 item 9, taking them out as fixed.
-  (app and module)
+  Migrations `20261104090000_chat_cleared` and `20261106090000_hit_points` keep when a campaign's
+  chat was last cleared and whether its players set hit points. (app and module)
 
 ## v0.42.1 — 2026-10-29
 
@@ -437,15 +439,21 @@ app's: the refactor, and part of what was planned for v0.44.
   notice with Show on the character's page, and rolled in Foundry on the companion. A Gamemaster's
   request for a save posted in chat still asks only the characters. (app and module, item 3)
 
+### Fixes
+
+- **Wild Shape held to Midi-QOL's Bonus Action.** Where Midi-QOL enforces Bonus Actions, a Wild
+  Shape change or return from the app is now refused in a fight once the character has used their
+  Bonus Action, as every other Bonus Action from the app already was, and marks it used when made.
+  (app and module, item 1)
+
 ### Enhancements
 
 - **Damage on its own, with its choices.** With Damage on its own on, a damage chip opens a picker
   where there's a choice: the spell's level, the weapon's mode or its ammunition, and a switch to
   spend the slot, use, ammunition or thrown weapon in Foundry. Foundry's card names the choice and
-  what was spent, and concentration begins where the spell needs it. (app and module, item 2)
-- **Wild Shape counts Midi-QOL's Bonus Action.** Where Midi-QOL enforces Bonus Actions, a Wild Shape
-  change or return from the app is refused in a fight once the character has used their Bonus
-  Action, and marks it used when made. (app and module, item 1)
+  what was spent. A spend begins concentration where the spell needs it and, under Midi-QOL, counts
+  the Bonus Action or reaction it takes, and is refused in a fight once that's used. (app and
+  module, item 2)
 
 ### Maintenance
 
@@ -464,7 +472,12 @@ app's: the refactor, and part of what was planned for v0.44.
   the rules and one replaced after each Long Rest, and changes into one and back from the app, a use
   each change. The sheet becomes the beast's, with a ribbon showing the time left and Return, and
   Wild Shape ends when its hours of world time run out, at 0 hit points or Incapacitated, what
-  changed in form carried back to the druid. (app and module, item 1)
+  changed in form carried back to the druid. Known forms are kept on the druid's own Wild Shape, so
+  once one is learned, that druid's Wild Shape in Foundry offers them in place of dnd5e's Challenge
+  Rating browser. (app and module, item 1)
+- **Wild Shape on the Gamemaster's campaign page.** The campaign page gains a Wild Shape section
+  saying whether the campaign's druids change from the app, or what it needs first, and its Foundry
+  settings list the switch, Off or On. (app, item 1)
 
 ### Enhancements
 
@@ -479,10 +492,11 @@ app's: the refactor, and part of what was planned for v0.44.
   "Module 0.40.0" entry, its `README.md` the switch and its limits, and both bug forms the Wild
   Shape switch. ROADMAP.md marks v0.39.0 released and lays out v0.41 to v1.0, with v0.43 as the
   release candidate and known limits saying which are planned. (app and module)
-- **Tests for v0.40.** The module's harness ports dnd5e 5.3.3's transformation with its own Beasts
-  (`transform5e.mjs`) and gains `wildshape.mjs`. The app gains the `wildshape` e2e suite, with dnd5e
-  6 and module 0.39.0 runs, and the `companions` suite waits for its pictures to settle. (app and
-  module)
+- **Tests and a migration for v0.40.** The module's harness ports dnd5e 5.3.3's transformation with
+  its own Beasts (`transform5e.mjs`) and gains `wildshape.mjs`. The app gains the `wildshape` e2e
+  suite, with dnd5e 6 and module 0.39.0 runs, and the `companions` suite waits for its pictures to
+  settle. Migration `20261029090000_wild_shape` keeps whether the campaign takes Wild Shape. (app
+  and module)
 
 ## v0.39.0 — 2026-10-26
 
@@ -501,10 +515,10 @@ app's: the refactor, and part of what was planned for v0.44.
 
 ### Fixes
 
-- **Apply to others… serves whoever is ticked.** A dish's Apply to others… dialog now serves the
-  characters the Gamemaster ticks, where it served only those ticked as it opened and never served a
-  card whose cook had left the campaign. Check who ate each dish served with 0.38.x. (module,
-  item 2)
+- **A dish's dialogs serve whoever is ticked.** A dish's Apply… and Apply to others… dialogs now
+  serve the characters the Gamemaster ticks. Apply… served only those ticked as it opened, Apply to
+  others… couldn't apply, and a card whose cook had left the campaign was never served. Check who
+  ate each dish served with 0.38.x. (module, item 2)
 - **Copy after Reset link.** After Reset link, the invite link's Copy button offers Copy again for
   the new link, where it still said Copied while the clipboard held the old one. (app)
 
@@ -527,11 +541,12 @@ app's: the refactor, and part of what was planned for v0.44.
   0.39.0" entry, and its `README.md` the effects switch, a dish card's readers and the new links;
   both repositories' bug forms follow the new switch and the cookbook's new place. ROADMAP.md marks
   v0.38.1 released and lays out v0.39's four items. (app and module)
-- **Tests for v0.39.** The module's harness gains `effects-core.mjs`, shared with the app's e2e, and
-  `effects.mjs`, and `dish-core.mjs` draws the dish dialog as Foundry core does. The app gains 12
-  Jest suites and the `effects` and `campaigns` e2e suites, and `gmroll-e2e` and `activities-e2e`
-  bind `localize` to `game.i18n`, a change from app PR #52, which was closed unmerged and carried by
-  PR #53. (app and module)
+- **Tests and a migration for v0.39.** The module's harness gains `effects-core.mjs`, shared with
+  the app's e2e, and `effects.mjs`, and `dish-core.mjs` draws the dish dialog as Foundry core does.
+  The app gains 12 Jest suites, the `effects` and `campaigns` e2e suites and migration
+  `20261028090000_player_effects`, and `gmroll-e2e` and `activities-e2e` bind `localize` to
+  `game.i18n`, a change from app PR #52, which was closed unmerged and carried by PR #53. (app and
+  module)
 
 ## v0.38.1 — 2026-10-25
 
@@ -571,6 +586,8 @@ app's: the refactor, and part of what was planned for v0.44.
   a dishes section; a new `cookbook` e2e suite, on the module's shared `dish-core.mjs` stand-ins,
   and a `dishes` harness run check them. ROADMAP.md marks v0.37 released, lists v0.38 and adds two
   known limits, and the bug forms gain the dishes switch and card. (app and module)
+- **A migration.** `20261027090000_cookbook_dishes` adds cookbook links and dishes, and whether the
+  campaign takes dishes and which versions its module reads. (app)
 
 ## v0.37.0 — 2026-10-24
 
@@ -587,11 +604,14 @@ app's: the refactor, and part of what was planned for v0.44.
   dnd5e gives migrated items, now show as two in the Favorites list, where the second was left out.
   (app)
 
+### Enhancements
+
+- **The module's new title.** Foundry now lists the module as illagria/sending-stone, so Manage
+  Modules sorts it under I, and names its settings section the same; Connect Foundry's first step
+  says so. Its id, settings, flags and links are unchanged. (app and module, item 3)
+
 ### Maintenance
 
-- **The module's new title.** Foundry now lists the module as illagria/sending-stone, its settings
-  section too, and Connect Foundry's first step says so; its id `sending-stone`, settings, flags and
-  links are unchanged. (app and module, item 3)
 - **Issue forms.** Both repositories gain GitHub bug and feature forms, each pointing to the other
   for what belongs there, with blank issues off, and each `package.json` gains its `homepage`. (app
   and module, item 2)
@@ -599,6 +619,8 @@ app's: the refactor, and part of what was planned for v0.44.
   `favorite` command and a "Module 0.37.0" entry, and a new `favoriting` e2e suite and harness run
   check favorites. ROADMAP.md marks v0.36 released, lists v0.37, plans dishes as v0.38, takes
   v0.37's two items out of v1.0 and adds two known limits. (app and module)
+- **A migration.** `20261026090000_campaign_favorites` keeps whether the campaign's module makes
+  favorites for the app. (app)
 
 ## v0.36.0 — 2026-10-24
 
@@ -613,8 +635,8 @@ app's: the refactor, and part of what was planned for v0.44.
 - **Companions' initiative.** The Gamemaster chooses for each campaign, on its Player actions tab in
   Sending Stone's settings, whether companions roll their own initiative or act right after their
   character. Right after its character, a companion is set just below the character in Foundry
-  whenever its initiative is set, rerolled or cleared, and its Initiative tile reads "After Thorin".
-  (app and module, item 1)
+  whenever the character's initiative is set, rerolled or cleared, and its Initiative tile reads
+  "After Thorin". (app and module, item 1)
 - **Damage on its own.** Damage on its own, a switch under Send to the table in the sheet's
   settings, kept for each device, sends a damage or healing chip with nothing due to Foundry as
   dnd5e's card with no targets, for the Gamemaster to select tokens and apply. Under Midi-QOL it
@@ -642,6 +664,9 @@ app's: the refactor, and part of what was planned for v0.44.
   `recharge`, `endTurn` and `undoEndTurn` and a "Module 0.36.0" entry, and its `README.md` the same.
   ROADMAP.md marks v0.35 released, lists v0.36's five items as built and adds six known limits. (app
   and module)
+- **A migration.** `20261025090000_companions` adds companions' sheets, the campaign's companions,
+  the kinds of roll they may make and how they enter initiative, and the companion a roll is for.
+  (app)
 
 ## v0.35.0 — 2026-10-22
 
@@ -675,6 +700,8 @@ app's: the refactor, and part of what was planned for v0.44.
   and a "Module 0.35.0" entry, and its `README.md` describes ordering. ROADMAP.md marks v0.34
   released, lists v0.35's four items, moves each later version up by one and adds a known limit for
   changes made in Foundry with no Gamemaster connected. (app and module)
+- **A migration.** `20261024090000_journal_order` adds orders waiting for Foundry, each note's
+  place, the journal's last change and what else the campaign's module does with notes. (app)
 
 ## v0.34.0 — 2026-10-22
 
@@ -704,6 +731,8 @@ app's: the refactor, and part of what was planned for v0.44.
 - **Docs for v0.34.0.** The module's `PROTOCOL.md` gains `features.notes`, `journal.updated`, the
   `note` command and a "Module 0.34.0" entry, and its `README.md` describes journal notes. The app's
   README.md points to `e2e/README.md`. (app and module)
+- **A migration.** `20261023090000_journal_notes` adds the journals, their notes and the changes
+  waiting for Foundry, and whether the campaign's module keeps notes. (app)
 
 ## v0.33.0 — 2026-10-21
 
@@ -740,17 +769,21 @@ app's: the refactor, and part of what was planned for v0.44.
 - **Tests.** Jest tests cover Remove, the keypad and the spinners. The end-to-end suites, still
   outside the repository, gained `removals` and critical checks in `attacks` and `links`, and the
   module's harness a `removals` run and more `crit-rules` cases. (app and module)
+- **A migration.** `20261022090000_campaign_removals` keeps whether the campaign's module removes
+  items for the app. (app)
 
 ## v0.32.0 — 2026-10-20
 
 ### Features
 
 - **Typing in your own dice.** With Manual Dice on, a campaign that allows it and Make Manual Rolls
-  for the character's player in Foundry, Enter dice results manually in the cog now works: every
-  roll asks for each die in a dialog with its own keypad, checked against the die's faces, with no
-  3D dice, and three d20s for an attack with advantage by a character with Elven Accuracy. The game
-  makes the roll with those values and marks its card "Entered by hand on Sending Stone", and the
-  campaign's Players tab in the module's settings shows whose player may. (app and module)
+  for the character's player in Foundry, Enter dice results manually in the cog now works: a roll
+  asks for each die in a dialog with its own keypad, checked against the die's faces, with no 3D
+  dice, and three d20s for an attack with advantage by a character with Elven Accuracy. Maximized
+  damage and damage the game can't plan aren't typed, and dice Foundry adds itself, such as Bless's
+  d4 and rerolls, stay with Foundry. The game makes the roll with those values and marks its card
+  "Entered by hand on Sending Stone", and the campaign's Players tab in the module's settings shows
+  whose player may. (app and module)
 - **A party's things sent anywhere.** A party's Owner can send its items and coins to any of the
   campaign's characters, or to another party they own, and the Gamemaster can move things party to
   party too. The chat line reads, for example, "Sends 20 gp from The Iron Company to Vex". (app and
@@ -790,6 +823,10 @@ app's: the refactor, and part of what was planned for v0.44.
 - **Tests.** Jest tests cover the dice dialog and keypad, typed rolls, Send to, Distribute and the
   party list. The end-to-end suites and the module's harness, kept outside the repositories until
   v0.34, gained `typed`, `givetake`, `crit-rules` and `sends` runs. (app and module)
+- **Two migrations, and app PR #44.** `20261021120000_character_manual_dice` keeps whether each
+  character's player types in their dice, and `20261021120100_campaign_transfer_features` what else
+  the campaign's module does with moves. Party sheets from the Inventory tab were app PR #44, which
+  went in as its own commit within PR #45, so GitHub shows #44 merged with it. (app)
 
 ## v0.31.0 — 2026-10-20
 
@@ -897,6 +934,8 @@ app's: the refactor, and part of what was planned for v0.44.
 - **No hidden DCs in chat cards.** A chat card sent to the app no longer carries a save's DC, nor
   Midi-QOL's Gamemaster-drawn hit and save sections, where Foundry doesn't show them to players.
   (module)
+- **The Inspired mark easier to read.** The Inspired mark uses a deeper gold in the light theme,
+  where the old one fell below WCAG AA as small text. (app)
 
 ### Enhancements
 
@@ -977,20 +1016,14 @@ app's: the refactor, and part of what was planned for v0.44.
 
 ## v0.26.0 — 2026-10-14
 
-### Features
-
-- **Ready for typing in your own dice.** A campaign's Player actions tab in Sending Stone's settings
-  gains "Allow Players to enter dice results manually" in place of the "Who rolls the dice" choice,
-  which can be on only while Manual Dice is installed, active and on, and Players roll in the app is
-  on. While it is, each character on the Players tab and the app's cog show a switch for it, off and
-  marked "Coming soon": nothing is typed in yet. (app and module)
-
 ### Fixes
 
 - **The app's help names the module's settings window.** The Gamemaster's help in the app pointed at
   Manage Campaigns and its old option names, which module 0.24.0 replaced. Connect Foundry, the
   campaign card and the new-campaign form now name Open Settings and the campaign's Connection,
   Players and Player actions tabs, and Connect Foundry asks for module 0.24.0 or later. (app)
+- **The GM pill easier to read.** The GM pill on the Gamemaster's rolls uses a deeper green in the
+  light theme, where it fell below WCAG AA. (app)
 
 ### Enhancements
 
@@ -1003,6 +1036,12 @@ app's: the refactor, and part of what was planned for v0.44.
 
 ### Maintenance
 
+- **Groundwork for typing in your own dice.** A campaign's Player actions tab in Sending Stone's
+  settings replaces its "Who rolls the dice" choice, whose Players enter results was marked Coming
+  soon, with "Allow Players to enter dice results manually", which can be on only while Manual Dice
+  is installed, active and on, and Players roll in the app is on. While it is, each character on the
+  Players tab and the app's cog show a switch for it, off and marked "Coming soon": nothing is typed
+  in yet, and nothing rolls differently. (app and module)
 - **Docs and tests for the dice switch.** The module's `PROTOCOL.md` gains a "Module 0.26.0" entry
   and `manualDice` in the hello, its README the new switch, and its settings window drops the old
   choice's strings and styles. Jest tests cover the cog's switch, the help's new words, critical
@@ -1053,6 +1092,10 @@ app's: the refactor, and part of what was planned for v0.44.
   rolls button and the Gamemaster's rolls at the player's page, whose labels are kept in a new
   column (one migration). A post whose title matches no campaign is checked against the secrets of
   at most the 5 newest waiting campaigns, and none when it sends no secret. (app)
+- **The module's harness ported to the settings window.** Three runs of the module's harness, then
+  kept outside the repository, no longer loaded after 0.24.0's settings window, and a new stand-in
+  now draws the real `templates/settings/*.hbs`, so Test, the status lines, secrets, the roll switch
+  and closing are checked against it. (module)
 
 ## v0.24.0 — 2026-10-13
 
@@ -1131,6 +1174,13 @@ app's: the refactor, and part of what was planned for v0.44.
 
 ### Fixes
 
+- **A large party's sheets arrive.** An opening post too large for the app, such as one for a party
+  of nine at 1.1 MB, was refused, sheets and all. The opening post now carries the roster alone,
+  12.5 KB for that party, and each character's sheet follows in a post of its own, slimmer where the
+  app expands it, at most 197 KB. A sheet still too large is held back, the Gamemaster told once,
+  and the character's page gives its size and the limit. A sheet dropped from a full queue or
+  refused for a while is sent again at the next check, and the app keeps a character's sheet when an
+  opening post carries none. (app and module)
 - **Damage with Foundry's dice modifiers rolls.** Damage and formulas with Foundry's dice modifiers,
   such as Great Weapon Fighting's 2d6r<=2, 4d6kh3 or an exploding die, are buttons now, not plain
   text, on rows, favorites and description links: your dice are the first throw, the game throws any
@@ -1139,11 +1189,6 @@ app's: the refactor, and part of what was planned for v0.44.
 
 ### Enhancements
 
-- **Each sheet sent on its own.** The module's opening post for a campaign now carries its roster
-  alone, and each character's sheet follows in a post of its own, slimmer where the app expands it:
-  a party of nine goes as 12.5 KB and nine posts of at most 197 KB, where it was one post of 1.1 MB.
-  A sheet still too large is held back, the Gamemaster told once, and the character's page gives its
-  size and the limit. (app and module)
 - **A settings cog on the character's page.** A cog at the end of a character's tab row opens the
   sheet's settings from any tab: Send to the table, moved from the roll tray, the theme, and the
   Actions tab's layout where the screen fits more than one. (app)
@@ -1302,13 +1347,14 @@ app's: the refactor, and part of what was planned for v0.44.
 
 - **Saves in descriptions.** A saving throw a description names, such as a wand's "DC 15 Dexterity
   saving throw", opens a menu: Ask the table posts dnd5e's roll request card in Foundry from the
-  character, asking no one in the app, and Roll my save rolls it with your dice against the
+  character, prompting no one in the app, and Roll my save rolls it with your dice against the
   description's DC, even one it hides. A character may ask once every 10 seconds, and for the same
   save once every 30; under dnd5e 6 only your own roll is offered. (app and module)
 - **Damage, healing and rolls in descriptions.** Damage, healing and a description's own rolls, such
-  as "2d6 cold damage" or a [[/r 1d4]] in a biography, roll with your dice at a tap, on a card
-  naming where they come from, such as "Starry Wisp (Everburning Torch)". Under dnd5e 5 only, and
-  damage only where the campaign's players may attack. (app and module)
+  as "2d6 cold damage" or a [[/r 1d4]] in a biography, roll with your dice at a tap, named for where
+  they come from, such as "Starry Wisp (Everburning Torch)". They're made in the game too, on a
+  card, under dnd5e 5 only, and damage only where the campaign's players may attack. (app and
+  module)
 - **Conditions in descriptions.** A condition a description names, such as Prone, shows its rules on
   hover or focus and, on a tap, opens the Conditions panel at it from any tab. The Character tab's
   condition chips open the panel at their condition too. (app and module)
@@ -1328,6 +1374,11 @@ app's: the refactor, and part of what was planned for v0.44.
 
 ### Enhancements
 
+- **Save requests in chat.** The app's chat shows a save or concentration roll request card, a
+  player's Ask the table or the Gamemaster's own, as an ask with a Saving throw or Concentration
+  chip, such as "Thorin asks for a DC 15 Dexterity saving throw". The DC shows only where dnd5e's
+  Challenge Visibility lets players see it, and from an older module the Gamemaster's card is read
+  from its buttons, without the DC. (app and module)
 - **Hit dice in a tile of their own.** Hit dice, a small chip under Hit points that read as a count,
   get a tile on the Character tab: a row for each size with how many are left and a Spend button, or
   Roll where the game won't take hit dice, disabled at full hit points. The class card and a class
@@ -1464,8 +1515,8 @@ that tag.
   one. Rolls now keep the order they were thrown in. (app)
 - **A refused target's level named.** When the game refuses a target the Gamemaster isn't viewing,
   the tray now says "your Gamemaster isn't viewing that target's level or scene", where before it
-  named only the scene. On Foundry V14, a target on another level of the same scene counts too.
-  (app)
+  named only the scene. Since module v0.13.0, on Foundry V14, a target on another level of the same
+  scene is one the Gamemaster isn't viewing. (app)
 
 ### Maintenance
 
@@ -1477,6 +1528,8 @@ that tag.
 - **Tests.** The app's Jest suite grows to 1,152 tests, covering prompts, changed damage, the chips
   on every tab and an item's activities, and the end-to-end suites, kept outside the repository
   then, gained a prompts suite. (app)
+- **Two migrations.** `20261011090000_roll_features` keeps what else the campaign's module does with
+  rolls, such as asking for saves, and `20261012090000_roll_prompts` the saves the game asks. (app)
 
 ## v0.13.0 — 2026-10-08
 
@@ -1526,7 +1579,7 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
   as Magic Missile's, and a new Cast or Use chip for one that rolls nothing, such as Bless or Action
   Surge. A picker asks for the spell slot and, in a fight, the targets, up to as many as the spell
   takes, and once the game has used it the damage or healing is thrown and sent with no second tap.
-  (app and module)
+  The Gamemaster's campaign card says whether spells reach the game. (app and module)
 
 ### Enhancements
 
@@ -1550,9 +1603,10 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
   attacks from the Actions tab and favorites are made in Foundry: the item is used as Foundry uses
   it, spending ammunition, uses and slots, and the attack is rolled with the player's d20s at the
   combatant they pick. The tray says Hit, Miss or Critical hit where the Gamemaster shows that, then
-  the damage, from the tray or the damage chip, is rolled on the same use with their dice; with
-  Midi-QOL, Midi checks the hit and applies the damage unless the Gamemaster turns off Make Players'
-  Attacks Through Midi-QOL. (app and module)
+  the damage, from the tray or the damage chip, is rolled on the same use with their dice. With
+  Midi-QOL, Midi checks the hit and applies the damage, and if the Gamemaster turns off Make
+  Players' Attacks Through Midi-QOL, attacks stay in the app. The Gamemaster's campaign card says
+  whether attacks reach the game. (app and module)
 
 ### Fixes
 
@@ -1621,8 +1675,9 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
 
 - **Actions grouped by where they come from.** Within each section of the Actions tab, groups now
   follow Tidy 5e's order. Carried items come first, by kind (Weapons, Equipment, Consumables, Tools,
-  Containers, Loot), where they used to share one Items group after features; then spells as the
-  spellbook groups them, then spells cast from an item, then features. (app)
+  Containers, Loot), where weapons came first and the other items shared one Items group after
+  features; then spells as the spellbook groups them, then spells cast from an item, then features.
+  (app)
 
 ### Maintenance
 
@@ -1715,11 +1770,13 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
   portrait, class, species, background, inspiration, hit points, armor class, proficiency,
   initiative, speed, abilities, saves and skills. A tap rolls a check, save or skill with jade 3D
   dice and the advantage its conditions give, and a roll tray shows the result and keeps recent
-  rolls. The results stay on the page, as the tray says. (app)
+  rolls. The results stay on the page, as the tray says. The sheet and its tray are up to 1024
+  pixels wide, and a box too narrow for Proficiency, Armor class or Initiative says Prof, AC or
+  Init. (app)
 - **Roll menu and Modify roll.** A right-click, a long-press or the menu key on a check, save or
   skill opens a menu, where it was asked for, offering Roll with advantage, Roll with disadvantage
-  or Modify roll. Modify roll picks advantage and adds dice or modifiers such as 1d4 or +5, each
-  shown in the tray. (app)
+  or Modify roll. Modify roll picks Disadvantage, Normal or Advantage, starting from how a tap would
+  roll, and adds dice or modifiers such as 1d4 or +5, each shown in the tray. (app)
 - **Features and Effects tabs, with conditions.** The sheet gains Features, grouped by the class,
   species or background that granted each, with uses, when they come back and each class's hit dice.
   It also gains Effects, in dnd5e's categories with each one's source and time left, which runs down
@@ -1789,9 +1846,9 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
   separate Connection dialog is gone. Each campaign's Test checks that campaign as typed, passing
   only with its own secret or saying it isn't set up, and a campaign without its own secret still
   sends the shared one from before. (app and module)
-- **Deleting campaigns and characters.** A Gamemaster can delete a campaign, or remove a player from
-  a character so it can be chosen again from the invite link. A player can delete a character from
-  its page as well as from the list, and each of these asks first. (app)
+- **Removing a player, deleting a character.** A Gamemaster can remove a player from a character, so
+  it can be chosen again from the invite link, and a player can delete a character from its page as
+  well as from the list. Each asks first. (app)
 
 ### Fixes
 
@@ -1804,15 +1861,17 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
 ### Enhancements
 
 - **The campaigns page in dialogs.** New campaign opens its setup in a dialog that shows the secret
-  once to copy, and Connect Foundry lists the module's steps with the app's address to copy. Reset
-  link now asks in a dialog too. (app)
+  once to copy, and Connect Foundry lists the module's steps with the app's address to copy. Delete
+  campaign moves to the foot of each campaign card, and it and Reset link now ask in a dialog, where
+  they asked inline. (app)
 
 ### Maintenance
 
-- **Docs, shared dialogs and tests.** `PROTOCOL.md` records the resend request and per-campaign
-  secrets with test pings that name their campaign, and the module's README says secrets are kept
-  per browser. The app gains shared `Modal` and `ConfirmDialog` components, the `hello_session`
-  migration and Jest tests for them. (app and module)
+- **Docs, shared dialogs and tests.** `PROTOCOL.md` records the resend request, listed as module
+  0.3.1's addition though no 0.3.1 was tagged, and per-campaign secrets with test pings that name
+  their campaign, and the module's README says secrets are kept per browser. The app gains shared
+  `Modal` and `ConfirmDialog` components, the `hello_session` migration and Jest tests for them.
+  (app and module)
 
 ## v0.3.0 — 2026-10-04
 
@@ -1844,7 +1903,7 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
 
 - **Test Connection says when nothing is set up.** A test the app answers with 404 now says no
   campaign is set up for this game, and to set one up in the app with the game's address and the
-  same secret. The module's setup steps now start in the app. (module)
+  same secret. (module)
 
 ### Maintenance
 
@@ -1864,9 +1923,10 @@ The app's first release.
   involves, such as a whisper to its reader's campaign or a fight once one of the campaign's
   characters joins it. A player's character follows the campaign whose title they enter, and
   characters connected before are moved into a campaign named after the world. (app and module)
-- **Sign in and your characters.** Players sign in with Google or Discord and add their characters,
-  each with a name, its Forge game's address and its campaign's title. They choose one to open, or
-  remove it. (app)
+- **Sign in and your characters.** A landing page says how Sending Stone connects a player to their
+  game, with Sign in to get started, or Choose your character once signed in. Players sign in with
+  Google or Discord and add their characters, each with a name, its Forge game's address and its
+  campaign's title. They choose one to open, or remove it. (app)
 - **The game's chat and combat, live.** A character's page shows its campaign's chat and combat
   tracker as they happen, with whispers only for their players, hidden combatants left out and only
   the party's hit points shown. Until the game has sent anything, the page shows the address the
