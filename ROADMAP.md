@@ -9,74 +9,7 @@ The further out a version is, the less settled it is, and that's expected: each 
 full when work on it starts. Open questions stay with their version until then. Any version may
 gain items from feedback or bugs.
 
-Released: module v0.42.1 and its app.
-
-## v0.44 (release candidate)
-
-From the table's first session with v0.42.1, after the refactor: built and merged.
-
-**To check at the table before module v0.44.0 is tagged** (built and tested against stand-ins
-only), with dnd5e 5.3.3, Midi-QOL v14.0.x and Tidy 5e Sheets 13.10.5:
-
-- **The dice an item rolls later**, when typing in dice:
-  - **What's asked:** Ice Knife's 2d6 after its 1d10, a critical's and an upcast's too, and
-    another activity's damage and dice cost that Midi rolls once saves are checked. D20s are never
-    asked, and nothing is asked under dnd5e 6.
-  - **Explosions and timing:** a typed die that explodes is asked again, one die at a time, never
-    told as timed out when the asks run past a minute. The ask opens by itself on the device the
-    roll came from, not the one the exploding die was typed on.
-  - **The dialog:** never over a focused text field, with a banner on the other devices, and focus
-    back where it was. A skip, an expiry, a failed send offered again, two devices answering at
-    once.
-  - **The Gamemaster:** their window counts down, with Roll it now, leaving their chat typing
-    alone; two players' Hunter's Mark at once, and a homebrew bonus macro; the Gamemaster using
-    the same item meanwhile.
-- **A use's cost check:** with the Gamemaster's Manual Dice on, a use from the app of an item with
-  a `1d4` cost, with Midi-QOL too, asks them once, for the cost spent, or nothing where the player
-  typed.
-- **Tidy 5e Sheets' journal:**
-  - an entry added, changed, dragged and deleted on the Journal tab reaches the app within
-    seconds, a first one dated "First seen";
-  - the Classic sheet's boxes;
-  - secrets on a character no player owns;
-  - Tidy turned off, then uninstalled, leaving the entries readable and the campaign card saying
-    "(not enabled)";
-  - an entry written on a Wild Shape form's Journal tab lost when the form ends, as the app's line
-    says.
-
-Then module v0.44.0 is tagged, and v0.44 is the release candidate for v1.0: it runs at the table
-for a while before v1.0 is tagged.
-
-## v0.45 (release candidate)
-
-The next slice, built and merged: module 0.45.0 holds item 26 (a die asked again named by its roll)
-and item 19's chat and sidekick fixes, with the app's Help, Combat tab and fixes.
-
-**To check at the table before module v0.45.0 is tagged** (built and tested against stand-ins
-only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
-
-- **A die asked again named by its roll:** a real dnd5e 5.3.3 utility with a named roll, such as
-  Wild Sparks: Burst, its die thrown again asked of a player typing in dice by that name.
-- **Two campaigns on one world:**
-  - each campaign's chat holds none of the other's cards, and the Gamemaster's narration reaches
-    both;
-  - a fight both campaigns are in: each sees the whole fight's cards (the owner's answer);
-  - a linked NPC left in one campaign's old, un-ended encounter, speaking in the other campaign's
-    session: its cards stay out of that campaign until the encounter is ended;
-  - a card's edits go where the card went as it was made; after the Gamemaster reloads the browser
-    mid-fight, an edit of a card from before the reload, made once that fight is over, is judged by
-    the fights at the edit.
-- **A character shared as All Players: Owner:** no other campaign's sidekicks or fights.
-- **The Combat tab** before and after Begin Combat, with the line to roll initiative before it
-  while the character has none; in an encounter begun and then switched away on the tracker, the
-  tab says only "No combat right now".
-- **Help at the table:** the box's rows match the campaign's switches and this device's Send to the
-  table: with Send to the table off, every row about something sent reads off.
-- **Condition immunities** on a sidekick imported from D&D Beyond: no tags shown, each condition
-  shows its rules on hover and opens the Conditions panel on a tap.
-
-Then module v0.45.0 is tagged, and v0.45 is the release candidate for v1.0: it runs at the table
-for a while before v1.0 is tagged.
+Released: module v0.45.0 and its app, with v0.44.0 before it.
 
 ## v0.46 (release candidate)
 
@@ -181,8 +114,8 @@ And from the owner's answers on item 19, later work too:
 
 ## v1.0
 
-The major release of the app and the module, once the v0.44 release candidate holds up, before
-work starts on v1.x.
+The major release of the app and the module, once the latest release candidate holds up at the
+table, before work starts on v1.x.
 
 The module keeps its id, `sending-stone`, though its title changed in v0.37: Foundry keeps the
 campaigns, their secrets and every flag under it, and installs follow its manifest URL.
