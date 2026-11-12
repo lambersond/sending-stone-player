@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react'
 import { Sortable } from '@/components/sortable/sortable'
@@ -15,7 +15,7 @@ const ARROW =
  * The favorites put in order, from module 0.47.0, in the list's place, as the journal's notes
  * are: dragged by their grips, moved by the keys on a grip or by their arrows, shown in the new
  * order at once, then saved whole, as one order. The old-style resources dnd5e lists first aren't
- * among them: they stay first.
+ * among them: they stay first. Opened, its heading takes focus, as Reorder's notes' does.
  */
 export function FavoritesReorder({
   entries,
@@ -23,6 +23,11 @@ export function FavoritesReorder({
   onCancel,
 }: Readonly<FavoritesReorderProps>) {
   const [order, setOrder] = useState(() => entries.map(entry => entry.key))
+  const headingId = useId()
+  const heading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    heading.current?.focus()
+  }, [])
   const byKey = new Map(entries.map(entry => [entry.key, entry]))
   // A favorite gone from the sheet meanwhile leaves the list, its name never looked up again.
   const keys = order.filter(key => byKey.has(key))
@@ -34,8 +39,19 @@ export function FavoritesReorder({
   }
 
   return (
-    <div className='flex flex-col gap-3 rounded-2xl border border-border bg-card p-3'>
-      <p className='text-sm text-text-secondary'>
+    <section
+      aria-labelledby={headingId}
+      className='flex flex-col gap-3 rounded-2xl border border-border bg-card p-3'
+    >
+      <h3
+        ref={heading}
+        id={headingId}
+        tabIndex={-1}
+        className='font-semibold outline-none'
+      >
+        Reorder favorites
+      </h3>
+      <p className='-mt-2 text-sm text-text-secondary'>
         Drag a favorite by its handle, or use the arrows. Foundry’s sheet shows
         the same order.
       </p>
@@ -110,6 +126,6 @@ export function FavoritesReorder({
           Save order
         </button>
       </div>
-    </div>
+    </section>
   )
 }

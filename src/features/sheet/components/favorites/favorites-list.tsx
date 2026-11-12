@@ -50,7 +50,8 @@ export function FavoritesList({
   const spending = hitDieSpending(sheet, onRollFormula)
   const card = useRef<HTMLDivElement>(null)
   const width = useWidth(card)
-  const list = useFavoriteList(entries)
+  const reorder = useRef<HTMLButtonElement>(null)
+  const list = useFavoriteList(entries, reorder)
   const { arranged } = list
   // Side by side, the first half is in the first list and the rest in the second, so that each
   // stays in its list as favorites open and close.
@@ -94,6 +95,7 @@ export function FavoritesList({
           {list.offered && (
             <div className='mt-1.5 flex justify-end'>
               <button
+                ref={reorder}
                 type='button'
                 onClick={list.open}
                 aria-label='Reorder favorites'

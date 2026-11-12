@@ -780,13 +780,26 @@ async function putInOrder() {
   await shoot(big, 'favorites-menu')
   await closeMenu(big, menu)
 
-  // Reorder: a drag, then the keys on a grip.
-  await reorder.click()
+  // Reorder, opened from the keyboard: its heading takes focus, the first grip a Tab away; then a
+  // drag, and the keys on a grip.
+  /** What has focus: its tag, and its label or text. */
+  const focusOf = () => big.page.evaluate(() => `${document.activeElement?.tagName} ${document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent}`)
+  await reorder.focus()
+  await big.page.keyboard.press('Enter')
   const grips = column.getByRole('button', { name: /^Reorder .*: drag it, or press the up and down arrows$/ })
   await grips.first().waitFor({ timeout: 5_000 })
   const reorderNames = () => grips.evaluateAll(all => all.map(grip => grip.getAttribute('aria-label').replace(/^Reorder (.*): drag it, or press the up and down arrows$/, '$1')))
   check(same(await reorderNames(), names.slice(1)), `Reorder lists every favorite but Ki, in their order (${JSON.stringify(await reorderNames())})`)
-  await shoot(big, 'favorites-reorder', column)
+  await until(async () => (await focusOf()) === 'H3 Reorder favorites', 'focus on Reorder\'s heading', 5_000).catch(() => {})
+  const opened = await focusOf()
+  await big.page.keyboard.press('Tab')
+  const tabbed = await focusOf()
+  check(opened === 'H3 Reorder favorites' && tabbed.startsWith(`BUTTON Reorder ${names[1]}:`),
+    `opened by Enter, Reorder's heading has focus, then a Tab its first grip (${JSON.stringify({ opened, tabbed })})`)
+  // The whole of it, Save order too: the column scrolls inside a window 800 px tall.
+  await big.page.setViewportSize({ width: 1280, height: 1200 })
+  await shoot(big, 'favorites-reorder', column.getByRole('region', { name: 'Reorder favorites' }))
+  await big.page.setViewportSize({ width: 1280, height: 800 })
   // The third to the top, both in sight: the list runs past the window's foot at 1280.
   await grips.first().scrollIntoViewIfNeeded()
   const from = await grips.nth(2).boundingBox()
@@ -810,9 +823,12 @@ async function putInOrder() {
     `the down key on ${dragged[1]}'s grip moves it third, its grip still focused, "${said}" said`)
   await paced()
   const sent = orders().length
-  await column.getByRole('button', { name: 'Save order' }).click()
+  await column.getByRole('button', { name: 'Save order' }).focus()
+  await big.page.keyboard.press('Enter')
   await until(async () => same(await namesIn(column), ['Ki', ...keyed]), 'the list in the new order', 5_000).catch(() => {})
   check(same(await namesIn(column), ['Ki', ...keyed]), `saved, his favorites show the new order at once, Ki first (${JSON.stringify(await namesIn(column))})`)
+  await until(async () => (await focusOf()) === 'BUTTON Reorder favorites', 'focus back on Reorder', 5_000).catch(() => {})
+  check(await focusOf() === 'BUTTON Reorder favorites', `saved by Enter, focus is back on Reorder (${await focusOf()})`)
   let made = await ordered(sent + 1, 'the order made')
   const body = bigPosts.filter(post => post?.kind === 'favorite')
   const { order, was } = made.payload.favorite
