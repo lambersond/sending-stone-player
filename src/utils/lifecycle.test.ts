@@ -78,4 +78,27 @@ describe('utils/lifecycle, follow', () => {
       requestId: 'req-ice',
     })
   })
+  it('settles a request the game answered though its callback throws on it, asked after once, not once a second (ROADMAP item 44)', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-hp' }))
+      .mockResolvedValue(respond(200, { id: 'req-hp', status: 'done' }))
+    const update = jest.fn(() => {
+      throw new Error('the page’s own')
+    })
+
+    const followed = follow(
+      api,
+      fall,
+      new AbortController().signal,
+      update,
+      jest.fn(),
+    )
+    await advance(5 * CHECK_EVERY)
+
+    // The post, then one ask after it.
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(update).toHaveBeenCalledTimes(1)
+    await expect(followed).resolves.toBeUndefined()
+  })
 })

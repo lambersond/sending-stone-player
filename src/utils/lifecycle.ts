@@ -39,7 +39,16 @@ export async function follow(
   update: (state: TableRollState) => void,
   taken: (id: string) => void,
 ) {
-  const sent = await post(api, input, signal, update, taken)
+  // An error `update` throws is its own (ROADMAP item 44): never taken as a read that failed, nor
+  // as the game's answer, so a request the game answered settles as it answered.
+  const tell = (state: TableRollState) => {
+    try {
+      update(state)
+    } catch {
+      // Nothing more to tell it: the request stands as the game said.
+    }
+  }
+  const sent = await post(api, input, signal, tell, taken)
   if (!sent) return
   const { id } = sent
   let until = Date.now() + FOLLOW_FOR
@@ -48,7 +57,7 @@ export async function follow(
   while (Date.now() < until) {
     await pause(CHECK_EVERY, signal)
     if (signal.aborted) return
-    const heard = await look(api, id, signal, update)
+    const heard = await look(api, id, signal, tell)
     // While the game asks for the dice of a later roll in its run (module 0.44.0), the time it has
     // to be made stands still, as the game's own does.
     const now = Date.now()
@@ -62,7 +71,7 @@ export async function follow(
       late = true
     }
   }
-  if (!late) update({ status: 'lost', requestId: id })
+  if (!late) tell({ status: 'lost', requestId: id })
 }
 
 /**
