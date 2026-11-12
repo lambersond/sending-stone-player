@@ -119,7 +119,7 @@ describe('hooks/use-companion-view', () => {
     expect(fetch).toHaveBeenCalledTimes(4)
   })
 
-  it('reads again at once while shown as a roll the game answered ends, and once more a moment later; never while hidden (ROADMAP item 39)', async () => {
+  it('reads again at once while shown as a roll the game answered ends, and once more a moment later; nothing once hidden, its poll ended (ROADMAP item 39)', async () => {
     const { result, rerender } = renderHook(
       ({ active }) => useCompanionView(API, { active }),
       { initialProps: { active: true } },
