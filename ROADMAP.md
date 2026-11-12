@@ -67,11 +67,11 @@ only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
     mid-fight, an edit of a card from before the reload, made once that fight is over, is judged by
     the fights at the edit.
 - **A character shared as All Players: Owner:** no other campaign's sidekicks or fights.
-- **The Combat tab** before and after Begin Combat, and a begun encounter switched away on the
-  tracker: No combat right now, with the line to roll initiative while the character has none, and
-  whether that roll is taken.
+- **The Combat tab** before and after Begin Combat, with the line to roll initiative before it
+  while the character has none; in an encounter begun and then switched away on the tracker, the
+  tab says only "No combat right now".
 - **Help at the table:** the box's rows match the campaign's switches and this device's Send to the
-  table.
+  table: with Send to the table off, every row about something sent reads off.
 - **Condition immunities** on a sidekick imported from D&D Beyond: no tags shown, each condition
   shows its rules on hover and opens the Conditions panel on a tap.
 
