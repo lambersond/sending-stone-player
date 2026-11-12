@@ -19,7 +19,8 @@
 // tab's party list, the character's coin button reads "Send to" on the Currency row, and the hello
 // says whether a party's Owner may send its things elsewhere and distribute its coin. Since module
 // 0.33.0's feedback, a party row waiting has one spinner, beside its name, its Take without one.
-// DND5E6=1: dnd5e 6.0.5, whose coin may be fractional. SKEW=030
+// Since item 43 (v0.47), Thorin's sheet shows what he took within about a second of the panel's
+// "Took". DND5E6=1: dnd5e 6.0.5, whose coin may be fractional. SKEW=030
 // with MODULE=module 0.30.0: no moves at all. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { readFileSync } from 'node:fs'
@@ -332,6 +333,20 @@ await shootBoth(alice, 'take-dialog', dialog)
 let before = posted.length
 await dialog.getByRole('button', { name: 'Take 2' }).click()
 check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog closes at once')
+// Item 43 (v0.47): the page reads the table again as the game answers a move sent from the party
+// panel, so Thorin's sheet behind it shows his 3 potions within about a second of the panel's
+// "Took", where it waited for the table's next poll, up to 3 s later.
+{
+  /** How many Potions of Healing Thorin's sheet lists: its row's "×n", 1 where it shows none. */
+  const potions = () => alice.page.evaluate(() => {
+    const row = [...document.querySelectorAll('#character-pane li')].filter(li => li.textContent.includes('Potion of Healing')).at(-1)
+    return row ? Number(/×(\d+)/.exec(row.textContent)?.[1] ?? 1) : null
+  })
+  await statusIn(panel).filter({ hasText: 'Took 2 Potion of Healing from The Iron Company' }).waitFor({ timeout: 30_000 })
+  const said = Date.now()
+  const shown = await until(async () => (await potions()) === 3, "Thorin's sheet to show 3 Potions of Healing", 1_000).then(() => Date.now() - said, () => null)
+  check(shown !== null, `Thorin's sheet shows his 3 Potions of Healing ${shown === null ? `not within 1 s (it lists ${await potions()})` : `${shown} ms`} after the panel's "Took"`)
+}
 let made = await answered(1, 'the take of two potions')
 {
   const thorinPotions = holding(thorin, 'Potion of Healing')
