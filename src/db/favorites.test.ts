@@ -68,6 +68,7 @@ const ORDER: FavoriteInput = {
  */
 const given = ({
   favoritesEnabled = true,
+  favoriteFeatures = [] as string[],
   bridgePolledAt = ago(5000) as Date | null,
   inFlight = 0,
   lastMinute = 0,
@@ -76,6 +77,7 @@ const given = ({
 } = {}) => {
   prismaMock.campaign.findUnique.mockResolvedValue({
     favoritesEnabled,
+    favoriteFeatures,
     bridgePolledAt,
     characters: [
       { id: THORIN, name: 'Thorin' },
@@ -128,6 +130,7 @@ describe('db/favorites, createFavoriteRequest', () => {
         favoritesEnabled: true,
         bridgePolledAt: true,
         characters: true,
+        favoriteFeatures: true,
       },
     })
     expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
@@ -330,22 +333,14 @@ describe('db/favorites, createFavoriteRequest', () => {
   })
 
   // Module 0.47.0: an order only where the module takes orders, never waiting for one before it.
-  it('takes an order where its module takes orders, beside another on its way, and refuses it elsewhere', async () => {
-    given({ held: [ORDER, ADD_ROPE] })
-    prismaMock.campaign.findUnique.mockResolvedValueOnce({
-      favoriteFeatures: ['orders'],
-    } as any)
+  it('takes an order where its module takes orders, beside another on its way, and refuses it elsewhere, the campaign read once', async () => {
+    given({ favoriteFeatures: ['orders'], held: [ORDER, ADD_ROPE] })
     await expect(
       createFavoriteRequest(thorin, favoriting(ORDER)),
     ).resolves.toEqual({ id: 'req-favorite' })
-    expect(prismaMock.campaign.findUnique).toHaveBeenNthCalledWith(1, {
-      where: { id: 'c1' },
-      select: { favoriteFeatures: true },
-    })
+    expect(prismaMock.campaign.findUnique).toHaveBeenCalledTimes(1)
     prismaMock.rollRequest.create.mockClear()
-    prismaMock.campaign.findUnique.mockResolvedValueOnce({
-      favoriteFeatures: [],
-    } as any)
+    given({ held: [ORDER, ADD_ROPE] })
     await expect(
       createFavoriteRequest(thorin, favoriting(ORDER)),
     ).resolves.toEqual({ status: 409, reason: 'unavailable' })

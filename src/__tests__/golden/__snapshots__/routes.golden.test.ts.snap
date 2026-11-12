@@ -6891,7 +6891,8 @@ exports[`the routes of a sheet rolls POST, player, a favorite: rolls POST, playe
    "select": {
     "favoritesEnabled": true,
     "bridgePolledAt": true,
-    "characters": true
+    "characters": true,
+    "favoriteFeatures": true
    }
   }
  },

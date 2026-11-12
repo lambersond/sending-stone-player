@@ -48,8 +48,9 @@ export type WaitingRow = {
 }
 
 /**
- * What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster, and at a
- * companion's seat (module 0.44.0) its companions.
+ * What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster, at a
+ * companion's seat (module 0.44.0) its companions, and what more the kind's `takes` reads, as
+ * favorites' features (module 0.47.0).
  */
 export type CommandCampaign = Partial<
   Record<NonNullable<RollKindInfo['own']>, boolean>
@@ -57,6 +58,7 @@ export type CommandCampaign = Partial<
   bridgePolledAt: Date | null
   characters: Prisma.JsonValue
   companions?: Prisma.JsonValue
+  favoriteFeatures?: string[]
 }
 
 /** How `createCommand` takes one kind of command. */
@@ -71,6 +73,16 @@ export type CommandSpec<K extends CommandKind> = {
     kind: Prisma.RollRequestWhereInput['kind']
     select: { kind?: true; actorId?: true; payload: true }
     skip?: (value: CommandValue<K>) => boolean
+  }
+  /**
+   * What more of the campaign it's read for, and whether its module takes this one by it, where
+   * the kind's switch alone doesn't say: a favorites order only where the module puts them in the
+   * order sent (module 0.47.0). Read with the rest of the campaign; refused as while the switch is
+   * off.
+   */
+  takes?: {
+    select: { favoriteFeatures: true }
+    of: (value: CommandValue<K>, campaign: CommandCampaign) => boolean
   }
   /** Why the sheet, as last sent, refuses it, if it does. */
   check: (

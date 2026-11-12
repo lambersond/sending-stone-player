@@ -1,4 +1,3 @@
-import prisma from '@/clients/prisma'
 import { createCommand } from '@/db/commands'
 import { checkFavorite, targetKey } from '@/utils/favorite-commands'
 import type { CommandSpec } from '@/db/types'
@@ -16,6 +15,12 @@ import type { RollRejection } from '@/utils/requests/types'
 const FAVORITE_COMMAND: CommandSpec<'favorite'> = {
   kind: 'favorite',
   waiting: { kind: 'favorite', select: { payload: true } },
+  // An order (module 0.47.0) only where its module said it puts them in the order sent.
+  takes: {
+    select: { favoriteFeatures: true },
+    of: (favorite, { favoriteFeatures = [] }) =>
+      favorite.op !== 'order' || favoriteFeatures.includes('orders'),
+  },
   check: checkFavorite,
   // The same favorite isn't sent twice at once, as from a second tap: the game would make the
   // second of what the first left. An order (module 0.47.0) is made after those before it, from
@@ -45,19 +50,5 @@ export async function createFavoriteRequest(
   seat: SheetSeat,
   input: RollRequestInput,
 ): Promise<{ id: string } | RollRejection> {
-  // The favorites put in order, from module 0.47.0, only where its module says it takes orders.
-  if (input.favorite?.op === 'order' && !(await takesOrders(seat))) {
-    return { status: 409, reason: 'unavailable' }
-  }
   return createCommand(seat, input, FAVORITE_COMMAND)
-}
-
-/** Whether the seat's campaign's module puts favorites in the order sent (module 0.47.0). */
-async function takesOrders(seat: SheetSeat): Promise<boolean> {
-  if (!seat.campaignId) return false
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: seat.campaignId },
-    select: { favoriteFeatures: true },
-  })
-  return campaign?.favoriteFeatures.includes('orders') === true
 }
