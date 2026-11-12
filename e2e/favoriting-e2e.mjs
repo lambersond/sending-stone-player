@@ -27,7 +27,9 @@
 // Foundry's actor keeps, Ki first, and (item 48) one made a favorite in Foundry while an order is on
 // its way moved up; under dnd5e 6.0.5 too; and module 0.36.0 offering none. SKEW=046
 // with MODULE=module-0.46.0 (part 16): favorites, never put in order.
-// Screenshots to SHOTS.
+// Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
+// app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
+// Sending Stone": the loss, not a bug.
 import {
   BASE, BOB, DND5E6, SKEW036, W, activeScene, actors, browse, call, character, check, companion, embedded, escapeRe,
   favoring, finish, foundryWorld, group, launch, newCampaign, note, part, place, posted, postsOf, relay, same, sceneWorld,
@@ -920,7 +922,10 @@ async function putInOrder() {
 
   // Item 48: while an order is on its way, its result lost so that it stays so, the Wand of Frost
   // made a favorite in Foundry reaches the sheet, last; shown last, its Move up names it, and the
-  // order shown before it.
+  // order shown before it. One wait for room under the limit makes room for both orders, so nothing
+  // waits between them: the app takes an order fetched and never answered as lost, no longer on its
+  // way, ROLL_ANSWER_WITHIN after it was fetched, and the Move up must come before that.
+  const ROLL_ANSWER_WITHIN = 75_000
   await paced()
   await stopFetching()
   const ahead = orders().length
@@ -943,19 +948,19 @@ async function putInOrder() {
   await small.hold(frost, 600)
   menu = small.page.getByRole('menu', { name: 'Wand of Frost', exact: true })
   await menu.waitFor({ timeout: 5_000 })
-  await paced()
   const answer = small.page.waitForResponse(r => r.request().method() === 'POST' && /\/rolls$/.test(r.url()))
   await menu.getByRole('menuitem', { name: 'Move up', exact: true }).click()
   const status = (await answer).status()
-  const waited = orders()[ahead].status
+  const [waited, since] = sql(`select status, extract(epoch from now() - "claimedAt") * 1000 from roll_request where id = '${lostId}'`).split('|')
+  const onItsWay = waited === 'claimed' && Number(since) < ROLL_ANSWER_WITHIN
   relay.lose = null
   const shown = [...sent48, 'item:wandfrost']
   const wanted = [...sent48.slice(0, -1), 'item:wandfrost', sent48.at(-1)]
   made = status === 202 ? await ordered(ahead + 2, 'the Wand of Frost moved up') : null
   await until(async () => same(await foundryKeys(small), wanted), 'Foundry\'s order with the Wand one up', 15_000).catch(() => {})
-  check(status === 202 && waited === 'claimed' && made?.status === 'done' && same(made.payload.favorite.was.map(keyOf), shown)
+  check(status === 202 && onItsWay && made?.status === 'done' && same(made.payload.favorite.was.map(keyOf), shown)
     && same(made.payload.favorite.order.map(keyOf), wanted) && same(await foundryKeys(small), wanted),
-  `an order on its way, the Wand of Frost made a favorite in Foundry is last, and its Move up is taken (${status}) and made from the order shown, the Wand among it, Foundry keeping it one up (${JSON.stringify({ waited, made: made?.status, reason: made?.result?.reason, favorite: made?.payload?.favorite })})`)
+  `an order on its way, the Wand of Frost made a favorite in Foundry is last, and its Move up is taken (${status}) and made from the order shown, the Wand among it, Foundry keeping it one up (${JSON.stringify({ waited, since: Math.round(Number(since)), made: made?.status, reason: made?.result?.reason, favorite: made?.payload?.favorite })})`)
   await small.view.close()
   await big.view.close()
 }
