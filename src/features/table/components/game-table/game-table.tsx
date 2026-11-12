@@ -282,14 +282,17 @@ export function GameTable({
           combatTab={turn.barCombat}
           hold={turn.holdOf('combat-hold-bar', !tabs.sideBySide)}
         />
-        {/* A party sheet, over the character's, never part of it. */}
-        <TablePartyPanel
-          seat={seat}
-          character={character}
-          sheet={view.sheet}
-          group={party}
-          onClose={() => setPartyOpen(undefined)}
-        />
+        {/* A party sheet, over the character's, never part of it. The table is read again as the
+            game answers a move sent from it (ROADMAP item 43). */}
+        <TableReadContext value={readAgain}>
+          <TablePartyPanel
+            seat={seat}
+            character={character}
+            sheet={view.sheet}
+            group={party}
+            onClose={() => setPartyOpen(undefined)}
+          />
+        </TableReadContext>
         {/* End Turn's toast, with Undo (module 0.36.0): there, empty, from the start. */}
         <TurnToast
           ending={turn.ending}

@@ -5,7 +5,8 @@ import { SETTLED } from '@/constants/lifecycle'
 import { NO_DICE } from '@/constants/roll-kinds'
 import { PENDING_COINS } from '@/features/transfers/constants'
 import { useFollow } from '@/hooks/use-follow'
-import { labelled, onItsWay } from '@/utils/lifecycle'
+import { useTableRead } from '@/hooks/use-table-read'
+import { answeredByGame, labelled, onItsWay } from '@/utils/lifecycle'
 import { moveLabel } from '@/utils/move-words'
 import type {
   RollRequestInput,
@@ -29,7 +30,9 @@ let moves = 0
  * Moves of items and coins sent from a party's sheet, from module 0.31.0, to the Gamemaster's game,
  * each through the API of the character it's taken into, and followed as a roll is, until the game
  * has made it or it's given up on. The Gamemaster's say what their page calls them, for the
- * character's player to be shown them by. A page with no tray shows the latest, as it stands.
+ * character's player to be shown them by. A page with no tray shows the latest, as it stands. Over
+ * a character's table, the table is read again as the game answers a move (ROADMAP item 43), so
+ * that its sheet shows what it took in or gave as the move's status says it's made.
  * @returns `take`, to send a move; the latest move and where it stands, until it's dismissed; and
  * what's on its way, by item id, and `coins` for coins, for their controls to wait.
  */
@@ -44,6 +47,7 @@ export function useTransfers({ role }: Readonly<{ role: SeatRole }>): {
   )
   const [shown, setShown] = useState<string>()
   const follow = useFollow()
+  const readAgain = useTableRead()
 
   const take = useCallback(
     (api: string, move: LocalMove, transfer: TransferInput) => {
@@ -58,11 +62,12 @@ export function useTransfers({ role }: Readonly<{ role: SeatRole }>): {
         return kept.set(id, { move, transfer, state: { status: 'sending' } })
       })
       setShown(id)
-      follow(api, sent, state =>
-        setFollowed(held => new Map(held).set(id, { move, transfer, state })),
-      )
+      follow(api, sent, state => {
+        setFollowed(held => new Map(held).set(id, { move, transfer, state }))
+        if (answeredByGame(state)) readAgain()
+      })
     },
-    [role, follow],
+    [role, follow, readAgain],
   )
 
   const pending = useMemo(() => {
