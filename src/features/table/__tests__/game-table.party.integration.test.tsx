@@ -401,6 +401,36 @@ describe('components/game-table, taking from a party, from module 0.31.0', () =>
     })
   })
 
+  it('reads the table again as the game answers a move, though the party sheet was closed before (ROADMAP item 46)', async () => {
+    const user = userEvent.setup()
+    const readAgain = jest.fn()
+    let answer = { status: 'rolling' }
+    const follow = '/api/characters/char-1/rolls/req-move'
+    globalThis.fetch = jest.fn(
+      (url: string | URL | Request, init?: RequestInit) => {
+        if (init?.method === 'POST') return respond(202, { id: 'req-move' })
+        if (String(url) === follow) return respond(200, answer)
+        return respond(200, moving)
+      },
+    ) as typeof fetch
+    renderTable(view([company]), undefined, {}, readAgain)
+
+    await openParty(user, 'The Company')
+    const panel = screen.getByRole('dialog', { name: 'The Company' })
+    await user.click(
+      await within(panel).findByRole('button', { name: 'Take Rope' }),
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Take Rope' })
+    await user.click(within(dialog).getByRole('button', { name: 'Take' }))
+    await user.click(within(panel).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    answer = { status: 'done' }
+    await waitFor(() => expect(readAgain).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    })
+  })
+
   it('offers nothing to take into a character while it’s transformed, as by Wild Shape, and again once it’s itself (round 0.40.0 §5.9)', async () => {
     const user = userEvent.setup()
     const shaped: TableView = {

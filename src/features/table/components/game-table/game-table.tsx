@@ -283,7 +283,8 @@ export function GameTable({
           hold={turn.holdOf('combat-hold-bar', !tabs.sideBySide)}
         />
         {/* A party sheet, over the character's, never part of it. The table is read again as the
-            game answers a move sent from it (ROADMAP item 43). */}
+            game answers a move sent from it (ROADMAP item 43), though it's closed by then (item
+            46). */}
         <TableReadContext value={readAgain}>
           <TablePartyPanel
             seat={seat}
