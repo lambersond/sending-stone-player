@@ -20,6 +20,7 @@ import { UsesButton } from '../uses-button/uses-button'
 import { capitalize } from './utils'
 import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
 import { PROFICIENCY } from '@/features/sheet/constants'
+import { classLevels } from '@/features/sheet/utils/class-line'
 import { checkLabel, detailWords } from '@/features/sheet/utils/roll-labels'
 import { rechargeWords } from '@/utils/creature-words'
 import { resourceNote } from '@/utils/favorites'
@@ -242,9 +243,7 @@ function ClassEntry({
   return (
     <SheetEntry
       characterId={characterId}
-      name={
-        entry.levels === null ? entry.name : `${entry.name} ${entry.levels}`
-      }
+      name={classLevels(entry)}
       fallback={ListChecks}
       favorite={favorite}
       // The hit dice first, as a row this narrow cuts its end short.

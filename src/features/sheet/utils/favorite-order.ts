@@ -1,3 +1,4 @@
+import { classLevels } from './class-line'
 import { targetKey } from '@/utils/favorite-commands'
 import type { FavoriteTarget } from '@/types/roll'
 import type { FavoriteEntry, SheetFavorite } from '@/types/sending-stone'
@@ -77,7 +78,7 @@ export function entryName(entry: FavoriteEntry): string {
       return entry.feature.name
     }
     case 'class': {
-      return entry.entry.name
+      return classLevels(entry.entry)
     }
     case 'effect': {
       return entry.effect.name
