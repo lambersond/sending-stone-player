@@ -22,6 +22,9 @@
 // waiting (7) as 4 adds Fire Bolt; never offered (10) before the Rope is deleted (9). DND5E6=1: steps 1-5
 // under dnd5e 6.0.5's stand-ins. SKEW=036 with MODULE=module-0.36.0: no favorites at all. Synthetic
 // characters only. Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
+// Since module 0.47.0 (the app's ROADMAP item 28), part 14: Thorin's favorites put in order, by
+// Reorder's drag and keys and by Move up and Move down in a favorite's menu at 390, each the order
+// Foundry's actor keeps, Ki first; under dnd5e 6.0.5 too; and module 0.36.0 offering none.
 // Screenshots to SHOTS.
 import {
   BASE, BOB, DND5E6, SKEW036, W, activeScene, actors, browse, call, character, check, companion, embedded, escapeRe,
@@ -348,6 +351,10 @@ if (SKEW036) {
   await desk.tab('Actions')
   await panelTarget(desk, 'Lucky').waitFor({ timeout: 15_000 })
   check(await noMenu(desk, panelTarget(desk, 'Lucky')), 'among his favorites, a right-click on Lucky opens no menu')
+  // Since module 0.47.0's favorites put in order: none offered with this module.
+  check(await panelOf(desk).getByRole('button', { name: 'Reorder favorites' }).count() === 0 && tableView?.favoriteOrders === undefined
+    && sql(`select "favoriteFeatures"::text from campaign where id = '${A}'`) === '{}',
+  `nor are they put in order: no Reorder among them, nothing in Alice's view or kept (${tableView?.favoriteOrders})`)
   const refused = await crafted(desk, API, { op: 'add', type: 'item', id: 'rope' })
   check(refused.status === 409 && refused.json?.reason === 'unavailable', `a crafted favorite: ${refused.status} ${refused.json?.reason}`)
   check(favorites().length === 0 && same(stored(), [{ type: 'skill', id: 'ste' }, { type: 'slots', id: 'spell1' }, { type: 'item', id: '.Item.lucky' }]), 'nothing is kept, and Foundry\'s favorites are as they were')
@@ -364,7 +371,8 @@ part('1. the hello and the answer')
   // Changed on purpose (round 0.39.0 §1.11): and a player's own effects follow dishes.
   // Changed on purpose (round 0.40.0 §10.4): and Wild Shape follows effects.
   // Changed on purpose (v0.44): and hit points set from the app follow Wild Shape (module 0.44.0).
-  check(same(features.favorites, { enabled: true, kinds: ['favorite'], reason: null }) && same(Object.keys(features).slice(-6), ['companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints'])
+  // Changed on purpose (module 0.47.0): favorites say they're put in order, `orders: true`.
+  check(same(features.favorites, { enabled: true, kinds: ['favorite'], reason: null, orders: true }) && same(Object.keys(features).slice(-6), ['companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints'])
     && !(features.rolls?.kinds ?? []).includes('favorite') && !(features.companions?.kinds ?? []).includes('favorite'),
   `the hello offers favorites, after companions, before dishes, effects and Wild Shape, never among the rolls' nor a companion's kinds (${JSON.stringify({ favorites: features.favorites, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.favorites === 1, `the app answers favorites: 1 (${hello().body})`)
@@ -470,8 +478,9 @@ await phone.tab('Inventory')
   await menu.waitFor({ timeout: 5_000 })
   const at = await menu.boundingBox()
   const finger = box.y + box.height / 2
-  check(await strip.isVisible() && same(await itemsOf(menu), ['Remove from favorites']) && at.y + at.height <= finger,
-    `a 600 ms held touch on the Rope in the Favorites strip opens its menu above the finger, "Remove from favorites" alone (${JSON.stringify({ items: await itemsOf(menu), menu: at, finger })})`)
+  // Changed on purpose (module 0.47.0): last among his favorites, it may move up.
+  check(await strip.isVisible() && same(await itemsOf(menu), ['Remove from favorites', 'Move up']) && at.y + at.height <= finger,
+    `a 600 ms held touch on the Rope in the Favorites strip opens its menu above the finger, "Remove from favorites", then "Move up", as it's last (${JSON.stringify({ items: await itemsOf(menu), menu: at, finger })})`)
   await shootBoth(phone, 'favoriting-menu', menu)
   const made = await chosen(menu, 'Remove from favorites', 'the Rope removed')
   await toastLog(phone).getByText('Removed from favorites').first().waitFor({ timeout: 10_000 })
@@ -517,6 +526,10 @@ if (!DND5E6) {
   await desk.tab('Effects')
   const bless = rowTarget(tabOf(desk), 'Bless')
   await bless.waitFor({ timeout: 15_000 })
+  // Changed on purpose (module 0.47.0): Reorder, beneath his favorites at the tab's top, moves the
+  // tab's rows down, which left Bless at the window's foot (755 to 803 px of 800) and its menu above
+  // it; in the middle, as Cast Fireball is.
+  await bless.evaluate(el => el.scrollIntoView({ block: 'center' }))
   await bless.focus()
   await desk.page.keyboard.press('ContextMenu')
   menu = desk.page.getByRole('menu', { name: 'Bless', exact: true })
@@ -702,6 +715,163 @@ await toastsGone(phone)
 await shootBoth(phone, 'favoriting-panel', panelOf(phone))
 
 // =================================================================================================
+// 14. Put in order (module 0.47.0, the app's ROADMAP item 28): run last, under dnd5e 5 and 6
+// =================================================================================================
+/** A favorite's key, as the sheet names it: an activity's by its item's id too. */
+const keyOf = ({ type, id, item, itemId }) => (type === 'activity' ? `activity:${item ?? itemId}.${id}` : `${type}:${id}`)
+/** The key of a favorite as dnd5e stores it, by its relative UUID or its key. */
+function storedKey({ type, id }) {
+  if (!id.startsWith('.')) return `${type}:${id}`
+  const [, collection, first, embedded, second] = id.split('.')
+  if (collection === 'ActiveEffect') return `effect:${first}`
+  if (embedded === undefined) return `item:${first}`
+  return embedded === 'Activity' ? `activity:${first}.${second}` : `effect:${first}.${second}`
+}
+/** The rows a favorite's menu opens from, among those that may be moved. */
+const WITH_MENUS = ['Lucky', 'Longsword', 'Fire Bolt', 'Second Wind', 'Fighter 5', 'Bless', 'Cloak of Protection', 'Cast Fireball', 'Spark Burst', 'Potion of Healing']
+/**
+ * Thorin's favorites put in order from the app, where his module takes it: the hello and the view
+ * say so; Reorder, beneath them at 1280, lists all but Ki, a drag of the third to the top and the
+ * down key on a grip shown at once, saved as one order of them all, the list in the new order at
+ * once, and Foundry's actor keeping it by dnd5e's sorts; then at 390 a favorite's menu offers Move
+ * up and Move down, each made at once and kept. Shots of the list and a favorite's menu at 1280 and
+ * 390, at twice the pixels.
+ */
+async function putInOrder() {
+  part('14. put in order')
+  check(hello().data.features.favorites?.orders === true, `the hello says favorites are put in order (${JSON.stringify(hello().data.features.favorites)})`)
+  await until(async () => (await view(desk, API))?.favoriteOrders === true, 'Alice\'s view to offer orders', 15_000)
+  const [gm, pet] = await Promise.all([GM_API, WOLF_API].map(path => call(desk.page, `${path}/table`)))
+  check(sql(`select "favoriteFeatures"::text from campaign where id = '${A}'`) === '{orders}' && !('favoriteOrders' in (gm.json ?? {})) && !('favoriteOrders' in (pet.json ?? {})),
+    'the app keeps the campaign\'s favoriteFeatures {orders}; Alice\'s view at Thorin\'s seat offers orders, the Gamemaster\'s page and the Wolf\'s pane none')
+  const orders = () => favorites().filter(row => row.payload?.favorite?.op === 'order')
+  /** Until the latest order is made, as the module answers it. */
+  async function ordered(count, what) {
+    await until(() => orders().length >= count && ['done', 'failed'].includes(orders()[count - 1].status), what, 30_000)
+    return orders()[count - 1]
+  }
+  /** The favorites the page's sheet lists but Ki, by key, in its order. */
+  const sheetKeys = async who => ((await sheetOf(who))?.favorites ?? []).filter(f => f.type !== 'resource').map(keyOf)
+  /** Foundry's favorites as dnd5e sorts them, by key, those the sheet lists. */
+  const foundryKeys = async who => {
+    const listed = new Set(await sheetKeys(who))
+    return stored().map(storedKey).filter(key => listed.has(key))
+  }
+  const big = await browse({ device: { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }, path: '/characters/sheet-thorin' })
+  await big.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  const bigPosts = []
+  big.page.on('request', request => {
+    if (request.method() === 'POST' && /\/rolls$/.test(request.url())) bigPosts.push(request.postDataJSON())
+  })
+  await big.tab('Actions')
+  const column = panelOf(big)
+  const reorder = column.getByRole('button', { name: 'Reorder favorites' })
+  await reorder.waitFor({ timeout: 15_000 })
+  const names = await namesIn(column)
+  const before = await sheetKeys(big)
+  // Each row's favorite, by its place: the sheet lists them in dnd5e's order, after Ki.
+  const listed = new Map(before.map((key, i) => [key, names[i + 1]]))
+  check(names[0] === 'Ki' && before.length === names.length - 1 && same(await foundryKeys(big), before),
+    `among his favorites Ki first, then a row for each of Foundry's, in dnd5e's order (${JSON.stringify({ names, before })})`)
+  // The list's end in the page, Reorder beneath it.
+  await reorder.evaluate(el => el.scrollIntoView({ block: 'center' }))
+  await shoot(big, 'favorites-list')
+  let menu = await menuOf(big, panelTarget(big, names.find(name => WITH_MENUS.includes(name))), names.find(name => WITH_MENUS.includes(name)))
+  await shoot(big, 'favorites-menu')
+  await closeMenu(big, menu)
+
+  // Reorder: a drag, then the keys on a grip.
+  await reorder.click()
+  const grips = column.getByRole('button', { name: /^Reorder .*: drag it, or press the up and down arrows$/ })
+  await grips.first().waitFor({ timeout: 5_000 })
+  const reorderNames = () => grips.evaluateAll(all => all.map(grip => grip.getAttribute('aria-label').replace(/^Reorder (.*): drag it, or press the up and down arrows$/, '$1')))
+  check(same(await reorderNames(), names.slice(1)), `Reorder lists every favorite but Ki, in their order (${JSON.stringify(await reorderNames())})`)
+  await shoot(big, 'favorites-reorder', column)
+  // The third to the top, both in sight: the list runs past the window's foot at 1280.
+  await grips.first().scrollIntoViewIfNeeded()
+  const from = await grips.nth(2).boundingBox()
+  const to = await grips.first().boundingBox()
+  const x = from.x + from.width / 2
+  const y = from.y + from.height / 2
+  await big.page.mouse.move(x, y)
+  await big.page.mouse.down()
+  for (let step = 1; step <= 12; step++) await big.page.mouse.move(x, y - ((y - to.y + 12) * step) / 12)
+  await big.page.mouse.up()
+  const dragged = [names[3], names[1], names[2], ...names.slice(4)]
+  await until(async () => same(await reorderNames(), dragged), 'the dragged favorite first', 5_000).catch(() => {})
+  check(same(await reorderNames(), dragged), `dragged by its grip, ${names[3]} is first at once (${JSON.stringify({ names: await reorderNames(), from, to })})`)
+  await grips.nth(1).focus()
+  await big.page.keyboard.press('ArrowDown')
+  const keyed = [dragged[0], dragged[2], dragged[1], ...dragged.slice(3)]
+  await until(async () => same(await reorderNames(), keyed), 'moved down by its key', 5_000).catch(() => {})
+  const focused = await big.page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')
+  const said = await column.locator('p[aria-live="polite"]').textContent()
+  check(same(await reorderNames(), keyed) && focused.startsWith(`Reorder ${dragged[1]}:`) && said === `${dragged[1]}, now 3 of ${keyed.length}.`,
+    `the down key on ${dragged[1]}'s grip moves it third, its grip still focused, "${said}" said`)
+  await paced()
+  const sent = orders().length
+  await column.getByRole('button', { name: 'Save order' }).click()
+  await until(async () => same(await namesIn(column), ['Ki', ...keyed]), 'the list in the new order', 5_000).catch(() => {})
+  check(same(await namesIn(column), ['Ki', ...keyed]), `saved, his favorites show the new order at once, Ki first (${JSON.stringify(await namesIn(column))})`)
+  let made = await ordered(sent + 1, 'the order made')
+  const body = bigPosts.filter(post => post?.kind === 'favorite')
+  const { order, was } = made.payload.favorite
+  check(made.status === 'done' && body.length === 1 && same(order.map(keyOf).map(key => listed.get(key)), keyed) && same(was.map(keyOf), before),
+    `one POST, one order, of every favorite but Ki, from the order shown: ${JSON.stringify({ status: made.status, reason: made.result?.reason, posts: body.length, order, was })}`)
+  await until(async () => same(await foundryKeys(big), order.map(keyOf)), 'Foundry\'s favorites in the new order', 15_000).catch(() => {})
+  const sorts = [...thorin.system.favorites].sort((a, b) => a.sort - b.sort).map(f => f.sort)
+  check(same(await foundryKeys(big), order.map(keyOf)) && sorts.every((sort, i) => i === 0 || sort > sorts[i - 1]),
+    `the stand-in Foundry's actor keeps them in that order, by dnd5e's sorts (${JSON.stringify(thorin.system.favorites)})`)
+  // The line follows the game's answer as the page next reads it.
+  await until(async () => (await rollLine(big, 'Favorites'))?.includes('Order saved'), 'the rolls\' line to say the order is saved', 15_000).catch(() => {})
+  const line = await rollLine(big, 'Favorites')
+  check(line?.includes('Order saved'), `the rolls' line: "${line}"`)
+
+  // Move up and Move down at 390, in a favorite's menu.
+  const small = await browse({ device: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, path: '/characters/sheet-thorin' })
+  await small.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await small.tab('Actions')
+  const strip = panelOf(small)
+  await until(async () => same(await namesIn(strip), ['Ki', ...keyed]), 'the phone\'s strip in the new order', 15_000)
+  const at = keyed.findIndex((name, i) => i > 0 && i < keyed.length - 1 && WITH_MENUS.includes(name))
+  const name = keyed[at]
+  const target = panelTarget(small, name)
+  await target.evaluate(el => el.scrollIntoView({ block: 'center' }))
+  await small.hold(target, 600)
+  menu = small.page.getByRole('menu', { name, exact: true })
+  await menu.waitFor({ timeout: 5_000 })
+  check(same(await itemsOf(menu), ['Remove from favorites', 'Move up', 'Move down']), `at 390, ${name}'s menu among them: ${JSON.stringify(await itemsOf(menu))}`)
+  await shoot(small, 'favorites-menu')
+  await paced()
+  await menu.getByRole('menuitem', { name: 'Move up', exact: true }).click()
+  const up = [...keyed]
+  up.splice(at - 1, 2, keyed[at], keyed[at - 1])
+  await until(async () => same(await namesIn(strip), ['Ki', ...up]), 'moved up', 5_000).catch(() => {})
+  check(same(await namesIn(strip), ['Ki', ...up]), `Move up puts ${name} one up at once (${JSON.stringify(await namesIn(strip))})`)
+  made = await ordered(sent + 2, 'moved up in Foundry')
+  await until(async () => same((await foundryKeys(small)).map(key => listed.get(key)), up), 'Foundry\'s order with it up', 15_000).catch(() => {})
+  check(made.status === 'done' && same((await foundryKeys(small)).map(key => listed.get(key)), up), `made, Foundry's actor keeps it one up (${made.status})`)
+  const first = at - 1 === 0
+  await small.hold(panelTarget(small, name), 600)
+  menu = small.page.getByRole('menu', { name, exact: true })
+  await menu.waitFor({ timeout: 5_000 })
+  check(same(await itemsOf(menu), ['Remove from favorites', ...(first ? [] : ['Move up']), 'Move down']), `its menu then: ${JSON.stringify(await itemsOf(menu))}`)
+  await paced()
+  await menu.getByRole('menuitem', { name: 'Move down', exact: true }).click()
+  await until(async () => same(await namesIn(strip), ['Ki', ...keyed]), 'moved down', 5_000).catch(() => {})
+  check(same(await namesIn(strip), ['Ki', ...keyed]), `Move down puts it back at once (${JSON.stringify(await namesIn(strip))})`)
+  made = await ordered(sent + 3, 'moved down in Foundry')
+  await until(async () => same((await foundryKeys(small)).map(key => listed.get(key)), keyed), 'Foundry\'s order with it back', 15_000).catch(() => {})
+  check(made.status === 'done' && same((await foundryKeys(small)).map(key => listed.get(key)), keyed), `made, Foundry's actor keeps it back (${made.status})`)
+  await toastsGone(small)
+  await strip.getByRole('button', { name: 'Reorder favorites' }).evaluate(el => el.scrollIntoView({ block: 'center' }))
+  await shoot(small, 'favorites-list')
+  check(await sideways(small.page) === 0, 'nothing sideways at 390')
+  await small.view.close()
+  await big.view.close()
+}
+
+// =================================================================================================
 // 5. The wands
 // =================================================================================================
 part('5. the wands')
@@ -720,7 +890,8 @@ await desk.tab('Actions')
   await until(async () => (await panelNames()).includes('Frost Burst') && (await panelNames()).includes('Spark Burst'), 'both among his favorites', 15_000)
   check(same((await panelNames()).slice(-2), ['Frost Burst', 'Spark Burst']), `two rows among his favorites: ${JSON.stringify(await panelNames())}`)
   const menu = await menuOf(desk, panelTarget(desk, 'Frost Burst'), 'Frost Burst')
-  check(same(await itemsOf(menu), ['Remove from favorites']), 'among his favorites, Frost Burst\'s menu: "Remove from favorites"')
+  // Changed on purpose (module 0.47.0): next to last among them, it may move up or down.
+  check(same(await itemsOf(menu), ['Remove from favorites', 'Move up', 'Move down']), `among his favorites, Frost Burst's menu: "Remove from favorites", "Move up", "Move down" (${JSON.stringify(await itemsOf(menu))})`)
   const made = await chosen(menu, 'Remove from favorites', 'Frost Burst removed')
   await until(async () => !(await panelNames()).includes('Frost Burst'), 'Frost Burst to go', 15_000)
   check(made.status === 'done' && made.result?.favorited === false && !thorin.system.favorites.some(f => f.id === '.Item.wandfrost.Activity.burst')
@@ -729,6 +900,7 @@ await desk.tab('Actions')
 }
 if (DND5E6) {
   check(game.system.version === '6.0.5', 'all of it under dnd5e 6.0.5\'s stand-ins')
+  await putInOrder()
   await finish()
 }
 
@@ -1015,5 +1187,6 @@ for (const who of [desk, tablet, phone]) {
   }
   await theme(who, 'light')
 }
+await putInOrder()
 note(`Thorin's favorites at the end: ${JSON.stringify(stored())}`)
 await finish()
