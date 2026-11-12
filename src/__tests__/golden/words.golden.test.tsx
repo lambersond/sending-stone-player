@@ -318,6 +318,14 @@ const ROLLS: Record<string, LocalRoll> = {
     favorite: 'add',
     at: 0,
   },
+  'favorites reordered': {
+    kind: 'use',
+    id: 'order',
+    label: 'Favorites',
+    spell: false,
+    favorite: 'order',
+    at: 0,
+  },
   'spell prepared': {
     kind: 'use',
     id: 'prepare',
