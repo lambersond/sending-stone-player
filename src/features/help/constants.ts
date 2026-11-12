@@ -251,7 +251,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Allow Players to change their hit points from the app',
-        text: ': the Hit points tile; on unless they turn it off (0.44.0).',
+        text: ': the Hit points tile; on unless they turn it off (0.43.0).',
       },
       {
         lead: 'Dishes from the Magical Recipe Book',
@@ -263,7 +263,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'No switch, but a recent module',
-        text: ': End turn (0.36.0), Remove… (0.33.0), favorites (0.37.0), Prepare and spell slot dots (0.42.1), the dice tray made in their game (0.44.0), and dice an item rolls later (0.44.0).',
+        text: ': End turn (0.36.0), Remove… (0.33.0), favorites (0.37.0), Prepare and spell slot dots (0.42.1), the dice tray made in their game (0.43.0), and dice an item rolls later (0.44.0).',
       },
     ],
   },
