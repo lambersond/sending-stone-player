@@ -10,24 +10,22 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.45.0 and its app, with v0.44.0 before it.
+Released: module v0.46.0 and its app, with v0.45.0 and v0.44.0 before it.
 
-## v0.46 (release candidate)
+## v0.46 (released, to check at the table)
 
-Built and merged before Friday's session: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s
-v0.46.0 entry.
+Released on 2026-11-12, before Friday's session: what it holds is in
+[CHANGELOG.md](CHANGELOG.md)'s v0.46.0 entry. v0.46 is the release candidate for v1.0: it runs at
+the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.46.0 is tagged** (built and tested against stand-ins
-only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **A character shared as All Players: Owner:** no other player's whispers or private rolls at its
   seat, no other owners in its roster, no DC of another player's save.
 - **A recharge rolled at the table:** its chip goes as the tray says "recharged".
 - **The Initiative tile:** in an encounter begun and then switched away on the tracker, the sheet's
   Initiative tile doesn't offer to roll for it.
-
-Then module v0.46.0 is tagged, and v0.46 is the release candidate for v1.0: it runs at the table
-for a while before v1.0 is tagged.
 
 ## Not yet scheduled
 
