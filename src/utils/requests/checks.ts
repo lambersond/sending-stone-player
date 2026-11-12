@@ -2,6 +2,7 @@ import { slotPools, outOfSlots } from '@/utils/action-groups'
 import { alonePlan, alonePicks } from '@/utils/alone-choices'
 import { castIndex, castOf, castAtLevel } from '@/utils/casts'
 import { formulaDice } from '@/utils/formulas'
+import { waitsForInitiative } from '@/utils/initiative'
 import { checkDamageDice } from '@/utils/requests/check-damage'
 import {
   checkTypeOf,
@@ -160,18 +161,23 @@ function checkTool(
   )
 }
 
-/** Initiative: the seat's own combatant in the combat, without initiative yet. */
+/**
+ * Initiative: as `waitsForInitiative` has it, the tracker's encounter, with the seat's own
+ * combatant in it without initiative yet. One that isn't the tracker's, as one begun and then
+ * switched away from, the seat isn't in, as the game says; one in it with initiative has rolled.
+ */
 function checkInitiative(
   input: RollRequestInput,
   combats: CombatSnapshot[],
   actorId: string,
 ): RollRefusal | undefined {
   const combat = combats.find(({ id }) => id === input.combatId)
-  const combatant = combat?.combatants.find(each =>
-    isSeatCombatant(each, actorId),
-  )
-  if (!combatant) return 'not-in-combat'
-  return combatant.initiative === null ? undefined : 'already-rolled'
+  const seats = (each: CombatSnapshot['combatants'][number]) =>
+    isSeatCombatant(each, actorId)
+  if (waitsForInitiative(combat, seats)) return undefined
+  return combat?.active && combat.combatants.some(each => seats(each))
+    ? 'already-rolled'
+    : 'not-in-combat'
 }
 
 /** A concentration ended: one the character keeps. */

@@ -608,6 +608,16 @@ describe('utils/roll-requests', () => {
       expect(checkRoll(initiative, sheet, [], 'actor-thorin')).toBe(
         'not-in-combat',
       )
+      // Nor in one that isn't the tracker's, as one begun and switched away from, which the game
+      // takes none into (v0.46).
+      expect(
+        checkRoll(
+          initiative,
+          sheet,
+          [{ ...waiting, active: false }],
+          'actor-thorin',
+        ),
+      ).toBe('not-in-combat')
     })
   })
 

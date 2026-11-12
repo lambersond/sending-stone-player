@@ -288,6 +288,25 @@ describe('components/character-sheet/character-sheet', () => {
     expect(onRoll.mock.lastCall?.[0].source).toBeUndefined()
   })
 
+  it("rolls initiative only here in an encounter that isn't the tracker's, as with none, though the character waits in it (v0.46)", async () => {
+    const user = userEvent.setup()
+    const onRoll = jest.fn()
+    render(
+      <CharacterSheet
+        name='Thorin Oakenshield'
+        sheet={sheetOf()}
+        // Begun, then switched away from on the Gamemaster's tracker.
+        combat={{ ...combatWith(null), active: false, underWay: false }}
+        onRoll={onRoll}
+      />,
+    )
+
+    const initiative = screen.getByRole('button', { name: 'Initiative, +1' })
+    expect(initiative).toHaveTextContent(/^\+1$/)
+    await user.click(initiative)
+    expect(onRoll.mock.lastCall?.[0].source).toBeUndefined()
+  })
+
   describe('hit dice', () => {
     /** Thorin's sheet with classes of these hit dice, something spending them. */
     const renderDice = (fields: Partial<Sheet>): jest.Mock => {
