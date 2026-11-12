@@ -1868,6 +1868,37 @@ describe('hooks/use-table-rolls', () => {
       expect(fetch).toHaveBeenCalledTimes(7)
     })
 
+    it("reads the pane's view again as the game makes each of the hit dice sent one after another to a game before module 0.20.0 (ROADMAP item 39)", async () => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-1', status: 'done', visible: true }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-2', status: 'done', visible: true }),
+        )
+        .mockResolvedValueOnce(respond(202, { id: 'req-3' }))
+        .mockResolvedValueOnce(
+          respond(200, { id: 'req-3', status: 'done', visible: true }),
+        )
+      const readAgain = jest.fn()
+      const { result } = renderHook(() => useTableRolls('char-1', ['hitDie']), {
+        wrapper: ({ children }) => (
+          <TableReadContext value={readAgain}>{children}</TableReadContext>
+        ),
+      })
+
+      act(() => result.current.sendFormula(hitDice, spentThree()))
+      await advance(0)
+      expect(readAgain).not.toHaveBeenCalled()
+      await advance(CHECK_EVERY)
+      expect(readAgain).toHaveBeenCalledTimes(1)
+      await advance(CHECK_EVERY * 5)
+      expect(readAgain).toHaveBeenCalledTimes(3)
+    })
+
     it('sends each in turn after one the app took with nothing to follow it by, then tells them all as sent', async () => {
       jest
         .mocked(fetch)
@@ -3852,6 +3883,36 @@ describe('hooks/use-table-rolls, damage on its own and recharges, from module 0.
       status: 'refused',
     })
     expect(readAgain).toHaveBeenCalledTimes(2)
+  })
+
+  it('reads the view again once for a recharge the game took too long to make, as it makes it after all, not each time it is asked after (ROADMAP item 39)', async () => {
+    const readAgain = jest.fn()
+    const { result } = renderHook(() => useTableRolls('char-1', ['recharge']), {
+      wrapper: ({ children }) => (
+        <TableReadContext value={readAgain}>{children}</TableReadContext>
+      ),
+    })
+
+    act(() => result.current.sendRecharge(breath, recharged()))
+    await advance(0)
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        respond(200, { id: 'req-9', status: 'failed', reason: 'timeout' }),
+      )
+    await advance(CHECK_EVERY * 30)
+    expect(readAgain).not.toHaveBeenCalled()
+    jest.mocked(fetch).mockResolvedValue(
+      respond(200, {
+        id: 'req-9',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        outcome: 'success',
+      }),
+    )
+    await advance(CHECK_EVERY * 5)
+    expect(readAgain).toHaveBeenCalledTimes(1)
   })
 
   it('sends no recharge where the game takes none, or Send to the table is off', () => {
