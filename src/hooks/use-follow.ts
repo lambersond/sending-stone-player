@@ -6,15 +6,8 @@ import {
   useRef,
 } from 'react'
 import { follow } from '@/utils/lifecycle'
+import type { Follow } from './types'
 import type { RollRequestInput, TableRollState } from '@/types/roll'
-
-/** Send a request to the game and follow it, as `useFollow` gives it. */
-type Follow = (
-  api: string,
-  input: RollRequestInput,
-  onState: (state: TableRollState) => void,
-  onTaken?: (id: string) => void,
-) => void
 
 /**
  * A page's own `useFollow`, for what's sent from within it to be followed as long as the page is
