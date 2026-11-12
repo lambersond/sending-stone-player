@@ -18,6 +18,72 @@ Each entry ends with where it lives, the app, the module or both, and its ROADMA
 one. ROADMAP.md began with v0.34, so the versions before it have none, and an item from another
 version's list names that version, such as v1.x item 8.
 
+## v0.47.0 — release candidate, not yet tagged
+
+### Features
+
+- **Favorites put in order from the app.** A player can now put their character's favorites in
+  order: Reorder, beneath them, lists them to drag into place, as the journal's notes are, or to
+  move with a grip's up and down keys, Home and End, or the arrows beside it, then Save order. On a
+  phone, a favorite's menu among the favorites has Move up and Move down, each left out where it
+  can't move that way, and Help names them; a skill, tool or spell-slots favorite has no menu and
+  moves in Reorder (ROADMAP item 47). The order is saved as dnd5e's own, under dnd5e 5.3.3 and
+  6.0.5, so the character's sheet in Foundry shows it too, Tidy 5e Sheets' included, which sorts
+  dnd5e's favorites the same way; the old-style resources dnd5e lists first stay first. Where the
+  favorites changed in Foundry meanwhile, the order isn't saved ("Order not saved") and the sheet
+  shows Foundry's, and none is saved while the character is in Wild Shape. With a module before
+  0.47.0 neither Reorder nor Move up and Move down is offered. (app and module, item 28)
+
+### Fixes
+
+- **A roll from the app made as the character's player.** A character shared with All Players as
+  Owner, owned by one player by name and assigned to no one, now rolls from the app as that player,
+  so its card is theirs, where it rolled as the Gamemaster. One assigned to a player still rolls as
+  them, and one with no player as the Gamemaster: so now does one shared with All Players and owned
+  by no player by name, which in a world with a single player rolled as that player.
+  (module, item 45)
+- **A move from a party sheet shows on the sheet at once.** After a move of items or coins sent
+  from a party sheet open over a character's, the character's sheet beside it now shows it as the
+  game makes it, where it waited up to 3 seconds for the next refresh: the page reads the table
+  again as the game answers, as it has since v0.46.0 for a roll or change sent from the sheet. A
+  party sheet closed before the game answers still leaves it to that refresh (ROADMAP item 46).
+  (app, item 43)
+- **A request settles as the game answered it.** A roll, change or move sent from the app now
+  settles as the game answered it, refused, made or lost, even where the page's own handling of
+  that answer fails: it's no longer asked after once a second for up to 110 seconds, nor said
+  refused for want of the network after it was made. Nothing in the app fails that way today.
+  (app, item 44)
+
+### Maintenance
+
+- **Docs for v0.47.** README.md's supported-versions table gains v0.47.0. The module's
+  `PROTOCOL.md` gains the `favorite` command's order (`{ op: "order", order, was }`), the hello's
+  `features.favorites.orders` and a "Module 0.47.0" entry, and says whom a roll from the app is
+  made as by a character's players; its `README.md` says both. (app and module)
+- **ROADMAP kept current.** ROADMAP.md takes out items 28 and 43 to 45 as done, adds v0.47's
+  release-candidate section with its checks at the table and items 46 to 52, found while building
+  v0.47, and its known limits no longer send favorites to Foundry to be put in order. (app)
+- **One sortable list, one class line and a migration.** The journal's sortable list and its drag
+  move to `src/components/sortable`, shared by the notes' and the favorites' Reorder, and a class's
+  name with its levels is one rule (`src/features/sheet/utils/class-line.ts`) for its favorite's
+  row, the sheet's class line and Reorder. Migration `20261112090000_favorite_orders` keeps whether
+  the campaign's module puts favorites in order, from its next hello. (app)
+- **End-to-end checks.** `favoriting` part 14 puts Thorin's favorites in order by Reorder's drag
+  and keys and by Move up and Move down at 390 px, under dnd5e 5 and 6, Foundry's actor keeping
+  each order, and a new run against module 0.46.0 (`e2e/skew.conf`'s 046) checks favorites are
+  offered but never put in order. `transfers` part 3 checks Thorin's sheet shows what he took from
+  the party within a second, the page asking for the table as the game's answer comes. (app)
+- **Jest tests.** New tests pin the favorites' order rules
+  (`src/features/sheet/utils/favorite-order.ts`, Move up and Move down at each end), Reorder's
+  focus and a favorite's menu, an order's request and the hello's `orders`, with the words golden
+  recording an order's toasts and tray lines; the party page reading the table again as a move is
+  made; and a request whose callback throws settling. An order's request reads the campaign once,
+  with the command's other checks. (app)
+- **The module harness.** `test/fvtt/favoriting.mjs` checks an order written as dnd5e's sorts
+  under dnd5e 5 and 6, the places kept, nothing written for the same order, "changed", "error" and
+  the refusals; `wildshape.mjs` checks "shaped"; and `rolls.mjs` checks a character shared through
+  All Players rolling as its player by name, or as the Gamemaster where it has none. (module)
+
 ## v0.46.0 — 2026-11-12
 
 ### Fixes
