@@ -275,10 +275,11 @@ Module v0.43.0 brought hit points set from the app and the dice tray's rolls mad
 README.md's supported-versions table lists both under v0.44.0, as the module's `PROTOCOL.md` does,
 and its v0.43 row still reads "Nothing new: v0.43 changed only the app, with no module release". The
 app turns both on from what the module's opening post says it takes, not from its version, so they
-work with module v0.43.0. Only the campaign card's Players' hit points line goes by the version:
-with module v0.43.0 and its switch off, it wrongly says version 0.44.0 or later is needed, a known
-wrong line yet to be fixed. The rest is the app's: the refactor, and part of what was planned for
-v0.44.
+work with module v0.43.0. Two lines are wrong about it, both yet to be fixed. With module v0.43.0
+and its switch off, the campaign card's Players' hit points line says version 0.44.0 or later is
+needed. With an older module, which takes other rolls but not these, the dice tray says the module
+makes them from version 0.44.0, where v0.43.0 does, and README.md's v0.44.0 row repeats it. The
+rest is the app's: the refactor, and part of what was planned for v0.44.
 
 ### Features
 
@@ -490,8 +491,8 @@ v0.44.
 - **Transformed characters followed.** A character transformed in Foundry, by Wild Shape, Polymorph
   or the Gamemaster, now shows as its form in the app, while its turns, chat cards and the saves
   asked of it stay the character's, so End Turn works on the form's turn. While the character is in
-  another form, its favorites, effects, moves and removals are hidden, and the game refuses them.
-  (app and module, item 2)
+  another form, the controls to change its favorites and effects, or to move or remove what it
+  carries, are hidden, and the game refuses them. (app and module, item 2)
 
 ### Maintenance
 
@@ -507,8 +508,8 @@ v0.44.
 
 ## v0.39.0 — 2026-10-26
 
-App PR #52 was closed unmerged on 2026-10-25: its one change, binding two end-to-end suites'
-`localize` to `game.i18n`, came in with PR #53 and is under Maintenance below.
+App PR #52 was closed unmerged on 2026-10-25: its one change, a fix to two end-to-end suites, came
+in with PR #53 and is under Maintenance below.
 
 ### Features
 
@@ -1008,15 +1009,13 @@ PR #45, so GitHub shows #44 merged with it.
 ### Features
 
 - **Midi-QOL's own saves asked in the app.** While a character's page is open and its campaign's
-  Save and concentration prompts are on, a save, check or skill Midi-QOL asks of it, in a workflow
-  the Gamemaster runs, its concentration check or an OverTime turn save such as Frightened's, is
-  asked in the app with Midi's advantage, the DC where players see it and a button per ability Midi
-  allows, and rolled with the player's dice. Where Foundry asks too the first answer wins, Midi
-  rolls for them only once the banner's minute runs out or the page closes, and the Gamemaster can
-  answer from their page. The banner counts down, "Midi rolls for you in 0:42", or "Answer here or
-  in Foundry · 0:42" where Foundry asks too, and says how each ended: Rolled in Foundry, Midi rolled
-  it or Left to Foundry. Where the module can't find the parts of Midi it hooks, Midi's saves go on
-  as before, and its Modules section says so. (app and module)
+  Save and concentration prompts are on, a save, check or skill Midi-QOL asks of it in a workflow
+  the Gamemaster runs, its concentration check or an OverTime turn save such as Frightened's is
+  asked in the app with Midi's advantage, and rolled with the player's dice. Its banner counts down,
+  "Midi rolls for you in 0:42", or "Answer here or in Foundry · 0:42" where Foundry asks too and
+  the first answer wins, and the Gamemaster can answer from their page. Where Sending Stone can't
+  find the parts of Midi it hooks, Midi's saves go on as before, and Sending Stone's Modules section
+  in Foundry says so. (app and module)
 
 ### Fixes
 
@@ -1283,10 +1282,6 @@ PR #45, so GitHub shows #44 merged with it.
   Wand of Magic Missiles or of Fireballs, offers level chips with their charges, and the game casts
   it at the level picked, its targets and damage scaled as dnd5e scales them. Levels the item can't
   pay for now are disabled, and those it never could are hidden. (app and module)
-- **A cast spell's later activities.** Once a spell is cast from an item, its other activities, such
-  as Hex's Bonus Hex Damage, sit beneath the item's Cast row on Actions, Inventory, Features and
-  Favorites and are used from there, spending what dnd5e spends, where before they were listed only
-  on the Spells tab, beneath the spell. (app and module)
 
 ### Fixes
 
@@ -1308,6 +1303,10 @@ PR #45, so GitHub shows #44 merged with it.
   each, up to 20, and with module 0.20.0 they go to the game as one request, spent a die at a time
   with a card each, so leaving the page no longer leaves some unspent. They stop at full hit points,
   and the tray says how many were made. (app and module)
+- **A cast spell's later activities beside its Cast.** Once a spell is cast from an item, its other
+  activities, such as Hex's Bonus Hex Damage, listed before only on the Spells tab beneath the
+  spell, now also sit beneath the item's Cast row on Actions, Inventory, Features and Favorites, and
+  are used from there, spending what dnd5e spends. (app and module)
 
 ### Maintenance
 
@@ -1929,8 +1928,8 @@ Module only: the app's Actions tab, which shows what it sends, came with v0.8.1.
 - **Live or Offline.** The module sends a heartbeat to any campaign it has sent nothing for 30
   seconds, and the status on a character's page now says whether the game is heard from: Live, or
   Offline after two minutes without word, changing without a reload, where Live meant only that the
-  app answered. The Gamemaster's campaign card shows Live, Offline or Waiting for Foundry, with when
-  the game was last heard, as they stood when the page loaded. (app and module)
+  app answered. The Gamemaster's campaign card shows Live, Offline or Waiting for Foundry, and when
+  the game was last heard while it isn't Live, as they stood when the page loaded. (app and module)
 - **Test Connection says when nothing is set up.** A test the app answers with 404 now says no
   campaign is set up for this game, and to set one up in the app with the game's address and the
   same secret. (module)
