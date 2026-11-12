@@ -62,8 +62,9 @@ version's list names that version, such as v1.x item 8.
   Players to change their hit points from the app switch off, the campaign card's Players' hit
   points line now says to tick it, where it said version 0.44.0 or later was needed; and with an
   older module, the dice tray says the module makes its rolls from version 0.43.0, not 0.44.0.
-  README.md's supported-versions table lists both under v0.43.0, where its v0.44.0 row had them.
-  (app, item 51)
+  Help's list of what the Gamemaster turns on names 0.43.0 for both too, and README.md's
+  supported-versions table lists both under v0.43.0, where its v0.44.0 row had them. (app, items
+  51 and 53)
 
 ### Maintenance
 
@@ -73,8 +74,9 @@ version's list names that version, such as v1.x item 8.
   made as by a character's players; its `README.md` says both. (app and module)
 - **ROADMAP kept current.** ROADMAP.md takes out items 28, 43 to 46 and 48 to 52 as done, adds
   v0.47's release-candidate section with its checks at the table, and items 46 to 55, found while
-  building v0.47, of which 47 and 53 to 55 stay, and its known limits no longer send favorites to
-  Foundry to be put in order. (app)
+  building v0.47, of which 47 stays, and its known limits no longer send favorites to Foundry to
+  be put in order. README.md's Tested line names module 0.46.0, which `e2e/skew.conf` runs (item
+  54). (app)
 - **One sortable list, one class line and a migration.** The journal's sortable list and its drag
   move to `src/components/sortable`, shared by the notes' and the favorites' Reorder, and a class's
   name with its levels is one rule (`src/features/sheet/utils/class-line.ts`) for its favorite's
@@ -92,7 +94,7 @@ version's list names that version, such as v1.x item 8.
   party within a second, the page asking for the table as the game's answer comes, and part 4 the
   same at 390 px with the party sheet closed before it (item 46). The `dice` suite's run against
   module 0.42.0 checks the tray names 0.43.0 (item 51), and `e2e/README.md` counts `regress.sh`'s
-  125 runs (item 52). (app)
+  125 runs (item 52), its Outputs table now Prettier-formatted (item 55). (app)
 - **Jest tests.** New tests pin the favorites' order rules
   (`src/features/sheet/utils/favorite-order.ts`, Move up and Move down at each end), Reorder's
   focus and a favorite's menu, an order's request and the hello's `orders`, with the words golden
@@ -367,8 +369,8 @@ they work with module v0.43.0. Two lines were wrong about it, both fixed in v0.4
 v0.43.0 and its switch off, the campaign card's Players' hit points line said version 0.44.0 or
 later was needed. With an older module, which takes other rolls but not these, the dice tray said
 the module makes them from version 0.44.0, where v0.43.0 does, and README.md's v0.44.0 row repeated
-it. Help, from v0.45.0, still names 0.44.0 for both (ROADMAP item 53). The rest is the app's: the
-refactor, and part of what was planned for v0.44.
+it. Help, from v0.45.0, named 0.44.0 for both too, also fixed in v0.47.0. The rest is the app's:
+the refactor, and part of what was planned for v0.44.
 
 ### Features
 

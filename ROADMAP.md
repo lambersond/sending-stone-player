@@ -128,21 +128,6 @@ And from the owner's answers on item 19, later work too:
     only where a row has a choice), so on a phone they're put in order only by Reorder's arrows,
     where the owner was told each favorite's menu would have them.
 
-And found while fixing items 46 and 48 to 52, the rest of this group, in v0.47:
-
-53. **Help names module 0.44.0 for what module 0.43.0 shipped:** item 51's kin. Help's Gamemaster
-    settings section (`src/features/help/constants.ts`) says "(0.44.0)" after Allow Players to
-    change their hit points from the app, and after "the dice tray made in their game", where module
-    tag v0.43.0 shipped both. Item 51 fixed the campaign page's and the dice tray's own lines, the
-    two the owner chose. The help suite's e2e checks would need a look.
-54. **README.md's Tested line leaves out module 0.46.0:** its Supported module versions section
-    says the app is tested end to end against "0.22.0, 0.24.0, 0.26.0 to 0.37.0, 0.38.1 and 0.39.0
-    to 0.42.0", but `e2e/skew.conf` has listed 046 too since v0.47, for favoriting's run against
-    module 0.46.0.
-55. **`e2e/README.md` isn't prettier clean:** its Outputs table is unpadded, so
-    `npx prettier --check e2e/README.md` warns, as it did before v0.47's follow-up. Prettier's
-    `--write` pads that table only.
-
 ## v1.0
 
 The major release of the app and the module, once the latest release candidate holds up at the
