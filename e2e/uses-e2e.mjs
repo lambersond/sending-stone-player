@@ -1425,10 +1425,23 @@ check(windRows === 1 && windCounters === 0 && await panel.getByRole('region', { 
   await until(async () => { const look = await looksOf(bless); return look?.tag === 'SUMMARY' && look.marks === 1 && countReads(4) }, 'Bless redrawn unprepared', 20_000).catch(() => {})
   const blessNow = await looksOf(bless)
   const blessCount = await preparedFact()
-  const blessAgain = await menuFor(bless, 'Bless')
-  const blessAgainLook = await menuLook(blessAgain)
+  // The page hears the game's answer to the Unprepare a moment after the game makes it, and till
+  // then its Prepare waits, "on its way": the menu is opened again until it offers Prepare enabled,
+  // as Witch Bolt's waited for the tray, with a deadline; one never offered or never enabled fails
+  // the check below.
+  let blessAgain
+  let blessAgainLook
+  await until(async () => {
+    blessAgain = await menuFor(bless, 'Bless')
+    blessAgainLook = await menuLook(blessAgain)
+    const at = blessAgainLook.items.indexOf('Prepare')
+    if (at !== -1 && !blessAgainLook.disabled[at]) return true
+    await page.keyboard.press('Escape')
+    await blessAgain.waitFor({ state: 'hidden' }).catch(() => {})
+    return false
+  }, "Bless's menu to offer Prepare, enabled", 15_000).catch(() => {})
   check(blessNow?.tag === 'SUMMARY' && blessNow.marks === 1 && blessNow.visible && blessNow.opacity === '0.6' && same(blessCount, countIs(4))
-    && same(blessAgainLook.items, ['Add to favorites', 'Prepare']) && same(blessAgainLook.disabled, [false, false]),
+    && same(blessAgainLook?.items, ['Add to favorites', 'Prepare']) && same(blessAgainLook?.disabled, [false, false]),
     `unprepared, Bless is a row of its own, faded and marked "Not prepared", the count "4 / 10", and its summary's menu offers Prepare (${JSON.stringify({ blessNow, blessCount, ...blessAgainLook })})`)
   const blessOn = await sent(() => blessAgain.getByRole('menuitem', { name: 'Prepare', exact: true }).click(), 'Bless prepared again')
   await until(async () => { const look = await looksOf(bless); return look?.tag === 'BUTTON' && look.marks === 0 && countReads(5) }, 'Bless redrawn prepared', 20_000).catch(() => {})
