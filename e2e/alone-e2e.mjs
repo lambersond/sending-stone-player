@@ -1097,8 +1097,8 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
     // And the reads themselves, which the stand-in's timing can't hide: the sheet comes with the
     // answer here, so the chip alone can't tell a read at once from a poll that came soon. The read
     // on its way as the answer came, or else the first after it, within 1 s; then the next within
-    // 1 s of its end: the page's 500 ms wait, with room for a loaded machine, where a 3 s poll's
-    // comes 3 s after.
+    // 850 ms of its end: the page's 500 ms wait, with room for a loaded machine, and short of the
+    // 1 s it waited before (986 ms and more measured with it), where a 3 s poll's comes 3 s after.
     {
       const { reads, answers } = watched
       let answered, first, next
@@ -1111,7 +1111,7 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
       }, `the reads of the table after Fire Breath's recharge at ${width}`, 6_000).catch(() => {})
       const firstWords = first ? (first.start <= answered ? 'on its way' : `${first.start - answered} ms after it`) : 'none after it'
       const gap = next && first.end !== undefined ? next.start - first.end : null
-      check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && gap !== null && gap <= 1_000,
+      check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && gap !== null && gap <= 850,
         `at ${width} the page read the table as the game answered the recharge (${answered === undefined ? 'no answer heard' : firstWords}), and again ${gap === null ? 'not within 6 s' : `${gap} ms after that read`}`)
     }
     await shootBoth(view, 'alone-recharge-done', trayOf(view))
