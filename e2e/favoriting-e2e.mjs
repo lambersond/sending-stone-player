@@ -24,7 +24,8 @@
 // characters only. Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
 // Since module 0.47.0 (the app's ROADMAP item 28), part 14: Thorin's favorites put in order, by
 // Reorder's drag and keys and by Move up and Move down in a favorite's menu at 390, each the order
-// Foundry's actor keeps, Ki first; under dnd5e 6.0.5 too; and module 0.36.0 offering none.
+// Foundry's actor keeps, Ki first; under dnd5e 6.0.5 too; and module 0.36.0 offering none. SKEW=046
+// with MODULE=module-0.46.0 (part 16): favorites, never put in order.
 // Screenshots to SHOTS.
 import {
   BASE, BOB, DND5E6, SKEW036, W, activeScene, actors, browse, call, character, check, companion, embedded, escapeRe,
@@ -36,6 +37,8 @@ const GAME = 'https://ashlands-favorites.forge-vtt.com'
 const SECRET = 'ashlands-favorites-37'
 const TITLE = 'Ashlands'
 const NEW = !SKEW036
+/** Module 0.46.0, from before 0.47.0: favorites, never put in order. */
+const SKEW046 = process.env.SKEW === '046'
 await launch(GAME)
 const { id: A, invite } = await newCampaign({ title: TITLE, address: 'ashlands-favorites.forge-vtt.com', secret: SECRET })
 await foundryWorld()
@@ -358,6 +361,35 @@ if (SKEW036) {
   const refused = await crafted(desk, API, { op: 'add', type: 'item', id: 'rope' })
   check(refused.status === 409 && refused.json?.reason === 'unavailable', `a crafted favorite: ${refused.status} ${refused.json?.reason}`)
   check(favorites().length === 0 && same(stored(), [{ type: 'skill', id: 'ste' }, { type: 'slots', id: 'spell1' }, { type: 'item', id: '.Item.lucky' }]), 'nothing is kept, and Foundry\'s favorites are as they were')
+  await finish()
+}
+
+if (SKEW046) {
+  // ===============================================================================================
+  // 16. Module 0.46.0: favorites, never put in order (module 0.47.0's `orders`, item 28)
+  // ===============================================================================================
+  part('16. module 0.46.0')
+  check(same(hello().data.features.favorites, { enabled: true, kinds: ['favorite'], reason: null }),
+    `module 0.46.0's hello offers favorites, saying nothing of orders (${JSON.stringify(hello().data.features.favorites)})`)
+  await until(() => favoritesEnabled() === 't', 'the app to take favorites', 15_000)
+  await desk.tab('Actions')
+  await panelTarget(desk, 'Lucky').waitFor({ timeout: 15_000 })
+  const tableView = await view(desk, API)
+  check(tableView?.favorites === true && tableView?.favoriteOrders === undefined && sql(`select "favoriteFeatures"::text from campaign where id = '${A}'`) === '{}',
+    `the app takes favorites, never orders: Alice's view offers favorites alone, the campaign keeps none (${JSON.stringify({ favorites: tableView?.favorites, orders: tableView?.favoriteOrders })})`)
+  // Lucky, last of the three that move, would be offered Move up with orders.
+  const menu = await menuOf(desk, panelTarget(desk, 'Lucky'), 'Lucky')
+  const items = await itemsOf(menu)
+  await closeMenu(desk, menu)
+  check(same(items, ['Remove from favorites']) && await panelOf(desk).getByRole('button', { name: 'Reorder favorites' }).count() === 0,
+    `among his favorites no Reorder, and Lucky's menu "Remove from favorites" alone (${JSON.stringify(items)})`)
+  const LUCKY = { type: 'item', id: 'lucky' }
+  const STEALTH = { type: 'skill', id: 'ste' }
+  const SLOTS = { type: 'slots', id: 'spell1' }
+  const refused = await crafted(desk, API, { op: 'order', order: [LUCKY, STEALTH, SLOTS], was: [STEALTH, SLOTS, LUCKY] })
+  check(refused.status === 409 && refused.json?.reason === 'unavailable' && favorites().length === 0
+    && same(stored(), [STEALTH, SLOTS, { type: 'item', id: '.Item.lucky' }]),
+  `a crafted order: ${refused.status} ${refused.json?.reason}, nothing kept, and Foundry's favorites as they were`)
   await finish()
 }
 
