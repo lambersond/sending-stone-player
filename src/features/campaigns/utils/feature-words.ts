@@ -138,7 +138,7 @@ const WILD_SHAPE_FROM = [0, 40, 0] as const
 
 /**
  * Whether the campaign lets its players set hit points and temporary hit points from here, from
- * module 0.44.0, and if not, why: a module before that has no such switch; under another system
+ * module 0.43.0, and if not, why: a module before that has no such switch; under another system
  * than D&D Fifth Edition the switch does nothing, which the hello's own system says.
  */
 export function hitPointsText({ hitPoints, foundry }: OwnedCampaign): string {
@@ -146,7 +146,7 @@ export function hitPointsText({ hitPoints, foundry }: OwnedCampaign): string {
     return 'On in Foundry. Your players set their characters’, forms’ and companions’ hit points and temporary hit points from here.'
   }
   if (before(foundry?.module?.version, HIT_POINTS_FROM)) {
-    return 'Your Sending Stone module doesn’t let players change hit points yet. Version 0.44.0 or later does.'
+    return 'Your Sending Stone module doesn’t let players change hit points yet. Version 0.43.0 or later does.'
   }
   if (foundry?.system && foundry.system.id !== 'dnd5e') {
     return 'Off. Players’ hit points need D&D Fifth Edition in Foundry.'
@@ -155,7 +155,7 @@ export function hitPointsText({ hitPoints, foundry }: OwnedCampaign): string {
 }
 
 /** The first Sending Stone in Foundry that lets players set hit points from here. */
-const HIT_POINTS_FROM = [0, 44, 0] as const
+const HIT_POINTS_FROM = [0, 43, 0] as const
 
 /**
  * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,
