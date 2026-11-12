@@ -1,4 +1,5 @@
 import { classLevels } from './class-line'
+import { moveItem } from '@/components/sortable/utils'
 import { targetKey } from '@/utils/favorite-commands'
 import type { FavoriteTarget } from '@/types/roll'
 import type { FavoriteEntry, SheetFavorite } from '@/types/sending-stone'
@@ -46,6 +47,25 @@ export function placeShown(all: string[], shown: string[]): string[] {
   const moved = new Set(shown)
   let next = 0
   return all.map(key => (moved.has(key) ? shown[next++] : key))
+}
+
+/**
+ * The orders a favorite's menu may make among those that move, by key: Move up's, with it one
+ * place up, for all but the first; Move down's, with it one place down, for all but the last; none
+ * for a favorite not among them.
+ */
+export function stepOrders(
+  order: string[],
+  key: string,
+): { up?: string[]; down?: string[] } | undefined {
+  const index = order.indexOf(key)
+  if (index === -1) return undefined
+  return {
+    ...(index > 0 && { up: moveItem(order, index, index - 1) }),
+    ...(index < order.length - 1 && {
+      down: moveItem(order, index, index + 1),
+    }),
+  }
 }
 
 /**

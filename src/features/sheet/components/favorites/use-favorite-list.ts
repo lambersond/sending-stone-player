@@ -1,7 +1,6 @@
 import { use, useCallback, useMemo, useState } from 'react'
-import { moveItem } from '@/components/sortable/utils'
 import { FavoriteOrderContext } from '@/features/sheet/components/favoriting/use-favorite-choice'
-import { movable } from '@/features/sheet/utils/favorite-order'
+import { movable, stepOrders } from '@/features/sheet/utils/favorite-order'
 import type { FavoriteMoves } from '@/features/sheet/components/favoriting/types'
 import type { FavoriteEntry } from '@/types/sending-stone'
 
@@ -29,15 +28,12 @@ export function useFavoriteList(entries: FavoriteEntry[]) {
 
   const movesOf = useCallback(
     (key: string, name: string): FavoriteMoves | undefined => {
-      if (!offered) return undefined
-      const order = keys.split('\n')
-      const index = order.indexOf(key)
-      if (index === -1) return undefined
-      const to = (place: number) => () =>
-        save(moveItem(order, index, place), name)
+      const steps = offered ? stepOrders(keys.split('\n'), key) : undefined
+      if (!steps) return undefined
+      const { up, down } = steps
       return {
-        ...(index > 0 && { up: to(index - 1) }),
-        ...(index < order.length - 1 && { down: to(index + 1) }),
+        ...(up && { up: () => save(up, name) }),
+        ...(down && { down: () => save(down, name) }),
       }
     },
     [offered, keys, save],

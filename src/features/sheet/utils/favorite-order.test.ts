@@ -4,6 +4,7 @@ import {
   movable,
   orderTargets,
   placeShown,
+  stepOrders,
 } from './favorite-order'
 import { fullerSheet, sheetFavorites } from '@/mocks/sending-stone'
 import { favoriteEntries } from '@/utils/favorites'
@@ -43,6 +44,23 @@ describe('utils/favorite-order, from module 0.47.0', () => {
       'b',
     ])
   })
+
+  it.each([
+    ['the first, down only', 'a', { down: ['b', 'a', 'c'] }],
+    [
+      'one between, up and down',
+      'b',
+      { up: ['b', 'a', 'c'], down: ['a', 'c', 'b'] },
+    ],
+    ['the last, up only', 'c', { up: ['a', 'c', 'b'] }],
+    ['the only one, neither', 'a', {}, ['a']],
+    ['one not among them, none', 'resource', undefined],
+  ])(
+    'moves %s, a place at a time',
+    (_, key, moves, order = ['a', 'b', 'c']) => {
+      expect(stepOrders(order, key)).toEqual(moves)
+    },
+  )
 
   it('shows the favorites in an order on its way, the resource first and unmoved', () => {
     const entries = favoriteEntries(
