@@ -24,7 +24,8 @@
 // characters only. Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
 // Since module 0.47.0 (the app's ROADMAP item 28), part 14: Thorin's favorites put in order, by
 // Reorder's drag and keys and by Move up and Move down in a favorite's menu at 390, each the order
-// Foundry's actor keeps, Ki first; under dnd5e 6.0.5 too; and module 0.36.0 offering none. SKEW=046
+// Foundry's actor keeps, Ki first, and (item 48) one made a favorite in Foundry while an order is on
+// its way moved up; under dnd5e 6.0.5 too; and module 0.36.0 offering none. SKEW=046
 // with MODULE=module-0.46.0 (part 16): favorites, never put in order.
 // Screenshots to SHOTS.
 import {
@@ -766,8 +767,9 @@ const WITH_MENUS = ['Lucky', 'Longsword', 'Fire Bolt', 'Second Wind', 'Fighter 5
  * say so; Reorder, beneath them at 1280, lists all but Ki, a drag of the third to the top and the
  * down key on a grip shown at once, saved as one order of them all, the list in the new order at
  * once, and Foundry's actor keeping it by dnd5e's sorts; then at 390 a favorite's menu offers Move
- * up and Move down, each made at once and kept. Shots of the list and a favorite's menu at 1280 and
- * 390, at twice the pixels.
+ * up and Move down, each made at once and kept; and (item 48) one made a favorite in Foundry while an
+ * order is on its way is taken into the order shown, its Move up made. Shots of the list and a
+ * favorite's menu at 1280 and 390, at twice the pixels.
  */
 async function putInOrder() {
   part('14. put in order')
@@ -915,6 +917,45 @@ async function putInOrder() {
   await strip.getByRole('button', { name: 'Reorder favorites' }).evaluate(el => el.scrollIntoView({ block: 'center' }))
   await shoot(small, 'favorites-list')
   check(await sideways(small.page) === 0, 'nothing sideways at 390')
+
+  // Item 48: while an order is on its way, its result lost so that it stays so, the Wand of Frost
+  // made a favorite in Foundry reaches the sheet, last; shown last, its Move up names it, and the
+  // order shown before it.
+  await paced()
+  await stopFetching()
+  const ahead = orders().length
+  const again = panelTarget(small, name)
+  await again.evaluate(el => el.scrollIntoView({ block: 'center' }))
+  await small.hold(again, 600)
+  menu = small.page.getByRole('menu', { name, exact: true })
+  await menu.waitFor({ timeout: 5_000 })
+  await menu.getByRole('menuitem', { name: 'Move up', exact: true }).click()
+  await until(() => orders().length > ahead, 'the order posted', 15_000)
+  const { id: lostId } = orders()[ahead]
+  relay.lose = sent => sent.type === 'command.result' && sent.data?.id === lostId
+  startFetching()
+  const sent48 = orders()[ahead].payload.favorite.order.map(keyOf)
+  await until(async () => posted.some(p => p.lost && p.data?.id === lostId) && same(await foundryKeys(small), sent48), 'the order made in Foundry, its result lost', 20_000)
+  await thorin.system.addFavorite({ type: 'item', id: '.Item.wandfrost' })
+  await until(async () => (await namesIn(strip)).at(-1) === 'Wand of Frost', 'the Wand of Frost last among them', 15_000)
+  const frost = panelTarget(small, 'Wand of Frost')
+  await frost.evaluate(el => el.scrollIntoView({ block: 'center' }))
+  await small.hold(frost, 600)
+  menu = small.page.getByRole('menu', { name: 'Wand of Frost', exact: true })
+  await menu.waitFor({ timeout: 5_000 })
+  await paced()
+  const answer = small.page.waitForResponse(r => r.request().method() === 'POST' && /\/rolls$/.test(r.url()))
+  await menu.getByRole('menuitem', { name: 'Move up', exact: true }).click()
+  const status = (await answer).status()
+  const waited = orders()[ahead].status
+  relay.lose = null
+  const shown = [...sent48, 'item:wandfrost']
+  const wanted = [...sent48.slice(0, -1), 'item:wandfrost', sent48.at(-1)]
+  made = status === 202 ? await ordered(ahead + 2, 'the Wand of Frost moved up') : null
+  await until(async () => same(await foundryKeys(small), wanted), 'Foundry\'s order with the Wand one up', 15_000).catch(() => {})
+  check(status === 202 && waited === 'claimed' && made?.status === 'done' && same(made.payload.favorite.was.map(keyOf), shown)
+    && same(made.payload.favorite.order.map(keyOf), wanted) && same(await foundryKeys(small), wanted),
+  `an order on its way, the Wand of Frost made a favorite in Foundry is last, and its Move up is taken (${status}) and made from the order shown, the Wand among it, Foundry keeping it one up (${JSON.stringify({ waited, made: made?.status, reason: made?.result?.reason, favorite: made?.payload?.favorite })})`)
   await small.view.close()
   await big.view.close()
 }
