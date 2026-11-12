@@ -5,9 +5,9 @@ Sending Stone is two projects released together: this app and the Foundry module
 the app deployed with it ships with it, and app-only work goes under the version it's deployed
 with.
 
-Done work moves here from [ROADMAP.md](ROADMAP.md) as a version is built, and the version reads as
-released, with its date, once the module is tagged. Each version has up to four sections, in this
-order:
+Done work moves here from [ROADMAP.md](ROADMAP.md) as a version is built. Until the module is tagged
+its heading reads `— release candidate, not yet tagged`; once it is, the version reads as released,
+with its date. Each version has up to four sections, in this order:
 
 - **Features:** something new you can do.
 - **Fixes:** something that was wrong now works as it should.
@@ -32,11 +32,12 @@ one. Versions before v0.44.0 are in README.md's
   sees a party sheet only as its own players may. In Foundry, a dish's card is whispered only to
   the campaign's own players, and the dish's Apply dialog names each character's players. (module,
   item 38)
-- **The Recharge chip clears when the tray says "recharged".** After a recharge rolled at the
-  table, the sheet's Recharge chip now clears as the dice tray says "recharged", where it stayed up
-  to 3 seconds and a tap on it was refused. The same goes for any roll or change sent from the sheet
-  or a companion's pane, End Turn and Undo aside: the page shows the game's answer at once, not at
-  its next refresh, though a move from a party sheet still waits for it. (app, item 39)
+- **The Recharge chip clears with "recharged".** After a recharge rolled at the table, the
+  sheet's Recharge chip now clears within a moment of the dice tray saying "recharged", where it
+  stayed up to 3 seconds and a tap on it was refused. The same goes for any roll or change sent
+  from the sheet or a companion's pane, End Turn and Undo aside: the page reads the table again as
+  the game answers, and once more half a second later, instead of waiting for its next 3-second
+  refresh. A move from a party sheet still waits for that refresh (ROADMAP item 43). (app, item 39)
 - **No DC of another player's save at a shared character.** A character shared with All Players as
   Owner is no longer shown the DC of a save another player's card asks, which dnd5e's Challenge
   Visibility hides from its player in Foundry. Only its own players' cards show it their DC, in
@@ -50,10 +51,11 @@ one. Versions before v0.44.0 are in README.md's
 
 - **A character assigned to a player is theirs.** A character no player owns, but assigned to a
   player in User Configuration, now gets that player's whispers, private rolls, check outcomes and
-  save DCs, sees a party sheet as they may and its roster names them, where in v0.45.0 the
-  assignment counted only for which sidekicks it lists; its journals, and who may type in its dice,
-  still follow who owns it in Foundry. A change of a player's character or role in User
-  Configuration, or a player added or removed, now reaches the party sheets at once. (module)
+  save DCs, has its dish cards whispered to them, sees a party sheet as they may and its roster
+  names them, where in v0.45.0 the assignment counted only for which sidekicks it lists; its
+  journals, and who may type in its dice, still follow who owns it in Foundry. A change of a
+  player's character or role in User Configuration, or a player added or removed, now reaches the
+  party sheets at once. (module)
 
 ### Maintenance
 
@@ -63,14 +65,18 @@ one. Versions before v0.44.0 are in README.md's
   how to make a player a character's player and what the dish Apply dialog names, and comments in
   `scripts/characters.mjs`, `chat-data.mjs` and `chat.mjs` name the rule. (app and module)
 - **ROADMAP kept current.** ROADMAP.md gains v0.46's section with its checks at the table, takes out
-  items 37 to 40 as done, adds items 41 to 45 found while building v0.46, and takes out v0.44's and
-  v0.45's sections once they were released. Its follow-up batch is renamed "Not yet scheduled".
-  (app)
+  items 37 to 40 as done, adds items 41 and 42, two load races seen in v0.45's last end-to-end pass,
+  and items 43 to 45, found while building v0.46, and takes out v0.44's and v0.45's sections once
+  they were released. Its follow-up batch is renamed "Not yet scheduled". (app)
 - **End-to-end checks.** `alone` part 15 checks the Recharge chip goes within 2 s of "recharged"
   and the next read comes within 850 ms, `rolls` checks the Initiative tile in an encounter
   switched away from, and `typed` part 12 lets the asked save open at 10:00 left, as it now can.
   `uses` part 5 waits for Bless's Prepare to be enabled before reading its menu, and
   `e2e/README.md` lists two more known load races (items 41 and 42). (app)
+- **Jest tests and one read-again rule.** Jest tests pin item 39's read-again on the character's
+  page and in a companion's pane, a late roll read once as it's made, and the Initiative tile's
+  rule, shared with the Combat tab's line and the app's own check. The read-again is written once,
+  in `src/hooks/use-read-again.ts`. (app)
 - **The module harness.** Its stand-ins keep each actor's ownership by user id, as Foundry does
   (`test/fvtt/stub.mjs`), and let a player make Midi-QOL's concentration card (`dnd5e-cards.mjs`).
   New cases check a character shared with All Players, owned by name or assigned: its whispers,
@@ -164,14 +170,14 @@ one. Versions before v0.44.0 are in README.md's
 
 ## v0.44.0 — 2026-11-10
 
-Some work planned for v0.44 came out earlier, with module v0.43.0, and isn't written out below. Hit
-points and temporary hit points set from the app, of the character, its Wild Shape form and its
-companions, and the dice tray under the chat, its rolls made in the game, came on 2026-11-06 in the
-module tagged v0.43.0 and the app deployed with it, though the module's `PROTOCOL.md` and
-README.md's table list them under 0.44.0, and the table's v0.43 row as the app's alone. The app's
-favorites on the Character tab, larger icon buttons on tablets, Manual Dice in the dice dialog's
-header and the Gamemaster clearing a campaign's chat came before it, on 2026-11-04, with a round of
-fixes.
+Some work planned for v0.44 shipped earlier and isn't repeated below:
+
+- On 2026-11-06, with module v0.43.0 and its app: hit points and temporary hit points set from
+  the app (of the character, its Wild Shape form and its companions), and the dice tray under the
+  chat. README.md's table and the module's `PROTOCOL.md` list these under 0.44.0.
+- On 2026-11-04, in the app: favorites on the Character tab, larger icon buttons on tablets,
+  Manual Dice in the dice dialog's header and the Gamemaster clearing a campaign's chat, with a
+  round of fixes.
 
 ### Features
 
@@ -230,8 +236,9 @@ fixes.
   die Foundry's computer threw is never asked again. (app and module, item 11)
 - **Favorites in one list on tablets.** Favorites stay in one list until their card is 720 pixels
   wide, so they no longer split into two narrow lists on a portrait tablet. (app)
-- **Fewer database reads at the table.** While a table is open, the app's wait for the game's
-  commands makes about 40% fewer database queries: about 45,000 fewer in a three-hour session, a
+- **Fewer database reads at the table.** While a table is open, the module's regular fetch for
+  players' commands, which the app holds open while it waits for one, makes about 40% fewer
+  database queries: about 45,000 fewer in a three-hour session, a
   fifth of all the queries the app makes in one. (app, item 10)
 
 ### Maintenance
@@ -259,4 +266,4 @@ fixes.
 - **ROADMAP and version labels.** ROADMAP.md takes v0.44's finished work out, keeps the checks to
   make at the table before v0.44.0 was tagged, and lays out the next slice and the follow-up batch.
   Work planned as module 0.45.0 is relabelled 0.44.0 in both repos, as it was released, the e2e
-  screenshots' `e2e/shots-044` included. (app and module)
+  screenshots' `e2e/.out/shots-044` included. (app and module)
