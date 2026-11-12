@@ -85,6 +85,9 @@ describe('components/transfers/distribute-dialog', () => {
         .getAllByRole('listitem')
         .map(item => item.textContent),
     ).toEqual(['Bram', 'Lia', 'Thorin', 'Vex'])
+    // Each name wraps (item 17): kept on one line, a long one held the list past the dialog.
+    expect(within(among).getByText('Bram')).toHaveClass('wrap-anywhere')
+    expect(within(among).getByText('Bram')).not.toHaveClass('truncate')
   })
 
   it('does nothing until a coin is chosen', async () => {

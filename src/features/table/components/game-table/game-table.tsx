@@ -23,6 +23,9 @@ import {
 } from './utils'
 import { Scroller } from '@/components/scroller/scroller'
 import { useCookbookEntry } from '@/features/cookbook/hooks/use-cookbook-entry'
+import { HelpPanel } from '@/features/help/components/help-panel/help-panel'
+import { useHelpPanel } from '@/features/help/hooks/use-help-panel'
+import { ShowHelpContext } from '@/features/help/hooks/use-show-help'
 import { DiceTray } from '@/features/rolling/components/dice-tray/dice-tray'
 import { useChatRead } from '@/features/table/hooks/use-chat-read'
 import { useChatScroll } from '@/features/table/hooks/use-chat-scroll'
@@ -65,7 +68,7 @@ export function GameTable({
   const gm = seat.role === 'gm'
   const words = seatWords(seat.role)
   const { view, connection } = useTableView(seat.api, initialView)
-  const tabs = useTableTabs(initialView.combat?.started === true)
+  const tabs = useTableTabs(initialView.combat?.underWay === true)
   const { party, setPartyOpen } = usePartyOpen(view.groups)
   const unread = useChatRead({
     gm,
@@ -75,6 +78,8 @@ export function GameTable({
     markChatRead,
   })
   const diceSwitch = useTypedDice(view, setManualDice)
+  // Help (ROADMAP item 12), from the header's button and every cog's How to use Sending Stone.
+  const help = useHelpPanel()
   const myTurn = isMyTurn(view.combat)
   const turn = useTurnEnding({
     api: seat.api,
@@ -244,6 +249,7 @@ export function GameTable({
             view={view}
             tab={tabs.tab}
             connection={pageConnection(connection, companions.reconnecting)}
+            onHelp={help.show}
             deleteCharacter={deleteCharacter}
           />
           <TableNotices
@@ -255,7 +261,10 @@ export function GameTable({
             addBack={words.addBack}
             panels={panels}
           />
-          <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
+          {/* Every pane's cog opens the page's one Help. */}
+          <ShowHelpContext value={help.show}>
+            <TurnToastContext value={toastFoot}>{table}</TurnToastContext>
+          </ShowHelpContext>
         </div>
         <TableNav
           tab={tabs.tab}
@@ -288,6 +297,15 @@ export function GameTable({
           header={header}
           beside={beside}
           onFoot={setToastFoot}
+        />
+        <HelpPanel
+          open={help.open}
+          onClose={help.close}
+          gm={gm}
+          name={character.name}
+          playing={playing}
+          view={view}
+          typing={diceSwitch}
         />
       </div>
     </TableApiContext>

@@ -136,13 +136,15 @@ export function JournalCard({
             )}
           </div>
         </div>
+        {/* Beside the words, no wider than half the card, its label wrapping: as wide as a long
+            name made it, it left them a letter's width. */}
         <button
           ref={button}
           type='button'
           onClick={openJournal}
-          className='inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover @min-[640px]:w-auto'
+          className='inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary wrap-anywhere transition-colors hover:bg-primary-hover @min-[640px]:w-auto @min-[640px]:max-w-1/2'
         >
-          <BookOpen aria-hidden className='size-4' />
+          <BookOpen aria-hidden className='size-4 shrink-0' />
           Open {title}
         </button>
       </div>

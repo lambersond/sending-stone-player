@@ -1,5 +1,6 @@
 import {
   answerFits,
+  asksLaterDice,
   askTimes,
   heldTime,
   seesDiceAsks,
@@ -13,6 +14,18 @@ import {
   twoRollsAsk,
 } from '@/mocks/dice-asks'
 
+/** What a hello says of the game system: D&D Fifth Edition, at this version. */
+const dnd5e = (version: string) => ({
+  id: 'dnd5e',
+  title: 'D&D Fifth Edition',
+  version,
+})
+/** What the app keeps of a hello: its module's version, and its game system, dnd5e 5.3.3's. */
+const hello = (module: string | null, system = dnd5e('5.3.3')) => ({
+  module: { id: 'sending-stone', version: module },
+  system,
+})
+
 /** This app's clock: a while after the game's, as two clocks are. */
 const NOW = Date.parse('2026-11-10T12:30:00Z')
 const at = (ms: number) => new Date(NOW + ms)
@@ -25,6 +38,28 @@ const span = (from: number, to: number | null, expires = to ?? 60_000) => ({
 })
 
 describe('utils/dice-asks (module 0.44.0)', () => {
+  describe('asksLaterDice', () => {
+    it.each([
+      ['module 0.44.0 under dnd5e 5', true, hello('0.44.0')],
+      ['a later one', true, hello('0.45.0', dnd5e('5.1.0'))],
+      ['one past 0.99', true, hello('0.100.0')],
+      ['1.0.0', true, hello('1.0.0')],
+      ['module 0.43.9', false, hello('0.43.9')],
+      ['module 0.42.0', false, hello('0.42.0')],
+      ['dnd5e 6, whatever the module', false, hello('0.44.0', dnd5e('6.0.5'))],
+      ['dnd5e 4', false, hello('0.44.0', dnd5e('4.4.4'))],
+      [
+        'another system',
+        false,
+        hello('0.44.0', { id: 'pf2e', title: 'Pathfinder', version: '5.0.0' }),
+      ],
+      ['a module that gave no version', false, hello(null)],
+      ['no hello yet', false, undefined],
+    ])('%s: %s', (_case, asks, foundry) => {
+      expect(asksLaterDice(foundry)).toBe(asks)
+    })
+  })
+
   describe('seesDiceAsks', () => {
     const player = { role: 'player' as const, manualDice: true }
     it.each([

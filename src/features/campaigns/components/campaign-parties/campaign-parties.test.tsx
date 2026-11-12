@@ -25,11 +25,14 @@ describe('components/campaigns/campaign-parties', () => {
       screen.getByRole('heading', { level: 3, name: 'Party sheets' }),
     ).toBeInTheDocument()
     const [company, hidden] = screen.getAllByRole('listitem')
-    expect(
-      within(company).getByRole('link', {
-        name: "Open The Company's party sheet",
-      }),
-    ).toHaveAttribute('href', '/campaigns/c1/party/company')
+    const link = within(company).getByRole('link', {
+      name: "Open The Company's party sheet",
+    })
+    expect(link).toHaveAttribute('href', '/campaigns/c1/party/company')
+    // Its name wraps, whole (item 17): kept on one line, a long one held the column wider than
+    // the card.
+    expect(link).toHaveClass('wrap-anywhere')
+    expect(link).not.toHaveClass('truncate')
     expect(company).toHaveTextContent('Primary party')
     expect(company).not.toHaveTextContent('Not shared')
     expect(

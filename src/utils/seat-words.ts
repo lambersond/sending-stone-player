@@ -19,7 +19,8 @@ const WORDS: Record<SeatRole, SeatWords> = {
       'Ask your Gamemaster to add them back to the campaign in Sending Stone.',
     noCombat:
       'The initiative order appears here when your Gamemaster starts an encounter.',
-    settingUp: 'The Gamemaster is setting up this encounter.',
+    rollInitiative:
+      'Roll initiative from the sheet for your Gamemaster’s encounter.',
     connected: "Your Gamemaster's game is connected.",
     unheard:
       "Your Gamemaster's game hasn't been heard from in the last two minutes.",
@@ -40,7 +41,7 @@ const WORDS: Record<SeatRole, SeatWords> = {
     addBack:
       'Add them back on the campaign’s Players tab in Sending Stone’s settings in Foundry.',
     noCombat: 'The initiative order appears here when you start an encounter.',
-    settingUp: 'You’re setting up this encounter.',
+    rollInitiative: 'Roll initiative from the sheet for your encounter.',
     connected: 'Your game is connected.',
     unheard: "Your game hasn't been heard from in the last two minutes.",
   },

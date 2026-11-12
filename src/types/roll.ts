@@ -24,6 +24,7 @@ import type {
   RemovedItem,
   FavoriteEntry,
   HitPointsNow,
+  GameDiceAsk,
 } from '@/types/sending-stone'
 import type { DieSides, Advantage } from '@lambersond/3d-dice-core'
 
@@ -754,6 +755,11 @@ export type LocalExtra = {
    * first throw and then any rerolled or exploded, and what became of each.
    */
   thrown?: ThrownDie[]
+  /**
+   * A term of the dice the game asked for that the player left to it to roll (module 0.44.0): it
+   * has no number here, and counts nothing in the total, which is the game's to say.
+   */
+  left?: true
 }
 
 /** A d20 roll as this page keeps it. */
@@ -966,6 +972,12 @@ export type LocalFormula = {
   rerolls?: 'kept'
   /** A recharge's d6 (module 0.36.0): what it recharges, for its titles. */
   recharge?: { name: string }
+  /**
+   * A die of a roll thrown again, typed in answer to the game's ask (module 0.44.0): why, as an
+   * explosion. The game adds it to its roll, whose own line says the game's total, so this shows
+   * the die typed alone, and that it was added; never that roll's total as its own.
+   */
+  again?: GameDiceAsk['again']
   at: number
 }
 

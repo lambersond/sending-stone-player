@@ -805,8 +805,12 @@ await until(async () => (await combatRows(alice)).length === 4, 'the app to show
     throw error
   })
   const roles = await tracker.locator('li').evaluateAll(items => items.map(li => li.textContent))
-  check(roles.filter(t => /Yours/.test(t)).length === 2 && roles.some(t => /Thorin\s*You(?!rs)/.test(t)),
-    `Thorin's tracker shows Brakka and the Bat as Yours, with HP, Bat 1 chosen and Thorin still You (${JSON.stringify(roles)})`)
+  // Changed on purpose (item 19, the owner's Q4 A): the order shows only once the fight is under
+  // way, here round 1 on Thorin's turn (initiative 20, turn 0), so his row carries NOW before You;
+  // it once showed the fight's round 0 first, with no one acting, while the page had yet to hear it
+  // begin.
+  check(roles.filter(t => /Yours/.test(t)).length === 2 && roles.some(t => /Thorin\s*NOW\s*You(?!rs)/.test(t)),
+    `Thorin's tracker shows Brakka and the Bat as Yours, with HP, Bat 1 chosen and Thorin still You, acting now (${JSON.stringify(roles)})`)
   await fight.setTurn(1, 2)
   await until(async () => (await alice.page.locator('#turn-heading').textContent().catch(() => '')) === 'Bat’s turn', 'the Bat\'s turn in the panel', 20_000)
   const link = tracker.getByRole('button', { name: 'its tab' })

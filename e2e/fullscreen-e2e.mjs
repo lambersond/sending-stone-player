@@ -87,7 +87,10 @@ check(await toggle(desk).getAttribute('aria-label') === 'Full screen' && await t
   // What shows of the header's right: the dialog its Delete opens is in it, unopened.
   const cluster = await desk.page.locator('header').first().locator(':scope > div').last().locator(':scope > *')
     .evaluateAll(els => els.filter(el => el.getBoundingClientRect().width > 0).map(el => el.getAttribute('aria-label') ?? el.getAttribute('role')))
-  check(same(cluster, ['status', 'Full screen', 'Delete Thorin']), `after whether the game is live and before Delete, with no party button since PR #44 (${JSON.stringify(cluster)})`)
+  // Changed on purpose (ROADMAP item 12, the owner's H1 and D4): the icon-only Help between whether
+  // the game is live and Full screen.
+  check(same(cluster, ['status', 'Help', 'Full screen', 'Delete Thorin']),
+    `after whether the game is live and Help, and before Delete, with no party button since PR #44 (${JSON.stringify(cluster)})`)
 }
 await toggle(desk).click()
 await until(() => full(desk.page), 'full screen', 5_000)

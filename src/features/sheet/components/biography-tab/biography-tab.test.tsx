@@ -85,6 +85,13 @@ describe('components/character-sheet/biography-tab', () => {
     expect(
       screen.getByRole('region', { name: 'Appearance' }),
     ).toHaveTextContent('Broad-shouldered, with a braided beard.')
+    // A word too long for its card breaks inside it (item 17), as the biography's own text does.
+    for (const text of [
+      'Greater good.',
+      'Broad-shouldered, with a braided beard.',
+    ]) {
+      expect(screen.getByText(text)).toHaveClass('wrap-anywhere')
+    }
   })
 
   it('loads their biography', async () => {

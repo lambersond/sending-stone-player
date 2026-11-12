@@ -10,13 +10,21 @@ import {
   useRole,
 } from '@floating-ui/react'
 import clsx from 'clsx'
-import { CookingPot, PanelBottom, PanelTop, Settings } from 'lucide-react'
+import {
+  CircleQuestionMark,
+  CookingPot,
+  PanelBottom,
+  PanelTop,
+  Settings,
+} from 'lucide-react'
 import { LayoutPicker } from '../actions-layout/layout-picker'
 import { aloneHint } from './utils'
 import { HelpLinks } from '@/components/help-links/help-links'
 import { ThemeToggle } from '@/components/theme-toggle/theme-toggle'
 import { ICON_TARGET } from '@/constants/buttons'
 import { CONFIGURE_COOKBOOK } from '@/features/cookbook/constants'
+import { HOW_TO_USE } from '@/features/help/constants'
+import { useShowHelp } from '@/features/help/hooks/use-show-help'
 import { usePopover } from '@/hooks/use-popover'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
@@ -30,7 +38,8 @@ import type { SheetSettingsProps } from './types'
  * toasts or in a banner, the theme, from v0.44 whether the Character tab shows the favorites too,
  * and how the Actions tab is laid out; and since round 0.39.0,
  * at the player's own seat, Configure Magical Cookbook, which opens their Magical Recipe Book in a
- * modal, and last, in every cog, Help: Report a bug and Request a feature. It opens as
+ * modal, and last, in every cog, Help: How to use Sending Stone, which opens the page's Help, where
+ * it has one (ROADMAP item 12), then Report a bug and Request a feature. It opens as
  * `ExactAmount`'s popover does, by a click or tap, or Enter or Space, its first setting taking
  * focus; Escape, a click or tap elsewhere, or the cog again closes it. It stays open as settings
  * change, for several to be changed at once.
@@ -46,6 +55,7 @@ export function SheetSettings({
   cookbook,
 }: Readonly<SheetSettingsProps>) {
   const role = useTableRole()
+  const showHelp = useShowHelp()
   const { game } = seatWords(role)
   const [open, setOpen] = useState(false)
   const change = useCallback(
@@ -188,6 +198,26 @@ export function SheetSettings({
                 >
                   Help
                 </p>
+                {showHelp && (
+                  <button
+                    type='button'
+                    aria-haspopup='dialog'
+                    onClick={() => {
+                      // As Configure Magical Cookbook: the cog has focus as Help opens, and takes
+                      // it back once it closes.
+                      cog.current?.focus({ preventScroll: true })
+                      change(false)
+                      showHelp(cog.current)
+                    }}
+                    className='flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm font-medium transition-colors hover:bg-primary/5'
+                  >
+                    <CircleQuestionMark
+                      aria-hidden
+                      className='size-4 shrink-0'
+                    />
+                    {HOW_TO_USE}
+                  </button>
+                )}
                 <HelpLinks />
               </div>
             </div>

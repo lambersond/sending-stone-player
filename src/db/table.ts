@@ -268,6 +268,8 @@ const TABLE_CAMPAIGN = {
   wildShapeEnabled: true,
   hitPointsEnabled: true,
   chatClearedAt: true,
+  // Whether its module is one that asks for the dice an item rolls later, for Help.
+  laterDice: true,
 } as const
 
 /**
@@ -364,6 +366,10 @@ export async function getTableView(
         on: seat.manualDice === true,
       },
     }),
+    // Whether its module is one that asks a typing player for the dice an item rolls later, as its
+    // hello said last, at either seat, for Help: by its versions, never its switches, and stored,
+    // never whether it polled lately (the owner's round 3 decision 3).
+    ...(campaign.laterDice && { laterDice: true as const }),
   }
 }
 

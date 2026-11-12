@@ -6,9 +6,11 @@
 // attacks and asks in the app, allows players to type their dice, and Manual Dice is on. The hello
 // says diceAsks, diceAsksReason null, "dice" last of the kinds, the app answers diceAsks: 1 and keeps
 // it. Thorin's Wild Sparks, a 1d6x formula, typed 6 on the phone, explodes: the game asks for the die
-// it throws again, one d6, its dialog opening by itself on the phone, the device the roll came from,
-// "Your die exploded", and only a banner on the wide page; the Gamemaster's Foundry shows "Waiting for
-// Thorin's player" with Roll it now; typed 2, the card's dice are 6 and 2, the banner gone. "Let the
+// it throws again, one d6, named "Wild Sparks: Burst" by its roll since module 0.45.0, its dialog
+// opening by itself on the phone, the device the roll came from, "Your die exploded", and only a
+// banner on the wide page; the Gamemaster's Foundry shows "Waiting for Thorin's player" with Roll it
+// now; typed 2, the card's dice are 6 and 2, the banner gone, and the tray shows the 2 "Added to its
+// roll at the table", the formula's own line the game's 8. "Let the
 // game roll": Foundry's computer 6 explodes again into a 1, never asked. Rolled from the wide page,
 // the dialog opens there and the phone has the banner; typed in from the phone's banner, the wide
 // page's dialog closes by itself, sending nothing. Rolled from the wide page with Spells' search field
@@ -251,10 +253,15 @@ const focusOf = who => who.page.evaluate(() => {
 const panel = who => who.page.getByRole('tabpanel')
 const tray = who => who.page.getByRole('region', { name: 'Your rolls' })
 const WAITING = 'Waiting for your dice…'
-/** The tray's latest roll as shown, each line of it. */
+/** What the tray says the game made of a die thrown again, in place of a total. */
+const ADDED = 'Added to its roll at the table'
+/** The tray's latest roll as shown: its total, and each line of it. */
 const trayLatest = who => tray(who).getByRole('status').first().evaluate(el => ({
+  total: el.querySelector('span')?.textContent.trim() ?? null,
   lines: [...el.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g, ' ').trim()),
 }))
+/** The tray's earlier rolls, each line of it as shown. */
+const trayEarlier = who => tray(who).locator('details li').evaluateAll(items => items.map(li => li.textContent.replace(/\s+/g, ' ').trim()))
 /** Until neither of Alice's pages shows the banner, as within a poll of an ask's close. */
 const bannersGone = () => until(async () => await bannerOf(phone).count() === 0 && await bannerOf(desk).count() === 0, 'the banners to go', 15_000).catch(() => {})
 /** How many dice answers each of Alice's pages posted. */
@@ -395,9 +402,11 @@ if (!ASKS) {
   ask = await nextAsk(id)
   const dialog = askOf(phone)
   await dialog.waitFor({ timeout: 15_000 })
-  check(ask.purpose === 'again' && ask.again === 'explode' && ask.actorId === 'thorin' && same(ask.rolls.map(roll => roll.terms), [[{ faces: 6, number: 1 }]]) && /^Wild Sparks/.test(ask.label)
+  // Named by its roll, as its chip and the tray name it, since module 0.45.0 (ROADMAP item 26): the
+  // dialog's title, the banner and the Gamemaster's window below say the ask's label.
+  check(ask.purpose === 'again' && ask.again === 'explode' && ask.actorId === 'thorin' && same(ask.rolls.map(roll => roll.terms), [[{ faces: 6, number: 1 }]]) && ask.label === 'Wild Sparks: Burst'
     && Date.parse(ask.expiresAt) - Date.parse(ask.askedAt) === 60_000,
-    `typed 6, Wild Sparks' 1d6x explodes: the game asks for its die more, purpose again, explode, one d6, "${ask.label}", for a minute`)
+    `typed 6, Wild Sparks' 1d6x explodes: the game asks for its die more, purpose again, explode, one d6, "${ask.label}", named by its roll as its chip is, for a minute`)
   const look = {
     title: await titleOf(dialog), groups: await groupsOf(dialog), note: await dialog.getByText(EXPLODED, { exact: true }).isVisible(),
     chip: await dialog.getByText('Manual Dice', { exact: true }).isVisible(), timer: (await dialog.getByRole('timer').textContent()).trim(),
@@ -430,6 +439,14 @@ if (!ASKS) {
     && same(answersBy(phone).map(body => [body.diceAsk, body.answer]), [[ask.id, [{ roll: 0, term: 0, results: [2] }]]]) && same(answersBy(desk), []),
     `typed 2: the phone sends it, the ask answered, the card's dice 6 and 2, 8 (${card?.rolls[0].formula} = ${card?.rolls[0].total})`)
   check(await bannerOf(desk).count() === 0 && await gmWindow().count() === 0, "the wide page's banner gone within a poll, and the Gamemaster's window closed")
+  // The tray (ROADMAP item 27): its latest, the die typed, added to its roll, never the roll's 8 as its
+  // own; beneath it, the formula's own line with the game's 8.
+  const formulaLine = async () => (await trayEarlier(phone)).find(line => line.startsWith('Wild Sparks: Burst'))
+  await until(async () => (await trayLatest(phone)).lines.includes(ADDED) && / table 8$/.test(await formulaLine() ?? ''), 'the tray to say what the game made', 20_000).catch(() => {})
+  const latest = await trayLatest(phone)
+  const line = await formulaLine()
+  check(latest.total === '2' && same(latest.lines, ['Wild Sparks: Burst', '1d6 (2)', ADDED]) && /^Wild Sparks: Burst ?6 = 6 ?· table 8$/.test(line ?? ''),
+    `the phone's tray: its latest, the die typed, its own 2, "${ADDED}", never the roll's 8; beneath it the formula's own line, "${line}" (${JSON.stringify(latest)})`)
 }
 
 if (ASKS) {

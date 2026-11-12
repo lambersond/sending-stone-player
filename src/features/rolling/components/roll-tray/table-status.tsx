@@ -22,10 +22,16 @@ export function TableStatus({
   state,
   dc,
   verdict,
+  made,
 }: Readonly<{
   state: TableRollState
   dc?: number
   verdict?: LocalCheck['verdict']
+  /**
+   * What the game made of it, said in place of its total, as of a die thrown again, whose total is
+   * its roll's (module 0.44.0).
+   */
+  made?: string
 }>) {
   const role = useTableRole()
   const creature = useCreature()
@@ -44,22 +50,23 @@ export function TableStatus({
     return <StatusLine tone='made'>{sentWords(role)}</StatusLine>
   }
   if (tone === 'made') {
+    const total = (
+      <span>
+        At the table:{' '}
+        <span className='font-semibold text-text-primary tabular-nums'>
+          {state.total ?? '?'}
+        </span>
+        {outcome && (
+          <span className='font-semibold text-text-primary'>
+            {' · '}
+            {outcome}
+          </span>
+        )}
+      </span>
+    )
     return state.visible ? (
       <>
-        <StatusLine tone='made'>
-          <span>
-            At the table:{' '}
-            <span className='font-semibold text-text-primary tabular-nums'>
-              {state.total ?? '?'}
-            </span>
-            {outcome && (
-              <span className='font-semibold text-text-primary'>
-                {' · '}
-                {outcome}
-              </span>
-            )}
-          </span>
-        </StatusLine>
+        <StatusLine tone='made'>{made ?? total}</StatusLine>
         <AreaOutcomes state={state} />
       </>
     ) : (

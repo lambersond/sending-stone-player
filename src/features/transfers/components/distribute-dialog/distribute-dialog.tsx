@@ -131,7 +131,9 @@ function DistributeForm({
               className='flex min-h-11 items-center gap-3 rounded-xl px-3 py-1.5 text-sm font-semibold'
             >
               <EntryIcon src={end.portrait} fallback={UserRound} />
-              <span className='min-w-0 flex-1 truncate'>{end.name}</span>
+              {/* Its name wraps, as the move's recipients' do: kept on one line, a long one held
+                  the list, as wide as what's in it, past the dialog's edge. */}
+              <span className='min-w-0 flex-1 wrap-anywhere'>{end.name}</span>
             </li>
           ))}
         </ul>

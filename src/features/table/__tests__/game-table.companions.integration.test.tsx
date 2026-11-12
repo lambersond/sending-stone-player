@@ -286,7 +286,8 @@ const visit = async (user: User, names: string[]) => {
 const fight = (fields: Partial<TableCombat> = {}): TableCombat => ({
   id: 'cmbt1',
   name: null,
-  started: true,
+  underWay: true,
+  active: true,
   round: 2,
   currentId: 'c-brakka',
   combatants: [

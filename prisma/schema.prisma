@@ -248,6 +248,11 @@ model Campaign {
   // What else the module can do with them, such as take damage a player changed, or ask players
   // for the saving throws their game asks of their characters.
   rollFeatures        String[]         @default([])
+  // Whether its module is one that asks a player typing in their dice for the dice an item rolls
+  // later wherever its switches let it, from its latest bridge.hello's versions: module 0.44.0 or
+  // later, under dnd5e 5, whatever the switches (`asksLaterDice`), for Help at either seat. Kept
+  // apart from `foundry`, which no view a player reads asks for.
+  laterDice           Boolean          @default(false)
   // Whether the Gamemaster lets the campaign's players move items and coins from here, from module
   // 0.31.0's hello: apart from the rolls.
   transfersEnabled    Boolean          @default(false)

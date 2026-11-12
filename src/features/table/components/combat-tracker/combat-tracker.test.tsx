@@ -20,7 +20,8 @@ const fighter = (
 const encounter = (fields: Partial<TableCombat> = {}): TableCombat => ({
   id: 'cmbt1',
   name: null,
-  started: true,
+  underWay: true,
+  active: true,
   round: 2,
   currentId: 'boss',
   combatants: [
@@ -45,7 +46,7 @@ const encounter = (fields: Partial<TableCombat> = {}): TableCombat => ({
 })
 
 const turnPanel = () =>
-  screen.getByRole('heading', { level: 2, name: /acting|turn|ready/ })
+  screen.getByRole('heading', { level: 2, name: /acting|turn/ })
 
 /** A row's initiative box, coloured by whose side they're on. */
 const box = (row: HTMLElement) =>
@@ -100,6 +101,23 @@ const endingOf = (
 })
 
 const HINT = 'Or press and hold the Combat tab, from any tab.'
+const ORDER_LINE =
+  'The initiative order appears here when your Gamemaster starts an encounter.'
+const ROLL_LINE =
+  'Roll initiative from the sheet for your Gamemaster’s encounter.'
+
+/** The tracker's encounter being set up, round 0, with `who` still to roll initiative. */
+const waiting = (who: Partial<TableCombatant> & { id: string }) =>
+  encounter({
+    underWay: false,
+    round: 0,
+    currentId: undefined,
+    combatants: [
+      fighter({ id: 'boss', initiative: 15 }),
+      fighter({ id: 'thorin', side: 'me', initiative: 12 }),
+      fighter({ initiative: null, ...who }),
+    ],
+  })
 
 describe('components/game-table/combat-tracker', () => {
   it('says when there is no combat', () => {
@@ -195,8 +213,9 @@ describe('components/game-table/combat-tracker', () => {
     render(<CombatTracker combat={encounter({ currentId: 'thorin' })} />)
 
     expect(turnPanel()).toHaveTextContent('Your turn')
-    expect(screen.getByText('Next: Vex')).toBeInTheDocument()
-    expect(screen.getByText('Round 2')).toBeInTheDocument()
+    expect(screen.getByText('Next: Vex')).toHaveClass('truncate')
+    // Item 33: a long name after "Next:" is cut short, never squeezing the round onto two lines.
+    expect(screen.getByText('Round 2')).toHaveClass('shrink-0')
   })
 
   it("tells the player they're up next", () => {
@@ -214,21 +233,80 @@ describe('components/game-table/combat-tracker', () => {
     expect(screen.queryByText(/^Next:/)).not.toBeInTheDocument()
   })
 
-  it('shows an encounter being set up', () => {
-    render(
-      <CombatTracker
-        combat={encounter({
-          started: false,
-          round: 0,
-          currentId: undefined,
-          combatants: [fighter({ id: 'boss', initiative: null })],
-        })}
-      />,
-    )
+  describe('an encounter not under way (item 19)', () => {
+    // What it says beneath its heading is `noCombatLines`' (v0.45, the owner's decision 1), whose
+    // cases its own test covers; here, that each of its answers is drawn.
+    it.each([
+      [
+        'the tracker’s, set up, the character waiting to roll: both lines',
+        waiting({ id: 'thorin', side: 'me' }),
+        [ORDER_LINE, ROLL_LINE],
+      ],
+      [
+        'the tracker’s, set up, another of the party waiting: the order’s line',
+        waiting({ id: 'vex', side: 'party' }),
+        [ORDER_LINE],
+      ],
+      [
+        'begun, but not the encounter the tracker shows, the character without initiative: the heading alone',
+        {
+          ...waiting({ id: 'thorin', side: 'me' }),
+          active: false,
+          round: 2,
+          currentId: 'boss',
+        },
+        [],
+      ],
+    ])('%s, its turn and order unshown', (_, combat, lines) => {
+      render(<CombatTracker combat={combat} />)
 
-    expect(turnPanel()).toHaveTextContent('Getting ready')
-    expect(screen.getByText('Not started')).toBeInTheDocument()
-    expect(screen.getByRole('listitem')).toHaveTextContent('Initiative –')
+      const heading = screen.getByRole('heading', {
+        name: 'No combat right now',
+      })
+      expect(screen.queryByRole('list')).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Initiative' })).toBeNull()
+      expect(screen.queryByText(/^Round/)).toBeNull()
+      const said = heading.nextElementSibling as HTMLElement
+      expect([...said.children].map(line => line.textContent)).toEqual(lines)
+    })
+
+    // The panel's heading comes with the encounter under way, its words already in it, so a region
+    // kept through the change says the first turn, as it says each one after it; and once said,
+    // it's cleared, so that reading through the pane hears the turn once, from the heading.
+    describe('whose turn it is, said', () => {
+      beforeEach(() => jest.useFakeTimers())
+      afterEach(() => jest.useRealTimers())
+
+      it('says the first turn as it comes under way, from a region kept through the change, then each after it, each cleared once said', () => {
+        const { rerender, container } = render(
+          <CombatTracker combat={waiting({ id: 'thorin', side: 'me' })} />,
+        )
+        const live = container.querySelector('[aria-live="polite"]')
+        expect(live).toBeEmptyDOMElement()
+
+        rerender(<CombatTracker combat={encounter({ currentId: 'thorin' })} />)
+
+        expect(container.querySelector('[aria-live="polite"]')).toBe(live)
+        expect(live).toHaveTextContent('Your turn')
+        expect(turnPanel()).not.toHaveAttribute('aria-live')
+
+        act(() => jest.advanceTimersByTime(6000))
+        expect(live).toBeEmptyDOMElement()
+        expect(turnPanel()).toHaveTextContent('Your turn')
+
+        rerender(<CombatTracker combat={encounter()} />)
+        expect(live).toHaveTextContent('Goblin Boss is acting')
+      })
+
+      it('says nothing as Combat opens on a turn: its heading is there to read', () => {
+        const { container } = render(<CombatTracker combat={encounter()} />)
+
+        expect(
+          container.querySelector('[aria-live="polite"]'),
+        ).toBeEmptyDOMElement()
+        expect(turnPanel()).toHaveTextContent('Goblin Boss is acting')
+      })
+    })
   })
 
   it('says when no one has joined', () => {
@@ -322,14 +400,6 @@ describe('components/game-table/combat-tracker', () => {
       expect(turnPanel()).not.toHaveClass('text-primary')
       expect(screen.queryByText('Roll for it on its tab.')).toBeNull()
     })
-
-    it('marks nothing as the player’s before the start', () => {
-      render(<CombatTracker combat={fight({ started: false })} />)
-      expect(turnPanel()).toHaveTextContent('Getting ready')
-      expect(turnPanel()).not.toHaveClass('text-primary')
-      expect(turnPanel().closest('section')).toHaveClass('border-border')
-      expect(screen.queryByText('Roll for it on its tab.')).toBeNull()
-    })
   })
 
   describe('End Turn (module 0.36.0)', () => {
@@ -387,8 +457,8 @@ describe('components/game-table/combat-tracker', () => {
       ['a party member’s', encounter({ currentId: 'vex' })],
       ['a foe’s', encounter()],
       [
-        'the player’s, before the start',
-        fight({ started: false, currentId: 'thorin' }),
+        'the player’s, begun, not the tracker’s',
+        fight({ underWay: false, active: false, currentId: 'thorin' }),
       ],
     ])('offers nothing on %s turn', (_, combat) => {
       render(<CombatTracker combat={combat} ending={endingOf(combat)} />)

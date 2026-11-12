@@ -128,6 +128,26 @@ describe('db/campaign-events, dice asks (module 0.44.0)', () => {
     )
   })
 
+  it.each([
+    ['module 0.44.0 under dnd5e 5', '0.44.0', '5.3.3', true],
+    ['the same module under dnd5e 6', '0.44.0', '6.0.5', false],
+    ['module 0.42.0', '0.42.0', '5.3.3', false],
+  ])(
+    'a hello keeps whether its module, %s, asks for the dice an item rolls later, for Help, whatever its switches',
+    async (_case, module, system, asks) => {
+      await hello({
+        module: { id: 'sending-stone', version: module },
+        system: { id: 'dnd5e', title: 'D&D Fifth Edition', version: system },
+      })
+
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ laterDice: asks }),
+        }),
+      )
+    },
+  )
+
   it('a hello from a module before 0.44.0, or after the Gamemaster reloads, closes every one', async () => {
     await hello({})
 

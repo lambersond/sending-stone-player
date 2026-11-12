@@ -53,7 +53,11 @@ export function CharacterChooser({
               className='size-4 accent-primary'
             />
             <Avatar name={name} className='size-9' />
-            <span className='min-w-0 flex-1 truncate font-medium'>{name}</span>
+            {/* Its name wraps, whole, to be read before it's chosen: one kept on one line held the
+                fieldset, as wide as what's in it, past a phone's screen. */}
+            <span className='min-w-0 flex-1 font-medium wrap-anywhere'>
+              {name}
+            </span>
             {claimedBy && (
               <span className='shrink-0 text-xs font-semibold text-text-secondary'>
                 {claimedBy === 'you' ? 'Already yours' : 'Taken'}

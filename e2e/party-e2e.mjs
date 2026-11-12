@@ -499,9 +499,11 @@ for (const width of [360, 390, 768, 1280]) {
       }
     })
     const wide = await sideways(phone.page)
+    // Changed on purpose (ROADMAP item 12, the owner's H1 and D4): the icon-only Help between
+    // "Reconnecting" and Full screen.
     check(wide === 0 && look.ellipsis === 'ellipsis' && look.oneLine && look.fits && /^Reconnecting/.test(look.labels[0])
-      && same(look.labels.slice(1, 2), ['Full screen']) && /^Delete /.test(look.labels[2] ?? '') && look.labels.length === 3 && (width >= 768 || look.cut),
-      `at ${width} px, ${scheme}: no sideways scroll, the long name ${look.cut ? 'cut short with an ellipsis' : 'whole'}, "Reconnecting" and Full screen on one line, no Party button (${JSON.stringify(look)})`)
+      && same(look.labels.slice(1, 3), ['Help', 'Full screen']) && /^Delete /.test(look.labels[3] ?? '') && look.labels.length === 4 && (width >= 768 || look.cut),
+      `at ${width} px, ${scheme}: no sideways scroll, the long name ${look.cut ? 'cut short with an ellipsis' : 'whole'}, "Reconnecting", Help and Full screen on one line, no Party button (${JSON.stringify(look)})`)
     await shoot(phone, 'party-header')
   }
 }

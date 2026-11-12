@@ -8,8 +8,8 @@ const SIDE_BY_SIDE = '(min-width: 64rem)'
 /**
  * The table's tabs: the one shown on a phone or tablet, the character, combat or the chat; what
  * sits beside the sheet on a wide screen, combat or the chat; and whether the screen is that wide.
- * @param fighting - Whether the page opened on a combat already started: combat then sits beside
- *   the sheet, else the chat.
+ * @param fighting - Whether the page opened on a combat under way: combat then sits beside the
+ *   sheet, else the chat.
  * @returns The tab and the column's choice; whether they sit side by side; whether the chat, the
  *   combat pane and the Character pane are in view; and `show`, which shows a tab, and on a wide
  *   screen puts combat or the chat beside the sheet.

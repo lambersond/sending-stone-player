@@ -14,6 +14,23 @@ export const ICON_TARGET =
 export const HEADER_ICON_BUTTON = `${ICON_TARGET} rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
 
 /**
+ * The character page's own header buttons, such as Full screen and Help: 32 px square on a phone,
+ * from the glyph and its padding, and 44 from `sm`.
+ */
+export const TABLE_HEADER_BUTTON = `${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
+
+/**
+ * A chip in a side panel's row of places to go to, such as the Conditions reference's conditions
+ * and Help's sections: its shape. Its colours are the caller's, `GO_TO_CHIP_PLAIN` where nothing
+ * marks it out.
+ */
+export const GO_TO_CHIP =
+  'rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors'
+
+export const GO_TO_CHIP_PLAIN =
+  'border-border hover:border-primary hover:bg-primary/5'
+
+/**
  * A stepper's − or + beside its count, such as Modify damage's dice or a transfer's amount: 40 px
  * square on a phone, 44 from `sm`. Dimmed when it can't step, by `disabled` or `aria-disabled`.
  */

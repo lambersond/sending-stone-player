@@ -4,10 +4,7 @@ import { useState } from 'react'
 import { Maximize, Minimize } from 'lucide-react'
 import { useFullscreen } from '@/components/fullscreen-button/use-fullscreen'
 import { Modal } from '@/components/modal/modal'
-import { ICON_TARGET } from '@/constants/buttons'
-
-/** The table header's icon buttons' look. */
-const ICON_BUTTON = `${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
+import { TABLE_HEADER_BUTTON } from '@/constants/buttons'
 
 /**
  * Fills the screen with the page, as a video does, and back. On an iPhone, which lets no website
@@ -28,7 +25,7 @@ export function FullscreenButton() {
         aria-label={label}
         title={label}
         onClick={active ? exit : enter}
-        className={ICON_BUTTON}
+        className={TABLE_HEADER_BUTTON}
       >
         <Icon aria-hidden className='size-4' />
       </button>
@@ -42,7 +39,7 @@ export function FullscreenButton() {
         aria-label='Full screen'
         title='Full screen'
         onClick={() => setExplaining(true)}
-        className={ICON_BUTTON}
+        className={TABLE_HEADER_BUTTON}
       >
         <Maximize aria-hidden className='size-4' />
       </button>

@@ -2,7 +2,7 @@
 
 The real Sending Stone module, in a stand-in Foundry (the module's own `test/fvtt`), posting from a
 game's page in Chromium to this app, built and served for real over its own Postgres database, with
-players and a Gamemaster in their own browsers. 53 suites, 120 runs (`regress.sh`), each on fresh data,
+players and a Gamemaster in their own browsers. 55 suites, 124 runs (`regress.sh`), each on fresh data,
 and each run's `ok` lines counted against the number it wants.
 
 They run locally, on Linux, from this checkout and the module's. Nothing here runs in CI yet.
@@ -131,7 +131,7 @@ Everything a pass writes is under `e2e/.out/`, which git ignores:
 
 | file | does |
 |---|---|
-| `*-e2e.mjs` | the suites; `world-030.mjs` is the world twenty-four of them share (since v0.44 the hit points' and the dice tray's, `hitpoints-e2e.mjs` and `dice-e2e.mjs`, among them), with Foundry's journals (the module's `test/fvtt/journal-core.mjs`) since module 0.34.0, since module 0.36.0 scenes, tokens and companions (`sceneWorld()`, the module's `test/fvtt/token-core.mjs`) for the five that load them, and since module 0.37.0 dnd5e's favorites (`favoring()`, the module's `test/fvtt/favorites-core.mjs`); the cookbook's suite also loads, since module 0.38.0, dishes' effects, world time, cards and their deletion (the module's `test/fvtt/dish-core.mjs`); the effects suite, since module 0.39.0, a character's own and items' effects, who put them there, updated and deleted (the module's `test/fvtt/effects-core.mjs`); the Wild Shape suite, since module 0.40.0, dnd5e's transformation and return, its packs and druids (the module's `test/fvtt/transform5e.mjs`); the companions' saves suite, since module 0.41.0, dnd5e's save and concentration cards at companions and, with MIDI=1, Midi-QOL's own saves (the module's `test/fvtt/dnd5e-cards.mjs` and `test/fvtt/midi-saves.mjs`); the hit points suite, since module 0.44.0, dnd5e's own handling of a change of hit points, its floating numbers, concentration and hooks (the module's `test/fvtt/hp-core.mjs`); the typed suite, since module 0.42.0, the effects that add dice to a character's rolls, from a caster's concentration, and since module 0.42.1 the Inspired a bard's 2024 Bardic Inspiration puts on one, deleted from the app (the module's `test/fvtt/effects-core.mjs`); the Tidy suite, since module 0.44.0, Tidy 5e Sheets' flags on a character and Tidy's own writes of them (the module's `test/fvtt/tidy-core.mjs`), with Foundry 14's deletions, a dotted key's legacy `-=<key>` and `_del`, which `world-030.mjs`'s actors make since then; the later dice's suite (`laterdice-e2e.mjs`), since module 0.44.0, the module's waiting window for the Gamemaster, Foundry 14's DialogV2 as far as the module draws one, drawn on the game's page and its Roll it now pressed there, with a copy of dnd5e's Ice Knife's activities and, with MIDI=1, the Midi-QOL stand-in's other activity and bonus damage macros (the module's `test/fvtt/midi-fake.mjs`); `journal-ui.mjs`, how the five journal suites find the journal's card, modal, contents, reader, editor, Move and Reorder (module 0.35.0), and since module 0.44.0 the contents' Tidy 5e Sheets entries (`tidyListed`) |
+| `*-e2e.mjs` | the suites; `world-030.mjs` is the world twenty-six of them share (since v0.44 the hit points' and the dice tray's, `hitpoints-e2e.mjs` and `dice-e2e.mjs`, among them), with Foundry's journals (the module's `test/fvtt/journal-core.mjs`) since module 0.34.0, since module 0.36.0 scenes, tokens and companions (`sceneWorld()`, the module's `test/fvtt/token-core.mjs`) for the six that load them, and since module 0.37.0 dnd5e's favorites (`favoring()`, the module's `test/fvtt/favorites-core.mjs`); the cookbook's suite also loads, since module 0.38.0, dishes' effects, world time, cards and their deletion (the module's `test/fvtt/dish-core.mjs`); the effects suite, since module 0.39.0, a character's own and items' effects, who put them there, updated and deleted (the module's `test/fvtt/effects-core.mjs`); the Wild Shape suite, since module 0.40.0, dnd5e's transformation and return, its packs and druids (the module's `test/fvtt/transform5e.mjs`); the companions' saves suite, since module 0.41.0, dnd5e's save and concentration cards at companions and, with MIDI=1, Midi-QOL's own saves (the module's `test/fvtt/dnd5e-cards.mjs` and `test/fvtt/midi-saves.mjs`); the hit points suite, since module 0.44.0, dnd5e's own handling of a change of hit points, its floating numbers, concentration and hooks (the module's `test/fvtt/hp-core.mjs`); the typed suite, since module 0.42.0, the effects that add dice to a character's rolls, from a caster's concentration, and since module 0.42.1 the Inspired a bard's 2024 Bardic Inspiration puts on one, deleted from the app (the module's `test/fvtt/effects-core.mjs`); the Tidy suite, since module 0.44.0, Tidy 5e Sheets' flags on a character and Tidy's own writes of them (the module's `test/fvtt/tidy-core.mjs`), with Foundry 14's deletions, a dotted key's legacy `-=<key>` and `_del`, which `world-030.mjs`'s actors make since then; the later dice's suite (`laterdice-e2e.mjs`), since module 0.44.0, the module's waiting window for the Gamemaster, Foundry 14's DialogV2 as far as the module draws one, drawn on the game's page and its Roll it now pressed there, with a copy of dnd5e's Ice Knife's activities and, with MIDI=1, the Midi-QOL stand-in's other activity and bonus damage macros (the module's `test/fvtt/midi-fake.mjs`); `journal-ui.mjs`, how the five journal suites find the journal's card, modal, contents, reader, editor, Move and Reorder (module 0.35.0), and since module 0.44.0 the contents' Tidy 5e Sheets entries (`tidyListed`) |
 | `cookbook-post.mjs` | the cookbook's POST to this app, as its server makes it, with synthetic dishes and link codes (module 0.38.0) |
 | `env.mjs` | what every suite takes from the environment: `BASE`, `dbUrl` and `sql()`, `authSecret` and `cookieFor()`, `MODULE` |
 | `regress.sh` | every run: `run name want VARS…` |
@@ -196,7 +196,7 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
 
   If a run fails only in lanes, read its FAIL line before blaming the lanes. Rerun it with `ONLY=name`,
   serially, or with `RETRY=1`. Never loosen the check.
-- **Six known load races**, each failed only on a loaded machine and passed when rerun alone:
+- **Four known load races**, each failed only on a loaded machine and passed when rerun alone:
   - **transfers DND5E6=1**, "the module fetches for moves with rolls off, and no 60 s wait holds it
     after the hello's answer": the check gives the module 1.5 s from the hello's answer to begin a
     fetch for commands. Under load none had begun by then, and none had been answered with a 60 s
@@ -213,24 +213,11 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     game answering each check before the fourth lands; under load its answer came after. It runs alone
     already (`solo`), and failed so twice in a row there, straight after a pass's lanes, then passed
     when rerun with `ONLY=toasts`.
-  - **alone** and **alone MIDI=1**, part 15, "Timed out waiting for Fire Breath's failed recharge at
-    768 to be sent": the Recharge chip's tap sent nothing in 30 s. Most likely the tap came as the page
-    took the game's recharged sheet: the chip the suite waited for was still shown from before the
-    recharge, and went (to come back with the spend after it) between Playwright's look and its tap.
-    Alone that sheet reaches the page before the spend; under load it comes after.
   - **alone DND5E6=1**, part 17's deferred "as it opens, focus on the chip picked in its first row":
     focus was on the Spend switch. The picker opened on the page's sheet from before Thorin's 2nd-level
     slot reached it, with one level and so no row of levels, where the switch takes focus; and the poll
     bringing the slot landed before the suite's first look at the picker, so `openPicker` took it as
     ready. Under load more time passes between the two.
-  - **feedback SKEW=042**, under Attack Roll Visibility "Hide AC", `and the app pills it "Hit"`
-    (the run's 85th check of 115, after the 84 before it had passed): the phone's chat still showed
-    the goblin with no Hit pill after `targetsBecome`'s 15 s wait. The check just before it passed, so
-    module 0.42.0 had already told the app that the rapier hit, and never the goblin's armor class.
-    It failed once, under three lanes' load (a load average of about 6), and passed alone on lane 0
-    with the other lanes idle (`RETRY=1`, 115 of 115), as it did in Batch 1's own pass. The check is
-    an old one, which this variant, new in v0.44, runs too; the plain and Midi-QOL runs passed it in
-    the same pass.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across

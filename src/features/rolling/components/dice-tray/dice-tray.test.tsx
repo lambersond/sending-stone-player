@@ -166,6 +166,41 @@ describe('features/rolling/components/dice-tray', () => {
     ])
   })
 
+  it('says a clear once, its dice and the number added going together, and the modifier’s steps after it', async () => {
+    const user = userEvent.setup()
+    tray()
+    await user.click(toggle())
+    const picked = screen.getByRole('status', { name: 'Dice picked' })
+    const modifier = within(
+      screen.getByRole('group', { name: 'Modifier' }),
+    ).getByRole('status')
+    // What a screen reader hears from either region: each change to its words while it's live.
+    const heard: string[] = []
+    for (const region of [picked, modifier]) {
+      new MutationObserver(() => {
+        if (region.getAttribute('aria-live') === 'polite') {
+          heard.push(region.textContent ?? '')
+        }
+      }).observe(region, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      })
+    }
+    const raise = () =>
+      user.click(screen.getByRole('button', { name: 'Raise the modifier' }))
+    const clear = () =>
+      user.click(screen.getByRole('button', { name: 'Clear' }))
+
+    await user.click(add('d8'))
+    await raise()
+    await clear()
+    // The number added cleared alone is the modifier's to say.
+    await raise()
+    await clear()
+    expect(heard).toEqual(['1d8', '+1', 'No dice', '+1', '+0'])
+  })
+
   it('caps its height by the pane it sits in, not the screen, leaving the chat above room, its dice scrolling within, and never below its bar', async () => {
     const user = userEvent.setup()
     tray()

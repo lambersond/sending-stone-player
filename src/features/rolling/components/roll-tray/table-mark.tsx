@@ -1,5 +1,5 @@
 import { gmShape } from '../../utils/gm-words'
-import { enchantmentNote, savedHere } from '../../utils/tray-words'
+import { againWords, enchantmentNote, savedHere } from '../../utils/tray-words'
 import { dcOf, madeWord } from './utils'
 import { onItsWay } from '@/utils/lifecycle'
 import type { LocalRoll, TableRollState } from '@/types/roll'
@@ -53,7 +53,9 @@ export function TableMark({
 
 /**
  * A roll's mark once the game made it: an ask posted; a use at the table, or the enchantment it
- * applied; else the game's total, or that it's hidden, and what came of it (`madeWord`).
+ * applied; a die thrown again (module 0.44.0), what became of it in its roll (`againWords`), whose
+ * own line has the game's total; else the game's total, or that it's hidden, and what came of it
+ * (`madeWord`).
  */
 function MadeMark({
   roll,
@@ -69,6 +71,14 @@ function MadeMark({
     return (
       <span className='ml-1.5'>
         {enchantmentNote(state.enchantment) ?? '· at the table'}
+      </span>
+    )
+  }
+  const again = againWords(roll)
+  if (again) {
+    return (
+      <span className='ml-1.5'>
+        {state.visible ? `· ${again.after}` : '· hidden'}
       </span>
     )
   }

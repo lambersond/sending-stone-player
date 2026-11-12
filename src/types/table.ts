@@ -195,7 +195,18 @@ export type TableCombatant = {
 export type TableCombat = {
   id: string
   name: string | null
-  started: boolean
+  /**
+   * Whether it's under way: begun, round 1 or later, and the encounter its Gamemaster's tracker
+   * shows. Only then are its turn and initiative order shown; otherwise it's held for the sheet's
+   * initiative roll and the target picker.
+   */
+  underWay: boolean
+  /**
+   * Whether it's the encounter its Gamemaster's tracker shows, the only one the game takes an
+   * initiative rolled from the sheet into (v0.45).
+   */
+  active: boolean
+  /** Its round: 0 before it begins, 1 or later once it has. */
   round: number
   /** Whose turn it is. Unset before the start, or while a hidden combatant acts. */
   currentId?: string
@@ -412,6 +423,14 @@ export type TableView = {
    * this character here, and whether they chose to. Unset for the Gamemaster's seat.
    */
   manualDice?: { offered: boolean; on: boolean }
+  /**
+   * At either seat: whether the campaign's module is one that asks a player typing in their dice
+   * for the dice an item rolls later wherever its switches let it, module 0.44.0 or later under
+   * dnd5e 5, as its hello said last (the campaign's `laterDice`), stored, never whether it polled
+   * lately nor how the switches stand, so that Help's text says the same as they change. Unset
+   * where it isn't.
+   */
+  laterDice?: true
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */

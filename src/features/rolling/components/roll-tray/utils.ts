@@ -1,5 +1,6 @@
 import {
   byTheGame,
+  leftSome,
   rechargeWord,
   savedAt,
   thrownAgainThere,
@@ -58,14 +59,15 @@ export function madeWord(
 
 /**
  * The total an earlier roll shows after its dice: a check's, a formula's, or damage's thrown here;
- * none for a use, an ask or one of the Gamemaster's, for damage the game rolls itself, nor for a
- * roll the game throws dice again for, whose total here isn't the game's.
+ * none for a use, an ask or one of the Gamemaster's, for damage the game rolls itself, for a roll
+ * the game throws dice again for, whose total here isn't the game's, nor for the dice the game
+ * asked for where the player left any to it (module 0.44.0), as the dice typed aren't all of it.
  */
 export function earlierTotal(
   roll: LocalRoll,
   state?: TableRollState,
 ): number | undefined {
-  if (thrownAgainThere(roll, state)) return undefined
+  if (thrownAgainThere(roll, state) || leftSome(roll)) return undefined
   if (roll.kind === 'check' || roll.kind === 'formula') return roll.total
   if (roll.kind === 'damage' && !byTheGame(roll)) return roll.total
   return undefined

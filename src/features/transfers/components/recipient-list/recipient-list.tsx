@@ -145,7 +145,9 @@ function Option({
           )}
         />
         <EntryIcon src={end.portrait} fallback={fallback} />
-        <span className='min-w-0 flex-1 truncate'>{end.name}</span>
+        {/* Its name wraps, whole, to be read before it's chosen: one kept on one line held the
+            move's fieldset, as wide as what's in it, past the dialog's edge. */}
+        <span className='min-w-0 flex-1 wrap-anywhere'>{end.name}</span>
         {/* Said after the name, as "The Iron Company Primary". */}
         {end.primary && ' '}
         {end.primary && (

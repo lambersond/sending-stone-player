@@ -47,9 +47,9 @@ export function messageCount(count: number): string {
   return `${count} ${count === 1 ? 'message' : 'messages'}`
 }
 
+/** The encounter in the header: its round and whose turn, while it's under way. */
 export function combatSummary(combat?: TableCombat): string {
-  if (!combat) return 'No combat'
-  if (!combat.started) return 'Getting ready'
+  if (!combat?.underWay) return 'No combat'
   const current = currentCombatant(combat)
   if (current?.side === 'me') return `Round ${combat.round} · Your turn`
   return current

@@ -64,6 +64,13 @@ export type GameTableProps = {
  */
 export type SeatTurn = { companion?: string }
 
+/**
+ * What the Combat tab says under "No combat right now" (v0.45): `order`, that the initiative order
+ * appears once an encounter starts; `roll`, that and the line to roll initiative from the sheet;
+ * `none`, nothing, the heading alone.
+ */
+export type NoCombatLines = 'order' | 'roll' | 'none'
+
 /** What `useHold` puts on the tab held to end the turn: its pointer, menu and click handlers. */
 export type HoldHandlers = {
   onPointerDown: PointerEventHandler

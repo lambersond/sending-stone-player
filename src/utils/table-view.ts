@@ -1,6 +1,8 @@
 import { askTitle, isAbility } from './ask-words'
+import { withoutTags } from './beyond-tags'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
 import { MAX_CHECKS, toolOrSkillName } from '@/utils/description-links'
+import { ownName } from '@/utils/own-name'
 import type { TableRoll } from '@/types/roll'
 import type {
   AskedCheck,
@@ -848,10 +850,10 @@ function rollLabel(
   roll: NonNullable<NonNullable<SerializedMessage['dnd5e']>['roll']>,
   item: string | undefined,
 ): string | undefined {
-  const ability = ABILITIES[String(roll.ability)]
+  const ability = ownName(ABILITIES, roll.ability)
   switch (roll.type) {
     case 'skill': {
-      return named(SKILLS[String(roll.skillId)], 'check')
+      return named(ownName(SKILLS, roll.skillId), 'check')
     }
     case 'ability': {
       return named(ability, 'check')
@@ -928,7 +930,7 @@ export function htmlToText(html: string): string | undefined {
             : Number.parseInt(code.slice(1), 10)
         return Number.isFinite(point) ? String.fromCodePoint(point) : entity
       }
-      return ENTITIES[code.toLowerCase()] ?? entity
+      return ownName(ENTITIES, code.toLowerCase()) ?? entity
     })
     .replaceAll(/\s+/g, ' ')
     .trim()
@@ -940,7 +942,16 @@ export function htmlToText(html: string): string | undefined {
 /* -------------------------------------------- */
 
 /**
- * The encounter to show: the one the tracker is showing, preferring one under way.
+ * Whether an encounter is under way, the one rule for showing its turn and initiative order:
+ * begun, round 1 or later, and the one its Gamemaster's tracker shows, as Foundry's Begin Combat
+ * and its scene's chosen encounter have it.
+ */
+function isUnderWay(combat: CombatSnapshot): boolean {
+  return combat.started && combat.active
+}
+
+/**
+ * The encounter to show: one under way first, then the one the tracker is showing, then one begun.
  * @param combats - Every held combat, most recently changed first.
  */
 export function pickCombat(
@@ -967,7 +978,8 @@ export function toTableCombat(
   return {
     id: combat.id,
     name: combat.name,
-    started: combat.started,
+    underWay: isUnderWay(combat),
+    active: combat.active,
     round: combat.round,
     currentId: current ? (combat.combatantId ?? undefined) : undefined,
     combatants,
@@ -1035,12 +1047,12 @@ export function toTableSheet(
     portrait: portraitUrl(img, origin),
     abilities: sheet.abilities.map(ability => ({
       ...ability,
-      label: ability.label || ABILITIES[ability.id] || ability.id,
+      label: ability.label || ownName(ABILITIES, ability.id) || ability.id,
       abbreviation: ability.abbreviation || ability.id.toUpperCase(),
     })),
     skills: sheet.skills.map(skill => ({
       ...skill,
-      label: skill.label || SKILLS[skill.id] || skill.id,
+      label: skill.label || ownName(SKILLS, skill.id) || skill.id,
     })),
     // Sheets from before module 0.18.0 have none.
     ...(sheet.tools && {
@@ -1078,7 +1090,11 @@ export function toTableSheet(
         img: iconUrl(spell.img, origin),
       })),
     })),
-    traits: sheet.traits ?? [],
+    // Each value without the tags D&D Beyond's markup may have left in it, as an import does.
+    traits: (sheet.traits ?? []).map(trait => ({
+      ...trait,
+      values: trait.values.map(value => withoutTags(value)),
+    })),
     deathSaves: sheet.deathSaves ?? BEFORE_0_7_0.deathSaves,
     details: sheet.details ?? BEFORE_0_7_0.details,
     // Nor these, before module 0.8.0.

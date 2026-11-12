@@ -627,6 +627,45 @@ await Hooks.callAll('createCombat', fight)
 const initiative = sheet.getByRole('button', { name: 'Initiative, +1, to roll for the combat' })
 await initiative.waitFor({ timeout: 15_000 })
 await shoot(page, 'phone-initiative-to-roll')
+// Item 19 (the owner's Q4 A): an encounter not yet begun shows no turn and no initiative order on
+// Combat, only that there's no combat, with a line to roll from the sheet while Thorin waits: the
+// tracker's encounter before Begin Combat, the one the game takes his roll into (v0.45, decision 1).
+const tableNav = page.getByRole('navigation', { name: 'Table' })
+const tracker = page.getByRole('region', { name: 'Combat' })
+const ORDER_LINE = 'The initiative order appears here when your Gamemaster starts an encounter.'
+const ROLL_LINE = 'Roll initiative from the sheet for your Gamemaster’s encounter.'
+/**
+ * What Combat shows: whether it says there's no combat, that the order appears once an encounter
+ * starts, its line to roll, its rows and its turn panel.
+ */
+const combatShows = async () => {
+  await tableNav.getByRole('button', { name: /^Combat/ }).click()
+  await tracker.waitFor()
+  return {
+    none: await tracker.getByRole('heading', { name: 'No combat right now' }).count() === 1,
+    order: await tracker.getByText(ORDER_LINE).count() === 1,
+    line: await tracker.getByText(ROLL_LINE).count() === 1,
+    rows: await tracker.getByRole('listitem').count(),
+    turn: await page.locator('#turn-heading').count() === 1,
+  }
+}
+/**
+ * The page's next answer to its table's poll; with `initiative`, the next whose encounter gives
+ * Thorin that initiative.
+ */
+const tablePolled = initiative => page.waitForResponse(async response => {
+  if (response.request().method() !== 'GET' || new URL(response.url()).pathname !== '/api/characters/sheet-thorin/table') return false
+  if (initiative === undefined) return true
+  const view = await response.json().catch(() => undefined)
+  return view?.combat?.combatants.find(({ id }) => id === 'c-thorin')?.initiative === initiative
+}, { timeout: 45_000 })
+{
+  const shown = await combatShows()
+  check(shown.none && shown.order && shown.line && shown.rows === 0 && !shown.turn,
+    `in the tracker's encounter not begun, Combat says "No combat right now", that the order appears once it starts, and to roll initiative from the sheet, with no turn and no initiative order (${JSON.stringify(shown)})`)
+  await shoot(page, 'phone-combat-not-begun')
+  await tableNav.getByRole('button', { name: /^Character/ }).click()
+}
 ;({ request, made, message, text } = await rollAtTable(initiative, 'initiative'))
 check(request.payload.kind === 'initiative' && request.payload.combatId === 'cmbt1', 'the Initiative button rolls for the combat Thorin waits in')
 check(turn.initiative === message.rolls[0].total && message.rolls[0].dice[0].results[0].result === request.payload.dice[0].results[0], `the game gives Thorin initiative ${turn.initiative}, with Alice's d20`)
@@ -634,6 +673,42 @@ check(text.includes(`At the table: ${turn.initiative}`), `the tray shows it: "${
 await Hooks.callAll('updateCombatant', turn, { initiative: turn.initiative })
 await sheet.getByRole('button', { name: 'Initiative, +1' }).waitFor({ timeout: 15_000 })
 check(true, 'once rolled, Initiative rolls only in the app')
+{
+  await until(async () => !(await combatShows()).line, 'the line to roll gone from Combat', 15_000)
+  const shown = await combatShows()
+  check(shown.none && shown.order && shown.rows === 0 && !shown.turn, `once Thorin has rolled, the line goes, and still no turn nor order before the encounter begins (${JSON.stringify(shown)})`)
+  // The Gamemaster's Begin Combat: round 1, the first in initiative acting.
+  fight.started = true; fight.round = 1; fight.turn = 0
+  await Hooks.callAll('combatTurnChange', fight, { round: 0, turn: null, combatantId: null }, { round: 1, turn: 0, combatantId: fight.turns[0].id })
+  await page.locator('#turn-heading').waitFor({ timeout: 15_000 })
+  const begun = await combatShows()
+  const round = await page.locator('section[aria-labelledby="turn-heading"]').getByText('Round 1', { exact: true }).count()
+  check(!begun.none && begun.rows === 2 && begun.turn && round === 1, `once begun, Combat shows round 1, the turn and the initiative order of both (${JSON.stringify({ ...begun, round })})`)
+  await shoot(page, 'phone-combat-begun')
+  // Item 19: begun, it's under way only while it's the encounter its scene's tracker shows. The
+  // Gamemaster turns the tracker to another (Foundry's activate): no turn nor order again. And the
+  // owner's decision 1 (v0.45): there, "No combat right now" alone, with neither the line that the
+  // order appears once an encounter starts, as it has, nor the line to roll initiative, which the game
+  // takes only into the tracker's encounter, even with Thorin's initiative cleared.
+  fight.active = false
+  await Hooks.callAll('updateCombat', fight, { active: false })
+  await until(async () => !(await combatShows()).turn, 'the turn gone from Combat, the tracker on another encounter', 15_000)
+  const away = await combatShows()
+  check(away.none && !away.order && !away.line && away.rows === 0 && !away.turn,
+    `begun but no longer the encounter the tracker shows, Combat says "No combat right now" alone: no turn, no initiative order, no line (${JSON.stringify(away)})`)
+  turn.initiative = null
+  // Nothing on Combat changes with it, so it's read once the page has drawn a view without it: the
+  // poll that brings it, then the next.
+  const clearing = tablePolled(null)
+  await Hooks.callAll('updateCombatant', turn, { initiative: null })
+  await clearing
+  await tablePolled()
+  const cleared = await combatShows()
+  check(cleared.none && !cleared.order && !cleared.line && cleared.rows === 0 && !cleared.turn,
+    `and with Thorin's initiative cleared, still "No combat right now" alone: no line to roll it, no turn nor order (${JSON.stringify(cleared)})`)
+  await shoot(page, 'phone-combat-begun-elsewhere')
+  await tableNav.getByRole('button', { name: /^Character/ }).click()
+}
 
 // ---- A death saving throw ----
 thorin.system.attributes.hp.value = 0

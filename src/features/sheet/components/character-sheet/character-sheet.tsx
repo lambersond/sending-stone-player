@@ -18,6 +18,7 @@ import { Stat } from '../sheet-tiles/stat'
 import { StatTag } from '../sheet-tiles/stat-tag'
 import { isShowingDeathSaves } from '../sheet-tiles/utils'
 import { WalkingSpeed } from '../sheet-tiles/walking-speed'
+import { SheetTraits } from '../sheet-traits/sheet-traits'
 import { acTag } from './utils'
 import { ConfirmModal } from '@/components/modal/confirm-modal'
 import { CreatureHeader } from '@/features/companions/components/creature-header/creature-header'
@@ -73,7 +74,6 @@ export function CharacterSheet({
   const combatId = waiting ? combat?.id : undefined
   const abilitiesId = useSheetId('abilities-heading')
   const skillsId = useSheetId('skills-heading')
-  const traitsId = useSheetId('traits-heading')
   // What the character is transformed into, from module 0.40.0, whose numbers some of these are:
   // never at a creature's pane.
   const form = creature ? undefined : sheet.form
@@ -165,24 +165,7 @@ export function CharacterSheet({
 
       {favorites}
 
-      {sheet.traits.length > 0 && (
-        <section aria-labelledby={traitsId} className='flex flex-col gap-2'>
-          <SheetHeading id={traitsId}>Traits</SheetHeading>
-          <dl className='grid gap-x-4 rounded-2xl border border-border bg-card p-1.5 @2xl:grid-cols-2'>
-            {sheet.traits.map(trait => (
-              <div
-                key={trait.id}
-                className='flex flex-col gap-0.5 rounded-xl px-2.5 py-2'
-              >
-                <dt className='text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
-                  {trait.label}
-                </dt>
-                <dd className='text-sm'>{trait.values.join(', ')}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
+      <SheetTraits traits={sheet.traits} />
 
       {dialogs}
     </div>

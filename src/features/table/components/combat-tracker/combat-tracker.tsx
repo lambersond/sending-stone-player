@@ -3,17 +3,23 @@
 import { Swords } from 'lucide-react'
 import { CombatantRow } from './combatant-row'
 import { TurnPanel } from './turn-panel'
+import { useTurnSaid } from './use-turn-said'
+import { turnHeading } from './utils'
 import { EmptyState } from '@/components/empty-state/empty-state'
+import { noCombatLines } from '@/features/table/utils/combat'
 import { useTableRole } from '@/hooks/use-table-api'
 import { seatWords } from '@/utils/seat-words'
 import type { PanelEnding } from '@/features/table/types'
 import type { TableCombat } from '@/types/table'
 
 /**
- * The encounter as the character's player sees it: whose turn it is, above the initiative order.
- * From module 0.36.0, the character's companions are the player's own, and on a companion's turn
- * its panel says to roll for it on its tab, which it opens. And on the seat's turn, the panel
- * offers End Turn.
+ * The encounter as the character's player sees it, while it's under way: whose turn it is, above
+ * the initiative order. From module 0.36.0, the character's companions are the player's own, and on
+ * a companion's turn its panel says to roll for it on its tab, which it opens. And on the seat's
+ * turn, the panel offers End Turn. Before then, or with none, there's no combat to show, and it
+ * says what `noCombatLines` has it say: in the tracker's encounter before Begin Combat, while the
+ * character or a companion of it waits for its initiative, to roll it from the sheet; in one begun
+ * that isn't the Gamemaster's tracker's, nothing beneath its heading.
  * @param onOpen - Shows a companion's tab, by its key.
  * @param keys - The companions whose tabs the page shows.
  */
@@ -29,12 +35,30 @@ export function CombatTracker({
     keys?: ReadonlySet<string>
   } & PanelEnding
 >) {
-  const { noCombat } = seatWords(useTableRole())
-  if (!combat) {
+  const { noCombat, rollInitiative } = seatWords(useTableRole())
+  // Whose turn it is, said as it changes from a region first in either view, so it stays as the
+  // encounter comes under way and its first turn is heard too, as each turn after it is; cleared
+  // once said, so that it isn't heard again beside the panel's heading.
+  const turn = useTurnSaid(combat?.underWay ? turnHeading(combat) : '')
+  const said = (
+    <p aria-live='polite' className='sr-only'>
+      {turn}
+    </p>
+  )
+  if (!combat?.underWay) {
+    const lines = noCombatLines(combat)
     return (
-      <EmptyState icon={Swords} title='No combat right now'>
-        {noCombat}
-      </EmptyState>
+      <>
+        {said}
+        <EmptyState icon={Swords} title='No combat right now'>
+          {lines !== 'none' && <p>{noCombat}</p>}
+          {lines === 'roll' && (
+            <p className='mt-2 font-medium text-text-primary'>
+              {rollInitiative}
+            </p>
+          )}
+        </EmptyState>
+      </>
     )
   }
 
@@ -42,43 +66,46 @@ export function CombatTracker({
   // the page's background, so rows pass out of sight behind it. Padding follows the pane's width,
   // which beside the sheet on a wide screen is narrow.
   return (
-    <div className='mx-auto flex w-full max-w-3xl flex-col'>
-      <div className='sticky top-0 z-10 bg-page px-4 pt-4 pb-3 @xl:px-8 @xl:pt-6'>
-        <TurnPanel combat={combat} onOpen={onOpen} keys={keys} {...ending} />
-      </div>
-      <section
-        aria-labelledby='initiative-heading'
-        className='flex min-w-0 flex-col gap-2 px-4 pb-4 @xl:px-8 @xl:pb-6'
-      >
-        <div className='flex items-baseline justify-between gap-2 px-0.5'>
-          <h2
-            id='initiative-heading'
-            className='text-xs font-semibold tracking-wider text-text-secondary uppercase'
-          >
-            Initiative
-          </h2>
-          {combat.name && (
-            <span className='truncate text-xs text-text-secondary'>
-              {combat.name}
-            </span>
-          )}
+    <>
+      {said}
+      <div className='mx-auto flex w-full max-w-3xl flex-col'>
+        <div className='sticky top-0 z-10 bg-page px-4 pt-4 pb-3 @xl:px-8 @xl:pt-6'>
+          <TurnPanel combat={combat} onOpen={onOpen} keys={keys} {...ending} />
         </div>
-        {combat.combatants.length > 0 ? (
-          <ol className='flex flex-col gap-2'>
-            {combat.combatants.map(combatant => (
-              <CombatantRow
-                key={combatant.id}
-                combatant={combatant}
-                current={combatant.id === combat.currentId}
-              />
-            ))}
-          </ol>
-        ) : (
-          <p className='rounded-2xl border border-dashed border-border p-6 text-center text-sm text-text-secondary'>
-            No one has joined this encounter yet.
-          </p>
-        )}
-      </section>
-    </div>
+        <section
+          aria-labelledby='initiative-heading'
+          className='flex min-w-0 flex-col gap-2 px-4 pb-4 @xl:px-8 @xl:pb-6'
+        >
+          <div className='flex items-baseline justify-between gap-2 px-0.5'>
+            <h2
+              id='initiative-heading'
+              className='text-xs font-semibold tracking-wider text-text-secondary uppercase'
+            >
+              Initiative
+            </h2>
+            {combat.name && (
+              <span className='truncate text-xs text-text-secondary'>
+                {combat.name}
+              </span>
+            )}
+          </div>
+          {combat.combatants.length > 0 ? (
+            <ol className='flex flex-col gap-2'>
+              {combat.combatants.map(combatant => (
+                <CombatantRow
+                  key={combatant.id}
+                  combatant={combatant}
+                  current={combatant.id === combat.currentId}
+                />
+              ))}
+            </ol>
+          ) : (
+            <p className='rounded-2xl border border-dashed border-border p-6 text-center text-sm text-text-secondary'>
+              No one has joined this encounter yet.
+            </p>
+          )}
+        </section>
+      </div>
+    </>
   )
 }

@@ -1,0 +1,179 @@
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { HelpPanel } from './help-panel'
+import { GM_SEND_KEY, SEND_KEY } from '@/features/rolling/constants'
+import type { TableView } from '@/types/table'
+
+const view = (fields: Partial<TableView> = {}): TableView => ({
+  version: 1,
+  live: true,
+  campaign: { title: 'The Lonely Mountain' },
+  connected: true,
+  messages: [],
+  ...fields,
+})
+
+const SECTIONS = [
+  'Rolling',
+  'Hold for more',
+  'Dice tray',
+  'Typing in your own dice',
+  'Hit points and rests',
+  'Combat',
+  'Settings',
+  'What your Gamemaster turns on',
+]
+
+const renderPanel = (
+  fields: { gm?: boolean; shown?: TableView; typing?: { on: boolean } } = {},
+) =>
+  render(
+    <HelpPanel
+      open
+      onClose={jest.fn()}
+      gm={fields.gm ?? false}
+      name='Thorin'
+      playing
+      view={fields.shown ?? view()}
+      typing={'typing' in fields ? fields.typing : { on: true }}
+    />,
+  )
+
+const panel = () => screen.getByRole('dialog', { name: 'Help' })
+
+describe('features/help/components/help-panel', () => {
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView
+    localStorage.clear()
+  })
+
+  it('opens at its title for the player: the box, then the Go to chips and the eight sections', () => {
+    renderPanel({
+      shown: view({ rollsToTable: ['skill', 'dice'], laterDice: true }),
+    })
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Help' }),
+    ).toHaveFocus()
+    expect(panel()).toHaveTextContent(/^HelpPlaying from Sending Stone/)
+    const [box, ...sections] = within(panel()).getAllByRole('region')
+    expect(box).toHaveAccessibleName('In this game, for Thorin')
+    expect(within(box).getByText('Dice an item rolls later')).toBeVisible()
+    const chips = within(
+      screen.getByRole('navigation', { name: 'Go to a section' }),
+    ).getAllByRole('button')
+    expect(chips.map(chip => chip.textContent)).toEqual(SECTIONS)
+    expect(
+      sections.map(section => within(section).getByRole('heading').textContent),
+    ).toEqual(SECTIONS)
+    // Shown where the campaign's module asks for those dice (H6 B).
+    expect(screen.getByText('Dice an item rolls later.')).toBeVisible()
+  })
+
+  it('shows the Gamemaster what their player sees, after the seat’s note, the same sections', () => {
+    renderPanel({ gm: true, shown: view({ gm: { rolls: 'off' } }) })
+
+    expect(panel()).toHaveTextContent(/^HelpWhat your player sees/)
+    expect(
+      screen.getByText(/^At your player’s sheet\. .* you roll as Thorin, /),
+    ).toBeVisible()
+    expect(
+      within(panel())
+        .getAllByRole('heading', { level: 3 })
+        .map(heading => heading.textContent),
+    ).toEqual(['In this game, for Thorin', ...SECTIONS])
+  })
+
+  it.each([
+    ['player', 'is', false, true],
+    ['Gamemaster', 'is', true, true],
+    ['player', 'isn’t', false, undefined],
+    ['Gamemaster', 'isn’t', true, undefined],
+  ] as const)(
+    'at the %s’s seat, typing not allowed and no rolls taken now, describes the dice an item rolls later where the campaign’s module %s one that asks for them',
+    (_seat, _is, gm, laterDice) => {
+      renderPanel({
+        gm,
+        typing: undefined,
+        shown: view({ gm: { rolls: 'off' }, rollsToTable: [], laterDice }),
+      })
+
+      expect(screen.queryByText('Dice an item rolls later.') !== null).toBe(
+        laterDice === true,
+      )
+      // Its row in the box follows the switches: none while the player may not type theirs in.
+      expect(screen.queryByText('Dice an item rolls later')).toBeNull()
+    },
+  )
+
+  it.each([
+    [
+      'player',
+      false,
+      SEND_KEY,
+      {
+        'Your rolls': 'Stay here: only you see them',
+        'Dice your effects add': 'Not while Send is off',
+        'Dice an item rolls later': 'Not while Send is off',
+      },
+    ],
+    [
+      'Gamemaster',
+      true,
+      GM_SEND_KEY,
+      { 'Your rolls here': 'Stay here: only you see them' },
+    ],
+  ])(
+    'says what the %s’s seat sends the game stays here while this device’s Send to the table is off',
+    (_seat, gm, key, says) => {
+      localStorage.setItem(key, 'off')
+      renderPanel({
+        gm,
+        shown: view({
+          rollsToTable: ['skill', 'dice'],
+          rollFeatures: ['effectDice'],
+          gm: { rolls: 'made' },
+          laterDice: true,
+        }),
+      })
+
+      const box = within(panel()).getByRole('region', {
+        name: 'In this game, for Thorin',
+      })
+      const rows = within(box)
+        .getAllByRole('term')
+        .map(term => [term.textContent, term.nextSibling?.textContent])
+        .filter(([label]) => /^(Your rolls|Dice (your|an))/.test(label ?? ''))
+      expect(Object.fromEntries(rows)).toEqual(says)
+    },
+  )
+
+  it.each([
+    ['smoothly', false, 'smooth'],
+    ['at once, for reduced motion', true, 'auto'],
+  ])(
+    'moves focus to a chip’s section heading, and scrolls it to the top %s',
+    async (_how, reduced, behavior) => {
+      const scrolled = jest.fn()
+      Element.prototype.scrollIntoView = scrolled
+      jest
+        .spyOn(globalThis, 'matchMedia')
+        .mockReturnValue({ matches: reduced } as MediaQueryList)
+      const user = userEvent.setup()
+      renderPanel()
+
+      await user.click(
+        screen.getByRole('button', { name: 'Typing in your own dice' }),
+      )
+
+      const heading = screen.getByRole('heading', {
+        level: 3,
+        name: 'Typing in your own dice',
+      })
+      expect(heading).toHaveFocus()
+      expect(scrolled).toHaveBeenCalledTimes(1)
+      expect(scrolled.mock.contexts[0]).toBe(heading)
+      expect(scrolled).toHaveBeenCalledWith({ block: 'start', behavior })
+    },
+  )
+})

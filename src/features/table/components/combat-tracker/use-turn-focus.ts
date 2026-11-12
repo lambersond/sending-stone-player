@@ -29,10 +29,8 @@ export function useTurnFocus({
 }) {
   const titled = useRef<HTMLHeadingElement>(null)
   const button = useRef<HTMLButtonElement>(null)
-  const now =
-    combat.started && current
-      ? `${combat.id}:${combat.round}:${current.id}`
-      : ''
+  // The turn shown: the panel is drawn only for a combat under way (`CombatTracker`).
+  const now = current ? `${combat.id}:${combat.round}:${current.id}` : ''
   // The End Turn that moved the turn on, by its id; or, where the app took it with no id to follow
   // it by, by its way, which is that End Turn's own once done.
   const moved =

@@ -2,20 +2,20 @@
 
 import { type ReactNode, type Ref } from 'react'
 import { BellRing, Check, LoaderCircle, Timer } from 'lucide-react'
-import { useSecondsLeft } from './use-seconds-left'
 import {
   abilitiesOf,
   advantageOf,
   advantageWords,
   choicesOf,
-  clock,
   midiTitleOf,
   titleOf,
 } from './utils'
 import { useD20Rolls } from '@/features/rolling/components/d20-rolls/use-d20-rolls'
 import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
+import { useSecondsLeft } from '@/hooks/use-seconds-left'
 import { useTableRole } from '@/hooks/use-table-api'
+import { clock } from '@/utils/countdown'
 import { formatModifier } from '@/utils/format-modifier'
 import { seatWords } from '@/utils/seat-words'
 import type { Ability, Choice } from './types'

@@ -1013,6 +1013,7 @@ async function spendBreath() {
 const breathOf = view => rowOf(view, 'Fire Breath').or(panelOf(view).locator('tr').filter({ hasText: 'Fire Breath' })).first()
 for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]) {
   const view = await browse({ width, height, path: '/characters/sheet-thorin', toasts: false })
+  watchRefusals(view)
   await view.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
   await view.tab('Actions')
   await spendBreath()
@@ -1060,6 +1061,12 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
     await sent(() => rowChip.click(), `Fire Breath's recharge at ${width}`)
     await statusOf(view).getByText('At the table: 6 · recharged').waitFor({ timeout: 30_000 })
     await shootBoth(view, 'alone-recharge-done', trayOf(view))
+    // The chip gone first, as part 12 waits for it: the tray hears of the recharge as it's made, the
+    // page of the sheet the module sends after it only at its next poll of the table, and till then
+    // the chip still shows from before it. Tapped then, as Fire Breath is spent again, it's refused
+    // by the app, which has the recharged sheet and not yet the spent one. Gone first, the chip that
+    // comes back is the spent sheet's, which the app has.
+    await rowChip.waitFor({ state: 'detached', timeout: 30_000 })
     await spendBreath()
     await rowChip.waitFor({ timeout: 30_000 })
     await force(view, 6, 2)

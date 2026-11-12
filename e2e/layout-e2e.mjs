@@ -1,5 +1,11 @@
 // The game table with a long chat and a big fight, at phone, tablet and desktop sizes: does the
-// page itself scroll, as well as the pane? Screenshots to SHOTS.
+// page itself scroll, as well as the pane? Screenshots to SHOTS. And a very long character name
+// (item 17), at 360, 390, 768, 1024 and 1280 in the light theme: on the Gamemaster's campaigns
+// page it wraps inside its column, never under the invite link beside it nor past a phone's screen;
+// on the Gamemaster's page of the character the journal's card leaves its words room, Open's label
+// wrapping, and Combat and Chat keep their width beside it; and on the join page, Bob choosing, it
+// wraps inside its card, the chooser inside its column. And item 33: on that page's Combat, a long
+// name after "Next:" cut short, "Round 2" beside it kept on one line, at the same five widths.
 import { actor, combat, combatant, message, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -52,14 +58,19 @@ await modal.getByRole('button', { name: 'Done' }).click()
 users.activeGM = user('gm', 'Gamemaster', true)
 user('alice', 'Alice')
 const thorin = actor('thorin', 'Thorin Oakenshield', ['alice'], 'character', { value: 31, max: 44, temp: 0 })
-const goblins = Array.from({ length: 11 }, (_, i) => actor(`gob${i}`, `Goblin ${i + 1}`, [], 'npc', { value: 7, max: 7, temp: 0 }))
+// Item 17: a name as long as one at the table, Alice's too.
+const LONG = 'Seraphina Nightingale-Ashworth of the Ever-Burning Lighthouse'
+actor('sera', LONG, ['alice'], 'character', { value: 30, max: 38, temp: 0 })
+// Item 33: the goblin who acts after the current one has a long name, shown after "Next:".
+const LONG_FOE = 'Vorthagax the Undying, Tyrant of the Ever-Burning Ashen Wastes'
+const goblins = Array.from({ length: 11 }, (_, i) => actor(`gob${i}`, i === 3 ? LONG_FOE : `Goblin ${i + 1}`, [], 'npc', { value: 7, max: 7, temp: 0 }))
 await import(`${MODULE}/scripts/module.mjs`)
 await Hooks.callAll('init')
 settings.set('listenerUrl', new URL(BASE).host)
 settings.set('campaignSecrets', { 'camp-ash': SECRET })
 settings.set('chatEvents', true)
 settings.set('combatEvents', true)
-settings.set('campaigns', [{ id: 'camp-ash', title: 'Ashlands', characters: ['thorin'] }])
+settings.set('campaigns', [{ id: 'camp-ash', title: 'Ashlands', characters: ['thorin', 'sera'] }])
 await Hooks.callAll('ready')
 await idle()
 
@@ -139,6 +150,117 @@ if (EXPECT === 'fixed') {
     check(!results[name].tabs, `${name}: combat and chat side by side, no tabs`)
   }
 }
+// ---- Item 17: a very long name ----
+const campaignId = sql(`select id from campaign where title = 'Ashlands'`)
+/** On the campaigns page: the long name's row against its column, and the page's sideways scroll. */
+const rowInColumn = page => page.getByRole('link', { name: `Open ${LONG}'s sheet` }).evaluate(link => {
+  const row = link.closest('li').getBoundingClientRect()
+  const column = link.closest('section').parentElement.getBoundingClientRect()
+  const root = document.scrollingElement
+  return { past: Math.round(row.right - column.right), pageX: root.scrollWidth - root.clientWidth }
+})
+/**
+ * On the Gamemaster's page of the character: the journal card's words against the card, Open's
+ * label against Open, the page's sideways scroll, and Combat and Chat's column beside the pane
+ * against the width it's given, clamp(320px, 40%, 500px) of the table's row.
+ */
+const cardRoom = page => page.getByRole('region', { name: 'Journal', exact: true }).evaluate((card, long) => {
+  const title = [...card.querySelectorAll('p')].find(p => p.textContent === `${long}’s Journal`)
+  const open = card.querySelector('button')
+  const pane = document.getElementById('character-pane')
+  const aside = pane.nextElementSibling
+  const row = pane.parentElement.getBoundingClientRect().width
+  const asideWidth = aside.getBoundingClientRect().width
+  const beside = getComputedStyle(pane).display !== 'none' && getComputedStyle(aside).display !== 'none'
+  const root = document.scrollingElement
+  return {
+    words: Math.round(title.getBoundingClientRect().width), card: Math.round(card.getBoundingClientRect().width),
+    spill: open.scrollWidth - open.clientWidth, pageX: root.scrollWidth - root.clientWidth,
+    aside: beside ? Math.round(asideWidth) : null, wanted: beside ? Math.round(Math.min(500, Math.max(320, 0.4 * row))) : null,
+  }
+}, LONG)
+/**
+ * On the join page: the chooser's fieldset against its column, the long name cut short or not, and
+ * the page's sideways scroll.
+ */
+const chooserRoom = page => page.getByRole('group', { name: 'Which character are you playing?' }).evaluate((fieldset, long) => {
+  const column = fieldset.closest('form').parentElement.getBoundingClientRect()
+  const box = fieldset.getBoundingClientRect()
+  const name = [...fieldset.querySelectorAll('span')].find(span => span.textContent === long)
+  const root = document.scrollingElement
+  return {
+    past: Math.round(box.right - column.right), cut: name.scrollWidth > name.clientWidth || name.getBoundingClientRect().right > box.right,
+    pageX: root.scrollWidth - root.clientWidth,
+  }
+}, LONG)
+/**
+ * On that page's Combat (item 33): the turn panel's round line, its round's lines, the name after
+ * "Next:", whether it's cut short, whether it would fit whole beside the round, whether it stays
+ * inside the line, and the page's sideways scroll.
+ */
+const roundRoom = page => page.locator('section[aria-labelledby="turn-heading"]').evaluate(panel => {
+  const line = panel.firstElementChild
+  const [round, next] = line.children
+  const root = document.scrollingElement
+  return {
+    round: round.textContent, lines: Math.round(round.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(round).lineHeight)),
+    next: next.textContent, cut: next.scrollWidth > next.clientWidth, inside: next.getBoundingClientRect().right <= line.getBoundingClientRect().right + 0.5,
+    fits: Math.ceil(round.getBoundingClientRect().width) + Number.parseFloat(getComputedStyle(line).columnGap) + next.scrollWidth <= Math.floor(line.getBoundingClientRect().width),
+    pageX: root.scrollWidth - root.clientWidth,
+  }
+})
+/** That page on Combat: the bottom bar's tab on one pane, the column's beside the sheet. */
+async function showCombat(page, width) {
+  const tab = width < 1024
+    ? page.getByRole('navigation', { name: 'Table' }).getByRole('button', { name: /^Combat/ })
+    : page.getByRole('tablist', { name: 'Combat or chat' }).getByRole('tab', { name: /^Combat/ })
+  await tab.click()
+  await page.locator('#turn-heading').waitFor()
+}
+const invite = sql(`select "inviteCode" from campaign where id = '${campaignId}'`)
+const bob = await cookieFor('e2e-bob-token')
+const named = {}
+for (const width of [360, 390, 768, 1024, 1280]) {
+  const ctx = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 900 }, colorScheme: 'light' })
+  await ctx.addCookies([cookie])
+  const page = await ctx.newPage()
+  page.on('pageerror', e => problems.push(`${width} long name pageerror: ${e.message}`))
+  await page.goto(`${BASE}/campaigns?campaign=${campaignId}`)
+  await page.getByRole('link', { name: `Open ${LONG}'s sheet` }).waitFor()
+  named[width] = { campaigns: await rowInColumn(page) }
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-campaigns-${width}.png` })
+  await page.goto(`${BASE}/campaigns/${campaignId}/characters/sera`)
+  await page.getByRole('button', { name: `Open ${LONG}’s Journal` }).waitFor()
+  named[width].journal = await cardRoom(page)
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-journal-${width}.png` })
+  await showCombat(page, width)
+  named[width].combat = await roundRoom(page)
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/long-name-combat-${width}.png` })
+  await ctx.close()
+  const joining = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 900 }, colorScheme: 'light' })
+  await joining.addCookies([bob])
+  const join = await joining.newPage()
+  join.on('pageerror', e => problems.push(`${width} long name join pageerror: ${e.message}`))
+  await join.goto(`${BASE}/join/${invite}`)
+  await join.getByText(LONG).waitFor()
+  named[width].join = await chooserRoom(join)
+  if (SHOTS) await join.screenshot({ path: `${SHOTS}/long-name-join-${width}.png` })
+  await joining.close()
+}
+console.log(JSON.stringify(named, null, 1))
+if (EXPECT === 'fixed') {
+  for (const [width, { campaigns, journal, join, combat }] of Object.entries(named)) {
+    check(campaigns.past <= 0 && campaigns.pageX === 0,
+      `${width}: on the campaigns page the long name wraps inside its column, the page not scrolling sideways (${JSON.stringify(campaigns)})`)
+    check(journal.words >= journal.card / 3 && journal.spill <= 0 && journal.pageX === 0 && journal.aside === journal.wanted,
+      `${width}: on its page the journal's card leaves its words a third of it, Open's label wrapping inside Open, Combat and Chat at their width beside it (${JSON.stringify(journal)})`)
+    check(join.past <= 0 && !join.cut && join.pageX === 0,
+      `${width}: on the join page the long name wraps, whole, inside its card, the chooser inside its column, the page not scrolling sideways (${JSON.stringify(join)})`)
+    check(combat.round === 'Round 2' && combat.lines === 1 && combat.next === `Next: ${LONG_FOE}` && combat.cut === !combat.fits && combat.inside && combat.pageX === 0,
+      `${width}: on Combat "Round 2" kept on one line beside the long name after "Next:", which is cut short inside the line wherever it doesn't fit whole, the page not scrolling sideways (${JSON.stringify(combat)})`)
+  }
+}
+
 console.log('problems:', problems)
 await browser.close()
 process.exit(0)

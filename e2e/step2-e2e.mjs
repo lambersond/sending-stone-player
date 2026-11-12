@@ -222,7 +222,9 @@ vex.system = {
     armorProf: { value: new Set(['lgt']), custom: '' },
     dr: { value: new Set(['fire']), custom: '' },
     di: { value: new Set(), custom: '' },
-    ci: { value: new Set(['charmed']) },
+    // dnd5e's Charmed, then text typed as D&D Beyond marks it up, as the owner's sidekick had it at
+    // the table: the app reads the tags, and makes each condition it has rules for a button.
+    ci: { value: new Set(['charmed']), custom: 'Poison; [condition]Exhaustion[/condition]; [condition]Poisoned[/condition]' },
     dm: { amount: {} },
   },
   tools: { thief: { value: 1 }, herb: { value: 0 } },
@@ -366,8 +368,24 @@ const traitRows = await traits.locator('dt').evaluateAll(all => all.map(dt => `$
 check(same(traitRows, [
   'Size: Medium', 'Senses: Darkvision 60 ft, Sees invisibility within 10 ft', 'Speed: Walk 30 ft, Fly (hover) 60 ft',
   'Languages: Common, Infernal, Telepathy 30 ft', 'Armor Training: Light Armor', "Tool Proficiencies: Thieves' Tools",
-  'Damage Resistances: Fire', 'Condition Immunities: Charmed',
+  'Damage Resistances: Fire', 'Condition Immunities: Charmed, Poison, Exhaustion, Poisoned',
 ]), `her traits are under her skills: ${traitRows.join(' | ')}`)
+const immunities = traits.locator('dt', { hasText: 'Condition Immunities' }).locator('xpath=following-sibling::dd[1]')
+check(same(await immunities.getByRole('button').allTextContents(), ['Charmed', 'Exhaustion', 'Poisoned']) && !/\[\/?condition\]/i.test(await page.locator('body').textContent()),
+  "under Condition Immunities each condition is a button, D&D Beyond's tags read and never shown, and Poison, no condition, plain text")
+await immunities.getByRole('button', { name: 'Exhaustion' }).tap()
+const immune = page.getByRole('dialog', { name: 'Conditions' })
+await immune.waitFor({ timeout: 10_000 })
+const exhaustion = immune.getByRole('heading', { name: 'Exhaustion', exact: true })
+let atExhaustion = false
+for (let tries = 0; tries < 50 && !atExhaustion; tries++) {
+  const [heading, top] = await Promise.all([exhaustion.boundingBox(), immune.locator('header').boundingBox()])
+  atExhaustion = !!heading && !!top && heading.y >= top.y + top.height - 2 && heading.y < top.y + top.height + 80
+  if (!atExhaustion) await wait(100)
+}
+check(atExhaustion, 'a tap on Exhaustion there, a tagged one, opens the conditions panel at its rules')
+await immune.getByRole('button', { name: 'Close' }).click()
+await immune.waitFor({ state: 'hidden' })
 if (SHOTS) {
   await traits.scrollIntoViewIfNeeded()
   await shoot(page, `phone-traits`)
@@ -583,6 +601,13 @@ for (const [width, height, labelled] of [[1440, 900, true], [1024, 768, false]])
   check(await wideTabs.evaluate(list => list.scrollWidth <= list.clientWidth), `and the tabs fit at ${width} pixels`)
   check(await wide.evaluate(() => document.scrollingElement.scrollHeight === document.scrollingElement.clientHeight), `the page itself does not scroll at ${width} pixels`)
   if (SHOTS) await shoot(wide, `laptop-${width}-character`)
+  if (labelled) {
+    await wideSheet.getByRole('region', { name: 'Traits' }).getByRole('button', { name: 'Charmed' }).hover()
+    const tip = wide.getByRole('tooltip')
+    check(await shown(tip) && (await tip.textContent()).startsWith('Charmed'), `at ${width} pixels, a hover on Charmed under Condition Immunities shows its rules`)
+    await wide.mouse.move(0, 0)
+    await tip.waitFor({ state: 'hidden' })
+  }
   await wideTabs.getByRole('tab', { name: 'Inventory' }).click()
   const wideContainers = wideSheet.getByRole('region', { name: 'Containers' })
   await wideContainers.getByText('Backpack', { exact: true }).click()

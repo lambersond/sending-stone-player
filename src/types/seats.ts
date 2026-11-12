@@ -34,10 +34,13 @@ export type SeatWords = {
   noSheet: string
   /** A character no longer in its campaign. */
   addBack: string
-  /** The combat tracker with no combat. */
+  /** The combat tracker with no combat, but for an encounter begun that isn't the tracker's. */
   noCombat: string
-  /** A combat not yet started. */
-  settingUp: string
+  /**
+   * The combat tracker with no combat under way, while the seat's character, or a companion of it,
+   * waits to roll initiative into the Gamemaster's tracker's encounter before Begin Combat (v0.45).
+   */
+  rollInitiative: string
   /** The game, live. */
   connected: string
   /** The game, not heard from lately. */

@@ -228,13 +228,15 @@ function Characters({
         <ul className='grid gap-1.5 text-sm'>
           {campaign.characters.map(character => {
             const companions = companionsLine(character.companions)
-            // Its sheet, as its player sees it, claimed or not (#156).
+            // Its sheet, as its player sees it, claimed or not (#156). Its name wraps, whole, as
+            // long as it is: one kept on one line held the column wider than the card, over the
+            // invite link beside it and past a phone's screen.
             const link = (
               <Link
                 id={sheetLinkId(campaign.id, character.id)}
                 href={`/campaigns/${campaign.id}/characters/${character.id}`}
                 aria-label={`Open ${character.name}'s sheet`}
-                className='truncate font-medium text-text-primary underline-offset-2 hover:text-primary hover:underline'
+                className='font-medium text-text-primary underline-offset-2 wrap-anywhere hover:text-primary hover:underline'
               >
                 {character.name}
               </Link>

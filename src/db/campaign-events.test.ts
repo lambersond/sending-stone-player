@@ -193,6 +193,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (round 3, decision 3): whether its module asks for the dice an item
+        // rolls later, by its versions; none from a hello that gives none.
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -252,6 +255,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -312,6 +316,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -356,6 +361,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -475,6 +481,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -518,6 +525,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -569,6 +577,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -612,6 +621,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -668,6 +678,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -713,6 +724,7 @@ describe('db/campaign-events', () => {
           companions: [],
           companionKinds: [],
           companionInitiative: 'own',
+          laterDice: false,
           foundry: { receivedAt: SENT },
         },
       })
@@ -761,6 +773,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -1082,6 +1095,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -1132,6 +1146,7 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        laterDice: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -1180,6 +1195,7 @@ describe('db/campaign-events', () => {
           companions: [],
           companionKinds: [],
           companionInitiative: 'own',
+          laterDice: false,
           foundry: { receivedAt: SENT },
         },
       })

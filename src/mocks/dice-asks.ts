@@ -88,3 +88,17 @@ export function twoRollsAsk(fields: Partial<TableDiceAsk> = {}): TableDiceAsk {
     ...fields,
   })
 }
+
+/**
+ * Wild Sparks' die more, as Thorin's page is shown it: his typed 6 on its 1d6x exploded, and the
+ * game asks for the die it throws again, named by the roll as module 0.45.0 names it.
+ */
+export function sparksAgain(fields: Partial<TableDiceAsk> = {}): TableDiceAsk {
+  return tableIceKnife({
+    label: 'Wild Sparks: Burst',
+    purpose: 'again',
+    again: 'explode',
+    rolls: [{ formula: '1d6x', terms: [{ faces: 6, number: 1 }] }],
+    ...fields,
+  })
+}

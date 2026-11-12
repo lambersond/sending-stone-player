@@ -1,4 +1,5 @@
 import { ABILITIES, SKILLS } from '@/constants/dnd5e'
+import { ownName } from '@/utils/own-name'
 import type { DiceAskData } from '@/types/dice-asks'
 import type { PromptData } from '@/types/prompts'
 import type { CompanionAsked } from '@/types/table'
@@ -48,10 +49,13 @@ export function companionAsks(
   return [...asked.values()]
 }
 
-/** Abilities or skills by their names, such as "Strength or Dexterity". */
+/**
+ * Abilities or skills by their names, such as "Strength or Dexterity": a key the table doesn't own,
+ * which a prompt's may be, such as `constructor`, as it is.
+ */
 function either(keys: string[] = [], names: Record<string, string>): string {
   return new Intl.ListFormat('en', { type: 'disjunction' }).format(
-    keys.map(key => names[key] ?? key),
+    keys.map(key => ownName(names, key) ?? key),
   )
 }
 
@@ -65,7 +69,7 @@ function askedFor(data: PromptData): string {
   switch (data.type) {
     case 'concentration': {
       return ability && ability !== 'con'
-        ? `Concentration check (${ABILITIES[ability] ?? ability})`
+        ? `Concentration check (${ownName(ABILITIES, ability) ?? ability})`
         : 'Concentration check'
     }
     case 'check': {

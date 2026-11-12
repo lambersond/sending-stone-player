@@ -1795,7 +1795,8 @@ describe("components/character-sheet/roll-toasts, the Gamemaster's rolls as the 
     const combat: TableCombat = {
       id: 'c1',
       name: null,
-      started: true,
+      underWay: true,
+      active: true,
       round: 1,
       combatants: [
         {

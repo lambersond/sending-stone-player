@@ -23,18 +23,26 @@ run() {
 }
 run organize 43 X=1
 run step3 39 X=1
-run step2 66 X=1
+run step2 69 X=1
 run step1 36 X=1
 run sheet 60 X=1
-run gm 65 X=1 SHOTS=$O/shots-gm
-run gm 65 X=1 SKEW=1 MODULE_DIR=$O/module-0.22.0 SHOTS=$O/shots-gm
+run gm 66 X=1 SHOTS=$O/shots-gm
+run gm 66 X=1 SKEW=1 MODULE_DIR=$O/module-0.22.0 SHOTS=$O/shots-gm
 run conditions 22 X=1
 run late-setup 4 EXPECT_FIX=1
 run late-setup 4 EXPECT_FIX=1 SKEW=1 MODULE_DIR=$O/module-0.22.0
-run layout 12 EXPECT=fixed
+# Item 17: a very long character name on the campaigns page, the journal's card and the join page,
+# at 360, 390, 768, 1024 and 1280; item 33: a long name after the turn panel's "Next:" at the same.
+run layout 32 EXPECT=fixed
+# Item 17 in world-030: a long party name on the campaigns page, a long word in Personality and
+# Appearance, and long names in Give coins' and Distribute coins' lists, at the same five widths.
+run names 21 SHOTS=$O/shots-names
 run favorites 59 X=1
-# v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate.
-run rolls 77 SHOTS=$O/shots-rolls
+# v0.44: the hello's hit points (module 0.44.0) and a plain roll through the rolls' gate. Item 19:
+# the tracker's encounter not begun shows no turn nor order, but the line to roll initiative; begun,
+# both; begun but no longer the tracker's, "No combat right now" alone, even with Thorin's
+# initiative cleared (v0.45, the owner's decision 1).
+run rolls 82 SHOTS=$O/shots-rolls
 # v0.44: the dice tray under the chat (module 0.44.0's plain roll): at 390, 1280, 1024 and on a
 # 768 tablet, a d100 and a modifier, 20 dice the most, Send to the table off, typed in, the
 # Gamemaster's page, and the campaign's rolls off; and module 0.42.0 (no plain rolls in the game).
@@ -84,14 +92,15 @@ run typed 15 SKEW=041 MODULE=$O/module-0.41.0 SHOTS=$O/shots-042
 # And module 0.42.0: Bless's die typed, the greatsword's typed 1 kept, and no Bardic Inspiration offered.
 run typed 12 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-042
 # Module 0.44.0 (item 11): the dice the game rolls later, asked of a player typing theirs, on a
-# phone and a wide page: an exploding die's die more, Let the game roll, the dialog only where the
+# phone and a wide page: an exploding die's die more, named by its roll (module 0.45.0) and added
+# to its roll in the tray, Let the game roll, the dialog only where the
 # roll came from and not over a focused text field, the banner on the other device, the
 # Gamemaster's Roll it now, the die more typed 6 at 40 s asked again, then a minute's wait, the roll
 # held past its own minute and never timed out (the plain and Midi-QOL runs about 45 s longer),
 # nothing for a 3D player or the Gamemaster's own roll; Midi-QOL's copy of Ice Knife's activities
 # and a Sneak Attack bonus; dnd5e 6.0.5 (off, said so); and module 0.42.0.
-run laterdice 26 SHOTS=$O/shots-044
-run laterdice 32 MIDI=1 SHOTS=$O/shots-044
+run laterdice 27 SHOTS=$O/shots-044
+run laterdice 33 MIDI=1 SHOTS=$O/shots-044
 run laterdice 9 DND5E6=1 SHOTS=$O/shots-044
 run laterdice 9 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 run theme 15 SHOTS=$O/shots-026
@@ -210,3 +219,11 @@ run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041
 run hitpoints 36 SHOTS=$O/shots-044
 run hitpoints 36 DND5E6=1 SHOTS=$O/shots-044
 run hitpoints 36 MIDI=1 SHOTS=$O/shots-044
+# Item 12: Help, from the header's ? and the cog's How to use Sending Stone, at 360 and 1280, for a
+# player and the Gamemaster: the box reading the campaign, typing off, allowed and on, and with this
+# device's Send to the table off; the paragraph on the dice an item rolls later by the module's
+# version, typing allowed or not; the panel's layout, the chips and reduced motion, focus going back;
+# the Gamemaster's long name at 360. Module 0.42.0, and dnd5e 6.0.5: no row nor paragraph for them.
+run help 28 SHOTS=$O/shots-help
+run help 4 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-help
+run help 4 DND5E6=1 SHOTS=$O/shots-help

@@ -22,10 +22,12 @@ export function CampaignParties({
             key={group.id}
             className='flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-lg bg-page px-3 py-1'
           >
+            {/* Its name wraps, as a character's does above it: kept on one line, a long one held
+                the column wider than the card. */}
             <Link
               href={`/campaigns/${campaign.id}/party/${group.id}`}
               aria-label={`Open ${group.name}'s party sheet`}
-              className='min-w-0 truncate font-medium text-text-primary underline-offset-2 hover:text-primary hover:underline'
+              className='min-w-0 font-medium text-text-primary underline-offset-2 wrap-anywhere hover:text-primary hover:underline'
             >
               {group.name}
             </Link>

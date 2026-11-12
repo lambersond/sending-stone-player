@@ -85,6 +85,14 @@ describe('components/transfers/recipient-list', () => {
     )
   })
 
+  it('wraps a long name, whole, to be read before it’s chosen (item 17)', () => {
+    const name = 'Seraphina Nightingale-Ashworth of the Ever-Burning Lighthouse'
+    render(<Held characters={[{ id: 'actorSera0001', name }]} />)
+    // Kept on one line, it held the move's fieldset, as wide as what's in it, past the dialog.
+    expect(screen.getByText(name)).toHaveClass('wrap-anywhere')
+    expect(screen.getByText(name)).not.toHaveClass('truncate')
+  })
+
   it('leaves out a section with none in it', () => {
     render(<Held characters={[vex]} />)
     expect(screen.queryByRole('group', { name: 'Parties' })).toBeNull()

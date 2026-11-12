@@ -1,12 +1,19 @@
 import { NOT_MADE } from '@/constants/lifecycle'
-import { GM_WORDS, GM_WORDS_AFTER } from '@/features/rolling/constants'
+import {
+  GM_WORDS,
+  GM_WORDS_AFTER,
+  LEFT_WORDS,
+} from '@/features/rolling/constants'
 import { missed } from '@/features/rolling/utils/damage-due'
 import { gmBadge, gmLine, gmShape } from '@/features/rolling/utils/gm-words'
 import {
+  againWords,
   askedWords,
   byTheGame,
   damageBadge,
   leastOf,
+  leftAgain,
+  leftSome,
   madeOf,
   notMadeAtTable,
   outcomeOf,
@@ -79,14 +86,22 @@ function usedWord(roll: LocalUse): string {
   return roll.spell ? 'cast' : 'used'
 }
 
-/** A formula's terms, each but the first with its sign, and the least it came to, if it says. */
+/**
+ * A formula's terms, each but the first with its sign, and the least it came to, if it says. Of the
+ * dice the game asked for (module 0.44.0), those the player left to it have no number here: "left
+ * to the game" where they left it every one, else "the rest left to the game" after those typed.
+ */
 function formulaBreakdown(roll: LocalFormula): string {
-  const terms = roll.terms
+  const typed = roll.terms.filter(({ left }) => !left)
+  const left = typed.length < roll.terms.length
+  if (left && typed.length === 0) return LEFT_WORDS
+  const terms = typed
     .map(({ value }, index) =>
       index === 0 ? String(value) : formatModifier(value),
     )
     .join(' ')
-  return roll.minimum === undefined ? terms : `${terms}, ${leastOf(roll)}`
+  const shown = left ? `${terms}, the rest ${LEFT_WORDS}` : terms
+  return roll.minimum === undefined ? shown : `${shown}, ${leastOf(roll)}`
 }
 
 /** Damage's parts, each with its kind; or, for damage the game rolls itself, that it does. */
@@ -108,8 +123,9 @@ function checkBreakdown(roll: LocalCheck): string {
 
 /**
  * What a roll came to, in brief, as its row among the earlier rolls and its toast say it: its dice
- * or terms; what a use, an ask or one of the Gamemaster's as the character (#156) did; or, for one
- * the game throws dice again for, that it does.
+ * or terms, those of the dice the game asked for that the player left to it (module 0.44.0) said
+ * so; what a use, an ask or one of the Gamemaster's as the character (#156) did; or for one the
+ * game throws dice again for, that it does.
  */
 export function breakdown(roll: LocalRoll, state?: TableRollState): string {
   if (roll.kind === 'gm') return GM_WORDS_AFTER
@@ -123,17 +139,21 @@ export function breakdown(roll: LocalRoll, state?: TableRollState): string {
 
 /**
  * The total a damage roll, a hit die or a formula shows: its own, or the game's where the game
- * throws its dice, or some of them again, or adds them up as only it can, once it says; "…" until
- * then, where its own isn't it.
+ * throws its dice, or some of them again, or adds them up as only it can, or throws those of the
+ * dice it asked for that the player left to it (module 0.44.0), once it says; "…" until then,
+ * where its own isn't it. A die thrown again (module 0.44.0) shows the die typed, never its roll's
+ * total, and none where the player left it to the game: "?".
  */
 export function shownTotal(
   roll: LocalDamage | LocalFormula,
   state?: TableRollState,
 ): number | string {
+  if (leftAgain(roll)) return '?'
   const told = state?.status === 'done' && state.visible
   if (
     (roll.kind === 'damage' && byTheGame(roll)) ||
-    thrownAgainThere(roll, state)
+    thrownAgainThere(roll, state) ||
+    leftSome(roll)
   ) {
     return told ? (state.total ?? '?') : '…'
   }
@@ -344,13 +364,18 @@ function tableLine(
   }
 }
 
-/** What the game made of a roll, as its total and what came of it; or that it's hidden. */
+/**
+ * What the game made of a roll, as its total and what came of it; of a die thrown again (module
+ * 0.44.0), what became of it in its roll (`againWords`); or that it's hidden.
+ */
 function madeAtTable(
   roll: LocalRoll,
   state: TableRollState,
   role: SeatRole,
 ): string {
   if (!state.visible) return seatWords(role).hidden
+  const again = againWords(roll)
+  if (again) return again.made
   const outcome =
     roll.kind === 'check'
       ? outcomeOf(state, role, roll.dc, roll.verdict)

@@ -85,9 +85,9 @@ describe('utils/end-turn', () => {
       }
     })
 
-    it('offers none before the combat starts', () => {
+    it('offers none where the encounter isn’t under way, as one begun that isn’t the tracker’s', () => {
       expect(
-        endableTurn(mockTurnCombat({ started: false }), KINDS),
+        endableTurn(mockTurnCombat({ underWay: false, active: false }), KINDS),
       ).toBeUndefined()
     })
 

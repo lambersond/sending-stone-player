@@ -12,14 +12,13 @@ import {
 } from '@/features/table/utils/combat'
 import { END_TURN_HINT, turnKey } from '@/features/table/utils/end-turn'
 import { useTableRole } from '@/hooks/use-table-api'
-import { seatWords } from '@/utils/seat-words'
 import type { PanelEnding } from '@/features/table/types'
 import type { TableCombat, TableCombatant } from '@/types/table'
 
 /**
- * Whose turn it is, above the initiative order: the round and who's next; the heading; on the
- * seat's turn, End Turn, and why the last one wasn't made; and on a companion's turn, a way to its
- * tab, which it's rolled for on.
+ * Whose turn it is, above the initiative order, in an encounter under way, the only one the tracker
+ * draws it for: the round and who's next; the heading; on the seat's turn, End Turn, and why the
+ * last one wasn't made; and on a companion's turn, a way to its tab, which it's rolled for on.
  * @param onOpen - Shows a companion's tab, by its key.
  * @param keys - The companions whose tabs the page shows.
  */
@@ -40,15 +39,14 @@ export function TurnPanel({
   } & PanelEnding
 >) {
   const role = useTableRole()
-  const { settingUp } = seatWords(role)
   const current = currentCombatant(combat)
   const next = nextUp(combat)
   // The turn of one of the player's own creatures: their character's, or from module 0.36.0 one of
   // its companions', which is rolled for on its own tab.
   const own = current && seatTurn(current)
   const companion = own?.companion
-  const mine = combat.started && own !== undefined
-  const heading = turnHeading(combat, current, companion)
+  const mine = own !== undefined
+  const heading = turnHeading(combat)
 
   // End Turn, on the seat's turn as the panel shows it (module 0.36.0).
   const turn =
@@ -80,7 +78,6 @@ export function TurnPanel({
           ref={titled}
           id='turn-heading'
           tabIndex={-1}
-          aria-live='polite'
           className={clsx(
             'text-2xl font-semibold tracking-tight outline-none',
             mine && 'text-primary',
@@ -109,9 +106,6 @@ export function TurnPanel({
         </p>
       )}
       {turn && <p className='text-xs text-text-secondary'>{END_TURN_HINT}</p>}
-      {!combat.started && (
-        <p className='text-sm text-text-secondary'>{settingUp}</p>
-      )}
       {mine && companion && (
         <CompanionTurn companion={companion} onOpen={onOpen} keys={keys} />
       )}
@@ -122,15 +116,18 @@ export function TurnPanel({
   )
 }
 
-/** The round, or that the combat hasn't started, and who acts next. */
+/**
+ * The round, and who acts next: a long name cut short, the round kept whole, on one line,
+ * beside it.
+ */
 function RoundLine({
   combat,
   next,
 }: Readonly<{ combat: TableCombat; next?: TableCombatant }>) {
   return (
     <div className='flex items-baseline justify-between gap-2 text-xs text-text-secondary'>
-      <span className='font-semibold tracking-wider uppercase'>
-        {combat.started ? `Round ${combat.round}` : 'Not started'}
+      <span className='shrink-0 font-semibold tracking-wider uppercase'>
+        {`Round ${combat.round}`}
       </span>
       {next && (
         <span className='truncate'>

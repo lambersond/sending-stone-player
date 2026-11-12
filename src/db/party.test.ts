@@ -77,6 +77,7 @@ const sheetHeld = (data: unknown = groupSheet()) =>
 const viewOf = async (at: SheetSeat) => {
   held({
     characters: [],
+    rollFeatures: [],
     foundry: { settings: { attackRollVisibility: 'all' } },
   })
   prismaMock.chatMessage.findMany.mockResolvedValue([])
