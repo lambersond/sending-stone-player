@@ -333,12 +333,24 @@ await shootBoth(alice, 'take-dialog', dialog)
 // Item 43 (v0.47): the page reads the table again as the game answers a move sent from the party
 // panel, so Thorin's sheet behind it shows his 3 potions within about a second of the panel's
 // "Took", where it waited for the table's next poll, up to 3 s later. Tapped as a read of the table
-// comes, its next poll is 3 s away: only the read as the game answers shows them sooner.
-await alice.page.waitForResponse(response => response.url().includes(`${ALICE_API}/table`), { timeout: 10_000 })
+// comes, its next poll is 3 s away. How long the move and the reads take moves with the machine's
+// load, so the check also holds the page to its own part, which load doesn't move: it asks for the
+// table as the game's answer comes (or has a read on its way then), where the poll asks only at its
+// own pace; and where that read itself is slow, the sheet is held to the time it came.
 let before = posted.length
-await dialog.getByRole('button', { name: 'Take 2' }).click()
-check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog closes at once')
 {
+  await alice.page.waitForResponse(response => response.url().includes(`${ALICE_API}/table`), { timeout: 10_000 })
+  /** The page's reads of the table, as each is asked and comes; and when the answers to its asks after the move come. */
+  const reads = []
+  const answers = []
+  const onRequest = request => { if (request.url().includes(`${ALICE_API}/table`)) reads.push({ request, asked: Date.now() }) }
+  const onFinished = request => { const read = reads.find(r => r.request === request); if (read) read.came = Date.now() }
+  const onResponse = response => { if (response.url().includes(`${ALICE_API}/rolls/`)) answers.push(Date.now()) }
+  alice.page.on('request', onRequest)
+  alice.page.on('requestfinished', onFinished)
+  alice.page.on('response', onResponse)
+  await dialog.getByRole('button', { name: 'Take 2' }).click()
+  check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog closes at once')
   /** How many Potions of Healing Thorin's sheet lists: its row's "×n", 1 where it shows none. */
   const potions = () => alice.page.evaluate(() => {
     const row = [...document.querySelectorAll('#character-pane li')].filter(li => li.textContent.includes('Potion of Healing')).at(-1)
@@ -349,7 +361,19 @@ check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog clo
   // Polled past the second, so the check says when they came; and held to it by the time taken,
   // not by the poll's deadline, which a last poll can overrun.
   const shown = await until(async () => (await potions()) === 3, "Thorin's sheet to show 3 Potions of Healing", 5_000).then(() => Date.now() - said, () => null)
-  check(shown !== null && shown <= 1_000, `Thorin's sheet shows his 3 Potions of Healing ${shown === null ? `not within 5 s (it lists ${await potions()})` : `${shown} ms`} after the panel's "Took"`)
+  alice.page.off('request', onRequest)
+  alice.page.off('requestfinished', onFinished)
+  alice.page.off('response', onResponse)
+  // The game's answer, the last the page heard before "Took"; the first read asked after it, or on
+  // its way as it came.
+  const answer = answers.filter(at => at <= said).at(-1)
+  const read = answer === undefined ? undefined : reads.find(r => r.asked >= answer || !(r.came < answer))
+  const asked = read && Math.max(0, read.asked - answer)
+  const came = read?.came === undefined ? undefined : read.came - said
+  const bound = Math.max(1_000, (came ?? 0) + 300)
+  check(shown !== null && shown <= bound && asked !== undefined && asked <= 500,
+    `Thorin's sheet shows his 3 Potions of Healing ${shown === null ? `not within 5 s (it lists ${await potions()})` : `${shown} ms`} after the panel's "Took" (held to ${bound} ms); `
+    + (asked === undefined ? 'the page read no table after the game answered' : `the page asked for the table ${asked} ms after the game's answer came, and the read came ${came === undefined ? 'not' : came < 0 ? `${-came} ms before "Took"` : `${came} ms after "Took"`}`))
 }
 let made = await answered(1, 'the take of two potions')
 {
