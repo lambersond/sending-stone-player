@@ -52,7 +52,7 @@ export function asksLaterDice(
   const system = foundry?.system
   return (
     system?.id === 'dnd5e' &&
-    Number.parseInt(String(system.version)) === 5 &&
+    Number.parseInt(String(system.version), 10) === 5 &&
     atLeast(foundry?.module?.version, LATER_DICE_FROM)
   )
 }
@@ -64,7 +64,7 @@ function atLeast(
 ): boolean {
   const parts = String(version ?? '')
     .split('.')
-    .map(part => Number.parseInt(part))
+    .map(part => Number.parseInt(part, 10))
   for (const [index, least] of from.entries()) {
     const part = parts[index] ?? 0
     if (Number.isNaN(part)) return false
