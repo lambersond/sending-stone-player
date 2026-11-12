@@ -6,25 +6,15 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react'
-import { movedTo } from '@/features/notes/utils/order-words'
+import { movedTo, moveItem } from './utils'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import type {
-  SortableProps,
-  Drag,
-} from '@/features/notes/components/sortable/types'
+import type { SortableProps, Drag } from './types'
 
 /** Within this many pixels of the top or bottom of the pane the list is in, a drag scrolls it. */
 const EDGE = 48
 
 /** The most a drag scrolls that pane in a frame, at its very edge. */
 const MOST_SCROLL = 12
-
-/** The list with one of its items moved. */
-const moveItem = (ids: string[], from: number, to: number) => {
-  const next = [...ids]
-  next.splice(to, 0, ...next.splice(from, 1))
-  return next
-}
 
 /** The nearest box around the list that scrolls it: the reader pane's content. */
 function scrollerOf(element: HTMLElement): HTMLElement | undefined {

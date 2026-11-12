@@ -7,18 +7,19 @@ app-only work ships with its next deploy.
 
 The further out a version is, the less settled it is, and that's expected: each one is planned in
 full when work on it starts. Open questions stay with their version until then. Any version may
-gain items from feedback or bugs.
+gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
+version.
 
-Released: module v0.45.0 and its app, with v0.44.0 before it.
+Released: module v0.46.0 and its app, with v0.45.0 and v0.44.0 before it.
 
-## v0.46 (release candidate)
+## v0.46 (released, to check at the table)
 
-Before Friday's session, built and merged: module 0.46.0 holds items 37, 38 and 40 (a character
-shared with All Players kept to its own players), with the app's item 39 (a Recharge chip gone with
-the tray's "recharged") and the Initiative tile in an encounter begun elsewhere.
+Released on 2026-11-12, before Friday's session: what it holds is in
+[CHANGELOG.md](CHANGELOG.md)'s v0.46.0 entry. v0.46 is the release candidate for v1.0: it runs at
+the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.46.0 is tagged** (built and tested against stand-ins
-only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **A character shared as All Players: Owner:** no other player's whispers or private rolls at its
   seat, no other owners in its roster, no DC of another player's save.
@@ -26,8 +27,33 @@ only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 - **The Initiative tile:** in an encounter begun and then switched away on the tracker, the sheet's
   Initiative tile doesn't offer to roll for it.
 
-Then module v0.46.0 is tagged, and v0.46 is the release candidate for v1.0: it runs at the table
-for a while before v1.0 is tagged.
+## v0.47 (release candidate)
+
+Built for Friday's session: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.47.0 entry.
+
+**To check at the table before module v0.47.0 is tagged** (built and tested against stand-ins
+only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Favorites put in order:** on a player's own sheet, Reorder's drag and keys, and on a phone Move
+  up and Move down in a favorite's menu, save the order; the character's sheet in Foundry shows the
+  same order, its old-style resources first, and so does Tidy 5e Sheets' where it's in use (read
+  from its source, not tried).
+- **A character shared as All Players: Owner and owned by one player by name:** assigned to no
+  one, a roll from the app is that player's card in Foundry, not the Gamemaster's.
+- **A move from a party sheet:** what a character takes from the party sheet over its own shows on
+  its sheet within about a second.
+- **A move from a party sheet closed at once:** on a phone, what a character takes from the party
+  sheet shows on its sheet within about a second of the game making it, though the party sheet was
+  closed before then.
+- **A favorite added just after an order:** within 10 seconds of Save order or a Move up, a
+  favorite added from a row's menu, or in Foundry, moves with Move up, Move down and Reorder, and so
+  do the others, none refused.
+- **Module 0.43.0 named:** where a game still runs module 0.43.0 with Allow Players to change their
+  hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
+  module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
+
+Then module v0.47.0 is tagged, and v0.47 is the release candidate for v1.0 after v0.46: it runs at
+the table for a while before v1.0 is tagged.
 
 ## Not yet scheduled
 
@@ -52,7 +78,6 @@ promised to a version until it's picked.
 
 **Moved up from v1.x**
 
-28. **Favorites reordered** from the app.
 29. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
     cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
     concentration.
@@ -94,24 +119,14 @@ And from the owner's answers on item 19, later work too:
     to 900 ms (the 600 ms arm), and passed on its retry: the arm's countdown starts before the
     page's MutationObserver records the heading's text, and under load the gap grows. The e2e
     README lists it among its known load races.
-43. **A move from a party sheet waits for the table's poll:** since item 39 the page reads the table
-    again as the game answers a request the character's or a companion's pane sent
-    (`useTableRolls`), but a move of items or coins sent from a party sheet (`useTransfers`,
-    `src/features/transfers/hooks/use-transfers.ts`) reads none, so the character's sheet beside it
-    shows what it took in only at the table's next poll, up to 3 s later. Nothing is refused or
-    spent wrongly. The party sheet is drawn outside `GameTable`'s `TableReadContext`.
-44. **A followed request whose state callback throws stays followed:** `look`
-    (`src/utils/lifecycle.ts`) calls its `update` callback inside its `try`, so an error the
-    callback throws is taken as a failed read, and a request the game has made is asked after once
-    a second for up to `FOLLOW_FOR` (110 s) instead of settling. No callback in the app throws
-    today; seen while building item 39, when page tests' mocks lacked its `readAgain`.
-45. **A roll from the app made as the Gamemaster for a character with a player by name:**
-    `authorFor` (`scripts/command-rolls.mjs`) makes a roll as the character's assigned player, else
-    its only owner among the players, else the Gamemaster, and counts owners through `default`. So a
-    character shared with All Players as Owner and owned by one player by name, but assigned to no
-    one, rolls from the app as the Gamemaster, and dnd5e takes its card as the Gamemaster's, as
-    before module 0.46.0; nothing reaches another campaign. It could read module 0.46.0's rule for a
-    character's players (`characterPlayers`, `scripts/characters.mjs`).
+
+**Found while building v0.47**
+
+47. **No Move up or Move down for a skill, tool or spell-slots favorite:** those rows among the
+    favorites have no menu (`useFavoriteChoice`, in
+    `src/features/sheet/components/favoriting/use-favorite-choice.ts`, gives Move up and Move down
+    only where a row has a choice), so on a phone they're put in order only by Reorder's arrows,
+    where the owner was told each favorite's menu would have them.
 
 ## v1.0
 
@@ -218,8 +233,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Undo isn't offered when the next to act is hidden from players.
 - Notes deleted or reordered in Foundry while no Gamemaster is connected don't move the journal's
   "Last changed by" line.
-- Favorites are added and removed from the app, not reordered: a new one goes last; reorder them in
-  Foundry (reordering from the app is planned for v1.x).
+- A favorite added from the app goes last; with a module before 0.47.0, favorites are put in order
+  in Foundry only.
 - Skills, tools and spell slots are made favorites in Foundry, with no plan to change that unless
   it's asked for.
 - Spell slots are spent and restored from the app one at a time: several are several taps, each

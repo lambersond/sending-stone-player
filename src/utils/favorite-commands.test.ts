@@ -2,6 +2,7 @@ import {
   checkFavorite,
   favoritesAvailable,
   isFavorite,
+  sameFavorites,
   targetKey,
 } from './favorite-commands'
 import { fullerSheet, sheetFavorites } from '@/mocks/sending-stone'
@@ -151,6 +152,42 @@ describe('utils/favorite-commands, from module 0.37.0', () => {
       expect(
         checkFavorite({ op: 'remove', type: 'effect', id: 'gone' }, sheet),
       ).toBeUndefined()
+    })
+  })
+
+  // Module 0.47.0: an order names the favorites shown, each once, as the game checks it.
+  describe('sameFavorites', () => {
+    const ROPE: FavoriteTarget = { type: 'item', id: 'rope' }
+    const PERCEPTION: FavoriteTarget = { type: 'skill', id: 'prc' }
+    const FIREBALL: FavoriteTarget = {
+      type: 'activity',
+      id: 'f',
+      item: 'staff',
+    }
+    it.each<[string, FavoriteTarget[], FavoriteTarget[], boolean]>([
+      [
+        'the same, in another order',
+        [PERCEPTION, ROPE],
+        [ROPE, PERCEPTION],
+        true,
+      ],
+      [
+        'the same, in the same order',
+        [ROPE, PERCEPTION],
+        [ROPE, PERCEPTION],
+        true,
+      ],
+      ['one left out', [ROPE], [ROPE, PERCEPTION], false],
+      ['one not shown', [ROPE, FIREBALL], [ROPE, PERCEPTION], false],
+      ['one twice', [ROPE, ROPE], [ROPE, PERCEPTION], false],
+      [
+        'an activity on another item',
+        [{ ...FIREBALL, item: 'wand' }],
+        [FIREBALL],
+        false,
+      ],
+    ])('%s: %s', (_why, order, was, same) => {
+      expect(sameFavorites(order, was)).toBe(same)
     })
   })
 })

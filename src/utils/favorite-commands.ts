@@ -31,6 +31,24 @@ export function targetKey(target: FavoriteTarget): string {
 }
 
 /**
+ * Whether an order names the favorites shown, each once, in another order or the same (module
+ * 0.47.0): as many, none twice, and each of them.
+ */
+export function sameFavorites(
+  order: FavoriteTarget[],
+  was: FavoriteTarget[],
+): boolean {
+  const shown = new Set(was.map(target => targetKey(target)))
+  const named = new Set(order.map(target => targetKey(target)))
+  return (
+    shown.size === was.length &&
+    named.size === order.length &&
+    order.length === was.length &&
+    [...named].every(key => shown.has(key))
+  )
+}
+
+/**
  * Whether it's one of the character's favorites, as the sheet lists them: one of that type and id;
  * for an activity, one whose item is the target's too.
  */
@@ -66,7 +84,8 @@ export function checkFavorite(
     | 'skills'
   >,
 ): 'gone' | undefined {
-  if (favorite.op === 'remove') return undefined
+  // An order is checked by the game, against its own sheet (module 0.47.0).
+  if (favorite.op !== 'add') return undefined
   if (!sheet) return 'gone'
   const index = favoriteIndex(sheet)
   switch (favorite.type) {

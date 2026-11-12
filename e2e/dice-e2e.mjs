@@ -22,7 +22,7 @@
 // off in Foundry: the tray rolls the app's dice alone, asks nothing typed, sends nothing, and says
 // why, on the player's page and the Gamemaster's. SKEW=042 with MODULE=module-0.42.0, before plain
 // rolls: the app keeps no plainRoll; the tray rolls the app's dice alone, sends nothing, and says
-// the module makes these from 0.44.0, on both seats. Synthetic characters only. Run with --import
+// the module makes these from 0.43.0, on both seats. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   DND5E6, SKEW042, W, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, part, same,
@@ -155,7 +155,7 @@ if (SKEW042) {
   // Module 0.42.0, before plain rolls: the tray rolls the app's dice alone, and says why
   // =================================================================================================
   part('9. module 0.42.0')
-  const OLD = 'Your Gamemaster’s Sending Stone module makes these from version 0.44.0.'
+  const OLD = 'Your Gamemaster’s Sending Stone module makes these from version 0.43.0.'
   const player = await browse({ width: 390, height: 844, path: '/characters/sheet-thorin' })
   await player.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
   await openTray(player)
@@ -169,7 +169,7 @@ if (SKEW042) {
   const gmSide = await browse({ width: 1280, height: 800, path: `/campaigns/${A}/characters/thorin`, toasts: false })
   await gmSide.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
   await openTray(gmSide)
-  const GM_OLD = 'Your Sending Stone module makes these from version 0.44.0.'
+  const GM_OLD = 'Your Sending Stone module makes these from version 0.43.0.'
   await until(() => footerSays(gmSide, GM_OLD), 'the Gamemaster’s tray to say why', 20_000).catch(() => {})
   check(await footerSays(gmSide, GM_OLD), `and the Gamemaster's page for Thorin says "${GM_OLD}"`)
   await finish()

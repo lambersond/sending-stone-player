@@ -2,9 +2,9 @@ import { useCallback, useRef } from 'react'
 import { READ_AGAIN_AFTER } from '@/constants/polling'
 
 /**
- * A view's poll read again as a roll the game answered ends (ROADMAP item 39), as the character's
- * table (`useTableView`) and a companion's pane (`useCompanionView`) keep theirs: `readAgain` reads
- * at once, or as soon as a read on its way has come, and once more a moment later
+ * A view's poll read again as a roll or a move the game answered ends (ROADMAP items 39 and 43), as
+ * the character's table (`useTableView`) and a companion's pane (`useCompanionView`) keep theirs:
+ * `readAgain` reads at once, or as soon as a read on its way has come, and once more a moment later
  * (`READ_AGAIN_AFTER`), then at the poll's own pace.
  * @returns `readAgain`, the same function on every render, which reads nothing while no poll runs;
  *   and `pace`, which each run of the poll calls as it starts, with its signal, aborted as the run

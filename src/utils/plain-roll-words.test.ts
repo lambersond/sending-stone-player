@@ -49,18 +49,18 @@ describe('utils/plain-roll-words', () => {
       'Only you see these dice: Send to the table is off in Settings.',
     ],
     [
-      'a module before 0.44.0',
+      'a module before 0.43.0',
       ['skill', 'formula'],
       true,
       'player',
-      'Your Gamemaster’s Sending Stone module makes these from version 0.44.0.',
+      'Your Gamemaster’s Sending Stone module makes these from version 0.43.0.',
     ],
     [
-      'the Gamemaster’s own module before 0.44.0',
+      'the Gamemaster’s own module before 0.43.0',
       ['skill'],
       true,
       'gm',
-      'Your Sending Stone module makes these from version 0.44.0.',
+      'Your Sending Stone module makes these from version 0.43.0.',
     ],
     [
       'rolls off',

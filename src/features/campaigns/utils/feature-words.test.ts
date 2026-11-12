@@ -33,7 +33,7 @@ const foundry = (version: string | null, system = 'dnd5e') => ({
   system: { id: system, title: system, version: '5.3.3' },
 })
 
-describe('features/campaigns/utils/feature-words, hit points from the app (module 0.44.0)', () => {
+describe('features/campaigns/utils/feature-words, hit points from the app (module 0.43.0)', () => {
   it.each([
     [
       'on in Foundry',
@@ -41,9 +41,14 @@ describe('features/campaigns/utils/feature-words, hit points from the app (modul
       'On in Foundry. Your players set their characters’, forms’ and companions’ hit points and temporary hit points from here.',
     ],
     [
-      'a module before 0.44.0',
+      'a module before 0.43.0',
       { foundry: foundry('0.42.1') },
-      'Your Sending Stone module doesn’t let players change hit points yet. Version 0.44.0 or later does.',
+      'Your Sending Stone module doesn’t let players change hit points yet. Version 0.43.0 or later does.',
+    ],
+    [
+      'module 0.43.0, its switch off (ROADMAP item 51)',
+      { hitPoints: { enabled: false }, foundry: foundry('0.43.0') },
+      'Off. To let them, tick Allow Players to change their hit points from the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
     ],
     [
       'another system',

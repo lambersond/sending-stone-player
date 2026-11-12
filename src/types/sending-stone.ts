@@ -1583,6 +1583,8 @@ export type BridgeFeatures = {
     enabled: boolean
     kinds: string[]
     reason: string | null
+    /** Module 0.47.0: it puts the favorites in the order the app sends. */
+    orders?: boolean
   } | null
   /**
    * Whether the campaign takes dishes from the Magical Recipe Book, `"dish"` among its kinds, by

@@ -6,7 +6,7 @@ import type { SeatRole } from '@/types/seats'
 /*
  * What the journal says of a group's order and of a note moved to a chapter (round 0.35.0 §9.6), in
  * words, never in colour alone: where an order stands, what's said once one is saved, why one was
- * refused at once, who sees it, and where a note being put in order now is.
+ * refused at once, and who sees it.
  */
 
 /** An order's state, as its chip says it; nothing where it's the same here and in Foundry. */
@@ -103,13 +103,4 @@ export function reorderLine(kind: NoteBookKind, name: string): string {
   return kind === 'party'
     ? `Everyone in ${name} sees the notes in this order, here and in Foundry.`
     : 'Your notes keep this order here and in Foundry.'
-}
-
-/**
- * What's announced as a note moves in the list.
- * @param place - Where it is now, from 1.
- * @param of - How many notes the list holds.
- */
-export function movedTo(title: string, place: number, of: number): string {
-  return `${title}, now ${place} of ${of}.`
 }

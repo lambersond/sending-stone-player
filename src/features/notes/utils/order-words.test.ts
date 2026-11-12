@@ -1,5 +1,4 @@
 import {
-  movedTo,
   movedWords,
   orderRefusalWords,
   orderSavedWords,
@@ -107,9 +106,5 @@ describe('utils/order-words', () => {
     expect(reorderLine('personal', 'Thorin')).toBe(
       'Your notes keep this order here and in Foundry.',
     )
-  })
-
-  it('says where a note is now, from 1', () => {
-    expect(movedTo('Wolves', 3, 7)).toBe('Wolves, now 3 of 7.')
   })
 })

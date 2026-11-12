@@ -214,13 +214,13 @@ describe('components/game-table, the page’s dice', () => {
     expect(mockThrows).not.toHaveBeenCalled()
   })
 
-  it('rolls on the app’s dice alone with a module before 0.44.0, and says why the game makes none', async () => {
+  it('rolls on the app’s dice alone with a module before 0.43.0, and says why the game makes none', async () => {
     const user = userEvent.setup()
     table(view({ rollsToTable: ['ability', 'formula'] }))
     const chat = await openTray(user)
     expect(
       chat.getByText(
-        'Your Gamemaster’s Sending Stone module makes these from version 0.44.0.',
+        'Your Gamemaster’s Sending Stone module makes these from version 0.43.0.',
       ),
     ).toBeInTheDocument()
     await user.click(chat.getByRole('button', { name: 'Add a d20' }))

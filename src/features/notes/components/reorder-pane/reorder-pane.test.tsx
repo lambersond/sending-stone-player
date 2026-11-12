@@ -81,7 +81,7 @@ describe('components/notes/reorder-pane', () => {
     ).toBeInTheDocument()
   })
 
-  it('lists each note with its grip, its place, its title and who wrote it, and arrows off at the ends', () => {
+  it('lists each note with its grip, its place, its title and who wrote it, and arrows off and dimmed at the ends', () => {
     renderPane()
     const rows = screen.getAllByRole('listitem')
     expect(rows).toHaveLength(3)
@@ -93,9 +93,9 @@ describe('components/notes/reorder-pane', () => {
     expect(rows[0]).toHaveTextContent('1WolvesWritten by Vex')
     expect(rows[1]).toHaveTextContent('2TrollsWritten by Gamemaster')
     expect(rows[2]).toHaveTextContent('3The mapWritten in Foundry')
-    expect(
-      screen.getByRole('button', { name: 'Move Wolves up' }),
-    ).toBeDisabled()
+    const up = screen.getByRole('button', { name: 'Move Wolves up' })
+    expect(up).toBeDisabled()
+    expect(up).toHaveClass('size-11', 'disabled:opacity-40')
     expect(
       screen.getByRole('button', { name: 'Move Wolves down' }),
     ).toBeEnabled()

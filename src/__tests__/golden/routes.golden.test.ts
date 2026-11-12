@@ -199,6 +199,7 @@ const world = () => ({
       transferFeatures: [],
       removalsEnabled: true,
       favoritesEnabled: true,
+      favoriteFeatures: [],
       notesEnabled: true,
       noteFeatures: ['orders'],
       dishesEnabled: true,

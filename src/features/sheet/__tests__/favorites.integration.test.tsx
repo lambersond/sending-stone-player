@@ -1234,6 +1234,84 @@ describe('components/character-sheet/favorites, removed from the app, from modul
   })
 })
 
+/** Reorder, beneath the favorites, from module 0.47.0. */
+const reorder = () => screen.getByRole('button', { name: 'Reorder favorites' })
+
+describe('components/character-sheet/favorites, put in order, from module 0.47.0', () => {
+  beforeEach(() => {
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  /** The strip, inside a pane that offers favorites and takes orders, each order saved as given. */
+  const renderOrdering = () => {
+    const save = jest.fn()
+    const offering = offeringFavorites([
+      'item:warhammer',
+      'activity:staff.cast-fireball',
+      'effect:blessed',
+    ])
+    render(
+      <Favoriting
+        value={offering.value}
+        ordering={{ on: true, arrange: entries => entries, save }}
+      >
+        <FavoritesStrip {...propsFor(withFavorites())} />
+      </Favoriting>,
+    )
+    return save
+  }
+  it('takes focus to Reorder’s heading as it opens, and back to Reorder as Cancel or Save order closes it', async () => {
+    const user = userEvent.setup()
+    const save = renderOrdering()
+    await user.click(reorder())
+    const heading = screen.getByRole('heading', {
+      level: 3,
+      name: 'Reorder favorites',
+    })
+    expect(heading).toHaveFocus()
+    expect(
+      screen.getByRole('region', { name: 'Reorder favorites' }),
+    ).toContainElement(screen.getByRole('button', { name: 'Save order' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(reorder()).toHaveFocus()
+
+    await user.click(reorder())
+    await user.click(
+      screen.getByRole('button', { name: 'Move Warhammer down' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Save order' }))
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(reorder()).toHaveFocus()
+  })
+
+  it('offers Move down alone on the first that moves, which sends the order with it second', async () => {
+    const user = userEvent.setup()
+    const save = renderOrdering()
+    fireEvent.contextMenu(
+      screen.getByRole('button', { name: /^Warhammer/, expanded: false }),
+      { button: 2 },
+    )
+    const menu = screen.getByRole('menu', { name: 'Warhammer' })
+    expect(itemsOf(menu)).toEqual(['Remove from favorites', 'Move down'])
+    await user.click(within(menu).getByRole('menuitem', { name: 'Move down' }))
+    expect(save).toHaveBeenCalledWith(
+      [
+        'activity:staff.cast-fireball',
+        'item:warhammer',
+        'effect:blessed',
+        'skill:prc',
+        'tool:thief',
+        'slots:spell1',
+      ],
+      'Warhammer',
+    )
+  })
+})
+
 /** Shows a tab of the sheet, in the pane. */
 const show = (name: string) =>
   userEvent

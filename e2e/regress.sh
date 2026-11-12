@@ -132,8 +132,8 @@ run results 12 DND5E6=1 SHOTS=$O/shots-030
 run results 17 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
 # Module 0.31.0: moving items and coins (party ↔ character, character → character), dnd5e 6.0.5's
 # fractional coins, and module 0.30.0 (no moves); and Hit/miss and save results in the app.
-run transfers 74 SHOTS=$O/shots-031
-run transfers 78 DND5E6=1 SHOTS=$O/shots-031
+run transfers 76 SHOTS=$O/shots-031
+run transfers 80 DND5E6=1 SHOTS=$O/shots-031
 run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
 # to; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
@@ -188,10 +188,14 @@ run endturn 77 MIDI=1 TIMEOUT=900
 run endturn 73 DND5E6=1 TIMEOUT=900
 run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 # Module 0.37.0: favorites added and removed from the app by a right-click or long-press, as
-# dnd5e's own favorites; and module 0.36.0 (none).
-run favoriting 84 SHOTS=$O/shots-037
-run favoriting 51 DND5E6=1 SHOTS=$O/shots-037
-run favoriting 8 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
+# dnd5e's own favorites; and module 0.36.0 (none). Since module 0.47.0 (item 28), part 14: put in
+# order by Reorder's drag and keys and by Move up and Move down at 390, under dnd5e 5 and 6, Foundry's
+# actor keeping each order, and (item 48) one made a favorite in Foundry while an order is on its way
+# moved up; module 0.36.0 offering none; and module 0.46.0, favorites never put in order.
+run favoriting 104 SHOTS=$O/shots-037
+run favoriting 71 DND5E6=1 SHOTS=$O/shots-037
+run favoriting 9 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
+run favoriting 5 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
 # code, a card for the Gamemaster in Foundry and an effect on each character chosen; dnd5e 6.0.5
 # (off); and module 0.37.0 (none).

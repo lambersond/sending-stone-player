@@ -242,6 +242,8 @@ describe('db/table', () => {
           removalsEnabled: true,
           // Changed on purpose (round 0.37.0 §7.15): whether its game takes favorites.
           favoritesEnabled: true,
+          // Changed on purpose (module 0.47.0): and whether it puts them in order.
+          favoriteFeatures: true,
           // Changed on purpose (round 0.39.0 §1.10): whether the campaign lets its players change
           // their effects.
           effectsEnabled: true,
@@ -1763,6 +1765,7 @@ const favoriting = (
     transfersEnabled: false,
     removalsEnabled: false,
     favoritesEnabled,
+    favoriteFeatures: [],
     bridgePolledAt,
   })
 

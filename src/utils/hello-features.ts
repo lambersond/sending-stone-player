@@ -89,6 +89,14 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
     // Whether the module adds and removes characters' favorites for the app, from module 0.37.0,
     // with no switch: a module before it says nothing of them, which clears it.
     favoritesEnabled: kindOn(features?.favorites, 'favorite'),
+    // What else it does with favorites, from module 0.47.0: 'orders' where it puts them in the
+    // order the app sends; nothing while favorites are off, and a module before it says nothing,
+    // which clears it.
+    favoriteFeatures:
+      kindOn(features?.favorites, 'favorite') &&
+      features?.favorites?.orders === true
+        ? ['orders']
+        : [],
     // Whether the module takes dishes from the Magical Recipe Book for the app, and which body
     // versions, from module 0.38.0, by its own switch under dnd5e 5: a module before it says
     // nothing of dishes, which clears both.

@@ -2,10 +2,10 @@ import type { NoteEntryView } from '@/types/notes'
 
 /**
  * The journal's icon buttons, 44 pixels square: its panes' and contents' own controls, and its
- * Close. A caller adds to it what its button needs more, such as how it looks while disabled.
+ * Close, as Reorder's arrows are. A caller adds to it what its button needs more, such as how it
+ * looks while disabled.
  */
-export const JOURNAL_ICON_BUTTON =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+export { SQUARE_ICON_BUTTON as JOURNAL_ICON_BUTTON } from '@/constants/buttons'
 
 /** The loose group's title, in the contents and over its page. */
 export const LOOSE_TITLE = 'Not in a chapter'

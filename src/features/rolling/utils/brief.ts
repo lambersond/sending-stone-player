@@ -41,6 +41,7 @@ import type {
   LocalDamage,
   LocalMove,
   LocalUse,
+  FavoriteOp,
 } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 
@@ -63,15 +64,19 @@ const MOVED: Record<LocalMove['verb'], string> = {
   remove: 'removed',
 }
 
+/** What was done to the favorites (module 0.37.0), or from module 0.47.0 to their order. */
+const FAVORITED: Record<FavoriteOp, string> = {
+  add: 'added to favorites',
+  remove: 'removed from favorites',
+  order: 'reordered',
+}
+
 /** What a use did, in a word or two, as its line says it. */
 function usedWord(roll: LocalUse): string {
   if (roll.move) return MOVED[roll.move.verb]
-  // A favorite added or removed, from module 0.37.0, as its line says it.
-  if (roll.favorite) {
-    return roll.favorite === 'add'
-      ? 'added to favorites'
-      : 'removed from favorites'
-  }
+  // A favorite added or removed, from module 0.37.0, or from 0.47.0 the favorites put in order,
+  // as its line says it.
+  if (roll.favorite) return FAVORITED[roll.favorite]
   // One of the character's own effects changed, from module 0.39.0, as its line says it.
   if (roll.effect) return EFFECT_WORDS[roll.effect].short
   // A spell prepared or unprepared, from module 0.42.1, as its line says it.

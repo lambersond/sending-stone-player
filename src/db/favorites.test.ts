@@ -49,6 +49,18 @@ const favoriting = (
   ...fields,
 })
 const ADD_ROPE: FavoriteInput = { op: 'add', type: 'item', id: 'rope' }
+/** Thorin's favorites put in order (module 0.47.0): Perception, then the Rope. */
+const ORDER: FavoriteInput = {
+  op: 'order',
+  order: [
+    { type: 'skill', id: 'prc' },
+    { type: 'item', id: 'rope' },
+  ],
+  was: [
+    { type: 'item', id: 'rope' },
+    { type: 'skill', id: 'prc' },
+  ],
+}
 
 /**
  * The campaign, taking favorites unless said, with Thorin and Vex; Thorin's sheet as held; and the
@@ -56,6 +68,7 @@ const ADD_ROPE: FavoriteInput = { op: 'add', type: 'item', id: 'rope' }
  */
 const given = ({
   favoritesEnabled = true,
+  favoriteFeatures = [] as string[],
   bridgePolledAt = ago(5000) as Date | null,
   inFlight = 0,
   lastMinute = 0,
@@ -64,6 +77,7 @@ const given = ({
 } = {}) => {
   prismaMock.campaign.findUnique.mockResolvedValue({
     favoritesEnabled,
+    favoriteFeatures,
     bridgePolledAt,
     characters: [
       { id: THORIN, name: 'Thorin' },
@@ -116,6 +130,7 @@ describe('db/favorites, createFavoriteRequest', () => {
         favoritesEnabled: true,
         bridgePolledAt: true,
         characters: true,
+        favoriteFeatures: true,
       },
     })
     expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
@@ -315,6 +330,21 @@ describe('db/favorites, createFavoriteRequest', () => {
         favoriting({ op: 'remove', type: 'item', id: 'rope' }),
       ),
     ).resolves.toEqual({ id: 'req-favorite' })
+  })
+
+  // Module 0.47.0: an order only where the module takes orders, never waiting for one before it.
+  it('takes an order where its module takes orders, beside another on its way, and refuses it elsewhere, the campaign read once', async () => {
+    given({ favoriteFeatures: ['orders'], held: [ORDER, ADD_ROPE] })
+    await expect(
+      createFavoriteRequest(thorin, favoriting(ORDER)),
+    ).resolves.toEqual({ id: 'req-favorite' })
+    expect(prismaMock.campaign.findUnique).toHaveBeenCalledTimes(1)
+    prismaMock.rollRequest.create.mockClear()
+    given({ held: [ORDER, ADD_ROPE] })
+    await expect(
+      createFavoriteRequest(thorin, favoriting(ORDER)),
+    ).resolves.toEqual({ status: 409, reason: 'unavailable' })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
   })
 
   describe('one already on its way from the seat, as from a second tap', () => {

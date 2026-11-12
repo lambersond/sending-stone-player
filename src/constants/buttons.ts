@@ -14,6 +14,14 @@ export const ICON_TARGET =
 export const HEADER_ICON_BUTTON = `${ICON_TARGET} rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
 
 /**
+ * An icon button 44 pixels square, its glyph centred: the journal's own controls, and a Reorder
+ * row's arrows, the notes' and the favorites'. A caller adds to it what its button needs more, such
+ * as how it looks while disabled.
+ */
+export const SQUARE_ICON_BUTTON =
+  'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
+
+/**
  * The character page's own header buttons, such as Full screen and Help: 32 px square on a phone,
  * from the glyph and its padding, and 44 from `sm`.
  */

@@ -176,6 +176,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -238,6 +239,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -299,6 +301,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -344,6 +347,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -464,6 +468,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -508,6 +513,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -560,6 +566,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -604,6 +611,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -661,6 +669,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -707,6 +716,7 @@ describe('db/campaign-events', () => {
           removalsEnabled: false,
           // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
           favoritesEnabled: false,
+          favoriteFeatures: [],
           // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
           dishesEnabled: false,
           dishVersions: [],
@@ -756,6 +766,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -1078,6 +1089,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -1129,6 +1141,7 @@ describe('db/campaign-events', () => {
         removalsEnabled: false,
         // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
         favoritesEnabled: false,
+        favoriteFeatures: [],
         // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
         dishesEnabled: false,
         dishVersions: [],
@@ -1178,6 +1191,7 @@ describe('db/campaign-events', () => {
           removalsEnabled: false,
           // Changed on purpose (round 0.37.0 §7.15): favorites, from module 0.37.0.
           favoritesEnabled: false,
+          favoriteFeatures: [],
           // Changed on purpose (round 0.38.0 §D9): dishes, from module 0.38.0.
           dishesEnabled: false,
           dishVersions: [],
@@ -2390,6 +2404,7 @@ describe('db/campaign-events, favorites added and removed, from module 0.37.0', 
       transfersEnabled: false,
       removalsEnabled: false,
       favoritesEnabled: true,
+      favoriteFeatures: [],
     })
   })
 
@@ -2402,6 +2417,7 @@ describe('db/campaign-events, favorites added and removed, from module 0.37.0', 
   ])('is off where the module %s', async (_name, favorites) => {
     await expect(stored({ rolls, favorites })).resolves.toMatchObject({
       favoritesEnabled: false,
+      favoriteFeatures: [],
     })
   })
 
@@ -2409,10 +2425,12 @@ describe('db/campaign-events, favorites added and removed, from module 0.37.0', 
     await stored({ rolls, favorites: FAVORITING })
     await expect(stored({ rolls, removals: REMOVING })).resolves.toMatchObject({
       favoritesEnabled: false,
+      favoriteFeatures: [],
       removalsEnabled: true,
     })
     await expect(stored(null)).resolves.toMatchObject({
       favoritesEnabled: false,
+      favoriteFeatures: [],
     })
   })
 
@@ -2427,6 +2445,7 @@ describe('db/campaign-events, favorites added and removed, from module 0.37.0', 
       rollKinds: ['skill'],
       companionKinds: ['skill'],
       favoritesEnabled: true,
+      favoriteFeatures: [],
     })
   })
 })
@@ -2446,6 +2465,7 @@ describe('db/campaign-events, dishes from the Magical Recipe Book, from module 0
       transfersEnabled: false,
       removalsEnabled: false,
       favoritesEnabled: false,
+      favoriteFeatures: [],
       notesEnabled: false,
       dishesEnabled: true,
       dishVersions: [1],
@@ -2482,6 +2502,7 @@ describe('db/campaign-events, dishes from the Magical Recipe Book, from module 0
       dishesEnabled: false,
       dishVersions: [],
       favoritesEnabled: true,
+      favoriteFeatures: [],
     })
     await expect(stored(null)).resolves.toMatchObject({
       dishesEnabled: false,
@@ -2519,6 +2540,7 @@ describe("db/campaign-events, a player's own effects, from module 0.39.0", () =>
       transfersEnabled: false,
       removalsEnabled: false,
       favoritesEnabled: false,
+      favoriteFeatures: [],
       notesEnabled: false,
       dishesEnabled: false,
       effectsEnabled: true,
@@ -2577,6 +2599,7 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
       transfersEnabled: false,
       removalsEnabled: false,
       favoritesEnabled: false,
+      favoriteFeatures: [],
       notesEnabled: false,
       dishesEnabled: false,
       effectsEnabled: false,

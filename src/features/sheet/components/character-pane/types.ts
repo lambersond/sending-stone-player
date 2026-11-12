@@ -115,6 +115,11 @@ export type CharacterPaneProps = {
    */
   favorites?: boolean
   /**
+   * Whether they may also be put in order there, from module 0.47.0, where its module takes
+   * orders.
+   */
+  favoriteOrders?: boolean
+  /**
    * Whether the seat's player may turn off, turn on and delete the character's own effects there,
    * from module 0.39.0, as the campaign lets them and each effect's `ops` say: never at a
    * creature's pane, nor the Gamemaster's page.

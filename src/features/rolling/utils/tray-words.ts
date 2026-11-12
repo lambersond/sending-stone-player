@@ -379,7 +379,10 @@ export function notMadeAtTable(state: TableRollState, role: SeatRole): string {
     : 'Not made at the table'
 }
 
-/** A favorite added or removed, from module 0.37.0, on its way, done, and not. */
+/**
+ * A favorite added or removed, from module 0.37.0, on its way, done, and not; and from module
+ * 0.47.0 the favorites put in order, named for what moved.
+ */
 const FAVORITE_WORDS = {
   add: {
     doing: 'Adding it to favorites',
@@ -390,6 +393,11 @@ const FAVORITE_WORDS = {
     doing: 'Removing it from favorites',
     done: 'Removed from favorites',
     not: 'Not removed from favorites',
+  },
+  order: {
+    doing: 'Saving the order',
+    done: 'Order saved',
+    not: 'Order not saved',
   },
 }
 

@@ -15,14 +15,22 @@ import type { RollRejection } from '@/utils/requests/types'
 const FAVORITE_COMMAND: CommandSpec<'favorite'> = {
   kind: 'favorite',
   waiting: { kind: 'favorite', select: { payload: true } },
+  // An order (module 0.47.0) only where its module said it puts them in the order sent.
+  takes: {
+    select: { favoriteFeatures: true },
+    of: (favorite, { favoriteFeatures = [] }) =>
+      favorite.op !== 'order' || favoriteFeatures.includes('orders'),
+  },
   check: checkFavorite,
   // The same favorite isn't sent twice at once, as from a second tap: the game would make the
-  // second of what the first left.
+  // second of what the first left. An order (module 0.47.0) is made after those before it, from
+  // the order the last left, as the page showed it, so it waits for none.
   clashes: (waiting, favorite) => {
+    if (favorite.op === 'order') return false
     const key = targetKey(favorite)
     return waiting.some(({ payload }) => {
       const earlier = (payload as RollRequestInput | null)?.favorite
-      return !!earlier && targetKey(earlier) === key
+      return !!earlier && earlier.op !== 'order' && targetKey(earlier) === key
     })
   },
 }
@@ -33,7 +41,8 @@ const FAVORITE_COMMAND: CommandSpec<'favorite'> = {
  * favorites and is fetching, with no switch of its own; where the seat isn't sending too many, of
  * rolls, moves and removals together; where the character is in the campaign's roster; for an
  * Add, where what's added is on its sheet, as last sent; and where the same isn't on its way
- * already from this seat.
+ * already from this seat. From module 0.47.0 the favorites put in order, too, where its module
+ * says it takes orders.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The favorite's id, or why it wasn't taken.
  */

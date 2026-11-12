@@ -3229,6 +3229,275 @@ exports[`golden C4: words a roll in brief, per kind, state and seat (briefOf) fa
 }
 `;
 
+exports[`golden C4: words a roll in brief, per kind, state and seat (briefOf) favorites reordered: favorites reordered 1`] = `
+{
+  "gm · expired": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: your game didn’t pick it up",
+      "tone": "not",
+    },
+  },
+  "gm · lost": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: no answer from your game",
+      "tone": "not",
+    },
+  },
+  "gm · made, a hit": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "gm · made, a miss with damage on one": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "gm · made, blind": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "gm · made, saved": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "gm · made, seen": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "gm · never sent": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": undefined,
+  },
+  "gm · not made, in part": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: you have no hit dice of that size left",
+      "tone": "not",
+    },
+  },
+  "gm · not made: a reason it has no words for": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved",
+      "tone": "not",
+    },
+  },
+  "gm · not made: off": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: your game isn’t taking rolls now",
+      "tone": "not",
+    },
+  },
+  "gm · not made: reaction": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: you’ve used your reaction",
+      "tone": "not",
+    },
+  },
+  "gm · refused": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: Sending Stone couldn’t be reached",
+      "tone": "not",
+    },
+  },
+  "gm · rolling": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Saving the order in your game…",
+      "tone": "pending",
+    },
+  },
+  "gm · sending": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Sending to your game…",
+      "tone": "pending",
+    },
+  },
+  "player · expired": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: your Gamemaster’s game didn’t pick it up",
+      "tone": "not",
+    },
+  },
+  "player · lost": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: no answer from your Gamemaster’s game",
+      "tone": "not",
+    },
+  },
+  "player · made, a hit": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "player · made, a miss with damage on one": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "player · made, blind": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "player · made, saved": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "player · made, seen": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order saved",
+      "tone": "made",
+    },
+  },
+  "player · never sent": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": undefined,
+  },
+  "player · not made, in part": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: you have no hit dice of that size left",
+      "tone": "not",
+    },
+  },
+  "player · not made: a reason it has no words for": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved",
+      "tone": "not",
+    },
+  },
+  "player · not made: off": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: your Gamemaster’s game isn’t taking rolls now",
+      "tone": "not",
+    },
+  },
+  "player · not made: reaction": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: you’ve used your reaction",
+      "tone": "not",
+    },
+  },
+  "player · refused": {
+    "accent": "warning",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Order not saved: Sending Stone couldn’t be reached",
+      "tone": "not",
+    },
+  },
+  "player · rolling": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Saving the order in your Gamemaster’s game…",
+      "tone": "pending",
+    },
+  },
+  "player · sending": {
+    "accent": "primary",
+    "badge": "use",
+    "label": "Favorites",
+    "table": {
+      "text": "Sending to your Gamemaster’s game…",
+      "tone": "pending",
+    },
+  },
+}
+`;
+
 exports[`golden C4: words a roll in brief, per kind, state and seat (briefOf) feature used: feature used 1`] = `
 {
   "gm · expired": {
@@ -10856,6 +11125,311 @@ exports[`golden C4: words a roll’s toast and its tray row, per kind, state and
       "region: Your rolls",
     ],
     "text": "WarhammerSending to your Gamemaster’s game…Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+}
+`;
+
+exports[`golden C4: words a roll’s toast and its tray row, per kind, state and seat favorites reordered: favorites reordered 1`] = `
+{
+  "gm · expired · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: your game didn’t pick it up",
+  },
+  "gm · expired · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: your game didn’t pick it upChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · lost · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: no answer from your game",
+  },
+  "gm · lost · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: no answer from your gameChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · made, a hit · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "gm · made, a hit · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · made, a miss with damage on one · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "gm · made, a miss with damage on one · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · made, blind · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "gm · made, blind · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · made, saved · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "gm · made, saved · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · made, seen · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "gm · made, seen · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · never sent · toast": {
+    "names": [],
+    "text": "Favorites",
+  },
+  "gm · never sent · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · not made, in part · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: you have no hit dice of that size left",
+  },
+  "gm · not made, in part · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: you have no hit dice of that size leftChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · not made: a reason it has no words for · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved",
+  },
+  "gm · not made: a reason it has no words for · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not savedChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · not made: off · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: your game isn’t taking rolls now",
+  },
+  "gm · not made: off · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: your game isn’t taking rolls nowChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · not made: reaction · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: you’ve used your reaction",
+  },
+  "gm · not made: reaction · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: you’ve used your reactionChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · refused · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: Sending Stone couldn’t be reached",
+  },
+  "gm · refused · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: Sending Stone couldn’t be reachedChecks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · rolling · toast": {
+    "names": [],
+    "text": "FavoritesSaving the order in your game…",
+  },
+  "gm · rolling · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesSaving the order in your game…Checks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "gm · sending · toast": {
+    "names": [],
+    "text": "FavoritesSending to your game…",
+  },
+  "gm · sending · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesSending to your game…Checks and saves you roll here are made in your game too, with the same dice.",
+  },
+  "player · expired · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: your Gamemaster’s game didn’t pick it up",
+  },
+  "player · expired · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: your Gamemaster’s game didn’t pick it upChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · lost · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: no answer from your Gamemaster’s game",
+  },
+  "player · lost · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: no answer from your Gamemaster’s gameChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · made, a hit · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "player · made, a hit · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · made, a miss with damage on one · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "player · made, a miss with damage on one · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · made, blind · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "player · made, blind · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · made, saved · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "player · made, saved · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · made, seen · toast": {
+    "names": [],
+    "text": "FavoritesOrder saved",
+  },
+  "player · made, seen · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder savedChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · never sent · toast": {
+    "names": [],
+    "text": "Favorites",
+  },
+  "player · never sent · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · not made, in part · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: you have no hit dice of that size left",
+  },
+  "player · not made, in part · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: you have no hit dice of that size leftChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · not made: a reason it has no words for · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved",
+  },
+  "player · not made: a reason it has no words for · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not savedChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · not made: off · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: your Gamemaster’s game isn’t taking rolls now",
+  },
+  "player · not made: off · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: your Gamemaster’s game isn’t taking rolls nowChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · not made: reaction · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: you’ve used your reaction",
+  },
+  "player · not made: reaction · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: you’ve used your reactionChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · refused · toast": {
+    "names": [],
+    "text": "FavoritesOrder not saved: Sending Stone couldn’t be reached",
+  },
+  "player · refused · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesOrder not saved: Sending Stone couldn’t be reachedChecks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · rolling · toast": {
+    "names": [],
+    "text": "FavoritesSaving the order in your Gamemaster’s game…",
+  },
+  "player · rolling · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesSaving the order in your Gamemaster’s game…Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
+  },
+  "player · sending · toast": {
+    "names": [],
+    "text": "FavoritesSending to your Gamemaster’s game…",
+  },
+  "player · sending · tray": {
+    "names": [
+      "region: Your rolls",
+    ],
+    "text": "FavoritesSending to your Gamemaster’s game…Checks and saves you roll here are made in your Gamemaster’s game too, with the same dice.",
   },
 }
 `;

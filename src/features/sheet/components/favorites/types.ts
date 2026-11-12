@@ -23,3 +23,11 @@ export type FavoritesProps = {
   /** What the game does with damage, while it takes it. */
   tableDamage?: TableDamage
 }
+
+/** Reorder's favorites, from module 0.47.0: those that move, in order, and what's done with it. */
+export type FavoritesReorderProps = {
+  entries: FavoriteEntry[]
+  /** Saves the favorites in this order, by key. */
+  onSave: (keys: string[]) => void
+  onCancel: () => void
+}

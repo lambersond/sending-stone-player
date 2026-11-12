@@ -18,7 +18,7 @@ export type SortableHandles = {
 export type SortableProps = {
   ids: string[]
   onChange(ids: string[]): void
-  /** A note's title, for what's announced as it moves. */
+  /** A row's title, such as a note's, for what's announced as it moves. */
   titleOf(id: string): string
   row(id: string, index: number, handles: SortableHandles): ReactNode
   /**
@@ -26,6 +26,19 @@ export type SortableProps = {
    * shown. A drag in progress as it goes on is put back.
    */
   disabled?: boolean
+}
+
+/** A row in Reorder, a note's or a favorite's: what it's called, where it is, and how it moves. */
+export type ReorderRowProps = {
+  /** What the row is called, as its grip and arrows are named. */
+  name: string
+  /** Its place, from 0; shown from 1. */
+  index: number
+  handles: SortableHandles
+  /** Its grip and arrows are off, as while the order made is being saved. */
+  locked?: boolean
+  /** What it shows of itself, between its place and its arrows. */
+  children: ReactNode
 }
 
 /** A row dragged: from where, to where it would drop now, how far, and how far it moves others. */

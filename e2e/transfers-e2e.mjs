@@ -19,9 +19,11 @@
 // tab's party list, the character's coin button reads "Send to" on the Currency row, and the hello
 // says whether a party's Owner may send its things elsewhere and distribute its coin. Since module
 // 0.33.0's feedback, a party row waiting has one spinner, beside its name, its Take without one.
-// DND5E6=1: dnd5e 6.0.5, whose coin may be fractional. SKEW=030
-// with MODULE=module 0.30.0: no moves at all. Synthetic characters only. Run with --import
-// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// Since item 43 (v0.47), Thorin's sheet shows what he took within about a second of the panel's
+// "Took"; since item 46, of the game's answer, at 390, with the panel closed before it. DND5E6=1:
+// dnd5e 6.0.5, whose coin may be fractional. SKEW=030 with MODULE=module 0.30.0: no moves at all.
+// Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
+// ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { readFileSync } from 'node:fs'
 import {
   BASE, BOB, DND5E6, MODULE, SHOTS, SKEW030, VARIANT, W, actors, browse, call, character, check, embedded, finish, foundryWorld,
@@ -329,9 +331,51 @@ check(await dialog.getByRole('button', { name: 'Take 2' }).isVisible() && await 
   && await dialog.getByText('Foundry’s chat will say so.').isVisible(),
   `one more: "Take 2", and "${await summary(dialog)}"`)
 await shootBoth(alice, 'take-dialog', dialog)
+// Item 43 (v0.47): the page reads the table again as the game answers a move sent from the party
+// panel, so Thorin's sheet behind it shows his 3 potions within about a second of the panel's
+// "Took", where it waited for the table's next poll, up to 3 s later. Tapped as a read of the table
+// comes, its next poll is 3 s away. How long the move and the reads take moves with the machine's
+// load, so the check also holds the page to its own part, which load doesn't move: it asks for the
+// table as the game's answer comes (or has a read on its way then), where the poll asks only at its
+// own pace; and where that read itself is slow, the sheet is held to the time it came.
 let before = posted.length
-await dialog.getByRole('button', { name: 'Take 2' }).click()
-check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog closes at once')
+{
+  await alice.page.waitForResponse(response => response.url().includes(`${ALICE_API}/table`), { timeout: 10_000 })
+  /** The page's reads of the table, as each is asked and comes; and when the answers to its asks after the move come. */
+  const reads = []
+  const answers = []
+  const onRequest = request => { if (request.url().includes(`${ALICE_API}/table`)) reads.push({ request, asked: Date.now() }) }
+  const onFinished = request => { const read = reads.find(r => r.request === request); if (read) read.came = Date.now() }
+  const onResponse = response => { if (response.url().includes(`${ALICE_API}/rolls/`)) answers.push(Date.now()) }
+  alice.page.on('request', onRequest)
+  alice.page.on('requestfinished', onFinished)
+  alice.page.on('response', onResponse)
+  await dialog.getByRole('button', { name: 'Take 2' }).click()
+  check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog closes at once')
+  /** How many Potions of Healing Thorin's sheet lists: its row's "×n", 1 where it shows none. */
+  const potions = () => alice.page.evaluate(() => {
+    const row = [...document.querySelectorAll('#character-pane li')].filter(li => li.textContent.includes('Potion of Healing')).at(-1)
+    return row ? Number(/×(\d+)/.exec(row.textContent)?.[1] ?? 1) : null
+  })
+  await statusIn(panel).filter({ hasText: 'Took 2 Potion of Healing from The Iron Company' }).waitFor({ timeout: 30_000 })
+  const said = Date.now()
+  // Polled past the second, so the check says when they came; and held to it by the time taken,
+  // not by the poll's deadline, which a last poll can overrun.
+  const shown = await until(async () => (await potions()) === 3, "Thorin's sheet to show 3 Potions of Healing", 5_000).then(() => Date.now() - said, () => null)
+  alice.page.off('request', onRequest)
+  alice.page.off('requestfinished', onFinished)
+  alice.page.off('response', onResponse)
+  // The game's answer, the last the page heard before "Took"; the first read asked after it, or on
+  // its way as it came.
+  const answer = answers.filter(at => at <= said).at(-1)
+  const read = answer === undefined ? undefined : reads.find(r => r.asked >= answer || !(r.came < answer))
+  const asked = read && Math.max(0, read.asked - answer)
+  const came = read?.came === undefined ? undefined : read.came - said
+  const bound = Math.max(1_000, (came ?? 0) + 300)
+  check(shown !== null && shown <= bound && asked !== undefined && asked <= 500,
+    `Thorin's sheet shows his 3 Potions of Healing ${shown === null ? `not within 5 s (it lists ${await potions()})` : `${shown} ms`} after the panel's "Took" (held to ${bound} ms); `
+    + (asked === undefined ? 'the page read no table after the game answered' : `the page asked for the table ${asked} ms after the game's answer came, and the read came ${came === undefined ? 'not' : came < 0 ? `${-came} ms before "Took"` : `${came} ms after "Took"`}`))
+}
 let made = await answered(1, 'the take of two potions')
 {
   const thorinPotions = holding(thorin, 'Potion of Healing')
@@ -384,8 +428,54 @@ await dialog.waitFor()
 check(await dialog.getByRole('textbox', { name: 'How many' }).count() === 0 && await dialog.getByText('Everything in it goes too.').isVisible(),
   'Take Backpack: no amount to choose, and "Everything in it goes too."')
 let writesBefore = writes.length
-await dialog.getByRole('button', { name: 'Take', exact: true }).click()
-made = await answered(2, 'the take of the Backpack')
+// Item 46 (v0.47): the panel closed before the game answers, the page still reads the table again
+// as it does, so Thorin's sheet shows the Backpack within about a second of the answer, at 390,
+// where the panel covers the sheet and is closed to see it. The game's first write is held until
+// the panel is closed, then let go as a read of the table comes, so its next poll is 3 s away: the
+// page asks after the move with the panel closed, and asks for the table as its answer comes.
+{
+  const hold = holdWrite((kind, target) => [target.id, target.actor?.id].some(id => ['company', 'thorin'].includes(id)))
+  /** The page's reads of the table, as each is asked and comes; and its asks after the move, as each answer comes and what it says. */
+  const reads = []
+  const answers = []
+  const onRequest = request => { if (request.url().includes(`${ALICE_API}/table`)) reads.push({ request, asked: Date.now() }) }
+  const onFinished = request => { const read = reads.find(r => r.request === request); if (read) read.came = Date.now() }
+  const onResponse = async response => {
+    if (!response.url().includes(`${ALICE_API}/rolls/`)) return
+    const at = Date.now()
+    answers.push({ at, status: await response.json().then(body => body?.status, () => undefined) })
+  }
+  alice.page.on('request', onRequest)
+  alice.page.on('requestfinished', onFinished)
+  alice.page.on('response', onResponse)
+  await dialog.getByRole('button', { name: 'Take', exact: true }).click()
+  const held = await Promise.race([hold.held.then(() => true), wait(20_000).then(() => false)])
+  await panel.getByRole('button', { name: 'Close' }).click()
+  await panel.waitFor({ state: 'hidden', timeout: 5_000 })
+  const closed = Date.now()
+  await alice.page.waitForResponse(response => response.url().includes(`${ALICE_API}/table`), { timeout: 10_000 })
+  /** Whether Thorin's sheet lists a Backpack, which he had none of: watched from the write let go, so it says when it came. */
+  const listsPack = () => alice.page.evaluate(() => document.getElementById('character-pane')?.textContent.includes('Backpack') ?? false)
+  const showing = until(listsPack, "Thorin's sheet to list the Backpack", 10_000).then(() => Date.now(), () => null)
+  hold.release()
+  made = await answered(2, 'the take of the Backpack')
+  // The page's answer from the game, the first after the panel closed that says it's made.
+  const heard = () => answers.find(a => a.at > closed && a.status === 'done')
+  const answer = await until(heard, 'the page to hear the game made the take', 5_000).then(() => heard().at, () => undefined)
+  const shown = await showing
+  alice.page.off('request', onRequest)
+  alice.page.off('requestfinished', onFinished)
+  alice.page.off('response', onResponse)
+  const read = answer === undefined ? undefined : reads.find(r => r.asked >= answer || !(r.came < answer))
+  const asked = read && Math.max(0, read.asked - answer)
+  const came = read?.came === undefined ? undefined : read.came - answer
+  const after = shown === null || answer === undefined ? undefined : shown - answer
+  const bound = Math.max(1_000, (came ?? 0) + 300)
+  check(held && answer !== undefined && after !== undefined && after <= bound && asked !== undefined && asked <= 500,
+    `with the panel closed before the game answered (${held ? 'its first write held until then' : 'its first write never reached'}), `
+    + (answer === undefined ? 'the page asked after the move no more' : `the page asked for the table ${asked === undefined ? 'never' : `${asked} ms`} after the game's answer came, `
+      + `and Thorin's sheet lists the Backpack ${after === undefined ? 'not within 10 s of the write let go' : `${after} ms after it`} (held to ${bound} ms)`))
+}
 {
   const pack = holding(thorin, 'Backpack')[0]
   const roll = holding(thorin, 'Bedroll')[0]
@@ -396,7 +486,6 @@ made = await answered(2, 'the take of the Backpack')
   check(lineTexts().at(-1).text === 'Takes 1 Backpack from The Iron Company' && same(made.result.transfer.items.map(i => i.id), ['backpack']),
     `one line, "${lineTexts().at(-1).text}", and the result lists the Backpack alone`)
 }
-await panel.getByRole('button', { name: 'Close' }).click()
 
 // =================================================================================================
 // 5. Coins (#213)

@@ -1,11 +1,12 @@
 'use client'
 
 import clsx from 'clsx'
-import { useSortableDrag } from '@/features/notes/hooks/use-sortable-drag'
+import { useSortableDrag } from './use-sortable-drag'
 import type { SortableProps } from './types'
 
 /**
- * A list put in order (round 0.35.0 §9.4): by dragging a row's grip with a mouse, a finger or a
+ * A list put in order (round 0.35.0 §9.4), a group's notes, and from module 0.47.0 a character's
+ * favorites: by dragging a row's grip with a mouse, a finger or a
  * pen; by the up and down keys on a grip, or Home and End; or by a row's arrows. The rows shift as
  * one is dragged past them; it's dropped where it's let go, and put back by Escape. Dragged near
  * the top or bottom of the pane it's in, the pane scrolls, and the drop place follows. Each move

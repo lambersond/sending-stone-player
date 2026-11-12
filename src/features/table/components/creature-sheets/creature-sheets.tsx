@@ -217,6 +217,7 @@ function OwnSheet({
       // Nor its items removed there (module 0.33.0), by either seat.
       removes={view.connected && view.removes === true}
       favorites={view.connected && view.favorites === true}
+      favoriteOrders={view.connected && view.favoriteOrders === true}
       // Its own effects turned off, on and deleted (module 0.39.0): the player's alone, at the
       // character's own pane, never a companion's.
       effects={view.effects}

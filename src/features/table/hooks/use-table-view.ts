@@ -10,8 +10,9 @@ import type { TableView, Connection } from '@/types/table'
  * Keep a character's view of its campaign current by polling for changes, including the
  * Gamemaster's game going offline or coming back. Polling pauses while the
  * page is in the background and catches up as soon as it is back. As a roll the game answered
- * ends (ROADMAP item 39), `readAgain` reads it at once, or as soon as a read on its way has come,
- * and once more a moment later, for the sheet the game sends a moment after the roll's answer.
+ * ends (ROADMAP item 39), or a move sent from the party sheet over it (item 43), `readAgain` reads
+ * it at once, or as soon as a read on its way has come, and once more a moment later, for the sheet
+ * the game sends a moment after its answer.
  * @param api - The seat's API base: the character's, such as `/api/characters/<id>`, or the
  *   Gamemaster's at its sheet (#156).
  * @param initial - The view the page was rendered with.

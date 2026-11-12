@@ -21,6 +21,7 @@ import {
   MOST_ASK_ROLLS,
   MOST_ASK_TERMS,
   MOST_EFFECT_DICE,
+  MOST_FAVORITE_ORDER,
   MOST_HIT_DICE,
   MOST_HIT_POINTS,
   MOST_MOVED,
@@ -38,6 +39,7 @@ import { TEXT_HASH } from '@/schemas/sending-stone'
 import { MOST_DICE } from '@/utils/damage-modifiers'
 import { MAX_LINKS } from '@/utils/description-links'
 import { isDieSides } from '@/utils/dice'
+import { sameFavorites } from '@/utils/favorite-commands'
 import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
 import type { Issue, RequestRule } from '@/schemas/types'
 import type {
@@ -244,6 +246,12 @@ const removeSchema: z.ZodType<RemoveInput> = z
 /** What may be done to a favorite, from module 0.37.0: added, or removed. */
 const favoriteOp = z.enum(['add', 'remove'])
 
+/** An effect's id as the sheet names it: the actor's "<id>", or an item's "<itemId>.<id>". */
+const FAVORITE_EFFECT_ID = /^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/
+
+/** A skill's, a tool's or a pool of spell slots' key, which never has a dot. */
+const FAVORITE_KEY = /^[A-Za-z][\w-]{0,31}$/
+
 /**
  * A favorite added to or removed from the character's, from module 0.37.0, by what it is: an item
  * by its Foundry id; one of an item's activities by its own id and its item's, as two items may
@@ -252,7 +260,7 @@ const favoriteOp = z.enum(['add', 'remove'])
  * no favorite ever names one of the old resources, whose removal in dnd5e zeroes its maximum.
  * Nothing else: no other type, and no field its type doesn't name.
  */
-const favoriteSchema: z.ZodType<FavoriteInput> = z.discriminatedUnion('type', [
+const favoriteChangeSchema = z.discriminatedUnion('type', [
   z.strictObject({
     op: favoriteOp,
     type: z.enum(['item']),
@@ -267,13 +275,55 @@ const favoriteSchema: z.ZodType<FavoriteInput> = z.discriminatedUnion('type', [
   z.strictObject({
     op: favoriteOp,
     type: z.literal('effect'),
-    id: z.string().regex(/^[\dA-Za-z]{1,64}(?:\.[\dA-Za-z]{1,64})?$/),
+    id: z.string().regex(FAVORITE_EFFECT_ID),
   }),
   z.strictObject({
     op: favoriteOp,
     type: z.enum(['skill', 'tool', 'slots']),
-    id: z.string().regex(/^[A-Za-z][\w-]{0,31}$/),
+    id: z.string().regex(FAVORITE_KEY),
   }),
+])
+
+/** A favorite as an order names it, from module 0.47.0: as one added names it, but its op. */
+const favoriteNameSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.enum(['item']), id: z.string().regex(FOUNDRY_ID) }),
+  z.strictObject({
+    type: z.literal('activity'),
+    id: z.string().regex(FOUNDRY_ID),
+    item: z.string().regex(FOUNDRY_ID),
+  }),
+  z.strictObject({
+    type: z.literal('effect'),
+    id: z.string().regex(FAVORITE_EFFECT_ID),
+  }),
+  z.strictObject({
+    type: z.enum(['skill', 'tool', 'slots']),
+    id: z.string().regex(FAVORITE_KEY),
+  }),
+])
+
+/**
+ * The character's favorites put in order, from module 0.47.0: `was`, those the sheet showed, in
+ * its order, and `order`, the same in the order wanted, each 1 to `MOST_FAVORITE_ORDER`, none twice
+ * (`sameFavorites`).
+ */
+const favoriteOrderSchema = z
+  .strictObject({
+    op: z.literal('order'),
+    order: z.array(favoriteNameSchema).min(1).max(MOST_FAVORITE_ORDER),
+    was: z.array(favoriteNameSchema).min(1).max(MOST_FAVORITE_ORDER),
+  })
+  .refine(({ order, was }) => sameFavorites(order, was), {
+    message: 'An order names the favorites shown, each once',
+  })
+
+/**
+ * A favorite added or removed, or from module 0.47.0 the favorites put in order, by its op: one
+ * added or removed told apart by its type, as before.
+ */
+const favoriteSchema: z.ZodType<FavoriteInput> = z.discriminatedUnion('op', [
+  favoriteChangeSchema,
+  favoriteOrderSchema,
 ])
 
 /**
