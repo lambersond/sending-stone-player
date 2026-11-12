@@ -18,7 +18,7 @@ section is about the app as it is now.
   In places it names the version that would bring it: on the campaign page, at a character's sheet
   and in the journal. The table says what else differs.
 - **Tested** end to end against the older modules in [e2e/skew.conf](e2e/skew.conf): today 0.22.0,
-  0.24.0, 0.26.0 to 0.37.0, 0.38.1 and 0.39.0 to 0.42.0, each from just before a feature
+  0.24.0, 0.26.0 to 0.37.0, 0.38.1, 0.39.0 to 0.42.0 and 0.46.0, each from just before a feature
   ([Older modules](e2e/README.md#older-modules-skew)). Older ones aren't run.
 - **Connect Foundry asks for 0.24.0 or later**, as the app's help names that version's settings
   window and its tabs.
