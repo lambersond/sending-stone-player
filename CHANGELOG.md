@@ -272,8 +272,10 @@ below:
 ## v0.43.0 — 2026-11-06
 
 Module v0.43.0 brought hit points set from the app and the dice tray's rolls made in the game,
-though README.md's table and the module's `PROTOCOL.md` list both under 0.44.0. The rest is the
-app's: the refactor, and part of what was planned for v0.44.
+though README.md's table and the module's `PROTOCOL.md` list both under 0.44.0, and README.md's
+v0.43 row still reads "Nothing new: v0.43 changed only the app, with no module release". The app
+turns both on from what the module's opening post says it takes, not from its version, so they work
+with module v0.43.0. The rest is the app's: the refactor, and part of what was planned for v0.44.
 
 ### Features
 
@@ -286,7 +288,8 @@ app's: the refactor, and part of what was planned for v0.44.
 - **The dice tray under the chat.** Under the chat, on the player's page and the Gamemaster's, a
   dice tray rolls any mix of d4 to d100, up to 20 dice, with a number added, its dice tumbling over
   the whole page. Where the campaign's rolls are on, Foundry makes it with the player's dice, typed
-  ones included, as a "Dice roll" card. (app and module, v0.44 item 7)
+  ones included, as a "Dice roll" card; with an older module the tray rolls the app's own dice and
+  says why the game doesn't make the roll. (app and module, v0.44 item 7)
 - **Favorites on the Character tab.** A switch in the cog, Favorites on the Character tab, off by
   default and kept for each device, shows the character's favorites between Skills and Traits. (app,
   v0.44 item 2)
@@ -304,8 +307,8 @@ app's: the refactor, and part of what was planned for v0.44.
   didn't make the damage, because it was refused, ran out of time or was never sent, where it was
   gone for good. (app, v0.44 item 9)
 - **A roll the app took told as sent.** A roll or command the app took, whose answer names nothing
-  to follow, is now told as sent and settles at once, where it was told as unreached or left End
-  Turn and other controls waiting until a reload. (app, v0.44 item 9)
+  to follow, is now told as sent and settles at once, where it was told as unreached or as getting
+  no answer from the game. (app, v0.44 item 9)
 - **The Gamemaster's hit dice say the hit points regained.** When only some of the Gamemaster's hit
   dice are made, they now say the hit points regained, as the player's do. (app, v0.44 item 9)
 - **Counts said right.** A single condition reads "Effects, 1 condition", and where at most 20
@@ -469,15 +472,15 @@ app's: the refactor, and part of what was planned for v0.44.
 
 - **Wild Shape from the app.** With Allow Players to use Wild Shape from the app on for the campaign
   in Foundry, a 2024 druid's player learns Beasts from the Gamemaster's chosen compendiums, within
-  the rules and one replaced after each Long Rest, and changes into one and back from the app, a use
-  each change. The sheet becomes the beast's, with a ribbon showing the time left and Return, and
-  Wild Shape ends when its hours of world time run out, at 0 hit points or Incapacitated, what
-  changed in form carried back to the druid. Known forms are kept on the druid's own Wild Shape, so
-  once one is learned, that druid's Wild Shape in Foundry offers them in place of dnd5e's Challenge
-  Rating browser. (app and module, item 1)
+  the rules and one replaced after each Long Rest, and changes into one from the app, spending a
+  use, and back again for none. The sheet becomes the beast's, with a ribbon showing the time left
+  and Return, and Wild Shape ends when its hours of world time run out, at 0 hit points or
+  Incapacitated, what changed in form carried back to the druid. Known forms are kept on the druid's
+  own Wild Shape, so once one is learned, that druid's Wild Shape in Foundry offers them in place of
+  dnd5e's Challenge Rating browser. (app and module, item 1)
 - **Wild Shape on the Gamemaster's campaign page.** The campaign page gains a Wild Shape section
   saying whether the campaign's druids change from the app, or what it needs first, and its Foundry
-  settings list the switch, Off or On. (app, item 1)
+  settings list the switch, Off or On. (app and module, item 1)
 
 ### Enhancements
 
@@ -577,7 +580,7 @@ app's: the refactor, and part of what was planned for v0.44.
 - **Dishes on the Gamemaster's campaign page.** The Gamemaster's campaign card gains a Cookbook
   dishes section saying whether the campaign takes dishes and how many wait, and its Foundry
   settings a Dishes row. A roster entry whose player has linked the cookbook shows Cookbook linked,
-  with a button to revoke the link. (app, item 1)
+  with a button to revoke the link. (app and module, item 1)
 
 ### Maintenance
 
@@ -711,14 +714,17 @@ app's: the refactor, and part of what was planned for v0.44.
   its Biography tab, in Markdown with Write and Preview, in chapters, seen only by them and the
   Gamemaster, and shown under why there's no sheet while it hasn't arrived. In Foundry they're the
   character's journal for the campaign, a page per chapter and per note, in a "Sending Stone notes"
-  folder. (app and module, item 1)
+  folder. A journal, a party's too, holds up to 50 chapters and 300 notes, each titled in up to 200
+  characters. (app and module, item 1)
 - **Party journal notes.** A party's members write notes in the first section of the party sheet's
   Description tab, each changing and deleting only their own, and any member or the Gamemaster can
   rename a chapter. In Foundry they're the party's journal, which members read whole and where each
   owns only their own pages. (app and module, item 2)
 - **Notes while Foundry is closed.** Every change to a note is kept in the app first and reaches
-  Foundry once it's running, and edits made in Foundry come back to the app. A note changed in both
-  places keeps Foundry's version and asks the player whether to use theirs. (app and module, item 3)
+  Foundry once it's running, and edits made in Foundry come back to the app, though a Gamemaster's
+  secrets and pages shown to only some players stay in Foundry: a page with a secret comes back
+  without it, read only. A note changed in both places keeps Foundry's version and asks the player
+  whether to use theirs. (app and module, item 3)
 
 ### Maintenance
 
@@ -823,10 +829,10 @@ app's: the refactor, and part of what was planned for v0.44.
 - **Tests.** Jest tests cover the dice dialog and keypad, typed rolls, Send to, Distribute and the
   party list. The end-to-end suites and the module's harness, kept outside the repositories until
   v0.34, gained `typed`, `givetake`, `crit-rules` and `sends` runs. (app and module)
-- **Two migrations, and app PR #44.** `20261021120000_character_manual_dice` keeps whether each
-  character's player types in their dice, and `20261021120100_campaign_transfer_features` what else
-  the campaign's module does with moves. Party sheets from the Inventory tab were app PR #44, which
-  went in as its own commit within PR #45, so GitHub shows #44 merged with it. (app)
+- **Two migrations.** `20261021120000_character_manual_dice` keeps whether each character's player
+  types in their dice, and `20261021120100_campaign_transfer_features` what else the campaign's
+  module does with moves. Party sheets from the Inventory tab were app PR #44, which went in as its
+  own commit within PR #45, so GitHub shows #44 merged with it. (app)
 
 ## v0.31.0 — 2026-10-20
 
@@ -835,9 +841,10 @@ app's: the refactor, and part of what was planned for v0.44.
 - **Moving items and coins.** With a campaign's new Players move items and coins on, a player takes
   items and coins from a party they have Owner on with Take on its sheet, and gives their own to a
   party or another campaign character with Give… on their Inventory, choosing how many and moving
-  containers whole. Each move posts a line in Foundry's chat, such as "Gives 2 Potion of Healing to
-  The Iron Company", and the Gamemaster can move for any character from their pages. (app and
-  module)
+  containers whole. Moved items, contents included, arrive unequipped and unattuned, and a
+  consumable joins a like stack only when it's identified, unspent and unenchanted. Each move posts
+  a line in Foundry's chat, such as "Gives 2 Potion of Healing to The Iron Company", and the
+  Gamemaster can move for any character from their pages. (app and module)
 - **Hit/miss and save results in the app.** A new world setting in Sending Stone's settings,
   "Hit/miss and save results in the app", can Always show them to players, whatever dnd5e and
   Midi-QOL show, on chat cards and the app's own rolls alike, but never with a DC or armor class.
@@ -923,8 +930,9 @@ app's: the refactor, and part of what was planned for v0.44.
   theirs. (app and module)
 - **Hits, misses and saves on chat cards.** Each target on a chat card shows Hit, Miss, Saved or
   Failed, with a line such as "Hit 1 of 2 · 1 of 2 saved", from dnd5e's attacks and saves and
-  Midi-QOL's hits and saves. They show only where Foundry shows players the result, and the module's
-  Chat messages hint names the settings that decide it. (app and module)
+  Midi-QOL's hits and saves, where Hit or Miss showed only beside a target's armor class. They show
+  only where Foundry shows players the result, and the module's Chat messages hint names the
+  settings that decide it. (app and module)
 - **Search in the target list.** A search box shows once the target list has more than 5 entries,
   matching word by word whatever the case or accents and keeping ticked targets in view. The Spells
   tab's search now matches the same way. (app)
@@ -1169,26 +1177,28 @@ app's: the refactor, and part of what was planned for v0.44.
 ### Features
 
 - **Self as a target.** An activity with range Self, such as a potion or Wild Shape, offers Self in
-  the target list, the default for healing and utilities and never for attacks, and the game's card
-  targets the character's token, or the character where there's none. (app and module)
+  the target list, the default for healing and utilities. An area that hits creatures, such as
+  Fireball, lists Self last, and no attack offers it. The game's card targets the character's token,
+  or the character where there's none. (app and module)
 
 ### Fixes
 
-- **A large party's sheets arrive.** An opening post too large for the app, such as one for a party
-  of nine at 1.1 MB, was refused, sheets and all. The opening post now carries the roster alone,
-  12.5 KB for that party, and each character's sheet follows in a post of its own, slimmer where the
-  app expands it, at most 197 KB. A sheet still too large is held back, the Gamemaster told once,
-  and the character's page gives its size and the limit. A sheet dropped from a full queue or
-  refused for a while is sent again at the next check, and the app keeps a character's sheet when an
-  opening post carries none. (app and module)
 - **Damage with Foundry's dice modifiers rolls.** Damage and formulas with Foundry's dice modifiers,
   such as Great Weapon Fighting's 2d6r<=2, 4d6kh3 or an exploding die, are buttons now, not plain
   text, on rows, favorites and description links: your dice are the first throw, the game throws any
-  reroll or explosion, and the tray shows its total. Maximum isn't offered where a die explodes or
-  its highest face is rerolled. (app and module)
+  reroll or explosion, and the tray shows its total. A roll kept on the phone throws its rerolls
+  there, the dice rerolled or dropped struck through, and Maximum isn't offered where a die explodes
+  or its highest face is rerolled. (app and module)
 
 ### Enhancements
 
+- **Each sheet in a post of its own.** The module's opening post now carries the roster alone, and
+  each character's sheet follows in a post of its own, slimmer where the app expands it, so a
+  party's sheets no longer add up against the 4 MB the app takes since v0.21.0: the party of nine's
+  1.1 MB post becomes a 12.5 KB roster and nine sheets of at most 197 KB. A sheet still too large
+  is held back, the Gamemaster told once, and the character's page gives its size and the limit. A
+  sheet dropped from a full queue or refused for a while is sent again at the next check, and the
+  app keeps a character's sheet when an opening post carries none. (app and module)
 - **A settings cog on the character's page.** A cog at the end of a character's tab row opens the
   sheet's settings from any tab: Send to the table, moved from the roll tray, the theme, and the
   Actions tab's layout where the screen fits more than one. (app)
@@ -1410,8 +1420,9 @@ app's: the refactor, and part of what was planned for v0.44.
   is made in the game too, with the player's dice. (app and module)
 - **Area attacks at the targets ticked.** An area attack, such as a breath weapon's cone, is now
   made in the game at the combatants the player ticks, up to as many as it takes, with one attack
-  roll. The tray says whom it hit, such as "Hit 1 of 2 · Goblin: Hit, Ogre: Miss", and only an area
-  that Midi-QOL targets itself is still refused. (app and module)
+  roll. The tray says how many it hit, such as "Hit 1 of 2", and lists each target under it, such
+  as "Goblin: Hit" and "Ogre: Miss". Only an area that Midi-QOL targets itself is still refused.
+  (app and module)
 - **Search spells.** With more than four spells, the Spells tab has a search box that finds spells
   by name, ignoring case, and tells a screen reader what it found. (app)
 
@@ -1459,8 +1470,9 @@ app's: the refactor, and part of what was planned for v0.44.
 
 - **An item under each kind of action.** The Actions tab now lists an item in a section for each way
   its activities are taken, such as a staff that strikes under Actions and casts Silvery Barbs under
-  Reactions. Each row is named for the activity it rolls as when that isn't the item's first, and
-  rows no longer repeat the kind of action their section's heading already says. (app and module)
+  Reactions. Each row is named for the activity it rolls as when that isn't the item's first and
+  shows that activity's own uses, not the first's, and rows no longer repeat the kind of action
+  their section's heading already says. (app and module)
 - **An item's activities folded away.** An item's other activities now sit inside its row's detail,
   closed until the row is opened, in a list and in a table on every tab. A closed row says how many
   more it holds, such as "6 more". (app)
@@ -1515,8 +1527,9 @@ that tag.
   one. Rolls now keep the order they were thrown in. (app)
 - **A refused target's level named.** When the game refuses a target the Gamemaster isn't viewing,
   the tray now says "your Gamemaster isn't viewing that target's level or scene", where before it
-  named only the scene. Since module v0.13.0, on Foundry V14, a target on another level of the same
-  scene is one the Gamemaster isn't viewing. (app)
+  named only the scene. With Midi-QOL on Foundry V14, a target on another level of the same scene is
+  also one the Gamemaster isn't viewing, and from module v0.13.0 the Gamemaster may allow such
+  targets. (app)
 
 ### Maintenance
 
@@ -1716,13 +1729,14 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
 
 ## v0.8.0 — 2026-10-05
 
+Module only: the app's Actions tab, which shows what it sends, came with v0.8.1.
+
 ### Features
 
 - **Each character's actions sent.** Each sheet now lists what the character can do in a fight, as
   Tidy 5e's Actions tab lists them by default and with the player's own Tidy choices, sectioned by
   how each is activated. Each action carries its range, bonus to hit, saving throw, damage or
-  healing, uses and description, an unidentified item keeps its numbers back, and the app's Actions
-  tab, which shows them, came with v0.8.1. (module)
+  healing, uses and description, and an unidentified item keeps its numbers back. (module)
 
 ### Maintenance
 
@@ -1794,8 +1808,8 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
 - **Unread chat that lasts.** The Chat tab's unread count now survives a reload and carries across
   devices. It leaves out your own messages and stops at 99+. (app)
 - **A turn panel that stays in view.** The panel with the round and the current and next turns now
-  stays above the initiative list as it scrolls, at every width, where before only phones kept it.
-  (app)
+  sits above the initiative list at every width and stays in view as it scrolls, where before only
+  a one-line round summary did. (app)
 - **Portraits in the chat.** A campaign character's message shows its portrait from the game, or
   initials where there's none. (app)
 
