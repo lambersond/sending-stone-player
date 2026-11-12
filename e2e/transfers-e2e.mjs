@@ -330,12 +330,14 @@ check(await dialog.getByRole('button', { name: 'Take 2' }).isVisible() && await 
   && await dialog.getByText('Foundry’s chat will say so.').isVisible(),
   `one more: "Take 2", and "${await summary(dialog)}"`)
 await shootBoth(alice, 'take-dialog', dialog)
+// Item 43 (v0.47): the page reads the table again as the game answers a move sent from the party
+// panel, so Thorin's sheet behind it shows his 3 potions within about a second of the panel's
+// "Took", where it waited for the table's next poll, up to 3 s later. Tapped as a read of the table
+// comes, its next poll is 3 s away: only the read as the game answers shows them sooner.
+await alice.page.waitForResponse(response => response.url().includes(`${ALICE_API}/table`), { timeout: 10_000 })
 let before = posted.length
 await dialog.getByRole('button', { name: 'Take 2' }).click()
 check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog closes at once')
-// Item 43 (v0.47): the page reads the table again as the game answers a move sent from the party
-// panel, so Thorin's sheet behind it shows his 3 potions within about a second of the panel's
-// "Took", where it waited for the table's next poll, up to 3 s later.
 {
   /** How many Potions of Healing Thorin's sheet lists: its row's "×n", 1 where it shows none. */
   const potions = () => alice.page.evaluate(() => {
@@ -344,8 +346,10 @@ check(await dialog.count() === 0 || !(await dialog.isVisible()), 'the dialog clo
   })
   await statusIn(panel).filter({ hasText: 'Took 2 Potion of Healing from The Iron Company' }).waitFor({ timeout: 30_000 })
   const said = Date.now()
-  const shown = await until(async () => (await potions()) === 3, "Thorin's sheet to show 3 Potions of Healing", 1_000).then(() => Date.now() - said, () => null)
-  check(shown !== null, `Thorin's sheet shows his 3 Potions of Healing ${shown === null ? `not within 1 s (it lists ${await potions()})` : `${shown} ms`} after the panel's "Took"`)
+  // Polled past the second, so the check says when they came; and held to it by the time taken,
+  // not by the poll's deadline, which a last poll can overrun.
+  const shown = await until(async () => (await potions()) === 3, "Thorin's sheet to show 3 Potions of Healing", 5_000).then(() => Date.now() - said, () => null)
+  check(shown !== null && shown <= 1_000, `Thorin's sheet shows his 3 Potions of Healing ${shown === null ? `not within 5 s (it lists ${await potions()})` : `${shown} ms`} after the panel's "Took"`)
 }
 let made = await answered(1, 'the take of two potions')
 {
