@@ -271,11 +271,14 @@ below:
 
 ## v0.43.0 — 2026-11-06
 
-Module v0.43.0 brought hit points set from the app and the dice tray's rolls made in the game,
-though README.md's table and the module's `PROTOCOL.md` list both under 0.44.0, and README.md's
-v0.43 row still reads "Nothing new: v0.43 changed only the app, with no module release". The app
-turns both on from what the module's opening post says it takes, not from its version, so they work
-with module v0.43.0. The rest is the app's: the refactor, and part of what was planned for v0.44.
+Module v0.43.0 brought hit points set from the app and the dice tray's rolls made in the game.
+README.md's supported-versions table lists both under v0.44.0, as the module's `PROTOCOL.md` does,
+and its v0.43 row still reads "Nothing new: v0.43 changed only the app, with no module release". The
+app turns both on from what the module's opening post says it takes, not from its version, so they
+work with module v0.43.0. Only the campaign card's Players' hit points line goes by the version:
+with module v0.43.0 and its switch off, it wrongly says version 0.44.0 or later is needed, a known
+wrong line yet to be fixed. The rest is the app's: the refactor, and part of what was planned for
+v0.44.
 
 ### Features
 
@@ -486,8 +489,9 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
 
 - **Transformed characters followed.** A character transformed in Foundry, by Wild Shape, Polymorph
   or the Gamemaster, now shows as its form in the app, while its turns, chat cards and the saves
-  asked of it stay the character's, so End Turn works on the form's turn. Favorites, effects, moves
-  and removals wait until the character is back in their own form. (app and module, item 2)
+  asked of it stay the character's, so End Turn works on the form's turn. While the character is in
+  another form, its favorites, effects, moves and removals are hidden, and the game refuses them.
+  (app and module, item 2)
 
 ### Maintenance
 
@@ -502,6 +506,9 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
   and module)
 
 ## v0.39.0 — 2026-10-26
+
+App PR #52 was closed unmerged on 2026-10-25: its one change, binding two end-to-end suites'
+`localize` to `game.i18n`, came in with PR #53 and is under Maintenance below.
 
 ### Features
 
@@ -530,7 +537,8 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
 - **The campaign page as a list.** The Gamemaster's campaigns are now a list, those that need them
   first, with the chosen one beside it on a wide screen or opened from it on a phone, and a search
   from seven campaigns. The chosen campaign is kept in the page's address, so a reload or a sign-in
-  keeps it. (app, item 4)
+  keeps it, and the back arrow on the Gamemaster's view of a character, and on a party's page,
+  returns to it. The site header marks Campaigns as the page shown. (app, item 4)
 - **The Magical Recipe Book in the cog.** Configure Magical Cookbook, a new entry in the sheet's
   cog, opens the link code and the dishes sent in a window of their own, in place of the Biography
   tab's card. (app, item 2)
@@ -548,8 +556,7 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
   the app's e2e, and `effects.mjs`, and `dish-core.mjs` draws the dish dialog as Foundry core does.
   The app gains 12 Jest suites, the `effects` and `campaigns` e2e suites and migration
   `20261028090000_player_effects`, and `gmroll-e2e` and `activities-e2e` bind `localize` to
-  `game.i18n`, a change from app PR #52, which was closed unmerged and carried by PR #53. (app and
-  module)
+  `game.i18n`. (app and module)
 
 ## v0.38.1 — 2026-10-25
 
@@ -780,6 +787,9 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
 
 ## v0.32.0 — 2026-10-20
 
+Party sheets from the Inventory tab, below, were app PR #44, which went in as its own commit within
+PR #45, so GitHub shows #44 merged with it.
+
 ### Features
 
 - **Typing in your own dice.** With Manual Dice on, a campaign that allows it and Make Manual Rolls
@@ -831,8 +841,7 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
   v0.34, gained `typed`, `givetake`, `crit-rules` and `sends` runs. (app and module)
 - **Two migrations.** `20261021120000_character_manual_dice` keeps whether each character's player
   types in their dice, and `20261021120100_campaign_transfer_features` what else the campaign's
-  module does with moves. Party sheets from the Inventory tab were app PR #44, which went in as its
-  own commit within PR #45, so GitHub shows #44 merged with it. (app)
+  module does with moves. (app)
 
 ## v0.31.0 — 2026-10-20
 
@@ -1004,7 +1013,10 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
   asked in the app with Midi's advantage, the DC where players see it and a button per ability Midi
   allows, and rolled with the player's dice. Where Foundry asks too the first answer wins, Midi
   rolls for them only once the banner's minute runs out or the page closes, and the Gamemaster can
-  answer from their page. (app and module)
+  answer from their page. The banner counts down, "Midi rolls for you in 0:42", or "Answer here or
+  in Foundry · 0:42" where Foundry asks too, and says how each ended: Rolled in Foundry, Midi rolled
+  it or Left to Foundry. Where the module can't find the parts of Midi it hooks, Midi's saves go on
+  as before, and its Modules section says so. (app and module)
 
 ### Fixes
 
@@ -1041,15 +1053,15 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
 - **The Gamemaster's area attack names who it hit.** On the player's page it reads "Hit 2 of 3:
   Bandit 1, Bandit 3", from the player's own view of the fight, and a target hit that the player
   can't see is counted as "and 1 more", never named. (app)
+- **Entering dice results manually, coming soon.** A campaign's Player actions tab in Sending
+  Stone's settings replaces its "Who rolls the dice" choice, whose Players enter results was marked
+  Coming soon, with "Allow Players to enter dice results manually", which can be on only while
+  Manual Dice is installed, active and on, and Players roll in the app is on. While it is, each
+  character on the Players tab and the app's cog show a switch for it, off and marked "Coming soon":
+  nothing is typed in yet, and nothing rolls differently. (app and module)
 
 ### Maintenance
 
-- **Groundwork for typing in your own dice.** A campaign's Player actions tab in Sending Stone's
-  settings replaces its "Who rolls the dice" choice, whose Players enter results was marked Coming
-  soon, with "Allow Players to enter dice results manually", which can be on only while Manual Dice
-  is installed, active and on, and Players roll in the app is on. While it is, each character on the
-  Players tab and the app's cog show a switch for it, off and marked "Coming soon": nothing is typed
-  in yet, and nothing rolls differently. (app and module)
 - **Docs and tests for the dice switch.** The module's `PROTOCOL.md` gains a "Module 0.26.0" entry
   and `manualDice` in the hello, its README the new switch, and its settings window drops the old
   choice's strings and styles. Jest tests cover the cog's switch, the help's new words, critical
@@ -1183,12 +1195,13 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
 
 ### Fixes
 
-- **Damage with Foundry's dice modifiers rolls.** Damage and formulas with Foundry's dice modifiers,
-  such as Great Weapon Fighting's 2d6r<=2, 4d6kh3 or an exploding die, are buttons now, not plain
-  text, on rows, favorites and description links: your dice are the first throw, the game throws any
+- **Damage with Foundry's dice modifiers.** Damage and formulas with Foundry's dice modifiers, such
+  as Great Weapon Fighting's 2d6r<=2, 4d6kh3 or an exploding die, are buttons now, not plain text,
+  on rows, favorites and description links: your dice are the first throw, the game throws any
   reroll or explosion, and the tray shows its total. A roll kept on the phone throws its rerolls
   there, the dice rerolled or dropped struck through, and Maximum isn't offered where a die explodes
-  or its highest face is rerolled. (app and module)
+  or its highest face is rerolled. As the game loads, the module checks that Foundry rolls such dice
+  as it expects, and offers no attacks from the app where it doesn't. (app and module)
 
 ### Enhancements
 
@@ -1272,8 +1285,8 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
   pay for now are disabled, and those it never could are hidden. (app and module)
 - **A cast spell's later activities.** Once a spell is cast from an item, its other activities, such
   as Hex's Bonus Hex Damage, sit beneath the item's Cast row on Actions, Inventory, Features and
-  Favorites and are used from there, spending what dnd5e spends, where before they were left to
-  Foundry. (app and module)
+  Favorites and are used from there, spending what dnd5e spends, where before they were listed only
+  on the Spells tab, beneath the spell. (app and module)
 
 ### Fixes
 
@@ -1359,7 +1372,7 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
   saving throw", opens a menu: Ask the table posts dnd5e's roll request card in Foundry from the
   character, prompting no one in the app, and Roll my save rolls it with your dice against the
   description's DC, even one it hides. A character may ask once every 10 seconds, and for the same
-  save once every 30; under dnd5e 6 only your own roll is offered. (app and module)
+  save once every 30; under dnd5e 6, Ask the table shows disabled, saying why. (app and module)
 - **Damage, healing and rolls in descriptions.** Damage, healing and a description's own rolls, such
   as "2d6 cold damage" or a [[/r 1d4]] in a biography, roll with your dice at a tap, named for where
   they come from, such as "Starry Wisp (Everburning Torch)". They're made in the game too, on a
@@ -1378,9 +1391,9 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
 - **No doubled DC in chat.** A save or check card's text in the app's chat keeps only the label
   players see in Foundry, so it no longer reads "DC 15 Dexterity saving throw Dexterity saving
   throw", and never shows a DC the card hides. (module)
-- **Full at a lowered maximum.** The module now sends the hit point maximum dnd5e shows, with any
-  temporary change to it, so a character with a lowered maximum reads as full there and no hit die
-  is spent at full health. (module)
+- **The hit point maximum dnd5e shows.** The module now sends the hit point maximum dnd5e shows and
+  heals up to, with any temporary change to it such as Aid's or a wraith's Life Drain, for the
+  character and in combat, so a character with a lowered maximum reads as full at it. (module)
 
 ### Enhancements
 
@@ -1433,8 +1446,8 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
   rule. A spell the item can't cast right now is muted, says why first, such as "Needs attuning",
   and rolls nothing. (app and module)
 - **An unprepared spell's favorite stays on the phone.** An activity made a favorite of a spell that
-  isn't prepared is now rolled on the phone only, as on the Spells tab. Before, its attack, use or
-  formula went to the game, which wanted the spell prepared first. (app)
+  isn't prepared is now rolled on the phone only, as on the Spells tab. Before, its attack or use
+  went to the game, which wanted the spell prepared first. (app)
 - **Targets counted at the level cast.** With only one pool of spell slots, such as a warlock's, the
   picker now counts how many targets a spell may take at the level that pool casts it, as the game
   does. Before, it counted at the spell's own level. (app)
@@ -1460,8 +1473,8 @@ with module v0.43.0. The rest is the app's: the refactor, and part of what was p
 
 ### Fixes
 
-- **Spells cast from an item no longer marked not prepared.** A spell cast from an item was sent as
-  not prepared, so the Spells tab muted it and rolled it on the phone only. It now shows as dnd5e's
+- **Spells cast from an item shown as prepared.** A spell cast from an item was sent as not
+  prepared, so the Spells tab muted it and rolled it on the phone only. It now shows as dnd5e's
   sheet has it and is cast at the table like any other spell. (module)
 - **An activity's own range.** An activity with no range of its own no longer shows its item's
   range. (module)
@@ -1671,9 +1684,10 @@ Module only: the app's side of its saves, changed damage and rolls from any tab 
   the group or open it again, with how many actions it holds and, for a spell level, its slots. This
   works in the list, the columns and the table, and the browser remembers closed groups for each
   character. (app)
-- **Favorites sent to the app.** The module sends each character's favorites in the player's order,
-  as dnd5e's sheet shows them under Favorites and Tidy 5e in its sidebar: items, activities such as
-  a staff's Cast Fireball, effects, skills, tools, spell slots and named resources. A favorite the
+- **Favorites sent to the app.** The module sends each character's favorites in the order dnd5e's
+  sheet shows them under Favorites and Tidy 5e in its sidebar: first the old-style resources with a
+  name and a maximum, then what the player made a favorite, in their order, such as items,
+  activities like a staff's Cast Fireball, effects, skills, tools and spell slots. A favorite the
   player can't see, such as a hidden item's, is left out, and the app shows favorites from v0.10.0.
   (module)
 
@@ -1900,9 +1914,6 @@ Module only: the app's Actions tab, which shows what it sends, came with v0.8.1.
   one of its characters, each of which belongs to one player. A box on Your characters takes a
   pasted link in place of the old form. Characters added before are linked to their campaign's
   character of the same name, or asked to choose. (app)
-- **Live or Offline.** The module sends a heartbeat to any campaign it has sent nothing for 30
-  seconds. The table shows Live, or Offline after two minutes without word, and changes without a
-  reload, as does the Gamemaster's campaign card. (app and module)
 - **Combat rolls marked.** Attack, spell attack, damage, healing and spell rolls in the chat get a
   chip and a coloured edge with the item's name. Their targets are called out, with Hit or Miss when
   the Gamemaster shares armor class, and damage rolled from an attack's card shows that attack's
@@ -1915,6 +1926,11 @@ Module only: the app's Actions tab, which shows what it sends, came with v0.8.1.
 
 ### Enhancements
 
+- **Live or Offline.** The module sends a heartbeat to any campaign it has sent nothing for 30
+  seconds, and the status on a character's page now says whether the game is heard from: Live, or
+  Offline after two minutes without word, changing without a reload, where Live meant only that the
+  app answered. The Gamemaster's campaign card shows Live, Offline or Waiting for Foundry, with when
+  the game was last heard, as they stood when the page loaded. (app and module)
 - **Test Connection says when nothing is set up.** A test the app answers with 404 now says no
   campaign is set up for this game, and to set one up in the app with the game's address and the
   same secret. (module)
@@ -1943,10 +1959,12 @@ The app's first release.
   campaign's title. They choose one to open, or remove it. (app)
 - **The game's chat and combat, live.** A character's page shows its campaign's chat and combat
   tracker as they happen, with whispers only for their players, hidden combatants left out and only
-  the party's hit points shown. Until the game has sent anything, the page shows the address the
-  Gamemaster sets in Foundry instead. Roll cards show the dice, total, damage type and targets, with
-  Critical, Advantage, Disadvantage and Nat 1 marked, and your own messages sit on the right, with
-  an unread count on Chat and a dot on Combat on your turn. (app)
+  the party's hit points shown. A status in its header reads Live while the app answers, or
+  Reconnecting while it can't be reached, and the page stops asking for news while its tab is in the
+  background. Until the game has sent anything, the page shows the address the Gamemaster sets in
+  Foundry instead. Roll cards show the dice, total, damage type and targets, with Critical,
+  Advantage, Disadvantage and Nat 1 marked, and your own messages sit on the right, with an unread
+  count on Chat and a dot on Combat on your turn. (app)
 - **Light, dark or system theme.** A switch in the header picks Light, Dark or System, applied
   before the page draws so it never flashes, in Sending Stone's jade green. (app)
 
