@@ -101,4 +101,22 @@ describe('utils/lifecycle, follow', () => {
     expect(update).toHaveBeenCalledTimes(1)
     await expect(followed).resolves.toBeUndefined()
   })
+  it('follows a request the app took though its taken callback throws, never told refused (ROADMAP item 50)', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-hp' }))
+      .mockResolvedValue(respond(200, { id: 'req-hp', status: 'done' }))
+    const update = jest.fn()
+    const taken = jest.fn(() => {
+      throw new Error('the page’s own')
+    })
+
+    void follow(api, fall, new AbortController().signal, update, taken)
+    await advance(CHECK_EVERY)
+
+    expect(taken).toHaveBeenCalledWith('req-hp')
+    expect(update.mock.calls).toEqual([
+      [{ id: 'req-hp', status: 'done', requestId: 'req-hp' }],
+    ])
+  })
 })

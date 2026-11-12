@@ -48,9 +48,16 @@ export async function follow(
       // Nothing more to tell it: the request stands as the game said.
     }
   }
-  const sent = await post(api, input, signal, tell, taken)
+  const sent = await post(api, input, signal, tell)
   if (!sent) return
   const { id } = sent
+  // An error `taken` throws is its own too (ROADMAP item 50): the app took the request, so it's
+  // followed, never told refused.
+  try {
+    taken(id)
+  } catch {
+    // The request stands as taken.
+  }
   let until = Date.now() + FOLLOW_FOR
   let late = false
   let asked = Date.now()
@@ -75,17 +82,16 @@ export async function follow(
 }
 
 /**
- * Send a roll to the game: the id the app took it under, as its answer gives it, told to
- * `taken` too; or, where the app didn't take it, or couldn't be reached, nothing, with why told
- * to `update`; or, where it took it but its answer names no id, nothing, with it told as made,
- * unfollowed: it went to the game, and there's no id to follow it by.
+ * Send a roll to the game: the id the app took it under, as its answer gives it; or, where the
+ * app didn't take it, or couldn't be reached, nothing, with why told to `update`; or, where it
+ * took it but its answer names no id, nothing, with it told as made, unfollowed: it went to the
+ * game, and there's no id to follow it by.
  */
 async function post(
   api: string,
   input: RollRequestInput,
   signal: AbortSignal,
   update: (state: TableRollState) => void,
-  taken: (id: string) => void,
 ): Promise<{ id: string } | undefined> {
   try {
     const response = await fetch(`${api}/rolls`, {
@@ -103,7 +109,6 @@ async function post(
       update({ status: 'done', unfollowed: true })
       return
     }
-    taken(id)
     return { id }
   } catch {
     update({ status: 'refused', reason: 'network' })
