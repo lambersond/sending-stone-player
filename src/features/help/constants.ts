@@ -86,7 +86,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'A row, such as an item, a spell, a feature or an effect',
-        text: ': Add to favorites or Remove from favorites; for a spell, Prepare or Unprepare; for an item, Send to… and Remove…; for one of your own effects, Turn off or Turn on, and Delete…. Each is there only where your Gamemaster’s game takes it.',
+        text: ': Add to favorites or Remove from favorites, and among your favorites Move up and Move down; for a spell, Prepare or Unprepare; for an item, Send to… and Remove…; for one of your own effects, Turn off or Turn on, and Delete…. Each is there only where your Gamemaster’s game takes it.',
       },
       {
         lead: 'The Combat tab.',

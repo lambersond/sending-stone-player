@@ -40,6 +40,9 @@ describe('features/help/constants', () => {
       // A row's (item-menu): favorites, a spell's, an item's and an effect's.
       'Add to favorites',
       'Remove from favorites',
+      // Among the favorites, from module 0.47.0.
+      'Move up',
+      'Move down',
       PREPARE_WORDS.prepare.menu,
       PREPARE_WORDS.unprepare.menu,
       'Send to…',
