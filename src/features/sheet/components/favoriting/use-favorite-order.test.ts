@@ -1,8 +1,9 @@
 import { act, renderHook } from '@testing-library/react'
 import { useFavoriteOrder } from './use-favorite-order'
 import { fullerSheet, sheetFavorites } from '@/mocks/sending-stone'
+import { targetKey } from '@/utils/favorite-commands'
 import { favoriteEntries } from '@/utils/favorites'
-import type { TableRollState } from '@/types/roll'
+import type { FavoriteTarget, TableRollState } from '@/types/roll'
 import type { SheetFavorite } from '@/types/sending-stone'
 
 type Props = {
@@ -116,6 +117,49 @@ describe('useFavoriteOrder, from module 0.47.0', () => {
       ...BLESS_FIRST,
     ])
   })
+
+  // Athletics favorited while Bless's order is on its way, from a row's menu or in Foundry: the
+  // sheet lists it last. A move of it, or of another, names it, from the order shown.
+  it.each([
+    [
+      'Athletics moved up',
+      [...BLESS_FIRST.slice(0, -1), 'skill:ath', 'slots:spell1'],
+    ],
+    [
+      'the Warhammer moved down',
+      [
+        'effect:blessed',
+        'activity:staff.cast-fireball',
+        'item:warhammer',
+        ...BLESS_FIRST.slice(3),
+        'skill:ath',
+      ],
+    ],
+  ])(
+    'while one waits, names a favorite added meanwhile where the sheet lists it: %s',
+    (label, moved) => {
+      const { result, rerender, send } = renderOrder()
+      act(() => result.current.save(BLESS_FIRST, 'Bless'))
+      const favorites: SheetFavorite[] = [
+        ...sheetFavorites(),
+        { type: 'skill', id: 'ath', name: 'Athletics' },
+      ]
+      rerender({
+        states: new Map([['use-1', { status: 'sending' }]]),
+        favorites,
+      })
+      act(() => result.current.save(moved, label))
+      const [order, was] = (send.mock.calls[1] as unknown[])
+        .slice(0, 2)
+        .map(targets =>
+          (targets as FavoriteTarget[]).map(target => targetKey(target)),
+        )
+      expect({ order, was }).toEqual({
+        order: moved,
+        was: [...BLESS_FIRST, 'skill:ath'],
+      })
+    },
+  )
 
   it('moves only those shown, any the page doesn’t show keeping its place', () => {
     const { result, send } = renderOrder()

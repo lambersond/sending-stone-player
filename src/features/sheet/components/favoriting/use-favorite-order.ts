@@ -6,6 +6,7 @@ import {
   arrangeEntries,
   orderTargets,
   placeShown,
+  shownOrder,
   targetsOf,
 } from '@/features/sheet/utils/favorite-order'
 import { targetKey } from '@/utils/favorite-commands'
@@ -18,8 +19,10 @@ import type { SheetFavorite } from '@/types/sending-stone'
  * favorites and its module takes orders. An order sent is shown at once, and while it's on its way,
  * and once made until the sheet shows it, for up to `FAVORITE_SETTLE`; one that failed or was
  * refused, as one Foundry's sheet changed meanwhile, shows the sheet's own again, its line saying
- * why. Each is sent whole, every favorite the sheet lists but its old-style resources, from the
- * order shown, as the game checks it; the page reads the sheet again as the game answers it.
+ * why. A favorite the sheet lists that an order shown doesn't name, as one added meanwhile from a
+ * row's menu or in Foundry, is shown where the sheet lists it. Each is sent whole, every favorite
+ * the sheet lists but its old-style resources, from the order shown, as the game checks it; the
+ * page reads the sheet again as the game answers it.
  * @param send - Sends an order and the one it was made from, and logs it among the rolls, named
  *   for what moved, returning its local id.
  */
@@ -54,7 +57,13 @@ export function useFavoriteOrder({
     ),
   })
   const latest = last(ORDER_KEY)
-  const shown = latest && waitingOf(latest) ? latest.keys : sheetKeys
+  const waiting = waitingOf(latest)
+  // While one waits, a favorite it doesn't name, as one added meanwhile, is shown where the sheet
+  // lists it, and named in what's sent next.
+  const shown = useMemo(
+    () => (latest && waiting ? shownOrder(latest.keys, sheetKeys) : sheetKeys),
+    [latest, waiting, sheetKeys],
+  )
 
   const arrange = useCallback(
     (entries: Parameters<FavoriteOrder['arrange']>[0]) =>

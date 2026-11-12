@@ -4,6 +4,7 @@ import {
   movable,
   orderTargets,
   placeShown,
+  shownOrder,
   stepOrders,
 } from './favorite-order'
 import { fullerSheet, sheetFavorites } from '@/mocks/sending-stone'
@@ -44,6 +45,26 @@ describe('utils/favorite-order, from module 0.47.0', () => {
       'b',
     ])
   })
+
+  it.each([
+    [
+      'one added meanwhile where the sheet lists it',
+      ['c', 'a', 'b'],
+      ['a', 'new', 'b', 'c'],
+      ['c', 'new', 'a', 'b'],
+    ],
+    [
+      'none the sheet no longer lists',
+      ['c', 'gone', 'a', 'b'],
+      ['a', 'b', 'c'],
+      ['c', 'a', 'b'],
+    ],
+  ])(
+    'shows an order sent with the sheet’s favorites: %s',
+    (_, sent, sheet, shown) => {
+      expect(shownOrder(sent, sheet)).toEqual(shown)
+    },
+  )
 
   it.each([
     ['the first, down only', 'a', { down: ['b', 'a', 'c'] }],

@@ -50,6 +50,19 @@ export function placeShown(all: string[], shown: string[]): string[] {
 }
 
 /**
+ * The favorites shown while an order sent waits, by key: the sheet's, those the order names in its
+ * order, in the places they hold among them; any it doesn't name, as one added meanwhile from a
+ * row's menu or in Foundry, where the sheet lists it; none the sheet no longer lists.
+ */
+export function shownOrder(sent: string[], sheet: string[]): string[] {
+  const listed = new Set(sheet)
+  return placeShown(
+    sheet,
+    sent.filter(key => listed.has(key)),
+  )
+}
+
+/**
  * The orders a favorite's menu may make among those that move, by key: Move up's, with it one
  * place up, for all but the first; Move down's, with it one place down, for all but the last; none
  * for a favorite not among them.
