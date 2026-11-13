@@ -13,6 +13,7 @@ import {
 } from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import { HELP_TITLE } from '@/features/help/constants'
+import { GM_PILL } from '@/features/table/constants'
 import {
   campaignAndGame,
   headerLine,
@@ -84,7 +85,7 @@ export function TableHeader({
                 <h1 className='min-w-0 truncate text-lg leading-tight font-semibold'>
                   {character.name}
                 </h1>
-                <span className='shrink-0 self-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-text'>
+                <span className={GM_PILL}>
                   GM<span className='sr-only'>, Gamemaster view</span>
                 </span>
               </div>

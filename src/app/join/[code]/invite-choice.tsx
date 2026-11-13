@@ -7,7 +7,7 @@ import { gameHost } from '@/utils/game-host'
 
 /**
  * A campaign's invite, for the signed-in player to choose which of its characters they play, or
- * that the link doesn't work (v0.48.0: read once the page has its user, the loading stone showing
+ * that the link doesn't work (v0.48.0: read once the page has its user, its outline shimmering
  * until then).
  */
 export async function InviteChoice({

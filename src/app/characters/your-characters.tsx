@@ -1,21 +1,20 @@
 import { Flag } from 'lucide-react'
 import Link from 'next/link'
-import { openInvite, removeCharacter } from './actions'
+import { openInvite } from './actions'
 import { Avatar } from '@/components/avatar/avatar'
-import { listCharacters } from '@/db/characters'
-import { CharacterList } from '@/features/characters/components/character-list/character-list'
 import { InviteForm } from '@/features/characters/components/invite-form/invite-form'
 import type { SessionUser } from '@/lib/types'
+import type { ReactNode } from 'react'
 
 /**
- * The signed-in player's characters to choose from, and a campaign to join (v0.48.0: read once
- * the page has its user, the loading stone showing until then).
+ * The signed-in player's page: who they are, their characters to choose from, and a campaign to
+ * join. All of it is known once the page has its user, and drawn at once (v0.48.0), but for the
+ * characters themselves, `children`, which stream in once they're read.
  */
-export async function YourCharacters({
+export function YourCharacters({
   user,
-}: Readonly<{ user: SessionUser }>) {
-  const characters = await listCharacters(user.id)
-
+  children,
+}: Readonly<{ user: SessionUser; children: ReactNode }>) {
   return (
     <div className='mx-auto w-full max-w-3xl px-4 py-10 sm:py-14'>
       <header className='flex items-center gap-4'>
@@ -39,13 +38,7 @@ export async function YourCharacters({
         <p className='mt-1 mb-4 text-text-secondary'>
           Pick who you are playing to follow their game.
         </p>
-        {characters.length > 0 ? (
-          <CharacterList characters={characters} onRemove={removeCharacter} />
-        ) : (
-          <p className='rounded-2xl border border-dashed border-border p-6 text-center text-text-secondary'>
-            You have no characters yet. Join a campaign below to choose one.
-          </p>
-        )}
+        {children}
       </section>
 
       <section aria-labelledby='join-heading' className='mt-10'>

@@ -5,7 +5,7 @@ import type { SheetSeat } from '@/types/character'
 
 /**
  * A character's table as its campaign's Gamemaster sees it (v0.48.0: read once the page has found
- * their seat at it, the loading stone showing until then).
+ * their seat at it, its outline shimmering until then).
  */
 export async function GmCharacterTable({
   seat,

@@ -13,8 +13,8 @@ import { GameTable } from '@/features/table/components/game-table/game-table'
 import type { Character } from '@/types/character'
 
 /**
- * A player's character's table (v0.48.0: read once the page has found the character theirs, the
- * loading stone showing until then).
+ * A player's character's table (v0.48.0: read once the page has found the character theirs, its
+ * outline shimmering until then).
  */
 export async function CharacterTable({
   character,

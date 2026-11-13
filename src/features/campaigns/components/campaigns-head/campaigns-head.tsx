@@ -1,6 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
+import { CAMPAIGNS_HEADING, CAMPAIGNS_LEAD } from '../../constants'
 import { PAGE_HEADING_ID } from '../../utils/campaign-ids'
 import { ConnectFoundryButton } from '@/features/campaigns/components/campaign-buttons/connect-foundry-button'
 import { NewCampaignButton } from '@/features/campaigns/components/campaign-buttons/new-campaign-button'
@@ -39,7 +40,7 @@ export function CampaignsHead({
             narrowed && '@max-[900px]/index:sr-only',
           )}
         >
-          Your campaigns
+          {CAMPAIGNS_HEADING}
         </h1>
         <p
           className={clsx(
@@ -47,8 +48,7 @@ export function CampaignsHead({
             narrowed && '@max-[900px]/index:hidden',
           )}
         >
-          Set up each campaign you run as Gamemaster, then share its invite link
-          with your players.
+          {CAMPAIGNS_LEAD}
         </p>
       </div>
       <div

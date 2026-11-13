@@ -1,8 +1,8 @@
 import { cache, Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { GmCharacterTable } from './gm-character-table'
-import { LoadingStone } from '@/components/loading-stone/loading-stone'
 import { getGmSeat } from '@/db/seats'
+import { GameTableSkeleton } from '@/features/table/components/game-table/game-table-skeleton'
 import { requireUser } from '@/lib/session'
 import { gmCharacterPath } from '@/utils/seat-urls'
 import type { Metadata } from 'next'
@@ -30,8 +30,8 @@ export async function generateMetadata({
  * A character's sheet as its campaign's Gamemaster sees it, without claiming it: its player's
  * view of the campaign, to roll from as the character, each roll marked as theirs. Anyone else, a
  * campaign of another's, or a character not in its roster is told only that the sheet isn't open
- * here, answered 404 before anything is sent. Then the loading stone while its table is read
- * (v0.48.0).
+ * here, answered 404 before anything is sent. Then its table's outline, with its name and the GM
+ * pill, while the table is read (v0.48.0).
  */
 export default async function GmCharacterPage({
   params,
@@ -41,7 +41,7 @@ export default async function GmCharacterPage({
   if (!seat) notFound()
 
   return (
-    <Suspense fallback={<LoadingStone />}>
+    <Suspense fallback={<GameTableSkeleton name={seat.name} gm />}>
       <GmCharacterTable seat={seat} campaignId={id} actorId={actor} />
     </Suspense>
   )
