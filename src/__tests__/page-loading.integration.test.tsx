@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { redirect } from 'next/navigation'
 import { Suspense, type ReactElement } from 'react'
 import GmCharacterPage from '@/app/campaigns/[id]/characters/[actor]/page'
@@ -169,3 +171,16 @@ it.each([
     for (const read of reads) expect(read).not.toHaveBeenCalled()
   },
 )
+
+// The app's folder, from this file's own path (src/__tests__/), whichever folder Jest started in.
+const APP = path.resolve(path.dirname(expect.getState().testPath!), '../app')
+
+it('has no loading file anywhere in the app, as one would stream every page below it before its checks', () => {
+  // A loading.js wraps its segment's layouts and pages in a Suspense, so each page below it
+  // answers 200 at once, before its checks can redirect or answer 404 (loading.md, "Status Codes").
+  const loading = fs
+    .readdirSync(APP, { recursive: true, encoding: 'utf8' })
+    .filter(file => /^loading\.[jt]sx?$/.test(path.basename(file)))
+
+  expect(loading).toEqual([])
+})
