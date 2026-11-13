@@ -18,6 +18,12 @@ describe('components/loading-stone', () => {
     const { container } = render(<LoadingStone />)
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+    // In the middle of the page's main part, which it fills, between the header and the footer.
+    expect(screen.getByRole('status').parentElement).toHaveClass(
+      'flex-1',
+      'items-center',
+      'justify-center',
+    )
     const stone = container.querySelector('img')!
     expect(stone).toHaveAttribute('src', '/brand/stone-icon-96.png')
     expect(stone).toHaveAttribute('alt', '')
