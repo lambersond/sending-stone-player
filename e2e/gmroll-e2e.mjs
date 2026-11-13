@@ -757,8 +757,14 @@ check(own.status === 404 && view.status === 200 && !/Balin of Mirkwood|Mirkwood 
   `Alice's own campaign has no "nobody" (404); her Balin's view holds nothing of Mirkwood's Balin, and Mirkwood's roll and description aren't found through it (${JSON.stringify([own.status, view.status, crossed])})`)
 {
   const { view, page } = await browse({ width: 390, height: 844 })
-  await page.goto(`${BASE}${gmPath(A, 'balin')}`)
+  const arrived = await page.goto(`${BASE}${gmPath(A, 'balin')}`)
   await page.waitForURL(/\/login\?next=/)
+  // The redirect the server answered with, before any of the page was sent: none, had the page
+  // begun to stream and sent the browser on from within it (v0.48.0's loading stone comes after).
+  const redirect = await arrived.request().redirectedFrom()?.response()
+  const location = redirect?.headers().location
+  check(redirect?.status() === 307 && new URL(location, BASE).href === `${BASE}/login?next=${encodeURIComponent(gmPath(A, 'balin'))}`,
+    `signed out, the server answers the page with its own redirect to sign in, 307 (${redirect?.status()} to ${location})`)
   const next = new URL(page.url()).searchParams.get('next')
   const answers = await Promise.all(['table', 'rolls/x', `texts/${ashlandsHash}`].map(async path => (await call(page, `${gmApi(A, 'balin')}/${path}`)).status))
   check(next === gmPath(A, 'balin') && same(answers, [401, 401, 401]), `signed out, the page sends to the login page and back (${next}), and the APIs answer 401`)

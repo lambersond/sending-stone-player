@@ -72,9 +72,9 @@ run sync 62 SHOTS=$O/shots-022
 run favres 21 SHOTS=$O/shots-023
 run toasts 149 TIMEOUT=900 SHOTS=$O/shots-026
 run gmerr 58 SHOTS=$O/shots-025
-run gmroll 70 SHOTS=$O/shots-026
+run gmroll 71 SHOTS=$O/shots-026
 run gmroll 6 SKEW=1 MODULE=$O/module-0.22.0 SHOTS=$O/shots-026
-run gmroll 70 SKEW=024 MODULE=$O/module-0.24.0 SHOTS=$O/shots-026
+run gmroll 71 SKEW=024 MODULE=$O/module-0.24.0 SHOTS=$O/shots-026
 # Module 0.32.0: players type in what their own dice show, and module 0.31.0 (no gate).
 run manualdice 29 SHOTS=$O/shots-032
 run manualdice 18 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
