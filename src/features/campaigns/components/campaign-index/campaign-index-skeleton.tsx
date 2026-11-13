@@ -89,12 +89,15 @@ function RowSkeleton() {
   )
 }
 
-/** A campaign's page: its title and game, then its characters and its invite link. */
+/**
+ * A campaign's page: its title and game, then its characters and its invite link. Its head no
+ * wider than the page, its title's lines narrowing beside the chip, as on a 320-pixel phone.
+ */
 function CardSkeleton() {
   return (
     <div className={CAMPAIGN_CARD}>
-      <div className='flex items-start justify-between gap-3'>
-        <div className='grid min-w-0 gap-2'>
+      <div className='flex min-w-0 items-start justify-between gap-3'>
+        <div className='flex min-w-0 flex-col gap-2'>
           <Skeleton className='h-6 w-48 max-w-full rounded-md' />
           <Skeleton className='h-4 w-56 max-w-full rounded-md' />
         </div>
