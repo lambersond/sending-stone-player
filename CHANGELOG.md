@@ -28,7 +28,7 @@ version's list names that version, such as v1.x item 8.
   at one and an invite link. Its carved rune lights like a signal's bars, over and over every 2
   seconds: dark, then the dot, the dot and the inner arc, all three, half a second each, then dark
   again. Where the device asks for reduced motion, the rune is lit and still. A screen reader hears
-  "Loading…". Every page answers with the same status and redirect as before: signed out, the
+  "Loading…". The not-found pages and sign-in redirects are the same as before: signed out, the
   server sends you to sign in; a page that isn't open to you is not found. Opening one of these
   pages afresh, the stone may only flash where the data comes quickly; going to one from another
   page of the app, it shows for at least about a third of a second, so the page comes up that much
