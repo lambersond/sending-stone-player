@@ -10,7 +10,7 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.46.0 and its app, with v0.45.0 and v0.44.0 before it.
+Released: module v0.47.0 and its app, with v0.46.0, v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -27,12 +27,14 @@ Midi-QOL v14.0.x:
 - **The Initiative tile:** in an encounter begun and then switched away on the tracker, the sheet's
   Initiative tile doesn't offer to roll for it.
 
-## v0.47 (release candidate)
+## v0.47 (released, to check at the table)
 
-Built for Friday's session: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.47.0 entry.
+Released on 2026-11-12, before Friday's session: what it holds is in
+[CHANGELOG.md](CHANGELOG.md)'s v0.47.0 entry. v0.47 is the release candidate for v1.0 after v0.46:
+it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.47.0 is tagged** (built and tested against stand-ins
-only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Favorites put in order:** on a player's own sheet, Reorder's drag and keys, and on a phone Move
   up and Move down in a favorite's menu, save the order; the character's sheet in Foundry shows the
@@ -51,9 +53,6 @@ only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 - **Module 0.43.0 named:** where a game still runs module 0.43.0 with Allow Players to change their
   hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
   module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
-
-Then module v0.47.0 is tagged, and v0.47 is the release candidate for v1.0 after v0.46: it runs at
-the table for a while before v1.0 is tagged.
 
 ## Not yet scheduled
 

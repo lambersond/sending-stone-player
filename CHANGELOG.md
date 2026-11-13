@@ -18,7 +18,22 @@ Each entry ends with where it lives, the app, the module or both, and its ROADMA
 one. ROADMAP.md began with v0.34, so the versions before it have none, and an item from another
 version's list names that version, such as v1.x item 8.
 
-## v0.47.0 — release candidate, not yet tagged
+## v0.48.0 — release candidate, not yet tagged
+
+### Enhancements
+
+- **The stone lights up while a page loads.** While a page loads, the app now shows its stone in
+  the middle of the page, between the header and footer, where it showed nothing before. Its
+  carved rune lights like a signal's bars, over and over every 2 seconds: dark, then the dot, the
+  dot and the inner arc, all three, half a second each, then dark again. Where the device asks for
+  reduced motion, the rune is lit and still. A screen reader hears "Loading…". (app)
+
+### Maintenance
+
+- **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
+  kept. (app)
+
+## v0.47.0 — 2026-11-12
 
 ### Features
 
