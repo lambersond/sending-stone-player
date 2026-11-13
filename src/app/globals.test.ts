@@ -301,6 +301,37 @@ describe('app/globals.css', () => {
       ).toBeGreaterThanOrEqual(4.5)
     })
   })
+
+  describe("a page's skeleton (v0.48.0)", () => {
+    it('sweeps its shine across each block over 1.5 s, at an even pace, again and again', () => {
+      expect(css).toContain('--animate-shimmer: shimmer 1.5s linear infinite;')
+      // The shine, at the middle of a gradient twice the block's width, from off its left edge to
+      // off its right: 150% puts the gradient's middle half a block before the left edge.
+      const from = css.indexOf('@keyframes shimmer {')
+      const frames = css.slice(from, css.indexOf('\n  }\n', from))
+      expect(frames).toMatch(/from \{\s*background-position: 150% 0;\s*\}/)
+      expect(frames).toMatch(/to \{\s*background-position: -50% 0;\s*\}/)
+    })
+
+    it.each([
+      ['light', light],
+      ['dark', dark],
+    ])(
+      'reads in the %s theme: a placeholder apart from the page and the cards, its shine lighter',
+      (_, theme) => {
+        const placeholder = rgb(theme.skeleton)
+        for (const surface of [theme.page, theme.card]) {
+          expect(contrast(placeholder, rgb(surface))).toBeGreaterThanOrEqual(
+            1.1,
+          )
+        }
+        expect(luminance(rgb(theme['skeleton-shine']))).toBeGreaterThan(
+          luminance(placeholder),
+        )
+      },
+    )
+  })
+
   describe("the loading stone's rune (v0.48.0)", () => {
     it("glows the approved design's jade, the same in both themes, as it shines on the icon's own night tile", () => {
       expect(css).toContain('--color-rune-glow: #9dffd6;')

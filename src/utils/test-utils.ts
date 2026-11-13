@@ -1,8 +1,10 @@
 import {
+  cloneElement,
   isValidElement,
   Suspense,
   type ReactElement,
   type ReactNode,
+  type SuspenseProps,
 } from 'react'
 import { act } from '@testing-library/react'
 
@@ -207,15 +209,48 @@ export const markup = () =>
 export const ordered = (value: unknown) => JSON.stringify(value, undefined, 1)
 
 /**
+ * A page with each of its Suspense boundaries given back as `at` draws it: at the page's root, or
+ * among the children it hands to what it draws at once. Its other elements stay as they are.
+ */
+const throughSuspense = async (
+  page: ReactNode,
+  at: (boundary: SuspenseProps) => ReactNode | Promise<ReactNode>,
+): Promise<ReactNode> => {
+  if (Array.isArray(page)) {
+    return Promise.all(page.map(child => throughSuspense(child, at)))
+  }
+  if (!isValidElement(page)) return page
+  if (page.type === Suspense) return at(page.props as SuspenseProps)
+  const { children } = page.props as { children?: ReactNode }
+  if (children === undefined) return page
+  const found = await throughSuspense(children, at)
+  if (!Array.isArray(found)) {
+    return found === children ? page : cloneElement(page, undefined, found)
+  }
+  const written = children as ReactNode[]
+  if (found.every((child, index) => child === written[index])) return page
+  // Its children as they were written, one by one, so that React keys none of them.
+  return cloneElement(page, undefined, ...(found as ReactNode[]))
+}
+
+/**
  * A page's content as it streams in (v0.48.0). A page that reads more once its checks have passed
- * gives a Suspense, the loading stone its fallback, around an async component that does those
- * reads: this is what that component draws once they're done, as React would render it. A page
+ * gives a Suspense, a skeleton its fallback, around an async component that does those reads: each
+ * is given back as what that component draws once they're done, as React would render it. A page
  * that streams nothing is given back as it is.
  */
-export const streamed = async (page: ReactNode): Promise<ReactNode> => {
-  if (!isValidElement(page) || page.type !== Suspense) return page
-  const { children: content } = page.props as {
-    children: ReactElement<object, (props: object) => Promise<ReactNode>>
-  }
-  return content.type(content.props)
-}
+export const streamed = (page: ReactNode): Promise<ReactNode> =>
+  throughSuspense(page, ({ children }) => {
+    const content = children as ReactElement<
+      object,
+      (props: object) => Promise<ReactNode>
+    >
+    return content.type(content.props)
+  })
+
+/**
+ * A page as it's first sent (v0.48.0): what it knows once its checks have passed, each Suspense
+ * given back as its fallback, the skeleton of what's still being read.
+ */
+export const firstSent = (page: ReactNode): Promise<ReactNode> =>
+  throughSuspense(page, ({ fallback }) => fallback)

@@ -1,9 +1,10 @@
 /**
  * @jest-environment node
  */
-import { createElement, Suspense } from 'react'
+import { createElement, Suspense, type ReactNode } from 'react'
 import {
   atFixedTime,
+  firstSent,
   minutesAgo,
   normalizeIds,
   normalizeTimes,
@@ -219,6 +220,11 @@ describe('atFixedTime and minutesAgo', () => {
   })
 })
 
+/** What a page draws at once, around what it hands it: here, just that. */
+const Layout = ({ children }: { children: ReactNode }) => children
+/** What a page reads once its checks have passed, drawn. */
+const Content = async () => createElement('ul', undefined, 'characters')
+
 describe('streamed', () => {
   it("draws a page's content behind its Suspense, once its reads are done", async () => {
     const Content = async ({ name }: { name: string }) => {
@@ -240,6 +246,40 @@ describe('streamed', () => {
     const page = createElement('p', undefined, 'not open here')
 
     await expect(streamed(page)).resolves.toBe(page)
+  })
+
+  // A page that draws what it knows at once, its Suspense among what it hands that.
+  const page = createElement(
+    Layout,
+    undefined,
+    createElement('h1', undefined, 'Alice'),
+    createElement(
+      Suspense,
+      { fallback: createElement('p', undefined, 'Loading…') },
+      createElement(Content),
+    ),
+  )
+
+  it('draws the content behind a Suspense handed to what the page draws at once', async () => {
+    await expect(streamed(page)).resolves.toEqual(
+      createElement(
+        Layout,
+        undefined,
+        createElement('h1', undefined, 'Alice'),
+        createElement('ul', undefined, 'characters'),
+      ),
+    )
+  })
+
+  it('draws the page as first sent, its skeleton in the place of what it reads', async () => {
+    await expect(firstSent(page)).resolves.toEqual(
+      createElement(
+        Layout,
+        undefined,
+        createElement('h1', undefined, 'Alice'),
+        createElement('p', undefined, 'Loading…'),
+      ),
+    )
   })
 })
 
