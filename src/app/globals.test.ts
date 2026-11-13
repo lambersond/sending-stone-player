@@ -110,6 +110,43 @@ const SIDE_TEXT: [string, string, string, number][] = [
   ['the You pill', 'primary-text', 'primary', 0.1],
 ]
 
+/** A keyframes block's opacity at each of its stops, by percent, in order. */
+function opacityStops(name: string): [number, number][] {
+  const from = css.indexOf(`@keyframes ${name} {`)
+  const block = css.slice(from, css.indexOf('\n  }', from))
+  return [...block.matchAll(/([\d%,\s]+)\{\s*opacity:\s*([\d.]+);/g)]
+    .flatMap(([, stops, opacity]) =>
+      stops
+        .split(',')
+        .map(
+          stop =>
+            [Number.parseFloat(stop), Number(opacity)] as [number, number],
+        ),
+    )
+    .toSorted(([a], [b]) => a - b)
+}
+
+/** The opacity a linear animation through those stops draws at a moment of its cycle. */
+function opacityAt(stops: [number, number][], percent: number): number {
+  const after = stops.findIndex(([stop]) => stop >= percent)
+  const [to, end] = stops[after]
+  if (after === 0 || to === percent) return end
+  const [from, start] = stops[after - 1]
+  return start + ((end - start) * (percent - from)) / (to - from)
+}
+
+/**
+ * The loading stone's rune (v0.48.0), half a second at a time: which of its parts are lit in the
+ * middle of each step of its 2 s cycle.
+ */
+const RUNE_STEPS: [string, number, string[]][] = [
+  ['all dark', 0.25, []],
+  ['the dot', 0.75, ['dot']],
+  ['the dot and the inner arc', 1.25, ['dot', 'inner']],
+  ['all three', 1.75, ['dot', 'inner', 'outer']],
+]
+const RUNE_PARTS = ['dot', 'inner', 'outer']
+
 describe('app/globals.css', () => {
   it.each(['page', 'card'])(
     'reads the accent as small text at WCAG AA on each of its tints over the %s, in the light theme',
@@ -262,6 +299,36 @@ describe('app/globals.css', () => {
       expect(
         contrast(rgb(theme['text-secondary']), rgb(theme['wild-bg'])),
       ).toBeGreaterThanOrEqual(4.5)
+    })
+  })
+  describe("the loading stone's rune (v0.48.0)", () => {
+    it.each(RUNE_PARTS)(
+      'runs the %s once every 2 s, linearly, over and over',
+      part => {
+        expect(css).toContain(
+          `--animate-rune-${part}: rune-${part} 2s linear infinite;`,
+        )
+      },
+    )
+
+    it.each(RUNE_STEPS)(
+      'shows %s in its step of the cycle',
+      (_, seconds, lit) => {
+        for (const part of RUNE_PARTS) {
+          expect(opacityAt(opacityStops(`rune-${part}`), seconds * 50)).toBe(
+            lit.includes(part) ? 1 : 0,
+          )
+        }
+      },
+    )
+
+    it('goes dark at the end of each cycle, all three together', () => {
+      for (const part of RUNE_PARTS) {
+        const stops = opacityStops(`rune-${part}`)
+        expect(opacityAt(stops, 96)).toBe(1)
+        expect(opacityAt(stops, 100)).toBe(0)
+        expect(opacityAt(stops, 0)).toBe(0)
+      }
     })
   })
 })
