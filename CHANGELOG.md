@@ -29,10 +29,11 @@ version's list names that version, such as v1.x item 8.
   seconds: dark, then the dot, the dot and the inner arc, all three, half a second each, then dark
   again. Where the device asks for reduced motion, the rune is lit and still. A screen reader hears
   "Loading…". Every page answers with the same status and redirect as before: signed out, the
-  server sends you to sign in; a page that isn't open to you is not found. Where the data comes
-  quickly, the stone may only flash, or not show at all. An installed app's launch screen is drawn
-  by the phone (on Android, from the app's manifest), so it stays still; the stone follows it once
-  the page starts loading. (app)
+  server sends you to sign in; a page that isn't open to you is not found. Opening one of these
+  pages afresh, the stone may only flash where the data comes quickly; going to one from another
+  page of the app, it shows for at least about a third of a second, so the page comes up that much
+  later than before. An installed app's launch screen is drawn by the phone (on Android, from the
+  app's manifest), so it stays still; the stone follows it once the page starts loading. (app)
 
 ### Maintenance
 
