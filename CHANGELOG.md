@@ -55,7 +55,9 @@ so an item from it is named with its number when it was built, which may since b
   (`src/components/loading-stone`) for the installed app's launch (ROADMAP item 56) and perhaps to
   lie over the outlines later. (app)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
-  kept. (app)
+  kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
+  v1.x's items but critical hit options join it as items 58 to 66, so v1.x keeps only critical hit
+  options. (app)
 
 ## v0.47.0 — 2026-11-12
 
