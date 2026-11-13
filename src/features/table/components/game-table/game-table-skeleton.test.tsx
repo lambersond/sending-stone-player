@@ -1,5 +1,6 @@
 import { render, within } from '@testing-library/react'
 import { GameTableSkeleton } from './game-table-skeleton'
+import { Skeleton } from '@/components/skeleton/skeleton'
 import { CharacterSheet } from '@/features/sheet/components/character-sheet/character-sheet'
 import { GmNote } from '@/features/table/components/gm-note/gm-note'
 import { TableHeader } from '@/features/table/components/table-header/table-header'
@@ -46,6 +47,16 @@ const drawnIn = (skeleton: Element, element: Element) => {
   expect(found).toHaveLength(1)
   return found[0]
 }
+
+/**
+ * An element's classes, in order, but those of its look that a pattern names, which neither its
+ * size nor its place depends on.
+ */
+const classesBut = (element: Element, look: RegExp) =>
+  [...element.classList].filter(name => !look.test(name)).toSorted()
+
+/** A header button's look: its corners, its colours and how they change as it's hovered. */
+const BUTTON_LOOK = /^(rounded-|text-text-|transition-|hover:)/
 
 it("draws the sheet's card, its six tiles and the abilities in the sheet's own boxes, tile for tile", () => {
   const sheet = renderSheet()
@@ -126,7 +137,9 @@ describe('the header', () => {
           childClasses(row.firstElementChild!),
         )
       }
-      // Each button, back among them, has its slot's box: its own takes the same room.
+      // Each button, back among them, in its slot's box exactly, but for the button's look; and
+      // its glyph the size of the slot's block exactly, but for the block's look, the shimmer and
+      // its corners, and the names lucide gives its icons.
       const controls = [
         lead.querySelector('a')!,
         ...buttons.querySelectorAll('button'),
@@ -137,8 +150,18 @@ describe('the header', () => {
       ]
       expect(controls).toHaveLength(gm ? 3 : 4)
       expect(slots).toHaveLength(controls.length)
+      const blockLook = new Set(
+        render(<Skeleton />).container.firstElementChild!.classList,
+      )
       for (const [index, slot] of slots.entries()) {
-        expect(controls[index]).toHaveClass(...slot.classList)
+        const control = controls[index]
+        expect([...slot.classList].toSorted()).toEqual(
+          classesBut(control, BUTTON_LOOK),
+        )
+        const glyph = classesBut(slot.firstElementChild!, /^rounded-/)
+        expect(glyph.filter(name => !blockLook.has(name))).toEqual(
+          classesBut(control.querySelector('svg')!, /^lucide/),
+        )
       }
     },
   )
@@ -162,12 +185,10 @@ describe("the Gamemaster's note", () => {
       within(skeleton).getByText('Thorin Oakenshield').closest('.flex-col')!
         .lastElementChild,
     )
-    // GmNote's box, its colours the game's answer; its words GmNote's, the rest of them unseen.
-    expect(drawn).toHaveClass(
-      ...[...note.classList].filter(
-        name => !/^(bg|border)-(primary|warning)/.test(name),
-      ),
-    )
+    // GmNote's box exactly, but for its colours, the game's answer in GmNote's and the page's in
+    // the skeleton's; its words GmNote's, the rest of them unseen.
+    const colours = /^(bg|border)-(primary|warning|border)/
+    expect(classesBut(drawn, colours)).toEqual(classesBut(note, colours))
     expect(drawn.textContent).toBe(note.textContent)
     expect(drawn.closest('[aria-hidden="true"]')).toBe(drawn)
     expect(drawn.querySelector('.invisible')).toHaveTextContent(
