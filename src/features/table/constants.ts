@@ -25,6 +25,12 @@ export const TABLE_HEADER_BAR =
 /** The character's name in the header, cut short where it's too long. */
 export const TABLE_NAME = 'truncate text-lg leading-tight font-semibold'
 
+/**
+ * The Gamemaster's note under the header (#156), where their rolls go: its box, the same whatever
+ * it says, and its skeleton's while the table is read. Its colours are its own.
+ */
+export const GM_NOTE = 'shrink-0 border-b px-4 py-2.5 text-sm md:px-8'
+
 /** The sheet and the column beside it, under the header. */
 export const TABLE_BODY = 'flex min-h-0 flex-1'
 

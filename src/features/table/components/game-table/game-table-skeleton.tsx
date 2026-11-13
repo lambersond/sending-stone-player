@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Skeleton } from '@/components/skeleton/skeleton'
 import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
+import { SkeletonWords } from '@/components/skeleton/skeleton-words'
 import {
   ABILITIES_GRID,
   ABILITIES_SECTION,
@@ -18,6 +19,7 @@ import {
   ASIDE_BESIDE,
   ASIDE_COLUMN,
   ASIDE_TABS_BAR,
+  GM_NOTE,
   GM_PILL,
   TABLE_BODY,
   TABLE_COLUMN,
@@ -28,18 +30,21 @@ import {
   TABLE_NAV_TAB,
   TABLE_PANE,
 } from '@/features/table/constants'
+import { gmNoteAt, gmRollsGo } from '@/features/table/utils/header'
 import type { ReactNode } from 'react'
 
 /**
  * A character's table while it's read (v0.48.0), at its player's seat or its Gamemaster's: laid out
  * as GameTable lays it out at every width, so that nothing moves as the table takes its place. The
  * header, with the character's name, known from the page's check, where the table's shows it, and
- * at the Gamemaster's seat the GM pill; the sheet's tabs, its card of six tiles and its abilities;
- * from 1024 px the combat and chat column beside it, and narrower the tabs, in a bar at the bottom
- * of a phone or a rail beside a tablet. Its name and pill are hidden from assistive technology with
- * the rest, as the page's title has the name and its status says it's loading. Its boxes are the
- * table's and the sheet's own, so that a change to one moves both.
- * @param gm - Whether it's the Gamemaster's seat, whose header has the GM pill and no Delete.
+ * at the Gamemaster's seat the GM pill, with the Gamemaster's note under the header; the sheet's
+ * tabs, its card of six tiles and its abilities; from 1024 px the combat and chat column beside it,
+ * and narrower the tabs, in a bar at the bottom of a phone or a rail beside a tablet. Its name, its
+ * pill and its note are hidden from assistive technology with the rest, as the page's title has the
+ * name and its status says it's loading. Its boxes are the table's and the sheet's own, so that a
+ * change to one moves both.
+ * @param gm - Whether it's the Gamemaster's seat, whose header has the GM pill and no Delete, and
+ *   the Gamemaster's note under it.
  */
 export function GameTableSkeleton({
   name,
@@ -78,6 +83,7 @@ export function GameTableSkeleton({
             {!gm && <IconSlot />}
           </div>
         </div>
+        {gm && <GmNoteSkeleton name={name} />}
         <div className={TABLE_BODY}>
           <div className={clsx(TABLE_PANE, 'flex')}>
             {/* The sheet's tabs, as SheetTabs's row, the Character tab chosen. */}
@@ -129,6 +135,24 @@ function IconSlot({ className }: Readonly<{ className?: string }>) {
     >
       <Skeleton className='size-5 rounded-md' />
     </div>
+  )
+}
+
+/**
+ * The Gamemaster's note under the header, in GmNote's box: whose sheet they're at, known from the
+ * page's check, then where their rolls go, which the table's view says, its words shimmering. They
+ * are the words of a game that makes their rolls, as a running game does, so that the note takes
+ * the lines it will then; told otherwise, it's a line shorter or longer at some widths. Its colours
+ * come with its words: until then, the page's own.
+ */
+function GmNoteSkeleton({ name }: Readonly<{ name: string }>) {
+  return (
+    <p aria-hidden className={clsx(GM_NOTE, 'border-border')}>
+      {gmNoteAt(name)}{' '}
+      <SkeletonWords className='rounded-md'>
+        {gmRollsGo(name, 'made')}
+      </SkeletonWords>
+    </p>
   )
 }
 
