@@ -158,9 +158,11 @@ function LineSlot({
 }
 
 /**
- * The Character tab's top, as CharacterSheet's: its card, with who the character is, a condition
- * or two, then its six tiles as a character with one size of hit die has them, the hit points and
- * the hit dice a pair, then armor class, proficiency, initiative and speed; then its abilities.
+ * The Character tab's top, as CharacterSheet's: its card, with who the character is, then its six
+ * tiles as a character with one size of hit die has them, the hit points and the hit dice a pair,
+ * then armor class, proficiency, initiative and speed; then its abilities. No conditions, as a
+ * character has none most of the time: a sheet with some draws their chips between the two, and
+ * they push the tiles and the abilities down by a row of chips as it comes.
  */
 function SheetSkeleton() {
   return (
@@ -172,10 +174,6 @@ function SheetSkeleton() {
             <Skeleton className='h-5 w-40 max-w-full rounded-md' />
             <Skeleton className='h-4 w-28 max-w-full rounded-md' />
           </div>
-        </div>
-        <div className='flex gap-1.5'>
-          <Skeleton className='h-7.5 w-28 rounded-full' />
-          <Skeleton className='h-7.5 w-24 rounded-full' />
         </div>
         <div className={statsGrid(1, false)}>
           <StatSkeleton wide='pair' bar />
