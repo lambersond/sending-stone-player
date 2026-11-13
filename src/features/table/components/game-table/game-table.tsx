@@ -27,6 +27,7 @@ import { HelpPanel } from '@/features/help/components/help-panel/help-panel'
 import { useHelpPanel } from '@/features/help/hooks/use-help-panel'
 import { ShowHelpContext } from '@/features/help/hooks/use-show-help'
 import { DiceTray } from '@/features/rolling/components/dice-tray/dice-tray'
+import { TABLE_FRAME } from '@/features/table/constants'
 import { useChatRead } from '@/features/table/hooks/use-chat-read'
 import { useChatScroll } from '@/features/table/hooks/use-chat-scroll'
 import { useCompanionRow } from '@/features/table/hooks/use-companion-row'
@@ -240,7 +241,7 @@ export function GameTable({
     // A character's page has no app bar, so the game table fills the viewport. What reads and rolls
     // through the seat's API below, the sheet's descriptions and rolls among it, finds it here.
     <TableApiContext value={seat}>
-      <div className='flex h-dvh flex-col md:flex-row'>
+      <div className={TABLE_FRAME}>
         <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
           <TableHeader
             ref={setHeader}

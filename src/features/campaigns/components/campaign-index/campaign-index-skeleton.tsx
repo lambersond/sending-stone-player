@@ -1,5 +1,11 @@
 import clsx from 'clsx'
-import { CAMPAIGNS_HEADING, CAMPAIGNS_LEAD } from '../../constants'
+import {
+  CAMPAIGN_CARD,
+  CAMPAIGNS_HEAD,
+  CAMPAIGNS_HEADING,
+  CAMPAIGNS_LEAD,
+} from '../../constants'
+import { INDEX_GRID, INDEX_ROOT } from './constants'
 import { Skeleton } from '@/components/skeleton/skeleton'
 import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
 
@@ -9,19 +15,17 @@ import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
  * outlines; then two campaigns' rows, and from 900 px of the index a campaign's page beside them.
  * The head is drawn with the list, as the index's choice of campaign narrows it on a phone, so it
  * shows here rather than at once. Where the address asks for a campaign, a phone shows its page's
- * outline in place of the head and the list, as it will once the campaign is read.
+ * outline in place of the head and the list, as it will once the campaign is read. Its index, head,
+ * grid and campaign's page are the page's own boxes, so that a change to one moves both.
  * @param asked - Whether the address asks for a campaign, `?campaign=<id>`.
  */
 export function CampaignIndexSkeleton({ asked }: Readonly<{ asked: boolean }>) {
   return (
-    <div className='@container/index flex min-w-0 flex-col gap-5'>
+    <div className={INDEX_ROOT}>
       <SkeletonStatus />
       <div
         aria-hidden
-        className={clsx(
-          'flex flex-wrap items-end justify-between gap-3',
-          asked && '@max-[900px]/index:hidden',
-        )}
+        className={clsx(CAMPAIGNS_HEAD, asked && '@max-[900px]/index:hidden')}
       >
         <div className='min-w-0'>
           <p className='text-2xl font-semibold tracking-tight'>
@@ -37,7 +41,7 @@ export function CampaignIndexSkeleton({ asked }: Readonly<{ asked: boolean }>) {
           <Skeleton className='h-10 w-40 rounded-xl' />
         </div>
       </div>
-      <div className='grid min-w-0 gap-4 @min-[900px]/index:grid-cols-[340px_minmax(0,1fr)] @min-[900px]/index:items-start'>
+      <div className={INDEX_GRID}>
         <div
           className={clsx(
             'min-w-0 flex-col gap-2',
@@ -88,7 +92,7 @@ function RowSkeleton() {
 /** A campaign's page: its title and game, then its characters and its invite link. */
 function CardSkeleton() {
   return (
-    <div className='grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6'>
+    <div className={CAMPAIGN_CARD}>
       <div className='flex items-start justify-between gap-3'>
         <div className='grid min-w-0 gap-2'>
           <Skeleton className='h-6 w-48 max-w-full rounded-md' />

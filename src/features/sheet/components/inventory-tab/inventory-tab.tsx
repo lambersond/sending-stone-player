@@ -6,6 +6,7 @@ import { PartySheetList } from '../party-sheets/party-sheet-list'
 import { WildShapeNote } from '../wild-shape/wild-shape-note'
 import { Holdings } from './holdings'
 import { InventoryList } from './inventory-list'
+import { SHEET_TAB_PAGE } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { Transferring } from '@/features/transfers/components/transferring/transferring'
 import { NO_TRANSFERS } from '@/features/transfers/constants'
@@ -72,7 +73,7 @@ export function InventoryTab({
   // Unique on the page, where a companion's pane is mounted beside its character's.
   const idPrefix = useSheetId('inventory')
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className={SHEET_TAB_PAGE}>
       {/* While transformed, as by Wild Shape (module 0.40.0): the form's, not the character's. */}
       <WildShapeNote tab='inventory' />
       {favorites}

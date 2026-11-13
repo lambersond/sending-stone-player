@@ -1,7 +1,11 @@
 'use client'
 
 import clsx from 'clsx'
-import { CAMPAIGNS_HEADING, CAMPAIGNS_LEAD } from '../../constants'
+import {
+  CAMPAIGNS_HEAD,
+  CAMPAIGNS_HEADING,
+  CAMPAIGNS_LEAD,
+} from '../../constants'
 import { PAGE_HEADING_ID } from '../../utils/campaign-ids'
 import { ConnectFoundryButton } from '@/features/campaigns/components/campaign-buttons/connect-foundry-button'
 import { NewCampaignButton } from '@/features/campaigns/components/campaign-buttons/new-campaign-button'
@@ -24,7 +28,7 @@ export function CampaignsHead({
   return (
     <header
       className={clsx(
-        'flex flex-wrap items-end justify-between gap-3',
+        CAMPAIGNS_HEAD,
         // Its box gone with all it shows, so the page leaves no gap for it.
         narrowed && '@max-[900px]/index:contents',
       )}

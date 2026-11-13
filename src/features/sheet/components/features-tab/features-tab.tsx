@@ -12,6 +12,7 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { FeatureEntry } from './feature-entry'
 import { originName } from './utils'
+import { SHEET_TAB_PAGE } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import type { TableDamage } from '../action-entry/types'
 import type {
@@ -63,7 +64,7 @@ export function FeaturesTab({
   const classesId = useSheetId('classes-heading')
   const sectionId = useSheetId('features-')
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className={SHEET_TAB_PAGE}>
       {sheet.classes.length > 0 && (
         <section aria-labelledby={classesId} className='flex flex-col gap-2'>
           <SheetHeading id={classesId}>Classes</SheetHeading>

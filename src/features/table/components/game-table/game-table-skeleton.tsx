@@ -1,7 +1,14 @@
 import clsx from 'clsx'
 import { Skeleton } from '@/components/skeleton/skeleton'
 import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
-import { GM_PILL } from '@/features/table/constants'
+import { SHEET_TAB_PAGE, SHEET_TABS_ROW } from '@/features/sheet/constants'
+import {
+  ASIDE_BESIDE,
+  GM_PILL,
+  TABLE_FRAME,
+  TABLE_HEADER_BAR,
+  TABLE_NAV_BAR,
+} from '@/features/table/constants'
 
 /**
  * A character's table while it's read (v0.48.0), at its player's seat or its Gamemaster's: laid out
@@ -10,7 +17,9 @@ import { GM_PILL } from '@/features/table/constants'
  * at the Gamemaster's seat the GM pill; the sheet's tabs, its first tiles and its abilities; from
  * 1024 px the combat and chat column beside it, and narrower the tabs, in a bar at the bottom of a
  * phone or a rail beside a tablet. Its name and pill are hidden from assistive technology with the
- * rest, as the page's title has the name and its status says it's loading.
+ * rest, as the page's title has the name and its status says it's loading. Its frame, header
+ * bar, tabs' row, tab page, column and bar are the table's and the sheet's own boxes, so that a
+ * change to one moves both.
  * @param gm - Whether it's the Gamemaster's seat, whose header has the GM pill and no Delete.
  */
 export function GameTableSkeleton({
@@ -18,11 +27,11 @@ export function GameTableSkeleton({
   gm = false,
 }: Readonly<{ name: string; gm?: boolean }>) {
   return (
-    <div className='flex h-dvh flex-col md:flex-row'>
+    <div className={TABLE_FRAME}>
       <SkeletonStatus />
       <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
         {/* The header, as TableHeader's: back, the name and its line, then its buttons. */}
-        <div className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'>
+        <div className={TABLE_HEADER_BAR}>
           <div className='flex min-w-0 items-center gap-2'>
             <IconSlot className='-ml-1.5 sm:-ml-3' />
             <div aria-hidden className='min-w-0'>
@@ -53,7 +62,7 @@ export function GameTableSkeleton({
         <div className='flex min-h-0 flex-1'>
           <div className='flex min-h-0 min-w-0 flex-1 flex-col'>
             {/* The sheet's tabs, as SheetTabs's row, the Character tab chosen. */}
-            <div className='flex h-11 shrink-0 items-center gap-3 border-b border-border px-3 sm:h-12 md:px-6 lg:px-7'>
+            <div className={clsx(SHEET_TABS_ROW, 'gap-3')}>
               <Skeleton className='h-8 w-28 rounded-lg' />
               <Skeleton className='size-5 rounded-md' />
               <Skeleton className='size-5 rounded-md' />
@@ -66,7 +75,12 @@ export function GameTableSkeleton({
             </div>
           </div>
           {/* Combat and the chat, beside the sheet from 1024 px, as AsideColumn's. */}
-          <div className='hidden min-h-0 min-w-0 flex-col lg:flex lg:w-[clamp(320px,40%,500px)] lg:flex-none lg:border-l lg:border-border'>
+          <div
+            className={clsx(
+              'hidden min-h-0 min-w-0 flex-col lg:flex',
+              ASIDE_BESIDE,
+            )}
+          >
             <div className='flex h-12 shrink-0 items-center gap-3 border-b border-border px-3'>
               <Skeleton className='h-8 w-24 rounded-lg' />
               <Skeleton className='h-8 w-20 rounded-lg' />
@@ -81,7 +95,7 @@ export function GameTableSkeleton({
         </div>
       </div>
       {/* The tabs below 1024 px, as TableNav's: a bar on a phone, a rail beside a tablet. */}
-      <div className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5 lg:hidden'>
+      <div className={TABLE_NAV_BAR}>
         <TabSlot />
         <TabSlot />
         <TabSlot />
@@ -117,7 +131,7 @@ function TabSlot() {
 /** The Character tab's top, as CharacterSheet's: its card of tiles, then the six abilities. */
 function SheetSkeleton() {
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className={SHEET_TAB_PAGE}>
       <div className='flex flex-col gap-4 rounded-2xl border border-border bg-card p-4'>
         <div className='flex items-center gap-4'>
           <Skeleton className='size-16 rounded-2xl' />

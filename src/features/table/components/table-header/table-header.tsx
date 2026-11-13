@@ -13,7 +13,7 @@ import {
 } from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import { HELP_TITLE } from '@/features/help/constants'
-import { GM_PILL } from '@/features/table/constants'
+import { GM_PILL, TABLE_HEADER_BAR } from '@/features/table/constants'
 import {
   campaignAndGame,
   headerLine,
@@ -56,10 +56,7 @@ export function TableHeader({
   deleteCharacter?: () => Promise<void>
 }>) {
   return (
-    <header
-      ref={ref}
-      className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'
-    >
+    <header ref={ref} className={TABLE_HEADER_BAR}>
       <div className='flex min-w-0 items-center gap-2'>
         <Link
           // Back to the campaign it was opened from, chosen on the campaigns page (round

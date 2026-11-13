@@ -10,6 +10,7 @@ import { WildShapeNote } from '../wild-shape/wild-shape-note'
 import { EffectEntry } from './effect-entry'
 import { conditionDetail } from './utils'
 import { ICON_TARGET } from '@/constants/buttons'
+import { SHEET_TAB_PAGE } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import type { TableSheet } from '@/types/table'
 
@@ -35,7 +36,7 @@ export function EffectsTab({
   const conditionsId = useSheetId('conditions-heading')
   const sectionId = useSheetId('effects-')
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className={SHEET_TAB_PAGE}>
       {/* While transformed, as by Wild Shape (module 0.40.0): its copies, changed here after. */}
       <WildShapeNote tab='effects' />
       {favorites}

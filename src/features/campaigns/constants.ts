@@ -1,6 +1,6 @@
 // The looks of the campaigns page's buttons (round 0.39.0), shared by what the server draws and its
 // controls: none a client module's, which the server would see only as a reference. And its head's
-// words, which its skeleton shows too while the page reads (v0.48.0).
+// words and boxes, which its skeleton shows too while the page reads (v0.48.0).
 
 import { ICON_TARGET } from '@/constants/buttons'
 
@@ -14,6 +14,13 @@ export const DANGER_BUTTON =
 
 /** Its icon buttons, 36 px square on a phone, 44 from `sm`. */
 export const ICON_BUTTON = `${ICON_TARGET} size-9 rounded-lg text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger`
+
+/** The page's head: its heading and what it's for, then its buttons, wrapping beneath them. */
+export const CAMPAIGNS_HEAD = 'flex flex-wrap items-end justify-between gap-3'
+
+/** A campaign's page, beside the list or in its place, as its skeleton draws it too. */
+export const CAMPAIGN_CARD =
+  'grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6'
 
 /** The page's heading. */
 export const CAMPAIGNS_HEADING = 'Your campaigns'

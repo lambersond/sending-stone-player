@@ -2,6 +2,7 @@ import { SheetFact } from '../sheet-fact/sheet-fact'
 import { SheetHeading } from '../sheet-heading/sheet-heading'
 import { SheetText } from '../sheet-text/sheet-text'
 import { JournalCard } from '@/features/notes/components/journal-card/journal-card'
+import { SHEET_TAB_PAGE } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import type { NotesPlace } from '@/features/notes/types'
 import type { SheetDetails } from '@/types/sending-stone'
@@ -41,7 +42,7 @@ export function BiographyTab({
   const appearanceId = useSheetId('appearance-heading')
   const biographyId = useSheetId('biography-heading')
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className={SHEET_TAB_PAGE}>
       {notes && (
         <JournalCard
           kind='personal'

@@ -25,7 +25,7 @@ import { CreatureHeader } from '@/features/companions/components/creature-header
 import { otherSpeeds } from '@/features/companions/components/creature-header/utils'
 import { useD20Rolls } from '@/features/rolling/components/d20-rolls/use-d20-rolls'
 import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
-import { PROFICIENCY } from '@/features/sheet/constants'
+import { PROFICIENCY, SHEET_TAB_PAGE } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { classLine } from '@/features/sheet/utils/class-line'
 import { checkLabel, detailWords } from '@/features/sheet/utils/roll-labels'
@@ -81,7 +81,7 @@ export function CharacterSheet({
     !!beast && (beast.abilities.length > 0 || beast.saves.length > 0)
 
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className={SHEET_TAB_PAGE}>
       {creature ? (
         <CreatureHeader
           name={name}

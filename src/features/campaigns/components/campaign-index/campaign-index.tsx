@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react'
 import clsx from 'clsx'
 import { ChevronLeft } from 'lucide-react'
 import { CampaignRow } from '../campaign-row/campaign-row'
+import { INDEX_GRID, INDEX_ROOT } from './constants'
 import { countWords } from './utils'
 import { SearchField } from '@/components/search-field/search-field'
 import { CAMPAIGN_SEARCH_FROM } from '@/constants/campaign'
@@ -39,13 +40,10 @@ export function CampaignIndex({
   return (
     <PageToasts>
       <CampaignChoiceContext value={choice}>
-        <div
-          ref={root}
-          className='@container/index flex min-w-0 flex-col gap-5'
-        >
+        <div ref={root} className={INDEX_ROOT}>
           {head}
           {rows.length > 0 ? (
-            <div className='grid min-w-0 gap-4 @min-[900px]/index:grid-cols-[340px_minmax(0,1fr)] @min-[900px]/index:items-start'>
+            <div className={INDEX_GRID}>
               <CampaignList
                 rows={rows}
                 // Marked current only once the page knows it's wide, as only there is it beside

@@ -1,14 +1,16 @@
+import { INVITE_PAGE } from './constants'
 import { Skeleton } from '@/components/skeleton/skeleton'
 import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
 
 /**
  * An invite link while it's read (v0.48.0), shaped as InviteChoice draws a working one: what the
  * player is invited to, its title and its game's line, then two of its characters to choose from
- * and the button that joins as one. Nothing of it is known until the invite is read.
+ * and the button that joins as one. Nothing of it is known until the invite is read. Its box is
+ * the invite's own, so that a change to one moves both.
  */
 export function InviteSkeleton() {
   return (
-    <div className='mx-auto w-full max-w-xl px-4 py-10 sm:py-14'>
+    <div className={INVITE_PAGE}>
       <SkeletonStatus />
       <div className='flex h-5 items-center'>
         <Skeleton className='h-3 w-24 rounded-md' />
