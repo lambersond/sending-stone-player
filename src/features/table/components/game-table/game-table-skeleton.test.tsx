@@ -6,9 +6,9 @@ import { toTableSheet } from '@/utils/table-view'
 
 // The table's skeleton (v0.48.0) draws the Character tab's top in the sheet's own boxes, so that
 // nothing moves as the sheet takes its place: here, box for box, against the sheet of a character
-// with one size of hit die, as most have.
+// with one size of hit die and no conditions, as most have.
 
-/** The sheet's Character tab, Thorin's, with his fighter's d10s. */
+/** The sheet's Character tab, Thorin's, with his fighter's d10s and no conditions. */
 const renderSheet = () =>
   render(
     <CharacterSheet
@@ -48,10 +48,10 @@ it("draws the sheet's card, its six tiles and the abilities in the sheet's own b
     return found[0]
   }
 
-  // The card, then its hit points and hit dice a pair, then armor class, proficiency, initiative
-  // and speed.
+  // The card: who the character is, then its tiles, with no row of conditions between them; the
+  // tiles its hit points and hit dice a pair, then armor class, proficiency, initiative and speed.
   const card = sheet.querySelector('header') as HTMLElement
-  drawn(card)
+  expect(childClasses(drawn(card))).toEqual(childClasses(card))
   const tiles = card.querySelector('dl') as HTMLElement
   expect(childClasses(drawn(tiles))).toEqual(childClasses(tiles))
   expect(tiles.children).toHaveLength(6)
