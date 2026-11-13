@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { redirect } from 'next/navigation'
 import { Suspense, type ReactElement } from 'react'
+import { redirect } from 'next/navigation'
 import GmCharacterPage from '@/app/campaigns/[id]/characters/[actor]/page'
 import CampaignsPage from '@/app/campaigns/page'
 import CharacterPage from '@/app/characters/[id]/page'
@@ -91,7 +91,7 @@ beforeEach(() => {
   jest.mocked(getTableView).mockResolvedValue({ version: 1 } as never)
 })
 
-/** Each page that reads after its checks: how it is opened, its checks, and the reads after them. */
+/** Each page that reads after its checks: how it opens, its checks and the reads after them. */
 const PAGES: Record<
   string,
   [() => Promise<ReactElement>, unknown[], unknown[]]
