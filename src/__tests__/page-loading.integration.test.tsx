@@ -152,7 +152,11 @@ const PAGES: Record<
     checks: [requireUser, getGmSeat],
     reads: [getTableView],
     skeleton: <GameTableSkeleton name='Thorin Oakenshield' gm />,
-    words: ['Thorin Oakenshield', 'GM'],
+    words: [
+      'Thorin Oakenshield',
+      'GM',
+      "You're at Thorin Oakenshield's sheet as the Gamemaster.",
+    ],
   },
   'an invite link': {
     open: () => JoinPage(params({ code: 'invite0123456789' })),
