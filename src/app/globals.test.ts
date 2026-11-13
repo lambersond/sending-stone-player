@@ -302,6 +302,12 @@ describe('app/globals.css', () => {
     })
   })
   describe("the loading stone's rune (v0.48.0)", () => {
+    it("glows the approved design's jade, the same in both themes, as it shines on the icon's own night tile", () => {
+      expect(css).toContain('--color-rune-glow: #9dffd6;')
+      expect(light['rune-glow']).toBe('#9dffd6')
+      expect(dark['rune-glow']).toBe('#9dffd6')
+    })
+
     it.each(RUNE_PARTS)(
       'runs the %s once every 2 s, linearly, over and over',
       part => {
