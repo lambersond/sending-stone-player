@@ -318,6 +318,8 @@ for (const [width, height] of [[390, 844], [768, 1024]]) {
   }
   const note = card.locator('[data-refusal=notSetUp]')
   await note.waitFor()
+  // Its time is written in once the page has hydrated, after the loading stone (v0.48.0).
+  await note.locator('time').filter({ hasText: /\d/ }).waitFor()
   const text = await note.textContent()
   const fits = await card.evaluate(el => ({
     card: el.scrollWidth <= el.clientWidth, page: document.scrollingElement.scrollWidth <= innerWidth,
