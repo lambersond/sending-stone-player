@@ -26,22 +26,23 @@ so an item from it is named with its number when it was built, which may since b
 - **Pages show an outline of themselves while they load.** Once a page has checked that it may be
   shown, it now draws what it already knows at once and a shimmering outline of the rest while it
   reads its data, where it showed nothing before. Your characters shows your name, both headings,
-  the invite form and "Running a game?" at once, and an outline of the list. A character's sheet,
-  at its player's seat or the Gamemaster's, shows the table laid out as it will be: its header with
-  the character's name, and the GM pill at the Gamemaster's seat; the sheet's tabs, tiles and
-  abilities; on a wide screen the combat and chat column, narrower the tabs. Your campaigns shows
-  its heading and an outline of its list, and of the campaign the link opens; an invite link, an
-  outline of the invite. A soft shine sweeps across each outline every 1.5 seconds; where the
-  device asks for reduced motion, the outline is still. A screen reader hears "Loading…". The
-  not-found pages and sign-in redirects are the same as before: signed out, the server sends you
+  the invite form and "Running a game?" at once, and an outline of the list. A character's sheet, at
+  its player's seat or the Gamemaster's, shows the table laid out as it most often will be: its
+  header with the character's name, and at the Gamemaster's seat the GM pill and, under the header,
+  the note on whose sheet they're at, with an outline of where their rolls go; the sheet's tabs,
+  tiles and abilities; on a wide screen the combat and chat column, narrower the tabs. Your
+  campaigns shows its heading and an outline of its list, and of the campaign the link opens; an
+  invite link, an outline of the invite. A soft shine sweeps across each outline every 1.5 seconds;
+  where the device asks for reduced motion, the outline is still. A screen reader hears "Loading…".
+  The not-found pages and sign-in redirects are the same as before: signed out, the server sends you
   to sign in; a page that isn't open to you is not found. Opening one of these pages afresh, the
-  outline may only flash where the data comes quickly; going to one from another page of the app,
-  it may not show at all, and where it does, it shows for at least about a third of a second, so
-  the page comes up that much later than before. An installed app's launch screen is drawn by the
-  phone (on Android, from the app's manifest), so it stays still; signed in, the page's outline
-  follows it once the page starts loading. Where one of these pages can't read its data once its
-  checks have passed (the database down, say), it now answers 200 with the error shown in the page,
-  where it answered 500. (app)
+  outline may only flash where the data comes quickly; going to one from another page of the app, it
+  may not show at all, and where it does, it shows for at least about a third of a second, so the
+  page comes up that much later than before. An installed app's launch screen is drawn by the phone
+  (on Android, from the app's manifest), so it stays still; signed in, the page's outline follows it
+  once the page starts loading. Where one of these pages can't read its data once its checks have
+  passed (the database down, say), it now answers 200 with the error shown in the page, where it
+  answered 500. (app)
 
 ### Maintenance
 
