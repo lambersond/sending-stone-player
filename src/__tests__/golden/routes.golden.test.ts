@@ -5,8 +5,10 @@
 // over the real db modules on a small fake database: who may ask (signed out, another's sheet, the
 // player's seat, the Gamemaster's), what it answers (status, every header, the body as text) and
 // what it asked the database, in order. And each page's title, its not-found and where it sends
-// someone signed out. Frozen from the commit that adds it (gate 10): never updated, only its
-// imports follow a move.
+// someone signed out. Its snapshot is frozen from the commit that adds it (gate 10): never
+// updated. Its code follows the app's shape only, never what it records: a move's imports, a
+// function's new argument or field, and a page that streams its content after its checks
+// (v0.48.0), followed into it so that every query it asks is still asked here.
 import { randomUUID } from 'node:crypto'
 import * as bridgeCommands from '@/app/api/bridge/commands/route'
 import * as gmCompanionRoll from '@/app/api/campaigns/[id]/characters/[actor]/companions/[companion]/rolls/[roll]/route'
