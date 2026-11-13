@@ -109,10 +109,12 @@
     }
   }
 
-  /* The stone while a page loads (v0.48.0): its carved rune lights a part at a time, as a signal's
-     bars do, each part staying lit as the next one joins it, over 2 s and again, a half second a
-     step: all dark, the dot, the dot and the inner arc, all three, then all dark together again.
-     The light is the same in both themes, as it shines on the icon's own night tile. */
+  /* The loading stone (v0.48.0): its carved rune lights a part at a time, as a signal's bars do,
+     each part staying lit as the next one joins it, over 2 s and again, a half second a step: all
+     dark, the dot, the dot and the inner arc, all three, then all dark together again. The light
+     is the same in both themes, as it shines on the icon's own night tile. No page shows the stone
+     now, each showing a shimmering skeleton of itself while it loads; it's kept for the installed
+     app's launch page (ROADMAP item 56), and perhaps for an overlay on a skeleton later. */
   --color-rune-glow: #9dffd6;
   --animate-rune-dot: rune-dot 2s linear infinite;
   --animate-rune-inner: rune-inner 2s linear infinite;
