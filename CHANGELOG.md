@@ -22,21 +22,24 @@ version's list names that version, such as v1.x item 8.
 
 ### Enhancements
 
-- **The stone lights up while a page loads.** Once a page has checked that it may be shown, the
-  app now shows its stone in the middle of the page while the page reads its data, where it showed
-  nothing before: on your characters, your campaigns, a character's sheet, the Gamemaster's seat
-  at one and an invite link. Its carved rune lights like a signal's bars, over and over every 2
-  seconds: dark, then the dot, the dot and the inner arc, all three, half a second each, then dark
-  again. Where the device asks for reduced motion, the rune is lit and still. A screen reader hears
-  "Loading…". The not-found pages and sign-in redirects are the same as before: signed out, the
-  server sends you to sign in; a page that isn't open to you is not found. Opening one of these
-  pages afresh, the stone may only flash where the data comes quickly; going to one from another
-  page of the app, it shows for at least about a third of a second, so the page comes up that much
-  later than before, and as the rune's first half second is dark, a quick page shows it unlit. An
-  installed app's launch screen is drawn by the phone (on Android, from the app's manifest), so it
-  stays still; signed in, the stone follows it once the page starts loading. Where one of these
-  pages can't read its data once its checks have passed (the database down, say), it now answers
-  200 with the error shown in the page, where it answered 500. (app)
+- **Pages show an outline of themselves while they load.** Once a page has checked that it may be
+  shown, it now draws what it already knows at once and a shimmering outline of the rest while it
+  reads its data, where it showed nothing before. Your characters shows your name, both headings,
+  the invite form and "Running a game?" at once, and an outline of the list. A character's sheet,
+  at its player's seat or the Gamemaster's, shows the table laid out as it will be: its header with
+  the character's name, and the GM pill at the Gamemaster's seat; the sheet's tabs, tiles and
+  abilities; on a wide screen the combat and chat column, narrower the tabs. Your campaigns shows
+  its heading and an outline of its list, and of the campaign the link opens; an invite link, an
+  outline of the invite. A soft shine sweeps across each outline every 1.5 seconds; where the
+  device asks for reduced motion, the outline is still. A screen reader hears "Loading…". The
+  not-found pages and sign-in redirects are the same as before: signed out, the server sends you
+  to sign in; a page that isn't open to you is not found. Opening one of these pages afresh, the
+  outline may only flash where the data comes quickly; going to one from another page of the app,
+  it shows for at least about a third of a second, so the page comes up that much later than
+  before. An installed app's launch screen is drawn by the phone (on Android, from the app's
+  manifest), so it stays still; signed in, the page's outline follows it once the page starts
+  loading. Where one of these pages can't read its data once its checks have passed (the database
+  down, say), it now answers 200 with the error shown in the page, where it answered 500. (app)
 
 ### Maintenance
 
