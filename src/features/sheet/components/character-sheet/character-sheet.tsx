@@ -25,10 +25,20 @@ import { CreatureHeader } from '@/features/companions/components/creature-header
 import { otherSpeeds } from '@/features/companions/components/creature-header/utils'
 import { useD20Rolls } from '@/features/rolling/components/d20-rolls/use-d20-rolls'
 import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
-import { PROFICIENCY, SHEET_TAB_PAGE } from '@/features/sheet/constants'
+import {
+  ABILITIES_GRID,
+  ABILITIES_SECTION,
+  ABILITY_CHECK,
+  ABILITY_SAVE,
+  ABILITY_TILE,
+  PROFICIENCY,
+  SHEET_CARD,
+  SHEET_TAB_PAGE,
+} from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { classLine } from '@/features/sheet/utils/class-line'
 import { checkLabel, detailWords } from '@/features/sheet/utils/roll-labels'
+import { statsGrid } from '@/features/sheet/utils/stats-grid'
 import { formatModifier } from '@/utils/format-modifier'
 import { hitDicePools } from '@/utils/formulas'
 import { waitsForInitiative } from '@/utils/initiative'
@@ -105,7 +115,7 @@ export function CharacterSheet({
         />
       )}
 
-      <section aria-labelledby={abilitiesId} className='flex flex-col gap-3'>
+      <section aria-labelledby={abilitiesId} className={ABILITIES_SECTION}>
         <SheetHeading id={abilitiesId}>Abilities</SheetHeading>
         {form && marked && (
           <p className='-mt-1 flex items-center gap-1.5 px-1 text-xs text-text-secondary'>
@@ -116,7 +126,7 @@ export function CharacterSheet({
             {legendWords(form.name, name)}
           </p>
         )}
-        <ul className='grid grid-cols-3 gap-2 @xl:grid-cols-6'>
+        <ul className={ABILITIES_GRID}>
           {sheet.abilities.map(ability => (
             <AbilityTile
               key={ability.id}
@@ -201,7 +211,7 @@ function SheetHeader({
   const { form } = sheet
   const senses = sheet.traits.find(({ id }) => id === 'senses')?.values ?? []
   return (
-    <header className='flex flex-col gap-4 rounded-2xl border border-border bg-card p-4'>
+    <header className={SHEET_CARD}>
       <div className='flex items-center gap-4'>
         <Portrait name={name} src={sheet.portrait} />
         <div className='min-w-0'>
@@ -231,21 +241,7 @@ function SheetHeader({
         conditions={sheet.conditions}
         onShowConditions={onShowConditions}
       />
-      {/* The hit points and the hit dice side by side, however wide the sheet; while the
-          character is dying, the death saves on a row of their own; then the numbers after them,
-          two to a row on a phone, and four wider. Only where the sheet is as wide as it gets do
-          the numbers go on the row beside one size of hit die, eight to a row: narrower, an eighth
-          is too narrow for a Roll badge, temporary hit points or a speed of 120 ft. Not beside
-          more than one size, which is taller, nor while the death saves show, which would leave
-          half the next row empty. Without hit dice, the hit points and the numbers make one row,
-          or the hit points one of their own on a phone. */}
-      <dl
-        className={clsx(
-          'grid grid-cols-2 gap-2',
-          pools.length > 0 ? '@lg:grid-cols-4' : '@lg:grid-cols-6',
-          pools.length === 1 && !dying && '@5xl:grid-cols-8',
-        )}
-      >
+      <dl className={statsGrid(pools.length, dying)}>
         {sheet.hp && (
           <Stat label='Hit points' wide={pools.length > 0 ? 'pair' : 'double'}>
             {/* Set from here where the game takes it, from module 0.44.0. */}
@@ -388,7 +384,7 @@ function AbilityTile({
   return (
     <li
       className={clsx(
-        'flex flex-col overflow-hidden rounded-2xl border bg-card',
+        ABILITY_TILE,
         beast?.check || beast?.save ? 'border-wild/45' : 'border-border',
       )}
     >
@@ -408,7 +404,8 @@ function AbilityTile({
           suffix: whose(beast?.check),
         })}
         className={clsx(
-          'flex flex-col items-center gap-1 px-2 pt-2.5 pb-2 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
+          ABILITY_CHECK,
+          'transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
           beast?.check && 'bg-wild-bg/55',
         )}
       >
@@ -449,7 +446,8 @@ function AbilityTile({
           suffix: whose(beast?.save),
         })}
         className={clsx(
-          'flex items-center justify-center gap-1 border-t border-border py-1.5 text-xs transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
+          ABILITY_SAVE,
+          'transition-colors hover:bg-primary/5 focus-visible:bg-primary/5',
           beast?.save && 'bg-wild-bg/55',
         )}
       >

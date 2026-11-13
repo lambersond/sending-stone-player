@@ -6,7 +6,11 @@ import { ChatLog } from '../chat-log/chat-log'
 import { Pane } from '../pane/pane'
 import { PaneTab } from '../pane-tab/pane-tab'
 import { Scroller } from '@/components/scroller/scroller'
-import { ASIDE_BESIDE } from '@/features/table/constants'
+import {
+  ASIDE_BESIDE,
+  ASIDE_COLUMN,
+  ASIDE_TABS_BAR,
+} from '@/features/table/constants'
 import {
   badgeCount,
   combatSummary,
@@ -77,12 +81,12 @@ export function AsideColumn({
   return (
     <div
       className={clsx(
-        'min-h-0 min-w-0 flex-1 flex-col lg:flex',
+        ASIDE_COLUMN,
         tab === 'character' ? 'hidden' : 'flex',
         paneShown && ASIDE_BESIDE,
       )}
     >
-      <div className='hidden h-12 shrink-0 items-center gap-3 border-b border-border px-3 lg:flex'>
+      <div className={clsx(ASIDE_TABS_BAR, 'hidden lg:flex')}>
         <div
           role='tablist'
           aria-label='Combat or chat'

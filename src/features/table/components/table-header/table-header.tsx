@@ -13,7 +13,11 @@ import {
 } from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import { HELP_TITLE } from '@/features/help/constants'
-import { GM_PILL, TABLE_HEADER_BAR } from '@/features/table/constants'
+import {
+  GM_PILL,
+  TABLE_HEADER_BAR,
+  TABLE_NAME,
+} from '@/features/table/constants'
 import {
   campaignAndGame,
   headerLine,
@@ -79,7 +83,7 @@ export function TableHeader({
               // The name and its GM pill stand where the name alone does, and only the name
               // is cut short, so a long one on a phone never pushes the pill out of view.
               <div className='flex max-w-full shrink-0 items-baseline gap-2'>
-                <h1 className='min-w-0 truncate text-lg leading-tight font-semibold'>
+                <h1 className={clsx('min-w-0', TABLE_NAME)}>
                   {character.name}
                 </h1>
                 <span className={GM_PILL}>
@@ -87,7 +91,7 @@ export function TableHeader({
                 </span>
               </div>
             ) : (
-              <h1 className='max-w-full shrink-0 truncate text-lg leading-tight font-semibold'>
+              <h1 className={clsx('max-w-full shrink-0', TABLE_NAME)}>
                 {character.name}
               </h1>
             )}

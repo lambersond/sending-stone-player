@@ -2,6 +2,7 @@
 
 import clsx from 'clsx'
 import { StatTag } from './stat-tag'
+import { STAT_TILE, STAT_WIDE } from '@/features/sheet/constants'
 import type { ReactNode } from 'react'
 
 /*
@@ -30,7 +31,7 @@ export function Stat({
 }: Readonly<{
   label: string
   short?: string
-  wide?: 'pair' | 'double' | 'row'
+  wide?: keyof typeof STAT_WIDE
   group?: string
   /**
    * Whose number it is, where it isn't the character's own, from module 0.40.0: the form's, such
@@ -40,14 +41,7 @@ export function Stat({
   children: ReactNode
 }>) {
   return (
-    <div
-      className={clsx(
-        '@container flex min-w-0 flex-col gap-0.5 rounded-xl bg-page py-2',
-        wide === 'pair' && '@lg:col-span-2',
-        wide === 'double' && 'col-span-2',
-        wide === 'row' && 'col-span-2 @lg:col-span-4',
-      )}
-    >
+    <div className={clsx(STAT_TILE, wide && STAT_WIDE[wide])}>
       <dt className='truncate px-3 text-[11px] font-semibold tracking-wider text-text-secondary uppercase'>
         {short ? (
           <>

@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { HoldDescription } from '../hold-tab/hold-description'
 import { HoldFill } from '../hold-tab/hold-fill'
 import { holdProps } from '../hold-tab/hold-props'
+import { TABLE_NAV_TAB } from '@/features/table/constants'
 import type { TabHold } from '@/features/table/types'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode, RefObject } from 'react'
@@ -36,7 +37,8 @@ export function TabButton({
       aria-current={active ? 'page' : undefined}
       {...holding}
       className={clsx(
-        'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs font-semibold transition-colors md:min-h-18 md:w-full md:flex-none',
+        TABLE_NAV_TAB,
+        'relative rounded-xl text-xs font-semibold transition-colors',
         active || hold?.holding
           ? 'text-text-primary'
           : 'text-text-secondary hover:text-text-primary',

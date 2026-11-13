@@ -7,6 +7,7 @@ import { InitiativeStat } from '@/features/sheet/components/sheet-tiles/initiati
 import { Portrait } from '@/features/sheet/components/sheet-tiles/portrait'
 import { Stat } from '@/features/sheet/components/sheet-tiles/stat'
 import { WalkingSpeed } from '@/features/sheet/components/sheet-tiles/walking-speed'
+import { SHEET_CARD } from '@/features/sheet/constants'
 import { creatureLine, crWords, relationWords } from '@/utils/creature-words'
 import { formatModifier } from '@/utils/format-modifier'
 import type { RollActions } from '@/features/rolling/types'
@@ -54,7 +55,7 @@ export function CreatureHeader({
   return (
     <section
       aria-labelledby={`${idPrefix}creature-name`}
-      className='flex flex-col gap-4 rounded-2xl border border-border bg-card p-4'
+      className={SHEET_CARD}
     >
       <div className='flex items-center gap-4'>
         <Portrait name={name} src={sheet.portrait} />
