@@ -32,8 +32,11 @@ version's list names that version, such as v1.x item 8.
   server sends you to sign in; a page that isn't open to you is not found. Opening one of these
   pages afresh, the stone may only flash where the data comes quickly; going to one from another
   page of the app, it shows for at least about a third of a second, so the page comes up that much
-  later than before. An installed app's launch screen is drawn by the phone (on Android, from the
-  app's manifest), so it stays still; the stone follows it once the page starts loading. (app)
+  later than before, and as the rune's first half second is dark, a quick page shows it unlit. An
+  installed app's launch screen is drawn by the phone (on Android, from the app's manifest), so it
+  stays still; signed in, the stone follows it once the page starts loading. Where one of these
+  pages can't read its data once its checks have passed (the database down, say), it now answers
+  200 with the error shown in the page, where it answered 500. (app)
 
 ### Maintenance
 
