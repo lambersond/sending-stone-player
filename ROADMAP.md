@@ -10,7 +10,7 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.46.0 and its app, with v0.45.0 and v0.44.0 before it.
+Released: module v0.47.0 and its app, with v0.46.0, v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -27,12 +27,14 @@ Midi-QOL v14.0.x:
 - **The Initiative tile:** in an encounter begun and then switched away on the tracker, the sheet's
   Initiative tile doesn't offer to roll for it.
 
-## v0.47 (release candidate)
+## v0.47 (released, to check at the table)
 
-Built for Friday's session: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.47.0 entry.
+Released on 2026-11-12, before Friday's session: what it holds is in
+[CHANGELOG.md](CHANGELOG.md)'s v0.47.0 entry. v0.47 is the release candidate for v1.0 after v0.46:
+it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.47.0 is tagged** (built and tested against stand-ins
-only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Favorites put in order:** on a player's own sheet, Reorder's drag and keys, and on a phone Move
   up and Move down in a favorite's menu, save the order; the character's sheet in Foundry shows the
@@ -51,9 +53,6 @@ only), with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 - **Module 0.43.0 named:** where a game still runs module 0.43.0 with Allow Players to change their
   hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
   module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
-
-Then module v0.47.0 is tagged, and v0.47 is the release candidate for v1.0 after v0.46: it runs at
-the table for a while before v1.0 is tagged.
 
 ## Not yet scheduled
 
@@ -127,6 +126,26 @@ And from the owner's answers on item 19, later work too:
     `src/features/sheet/components/favoriting/use-favorite-choice.ts`, gives Move up and Move down
     only where a row has a choice), so on a phone they're put in order only by Reorder's arrows,
     where the owner was told each favorite's menu would have them.
+
+**Asked for while building v0.48**
+
+56. **The stone lighting up as the installed app opens:** an installed app's first screen is drawn
+    by the phone (Android builds it from the manifest; an iPhone shows its own), so it stays still.
+    A small offline app shell, a service worker serving one cached launch page, could show the
+    same stone, the same size, centred on the same dark background, lighting up the moment the app
+    opens, until the first page takes over. Only the launch page is cached, never a signed-in page;
+    a new release replaces it; tested on Android and iPhone home-screen apps. The owner picked it
+    for Saturday.
+
+**Found while building v0.48**
+
+57. **e2e's notesoffline "the game closed" under load:** part 13 of `e2e/notesoffline-e2e.mjs`
+    (`orderMeanwhile`) timed out once, 43 of 47, waiting 15 seconds for the game to read as closed
+    after `stopFetching`, with the app on its lane slow to answer; it passed alone and in the full
+    pass. Likely, from the code and not proven: a command poll the app had already taken in
+    stamps `bridgePolledAt` after the suite ages it, and the notes API reads the game as live for
+    45 seconds after a poll. The suite could wait for in-flight polls to settle before ageing, or
+    age again once they have.
 
 ## v1.0
 

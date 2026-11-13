@@ -14,6 +14,7 @@ describe('components/logo', () => {
   it.each([
     ['mark', 20, 'stone-mark'],
     ['icon', 72, 'stone-icon'],
+    ['loading', 96, 'stone-icon'],
   ] as const)(
     'draws the %s at %ipx, at each pixel density, from images that exist',
     (variant, size, name) => {

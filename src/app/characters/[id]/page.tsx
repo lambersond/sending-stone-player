@@ -1,18 +1,8 @@
-import { cache } from 'react'
+import { cache, Suspense } from 'react'
 import { notFound } from 'next/navigation'
-import {
-  chooseActor,
-  deleteCharacterAndLeave,
-  makeCookbookCode,
-  markChatReadUpTo,
-  revokeCookbookCode,
-  setManualDice,
-} from '../actions'
-import { getCampaignChoice } from '@/db/campaigns'
+import { CharacterTable } from './character-table'
+import { LoadingStone } from '@/components/loading-stone/loading-stone'
 import { getCharacter } from '@/db/characters'
-import { playerSeat } from '@/db/seats'
-import { getTableView } from '@/db/table'
-import { GameTable } from '@/features/table/components/game-table/game-table'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
 
@@ -29,6 +19,10 @@ export async function generateMetadata({
   return { title: character?.name ?? 'Character' }
 }
 
+/**
+ * A player's character's table. Signed out, to the login page; a character not theirs, not
+ * found: both before anything is sent. Then the loading stone while its table is read (v0.48.0).
+ */
 export default async function CharacterPage({
   params,
 }: PageProps<'/characters/[id]'>) {
@@ -37,25 +31,9 @@ export default async function CharacterPage({
   if (!character) notFound()
 
   const user = await requireUser()
-  // A character in a campaign but not yet one of its characters chooses which it is.
-  const { campaignId, actorId } = character
-  const [view, choice] = await Promise.all([
-    getTableView(playerSeat(character, user.id)),
-    campaignId && !actorId
-      ? getCampaignChoice(campaignId, user.id, character.id)
-      : undefined,
-  ])
   return (
-    <GameTable
-      character={character}
-      initialView={view}
-      choice={choice}
-      chooseActor={chooseActor.bind(undefined, character.id)}
-      deleteCharacter={deleteCharacterAndLeave.bind(undefined, character.id)}
-      markChatRead={markChatReadUpTo.bind(undefined, character.id)}
-      setManualDice={setManualDice.bind(undefined, character.id)}
-      makeCookbookCode={makeCookbookCode.bind(undefined, character.id)}
-      revokeCookbookCode={revokeCookbookCode.bind(undefined, character.id)}
-    />
+    <Suspense fallback={<LoadingStone />}>
+      <CharacterTable character={character} userId={user.id} />
+    </Suspense>
   )
 }

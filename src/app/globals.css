@@ -90,6 +90,57 @@
       transform: translateX(260%);
     }
   }
+
+  /* The stone while a page loads (v0.48.0): its carved rune lights a part at a time, as a signal's
+     bars do, each part staying lit as the next one joins it, over 2 s and again, a half second a
+     step: all dark, the dot, the dot and the inner arc, all three, then all dark together again.
+     The light is the same in both themes, as it shines on the icon's own night tile. */
+  --color-rune-glow: #9dffd6;
+  --animate-rune-dot: rune-dot 2s linear infinite;
+  --animate-rune-inner: rune-inner 2s linear infinite;
+  --animate-rune-outer: rune-outer 2s linear infinite;
+
+  @keyframes rune-dot {
+    0%,
+    24% {
+      opacity: 0;
+    }
+    28%,
+    96% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes rune-inner {
+    0%,
+    49% {
+      opacity: 0;
+    }
+    53%,
+    96% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes rune-outer {
+    0%,
+    74% {
+      opacity: 0;
+    }
+    78%,
+    96% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
 .dark {

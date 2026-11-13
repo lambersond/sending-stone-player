@@ -15,6 +15,7 @@ import { getCharacter } from '@/db/characters'
 import { playerSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
 import { requireUser } from '@/lib/session'
+import { streamed } from '@/utils/test-utils'
 
 jest.mock('next/navigation', () => ({
   notFound: jest.fn(() => {
@@ -102,7 +103,7 @@ describe('app/characters/[id]/page', () => {
 
   it("shows the chosen character's table", async () => {
     jest.mocked(getCharacter).mockResolvedValue(thorin)
-    render(await CharacterPage(props('char-1')))
+    render(await streamed(await CharacterPage(props('char-1'))))
 
     expect(getCharacter).toHaveBeenCalledWith('user-1', 'char-1')
     expect(getTableView).toHaveBeenCalledWith(playerSeat(thorin, 'user-1'))
@@ -118,7 +119,7 @@ describe('app/characters/[id]/page', () => {
       title: 'The Lonely Mountain',
     } as any)
     const user = userEvent.setup()
-    render(await CharacterPage(props('char-1')))
+    render(await streamed(await CharacterPage(props('char-1'))))
 
     expect(getCampaignChoice).toHaveBeenCalledWith('c1', 'user-1', 'char-1')
     expect(
@@ -134,7 +135,7 @@ describe('app/characters/[id]/page', () => {
   it('deletes this character from its page', async () => {
     jest.mocked(getCharacter).mockResolvedValue(thorin)
     const user = userEvent.setup()
-    render(await CharacterPage(props('char-1')))
+    render(await streamed(await CharacterPage(props('char-1'))))
 
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(deleteCharacterAndLeave).toHaveBeenCalledWith('char-1')
@@ -143,7 +144,7 @@ describe('app/characters/[id]/page', () => {
   it('notes how far the player has read its chat', async () => {
     jest.mocked(getCharacter).mockResolvedValue(thorin)
     const user = userEvent.setup()
-    render(await CharacterPage(props('char-1')))
+    render(await streamed(await CharacterPage(props('char-1'))))
 
     await user.click(screen.getByRole('button', { name: 'Read' }))
     expect(markChatReadUpTo).toHaveBeenCalledWith(
@@ -155,7 +156,7 @@ describe('app/characters/[id]/page', () => {
   it('remembers whether the player types in their own dice for this character, from module 0.32.0', async () => {
     jest.mocked(getCharacter).mockResolvedValue(thorin)
     const user = userEvent.setup()
-    render(await CharacterPage(props('char-1')))
+    render(await streamed(await CharacterPage(props('char-1'))))
 
     await user.click(screen.getByRole('button', { name: 'Type dice' }))
     expect(setManualDice).toHaveBeenCalledWith('char-1', true)
@@ -164,7 +165,7 @@ describe('app/characters/[id]/page', () => {
   it('makes and revokes the character’s link code for the Magical Recipe Book, from module 0.38.0', async () => {
     jest.mocked(getCharacter).mockResolvedValue(thorin)
     const user = userEvent.setup()
-    render(await CharacterPage(props('char-1')))
+    render(await streamed(await CharacterPage(props('char-1'))))
 
     await user.click(screen.getByRole('button', { name: 'Make a code' }))
     expect(makeCookbookCode).toHaveBeenCalledWith('char-1')

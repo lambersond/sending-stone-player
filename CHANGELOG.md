@@ -18,7 +18,32 @@ Each entry ends with where it lives, the app, the module or both, and its ROADMA
 one. ROADMAP.md began with v0.34, so the versions before it have none, and an item from another
 version's list names that version, such as v1.x item 8.
 
-## v0.47.0 — release candidate, not yet tagged
+## v0.48.0 — release candidate, not yet tagged
+
+### Enhancements
+
+- **The stone lights up while a page loads.** Once a page has checked that it may be shown, the
+  app now shows its stone in the middle of the page while the page reads its data, where it showed
+  nothing before: on your characters, your campaigns, a character's sheet, the Gamemaster's seat
+  at one and an invite link. Its carved rune lights like a signal's bars, over and over every 2
+  seconds: dark, then the dot, the dot and the inner arc, all three, half a second each, then dark
+  again. Where the device asks for reduced motion, the rune is lit and still. A screen reader hears
+  "Loading…". The not-found pages and sign-in redirects are the same as before: signed out, the
+  server sends you to sign in; a page that isn't open to you is not found. Opening one of these
+  pages afresh, the stone may only flash where the data comes quickly; going to one from another
+  page of the app, it shows for at least about a third of a second, so the page comes up that much
+  later than before, and as the rune's first half second is dark, a quick page shows it unlit. An
+  installed app's launch screen is drawn by the phone (on Android, from the app's manifest), so it
+  stays still; signed in, the stone follows it once the page starts loading. Where one of these
+  pages can't read its data once its checks have passed (the database down, say), it now answers
+  200 with the error shown in the page, where it answered 500. (app)
+
+### Maintenance
+
+- **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
+  kept. (app)
+
+## v0.47.0 — 2026-11-12
 
 ### Features
 

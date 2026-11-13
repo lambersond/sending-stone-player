@@ -2,12 +2,14 @@ import clsx from 'clsx'
 
 /**
  * The Sending Stone stone, as its design draws it: the mark alone, or the app icon on its night
- * tile. Each is drawn from the design at one, two and three times its size, so the stone's grain
- * and its carved rune stay sharp on any screen.
+ * tile, at the home page's size or the loading screen's larger one. Each is drawn from the design
+ * at one, two and three times its size, so the stone's grain and its carved rune stay sharp on any
+ * screen.
  */
 const LOGOS = {
   mark: { name: 'stone-mark', size: 20 },
   icon: { name: 'stone-icon', size: 72 },
+  loading: { name: 'stone-icon', size: 96 },
 } as const
 
 export function Logo({

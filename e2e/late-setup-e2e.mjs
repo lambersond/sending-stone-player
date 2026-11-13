@@ -84,6 +84,8 @@ console.log('Ashlands in the app:', roster)
 if (EXPECT_FIX) {
   check(roster === '1 characters, bound true', "the app asked for the campaign's hello, and its characters arrived")
   await gm.reload()
+  // The page shows the loading stone first, its campaigns after it (v0.48.0): wait for them.
+  await gm.getByRole('article', { name: 'Ashlands' }).waitFor()
   check(await gm.getByRole('article', { name: 'Ashlands' }).getByText('Thorin Oakenshield').isVisible(), 'the Gamemaster sees them')
   heartbeat(); await idle()
   check(take().length === 0, 'no hello is asked for again once it arrived')

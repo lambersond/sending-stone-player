@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import CharactersPage from './page'
 import { listCharacters } from '@/db/characters'
 import { requireUser } from '@/lib/session'
+import { streamed } from '@/utils/test-utils'
 
 jest.mock('@/db/characters', () => ({ listCharacters: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
@@ -28,7 +29,7 @@ describe('app/characters/page', () => {
         actorId: 'actor-thorin',
       },
     ])
-    render(await CharactersPage())
+    render(await streamed(await CharactersPage()))
 
     expect(listCharacters).toHaveBeenCalledWith('user-1')
     expect(screen.getByRole('heading', { name: 'Alice' })).toBeInTheDocument()
@@ -40,7 +41,7 @@ describe('app/characters/page', () => {
 
   it('suggests joining a campaign when there are none', async () => {
     jest.mocked(listCharacters).mockResolvedValue([])
-    render(await CharactersPage())
+    render(await streamed(await CharactersPage()))
 
     expect(
       screen.getByText(

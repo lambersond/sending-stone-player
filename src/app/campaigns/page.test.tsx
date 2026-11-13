@@ -5,6 +5,7 @@ import CampaignsPage from './page'
 import { listOwnedCampaigns } from '@/db/campaigns'
 import { appOrigin } from '@/lib/app-origin'
 import { requireUser } from '@/lib/session'
+import { streamed } from '@/utils/test-utils'
 
 jest.mock('./actions', () => ({
   changeSecretAction: jest.fn(),
@@ -77,7 +78,7 @@ describe('app/campaigns/page', () => {
 
   it("lists the Gamemaster's campaigns with their invite links", async () => {
     jest.mocked(listOwnedCampaigns).mockResolvedValue([campaign])
-    render(await CampaignsPage(props()))
+    render(await streamed(await CampaignsPage(props())))
 
     expect(requireUser).toHaveBeenCalledWith('/campaigns')
     expect(listOwnedCampaigns).toHaveBeenCalledWith('gm-1')
@@ -106,7 +107,7 @@ describe('app/campaigns/page', () => {
       },
     ])
     const user = userEvent.setup()
-    render(await CampaignsPage(props()))
+    render(await streamed(await CampaignsPage(props())))
 
     const card = screen.getByRole('article', { name: 'The Lonely Mountain' })
     expect(within(card).getByText('Cookbook linked')).toBeInTheDocument()
@@ -130,7 +131,7 @@ describe('app/campaigns/page', () => {
       .mocked(listOwnedCampaigns)
       .mockResolvedValue([{ ...campaign, chat: { messages: 3 } }])
     const user = userEvent.setup()
-    render(await CampaignsPage(props()))
+    render(await streamed(await CampaignsPage(props())))
 
     const card = screen.getByRole('article', { name: 'The Lonely Mountain' })
     await user.click(within(card).getByRole('button', { name: 'Clear chat' }))
@@ -147,7 +148,7 @@ describe('app/campaigns/page', () => {
   it('helps a Gamemaster set up their first campaign and connect Foundry', async () => {
     jest.mocked(listOwnedCampaigns).mockResolvedValue([])
     const user = userEvent.setup()
-    render(await CampaignsPage(props()))
+    render(await streamed(await CampaignsPage(props())))
 
     expect(
       screen.getByText(/You haven't set up a campaign yet/),
@@ -186,7 +187,7 @@ describe('app/campaigns/page', () => {
       ['one too long', { campaign: 'c'.repeat(65) }, '/campaigns'],
     ])('returns a Gamemaster signing in to %s', async (_name, query, next) => {
       jest.mocked(listOwnedCampaigns).mockResolvedValue([campaign])
-      render(await CampaignsPage(props(query)))
+      render(await streamed(await CampaignsPage(props(query))))
 
       expect(requireUser).toHaveBeenCalledWith(next)
     })
@@ -232,7 +233,7 @@ describe('app/campaigns/page', () => {
       'lists every campaign, one %s or none, those that need the Gamemaster first',
       async (_name, query) => {
         jest.mocked(listOwnedCampaigns).mockResolvedValue(three)
-        render(await CampaignsPage(props(query)))
+        render(await streamed(await CampaignsPage(props(query))))
 
         expect(
           within(screen.getByRole('list', { name: 'Needs you' }))
@@ -270,7 +271,7 @@ describe('app/campaigns/page', () => {
       ],
     ])('draws one campaign’s page: %s', async (_name, query, title) => {
       jest.mocked(listOwnedCampaigns).mockResolvedValue(three)
-      render(await CampaignsPage(props(query)))
+      render(await streamed(await CampaignsPage(props(query))))
 
       expect(screen.getAllByRole('article')).toHaveLength(1)
       expect(screen.getByRole('article', { name: title })).toBeInTheDocument()
@@ -278,7 +279,7 @@ describe('app/campaigns/page', () => {
 
     it('draws the page in a box as wide as the design’s, its head inside the index', async () => {
       jest.mocked(listOwnedCampaigns).mockResolvedValue(three)
-      const { container } = render(await CampaignsPage(props()))
+      const { container } = render(await streamed(await CampaignsPage(props())))
 
       expect(container.firstElementChild).toHaveClass(
         'mx-auto',

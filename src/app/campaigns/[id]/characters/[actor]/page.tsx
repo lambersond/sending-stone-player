@@ -1,10 +1,10 @@
-import { cache } from 'react'
+import { cache, Suspense } from 'react'
 import { notFound } from 'next/navigation'
+import { GmCharacterTable } from './gm-character-table'
+import { LoadingStone } from '@/components/loading-stone/loading-stone'
 import { getGmSeat } from '@/db/seats'
-import { getTableView } from '@/db/table'
-import { GameTable } from '@/features/table/components/game-table/game-table'
 import { requireUser } from '@/lib/session'
-import { gmCharacterApi, gmCharacterPath } from '@/utils/seat-urls'
+import { gmCharacterPath } from '@/utils/seat-urls'
 import type { Metadata } from 'next'
 
 /**
@@ -30,7 +30,8 @@ export async function generateMetadata({
  * A character's sheet as its campaign's Gamemaster sees it, without claiming it: its player's
  * view of the campaign, to roll from as the character, each roll marked as theirs. Anyone else, a
  * campaign of another's, or a character not in its roster is told only that the sheet isn't open
- * here.
+ * here, answered 404 before anything is sent. Then the loading stone while its table is read
+ * (v0.48.0).
  */
 export default async function GmCharacterPage({
   params,
@@ -39,24 +40,9 @@ export default async function GmCharacterPage({
   const seat = await findSeat(id, actor)
   if (!seat) notFound()
 
-  const key = `gm:${id}:${actor}`
-  const view = await getTableView(seat)
   return (
-    <GameTable
-      character={{
-        id: key,
-        name: seat.name,
-        gameUrl: seat.gameUrl,
-        campaignTitle: seat.campaignTitle,
-        campaignId: seat.campaignId,
-        actorId: seat.actorId,
-      }}
-      seat={{
-        role: 'gm',
-        api: gmCharacterApi(id, actor),
-        key,
-      }}
-      initialView={view}
-    />
+    <Suspense fallback={<LoadingStone />}>
+      <GmCharacterTable seat={seat} campaignId={id} actorId={actor} />
+    </Suspense>
   )
 }
