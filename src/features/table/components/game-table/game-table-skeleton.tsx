@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Skeleton } from '@/components/skeleton/skeleton'
 import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
 import { SkeletonWords } from '@/components/skeleton/skeleton-words'
+import { HEADER_ICON_BOX, TABLE_HEADER_BOX } from '@/constants/buttons'
 import {
   ABILITIES_GRID,
   ABILITIES_SECTION,
@@ -19,13 +20,17 @@ import {
   ASIDE_BESIDE,
   ASIDE_COLUMN,
   ASIDE_TABS_BAR,
+  GM_NAME_PAIR,
   GM_NOTE,
   GM_PILL,
   TABLE_BODY,
   TABLE_COLUMN,
   TABLE_FRAME,
   TABLE_HEADER_BAR,
+  TABLE_HEADER_BUTTONS,
+  TABLE_HEADER_LEAD,
   TABLE_NAME,
+  TABLE_NAME_ROW,
   TABLE_NAV_BAR,
   TABLE_NAV_TAB,
   TABLE_PANE,
@@ -56,31 +61,35 @@ export function GameTableSkeleton({
       <div className={TABLE_COLUMN}>
         {/* The header, as TableHeader's: back, the name and its line, then its buttons. */}
         <div className={TABLE_HEADER_BAR}>
-          <div className='flex min-w-0 items-center gap-2'>
-            <IconSlot className='-ml-1.5 sm:-ml-3' />
+          <div className={TABLE_HEADER_LEAD}>
+            <IconSlot
+              box={clsx('-ml-1.5 sm:-ml-3', HEADER_ICON_BOX)}
+              glyph='size-5'
+            />
             <div aria-hidden className='min-w-0'>
-              <div className='flex items-baseline gap-2 overflow-hidden'>
-                <p
-                  className={clsx(
-                    TABLE_NAME,
-                    gm ? 'min-w-0' : 'max-w-full shrink-0',
-                  )}
-                >
-                  {name}
-                </p>
-                {gm && <span className={GM_PILL}>GM</span>}
+              <div className={TABLE_NAME_ROW}>
+                {gm ? (
+                  <div className={GM_NAME_PAIR}>
+                    <p className={clsx('min-w-0', TABLE_NAME)}>{name}</p>
+                    <span className={GM_PILL}>GM</span>
+                  </div>
+                ) : (
+                  <p className={clsx('max-w-full shrink-0', TABLE_NAME)}>
+                    {name}
+                  </p>
+                )}
               </div>
               <div className='flex h-5 items-center'>
                 <Skeleton className='h-3 w-36 max-w-full rounded-md' />
               </div>
             </div>
           </div>
-          <div className='flex shrink-0 items-center gap-1'>
+          <div className={TABLE_HEADER_BUTTONS}>
             {/* Live, then Help, Full screen and, at the player's seat, Delete. */}
             <Skeleton className='h-[26px] w-[4.5rem] rounded-full' />
-            <IconSlot />
-            <IconSlot />
-            {!gm && <IconSlot />}
+            <IconSlot box={TABLE_HEADER_BOX} glyph='size-4' />
+            <IconSlot box={TABLE_HEADER_BOX} glyph='size-4' />
+            {!gm && <IconSlot box={TABLE_HEADER_BOX} glyph='size-4' />}
           </div>
         </div>
         {gm && <GmNoteSkeleton name={name} />}
@@ -124,16 +133,16 @@ export function GameTableSkeleton({
   )
 }
 
-/** The room one of the header's icon buttons takes, 32 px square on a phone and 44 from `sm`. */
-function IconSlot({ className }: Readonly<{ className?: string }>) {
+/**
+ * The room one of the header's icon buttons takes, 32 px square on a phone and 44 from `sm`.
+ * @param box - The button's box, its padding among it, as its button has it.
+ * @param glyph - Its glyph's size, as its button's icon has it, which with the padding makes the
+ *   box on a phone.
+ */
+function IconSlot({ box, glyph }: Readonly<{ box: string; glyph: string }>) {
   return (
-    <div
-      className={clsx(
-        'flex size-8 shrink-0 items-center justify-center sm:size-11',
-        className,
-      )}
-    >
-      <Skeleton className='size-5 rounded-md' />
+    <div className={box}>
+      <Skeleton className={clsx(glyph, 'rounded-md')} />
     </div>
   )
 }

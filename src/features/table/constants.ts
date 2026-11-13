@@ -22,6 +22,21 @@ export const TABLE_COLUMN = 'flex min-h-0 min-w-0 flex-1 flex-col'
 export const TABLE_HEADER_BAR =
   'flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'
 
+/** The header's lead: back, then the character's name over its line. */
+export const TABLE_HEADER_LEAD = 'flex min-w-0 items-center gap-2'
+
+/** The header's row with the character's name, and after it what a wide screen shows there. */
+export const TABLE_NAME_ROW = 'flex items-baseline gap-2 overflow-hidden'
+
+/**
+ * At the Gamemaster's seat, the name and its GM pill, standing where the name alone does, the name
+ * cut short within it, so a long one on a phone never pushes the pill out of view.
+ */
+export const GM_NAME_PAIR = 'flex max-w-full shrink-0 items-baseline gap-2'
+
+/** The header's buttons: the live state, Help, full screen and, at the player's seat, Delete. */
+export const TABLE_HEADER_BUTTONS = 'flex shrink-0 items-center gap-1'
+
 /** The character's name in the header, cut short where it's too long. */
 export const TABLE_NAME = 'truncate text-lg leading-tight font-semibold'
 

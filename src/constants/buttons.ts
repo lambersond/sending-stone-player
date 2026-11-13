@@ -7,11 +7,17 @@ export const ICON_TARGET =
   'inline-flex shrink-0 items-center justify-center sm:size-11'
 
 /**
+ * The room one of `HEADER_ICON_BUTTON`'s takes, with its 20 px glyph: 32 px square on a phone, 44
+ * from `sm`. Its skeleton's too while the page is read (v0.48.0).
+ */
+export const HEADER_ICON_BOX = `${ICON_TARGET} p-1.5`
+
+/**
  * The icon buttons in a header beside its title, such as a modal's or a side panel's Close, and a
  * party page's way back. A caller adds to it where it sits: a `-ml-1.5` or `-mr-1.5`, paired with
  * a `sm:-ml-3` or `sm:-mr-3`, so that its glyph stays on the header's padding line as it grows.
  */
-export const HEADER_ICON_BUTTON = `${ICON_TARGET} rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
+export const HEADER_ICON_BUTTON = `${HEADER_ICON_BOX} rounded-lg text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
 
 /**
  * An icon button 44 pixels square, its glyph centred: the journal's own controls, and a Reorder
@@ -22,10 +28,14 @@ export const SQUARE_ICON_BUTTON =
   'flex size-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary'
 
 /**
- * The character page's own header buttons, such as Full screen and Help: 32 px square on a phone,
- * from the glyph and its padding, and 44 from `sm`.
+ * The room one of the character page's own header buttons takes, with its 16 px glyph: 32 px
+ * square on a phone, from the glyph and its padding, and 44 from `sm`. Its skeleton's too while the
+ * page is read (v0.48.0).
  */
-export const TABLE_HEADER_BUTTON = `${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
+export const TABLE_HEADER_BOX = `${ICON_TARGET} p-2`
+
+/** The character page's own header buttons, such as Full screen and Help (`TABLE_HEADER_BOX`). */
+export const TABLE_HEADER_BUTTON = `${TABLE_HEADER_BOX} rounded-lg text-text-secondary transition-colors hover:bg-primary/10 hover:text-text-primary`
 
 /**
  * A chip in a side panel's row of places to go to, such as the Conditions reference's conditions

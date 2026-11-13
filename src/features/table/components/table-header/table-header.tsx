@@ -8,15 +8,19 @@ import { LiveStatus } from '@/components/live-status/live-status'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
 import {
   HEADER_ICON_BUTTON,
-  ICON_TARGET,
+  TABLE_HEADER_BOX,
   TABLE_HEADER_BUTTON,
 } from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import { HELP_TITLE } from '@/features/help/constants'
 import {
+  GM_NAME_PAIR,
   GM_PILL,
   TABLE_HEADER_BAR,
+  TABLE_HEADER_BUTTONS,
+  TABLE_HEADER_LEAD,
   TABLE_NAME,
+  TABLE_NAME_ROW,
 } from '@/features/table/constants'
 import {
   campaignAndGame,
@@ -61,7 +65,7 @@ export function TableHeader({
 }>) {
   return (
     <header ref={ref} className={TABLE_HEADER_BAR}>
-      <div className='flex min-w-0 items-center gap-2'>
+      <div className={TABLE_HEADER_LEAD}>
         <Link
           // Back to the campaign it was opened from, chosen on the campaigns page (round
           // 0.39.0).
@@ -78,11 +82,11 @@ export function TableHeader({
         <div className='min-w-0'>
           {/* On a wide screen, the class and subclass follow the name, cut short before it
             is. Narrower, the line under the name has them, on the Character tab. */}
-          <div className='flex items-baseline gap-2 overflow-hidden'>
+          <div className={TABLE_NAME_ROW}>
             {gm ? (
               // The name and its GM pill stand where the name alone does, and only the name
               // is cut short, so a long one on a phone never pushes the pill out of view.
-              <div className='flex max-w-full shrink-0 items-baseline gap-2'>
+              <div className={GM_NAME_PAIR}>
                 <h1 className={clsx('min-w-0', TABLE_NAME)}>
                   {character.name}
                 </h1>
@@ -116,7 +120,7 @@ export function TableHeader({
           )}
         </div>
       </div>
-      <div className='flex shrink-0 items-center gap-1'>
+      <div className={TABLE_HEADER_BUTTONS}>
         <LiveStatus state={liveState(playing, view, connection)} />
         <button
           type='button'
@@ -133,7 +137,7 @@ export function TableHeader({
           <ConfirmDialog
             trigger={<Trash2 aria-hidden className='size-4' />}
             triggerLabel={`Delete ${character.name}`}
-            triggerClassName={`${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger`}
+            triggerClassName={`${TABLE_HEADER_BOX} rounded-lg text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger`}
             title={`Delete ${character.name}?`}
             confirmLabel='Delete'
             onConfirm={deleteCharacter}
