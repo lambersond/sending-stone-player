@@ -22,16 +22,17 @@ version's list names that version, such as v1.x item 8.
 
 ### Enhancements
 
-- **The stone lights up while a page loads.** While a page loads, the app now shows its stone in
-  the middle of the page, between the header and footer, where it showed nothing before. Its
-  carved rune lights like a signal's bars, over and over every 2 seconds: dark, then the dot, the
-  dot and the inner arc, all three, half a second each, then dark again. Where the device asks for
-  reduced motion, the rune is lit and still. A screen reader hears "Loading…". As a page now starts
-  to arrive while it loads, before it knows whether it can be shown, it answers with status 200
-  where it answered with a redirect or an error: a signed-out visit, a 307 before, still goes to
-  the sign-in page, from within the page; a character's or a party's page that doesn't exist, a 404
-  before, still shows the not-found page, marked for search engines not to index it. A player sees
-  the same pages, the stone first. (app)
+- **The stone lights up while a page loads.** Once a page has checked that it may be shown, the
+  app now shows its stone in the middle of the page while the page reads its data, where it showed
+  nothing before: on your characters, your campaigns, a character's sheet, the Gamemaster's seat
+  at one and an invite link. Its carved rune lights like a signal's bars, over and over every 2
+  seconds: dark, then the dot, the dot and the inner arc, all three, half a second each, then dark
+  again. Where the device asks for reduced motion, the rune is lit and still. A screen reader hears
+  "Loading…". Every page answers with the same status and redirect as before: signed out, the
+  server sends you to sign in; a page that isn't open to you is not found. Where the data comes
+  quickly, the stone may only flash, or not show at all. An installed app's launch screen is drawn
+  by the phone (on Android, from the app's manifest), so it stays still; the stone follows it once
+  the page starts loading. (app)
 
 ### Maintenance
 
