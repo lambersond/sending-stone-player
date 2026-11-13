@@ -58,6 +58,13 @@ const classesBut = (element: Element, look: RegExp) =>
 /** A header button's look: its corners, its colours and how they change as it's hovered. */
 const BUTTON_LOOK = /^(rounded-|text-text-|transition-|hover:)/
 
+/**
+ * An ability's check's or save's look: its colours, how they change as it's hovered, and how it
+ * answers a long press, as a roll's button does.
+ */
+const PART_LOOK =
+  /^(transition-|hover:|focus-visible:|bg-|select-|touch-|\[-webkit-touch-callout)/
+
 it("draws the sheet's card, its six tiles and the abilities in the sheet's own boxes, tile for tile", () => {
   const sheet = renderSheet()
   const skeleton = render(
@@ -79,10 +86,15 @@ it("draws the sheet's card, its six tiles and the abilities in the sheet's own b
   const abilities = section.querySelector('ul') as HTMLElement
   const drawnAbilities = drawn(abilities)
   expect(childClasses(drawnAbilities)).toEqual(childClasses(abilities))
+  // Each part of a tile with exactly the sheet's classes, both ways, but for its look's (as it's
+  // hovered, focused, pressed long or marked for a beast), which its size and place don't need.
   const [tile] = abilities.children
   const [drawnTile] = drawnAbilities.children
+  expect(drawnTile.children).toHaveLength(tile.children.length)
   for (const [index, part] of [...drawnTile.children].entries()) {
-    expect(tile.children[index]).toHaveClass(...part.classList)
+    expect(classesBut(part, PART_LOOK)).toEqual(
+      classesBut(tile.children[index], PART_LOOK),
+    )
   }
 })
 
