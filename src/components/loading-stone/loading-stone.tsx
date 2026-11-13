@@ -3,10 +3,11 @@ import { Logo } from '@/components/logo/logo'
 
 /**
  * The stone while a page's data loads (v0.48.0), once the page knows it may be shown: the app
- * icon in the middle of the page, between its header and footer, its carved rune lighting a part
- * at a time and going dark again, over and over, as globals.css's rune keyframes time it. Someone
- * who'd rather nothing moved sees it lit and still. It says "Loading…" to a screen reader; the
- * light is only for the eye.
+ * icon in the middle of the page's main part, below the site's header where the page shows it
+ * (a character's sheet, at the player's seat or the Gamemaster's, doesn't), its carved rune
+ * lighting a part at a time and going dark again, over and over, as globals.css's rune keyframes
+ * time it. Someone who'd rather nothing moved sees it lit and still. It says "Loading…" to a
+ * screen reader; the light is only for the eye.
  */
 export function LoadingStone() {
   return (
