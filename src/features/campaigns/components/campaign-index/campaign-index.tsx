@@ -4,6 +4,13 @@ import { Fragment, useState } from 'react'
 import clsx from 'clsx'
 import { ChevronLeft } from 'lucide-react'
 import { CampaignRow } from '../campaign-row/campaign-row'
+import {
+  INDEX_BESIDE,
+  INDEX_CAMPAIGN,
+  INDEX_GRID,
+  INDEX_LIST,
+  INDEX_ROOT,
+} from './constants'
 import { countWords } from './utils'
 import { SearchField } from '@/components/search-field/search-field'
 import { CAMPAIGN_SEARCH_FROM } from '@/constants/campaign'
@@ -39,13 +46,10 @@ export function CampaignIndex({
   return (
     <PageToasts>
       <CampaignChoiceContext value={choice}>
-        <div
-          ref={root}
-          className='@container/index flex min-w-0 flex-col gap-5'
-        >
+        <div ref={root} className={INDEX_ROOT}>
           {head}
           {rows.length > 0 ? (
-            <div className='grid min-w-0 gap-4 @min-[900px]/index:grid-cols-[340px_minmax(0,1fr)] @min-[900px]/index:items-start'>
+            <div className={INDEX_GRID}>
               <CampaignList
                 rows={rows}
                 // Marked current only once the page knows it's wide, as only there is it beside
@@ -56,10 +60,8 @@ export function CampaignIndex({
               />
               <div
                 className={clsx(
-                  'min-w-0 flex-col gap-4',
-                  chosen === undefined
-                    ? 'hidden @min-[900px]/index:flex'
-                    : 'flex',
+                  INDEX_CAMPAIGN,
+                  chosen === undefined ? INDEX_BESIDE : 'flex',
                 )}
               >
                 {chosen !== undefined && (
@@ -155,8 +157,9 @@ function CampaignList({
       className={clsx(
         // Sticky beside a long campaign, and never taller than the screen, so its last rows stay
         // in reach; a little padding keeps the rows' focus rings inside its scrolling box.
-        '-m-1 min-w-0 flex-col gap-2 p-1 @min-[900px]/index:sticky @min-[900px]/index:top-4 @min-[900px]/index:max-h-[calc(100dvh-2rem)] @min-[900px]/index:overflow-y-auto',
-        hidden ? 'hidden @min-[900px]/index:flex' : 'flex',
+        INDEX_LIST,
+        '-m-1 p-1 @min-[900px]/index:sticky @min-[900px]/index:top-4 @min-[900px]/index:max-h-[calc(100dvh-2rem)] @min-[900px]/index:overflow-y-auto',
+        hidden ? INDEX_BESIDE : 'flex',
       )}
     >
       {searchable && (

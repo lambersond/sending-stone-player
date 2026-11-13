@@ -6,8 +6,8 @@ the app deployed with it ships with it, and app-only work goes under the module 
 with, or the next one tagged after it.
 
 Done work moves here from [ROADMAP.md](ROADMAP.md) as a version is built. Until the module is tagged
-its heading reads `— release candidate, not yet tagged`; once it is, the version reads as released,
-with its date. Each version has up to four sections, in this order:
+its heading reads `vX.Y.Z-rc`, a release candidate; once it is, the version reads as released, with
+its date. Each version has up to four sections, in this order:
 
 - **Features:** something new you can do.
 - **Fixes:** something that was wrong now works as it should.
@@ -16,32 +16,48 @@ with its date. Each version has up to four sections, in this order:
 
 Each entry ends with where it lives, the app, the module or both, and its ROADMAP item where it had
 one. ROADMAP.md began with v0.34, so the versions before it have none, and an item from another
-version's list names that version, such as v1.x item 8.
+version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
+so an item from it is named with its number when it was built, which may since be another's.
 
-## v0.48.0 — release candidate, not yet tagged
+## v0.48.0-rc
 
 ### Enhancements
 
-- **The stone lights up while a page loads.** Once a page has checked that it may be shown, the
-  app now shows its stone in the middle of the page while the page reads its data, where it showed
-  nothing before: on your characters, your campaigns, a character's sheet, the Gamemaster's seat
-  at one and an invite link. Its carved rune lights like a signal's bars, over and over every 2
-  seconds: dark, then the dot, the dot and the inner arc, all three, half a second each, then dark
-  again. Where the device asks for reduced motion, the rune is lit and still. A screen reader hears
-  "Loading…". The not-found pages and sign-in redirects are the same as before: signed out, the
-  server sends you to sign in; a page that isn't open to you is not found. Opening one of these
-  pages afresh, the stone may only flash where the data comes quickly; going to one from another
-  page of the app, it shows for at least about a third of a second, so the page comes up that much
-  later than before, and as the rune's first half second is dark, a quick page shows it unlit. An
-  installed app's launch screen is drawn by the phone (on Android, from the app's manifest), so it
-  stays still; signed in, the stone follows it once the page starts loading. Where one of these
-  pages can't read its data once its checks have passed (the database down, say), it now answers
-  200 with the error shown in the page, where it answered 500. (app)
+- **Pages show an outline of themselves while they load.** Once a page has checked that it may be
+  shown, it now draws what it already knows at once and a shimmering outline of the rest while it
+  reads its data, where it showed nothing before. Your characters shows your name, both headings,
+  the invite form and "Running a game?" at once, and an outline of the list. A character's sheet, at
+  its player's seat or the Gamemaster's, shows the table laid out as it most often will be: its
+  header with the character's name, and at the Gamemaster's seat the GM pill and, under the header,
+  the note on whose sheet they're at, with an outline of where their rolls go; the sheet's tabs,
+  tiles and abilities; on a wide screen the combat and chat column, narrower the tabs. Your
+  campaigns shows its heading and an outline of its list, and of the campaign the link opens; an
+  invite link, an outline of the invite. A soft shine sweeps across each outline every 1.5 seconds;
+  where the device asks for reduced motion, the outline is still. A screen reader hears "Loading…".
+  The not-found pages and sign-in redirects are the same as before: signed out, the server sends you
+  to sign in; a page that isn't open to you is not found. Opening one of these pages afresh, the
+  outline may only flash where the data comes quickly; going to one from another page of the app, it
+  may not show at all, and where it does, it shows for at least about a third of a second, so the
+  page comes up that much later than before. An installed app's launch screen is drawn by the phone
+  (on Android, from the app's manifest), so it stays still; signed in, the page's outline follows it
+  once the page starts loading. Where one of these pages can't read its data once its checks have
+  passed (the database down, say), it now answers 200 with the error shown in the page, where it
+  answered 500. (app)
 
 ### Maintenance
 
+- **The loading stone, kept for later.** The app's stone, its carved rune lighting like a signal's
+  bars, over and over every 2 seconds: dark, then the dot, the dot and the inner arc, all three,
+  half a second each; where the device asks for reduced motion, the rune is lit and still. This
+  release candidate first showed it in the middle of the page while your characters, your
+  campaigns, a character's sheet, the Gamemaster's seat at one and an invite link read their data;
+  the outlines above replaced it on all five. No page shows it now. It stays in the app
+  (`src/components/loading-stone`) for the installed app's launch (ROADMAP item 56) and perhaps to
+  lie over the outlines later. (app)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
-  kept. (app)
+  kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
+  v1.x's items but critical hit options join it as items 58 to 66, so v1.x keeps only critical hit
+  options. (app)
 
 ## v0.47.0 — 2026-11-12
 
@@ -309,7 +325,7 @@ below:
   the campaign card and in the module's settings window. Secrets stay hidden where no player owns
   the character; while Tidy is off or uninstalled the entries stay readable, with a line saying
   they can't be changed until it's back; and in Wild Shape a line warns that entries changed on the
-  beast's Journal tab are lost when it ends. (app and module, v1.x item 8)
+  beast's Journal tab are lost when it ends. (app and module, v1.x item 8 when it was built)
 
 ### Fixes
 

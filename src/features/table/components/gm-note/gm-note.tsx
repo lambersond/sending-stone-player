@@ -1,6 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
+import { GM_NOTE } from '@/features/table/constants'
 import { gmNote } from '@/features/table/utils/header'
 import type { GmRolls } from '@/types/table'
 
@@ -17,7 +18,7 @@ export function GmNote({
   return (
     <p
       className={clsx(
-        'shrink-0 border-b px-4 py-2.5 text-sm md:px-8',
+        GM_NOTE,
         rolls === 'made'
           ? 'border-primary/30 bg-primary/5'
           : 'border-warning/40 bg-warning/10',

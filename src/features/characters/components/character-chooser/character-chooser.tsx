@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
+import { CHOOSER_CHOICES, CHOOSER_OPTION } from './constants'
 import { Avatar } from '@/components/avatar/avatar'
 import type { CharacterChooserProps } from './types'
 
@@ -30,7 +31,7 @@ export function CharacterChooser({
   const open = choice.characters.some(({ claimedBy }) => !claimedBy)
   return (
     <form action={formAction} className='grid gap-4'>
-      <fieldset className='grid gap-2'>
+      <fieldset className={CHOOSER_CHOICES}>
         <legend className='mb-2 text-sm font-medium'>
           Which character are you playing?
         </legend>
@@ -38,7 +39,8 @@ export function CharacterChooser({
           <label
             key={id}
             className={clsx(
-              'flex items-center gap-3 rounded-2xl border border-border bg-card p-3 transition-colors',
+              CHOOSER_OPTION,
+              'transition-colors',
               claimedBy
                 ? 'opacity-60'
                 : 'cursor-pointer hover:border-primary/50 has-checked:border-primary has-checked:bg-primary/5',

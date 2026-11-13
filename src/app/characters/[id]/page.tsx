@@ -1,8 +1,8 @@
 import { cache, Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { CharacterTable } from './character-table'
-import { LoadingStone } from '@/components/loading-stone/loading-stone'
 import { getCharacter } from '@/db/characters'
+import { GameTableSkeleton } from '@/features/table/components/game-table/game-table-skeleton'
 import { requireUser } from '@/lib/session'
 import type { Metadata } from 'next'
 
@@ -21,7 +21,8 @@ export async function generateMetadata({
 
 /**
  * A player's character's table. Signed out, to the login page; a character not theirs, not
- * found: both before anything is sent. Then the loading stone while its table is read (v0.48.0).
+ * found: both before anything is sent. Then its table's outline, with its name, while the table is
+ * read (v0.48.0).
  */
 export default async function CharacterPage({
   params,
@@ -32,7 +33,7 @@ export default async function CharacterPage({
 
   const user = await requireUser()
   return (
-    <Suspense fallback={<LoadingStone />}>
+    <Suspense fallback={<GameTableSkeleton name={character.name} />}>
       <CharacterTable character={character} userId={user.id} />
     </Suspense>
   )

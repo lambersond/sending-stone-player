@@ -89,14 +89,26 @@ export function liveState(
  * module is new enough to mark it; or kept here while their game takes no rolls.
  */
 export function gmNote(name: string, rolls: GmRolls): string {
-  const at = `You're at ${name}'s sheet as the Gamemaster.`
-  let note = `${at} What you roll here is made in your game as ${name}'s, marked as yours.`
+  return `${gmNoteAt(name)} ${gmRollsGo(name, rolls)}`
+}
+
+/**
+ * The Gamemaster's note's first words, whose sheet they're at, the same wherever their rolls go:
+ * known before the table is read, so its skeleton shows them too (v0.48.0).
+ */
+export function gmNoteAt(name: string): string {
+  return `You're at ${name}'s sheet as the Gamemaster.`
+}
+
+/** The rest of the Gamemaster's note: where what they roll goes, as the table's view says. */
+export function gmRollsGo(name: string, rolls: GmRolls): string {
   if (rolls === 'update') {
-    note = `${at} Your rolls stay here: update Sending Stone in Foundry to 0.23.0 to make them in your game as ${name}'s.`
-  } else if (rolls === 'off') {
-    note = `${at} Your rolls stay here while your game isn't taking rolls from Sending Stone.`
+    return `Your rolls stay here: update Sending Stone in Foundry to 0.23.0 to make them in your game as ${name}'s.`
   }
-  return note
+  if (rolls === 'off') {
+    return "Your rolls stay here while your game isn't taking rolls from Sending Stone."
+  }
+  return `What you roll here is made in your game as ${name}'s, marked as yours.`
 }
 
 /** How large a sheet held back for its size came to, against what this app takes, where known. */

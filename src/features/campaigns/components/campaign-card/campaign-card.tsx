@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import Link from 'next/link'
-import { QUIET_BUTTON } from '../../constants'
+import { CAMPAIGN_CARD, QUIET_BUTTON } from '../../constants'
 import {
   campaignHeadingId,
   chatHeadingId,
@@ -64,7 +64,7 @@ export function CampaignCard({
     <article
       aria-labelledby={campaignHeadingId(campaign.id)}
       // No wider than the page's column, so nothing in it pushes the page sideways on a phone.
-      className='grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6'
+      className={CAMPAIGN_CARD}
     >
       <header className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
         <div className='min-w-0'>

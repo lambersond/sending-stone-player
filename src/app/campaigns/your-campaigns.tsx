@@ -20,7 +20,7 @@ import type { ReactNode } from 'react'
 
 /**
  * The campaigns a Gamemaster runs, those that need them first (v0.39), and the one the address
- * chose (v0.48.0: read once the page has its user, the loading stone showing until then).
+ * chose (v0.48.0: read once the page has its user, their outline shimmering until then).
  */
 export async function YourCampaigns({
   userId,
@@ -54,20 +54,17 @@ export async function YourCampaigns({
   }
 
   return (
-    // As wide as the design's page, 1120 px, for the list and a campaign side by side.
-    <div className='mx-auto w-full max-w-[70rem] px-4 pt-6 pb-8 md:px-8 md:pt-8 md:pb-10'>
-      <CampaignIndex
-        rows={view.campaigns.map(campaign => rowOf(campaign))}
-        details={details}
-        first={view.first}
-        head={
-          <CampaignsHead
-            destination={origin}
-            setUp={setUpCampaignAction}
-            suggestedSecret={generateSecret()}
-          />
-        }
-      />
-    </div>
+    <CampaignIndex
+      rows={view.campaigns.map(campaign => rowOf(campaign))}
+      details={details}
+      first={view.first}
+      head={
+        <CampaignsHead
+          destination={origin}
+          setUp={setUpCampaignAction}
+          suggestedSecret={generateSecret()}
+        />
+      }
+    />
   )
 }

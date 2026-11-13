@@ -1,6 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
+import { TABLE_PANE } from '@/features/table/constants'
 import type { ReactNode } from 'react'
 
 /**
@@ -26,11 +27,7 @@ export function Pane({
       id={id}
       aria-label={label}
       tabIndex={focusable ? -1 : undefined}
-      className={clsx(
-        'min-h-0 min-w-0 flex-1 flex-col',
-        focusable && 'outline-none',
-        className,
-      )}
+      className={clsx(TABLE_PANE, focusable && 'outline-none', className)}
     >
       {children}
     </section>

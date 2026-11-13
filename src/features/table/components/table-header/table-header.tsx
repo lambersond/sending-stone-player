@@ -8,11 +8,20 @@ import { LiveStatus } from '@/components/live-status/live-status'
 import { ConfirmDialog } from '@/components/modal/confirm-dialog'
 import {
   HEADER_ICON_BUTTON,
-  ICON_TARGET,
+  TABLE_HEADER_BOX,
   TABLE_HEADER_BUTTON,
 } from '@/constants/buttons'
 import { DeleteCharacterWarning } from '@/features/characters/components/character-list/delete-character-warning'
 import { HELP_TITLE } from '@/features/help/constants'
+import {
+  GM_NAME_PAIR,
+  GM_PILL,
+  TABLE_HEADER_BAR,
+  TABLE_HEADER_BUTTONS,
+  TABLE_HEADER_LEAD,
+  TABLE_NAME,
+  TABLE_NAME_ROW,
+} from '@/features/table/constants'
 import {
   campaignAndGame,
   headerLine,
@@ -55,11 +64,8 @@ export function TableHeader({
   deleteCharacter?: () => Promise<void>
 }>) {
   return (
-    <header
-      ref={ref}
-      className='flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:px-8'
-    >
-      <div className='flex min-w-0 items-center gap-2'>
+    <header ref={ref} className={TABLE_HEADER_BAR}>
+      <div className={TABLE_HEADER_LEAD}>
         <Link
           // Back to the campaign it was opened from, chosen on the campaigns page (round
           // 0.39.0).
@@ -76,20 +82,20 @@ export function TableHeader({
         <div className='min-w-0'>
           {/* On a wide screen, the class and subclass follow the name, cut short before it
             is. Narrower, the line under the name has them, on the Character tab. */}
-          <div className='flex items-baseline gap-2 overflow-hidden'>
+          <div className={TABLE_NAME_ROW}>
             {gm ? (
               // The name and its GM pill stand where the name alone does, and only the name
               // is cut short, so a long one on a phone never pushes the pill out of view.
-              <div className='flex max-w-full shrink-0 items-baseline gap-2'>
-                <h1 className='min-w-0 truncate text-lg leading-tight font-semibold'>
+              <div className={GM_NAME_PAIR}>
+                <h1 className={clsx('min-w-0', TABLE_NAME)}>
                   {character.name}
                 </h1>
-                <span className='shrink-0 self-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-text'>
+                <span className={GM_PILL}>
                   GM<span className='sr-only'>, Gamemaster view</span>
                 </span>
               </div>
             ) : (
-              <h1 className='max-w-full shrink-0 truncate text-lg leading-tight font-semibold'>
+              <h1 className={clsx('max-w-full shrink-0', TABLE_NAME)}>
                 {character.name}
               </h1>
             )}
@@ -114,7 +120,7 @@ export function TableHeader({
           )}
         </div>
       </div>
-      <div className='flex shrink-0 items-center gap-1'>
+      <div className={TABLE_HEADER_BUTTONS}>
         <LiveStatus state={liveState(playing, view, connection)} />
         <button
           type='button'
@@ -131,7 +137,7 @@ export function TableHeader({
           <ConfirmDialog
             trigger={<Trash2 aria-hidden className='size-4' />}
             triggerLabel={`Delete ${character.name}`}
-            triggerClassName={`${ICON_TARGET} rounded-lg p-2 text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger`}
+            triggerClassName={`${TABLE_HEADER_BOX} rounded-lg text-text-secondary transition-colors hover:bg-danger/10 hover:text-danger`}
             title={`Delete ${character.name}?`}
             confirmLabel='Delete'
             onConfirm={deleteCharacter}

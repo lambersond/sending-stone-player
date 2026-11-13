@@ -54,10 +54,21 @@ Midi-QOL v14.0.x:
   hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
   module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
 
-## Not yet scheduled
+## Before v1.0
 
-Known work not yet planned for any version, by number. Each batch picks a few of these; none is
-promised to a version until it's picked.
+All the work planned before v1.0, by number, kept under where each item came from. The owner's
+plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
+tweaks needed may change it as it goes. Next week aims at the first three.
+
+1. Item 24, the module's import cycle.
+2. Items 56, 47, 41, 42, 57, 23 and 29: the stone as the installed app opens, Move up and Move
+   down for every favorite, the three e2e races under load, Midi-QOL's reaction checks, and
+   effects carried back from Wild Shape.
+3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
+4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
+5. Items 64, 65 and 66: any ability or skill the game has.
+6. Items 59 and 60: summon activities, and known forms from anywhere.
+7. Item 63, offline mode.
 
 **Found while building Batch 2**
 
@@ -134,8 +145,7 @@ And from the owner's answers on item 19, later work too:
     A small offline app shell, a service worker serving one cached launch page, could show the
     same stone, the same size, centred on the same dark background, lighting up the moment the app
     opens, until the first page takes over. Only the launch page is cached, never a signed-in page;
-    a new release replaces it; tested on Android and iPhone home-screen apps. The owner picked it
-    for Saturday.
+    a new release replaces it; tested on Android and iPhone home-screen apps.
 
 **Found while building v0.48**
 
@@ -147,10 +157,59 @@ And from the owner's answers on item 19, later work too:
     45 seconds after a poll. The suite could wait for in-flight polls to settle before ageing, or
     age again once they have.
 
+**Moved from v1.x on 2026-11-13**
+
+58. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
+    actual hit points (off by default, as it gives information away).
+59. **Summon activities** used from the app.
+60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
+    campaign's compendiums, such as another compendium or a world actor, used from the app too,
+    where its player could use it in Foundry.
+61. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no
+    need to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking,
+    so the case to handle is Foundry open with nobody in the app; Foundry must still pick up notes
+    made offline as it connects.
+62. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
+    player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
+    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
+    signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
+    until the cache expires, so its lifetime is chosen with that in mind.
+63. **Offline mode:** the app keeps working on a device without a connection, such as a phone
+    that loses signal at the table: a player's characters, their last-seen sheets, notes and
+    journal kept on the device and readable offline, with what's out of date marked; notes
+    written offline sent once the device is back online; and rolls, moves and anything else
+    the game must answer refused plainly until then. It builds on item 56's app shell, a
+    service worker. A fairly large update: what's kept on a device and for whom (cleared on
+    sign-out, so a shared device keeps nothing), how long it's kept, and how a note changed
+    both offline and in Foundry meanwhile is settled.
+64. **Any ability or skill the game has, named as the game names it:** with dnd5e's Honor or
+    Sanity turned on, or a world's own ability or skill, the sheet already shows and rolls them
+    and the Gamemaster's asked saves work, but the app still knows only the six abilities and 18
+    skills in places, by English name (`src/constants/dnd5e.ts`, and the schemas' `abilityId`).
+    It should accept any ability the character's sheet has, the server's checks per character
+    staying the safety, and name abilities and skills from the sheet the module already sends.
+    Then a Sanity save in an item's text or on the Gamemaster's request card is a button again,
+    "Wisdom or Sanity" keeps both, and a companion's notice says "a Sanity saving throw", not "a
+    san saving throw"; a game in another language sees its own names there too. App only; both
+    parts ship together. From v0.48's look at how flexible the app is.
+65. **Checks on any ability:** the module still sends checks (in chat asks, description links and
+    an item's check activity) only for the six abilities, so an Honor check, a check of a world's
+    own ability or a skill tied to one (Etiquette on Honor) stays plain text, and "DC 12 Wisdom or
+    Honor check" becomes a button offering only Wisdom while it reads "or Honor". Once item 64 is
+    in, the module sends any ability the game has, behind a feature the app announces in its
+    hello so an older app is never sent one; a choice is linked whole or not at all; PROTOCOL.md
+    says so, with harness cases for Honor, Sanity, a world's skill on Honor and an untyped
+    ability. Module and app; needs item 64.
+66. **Eight abilities, laid out:** with Honor and Sanity on, the abilities grid ends on a short
+    row (3, 3 and 2 on a phone), and the loading skeleton draws six; its columns could follow the
+    count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
+    nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
+    read row by row, so one bad row can't blank a whole sheet. App and module, small.
+
 ## v1.0
 
-The major release of the app and the module, once the latest release candidate holds up at the
-table, before work starts on v1.x.
+The major release of the app and the module, once the work planned before it is done and the
+latest release candidate holds up at the table, before work starts on v1.x.
 
 The module keeps its id, `sending-stone`, though its title changed in v0.37: Foundry keeps the
 campaigns, their secrets and every flag under it, and installs follow its manifest URL.
@@ -159,22 +218,6 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 
 1. **Critical hit options.** App criticals double only the dice; choices such as dnd5e's Critical
    Damage Modifiers or Midi-QOL's critical options could come back as a per-campaign setting.
-2. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
-   actual hit points (off by default, as it gives information away).
-3. **Summon activities** used from the app.
-4. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
-   campaign's compendiums, such as another compendium or a world actor, used from the app too,
-   where its player could use it in Foundry.
-5. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no need
-   to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking, so the
-   case to handle is Foundry open with nobody in the app; Foundry must still pick up notes made
-   offline as it connects.
-6. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
-   player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
-   (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
-   signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
-   until the cache expires, so its lifetime is chosen with that in mind.
-7. Bug fixes and polish.
 
 ## v2.0
 

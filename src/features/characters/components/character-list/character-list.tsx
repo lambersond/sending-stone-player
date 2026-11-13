@@ -1,5 +1,12 @@
+import clsx from 'clsx'
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import {
+  CHARACTER_AVATAR,
+  CHARACTER_LIST,
+  CHARACTER_ROW,
+  CHARACTER_ROW_LINK,
+} from './constants'
 import { RemoveCharacterButton } from './remove-character-button'
 import { Avatar } from '@/components/avatar/avatar'
 import { gameHost } from '@/utils/game-host'
@@ -10,17 +17,23 @@ export function CharacterList({
   onRemove,
 }: Readonly<CharacterListProps>) {
   return (
-    <ul className='grid grid-cols-1 gap-3'>
+    <ul className={CHARACTER_LIST}>
       {characters.map(character => (
         <li
           key={character.id}
-          className='group flex items-center rounded-2xl border border-border bg-card pr-2 transition-colors hover:border-primary/50'
+          className={clsx(
+            CHARACTER_ROW,
+            'group pr-2 transition-colors hover:border-primary/50',
+          )}
         >
           <Link
             href={`/characters/${character.id}`}
-            className='flex min-w-0 flex-1 items-center gap-4 rounded-l-2xl p-4'
+            className={clsx(CHARACTER_ROW_LINK, 'rounded-l-2xl')}
           >
-            <Avatar name={character.name} className='size-11 text-lg' />
+            <Avatar
+              name={character.name}
+              className={clsx(CHARACTER_AVATAR, 'text-lg')}
+            />
             <span className='min-w-0 flex-1'>
               <span className='block truncate font-medium'>
                 {character.name}

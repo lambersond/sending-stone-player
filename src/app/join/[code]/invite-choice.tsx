@@ -1,5 +1,6 @@
 import { Ticket } from 'lucide-react'
 import Link from 'next/link'
+import { INVITE_PAGE } from './constants'
 import { joinAsCharacter } from '@/app/characters/actions'
 import { findInvite } from '@/db/campaigns'
 import { CharacterChooser } from '@/features/characters/components/character-chooser/character-chooser'
@@ -7,7 +8,7 @@ import { gameHost } from '@/utils/game-host'
 
 /**
  * A campaign's invite, for the signed-in player to choose which of its characters they play, or
- * that the link doesn't work (v0.48.0: read once the page has its user, the loading stone showing
+ * that the link doesn't work (v0.48.0: read once the page has its user, its outline shimmering
  * until then).
  */
 export async function InviteChoice({
@@ -45,7 +46,7 @@ export async function InviteChoice({
   ].filter(Boolean)
 
   return (
-    <div className='mx-auto w-full max-w-xl px-4 py-10 sm:py-14'>
+    <div className={INVITE_PAGE}>
       <p className='text-sm text-text-secondary'>You&apos;re invited to</p>
       <h1 className='mt-1 text-2xl font-semibold tracking-tight'>
         {choice.title}

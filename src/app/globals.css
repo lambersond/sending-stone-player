@@ -91,10 +91,30 @@
     }
   }
 
-  /* The stone while a page loads (v0.48.0): its carved rune lights a part at a time, as a signal's
-     bars do, each part staying lit as the next one joins it, over 2 s and again, a half second a
-     step: all dark, the dot, the dot and the inner arc, all three, then all dark together again.
-     The light is the same in both themes, as it shines on the icon's own night tile. */
+  /* A page's skeleton while it reads its data (v0.48.0): each block the placeholder colour, a step
+     off the page and the cards, with a softer, lighter shine sweeping across it left to right, at
+     an even pace, over 1.5 s and again. From well off the block's left edge to well off its right,
+     so that each sweep starts and ends with the block still. Someone who'd rather nothing moved
+     sees the placeholder alone. */
+  --color-skeleton: #e6e6ee;
+  --color-skeleton-shine: #f4f4f8;
+  --animate-shimmer: shimmer 1.5s linear infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -50% 0;
+    }
+  }
+
+  /* The loading stone (v0.48.0): its carved rune lights a part at a time, as a signal's bars do,
+     each part staying lit as the next one joins it, over 2 s and again, a half second a step: all
+     dark, the dot, the dot and the inner arc, all three, then all dark together again. The light
+     is the same in both themes, as it shines on the icon's own night tile. No page shows the stone
+     now, each showing a shimmering skeleton of itself while it loads; it's kept for the installed
+     app's launch page (ROADMAP item 56), and perhaps for an overlay on a skeleton later. */
   --color-rune-glow: #9dffd6;
   --animate-rune-dot: rune-dot 2s linear infinite;
   --animate-rune-inner: rune-inner 2s linear infinite;
@@ -180,6 +200,9 @@
   --color-wild: #c3d67a;
   --color-wild-bg: #232813;
   --color-on-wild: #171722;
+
+  --color-skeleton: #232331;
+  --color-skeleton-shine: #303042;
 }
 
 body {

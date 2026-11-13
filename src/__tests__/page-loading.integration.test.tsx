@@ -1,13 +1,19 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { Suspense, type ReactElement } from 'react'
+import {
+  isValidElement,
+  Suspense,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
+import { render, screen } from '@testing-library/react'
 import { redirect } from 'next/navigation'
 import GmCharacterPage from '@/app/campaigns/[id]/characters/[actor]/page'
 import CampaignsPage from '@/app/campaigns/page'
 import CharacterPage from '@/app/characters/[id]/page'
 import CharactersPage from '@/app/characters/page'
+import { InviteSkeleton } from '@/app/join/[code]/invite-skeleton'
 import JoinPage from '@/app/join/[code]/page'
-import { LoadingStone } from '@/components/loading-stone/loading-stone'
 import {
   findInvite,
   getCampaignChoice,
@@ -16,16 +22,24 @@ import {
 import { getCharacter, listCharacters } from '@/db/characters'
 import { getGmSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
+import { CampaignIndexSkeleton } from '@/features/campaigns/components/campaign-index/campaign-index-skeleton'
+import {
+  CAMPAIGNS_HEADING,
+  CAMPAIGNS_LEAD,
+} from '@/features/campaigns/constants'
+import { CharacterListSkeleton } from '@/features/characters/components/character-list/character-list-skeleton'
+import { GameTableSkeleton } from '@/features/table/components/game-table/game-table-skeleton'
 import { appOrigin } from '@/lib/app-origin'
 import { requireUser } from '@/lib/session'
 import { streamed } from '@/utils/test-utils'
 
 // v0.48.0: a page that reads more once it knows it may be shown runs its checks first (the
 // session, and the lookups that answer 404), so that a visit signed out is still redirected and a
-// page not open here still answers 404 before anything is sent; and only then shows the loading
-// stone, while its content reads the rest. A check only started before the stone, and awaited
-// behind it, would be refused only once the page had begun to stream, with 200: so each refusal
-// must reject the page itself. The database is mocked at its modules.
+// page not open here still answers 404 before anything is sent; and only then shows what it knows
+// at once, with a shimmering skeleton of what's still to come while it reads the rest. A check only
+// started before the skeleton, and awaited behind it, would be refused only once the page had begun
+// to stream, with 200: so each refusal must reject the page itself. The database is mocked at its
+// modules.
 
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
 jest.mock('@/lib/app-origin', () => ({ appOrigin: jest.fn() }))
@@ -91,48 +105,120 @@ beforeEach(() => {
   jest.mocked(getTableView).mockResolvedValue({ version: 1 } as never)
 })
 
-/** Each page that reads after its checks: how it opens, its checks and the reads after them. */
+/**
+ * Each page that reads after its checks: how it opens, its checks and the reads after them, the
+ * skeleton it shows while it reads, and the words of the page that skeleton shows, known already.
+ */
 const PAGES: Record<
   string,
-  [() => Promise<ReactElement>, unknown[], unknown[]]
+  {
+    open: () => Promise<ReactElement>
+    checks: unknown[]
+    reads: unknown[]
+    skeleton: ReactElement
+    words: string[]
+  }
 > = {
-  'your characters': [() => CharactersPage(), [requireUser], [listCharacters]],
-  'your campaigns': [
-    () => CampaignsPage(search({})),
-    [requireUser],
-    [listOwnedCampaigns, appOrigin],
-  ],
-  "a player's character": [
-    () => CharacterPage(params({ id: 'char-1' })),
-    [requireUser, getCharacter],
-    [getTableView, getCampaignChoice],
-  ],
-  "the Gamemaster's seat at a character": [
-    () => GmCharacterPage(params({ id: 'c1', actor: 'thorin' })),
-    [requireUser, getGmSeat],
-    [getTableView],
-  ],
-  'an invite link': [
-    () => JoinPage(params({ code: 'invite0123456789' })),
-    [requireUser],
-    [findInvite],
-  ],
+  'your characters': {
+    open: () => CharactersPage(),
+    checks: [requireUser],
+    reads: [listCharacters],
+    skeleton: <CharacterListSkeleton />,
+    words: [],
+  },
+  'your campaigns': {
+    open: () => CampaignsPage(search({})),
+    checks: [requireUser],
+    reads: [listOwnedCampaigns, appOrigin],
+    skeleton: <CampaignIndexSkeleton asked={false} />,
+    words: [CAMPAIGNS_HEADING, CAMPAIGNS_LEAD],
+  },
+  'a campaign of yours': {
+    open: () => CampaignsPage(search({ campaign: 'c1' })),
+    checks: [requireUser],
+    reads: [listOwnedCampaigns, appOrigin],
+    skeleton: <CampaignIndexSkeleton asked />,
+    words: [CAMPAIGNS_HEADING, CAMPAIGNS_LEAD],
+  },
+  "a player's character": {
+    open: () => CharacterPage(params({ id: 'char-1' })),
+    checks: [requireUser, getCharacter],
+    reads: [getTableView, getCampaignChoice],
+    skeleton: <GameTableSkeleton name='Thorin Oakenshield' />,
+    words: ['Thorin Oakenshield'],
+  },
+  "the Gamemaster's seat at a character": {
+    open: () => GmCharacterPage(params({ id: 'c1', actor: 'thorin' })),
+    checks: [requireUser, getGmSeat],
+    reads: [getTableView],
+    skeleton: <GameTableSkeleton name='Thorin Oakenshield' gm />,
+    words: [
+      'Thorin Oakenshield',
+      'GM',
+      "You're at Thorin Oakenshield's sheet as the Gamemaster.",
+    ],
+  },
+  'an invite link': {
+    open: () => JoinPage(params({ code: 'invite0123456789' })),
+    checks: [requireUser],
+    reads: [findInvite],
+    skeleton: <InviteSkeleton />,
+    words: [],
+  },
+}
+
+/** The page's Suspense: at its root, or among the children it hands to what it draws at once. */
+const suspenseIn = (node: ReactNode): ReactElement | undefined => {
+  if (Array.isArray(node)) {
+    return node.map(child => suspenseIn(child)).find(Boolean)
+  }
+  if (!isValidElement(node)) return undefined
+  if (node.type === Suspense) return node
+  return suspenseIn((node.props as { children?: ReactNode }).children)
 }
 
 it.each(Object.entries(PAGES))(
-  'the page of %s checks who may see it first, then shows the loading stone while it reads the rest',
-  async (_, [page, checks, reads]) => {
-    const shown = await page()
+  'the page of %s checks who may see it first, then shows its skeleton while it reads the rest',
+  async (_, { open, checks, reads, skeleton }) => {
+    const shown = await open()
 
     for (const check of checks) expect(check).toHaveBeenCalled()
     for (const read of reads) expect(read).not.toHaveBeenCalled()
-    expect(shown.type).toBe(Suspense)
-    expect((shown.props as { fallback: unknown }).fallback).toEqual(
-      <LoadingStone />,
+    const boundary = suspenseIn(shown)
+    expect((boundary?.props as { fallback: unknown }).fallback).toEqual(
+      skeleton,
     )
 
     await streamed(shown)
     for (const read of reads) expect(read).toHaveBeenCalled()
+  },
+)
+
+it.each(Object.entries(PAGES))(
+  "the skeleton of %s says it's loading, once, and nothing else to assistive technology, with nothing to focus",
+  (_, { skeleton, words }) => {
+    const { container } = render(skeleton)
+
+    expect(screen.getByRole('status')).toHaveTextContent(/^Loading…$/)
+    // Its blocks, and what it shows of the page, are for the eye alone.
+    const shown = [...container.querySelectorAll('*')].filter(
+      element =>
+        element.closest('[aria-hidden="true"]') === null &&
+        element.closest('[role="status"]') === null &&
+        element.children.length === 0 &&
+        element.textContent !== '',
+    )
+    expect(shown).toEqual([])
+    for (const word of words) {
+      expect(screen.getByText(word).closest('[aria-hidden="true"]')).not.toBe(
+        null,
+      )
+    }
+    expect(
+      container.querySelectorAll(
+        'a, button, input, select, textarea, [tabindex], [contenteditable]',
+      ),
+    ).toHaveLength(0)
   },
 )
 
@@ -162,12 +248,12 @@ it.each([
   ],
   ['an invite link', 'signed out', signedOut, REDIRECTED],
 ] as [string, string, () => void, string][])(
-  'the page of %s, %s, is refused before it gives back anything: no stone, none of its reads',
+  'the page of %s, %s, is refused before it gives back anything: no skeleton, none of its reads',
   async (name, _, refuse, refusal) => {
     refuse()
-    const [page, , reads] = PAGES[name]
+    const { open, reads } = PAGES[name]
 
-    await expect(page()).rejects.toThrow(refusal)
+    await expect(open()).rejects.toThrow(refusal)
     for (const read of reads) expect(read).not.toHaveBeenCalled()
   },
 )

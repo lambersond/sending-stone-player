@@ -4,6 +4,7 @@ import { type ComponentProps, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { SheetSettings } from '../sheet-settings/sheet-settings'
 import { RollsButton } from '@/features/rolling/components/rolls-button/rolls-button'
+import { SHEET_TABS_ROW } from '@/features/sheet/constants'
 import type { SheetTab, TabEntry } from './types'
 import type { SheetSettingsProps } from '../sheet-settings/types'
 
@@ -43,10 +44,7 @@ export function SheetTabs({
   cookbookModal: ReactNode
 }>) {
   return (
-    <div
-      ref={rowRef}
-      className='@container flex h-11 shrink-0 items-center border-b border-border px-3 sm:h-12 md:px-6 lg:px-7'
-    >
+    <div ref={rowRef} className={clsx('@container', SHEET_TABS_ROW)}>
       <div
         role='tablist'
         aria-label='Character sheet'

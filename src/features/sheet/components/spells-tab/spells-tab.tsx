@@ -9,6 +9,7 @@ import { WildShapeNote } from '../wild-shape/wild-shape-note'
 import { SpellEntry } from './spell-entry'
 import { foundOf, preparedCount } from './utils'
 import { SearchField } from '@/components/search-field/search-field'
+import { SHEET_TAB_PAGE } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
 import { formatModifier } from '@/utils/format-modifier'
 import { matchesSearch, searchKey } from '@/utils/search'
@@ -92,7 +93,7 @@ export function SpellsTab({
         section.spells.length > 0 || (!search && (section.slots?.max ?? 0) > 0),
     )
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:px-8 md:py-6'>
+    <div className={SHEET_TAB_PAGE}>
       {/* While transformed, as by Wild Shape (module 0.40.0): what the form may cast. */}
       <WildShapeNote tab='spells' />
       {favorites}

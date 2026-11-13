@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import CharactersPage from './page'
 import { listCharacters } from '@/db/characters'
 import { requireUser } from '@/lib/session'
-import { streamed } from '@/utils/test-utils'
+import { firstSent, streamed } from '@/utils/test-utils'
 
 jest.mock('@/db/characters', () => ({ listCharacters: jest.fn() }))
 jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
@@ -16,6 +16,20 @@ describe('app/characters/page', () => {
     jest
       .mocked(requireUser)
       .mockResolvedValue({ id: 'user-1', name: 'Alice' } as any)
+  })
+
+  it('draws who the player is, where to join a campaign and how to run one at once, only their characters waiting to be read', async () => {
+    render(await firstSent(await CharactersPage()))
+
+    expect(listCharacters).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Alice' })).toBeInTheDocument()
+    const choose = screen.getByRole('region', { name: 'Choose a character' })
+    expect(within(choose).getByRole('status')).toHaveTextContent('Loading…')
+    const join = screen.getByRole('region', { name: 'Join a campaign' })
+    expect(within(join).getByLabelText('Invite link')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Set up your campaign' }),
+    ).toHaveAttribute('href', '/campaigns')
   })
 
   it("lists the user's characters to choose from", async () => {

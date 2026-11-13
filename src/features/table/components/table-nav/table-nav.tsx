@@ -2,6 +2,7 @@
 
 import { MessageSquare, Swords, UserRound } from 'lucide-react'
 import { TabButton } from '../tab-button/tab-button'
+import { TABLE_NAV_BAR } from '@/features/table/constants'
 import { badgeCount } from '@/features/table/utils/header'
 import type { Tab, TabHold } from '@/features/table/types'
 import type { RefObject } from 'react'
@@ -39,10 +40,7 @@ export function TableNav({
   hold: TabHold
 }>) {
   return (
-    <nav
-      aria-label='Table'
-      className='flex shrink-0 gap-1 border-t border-border bg-card px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:w-24 md:flex-col md:gap-2 md:border-t-0 md:border-l md:p-2.5 lg:hidden'
-    >
+    <nav aria-label='Table' className={TABLE_NAV_BAR}>
       <TabButton
         icon={UserRound}
         label='Character'
