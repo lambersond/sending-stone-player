@@ -3,6 +3,7 @@ import JoinPage from './page'
 import { joinAsCharacter } from '@/app/characters/actions'
 import { findInvite } from '@/db/campaigns'
 import { requireUser } from '@/lib/session'
+import { streamed } from '@/utils/test-utils'
 
 jest.mock('@/app/characters/actions', () => ({ joinAsCharacter: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({ findInvite: jest.fn() }))
@@ -45,7 +46,7 @@ describe('app/join/[code]/page', () => {
         { id: 'actor-vex', name: 'Vex' },
       ],
     })
-    render(await JoinPage(props('code-1')))
+    render(await streamed(await JoinPage(props('code-1'))))
 
     expect(requireUser).toHaveBeenCalledWith('/join/code-1')
     expect(findInvite).toHaveBeenCalledWith('code-1', 'user-1')
@@ -71,7 +72,7 @@ describe('app/join/[code]/page', () => {
 
   it("says when a link doesn't work", async () => {
     jest.mocked(findInvite).mockResolvedValue(undefined)
-    render(await JoinPage(props('old')))
+    render(await streamed(await JoinPage(props('old'))))
 
     expect(
       screen.getByRole('heading', { name: "This invite link doesn't work" }),

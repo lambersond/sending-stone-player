@@ -1,9 +1,16 @@
+import {
+  isValidElement,
+  Suspense,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { act } from '@testing-library/react'
 
 /*
  * The jsdom suites' test kit (v0.43): fetch's answers, fake timers moved on, the requests a test
- * made, a roll server, times and broken images, and the normalizers that make a page's markup the
- * same from run to run and machine to machine. Tests import it; nothing else does.
+ * made, a roll server, times and broken images, the normalizers that make a page's markup the
+ * same from run to run and machine to machine, and a page's content as it streams in (v0.48.0).
+ * Tests import it; nothing else does.
  */
 
 /** A fetch answer: its status, `ok` as the status says, and what `json()` reads. */
@@ -198,3 +205,17 @@ export const markup = () =>
  * pins key order, as snapshots sort an object's keys.
  */
 export const ordered = (value: unknown) => JSON.stringify(value, undefined, 1)
+
+/**
+ * A page's content as it streams in (v0.48.0). A page that reads more once its checks have passed
+ * gives a Suspense, the loading stone its fallback, around an async component that does those
+ * reads: this is what that component draws once they're done, as React would render it. A page
+ * that streams nothing is given back as it is.
+ */
+export const streamed = async (page: ReactNode): Promise<ReactNode> => {
+  if (!isValidElement(page) || page.type !== Suspense) return page
+  const { children: content } = page.props as {
+    children: ReactElement<object, (props: object) => Promise<ReactNode>>
+  }
+  return content.type(content.props)
+}

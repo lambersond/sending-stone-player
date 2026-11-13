@@ -76,8 +76,9 @@ import {
   PARTY,
   TEXTS,
 } from '@/mocks/sending-stone'
-import { atFixedTime, ordered } from '@/utils/test-utils'
+import { atFixedTime, ordered, streamed } from '@/utils/test-utils'
 import { prismaFake, resetPrisma, routeCall } from '@/utils/test-utils-node'
+import type { ReactNode } from 'react'
 
 // The server's random ids, as a fixed sequence, so that what it writes is the same every run.
 jest.mock('node:crypto', () => ({
@@ -1816,10 +1817,14 @@ describe.each([
   })
 })
 
-/** What a page's function did: what it gave back, or what it threw, by name and message. */
-const outcome = async (run: () => unknown) => {
+/**
+ * What a page's function did: what it gave back, or what it threw, by name and message. A page
+ * that streams its content after its checks (v0.48.0) is followed into that content, as rendering
+ * it would, so that what it asks the database is all asked here.
+ */
+const outcome = async (run: () => Promise<ReactNode>) => {
   try {
-    const value = await run()
+    const value = await streamed(await run())
     return { returned: value === undefined ? 'nothing' : typeof value }
   } catch (error) {
     const { digest, message } = error as { digest?: string; message: string }

@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { createElement, Suspense } from 'react'
 import {
   atFixedTime,
   minutesAgo,
@@ -12,6 +13,7 @@ import {
   responding,
   rollServer,
   sent,
+  streamed,
 } from './test-utils'
 import {
   prismaFake,
@@ -214,6 +216,30 @@ describe('atFixedTime and minutesAgo', () => {
     expect(now).toBe(Date.parse('2026-10-04T19:30:00.000Z'))
     expect(Date.now()).toBe(now)
     expect(minutesAgo(90)).toBe('2026-10-04T18:00:00.000Z')
+  })
+})
+
+describe('streamed', () => {
+  it("draws a page's content behind its Suspense, once its reads are done", async () => {
+    const Content = async ({ name }: { name: string }) => {
+      await Promise.resolve()
+      return createElement('p', undefined, `table for ${name}`)
+    }
+    const page = createElement(
+      Suspense,
+      { fallback: 'Loading…' },
+      createElement(Content, { name: 'Thorin' }),
+    )
+
+    await expect(streamed(page)).resolves.toEqual(
+      createElement('p', undefined, 'table for Thorin'),
+    )
+  })
+
+  it('gives a page that streams nothing as it is', async () => {
+    const page = createElement('p', undefined, 'not open here')
+
+    await expect(streamed(page)).resolves.toBe(page)
   })
 })
 

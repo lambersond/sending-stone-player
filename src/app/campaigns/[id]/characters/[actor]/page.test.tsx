@@ -5,6 +5,7 @@ import GmCharacterPage, { generateMetadata } from './page'
 import { getGmSeat } from '@/db/seats'
 import { getTableView } from '@/db/table'
 import { requireUser } from '@/lib/session'
+import { streamed } from '@/utils/test-utils'
 
 jest.mock('next/navigation', () => ({
   notFound: jest.fn(() => {
@@ -55,7 +56,7 @@ describe('app/campaigns/[id]/characters/[actor]/page (#156)', () => {
 
   it("shows the campaign's owner the character's sheet, as its player sees it, to roll from as theirs", async () => {
     jest.mocked(getGmSeat).mockResolvedValue(seat)
-    render(await GmCharacterPage(props('camp1', 'balin')))
+    render(await streamed(await GmCharacterPage(props('camp1', 'balin'))))
 
     expect(requireUser).toHaveBeenCalledWith(
       '/campaigns/camp1/characters/balin',
