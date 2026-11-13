@@ -760,7 +760,7 @@ check(own.status === 404 && view.status === 200 && !/Balin of Mirkwood|Mirkwood 
   const arrived = await page.goto(`${BASE}${gmPath(A, 'balin')}`)
   await page.waitForURL(/\/login\?next=/)
   // The redirect the server answered with, before any of the page was sent: none, had the page
-  // begun to stream and sent the browser on from within it (v0.48.0's loading stone comes after).
+  // begun to stream and sent the browser on from within it (v0.48.0's skeleton comes after).
   const redirect = await arrived.request().redirectedFrom()?.response()
   const location = redirect?.headers().location
   check(redirect?.status() === 307 && new URL(location, BASE).href === `${BASE}/login?next=${encodeURIComponent(gmPath(A, 'balin'))}`,

@@ -11,6 +11,9 @@ const SECRET = 'module-secret-123'
 const SECRET_B = 'mirkwood-secret-456'
 const SHOTS = process.env.SHOTS
 const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
+// A player's characters as their page shows them once read: the list, or that there are none yet.
+const charactersOf = page => page.getByRole('region', { name: 'Choose a character' }).getByRole('list')
+  .or(page.getByText('You have no characters yet. Join a campaign below to choose one.'))
 
 const browser = await chromium.launch()
 const problems = []
@@ -222,7 +225,7 @@ await bob.waitForURL(/\/characters\/[\w]+$/)
 await bob.getByRole('heading', { level: 1, name: 'Bard the Bowman', exact: true }).waitFor()
 check(await bob.getByRole('status').filter({ hasText: 'Live' }).isVisible(), "the player's table shows the game live")
 await gm.reload()
-// The page shows the loading stone first, its content after it (v0.48.0): wait for that.
+// The page shows its skeleton first, its campaigns after it (v0.48.0): wait for them.
 await mirkwood.waitFor()
 check(await mirkwood.getByText('Bob', { exact: true }).isVisible(), 'the Gamemaster sees who chose Bard')
 
@@ -351,8 +354,8 @@ await removeBob.getByRole('button', { name: 'Remove' }).click()
 await mirkwood.getByRole('listitem').filter({ hasText: 'Bard the Bowman' }).getByText('Not chosen yet').waitFor()
 check(sql(`select count(*) from character where "actorId" = 'bard'`) === '0', 'the Gamemaster removes Bob as Bard, so Bard can be chosen again')
 await bob.goto(`${BASE}/characters`)
-// The page shows the loading stone first, its content after it (v0.48.0): wait for that.
-await bob.getByRole('heading', { name: 'Choose a character' }).waitFor()
+// The page's headings are drawn at once and its characters after them (v0.48.0): wait for those.
+await charactersOf(bob).waitFor()
 check(await bob.getByRole('link', { name: /Bard the Bowman/ }).count() === 0, "Bard is gone from Bob's characters")
 
 await bob.goto(inviteUrl)
@@ -365,8 +368,7 @@ const deleteBard = bob.getByRole('dialog', { name: 'Delete Bard the Bowman?' })
 await bob.screenshot({ path: `${SHOTS}/player-delete-phone.png` })
 await deleteBard.getByRole('button', { name: 'Delete' }).click()
 await bob.waitForURL(/\/characters$/)
-// The page shows the loading stone first, its content after it (v0.48.0): wait for that.
-await bob.getByRole('heading', { name: 'Choose a character' }).waitFor()
+await charactersOf(bob).waitFor()
 check(await bob.getByRole('link', { name: /Bard the Bowman/ }).count() === 0 && sql(`select count(*) from character where "actorId" = 'bard'`) === '0', "a player deletes their character from its page, and is taken back to their characters")
 
 await alicePlayer.goto(`${BASE}/characters`)
@@ -387,7 +389,7 @@ await gm.getByRole('dialog', { name: 'Reset the invite link?' }).getByRole('butt
 await gm.waitForFunction(old => [...document.querySelectorAll('code')].every(code => code.textContent !== old), inviteUrl)
 check(true, 'the Gamemaster resets the invite link, after asking')
 await bob.goto(inviteUrl)
-// The page shows the loading stone first, its content after it (v0.48.0): wait for that.
+// The page shows its skeleton first, with no heading, and the invite after it (v0.48.0).
 await bob.getByRole('heading', { level: 1 }).waitFor()
 check(await bob.getByRole('heading', { name: "This invite link doesn't work" }).isVisible(), 'the old invite link no longer works')
 

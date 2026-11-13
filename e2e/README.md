@@ -228,12 +228,15 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     after the panel shows the turn (600 ms)": offered 578 ms after, where the check wants 590 to
     900 ms. The arm's countdown starts before the page's MutationObserver records the heading's
     text, and under load the gap grows. It passed on its retry (ROADMAP item 42).
-- **Five pages show the loading stone before their content** (v0.48.0): your characters, your
-  campaigns, a character's sheet, the Gamemaster's seat at one and an invite link. Each sends the
-  stone, then its content behind it, which React puts in its place up to about 300 ms after the
-  stone is first drawn, so it can land after `goto()` or `reload()` returns. Wait for the content
-  before reading it: a `waitFor()` on it, then `isVisible()`, `count()` or a time the page writes in
-  once hydrated. gm, gmerr and late-setup read it straight after the navigation, and now wait.
+- **Five pages show a skeleton before their content** (v0.48.0): your characters, your campaigns, a
+  character's sheet, the Gamemaster's seat at one and an invite link. Each sends what it knows at
+  once (your characters' headings and invite form, a sheet's name in its skeleton's header), a
+  shimmering skeleton of the rest, then the rest behind it, which React puts in its place up to
+  about 300 ms after the skeleton is first drawn, so it can land after `goto()` or `reload()`
+  returns. Wait for the content itself before reading it, not for what's drawn at once: a
+  `waitFor()` on it, then `isVisible()`, `count()` or a time the page writes in once hydrated. The
+  words a skeleton shows are hidden from `getByRole`, but `getByText` finds them. gm, gmerr and
+  late-setup read pages straight after the navigation, and wait.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across
