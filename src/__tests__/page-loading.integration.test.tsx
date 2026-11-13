@@ -184,3 +184,16 @@ it('has no loading file anywhere in the app, as one would stream every page belo
 
   expect(loading).toEqual([])
 })
+
+it('has no Suspense written into any layout, as one around its children would stream them the same way', () => {
+  // A layout's own <Suspense> around {children} does what a loading file does: every page below it
+  // starts streaming, with 200, before its checks run.
+  const withSuspense = fs
+    .readdirSync(APP, { recursive: true, encoding: 'utf8' })
+    .filter(file => /^layout\.[jt]sx?$/.test(path.basename(file)))
+    .filter(file =>
+      fs.readFileSync(path.join(APP, file), 'utf8').includes('Suspense'),
+    )
+
+  expect(withSuspense).toEqual([])
+})
