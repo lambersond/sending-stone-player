@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { CHARACTER_LIST } from './constants'
 import { RemoveCharacterButton } from './remove-character-button'
 import { Avatar } from '@/components/avatar/avatar'
 import { gameHost } from '@/utils/game-host'
@@ -10,7 +11,7 @@ export function CharacterList({
   onRemove,
 }: Readonly<CharacterListProps>) {
   return (
-    <ul className='grid grid-cols-1 gap-3'>
+    <ul className={CHARACTER_LIST}>
       {characters.map(character => (
         <li
           key={character.id}

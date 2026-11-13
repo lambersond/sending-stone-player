@@ -1,11 +1,20 @@
 import clsx from 'clsx'
 import {
   CAMPAIGN_CARD,
+  CAMPAIGN_ROW,
   CAMPAIGNS_HEAD,
   CAMPAIGNS_HEADING,
   CAMPAIGNS_LEAD,
+  CAMPAIGNS_LEAD_STYLE,
+  CAMPAIGNS_TITLE_STYLE,
 } from '../../constants'
-import { INDEX_GRID, INDEX_ROOT } from './constants'
+import {
+  INDEX_BESIDE,
+  INDEX_CAMPAIGN,
+  INDEX_GRID,
+  INDEX_LIST,
+  INDEX_ROOT,
+} from './constants'
 import { Skeleton } from '@/components/skeleton/skeleton'
 import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
 
@@ -28,12 +37,8 @@ export function CampaignIndexSkeleton({ asked }: Readonly<{ asked: boolean }>) {
         className={clsx(CAMPAIGNS_HEAD, asked && '@max-[900px]/index:hidden')}
       >
         <div className='min-w-0'>
-          <p className='text-2xl font-semibold tracking-tight'>
-            {CAMPAIGNS_HEADING}
-          </p>
-          <p className='mt-1 max-w-[46ch] text-text-secondary'>
-            {CAMPAIGNS_LEAD}
-          </p>
+          <p className={CAMPAIGNS_TITLE_STYLE}>{CAMPAIGNS_HEADING}</p>
+          <p className={CAMPAIGNS_LEAD_STYLE}>{CAMPAIGNS_LEAD}</p>
         </div>
         <div className='flex flex-wrap gap-2'>
           {/* Connect Foundry and New campaign. */}
@@ -42,21 +47,11 @@ export function CampaignIndexSkeleton({ asked }: Readonly<{ asked: boolean }>) {
         </div>
       </div>
       <div className={INDEX_GRID}>
-        <div
-          className={clsx(
-            'min-w-0 flex-col gap-2',
-            asked ? 'hidden @min-[900px]/index:flex' : 'flex',
-          )}
-        >
+        <div className={clsx(INDEX_LIST, asked ? INDEX_BESIDE : 'flex')}>
           <RowSkeleton />
           <RowSkeleton />
         </div>
-        <div
-          className={clsx(
-            'min-w-0 flex-col gap-4',
-            asked ? 'flex' : 'hidden @min-[900px]/index:flex',
-          )}
-        >
+        <div className={clsx(INDEX_CAMPAIGN, asked ? 'flex' : INDEX_BESIDE)}>
           {/* All campaigns, back to the list on a phone. */}
           {asked && (
             <Skeleton className='h-10 w-36 rounded-lg @min-[900px]/index:hidden' />
@@ -71,7 +66,7 @@ export function CampaignIndexSkeleton({ asked }: Readonly<{ asked: boolean }>) {
 /** A campaign's row: its title, its game's line and its chip, then its seats. */
 function RowSkeleton() {
   return (
-    <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-1 rounded-[14px] border border-border bg-card p-3'>
+    <div className={clsx(CAMPAIGN_ROW, 'border-border')}>
       <div className='min-w-0'>
         <div className='flex h-[22.5px] items-center'>
           <Skeleton className='h-4 w-36 max-w-full rounded-md' />

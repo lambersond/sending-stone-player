@@ -13,3 +13,12 @@ export const INDEX_ROOT = '@container/index flex min-w-0 flex-col gap-5'
 /** The list and a campaign: one above the other, side by side from 900 px of the index. */
 export const INDEX_GRID =
   'grid min-w-0 gap-4 @min-[900px]/index:grid-cols-[340px_minmax(0,1fr)] @min-[900px]/index:items-start'
+
+/** The list: its campaigns' rows, 8 px apart. Its display is its own, as it's shown or not. */
+export const INDEX_LIST = 'min-w-0 flex-col gap-2'
+
+/** A campaign's page, under All campaigns on a phone. Its display is its own too. */
+export const INDEX_CAMPAIGN = 'min-w-0 flex-col gap-4'
+
+/** Shown only beside the other, from 900 px of the index: the list or a campaign's page. */
+export const INDEX_BESIDE = 'hidden @min-[900px]/index:flex'

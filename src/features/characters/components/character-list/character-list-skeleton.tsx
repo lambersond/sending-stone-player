@@ -1,13 +1,14 @@
+import { CHARACTER_LIST } from './constants'
 import { Skeleton } from '@/components/skeleton/skeleton'
 import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
 
 /**
  * The player's characters while they're read (v0.48.0): two rows the shape of CharacterList's,
- * each an avatar and its two lines, at its rows' height, in its gaps.
+ * each an avatar and its two lines, at its rows' height, in its list's own box.
  */
 export function CharacterListSkeleton() {
   return (
-    <div className='grid grid-cols-1 gap-3'>
+    <div className={CHARACTER_LIST}>
       <SkeletonStatus />
       <RowSkeleton />
       <RowSkeleton />

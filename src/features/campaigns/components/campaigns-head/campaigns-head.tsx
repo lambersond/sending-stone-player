@@ -5,6 +5,8 @@ import {
   CAMPAIGNS_HEAD,
   CAMPAIGNS_HEADING,
   CAMPAIGNS_LEAD,
+  CAMPAIGNS_LEAD_STYLE,
+  CAMPAIGNS_TITLE_STYLE,
 } from '../../constants'
 import { PAGE_HEADING_ID } from '../../utils/campaign-ids'
 import { ConnectFoundryButton } from '@/features/campaigns/components/campaign-buttons/connect-foundry-button'
@@ -40,7 +42,8 @@ export function CampaignsHead({
           id={PAGE_HEADING_ID}
           tabIndex={-1}
           className={clsx(
-            'text-2xl font-semibold tracking-tight outline-none',
+            CAMPAIGNS_TITLE_STYLE,
+            'outline-none',
             narrowed && '@max-[900px]/index:sr-only',
           )}
         >
@@ -48,7 +51,7 @@ export function CampaignsHead({
         </h1>
         <p
           className={clsx(
-            'mt-1 max-w-[46ch] text-text-secondary',
+            CAMPAIGNS_LEAD_STYLE,
             narrowed && '@max-[900px]/index:hidden',
           )}
         >

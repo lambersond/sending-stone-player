@@ -3,6 +3,7 @@ import { CircleAlert, Plug } from 'lucide-react'
 import { CampaignStatus } from '../campaign-status/campaign-status'
 import { LastHeard } from '../campaign-status/last-heard'
 import { SeatAvatars } from '../seat-avatars/seat-avatars'
+import { CAMPAIGN_ROW } from '@/features/campaigns/constants'
 import type { CampaignRowData } from '@/features/campaigns/types'
 
 /**
@@ -23,7 +24,8 @@ export function CampaignRow({
       aria-current={current ? 'true' : undefined}
       onClick={onChoose}
       className={clsx(
-        'grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-1 rounded-[14px] border bg-card p-3 text-left transition-colors',
+        CAMPAIGN_ROW,
+        'text-left transition-colors',
         current
           ? 'border-primary bg-primary/4 shadow-[inset_3px_0_0_var(--color-primary)]'
           : 'border-border hover:border-primary/40',
