@@ -127,6 +127,26 @@ And from the owner's answers on item 19, later work too:
     only where a row has a choice), so on a phone they're put in order only by Reorder's arrows,
     where the owner was told each favorite's menu would have them.
 
+**Asked for while building v0.48**
+
+56. **The stone lighting up as the installed app opens:** an installed app's first screen is drawn
+    by the phone (Android builds it from the manifest; an iPhone shows its own), so it stays still.
+    A small offline app shell, a service worker serving one cached launch page, could show the
+    same stone, the same size, centred on the same dark background, lighting up the moment the app
+    opens, until the first page takes over. Only the launch page is cached, never a signed-in page;
+    a new release replaces it; tested on Android and iPhone home-screen apps. The owner picked it
+    for Saturday.
+
+**Found while building v0.48**
+
+57. **e2e's notesoffline "the game closed" under load:** part 13 of `e2e/notesoffline-e2e.mjs`
+    (`orderMeanwhile`) timed out once, 43 of 47, waiting 15 seconds for the game to read as closed
+    after `stopFetching`, with the app on its lane slow to answer; it passed alone and in the full
+    pass. Likely, from the code and not proven: a command poll the app had already taken in
+    stamps `bridgePolledAt` after the suite ages it, and the notes API reads the game as live for
+    45 seconds after a poll. The suite could wait for in-flight polls to settle before ageing, or
+    age again once they have.
+
 ## v1.0
 
 The major release of the app and the module, once the latest release candidate holds up at the
