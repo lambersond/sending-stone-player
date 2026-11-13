@@ -174,7 +174,15 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
    signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
    until the cache expires, so its lifetime is chosen with that in mind.
-7. Bug fixes and polish.
+7. **Offline mode:** the app keeps working on a device without a connection, such as a phone
+   that loses signal at the table: a player's characters, their last-seen sheets, notes and
+   journal kept on the device and readable offline, with what's out of date marked; notes
+   written offline sent once the device is back online; and rolls, moves and anything else
+   the game must answer refused plainly until then. It builds on item 56's app shell, a
+   service worker. A fairly large update: what's kept on a device and for whom (cleared on
+   sign-out, so a shared device keeps nothing), how long it's kept, and how a note changed
+   both offline and in Foundry meanwhile is settled.
+8. Bug fixes and polish.
 
 ## v2.0
 
