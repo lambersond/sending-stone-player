@@ -182,7 +182,30 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    service worker. A fairly large update: what's kept on a device and for whom (cleared on
    sign-out, so a shared device keeps nothing), how long it's kept, and how a note changed
    both offline and in Foundry meanwhile is settled.
-8. Bug fixes and polish.
+8. **Any ability or skill the game has, named as the game names it:** with dnd5e's Honor or
+   Sanity turned on, or a world's own ability or skill, the sheet already shows and rolls them
+   and the Gamemaster's asked saves work, but the app still knows only the six abilities and 18
+   skills in places, by English name (`src/constants/dnd5e.ts`, and the schemas' `abilityId`).
+   It should accept any ability the character's sheet has, the server's checks per character
+   staying the safety, and name abilities and skills from the sheet the module already sends.
+   Then a Sanity save in an item's text or on the Gamemaster's request card is a button again,
+   "Wisdom or Sanity" keeps both, and a companion's notice says "a Sanity saving throw", not "a
+   san saving throw"; a game in another language sees its own names there too. App only; both
+   parts ship together. From v0.48's look at how flexible the app is.
+9. **Checks on any ability:** the module still sends checks (in chat asks, description links and
+   an item's check activity) only for the six abilities, so an Honor check, a check of a world's
+   own ability or a skill tied to one (Etiquette on Honor) stays plain text, and "DC 12 Wisdom or
+   Honor check" becomes a button offering only Wisdom while it reads "or Honor". Once item 8 is
+   in, the module sends any ability the game has, behind a feature the app announces in its
+   hello so an older app is never sent one; a choice is linked whole or not at all; PROTOCOL.md
+   says so, with harness cases for Honor, Sanity, a world's skill on Honor and an untyped
+   ability. Module and app; needs item 8.
+10. **Eight abilities, laid out:** with Honor and Sanity on, the abilities grid ends on a short
+    row (3, 3 and 2 on a phone), and the loading skeleton draws six; its columns could follow the
+    count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
+    nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
+    read row by row, so one bad row can't blank a whole sheet. App and module, small.
+11. Bug fixes and polish.
 
 ## v2.0
 
