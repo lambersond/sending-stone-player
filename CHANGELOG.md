@@ -16,7 +16,8 @@ its date. Each version has up to four sections, in this order:
 
 Each entry ends with where it lives, the app, the module or both, and its ROADMAP item where it had
 one. ROADMAP.md began with v0.34, so the versions before it have none, and an item from another
-version's list names that version, such as v1.x item 8.
+version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
+so an item from it is named with its number when it was built, which may since be another's.
 
 ## v0.48.0-rc
 
@@ -321,7 +322,7 @@ below:
   the campaign card and in the module's settings window. Secrets stay hidden where no player owns
   the character; while Tidy is off or uninstalled the entries stay readable, with a line saying
   they can't be changed until it's back; and in Wild Shape a line warns that entries changed on the
-  beast's Journal tab are lost when it ends. (app and module, v1.x item 8)
+  beast's Journal tab are lost when it ends. (app and module, v1.x item 8 when it was built)
 
 ### Fixes
 
