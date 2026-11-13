@@ -122,8 +122,8 @@ describe('the header', () => {
       const drawnRow = drawnIn(skeleton, row)
       expect(childClasses(drawnRow)).toEqual(childClasses(row))
       if (gm) {
-        expect(childClasses(drawnRow.children[0])).toEqual(
-          childClasses(row.children[0]),
+        expect(childClasses(drawnRow.firstElementChild!)).toEqual(
+          childClasses(row.firstElementChild!),
         )
       }
       // Each button, back among them, has its slot's box: its own takes the same room.
@@ -132,7 +132,7 @@ describe('the header', () => {
         ...buttons.querySelectorAll('button'),
       ]
       const slots = [
-        drawnLead.children[0],
+        drawnLead.firstElementChild!,
         ...[...drawnButtons.children].slice(1),
       ]
       expect(controls).toHaveLength(gm ? 3 : 4)
