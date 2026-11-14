@@ -236,9 +236,9 @@ And from the owner's answers on item 19, later work too:
     hello, and the app's dialog to pick them and show the total as it's set ("600 PP in all").
     The owner's answers (2026-11-14): anyone in the campaign can be picked (once v1.x's inactive
     characters exist, not those); several coins can go at once, such as 200 PP and 50 GP each;
-    and each character given coins is whispered how much they received and from whom. To decide
-    when it's planned: whether item 67's breaking of larger coins applies to a hand-out too, and
-    whether the Gamemaster also sees a chat line for it.
+    and each character given coins is whispered how much they received and from whom. And
+    (2026-11-14, later): the Gamemaster gets a message for the hand-out too, and a hand-out breaks
+    a larger coin as item 67 does, under the same module setting.
 
 ## v1.0
 
