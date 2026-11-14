@@ -61,9 +61,10 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle.
-2. Items 56, 47, 41, 42, 57, 23 and 29: the stone as the installed app opens, Move up and Move
-   down for every favorite, the three e2e races under load, Midi-QOL's reaction checks, and
-   effects carried back from Wild Shape.
+2. Items 56, 47, 41, 42, 57, 23, 29, 67 and 68: the stone as the installed app opens, Move up
+   and Move down for every favorite, the three e2e races under load, Midi-QOL's reaction checks,
+   effects carried back from Wild Shape, and coins added, taken away and handed out from the
+   sheet.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -205,6 +206,36 @@ And from the owner's answers on item 19, later work too:
     count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
     nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
     read row by row, so one bad row can't blank a whole sheet. App and module, small.
+
+**Asked for on 2026-11-14**
+
+67. **Coins added and taken away from the sheet:** a player adds coins to their character or takes
+    them away, from the inventory's coins, without going to Foundry. The owner: "As a player
+    character, I want to be able to add/remove coins from my inventory so that I do not need to
+    go to the foundry to add/remove coins from my character", and as the Gamemaster, "for when a
+    player goes to a store to buy or sell items, gets food/drink at the tavern, or performs at
+    the tavern and earns some coin. I want to be able to just tell them to add/remove an amount,
+    and they can do it." Today the app shows each coin and moves coins between a character and a
+    party or another character (module 0.31.0's `transfer`), but nothing adds or removes them.
+    It needs a new command the module answers by changing the character's coins, behind a
+    feature it announces in its hello; in the app, an amount of each coin to add or take away,
+    refused where it would take more than the character has. To decide when it's planned:
+    whether the Gamemaster sees a chat line for each change, whether taking more of a coin than
+    is held may make change from larger coins, and whether a companion's coins work the same way.
+68. **Coins handed out to the party from a character:** a player picks fellow party members and
+    the amount each gets, and the app shows the total to be given before it's sent, then moves it
+    from the player's own coins, refused where they haven't that much. The owner: "As a player
+    character, I want to easily distribute coins to my fellow party members from my inventory so
+    that I don't have to do math or weird workarounds. The scenario was that the player wanted to
+    give 200 PP to each player by selecting the players and setting the coin amount each player
+    should get. Text should display the total amount to be given." Today a character gives coins
+    to one other character or a party at a time, and only a party's coin is shared among its
+    characters, all of one coin split evenly (module 0.32.0's `among`). It needs the module to
+    take a set amount each from a character to the characters picked, behind a feature in the
+    hello, and the app's dialog to pick them and show the total as it's set ("600 PP in all").
+    To decide when it's planned: whom it offers (the campaign's characters, or the party's
+    members), whether more than one coin can go at once, and what each player sees of coins they
+    were given.
 
 ## v1.0
 
