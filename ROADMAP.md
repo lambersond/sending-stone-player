@@ -218,12 +218,13 @@ And from the owner's answers on item 19, later work too:
     and they can do it." Today the app shows each coin and moves coins between a character and a
     party or another character (module 0.31.0's `transfer`), but nothing adds or removes them.
     It needs a new command the module answers by changing the character's coins, behind a
-    feature it announces in its hello; in the app, an amount of each coin to add or take away,
-    refused where it would take more than the character has. To decide when it's planned:
-    whether the Gamemaster sees a chat line for each change, whether taking more of a coin than
-    is held may make change from larger coins, and whether a companion's coins work the same way.
-68. **Coins handed out to the party from a character:** a player picks fellow party members and
-    the amount each gets, and the app shows the total to be given before it's sent, then moves it
+    feature it announces in its hello, and in the app an amount of each coin to add or take
+    away. The owner's answers (2026-11-14): each change posts a chat line in Foundry, "Thorin
+    paid 5 gp" or "Thorin received 5 gp"; taking more of a coin than the character holds breaks
+    a larger coin by default, and a new module setting lets the Gamemaster forbid that, when
+    such a change is refused; companions are left out, as none is known to carry coins.
+68. **Coins handed out to the party from a character:** a player picks fellow characters and the
+    amount each gets, and the app shows the total to be given before it's sent, then moves it
     from the player's own coins, refused where they haven't that much. The owner: "As a player
     character, I want to easily distribute coins to my fellow party members from my inventory so
     that I don't have to do math or weird workarounds. The scenario was that the player wanted to
@@ -233,9 +234,11 @@ And from the owner's answers on item 19, later work too:
     characters, all of one coin split evenly (module 0.32.0's `among`). It needs the module to
     take a set amount each from a character to the characters picked, behind a feature in the
     hello, and the app's dialog to pick them and show the total as it's set ("600 PP in all").
-    To decide when it's planned: whom it offers (the campaign's characters, or the party's
-    members), whether more than one coin can go at once, and what each player sees of coins they
-    were given.
+    The owner's answers (2026-11-14): anyone in the campaign can be picked (once v1.x's inactive
+    characters exist, not those); several coins can go at once, such as 200 PP and 50 GP each;
+    and each character given coins is whispered how much they received and from whom. To decide
+    when it's planned: whether item 67's breaking of larger coins applies to a hand-out too, and
+    whether the Gamemaster also sees a chat line for it.
 
 ## v1.0
 
@@ -249,6 +252,10 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 
 1. **Critical hit options.** App criticals double only the dice; choices such as dnd5e's Critical
    Damage Modifiers or Midi-QOL's critical options could come back as a per-campaign setting.
+2. **Inactive characters:** a campaign's character can be marked inactive. The owner's gist
+   (2026-11-14), to flesh out later: an inactive character gets no updates in the app and can't
+   do anything from it, and its name shows in none of the app's lists (such as the characters
+   offered for item 68's hand-out); it's read-only, though its owner can still open its sheet.
 
 ## v2.0
 

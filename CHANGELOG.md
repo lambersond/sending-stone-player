@@ -56,8 +56,9 @@ so an item from it is named with its number when it was built, which may since b
   lie over the outlines later. (app)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
   kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
-  v1.x's items but critical hit options join it as items 58 to 66, so v1.x keeps only critical hit
-  options. (app)
+  v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
+  taken away and handed out from the sheet (items 67 and 68). v1.x keeps critical hit options and
+  gains inactive characters. (app)
 
 ## v0.47.0 — 2026-11-12
 
