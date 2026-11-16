@@ -60,7 +60,7 @@ All the work planned before v1.0, by number, kept under where each item came fro
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
 tweaks needed may change it as it goes. Next week aims at the first three.
 
-1. Item 24, the module's import cycle.
+1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 2. Items 56, 47, 41, 42, 57, 23, 29, 67 and 68: the stone as the installed app opens, Move up
    and Move down for every favorite, the three e2e races under load, Midi-QOL's reaction checks,
    effects carried back from Wild Shape, and coins added, taken away and handed out from the
@@ -80,12 +80,31 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
     `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
     dice, as it now does Midi's check as a use from the app begins.
-24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
-    `commands.mjs`, `transport.mjs`, `chat-data.mjs`, `creatures.mjs`, `midi-prompts.mjs`,
-    `command-rolls.mjs` and others) already imported one another in one loop before the later dice,
-    and `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No
-    top-level code depends on the loop; untangling it is a refactor of modules older than the later
-    dice.
+
+**Found while untangling the module's imports**
+
+69. **Left over from the module's import cycle:** small things item 24 left as they were, as it
+    moved code without rewriting it; none changes what the module does, and none is in a batch
+    yet. `summarizeCharacter` (`character-sync.mjs`) is called by nothing and could go. Twenty
+    names are still exported that nothing outside their own script reads now: eleven kinds' checks
+    and `isKey`, `isOptional` and `isRolled` in `command-rolls.mjs`, and `castFromItem`,
+    `dnd5eEnchant`, `midiEnchantNow`, `workflowSettled`, `currentTargets` and `setTargets` in
+    `command-uses.mjs`, which also imports two names it never uses (`DND5E_ACTIVITIES` and
+    `ownDamageConfig`, unused before the move too). Two things made to keep a script out of the
+    loop are no longer needed for that: `findLink`'s two `import()` in `command-links.mjs` could be
+    plain imports, and the hello could read the open dice asks by a plain import in place of the
+    slot `later-dice.mjs` fills (`registerDiceAsks` in `dice-plan.mjs`). And the guard,
+    `test/import-layers.mjs`, reads only `.mjs` files under `scripts/` and the forms of import
+    Node 22 reads (`import defer` and `import source` are to be tried again when `.nvmrc` moves),
+    and doesn't check two rules the module's `CLAUDE.md` keeps by review alone: state written in
+    one script, and nothing run as a script loads outside `module.mjs`.
+70. **e2e's help header check under load:** part 1 of `e2e/help-e2e.mjs`, plain, "the header's ?
+    sits after Live and before Full screen", failed once under three lanes' load in the full e2e
+    pass made for item 24, 2 seconds in, and passed alone (28 of 28): the header's buttons read
+    status, Help and Delete Thorin, with no Full screen yet. The Full screen button is drawn only
+    once the page has hydrated (`useFullscreen` answers false until then), and the check reads the
+    header as soon as the sheet is ready; it should wait for the button. Of a kind with items 41,
+    42 and 57, and in no batch yet.
 
 **Moved up from v1.x**
 
