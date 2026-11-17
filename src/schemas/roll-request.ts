@@ -148,13 +148,19 @@ const MOST_COINS = 10
  * Items and coins moved, from module 0.31.0: from one end to another, each a campaign character
  * or party by its Foundry id, one to ten items, each once and by how many, or one to ten kinds of
  * coin, or both. A coin of none isn't sent. From module 0.32.0, or a distribution: one kind of a
- * party's coin shared among its characters, `among`, in place of `to`.
+ * party's coin shared among its characters, `among`, in place of `to`. From module 0.48.0, or a
+ * hand-out: one to ten kinds of a character's coin, so many to each of `each`, in place of `to`.
  */
 const transferSchema: z.ZodType<TransferInput> = z
   .strictObject({
     from: z.string().regex(FOUNDRY_ID),
     to: z.string().regex(FOUNDRY_ID).optional(),
     among: z
+      .array(z.string().regex(FOUNDRY_ID))
+      .min(1)
+      .max(MOST_AMONG)
+      .optional(),
+    each: z
       .array(z.string().regex(FOUNDRY_ID))
       .min(1)
       .max(MOST_AMONG)
@@ -180,14 +186,20 @@ const transferSchema: z.ZodType<TransferInput> = z
   })
 
 /**
- * A move goes to one end, or is shared among characters, from module 0.32.0: one kind of a party's
- * coin, never to itself, a share each.
+ * A move goes one way: to one end; or shared among characters, from module 0.32.0, one kind of a
+ * party's coin, never to itself, a share each; or handed out to each of the characters named, from
+ * module 0.48.0.
  */
 function shareRules(transfer: TransferInput, issue: Issue) {
-  const { to, among } = transfer
-  if ((to === undefined) === (among === undefined)) {
-    issue('to', 'A move goes to one end, or is shared among characters')
+  const { to, among, each } = transfer
+  const ways = [to, among, each].filter(way => way !== undefined).length
+  if (ways !== 1) {
+    issue(
+      'to',
+      'A move goes to one end, is shared among characters, or is handed out to each',
+    )
   }
+  if (each) handOutRules(transfer, each, issue)
   if (!among) return
   if (new Set(among).size < among.length) {
     issue('among', 'Each character is given one share')
@@ -200,6 +212,25 @@ function shareRules(transfer: TransferInput, issue: Issue) {
   }
   if (Object.keys(transfer.currency ?? {}).length !== 1) {
     issue('currency', 'One kind of coin is shared at a time')
+  }
+}
+
+/**
+ * A hand-out, from module 0.48.0, gives coins alone, one to ten kinds, to each character once,
+ * never to the one whose coins they are.
+ */
+function handOutRules(transfer: TransferInput, each: string[], issue: Issue) {
+  if (new Set(each).size < each.length) {
+    issue('each', 'Each character is handed coins once')
+  }
+  if (each.includes(transfer.from)) {
+    issue('each', "A character doesn't hand out to itself")
+  }
+  if (transfer.items !== undefined) {
+    issue('items', 'Only coins are handed out')
+  }
+  if (transfer.currency === undefined) {
+    issue('currency', 'A hand-out names its coins')
   }
 }
 

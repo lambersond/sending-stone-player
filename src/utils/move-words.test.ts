@@ -652,6 +652,81 @@ describe('utils/move-words, coins added and taken away, from module 0.48.0', () 
   })
 })
 
+/** As the game answered it: what each was given, to whom, and what else it used. */
+const given = (each: string[], used: Record<string, number> | null) => ({
+  from: 'actorThorin1',
+  to: null,
+  items: [],
+  currency: { pp: 200, gp: 50 },
+  each,
+  used,
+})
+
+describe('utils/move-words, coins handed out, from module 0.48.0', () => {
+  const handOut: LocalMove = {
+    verb: 'handOut',
+    things: '200 pp and 50 gp',
+    other: 'Thorin',
+    among: 'Vex, Bram, and Lia',
+    abbreviations: { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' },
+  }
+  const ALL = ['actorVex0001', 'actorBram001', 'actorLia0001']
+
+  it('calls it what the Gamemaster’s page calls it, and says where it stands', () => {
+    expect(moveLabel(handOut)).toBe(
+      'Hand out 200 pp and 50 gp each to Vex, Bram, and Lia',
+    )
+    expect(moveWords(handOut, state({ status: 'rolling' }), 'player')).toBe(
+      'Handing it out in your Gamemaster’s game…',
+    )
+  })
+
+  it('says what each was handed, to whom, and which other coins the game used', () => {
+    expect(
+      moveWords(
+        handOut,
+        state({ status: 'done', transfer: given(ALL, null) }),
+        'player',
+      ),
+    ).toBe('Handed out 200 pp and 50 gp each to Vex, Bram, and Lia')
+    expect(
+      moveWords(
+        { ...handOut, mover: 'Thorin' },
+        state({ status: 'done', transfer: given(ALL, { pp: 13 }) }),
+        'gm',
+      ),
+    ).toBe(
+      'Thorin handed out 200 pp and 50 gp each to Vex, Bram, and Lia, using 13 pp',
+    )
+  })
+
+  it('says why not as a give does, but of all its coins where they are too few, and in part where some were given', () => {
+    expect(moveReasons('player', 'handOut').short).toBe(
+      'you haven’t the coins for that',
+    )
+    expect(moveReasons('gm', 'handOut').short).toBe(
+      'they haven’t the coins for that',
+    )
+    expect(moveReasons('player', 'handOut').shaped).toBe(
+      moveReasons('player', 'give').shaped,
+    )
+    expect(
+      moveWords(handOut, state({ status: 'refused', reason: 'short' }), 'gm'),
+    ).toBe('Not handed out: they haven’t the coins for that')
+    expect(
+      moveWords(
+        handOut,
+        state({
+          status: 'failed',
+          reason: 'error',
+          transfer: given(['actorVex0001'], null),
+        }),
+        'player',
+      ),
+    ).toBe('Partly handed out: something went wrong')
+  })
+})
+
 describe('utils/move-words, a transformed character, from module 0.40.0', () => {
   const SHAPED =
     'a transformed character can’t give or take until back in their own form'

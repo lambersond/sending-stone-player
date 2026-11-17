@@ -266,6 +266,8 @@ describe('db/table', () => {
           // whether its module pays with other coins.
           coinsEnabled: true,
           coinFeatures: true,
+          // Changed on purpose (item 68): whether its module hands a character's coins out.
+          transferFeatures: true,
           // Changed on purpose (v0.44 item 8): when its chat was last cleared.
           chatClearedAt: true,
           // Changed on purpose (round 3, decision 3): whether its module is one that asks for the

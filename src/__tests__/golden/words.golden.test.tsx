@@ -984,6 +984,12 @@ describe('golden C4: words', () => {
       // Coins added and taken away, from module 0.48.0.
       { verb: 'receive', things: '5 gp', other: 'Thorin' },
       { verb: 'pay', things: '5 gp', other: 'Thorin', mover: 'Thorin' },
+      {
+        verb: 'handOut',
+        things: '200 pp and 50 gp',
+        other: 'Thorin',
+        among: 'Vex, Bram, and Lia',
+      },
     ]
 
     const MOVE_STATES: Record<

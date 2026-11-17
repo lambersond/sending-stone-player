@@ -1676,12 +1676,20 @@ describe('a party’s coin distributed, from module 0.32.0', () => {
     [
       'both an end and those it’s shared among',
       { to: 'actorThorin1' },
-      ['transfer.to', 'A move goes to one end, or is shared among characters'],
+      // Changed on purpose (item 68): a hand-out is a third way, from module 0.48.0.
+      [
+        'transfer.to',
+        'A move goes to one end, is shared among characters, or is handed out to each',
+      ],
     ],
     [
       'neither',
       { among: undefined },
-      ['transfer.to', 'A move goes to one end, or is shared among characters'],
+      // Changed on purpose (item 68): a hand-out is a third way, from module 0.48.0.
+      [
+        'transfer.to',
+        'A move goes to one end, is shared among characters, or is handed out to each',
+      ],
     ],
     ['no one to share among', { among: [] }, ['transfer.among']],
     [
@@ -3198,6 +3206,90 @@ const kinds = (count: number) =>
   Object.fromEntries(
     Array.from({ length: count }, (_, index) => [`c${index}`, 1]),
   )
+
+describe('schemas/roll-request, a character’s coins handed out, from module 0.48.0', () => {
+  /** 200 pp and 50 gp each to Vex, Bram and Lia, as the dialog's Hand out sends it. */
+  const handingOut = {
+    kind: 'transfer',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    transfer: {
+      from: 'actorThorin1',
+      each: ['actorVex0001', 'actorBram001', 'actorLia0001'],
+      currency: { pp: 200, gp: 50 },
+    },
+  }
+  const handsOut = (transfer: object) =>
+    issuesOf(handingOut, {
+      transfer: { ...handingOut.transfer, ...transfer },
+    })
+  const way =
+    'A move goes to one end, is shared among characters, or is handed out to each'
+
+  it('takes a hand-out, to one character or to twenty, of one to ten kinds of coin', () => {
+    expect(parseKind(handingOut, {}).data).toEqual(handingOut)
+    expect(handsOut({ each: ['actorVex0001'] })).toEqual([])
+    expect(
+      handsOut({
+        each: Array.from({ length: 20 }, (_, index) => `actor${index}`),
+        currency: kinds(10),
+      }),
+    ).toEqual([])
+  })
+
+  it.each([
+    ['an end too', { to: 'actorVex0001' }, ['transfer.to', way]],
+    [
+      'those a coin is shared among too',
+      { among: ['actorVex0001'] },
+      ['transfer.to', way],
+    ],
+    ['no one', { each: [] }, ['transfer.each']],
+    [
+      'more than twenty',
+      { each: Array.from({ length: 21 }, (_, index) => `actor${index}`) },
+      ['transfer.each'],
+    ],
+    [
+      'one character twice',
+      { each: ['actorVex0001', 'actorVex0001'] },
+      ['transfer.each', 'Each character is handed coins once'],
+    ],
+    [
+      'the giver among them',
+      { each: ['actorVex0001', 'actorThorin1'] },
+      ['transfer.each', "A character doesn't hand out to itself"],
+    ],
+    [
+      'items',
+      { items: [{ id: 'rope00000001', quantity: 1 }] },
+      ['transfer.items', 'Only coins are handed out'],
+    ],
+    [
+      'no coins',
+      { currency: undefined },
+      ['transfer.currency', 'A hand-out names its coins'],
+    ],
+    [
+      'no kind of coin',
+      { currency: {} },
+      ['transfer.currency', 'From one to ten kinds of coin'],
+    ],
+    [
+      'eleven kinds of coin',
+      { currency: kinds(11) },
+      ['transfer.currency', 'From one to ten kinds of coin'],
+    ],
+    ['none of a coin', { currency: { gp: 0 } }, ['transfer.currency.gp']],
+  ])('refuses a hand-out with %s', (_name, transfer, issue) => {
+    const [path, message] = issue
+    const found = handsOut(transfer)
+    expect(found.map(([at]) => at)).toContain(path)
+    if (message) expect(found).toContainEqual([path, message])
+  })
+})
 
 describe('schemas/roll-request, coins added and taken away, from module 0.48.0', () => {
   /** 5 gp taken away, as the dialog's Take away coins sends it. */

@@ -2233,7 +2233,10 @@ export function ironCompany(fields: Partial<GroupEntry> = {}): GroupEntry {
   })
 }
 
-/** Where Thorin's player may move to, as their table view says: The Iron Company and Vex. */
+/**
+ * Where Thorin's player may move to, as their table view says: The Iron Company and Vex. No coins
+ * handed out, as a module before 0.48.0 leaves it, unless `fields` say.
+ */
 export function tableMoves(fields: Partial<TableMoves> = {}): TableMoves {
   return {
     parties: [{ id: 'groupIronCo01', name: 'The Iron Company', primary: true }],

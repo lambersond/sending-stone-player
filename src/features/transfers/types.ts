@@ -72,13 +72,18 @@ export type Taking = {
 
 /**
  * What a character's coins' dialog was opened with (module 0.48.0), as it stood then, kept as it
- * closes: its coins, and whether the game pays with other coins where it's short of one.
+ * closes: its coins, and whether the game pays with other coins where it's short of one; for a
+ * hand-out, the character they're handed out from and the campaign's other characters.
  */
-export type CoinChanging = {
-  mode: 'change'
-  currency: SheetCurrency[]
-  change: boolean
-}
+export type CoinChanging =
+  | { mode: 'change'; currency: SheetCurrency[]; change: boolean }
+  | {
+      mode: 'handOut'
+      currency: SheetCurrency[]
+      change: boolean
+      from: string
+      characters: MoveEnd[]
+    }
 
 /**
  * Whose coins a dialog adds to, takes away or hands out, as its words say them: "You" and "your"

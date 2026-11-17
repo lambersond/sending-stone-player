@@ -5,7 +5,12 @@ import {
   overlaps,
   transfersAvailable,
 } from './transfers'
-import { ironCompany, partyStash, sheetItem } from '@/mocks/sending-stone'
+import {
+  ironCompany,
+  partyStash,
+  purse,
+  sheetItem,
+} from '@/mocks/sending-stone'
 
 const THORIN = 'actorThorin1'
 const VEX = 'actorVex0001'
@@ -570,5 +575,75 @@ describe('utils/transfers overlaps', () => {
       overlaps(undefined, { ...from, items: [{ id: 'rope', quantity: 1 }] }),
     ).toBe(false)
     expect(overlaps({ ...from, currency: { gp: 1 } }, from)).toBe(false)
+  })
+})
+
+/** 2 gp each to Vex and Balin, from whoever is said. */
+const handOut = (from = THORIN, each = [VEX, BALIN]) => ({
+  from,
+  each,
+  currency: { gp: 2 },
+})
+
+describe('utils/transfers, a character’s coins handed out, from module 0.48.0', () => {
+  describe('checkEnds', () => {
+    it('lets a player hand out their own character’s coins, and the Gamemaster as that character', () => {
+      expect(checkEnds(player(), handOut(), roster, groups)).toBeUndefined()
+      expect(checkEnds(gm(), handOut(), roster, groups)).toBeUndefined()
+    })
+
+    it.each([
+      ['another character’s coins', handOut(VEX, [BALIN]), 'not-yours'],
+      ['a party’s coins', handOut(COMPANY), 'not-yours'],
+      ['to a party among them', handOut(THORIN, [VEX, COMPANY]), 'unknown'],
+      [
+        'to one not in the campaign',
+        handOut(THORIN, ['actorNone01']),
+        'unknown',
+      ],
+      ['from one not in the campaign', handOut('actorNone01'), 'unknown'],
+    ])('refuses %s, for either seat', (_name, transfer, refusal) => {
+      expect(checkEnds(player(), transfer, roster, groups)).toBe(refusal)
+      expect(checkEnds(gm(), transfer, roster, groups)).toBe(refusal)
+    })
+  })
+
+  describe('checkHoldings', () => {
+    /** Thorin's purse: 3 gp and 2 pp, worth 23 gp. */
+    const sheet = {
+      inventory: { ...partyStash(), currency: purse({ pp: 2, gp: 3 }) },
+    }
+
+    it('takes what the giver holds of each coin, counted once for every character named', () => {
+      expect(
+        checkHoldings({ each: [VEX], currency: { gp: 3 } }, sheet),
+      ).toBeUndefined()
+      expect(
+        checkHoldings({ each: [VEX, BALIN], currency: { pp: 1 } }, sheet, true),
+      ).toBeUndefined()
+    })
+
+    it('pays the total with other coins only where the game does: 2 gp each to two, of 3 gp and 2 pp', () => {
+      const transfer = { each: [VEX, BALIN], currency: { gp: 2 } }
+      expect(checkHoldings(transfer, sheet, true)).toBeUndefined()
+      expect(checkHoldings(transfer, sheet, false)).toBe('short')
+      expect(checkHoldings(transfer, sheet)).toBe('short')
+    })
+
+    it('refuses a total worth more than the giver’s coins as short, and a coin not on the sheet, or no sheet, as gone', () => {
+      expect(
+        checkHoldings(
+          { each: [VEX, BALIN], currency: { gp: 12 } },
+          sheet,
+          true,
+        ),
+      ).toBe('short')
+      expect(
+        checkHoldings({ each: [VEX], currency: { gems: 1 } }, sheet, true),
+      ).toBe('gone')
+      expect(
+        checkHoldings({ each: [VEX], currency: { gp: 1 } }, undefined, true),
+      ).toBe('gone')
+    })
   })
 })

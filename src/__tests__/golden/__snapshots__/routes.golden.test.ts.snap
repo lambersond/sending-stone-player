@@ -445,6 +445,7 @@ exports[`the pages name their sheets, and say which are not open here, for the G
     "hitPointsEnabled": true,
     "coinsEnabled": true,
     "coinFeatures": true,
+    "transferFeatures": true,
     "chatClearedAt": true,
     "laterDice": true
    }
@@ -873,6 +874,7 @@ exports[`the pages name their sheets, and say which are not open here, for the p
     "hitPointsEnabled": true,
     "coinsEnabled": true,
     "coinFeatures": true,
+    "transferFeatures": true,
     "chatClearedAt": true,
     "laterDice": true
    }
@@ -7431,6 +7433,7 @@ exports[`the routes of a sheet table GET, gm, unchanged: table GET, gm, unchange
     "hitPointsEnabled": true,
     "coinsEnabled": true,
     "coinFeatures": true,
+    "transferFeatures": true,
     "chatClearedAt": true,
     "laterDice": true
    }
@@ -7593,6 +7596,7 @@ exports[`the routes of a sheet table GET, gm: table GET, gm 1`] = `
     "hitPointsEnabled": true,
     "coinsEnabled": true,
     "coinFeatures": true,
+    "transferFeatures": true,
     "chatClearedAt": true,
     "laterDice": true
    }
@@ -7814,6 +7818,7 @@ exports[`the routes of a sheet table GET, player, its sheet known: table GET, pl
     "hitPointsEnabled": true,
     "coinsEnabled": true,
     "coinFeatures": true,
+    "transferFeatures": true,
     "chatClearedAt": true,
     "laterDice": true
    }
@@ -8105,6 +8110,7 @@ exports[`the routes of a sheet table GET, player: table GET, player 1`] = `
     "hitPointsEnabled": true,
     "coinsEnabled": true,
     "coinFeatures": true,
+    "transferFeatures": true,
     "chatClearedAt": true,
     "laterDice": true
    }

@@ -172,6 +172,7 @@ describe('utils/table-seat', () => {
       // Coins, from module 0.48.0: off but where a case turns them on.
       coinsEnabled: false,
       coinFeatures: [] as string[],
+      transferFeatures: [] as string[],
     }
     const allows = (
       at: SheetSeat,
@@ -256,6 +257,27 @@ describe('utils/table-seat', () => {
       ]) {
         expect(allowed).not.toHaveProperty('coins')
       }
+    })
+
+    it('lets either seat hand its coins out with its moves, from module 0.48.0, where its module says so, saying whether another coin pays', () => {
+      expect(
+        allows(thorin, { transferFeatures: ['partySends', 'handOut'] }).moves
+          ?.handOut,
+      ).toEqual({ change: false })
+      expect(
+        allows(gm, { transferFeatures: ['handOut', 'change'] }).moves?.handOut,
+      ).toEqual({ change: true })
+      // Not from a module before it, whatever else it says; nor with moves off, with coins on.
+      expect(
+        allows(thorin, { transferFeatures: ['partySends', 'change'] }).moves,
+      ).not.toHaveProperty('handOut')
+      expect(
+        allows(thorin, {
+          transferFeatures: ['handOut'],
+          transfersEnabled: false,
+          coinsEnabled: true,
+        }),
+      ).not.toHaveProperty('moves')
     })
 
     it('allows nothing where the character is not in the roster, or the game is not fetching', () => {

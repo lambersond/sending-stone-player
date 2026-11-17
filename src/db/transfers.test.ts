@@ -608,6 +608,96 @@ describe('db/transfers, a party’s things sent and distributed, from module 0.3
   })
 })
 
+/** So many gp to Vex, of Thorin's 15. */
+const handOut = (gp = 2, from = THORIN) =>
+  move({ from, each: [VEX], currency: { gp } })
+
+describe('db/transfers, a character’s coins handed out, from module 0.48.0', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW })
+    for (const mock of [
+      prismaMock.campaign.findUnique,
+      prismaMock.groupSheet.findUnique,
+      prismaMock.actorSheet.findUnique,
+      prismaMock.rollRequest.count,
+      prismaMock.rollRequest.findMany,
+      prismaMock.rollRequest.create,
+      prismaMock.rollRequest.deleteMany,
+    ]) {
+      mock.mockReset()
+    }
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('takes a hand-out as it’s sent, from its player and from the Gamemaster as the giver, where the module hands coins out', async () => {
+    for (const seat of [thorin, gm()]) {
+      given({ transferFeatures: ['partySends', 'distribute', 'handOut'] })
+      await expect(createTransferRequest(seat, handOut())).resolves.toEqual({
+        id: 'req-move',
+      })
+    }
+    const { kind, actorId, payload } =
+      prismaMock.rollRequest.create.mock.calls[0][0].data
+    expect({ kind, actorId, payload }).toEqual({
+      kind: 'transfer',
+      actorId: THORIN,
+      payload: handOut(),
+    })
+    // The giver's own sheet is what it's checked against.
+    expect(prismaMock.actorSheet.findUnique).toHaveBeenCalledWith({
+      where: { campaignActor: { campaignId: 'c1', actorId: THORIN } },
+      select: { data: true },
+    })
+  })
+
+  it('refuses one while the module hands none out, as before 0.48.0, for either seat', async () => {
+    for (const transferFeatures of [
+      [],
+      ['partySends', 'distribute', 'change'],
+    ]) {
+      for (const seat of [thorin, gm()]) {
+        given({ transferFeatures })
+        await expect(createTransferRequest(seat, handOut())).resolves.toEqual({
+          status: 409,
+          reason: 'unavailable',
+        })
+      }
+    }
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+  })
+
+  it('pays more of a coin than the giver holds with other coins only where the module says it does', async () => {
+    // 16 gp of 15: the game is left to decide where it pays with other coins.
+    given({ transferFeatures: ['handOut', 'change'] })
+    await expect(createTransferRequest(thorin, handOut(16))).resolves.toEqual({
+      id: 'req-move',
+    })
+    given({ transferFeatures: ['handOut'] })
+    await expect(createTransferRequest(thorin, handOut(16))).resolves.toEqual({
+      status: 422,
+      reason: 'short',
+    })
+  })
+
+  it('refuses one of another’s coins, or a party’s, as not the seat’s, and one while a move of the giver’s coins is on its way', async () => {
+    given({ transferFeatures: ['handOut'] })
+    await expect(
+      createTransferRequest(gm(), handOut(2, COMPANY)),
+    ).resolves.toEqual({ status: 422, reason: 'not-yours' })
+    given({
+      transferFeatures: ['handOut'],
+      held: [pending({ from: THORIN, to: VEX, currency: { gp: 1 } })],
+    })
+    await expect(createTransferRequest(thorin, handOut())).resolves.toEqual({
+      status: 409,
+      reason: 'moving',
+    })
+  })
+})
+
 const give = (id: string) =>
   move({ from: THORIN, to: VEX, items: [{ id, quantity: 1 }] })
 

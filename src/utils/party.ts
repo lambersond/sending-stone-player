@@ -77,17 +77,23 @@ export function tableGroups(
  * Where a seat at a character's sheet may move its character's items and coins to, from module
  * 0.31.0: the groups it may give to, for a player only those their Foundry user has Owner on, for
  * the Gamemaster every one listed, the primary party first; and the campaign's other characters, in
- * its roster's order. Never anyone's access.
+ * its roster's order. Never anyone's access. From module 0.48.0, whether the character's coins may
+ * be handed out to those characters, and paid with its other coins, as its module says.
  * @param roster - The campaign's groups, as its roster keeps them.
  * @param characters - The campaign's characters, from its hello.
+ * @param features - What the campaign's module does with moves, its `transferFeatures`.
  */
 export function tableMoves(
   seat: SheetSeat,
   roster: GroupEntry[],
   characters: Pick<ConnectedCharacter, 'id' | 'name' | 'img'>[],
   origin: string,
+  features: readonly string[] = [],
 ): TableMoves {
   return {
+    ...(features.includes('handOut') && {
+      handOut: { change: features.includes('change') },
+    }),
     parties: roster
       .filter(entry => seat.role === 'gm' || owns(entry, seat.actorId))
       .toSorted(

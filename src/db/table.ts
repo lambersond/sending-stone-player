@@ -276,6 +276,7 @@ const TABLE_CAMPAIGN = {
   hitPointsEnabled: true,
   coinsEnabled: true,
   coinFeatures: true,
+  transferFeatures: true,
   chatClearedAt: true,
   // Whether its module is one that asks for the dice an item rolls later, for Help.
   laterDice: true,

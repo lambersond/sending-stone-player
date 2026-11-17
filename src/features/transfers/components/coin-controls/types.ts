@@ -10,7 +10,7 @@ export type CoinDialogsProps = {
   setOpen: (open: boolean) => void
   role: SeatRole
   name: string
-  table: Pick<ReturnType<typeof useTableRolls>, 'sendCoins'>
+  table: Pick<ReturnType<typeof useTableRolls>, 'sendCoins' | 'sendTransfer'>
   logMove: (move: LocalMove) => LocalUse
   setActed: (acted: boolean) => void
 }

@@ -166,17 +166,23 @@ export type PlainRollInput = {
 /**
  * Items and coins moved, from module 0.31.0: the two ends by their Foundry actor ids, one of them
  * the character's, and what moves, each item by its id and how many of it, and each coin by its
- * key, such as "gp", and how many.
+ * key, such as "gp", and how many. Or a party's coin shared among its characters, or from module
+ * 0.48.0 a character's coins handed out, so many to each of the characters picked.
  */
 export type TransferInput = {
   from: string
-  /** The receiving end; never with `among`. */
+  /** The receiving end; never with `among` or `each`. */
   to?: string
   /**
    * From module 0.32.0, a distribution: the party's characters its coin is shared among, never
    * with `to`.
    */
   among?: string[]
+  /**
+   * From module 0.48.0, a hand-out: the characters each given `currency`, of the coins of the
+   * character it's made as, never with `to` or `among`, nor with items.
+   */
+  each?: string[]
   items?: { id: string; quantity: number }[]
   currency?: Record<string, number>
 }

@@ -13,8 +13,8 @@ import type { TableSheet, TableView } from '@/types/table'
  * Give and Remove…, on the Inventory tab: Send to…, from module 0.31.0, its dialog held here, so
  * that it outlives the row it was opened from, and the controls going, as when the game stops
  * taking moves; and Remove…, from module 0.33.0, beside it, with moves off too. From module
- * 0.48.0, the Currency row's Add or take away, before its Send to, with moves off too. None while
- * the character is transformed (`shaped`), whose gear isn't on.
+ * 0.48.0, the Currency row's Add or take away, before its Send to, with moves off too, and Hand
+ * out, after it. None while the character is transformed (`shaped`), whose gear isn't on.
  */
 export function useGiveRemove({
   moves,
@@ -61,29 +61,34 @@ export function useGiveRemove({
   })
   const coinage = useCoinControls({
     coins: shaped ? undefined : coins,
+    moves: shaped ? undefined : moves,
     table,
     role,
     name,
+    actorId,
     logMove,
     setActed,
   })
-  const { change } = coinage
+  const { change, handOut } = coinage
   const transfers = useMemo<TransferControls>(() => {
     const send = giving.controls.coins
     return {
       ...giving.controls,
-      // The Currency row's buttons, in the order they read: Add or take away, then Send to.
-      ...(change && {
-        coins: currency =>
-          createElement(
-            Fragment,
-            undefined,
-            change(currency),
+      // The Currency row's buttons, in the order they read: Add or take away, Send to, Hand out.
+      ...((change || handOut) && {
+        coins: currency => {
+          const buttons = [
+            change?.(currency),
             send?.(currency),
-          ),
+            handOut?.(currency),
+          ]
+          // Nothing at all, rather than an empty group, where none is shown.
+          if (!buttons.some(Boolean)) return
+          return createElement(Fragment, undefined, ...buttons)
+        },
       }),
       ...(removing.remove && { remove: removing.remove }),
     }
-  }, [giving.controls, removing.remove, change])
+  }, [giving.controls, removing.remove, change, handOut])
   return { giving, removing, coinage, transfers }
 }
