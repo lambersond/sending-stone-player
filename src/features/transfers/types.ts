@@ -39,7 +39,8 @@ export type TransferControls = {
   /**
    * From module 0.33.0's feedback, on a party's sheet: what's on its way, by item id and `coins`,
    * said by one spinner beside the Currency label or the item's name, its buttons disabled with
-   * none of their own. Unset on a character's sheet, whose buttons say it themselves.
+   * none of their own. On a character's sheet, whose buttons say it themselves, only its coins,
+   * and only where its Currency row has more buttons than Send to (module 0.48.0).
    */
   waiting?: ReadonlySet<string>
 }

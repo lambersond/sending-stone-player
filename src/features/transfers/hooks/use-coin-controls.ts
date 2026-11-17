@@ -17,7 +17,9 @@ import type { TableView } from '@/types/table'
  * take away, while the campaign lets its coins be changed from here; and Hand out, while the game
  * takes moves and its module hands coins out, to any of the campaign's other characters. For its
  * player and the Gamemaster at its page. Each opens its dialog, and what's sent is followed in the
- * tray and the toasts, as a give.
+ * tray and the toasts, as a give. A row of several buttons says what's on its way once, by its
+ * label, as a party's does (module 0.33.0's feedback): each of these waits with no spinner of its
+ * own.
  */
 
 /**
@@ -58,6 +60,8 @@ export function useCoinControls({
   change?: (currency: SheetCurrency[]) => ReactNode
   /** Hand out, where there's a whole coin and someone to hand it to; unset where it can't be. */
   handOut?: (currency: SheetCurrency[]) => ReactNode
+  /** Whether a change to its coins, or a move of them, is on its way: the row's label says so. */
+  waiting: boolean
   dialog: ReactNode
 } {
   // What it was last opened with, kept once it closes: the dialog is closed rather than removed,
@@ -81,6 +85,7 @@ export function useCoinControls({
         {
           className: ROW_BUTTON,
           busy,
+          quiet: true,
           onGive: () => {
             setChanging({ mode: 'change', currency, change: coins.change })
             setOpen(true)
@@ -100,6 +105,7 @@ export function useCoinControls({
         {
           className: ROW_BUTTON,
           busy,
+          quiet: true,
           onGive: () => {
             setChanging({
               mode: 'handOut',
@@ -127,5 +133,5 @@ export function useCoinControls({
       logMove,
       setActed,
     })
-  return { change, handOut, dialog }
+  return { change, handOut, waiting: busy, dialog }
 }

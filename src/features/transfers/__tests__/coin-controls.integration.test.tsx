@@ -223,16 +223,24 @@ describe('features/transfers/coin-controls, from module 0.48.0', () => {
       expect(
         screen.getByText('Taking it away in your Gamemaster’s game…'),
       ).toBeInTheDocument()
-      // Both of the row's wait on it, as the app refuses another change or a move of its coins.
+      // Both of the row's wait on it, as the app refuses another change or a move of its coins;
+      // and the row says so once, by its label, as a party's does, with no spinner in a button.
+      const row = screen.getByRole('group', { name: 'Currency' })
+      expect(row).toHaveAttribute('aria-busy', 'true')
       for (const name of ['Add or take away', 'Send to']) {
-        const button = screen.getByRole('button', { name })
+        const button = within(row).getByRole('button', { name })
         expect(button).toBeDisabled()
         expect(button).toHaveAttribute('aria-busy', 'true')
+        expect(button.querySelector('svg')).toBeNull()
       }
+      expect(
+        screen.getByText('Currency').parentElement?.querySelectorAll('svg'),
+      ).toHaveLength(1)
 
       await advance(CHECK_EVERY)
       expect(screen.getByText('Paid 5 gp, using 1 pp')).toBeInTheDocument()
       expect(changeButton()).toBeEnabled()
+      expect(row).not.toHaveAttribute('aria-busy')
     } finally {
       jest.useRealTimers()
     }
