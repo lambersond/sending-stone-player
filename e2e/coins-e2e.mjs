@@ -52,6 +52,10 @@ await startModule({ campaigns: [campaign()], secrets: { erebor: SECRET } })
 await settled()
 
 // ---- What's kept, posted and handed over ----
+/**
+ * The campaign's last hello, as posted. It's noted once the app's answer is back at the game's
+ * page, after the app has kept what it says: a check of both waits for the app, then for this.
+ */
 const hello = () => postsOf('bridge.hello').filter(p => p.campaign === 'erebor').at(-1)
 const kept = column => sql(`select ${column} from campaign where id = '${A}'`)
 const PLAIN = { mode: 0, explicit: false, extras: [], dice: [] }
@@ -280,6 +284,7 @@ part('7. other coins off')
 {
   await game.settings.set('sending-stone', 'campaigns', [campaign({ coinChange: false })])
   await until(() => kept('array_to_string("coinFeatures", \',\')') === '', 'the app to keep no change', 20_000)
+  await until(() => hello()?.data?.features?.coins?.change === false, 'the hello with other coins off, as posted', 10_000).catch(() => {})
   check(same(hello().data.features.coins, { enabled: true, kinds: ['coins'], reason: null, change: false }) && hello().data.features.transfers.change === false,
     `"Pay with other coins" off in Foundry: the hello says so of coins and of moves (${JSON.stringify(hello().data.features.coins)})`)
   await holds({ gp: 3, pp: 2 })
@@ -442,6 +447,7 @@ part('12. the switches off')
 {
   await game.settings.set('sending-stone', 'campaigns', [campaign({ coins: false })])
   await until(() => kept('"coinsEnabled"') === 'f', 'the app to keep coins off', 20_000)
+  await until(() => hello()?.data?.features?.coins?.reason === 'off', 'the hello with the switch off, as posted', 10_000).catch(() => {})
   check(same(hello().data.features.coins, { enabled: false, kinds: [], reason: 'off', change: false }) && hello().data.features.transfers.handOut === true,
     `the coins' switch off in Foundry: the hello says coins are off, and hands out still (${JSON.stringify(hello().data.features.coins)})`)
   await until(async () => same(await rowButtons(desk), ['Send to', 'Hand out']), 'Add or take away to go', 30_000)
