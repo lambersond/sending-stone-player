@@ -227,7 +227,9 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
   returns. Wait for the content itself before reading it, not for what's drawn at once: a
   `waitFor()` on it, then `isVisible()`, `count()` or a time the page writes in once hydrated. The
   words a skeleton shows are hidden from `getByRole`, but `getByText` finds them. gm, gmerr and
-  late-setup read pages straight after the navigation, and wait.
+  late-setup read pages straight after the navigation, and wait. What a page draws only once it has
+  hydrated comes later still, as the header's Full screen does: wait for it too before reading the
+  header, as help's `ready` and fullscreen do.
 - **Moments the suites had wrong under load** (v0.48.0), and what settles each:
   - A menu or popover takes focus a frame after it shows: floating-ui focuses it from the next
     animation frame. `focusInside(locator)` (`world-030.mjs`) waits until focus is in it, or 5 s

@@ -67,7 +67,16 @@ const open = (width, height, path, scheme = 'light') => browse({
   path, scheme, toasts: false,
   device: { viewport: { width, height }, deviceScaleFactor: 2, isMobile: width < 1024, hasTouch: width < 1024 },
 })
-const ready = async who => who.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+/**
+ * A page's sheet, once it has hydrated: its tabs, then Full screen in its header, which a page draws
+ * only once it has hydrated (useFullscreen answers false until then), a moment after the sheet's
+ * markup is there; the header read before that has one button fewer (ROADMAP item 70). 20 s on
+ * with no Full screen, the page as it is, for the check after it to say.
+ */
+const ready = async who => {
+  await who.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await who.page.getByRole('button', { name: 'Full screen', exact: true }).waitFor({ timeout: 20_000 }).catch(() => {})
+}
 const panelOf = who => who.page.getByRole('dialog', { name: 'Help' })
 /** What has focus: its role or tag, and its name. */
 const focused = who => who.page.evaluate(() => {
