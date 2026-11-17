@@ -127,6 +127,18 @@ describe('features/transfers/coins-dialog', () => {
       'sent',
     ],
     [
+      'more of a coin the app can’t rate, where the game pays with no other, which it would refuse',
+      {
+        change: false,
+        currency: HELD.map(coin =>
+          coin.id === 'gp' ? { ...coin, conversion: null } : coin,
+        ),
+      },
+      { Gold: '5' },
+      'You hold only 3 gp, and your Gamemaster’s game doesn’t pay with other coins.',
+      'held back',
+    ],
+    [
       'the Gamemaster’s, more of a coin than the character holds',
       { role: 'gm' },
       { Gold: '5' },

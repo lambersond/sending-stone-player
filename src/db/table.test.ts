@@ -2182,11 +2182,15 @@ describe('db/table, coins added and taken away, from module 0.48.0', () => {
     })
   })
 
-  it('lets no one change those of a character no longer in the roster', async () => {
+  it('lets no one change those of a character no longer in the roster, nor at a seat with no character', async () => {
     changingCoins()
 
     const gone = await getTableView({ ...character, actorId: 'actor-gone' })
     expect(gone).not.toHaveProperty('coins')
+    // The poll's key too, which the page reads as its view: there are no coins to change.
+    await expect(
+      getCampaignStatus({ ...character, actorId: null }),
+    ).resolves.toMatchObject({ coins: false })
   })
 })
 

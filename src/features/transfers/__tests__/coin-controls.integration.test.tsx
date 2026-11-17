@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { CHECK_EVERY } from '@/constants/lifecycle'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
+import { GameTable } from '@/features/table/components/game-table/game-table'
+import { useTableView } from '@/features/table/hooks/use-table-view'
 import { TableApiContext } from '@/hooks/use-table-api'
 import {
   fullerSheet,
@@ -12,7 +14,7 @@ import {
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import { advance, respond } from '@/utils/test-utils'
-import type { TableSeat } from '@/types/character'
+import type { Character, TableSeat } from '@/types/character'
 import type { TableMoves } from '@/types/party'
 import type { CharacterSheet } from '@/types/sending-stone'
 import type { TableView } from '@/types/table'
@@ -22,6 +24,11 @@ jest.mock(
   '@lambersond/3d-dice-react',
   () => jest.requireActual('@/mocks/dice-renderer').NO_DICE_RENDERER,
 )
+// The table's view, as a test gives it.
+jest.mock('@/features/table/hooks/use-table-view', () => ({
+  ...jest.requireActual('@/features/table/hooks/use-table-view'),
+  useTableView: jest.fn(),
+}))
 
 const GAME = 'https://my-game.forge-vtt.com'
 
@@ -192,7 +199,10 @@ describe('features/transfers/coin-controls, from module 0.48.0', () => {
         return new Promise<Response>(() => {})
       })
       const { user } = await renderCoins(
-        { coins: { change: true }, moves: tableMoves() },
+        {
+          coins: { change: true },
+          moves: tableMoves({ handOut: { change: true } }),
+        },
         userEvent.setup({ advanceTimers: jest.advanceTimersByTime }),
       )
       const dialog = await takeAway(user, '5')
@@ -223,11 +233,12 @@ describe('features/transfers/coin-controls, from module 0.48.0', () => {
       expect(
         screen.getByText('Taking it away in your Gamemaster’s game…'),
       ).toBeInTheDocument()
-      // Both of the row's wait on it, as the app refuses another change or a move of its coins;
-      // and the row says so once, by its label, as a party's does, with no spinner in a button.
+      // All three of the row's wait on it, as the app refuses another change or a move of its
+      // coins; and the row says so once, by its label, as a party's does, with no spinner in a
+      // button.
       const row = screen.getByRole('group', { name: 'Currency' })
       expect(row).toHaveAttribute('aria-busy', 'true')
-      for (const name of ['Add or take away', 'Send to']) {
+      for (const name of ['Add or take away', 'Send to', 'Hand out']) {
         const button = within(row).getByRole('button', { name })
         expect(button).toBeDisabled()
         expect(button).toHaveAttribute('aria-busy', 'true')
@@ -358,6 +369,47 @@ describe('features/transfers/coin-controls, from module 0.48.0', () => {
     ).toBeInTheDocument()
   })
 
+  it('hands out by what the game says of moves paying with other coins, whatever the coins’ own switch is', async () => {
+    // Coins' switch off, so the page has no word of its own on other coins: the moves' says none.
+    const { user } = await renderCoins({
+      moves: tableMoves({ handOut: { change: false } }),
+    })
+    await user.click(screen.getByRole('button', { name: 'Hand out' }))
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Hand out coins' }),
+    )
+    await user.click(dialog.getByRole('checkbox', { name: 'Vex' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
+
+    expect(
+      dialog.getByText(
+        'You hold only 3 gp of the 5 gp in all, and your Gamemaster’s game doesn’t pay with other coins.',
+      ),
+    ).toBeVisible()
+    await user.click(dialog.getByRole('button', { name: 'Hand out' }))
+    expect(posts()).toEqual([])
+  })
+
+  it('leaves the row’s buttons be while an item, not coins, is on its way', async () => {
+    const { user } = await renderCoins({
+      coins: { change: true },
+      moves: tableMoves({ handOut: { change: true } }),
+    })
+    await user.click(screen.getByText('Plain Ring'))
+    await user.click(screen.getByRole('button', { name: 'Give Plain Ring' }))
+    const giving = screen.getByRole('dialog', { name: 'Give Plain Ring' })
+    await user.click(within(giving).getByRole('button', { name: 'Give' }))
+
+    expect(
+      screen.getByRole('button', { name: 'Give Plain Ring' }),
+    ).toBeDisabled()
+    const row = screen.getByRole('group', { name: 'Currency' })
+    expect(row).not.toHaveAttribute('aria-busy')
+    for (const name of ['Add or take away', 'Send to', 'Hand out']) {
+      expect(within(row).getByRole('button', { name })).toBeEnabled()
+    }
+  })
+
   it('keeps its dialog open as the campaign stops letting coins be changed, and says so of what’s sent', async () => {
     jest
       .mocked(fetch)
@@ -379,5 +431,52 @@ describe('features/transfers/coin-controls, from module 0.48.0', () => {
         'Not taken away: your Gamemaster’s game isn’t changing coins now',
       ),
     ).toBeInTheDocument()
+  })
+
+  describe('at the table', () => {
+    const thorin: Character = {
+      id: 'char-1',
+      name: 'Thorin Oakenshield',
+      gameUrl: GAME,
+      campaignTitle: 'The Lonely Mountain',
+      campaignId: 'c1',
+      actorId: 'actorThorin1',
+    }
+    /** Thorin's view while the game lets his coins be changed and hands them out. */
+    const tableView = (fields: Partial<TableView> = {}): TableView => ({
+      version: 3,
+      live: true,
+      campaign: { title: 'The Lonely Mountain' },
+      connected: true,
+      messages: [],
+      sheet: toTableSheet(holding({ pp: 2, gp: 3 }), GAME),
+      sheetVersion: 'v1',
+      moves: tableMoves({ handOut: { change: true } }),
+      coins: { change: true },
+      ...fields,
+    })
+    const renderTable = async (shown: TableView) => {
+      jest.mocked(useTableView).mockReturnValue({
+        view: shown,
+        connection: 'live',
+        readAgain: () => {},
+      })
+      const user = userEvent.setup()
+      render(<GameTable character={thorin} initialView={shown} />)
+      await user.click(screen.getByRole('tab', { name: /^Inventory/ }))
+    }
+
+    it('offers the row’s buttons from what the table’s view says of coins and moves', async () => {
+      await renderTable(tableView())
+      expect(rowButtons()).toEqual(['Add or take away', 'Send to', 'Hand out'])
+    })
+
+    it('offers none at a character no longer in the game, whatever its view says', async () => {
+      await renderTable(tableView({ connected: false }))
+      expect(
+        screen.queryByRole('button', { name: 'Add or take away' }),
+      ).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Hand out' })).toBeNull()
+    })
   })
 })
