@@ -21,6 +21,41 @@ so an item from it is named with its number when it was built, which may since b
 
 ## v0.48.0-rc
 
+### Features
+
+- **Coins added to a character and taken away from the Currency row.** On a character's Inventory
+  tab, Add or take away opens a dialog that asks Add or Take away and how many of each coin, and
+  says what will happen before anything is sent; the character's player has it, and the Gamemaster
+  at the character's page. Each change posts a line in Foundry's chat for everyone, "Thorin received
+  5 gp" or "Thorin paid 5 gp", the Gamemaster's marked as theirs. Taking away more of a coin than
+  the character holds breaks a larger coin, the nearest first, with the change in the fewest coins,
+  in electrum only where electrum is what's taken away: 5 gp from 3 gp and 2 pp leaves 1 pp and 8
+  gp. With no larger coin left, smaller coins pay: 5 gp from 2 gp and 40 sp leaves 10 sp. At dnd5e's
+  own rates only an amount worth more than all the character's coins is refused, and the dialog says
+  so first; the tray says what else was used, "Paid 5 gp, using 1 pp". While a change or a move of
+  the character's coins is on its way, the row's buttons wait, with one spinner by its label, as a
+  party's row does. Each campaign has two new switches in Foundry, in a Coins box on its Player
+  actions tab, both on until turned off: Allow Players to add and take away coins from the app,
+  which counts for the Gamemaster's own changes from the app too, and Pay with other coins when a
+  character is short of one, without which more of a coin than is held is refused. It works under
+  D&D Fifth Edition 5 and 6; under 6, a fraction of a coin the character stores stays as it is. It
+  isn't offered while the character is transformed, as in Wild Shape, and never for a party's coins
+  or a companion's. Needs Sending Stone 0.48.0 in Foundry; with an older one, the campaign card and
+  Help say so. (app and module, item 67)
+- **Coins handed out to several characters at once.** Hand out, on the same row, gives so many of
+  each coin to each of the campaign's characters ticked, up to 20 at a time, with Select all where
+  there are two to twenty to tick, and shows the total as it's set ("4 gp in all"); the Gamemaster
+  can at the giver's page. It's there wherever the Gamemaster has turned on Players move items and
+  coins, the character holds a whole coin and the campaign has another character to give it to, but
+  not while the character is transformed, as in Wild Shape; a hand-out to a character who is
+  transformed is refused. The total is taken from the giver as coins taken away are, other coins
+  paying unless the Gamemaster has turned that off. No line is posted for everyone: each character
+  given coins who has a player is whispered what they received, "Vex received 200 pp and 50 gp from
+  Thorin", and the Gamemasters are whispered one message with all of it; the giver's player reads
+  each of them too, where the giver has one player of its own. Where one character can't be given
+  their coins, what wasn't given goes back to the giver and no more is given. Needs Sending
+  Stone 0.48.0 in Foundry. (app and module, item 68)
+
 ### Fixes
 
 - **Midi-QOL no longer asks the Gamemaster for dice as it looks for reactions.** As a creature is

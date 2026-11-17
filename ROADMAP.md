@@ -96,6 +96,11 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   is sharp; and in airplane mode, from the third opening, the stone with its two sentences. Safari's
   own "not connected" page there instead means an iPhone didn't finish installing the worker, which
   has a known remedy.
+- **Coins added, taken away and handed out:** Add or take away and Hand out change the coins on the
+  character's sheet in Foundry as the app says, the change coming back as the tray says; "Thorin
+  paid 5 gp" is in everyone's chat, a hand-out's whispers only in each receiver's player's, the
+  Gamemasters' and the giver's player's; both switches in the campaign's Coins box are kept as
+  saved. Under dnd5e 6, a fraction of a coin the world shows stays as it was after a change.
 
 ## Before v1.0
 
@@ -104,10 +109,10 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 67 and 68: coins added, taken away and handed out from the sheet. Items 23, 29, 47, 41,
-   42, 57, 56, 70 and 71, Midi-QOL's reaction checks, effects carried back from Wild Shape, Move up
-   and Move down for every favorite, the three e2e races under load, the stone as the installed app
-   opens, and two more e2e checks under load: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
+2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
+   back from Wild Shape, Move up and Move down for every favorite, the three e2e races under load,
+   the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
+   and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -255,6 +260,29 @@ And from the owner's answers on item 19, later work too:
     after it: Live and Help sit one button's width to the right, then step back as Full screen
     appears (36 px at 360, measured while building item 70). A slot kept for Full screen until then,
     as the outline keeps one, would hold them still. Found while building item 70. In no batch yet.
+83. **A spell prepared's check lets three other kinds' fields by:** a `prepare` command that also
+    names `hitPoints`, `rerolls` or `enchantment` isn't refused `"invalid"` by the module: its list
+    of other kinds' fields (`OTHERS` above `checkPrepareCommand`, in the module's
+    `scripts/command-rolls.mjs`) lacks those three, where hit points' own list has every one. The
+    module would prepare the spell and ignore the rest. The app's schema refuses such a request
+    before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
+    `OTHER_FIELDS`. Found building item 67. In no batch yet.
+84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
+    coin fractional digits, a character's coins moved (Send to, Take, Give) and a party's
+    distributed are written as floating point makes them: 10.7 gp less 10 is stored
+    as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes
+    to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
+    write through `coinUpdate`, as coins added, taken away and handed out do since 0.48.0. A default
+    dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it. Module only,
+    small. Found building items 67 and 68. In no batch yet.
+85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
+    keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
+    it, which waits disabled until the move is made. Seen for the Currency row's Add or take away
+    and Hand out (v0.48); by the same code it is so for the row's Send to and an item's Give…, from
+    v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which has no
+    tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet, where
+    focus should go (the tray's line, or the row's label, which says what's on its way) is one
+    decision for all of its moves. Found reviewing items 67 and 68. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
@@ -304,39 +332,6 @@ And from the owner's answers on item 19, later work too:
     count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
     nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
     read row by row, so one bad row can't blank a whole sheet. App and module, small.
-
-**Asked for on 2026-11-14**
-
-67. **Coins added and taken away from the sheet:** a player adds coins to their character or takes
-    them away, from the inventory's coins, without going to Foundry. The owner: "As a player
-    character, I want to be able to add/remove coins from my inventory so that I do not need to
-    go to the foundry to add/remove coins from my character", and as the Gamemaster, "for when a
-    player goes to a store to buy or sell items, gets food/drink at the tavern, or performs at
-    the tavern and earns some coin. I want to be able to just tell them to add/remove an amount,
-    and they can do it." Today the app shows each coin and moves coins between a character and a
-    party or another character (module 0.31.0's `transfer`), but nothing adds or removes them.
-    It needs a new command the module answers by changing the character's coins, behind a
-    feature it announces in its hello, and in the app an amount of each coin to add or take
-    away. The owner's answers (2026-11-14): each change posts a chat line in Foundry, "Thorin
-    paid 5 gp" or "Thorin received 5 gp"; taking more of a coin than the character holds breaks
-    a larger coin by default, and a new module setting lets the Gamemaster forbid that, when
-    such a change is refused; companions are left out, as none is known to carry coins.
-68. **Coins handed out to the party from a character:** a player picks fellow characters and the
-    amount each gets, and the app shows the total to be given before it's sent, then moves it
-    from the player's own coins, refused where they haven't that much. The owner: "As a player
-    character, I want to easily distribute coins to my fellow party members from my inventory so
-    that I don't have to do math or weird workarounds. The scenario was that the player wanted to
-    give 200 PP to each player by selecting the players and setting the coin amount each player
-    should get. Text should display the total amount to be given." Today a character gives coins
-    to one other character or a party at a time, and only a party's coin is shared among its
-    characters, all of one coin split evenly (module 0.32.0's `among`). It needs the module to
-    take a set amount each from a character to the characters picked, behind a feature in the
-    hello, and the app's dialog to pick them and show the total as it's set ("600 PP in all").
-    The owner's answers (2026-11-14): anyone in the campaign can be picked (once v1.x's inactive
-    characters exist, not those); several coins can go at once, such as 200 PP and 50 GP each;
-    and each character given coins is whispered how much they received and from whom. And
-    (2026-11-14, later): the Gamemaster gets a message for the hand-out too, and a hand-out breaks
-    a larger coin as item 67 does, under the same module setting.
 
 ## v1.0
 
