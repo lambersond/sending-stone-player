@@ -369,49 +369,40 @@ await bob.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeo
 }
 
 // =================================================================================================
-// 10. Both dialogs and the row, on phones, a tablet and the desk, in both themes
+// 10. Both dialogs and the row, on phones, a tablet and the desk, in both themes, at a scale of 2
 // =================================================================================================
 part('10. phones, a tablet and both themes')
 {
   await holds({ pp: 2, gp: 3 })
-  for (const [width, height] of [[360, 780], [390, 844], [768, 1024]]) {
-    const small = await browse({ width, height, path: '/characters/sheet-thorin', toasts: false })
-    await small.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
-    await small.tab('Inventory')
-    await small.currency().waitFor({ timeout: 15_000 })
-    await until(async () => (await rowButtons(small)).length === 3, `the three buttons at ${width}`, 20_000)
+  for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]) {
+    const seat = await browse({ device: { viewport: { width, height }, deviceScaleFactor: 2, isMobile: width < 1024, hasTouch: width < 1024 }, path: '/characters/sheet-thorin', toasts: false })
+    await seat.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+    await seat.tab('Inventory')
+    await seat.currency().waitFor({ timeout: 15_000 })
+    await until(async () => (await rowButtons(seat)).length === 3, `the three buttons at ${width}`, 20_000)
     if (width === 360) {
-      const look = await small.currency().evaluate(group => {
+      const look = await seat.currency().evaluate(group => {
         const card = group.closest('dl > div')
         const edge = card.getBoundingClientRect()
         return { inside: [...group.querySelectorAll('button')].every(b => b.getBoundingClientRect().left >= edge.left && b.getBoundingClientRect().right <= edge.right + 0.5), names: [...group.querySelectorAll('button')].map(b => b.textContent.trim()) }
       })
-      check(look.inside && same(look.names, ['Add or take away', 'Send to', 'Hand out']) && await sideways(small.page) === 0, `at 360 the row's three buttons stay inside its card, nothing scrolling sideways (${JSON.stringify(look)})`)
-      await shootBoth(small, 'coins-row', small.currency().locator('xpath=ancestor::div[1]'))
+      check(look.inside && same(look.names, ['Add or take away', 'Send to', 'Hand out']) && await sideways(seat.page) === 0, `at 360 the row's three buttons stay inside its card, nothing scrolling sideways (${JSON.stringify(look)})`)
+      await shootBoth(seat, 'coins-row', seat.currency().locator('xpath=ancestor::div[1]'))
     }
-    const coins = await changing(small, 'Take away', '5')
-    await shootBoth(small, 'coins-dialog', coins)
-    const fits = await sideways(small.page) === 0
+    const coins = await changing(seat, 'Take away', '5')
+    await shootBoth(seat, 'coins-dialog', coins)
+    const fits = await sideways(seat.page) === 0
     await sendOf(coins, 'Cancel').click()
     await coins.waitFor({ state: 'hidden', timeout: 5_000 })
-    await rowButton(small, 'Hand out').click()
-    const handOut = handOutDialog(small)
+    await rowButton(seat, 'Hand out').click()
+    const handOut = handOutDialog(seat)
     await handOut.waitFor({ timeout: 10_000 })
     await tick(handOut, 'checkbox', 'Vex')
     await field(handOut, 'Gold').fill('2')
-    await shootBoth(small, 'hand-out-dialog', handOut)
-    check(fits && await sideways(small.page) === 0 && await summary(handOut) === 'You hand out 2 gp each to Vex: 2 gp in all.', `at ${width} both dialogs open, nothing scrolling sideways: "${await summary(handOut)}"`)
-    await small.view.close()
+    await shootBoth(seat, 'hand-out-dialog', handOut)
+    check(fits && await sideways(seat.page) === 0 && await summary(handOut) === 'You hand out 2 gp each to Vex: 2 gp in all.', `at ${width} both dialogs open, nothing scrolling sideways: "${await summary(handOut)}"`)
+    await seat.view.close()
   }
-  const coins = await changing(desk, 'Take away', '5')
-  await shootBoth(desk, 'coins-dialog', coins)
-  await sendOf(coins, 'Cancel').click()
-  await rowButton(desk, 'Hand out').click()
-  await handOutDialog(desk).waitFor({ timeout: 10_000 })
-  await tick(handOutDialog(desk), 'checkbox', 'Vex')
-  await field(handOutDialog(desk), 'Gold').fill('2')
-  await shootBoth(desk, 'hand-out-dialog', handOutDialog(desk))
-  await sendOf(handOutDialog(desk), 'Cancel').click()
   check(commands().length === 5, 'looked at and cancelled, nothing more is sent')
 }
 

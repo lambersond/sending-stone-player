@@ -254,6 +254,6 @@ run launch 28 SHOTS=$O/shots-launch
 # other coins off in Foundry, the Gamemaster's at the character's page, a hand-out's whispers to each
 # and to the Gamemasters, both switches off, both dialogs on phones, a tablet and the desk, Help and
 # the campaign card; dnd5e 6.0.5; and module 0.47.0 (no button but Send to, crafted requests refused).
-run coins 43 SHOTS=$O/shots-048
-run coins 43 DND5E6=1 SHOTS=$O/shots-048
+run coins 44 SHOTS=$O/shots-048
+run coins 44 DND5E6=1 SHOTS=$O/shots-048
 run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-048
