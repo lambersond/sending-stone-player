@@ -514,6 +514,46 @@ describe('the launch page’s script', () => {
     expect(words.hidden).toBe(false)
   })
 
+  it('while it waits to ask again, a Try again that fails doesn’t call that ask off', async () => {
+    const { backOnline, heard, pass, state, replace, fetch, waiting, settle } =
+      run({ onLine: false, server: 'unreachable' })
+    await settle()
+    backOnline()
+    await settle()
+
+    heard.again()
+    await settle()
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(waiting()).toEqual([1000])
+
+    state.server = 'answers'
+    pass()
+    await settle()
+
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
+  })
+
+  it('while it waits to ask again, a Try again that’s answered opens once, and asks no more', async () => {
+    const { backOnline, heard, state, replace, fetch, waiting, settle } = run({
+      onLine: false,
+      server: 'unreachable',
+    })
+    await settle()
+    backOnline()
+    await settle()
+
+    state.server = 'answers'
+    heard.again()
+    await settle()
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(replace).toHaveBeenCalledTimes(1)
+    // The one timer is the wait for the first page: the ask again is called off.
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
+  })
+
   it('stops asking again once the device says it’s offline again, and says so', async () => {
     const { backOnline, device, pass, body, fetch, waiting, settle } = run({
       onLine: false,

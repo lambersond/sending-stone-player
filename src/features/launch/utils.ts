@@ -36,19 +36,20 @@ const text = (value: string) => JSON.stringify(value)
  * the device coming back online, first ask whether the server answers, and only then open, so that
  * the browser's own error page never takes this page's place while there's still no connection.
  * Coming back online, it asks again a few times before it waits for Try again, as a connection can
- * be a moment from working.
+ * be a moment from working; a Try again that fails meanwhile doesn't call those asks off.
  *
  * What the page says always fits where it stands. Each opening hides the words and waits afresh,
  * so nothing is said while the first page is on its way. "It opens once you're back online." is
  * said only while the device says it isn't, as only coming back opens it. Only the latest ask
- * counts, so an earlier one answered late changes nothing. One timer at a time: the wait for the
- * first page, or the next ask.
+ * counts, so an earlier one answered late changes nothing. One timer at a time (`later`): the wait
+ * for the first page, or the next ask.
  */
 const HANDOVER = `(function(){
 var words=document.getElementById('unreached'),waits=${JSON.stringify(LAUNCH_ASK_AGAIN)},timer,asked=0
-function open(){document.body.className='';words.hidden=true;clearTimeout(timer);timer=setTimeout(function(){words.hidden=false},${LAUNCH_PATIENCE});location.replace(${text(LAUNCH_NEXT)})}
-function stay(){document.body.className=navigator.onLine===false?'staying offline':'staying';words.hidden=false;clearTimeout(timer)}
-function ask(tries){var mine=++asked;fetch(${text(LAUNCH_PATH)},{method:'HEAD',cache:'no-store'}).then(function(){if(mine===asked)open()},function(){if(mine!==asked)return;stay();if(tries<waits.length&&navigator.onLine!==false)timer=setTimeout(function(){ask(tries+1)},waits[tries])})}
+function later(work,after){clearTimeout(timer);timer=setTimeout(work,after)}
+function open(){document.body.className='';words.hidden=true;later(function(){words.hidden=false},${LAUNCH_PATIENCE});location.replace(${text(LAUNCH_NEXT)})}
+function stay(){document.body.className=navigator.onLine===false?'staying offline':'staying';words.hidden=false}
+function ask(tries){var mine=++asked;fetch(${text(LAUNCH_PATH)},{method:'HEAD',cache:'no-store'}).then(function(){if(mine===asked)open()},function(){if(mine!==asked)return;stay();if(tries<waits.length&&navigator.onLine!==false)later(function(){ask(tries+1)},waits[tries])})}
 try{if('serviceWorker' in navigator&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches))navigator.serviceWorker.register(${text(LAUNCH_WORKER)},{scope:${text(LAUNCH_PATH)},updateViaCache:'none'}).catch(function(){})}catch(e){}
 document.getElementById('again').addEventListener('click',function(){ask()})
 addEventListener('online',function(){ask(0)})
