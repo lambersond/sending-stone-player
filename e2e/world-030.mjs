@@ -25,8 +25,9 @@
 // SKEW=033 is module 0.33.0; a book's journal by `journal(kind, actorId, campaignId)`, and its pages
 // changed, added, duplicated or deleted in Foundry as a user there (`editInFoundry`, `addPageInFoundry`,
 // `duplicateInFoundry`, `deleteInFoundry`); the Gamemaster gone and back (`gmAway`, `gmBack`); the
-// module's fetches for commands held, as with Foundry closed (`stopFetching`, `startFetching`); the
-// Foundry page reloaded, its module afresh (`reloadFoundry`); and what was posted (`lastHello`, `books`).
+// module's fetches for commands held, as with Foundry closed (`stopFetching`, `startFetching`), the
+// fetch under way first let reach the app where its polls are aged with it; the Foundry page
+// reloaded, its module afresh (`reloadFoundry`); and what was posted (`lastHello`, `books`).
 // Since module 0.35.0 (its contract §13.1): SKEW=034 is module 0.34.0; pages reordered in Foundry as
 // a user there (`dragInFoundry`); and the notes format the module keeps from the app's answers
 // (`notesFormat`). Since module 0.36.0 (its contract §13.1): SKEW=035 is module 0.35.0; scenes, tokens
@@ -184,7 +185,7 @@ export async function launch(game) {
     while (commands && gate.held) await gate.held
     // Made from the game's page, and given up on there when the module gives it up.
     const id = ++fetches
-    if (commands) gate.inFlight.set(id, sent.campaign?.id ?? null)
+    if (commands) gate.inFlight.set(id, { campaign: sent.campaign?.id ?? null, since: Date.now() })
     init.signal?.addEventListener('abort', () => {
       void gmTab.evaluate(id => globalThis.__aborts?.[id]?.abort(), id).catch(() => {})
     }, { once: true })
@@ -1094,13 +1095,36 @@ export const gmBack = () => J.bridgeOn()
  * on, so the app hands it nothing more, and every fetch after it held, unanswered, until
  * `startFetching()`; the posts still go. `age`, a campaign's id in the app or a list of them: as if
  * it had been closed a while, the app last heard it fetch ten minutes ago, so the notes there wait
- * at once (BRIDGE_POLLED_WITHIN is 45 seconds).
+ * at once (BRIDGE_POLLED_WITHIN is 45 seconds). Where polls are aged, the fetch under way is first
+ * let reach the app (`fetchesNoted`), so that the game reads closed from then on.
  */
 export async function stopFetching({ age = [] } = {}) {
   if (!gate.held) gate.held = new Promise(resolve => { gate.release = resolve })
+  // Where polls are aged, each fetch under way is first let reach the app: the gate is held by
+  // now, so none begins meanwhile.
+  if ([age].flat().length > 0) await fetchesNoted(age)
   const under = [...gate.inFlight.keys()]
   await gmTab.evaluate(ids => { for (const id of ids) globalThis.__aborts?.[id]?.abort() }, under).catch(() => {})
   agePolls(age)
+}
+/**
+ * Until the app has noted every fetch for commands under way for these campaigns (their ids in
+ * the app), or the fetch is over. The app notes a fetch as it takes it in, given up on or not
+ * (its markBridgePolled), once it has checked the campaign's secret: a fetch given up on before
+ * that is noted after polls aged meanwhile, and the game counted live for 45 s more.
+ */
+function fetchesNoted(age) {
+  const aged = [age].flat()
+  return until(() => [...gate.inFlight.values()].every(made => notedSince(aged, made)), 'the app to note the fetches under way', 30_000)
+}
+/**
+ * Whether the app has noted a fetch since it was made, where its campaign is one of these; true
+ * of another campaign's, which isn't aged. Prisma keeps `bridgePolledAt` in UTC, whatever the
+ * session's time zone.
+ */
+function notedSince(aged, { campaign, since }) {
+  const ids = aged.map(id => `'${id}'`).join(', ')
+  return sql(`select count(*) from campaign where id in (${ids}) and "foundryId" = '${campaign}' and ("bridgePolledAt" is null or "bridgePolledAt" < to_timestamp(${since} / 1000.0) at time zone 'UTC')`) === '0'
 }
 /**
  * As if the module had last fetched for these campaigns (their ids in the app) ten minutes ago, as
