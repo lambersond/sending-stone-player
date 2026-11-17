@@ -65,6 +65,13 @@ so an item from it is named with its number when it was built, which may since b
   once the page starts loading. Where one of these pages can't read its data once its checks have
   passed (the database down, say), it now answers 200 with the error shown in the page, where it
   answered 500. (app)
+- **Effects are kept when Wild Shape ends.** A Bless cast on the wolf, a potion fed to it or an
+  effect the Gamemaster made on its sheet is now on the druid when Wild Shape ends, from the app, in
+  Foundry or at 0 hit points, with the time it has left, and it still ends when its caster stops
+  concentrating. An effect taken off the wolf, or one that ran out on it, is taken off the druid
+  too. Before, only conditions and concentration were. As before, what the form's own features gave
+  it and a spell the druid began as a beast end with the form, and a status effect that is no
+  condition, such as Sleeping or Marked, is neither kept nor taken off. (module, item 29)
 
 ### Maintenance
 

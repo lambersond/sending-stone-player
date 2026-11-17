@@ -70,6 +70,15 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   tool favorite still rolls with advantage, or opens Modify roll…, without a slip onto Move up or
   Move down, which sit nearest the thumb; Move up and Move down there, and on spell slots held by
   their name, save the order, and Foundry's sheet shows it.
+- **Effects kept from Wild Shape:** a Bless cast on the wolf, some rounds gone, is on the druid
+  after Return from the app and after Foundry's own Restore, with the same time left; it goes when
+  the cleric stops concentrating; with Midi-QOL at its defaults the cleric is still concentrating
+  after the return, also after a Restore made while you view a scene with none of the druid's
+  tokens. With DAE, an effect's "on" macro runs once. The same spell cast on the druid again later
+  refreshes the kept effect, not a second one.
+- **Effects taken off in Wild Shape:** an effect the druid had going in, removed from the wolf, is
+  gone from the druid after the return; Encumbered and Bloodied are as the druid's own numbers have
+  them; one that had already run out before Wild Shape is still on the druid.
 
 ## Before v1.0
 
@@ -78,9 +87,9 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 56, 41, 42, 57, 29, 67 and 68: the stone as the installed app opens, the three e2e races
-   under load, effects carried back from Wild Shape, and coins added, taken away and handed out from
-   the sheet. Items 23 and 47, Midi-QOL's reaction checks and Move up and Move down for every
+2. Items 56, 41, 42, 57, 67 and 68: the stone as the installed app opens, the three e2e races under
+   load, and coins added, taken away and handed out from the sheet. Items 23, 29 and 47, Midi-QOL's
+   reaction checks, effects carried back from Wild Shape, and Move up and Move down for every
    favorite: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
@@ -125,12 +134,6 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     Likely, from the numbers and not proven: the check reads the toast's look as soon as its words
     are there, while it is still popping up; it could wait for the toast to settle. In no batch
     yet.
-
-**Moved up from v1.x**
-
-29. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
-    cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
-    concentration.
 
 **Moved from the next slice**
 
@@ -229,6 +232,22 @@ And from the owner's answers on item 19, later work too:
     the code reads, the width itself not measured in the browser. A look only: every favorite is
     there and works. Since v0.47 (Reorder); seen in Chromium at 1366 px, looking for the two lists
     for item 47. In no batch yet.
+76. **What a druid begins in Wild Shape:** a spell a Moon druid casts as a beast and concentrates
+    on, such as Moonbeam or Fount of Moonlight, ends in Foundry when Wild Shape ends. Whether what
+    it kept up, a template on the map or an effect on another creature, ends with the form or is
+    left behind is Foundry's own, not checked here. Item 29 keeps what others put on the form, and
+    leaves this as it was. In no batch yet.
+77. **An effect changed in place in Wild Shape:** where the druid already has an effect and the same
+    spell or item is used on the beast again, dnd5e refreshes the beast's copy; the druid comes back
+    with the old one, with its old time left, or still turned off. The same for one a Gamemaster
+    turns off or edits on the form. In no batch yet.
+78. **Status effects that are no condition, in Wild Shape:** Sleeping, Dodging, Hiding, Marked and
+    dnd5e's other status effects that are no condition are neither kept nor taken off when Wild
+    Shape ends: one put on the form ends with it, and one the druid already had stays though it was
+    taken off the form. Sleeping put on the wolf ends Wild Shape, as it makes the form
+    Incapacitated, and the druid comes back awake until the Gamemaster puts it on the druid. As
+    before 0.48.0, and as item 29 was built: whether they should come back with the druid as
+    conditions do is the owner's to say. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
@@ -458,11 +477,13 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - A party sheet has no Report a bug or Request a feature link. Kept as is unless it's asked for.
 - Only the 2024 Wild Shape is used from the app: a 2014 druid's Wild Shape is used in Foundry, and
   the app follows the form. Kept as is.
-- Effects gained or ended in Wild Shape, other than conditions and concentration, aren't carried
-  back: dnd5e's return keeps the character's own effects as they were at the change, so a Bless
-  cast on the wolf ends with the form. Conditions gained in form are put on the character, and
-  conditions and concentration that ended in form are taken off (other effects are planned for
-  v1.x).
+- What a druid begins in Wild Shape isn't carried back: a spell cast as a beast and concentrated on
+  ends with the form, as does an effect of the form's own features, and anything on the form's
+  items. Effects others put on the form are kept on the character, and those taken off it, or run
+  out on it, are taken off the character; one the character already had that is only changed on the
+  form stays as it was, as does one that had already run out before Wild Shape. A status effect that
+  is no condition, such as Sleeping, Dodging, Hiding or Marked, is neither kept nor taken off: one
+  put on the form ends with it, and the character's own stay as they were.
 - Bonus Actions are counted only under Midi-QOL's Enforce bonus actions, in a fight: elsewhere
   Change and Return say they take one. A return or an ending made in Foundry isn't counted, as
   Midi-QOL counts none.
