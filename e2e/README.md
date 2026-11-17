@@ -238,7 +238,9 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     record. So a countdown short by less than the page takes from that read to its draw passes.
   - `stopFetching({ age })` first lets a fetch under way reach the app, which notes a fetch as
     it takes it in, given up on or not: one given up on before that would be noted after the
-    ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait.
+    ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the
+    Gamemaster's leaving gives the fetch up, `fetchesNoted()` comes first, with no other await
+    between it and `gmAway()`.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across

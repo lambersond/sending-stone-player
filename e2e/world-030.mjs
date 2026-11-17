@@ -26,8 +26,9 @@
 // changed, added, duplicated or deleted in Foundry as a user there (`editInFoundry`, `addPageInFoundry`,
 // `duplicateInFoundry`, `deleteInFoundry`); the Gamemaster gone and back (`gmAway`, `gmBack`); the
 // module's fetches for commands held, as with Foundry closed (`stopFetching`, `startFetching`), the
-// fetch under way first let reach the app where its polls are aged with it; the Foundry page
-// reloaded, its module afresh (`reloadFoundry`); and what was posted (`lastHello`, `books`).
+// fetch under way first let reach the app where its polls are aged with it (`fetchesNoted`, also
+// for a suite that ages them itself); the Foundry page reloaded, its module afresh
+// (`reloadFoundry`); and what was posted (`lastHello`, `books`).
 // Since module 0.35.0 (its contract §13.1): SKEW=034 is module 0.34.0; pages reordered in Foundry as
 // a user there (`dragInFoundry`); and the notes format the module keeps from the app's answers
 // (`notesFormat`). Since module 0.36.0 (its contract §13.1): SKEW=035 is module 0.35.0; scenes, tokens
@@ -1111,9 +1112,11 @@ export async function stopFetching({ age = [] } = {}) {
  * Until the app has noted every fetch for commands under way for these campaigns (their ids in
  * the app), or the fetch is over. The app notes a fetch as it takes it in, given up on or not
  * (its markBridgePolled), once it has checked the campaign's secret: a fetch given up on before
- * that is noted after polls aged meanwhile, and the game counted live for 45 s more.
+ * that is noted after polls aged meanwhile, and the game counted live for 45 s more. `stopFetching`
+ * waits so itself; a suite that gives the fetch up another way and then ages the polls, as by
+ * `gmAway()`, calls this first, with no other await between the two.
  */
-function fetchesNoted(age) {
+export function fetchesNoted(age) {
   const aged = [age].flat()
   return until(() => [...gate.inFlight.values()].every(made => notedSince(aged, made)), 'the app to note the fetches under way', 30_000)
 }

@@ -22,8 +22,9 @@
 import { fileURLToPath } from 'node:url'
 import {
   BASE, BOB, MODULE, addPageInFoundry, agePolls, browse, call, character, check, deleteInFoundry, dragInFoundry, editInFoundry,
-  finish, foundryWorld, gmAway, gmBack, group, hold, journal, journalWrites, lastHello, launch, newCampaign, note, pagesOf, part,
-  posted, postsOf, relay, reloadFoundry, same, settled, shootBoth, sql, startFetching, startModule, stopFetching, until, wait,
+  fetchesNoted, finish, foundryWorld, gmAway, gmBack, group, hold, journal, journalWrites, lastHello, launch, newCampaign, note,
+  pagesOf, part, posted, postsOf, relay, reloadFoundry, same, settled, shootBoth, sql, startFetching, startModule, stopFetching, until,
+  wait,
 } from './world-030.mjs'
 import {
   addChapter, button, contentsPane, editorOf, header, journalCard, notesIn, openJournal, pickNote, reader, readerShows, reorder,
@@ -245,6 +246,10 @@ await noted(bob, API.bob, 'Wolves')
 const wolvesId = pageNamed(party(), 'Wolves').id
 /** With no Gamemaster in Foundry: Bob's change in the app, waiting; Bob's own in Foundry; the Gamemaster back. */
 async function bothPlaces({ app, foundry }) {
+  // The fetch under way is let reach the app before the Gamemaster goes, whose going gives it up:
+  // given up on sooner, the app would note it after the ageing (ROADMAP item 57). No other await
+  // may come between this and gmAway(): a fetch begun in between would be given up on unnoted.
+  await fetchesNoted(A)
   await gmAway()
   agePolls(A)
   await edit(bobJ, 'Wolves', { body: app })
@@ -293,6 +298,10 @@ async function bothPlaces({ app, foundry }) {
 part('4. deleted in Foundry')
 /** With no Gamemaster in Foundry: Bob's change in the app waiting, and his page deleted there by him; the Gamemaster back. */
 async function deletedThere(body) {
+  // The fetch under way is let reach the app before the Gamemaster goes, whose going gives it up:
+  // given up on sooner, the app would note it after the ageing (ROADMAP item 57). No other await
+  // may come between this and gmAway(): a fetch begun in between would be given up on unnoted.
+  await fetchesNoted(A)
   await gmAway()
   agePolls(A)
   await edit(bobJ, 'Wolves', { body })
@@ -325,6 +334,10 @@ part('5. a delete met a change')
   await writeNote(bobJ, { title: 'Signal fire', body: 'Lit at dusk.', chapter: null })
   await noted(bob, API.bob, 'Signal fire')
   const id = pageNamed(party(), 'Signal fire').id
+  // The fetch under way is let reach the app before the Gamemaster goes, whose going gives it up:
+  // given up on sooner, the app would note it after the ageing (ROADMAP item 57). No other await
+  // may come between this and gmAway(): a fetch begun in between would be given up on unnoted.
+  await fetchesNoted(A)
   await gmAway()
   agePolls(A)
   await remove(bobJ, 'Signal fire')
@@ -422,6 +435,10 @@ part('8. reload mid-write')
 // =================================================================================================
 part('9. the journal deleted')
 {
+  // The fetch under way is let reach the app before the Gamemaster goes, whose going gives it up:
+  // given up on sooner, the app would note it after the ageing (ROADMAP item 57). No other await
+  // may come between this and gmAway(): a fetch begun in between would be given up on unnoted.
+  await fetchesNoted(A)
   await gmAway()
   agePolls(A)
   await edit(aliceJ, 'Kept', { body: 'Changed as the journal went.' })
