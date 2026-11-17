@@ -86,7 +86,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'A row, such as an item, a spell, a feature or an effect',
-        text: ': Add to favorites or Remove from favorites, and among your favorites Move up and Move down; for a spell, Prepare or Unprepare; for an item, Send to… and Remove…; for one of your own effects, Turn off or Turn on, and Delete…. Each is there only where your Gamemaster’s game takes it.',
+        text: ': Add to favorites or Remove from favorites; for a spell, Prepare or Unprepare; for an item, Send to… and Remove…; for one of your own effects, Turn off or Turn on, and Delete…. Among your favorites, Move up and Move down put them in order: a skill or a tool has them after its ways to roll, and spell slots when you hold their name. Each is there only where your Gamemaster’s game takes it.',
       },
       {
         lead: 'The Combat tab.',
@@ -263,7 +263,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'No switch, but a recent module',
-        text: ': End turn (0.36.0), Remove… (0.33.0), favorites (0.37.0), Prepare and spell slot dots (0.42.1), the dice tray made in their game (0.43.0), and dice an item rolls later (0.44.0).',
+        text: ': End turn (0.36.0), Remove… (0.33.0), favorites (0.37.0) and putting them in order (0.47.0), Prepare and spell slot dots (0.42.1), the dice tray made in their game (0.43.0), and dice an item rolls later (0.44.0).',
       },
     ],
   },
