@@ -113,8 +113,11 @@
      each part staying lit as the next one joins it, over 2 s and again, a half second a step: all
      dark, the dot, the dot and the inner arc, all three, then all dark together again. The light
      is the same in both themes, as it shines on the icon's own night tile. No page shows the stone
-     now, each showing a shimmering skeleton of itself while it loads; it's kept for the installed
-     app's launch page (ROADMAP item 56), and perhaps for an overlay on a skeleton later. */
+     now, each showing a shimmering skeleton of itself while it loads. The installed app's launch
+     page (src/features/launch, ROADMAP item 56) draws the same stone by itself, as it has to be
+     one document that needs no other file, with these keyframes written out again: its test fails
+     if they differ from these. The component is kept, perhaps for an overlay on a skeleton
+     later. */
   --color-rune-glow: #9dffd6;
   --animate-rune-dot: rune-dot 2s linear infinite;
   --animate-rune-inner: rune-inner 2s linear infinite;

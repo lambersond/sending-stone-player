@@ -1,0 +1,375 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import vm from 'node:vm'
+import {
+  LAUNCH_COLORS,
+  LAUNCH_PATIENCE,
+  LAUNCH_RUNE,
+  LAUNCH_STONE,
+} from './constants'
+import { launchDocument } from './utils'
+import { RUNE } from '@/components/loading-stone/constants'
+
+const STONE = 'data:image/png;base64,c3RvbmU='
+const html = launchDocument(STONE)
+const page = new DOMParser().parseFromString(html, 'text/html')
+const style = page.querySelector('style')?.textContent ?? ''
+const script = page.querySelector('script')?.textContent ?? ''
+
+const css = readFileSync(
+  path.join(process.cwd(), 'src/app/globals.css'),
+  'utf8',
+)
+/** A stylesheet's text with its spaces and line breaks out, as the launch page writes its own. */
+const tight = (text: string) => text.replaceAll(/\s+/g, '')
+/** A colour token as globals.css sets it within one of its blocks. */
+const token = (block: string, name: string) => {
+  const from = css.indexOf(block)
+  return new RegExp(String.raw`--color-${name}:\s*(#[\da-f]{6});`, 'i').exec(
+    css.slice(from, css.indexOf('\n}', from)),
+  )?.[1]
+}
+
+/** Lets what the script waits on settle: the server's answer, or its lack of one. */
+const settle = () => new Promise(resolve => setTimeout(resolve))
+
+type Device = {
+  onLine?: boolean
+  standalone?: boolean
+  displayMode?: 'browser' | 'standalone' | 'fullscreen'
+  workers?: boolean | 'refused' | 'throwing'
+  server?: 'answers' | 'unreachable'
+}
+
+/** The launch page's script, run as a device's browser runs it; and what it did there. */
+function run({
+  onLine = true,
+  standalone,
+  displayMode = 'browser',
+  workers = true,
+  server = 'answers',
+}: Device = {}) {
+  const words = { hidden: true }
+  const body = { className: '' }
+  const heard: Record<string, () => void> = {}
+  const timers: { run: () => void; after: number }[] = []
+  const state = { server }
+  const replace = jest.fn()
+  const register = jest.fn(async () => {
+    if (workers === 'refused') throw new Error('refused')
+  })
+  const fetch = jest.fn(async () => {
+    if (state.server === 'unreachable') throw new TypeError('Failed to fetch')
+    return { ok: true }
+  })
+  const serviceWorker =
+    workers === 'throwing'
+      ? {
+          register: () => {
+            throw new Error('no workers here')
+          },
+        }
+      : { register }
+  vm.runInNewContext(script, {
+    document: {
+      body,
+      getElementById: (id: string) =>
+        id === 'unreached'
+          ? words
+          : {
+              addEventListener: (_: string, listener: () => void) => {
+                heard.again = listener
+              },
+            },
+    },
+    location: { replace },
+    navigator: {
+      onLine,
+      standalone,
+      ...(workers ? { serviceWorker } : {}),
+    },
+    matchMedia: (query: string) => ({
+      matches: query === `(display-mode: ${displayMode})`,
+    }),
+    addEventListener: (type: string, listener: () => void) => {
+      heard[type] = listener
+    },
+    fetch,
+    setTimeout: (work: () => void, after: number) =>
+      void timers.push({ run: work, after }),
+  })
+  return {
+    words,
+    body,
+    heard,
+    timers,
+    state,
+    replace,
+    register,
+    fetch,
+    settle,
+  }
+}
+
+describe('features/launch/utils launchDocument', () => {
+  it('draws the stone in the middle, saying it is loading, as a status', () => {
+    const status = page.querySelector('[role="status"]')
+    const stone = status?.querySelector('img')
+
+    expect(page.querySelectorAll('[role="status"]')).toHaveLength(1)
+    expect(status?.textContent?.trim()).toBe('Loading…')
+    expect(stone?.getAttribute('src')).toBe(STONE)
+    expect(stone?.getAttribute('alt')).toBe('')
+    expect(stone?.getAttribute('width')).toBe(String(LAUNCH_STONE.size))
+    expect(stone?.getAttribute('height')).toBe(String(LAUNCH_STONE.size))
+    expect(LAUNCH_STONE.size).toBe(144)
+    expect(tight(style)).toContain(
+      'body{display:flex;align-items:center;justify-content:center;',
+    )
+    expect(tight(style)).toContain(
+      '.stone{position:relative;flex:none;width:144px;height:144px}',
+    )
+  })
+
+  it('draws the rune where the stone’s design carves it, hidden from assistive technology', () => {
+    const svg = page.querySelector('svg')
+
+    expect(svg?.getAttribute('aria-hidden')).toBe('true')
+    expect(svg?.getAttribute('viewBox')).toBe(RUNE.viewBox)
+    expect(svg?.querySelector('circle.dot')?.getAttribute('cx')).toBe(
+      String(RUNE.dot.cx),
+    )
+    expect(svg?.querySelector('circle.dot')?.getAttribute('cy')).toBe(
+      String(RUNE.dot.cy),
+    )
+    expect(svg?.querySelector('circle.dot')?.getAttribute('r')).toBe(
+      String(RUNE.dot.r),
+    )
+    expect(svg?.querySelector('path.inner')?.getAttribute('d')).toBe(RUNE.inner)
+    expect(svg?.querySelector('path.outer')?.getAttribute('d')).toBe(RUNE.outer)
+    expect(tight(style)).toContain(`stroke-width:${RUNE.arcWidth};`)
+  })
+
+  it('needs nothing else: no file of a release, one script, no stylesheet, only the manifest named', () => {
+    const named = [...page.querySelectorAll('[src], [href]')].map(
+      element => element.getAttribute('src') ?? element.getAttribute('href'),
+    )
+
+    expect(named.toSorted()).toEqual(
+      ['/manifest.webmanifest', STONE].toSorted(),
+    )
+    expect(html).not.toContain('/_next/')
+    expect(page.querySelectorAll('script')).toHaveLength(1)
+    expect(page.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(0)
+    expect(
+      page.querySelector('meta[name="robots"]')?.getAttribute('content'),
+    ).toBe('noindex')
+  })
+
+  it('is the night the manifest gives the phone’s own launch screen, in the dark theme’s colours', () => {
+    expect(LAUNCH_COLORS).toEqual({
+      background: token('.dark {', 'page'),
+      text: token('.dark {', 'text-primary'),
+      secondary: token('.dark {', 'text-secondary'),
+      primary: token('.dark {', 'primary'),
+      onPrimary: token('.dark {', 'on-primary'),
+      glow: token('@theme {', 'rune-glow'),
+    })
+    expect(tight(style)).toContain(`background:${LAUNCH_COLORS.background};`)
+    expect(
+      page.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
+    ).toBe(LAUNCH_COLORS.background)
+    expect(
+      page.querySelector('meta[name="color-scheme"]')?.getAttribute('content'),
+    ).toBe('dark')
+  })
+
+  it.each(['dot', 'inner', 'outer'] as const)(
+    'lights the rune’s %s as the loading stone’s keyframes do, every 2 seconds, entered as the dot lights',
+    part => {
+      const own = new RegExp(
+        String.raw`@keyframes rune-${part} \{(.*?)\n {2}\}`,
+        's',
+      ).exec(css)?.[1]
+
+      expect(own).toBeDefined()
+      expect(LAUNCH_RUNE.keyframes[part]).toBe(
+        tight(own ?? '').replaceAll(';', ''),
+      )
+      expect(css).toContain(
+        `--animate-rune-${part}: rune-${part} 2s linear infinite;`,
+      )
+      expect(style).toContain(
+        `.${part}{animation:rune-${part} 2s linear -0.48s infinite}`,
+      )
+      expect(style).toContain(
+        `@keyframes rune-${part}{${LAUNCH_RUNE.keyframes[part]}}`,
+      )
+    },
+  )
+
+  it('glows as the design does at 144 pixels, 2 and 8 pixels wide, screened onto the stone', () => {
+    expect(style).toContain(
+      `mix-blend-mode:screen;filter:drop-shadow(0 0 2px ${LAUNCH_COLORS.glow}) drop-shadow(0 0 8px ${LAUNCH_COLORS.glow})`,
+    )
+  })
+
+  it('moves only for someone who hasn’t asked for less motion, who sees the rune lit and still', () => {
+    const animated = [...style.matchAll(/animation:rune-/g)]
+    const inMotion =
+      /@media \(prefers-reduced-motion:no-preference\)\{([^@]*)\}\n/.exec(style)
+
+    expect(animated).toHaveLength(3)
+    expect([
+      ...(inMotion?.[1] ?? '').matchAll(/animation:rune-/g),
+    ]).toHaveLength(3)
+    expect(style).toContain(
+      `@media (prefers-reduced-motion:reduce){.dot,.arcs path{opacity:${LAUNCH_RUNE.still}}}`,
+    )
+    expect(LAUNCH_RUNE.still).toBe(0.85)
+  })
+
+  it('has its words for a first page that can’t be reached, hidden until then, as an alert', () => {
+    const alert = page.querySelector('[role="alert"]')
+
+    expect(alert?.hasAttribute('hidden')).toBe(true)
+    expect(alert?.textContent).toBe(
+      'Sending Stone couldn’t be reached.It opens once you’re back online.Try again',
+    )
+    expect(alert?.querySelector('button')?.textContent).toBe('Try again')
+    // The second sentence is only for a device with no connection.
+    expect(style).toContain('#offline{display:none;')
+    expect(style).toContain('.offline #offline{display:block}')
+    // A phone on its side has the words beside the stone, where there's no room under it.
+    expect(style).toContain(
+      '@media (max-height:479px){#unreached{position:static;',
+    )
+  })
+})
+
+describe('the launch page’s script', () => {
+  it('opens your characters at once, in the launch page’s place, and says nothing', () => {
+    const { replace, words, body, fetch } = run()
+
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(replace).toHaveBeenCalledWith('/characters')
+    expect(words.hidden).toBe(true)
+    expect(body.className).toBe('')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['an iPhone’s Home Screen app', { standalone: true }],
+    ['an installed app, by its display mode', { displayMode: 'standalone' }],
+  ] as const)(
+    'registers the launch worker for the launch page alone in %s',
+    (_, device) => {
+      const { register, replace } = run(device)
+
+      expect(register).toHaveBeenCalledTimes(1)
+      expect(register).toHaveBeenCalledWith('/launch-worker.js', {
+        scope: '/launch',
+        updateViaCache: 'none',
+      })
+      expect(replace).toHaveBeenCalledWith('/characters')
+    },
+  )
+
+  it.each([
+    ['a browser’s tab', {}],
+    ['a browser’s window made full screen', { displayMode: 'fullscreen' }],
+    ['Safari’s own tab on an iPhone', { standalone: false }],
+  ] as const)(
+    'registers nothing in %s, and opens all the same',
+    (_, device) => {
+      const { register, replace } = run(device)
+
+      expect(register).not.toHaveBeenCalled()
+      expect(replace).toHaveBeenCalledWith('/characters')
+    },
+  )
+
+  it.each([
+    ['has no workers', { workers: false }],
+    ['refuses the worker', { workers: 'refused' }],
+    ['throws at the worker', { workers: 'throwing' }],
+  ] as const)(
+    'opens all the same in an installed app whose browser %s',
+    async (_, device) => {
+      const { replace, settle } = run({ standalone: true, ...device })
+      await settle()
+
+      expect(replace).toHaveBeenCalledWith('/characters')
+    },
+  )
+
+  it('says the first page couldn’t be reached once it has waited long enough, still waiting', () => {
+    const { timers, words, body, replace } = run()
+
+    expect(timers.map(({ after }) => after)).toEqual([LAUNCH_PATIENCE])
+    expect(LAUNCH_PATIENCE).toBe(15_000)
+    timers[0].run()
+
+    expect(words.hidden).toBe(false)
+    // Not the second sentence, and the rune still lighting: the device has a connection.
+    expect(body.className).toBe('')
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
+  it('on a device that says it has no connection, stays, dark and still, and says so', async () => {
+    const { replace, words, body, fetch, timers, settle } = run({
+      onLine: false,
+      server: 'unreachable',
+    })
+    await settle()
+
+    expect(replace).not.toHaveBeenCalled()
+    expect(words.hidden).toBe(false)
+    expect(body.className).toBe('offline')
+    // It asked the server once all the same, in case the device was wrong.
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledWith('/launch', {
+      method: 'HEAD',
+      cache: 'no-store',
+    })
+    expect(timers).toHaveLength(0)
+  })
+
+  it('opens at once where the device says it has no connection and the server answers', async () => {
+    const { replace, body, settle } = run({ onLine: false })
+    await settle()
+
+    expect(replace).toHaveBeenCalledWith('/characters')
+    expect(body.className).toBe('')
+  })
+
+  it.each([
+    ['Try again', 'again'],
+    ['the device coming back online', 'online'],
+  ])(
+    'on %s, stays as it is while the server still can’t be reached, and opens once it answers',
+    async (_, heardAs) => {
+      const { heard, replace, words, body, state, settle } = run({
+        onLine: false,
+        server: 'unreachable',
+      })
+      await settle()
+
+      heard[heardAs]()
+      await settle()
+
+      // The browser's own error page never takes the launch page's place.
+      expect(replace).not.toHaveBeenCalled()
+      expect(words.hidden).toBe(false)
+      expect(body.className).toBe('offline')
+
+      state.server = 'answers'
+      heard[heardAs]()
+      await settle()
+
+      expect(replace).toHaveBeenCalledTimes(1)
+      expect(replace).toHaveBeenCalledWith('/characters')
+      expect(body.className).toBe('')
+    },
+  )
+})
