@@ -320,15 +320,24 @@ async function rollLine(who, label) {
   await dialog.waitFor({ state: 'hidden' })
   return text
 }
-/** How many of the rolls behind the rolls' button, the latest and the earlier, have these words. */
+/**
+ * Whether anything was rolled, by the rolls behind the rolls' button: how many of them, the latest
+ * and the earlier, have these words (`listed`), and whether dice were tumbling there (`tumbled`).
+ * A roll is listed only as its dice land, seconds after the tap that threw them, its place saying
+ * "Rolling…" until then: so a look made sooner finds none of it, and this one waits for them to
+ * land, longer than the app lets them tumble (15 s) before it lists their roll all the same.
+ */
 async function rollsSaying(who, words) {
   const dialog = who.page.getByRole('dialog', { name: 'Your rolls' })
   await who.page.getByRole('button', { name: /^Your rolls/ }).click()
   await dialog.waitFor()
-  const count = await dialog.locator('[role="status"], li').filter({ hasText: words }).count()
+  const tumbling = async () => await dialog.getByText('Rolling…', { exact: true }).count() > 0
+  const tumbled = await tumbling()
+  if (tumbled) await until(async () => !(await tumbling()), 'the dice to land', 20_000).catch(() => {})
+  const listed = await dialog.locator('[role="status"], li').filter({ hasText: words }).count()
   await who.page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'hidden' })
-  return count
+  return { listed, tumbled }
 }
 /** The ways to roll a check, as its menu lists them, before whatever else its row offers there. */
 const ROLL_WAYS = ['Roll with advantage', 'Roll with disadvantage', 'Modify roll…']
@@ -958,10 +967,14 @@ async function putInOrder() {
   let tapped = await tapMove(menu, 'Move up')
   let now = await kept(swapped, 'Stealth above his slots')
   made = tapped ? await moved(sentBefore + 1, 'Stealth moved up in Foundry') : null
+  // Nothing rolled. The POSTs alone can't say so where the game takes no rolls, as in the plain run
+  // since part 11 turned them off ("Only you see these rolls for now"): a roll there is only on the
+  // page, behind its rolls' button once its dice have landed. The phone, opened for this part, has
+  // thrown none before.
   const rolled = await rollsSaying(small, 'Stealth check')
   check(same(now.shown, ['Ki', ...swapped]) && made?.status === 'done' && made.payload.favorite.order.map(keyOf)[slotsAt] === 'skill:ste' && same(now.foundry, swapped)
-    && smallPosts.length === 1 && smallPosts[0]?.kind === 'favorite' && rolled === 0,
-  `Move up puts Stealth above his slots at once, made as an order with skill:ste there, and Foundry's actor keeps it; nothing rolled: the phone's one POST a favorite's, no "Stealth check" among its rolls (${JSON.stringify({ shown: now.shown.slice(0, slotsAt + 3), made: made?.status, reason: made?.result?.reason, posts: smallPosts.map(post => post?.kind), rolled })})`)
+    && smallPosts.length === 1 && smallPosts[0]?.kind === 'favorite' && rolled.listed === 0 && !rolled.tumbled,
+  `Move up puts Stealth above his slots at once, made as an order with skill:ste there, and Foundry's actor keeps it; nothing rolled: the phone's one POST a favorite's, no dice tumbling and no "Stealth check" among its rolls (${JSON.stringify({ shown: now.shown.slice(0, slotsAt + 3), made: made?.status, reason: made?.result?.reason, posts: smallPosts.map(post => post?.kind), rolled })})`)
   // Held by its name's own element: at 390 the row's middle can lie on its dots, which are their own.
   const slotsName = panelRow(small, '1st Level').getByText('1st Level', { exact: true })
   await slotsName.evaluate(el => el.scrollIntoView({ block: 'center' }))
