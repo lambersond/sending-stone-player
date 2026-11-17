@@ -536,6 +536,47 @@ describe('the launch page’s script', () => {
     expect(waiting()).toEqual([LAUNCH_PATIENCE])
   })
 
+  it('a Try again that fails while the first ask back online is on its way doesn’t call the asks again off', async () => {
+    const {
+      backOnline,
+      heard,
+      slow,
+      pass,
+      state,
+      replace,
+      words,
+      body,
+      fetch,
+      waiting,
+      settle,
+    } = run({ onLine: false, server: 'slow' })
+    slow[0].fail()
+    await settle()
+
+    // Back online, its ask on its way; Try again's meanwhile; then neither answered.
+    backOnline()
+    heard.again()
+    expect(slow).toHaveLength(3)
+    slow[1].fail()
+    await settle()
+    slow[2].fail()
+    await settle()
+
+    expect(replace).not.toHaveBeenCalled()
+    expect(body.className).toBe('staying')
+    expect(words.hidden).toBe(false)
+    // It carries on asking again, as it would have without the tap.
+    expect(waiting()).toEqual([1000])
+
+    state.server = 'answers'
+    pass()
+    await settle()
+
+    expect(fetch).toHaveBeenCalledTimes(4)
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
+  })
+
   it('while it waits to ask again, a Try again that’s answered opens once, and asks no more', async () => {
     const { backOnline, heard, state, replace, fetch, waiting, settle } = run({
       onLine: false,

@@ -18,7 +18,7 @@
 // installed app keeps opening there.
 const LAUNCH = '/launch'
 const PREFIX = 'sending-stone-launch-'
-const CACHE = `${PREFIX}52d7be6451ae`
+const CACHE = `${PREFIX}07b0454347d6`
 
 /** Whether a response is the launch page as the server sends it, and so may be kept. */
 const isLaunchPage = response =>

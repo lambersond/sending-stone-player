@@ -36,7 +36,8 @@ const text = (value: string) => JSON.stringify(value)
  * the device coming back online, first ask whether the server answers, and only then open, so that
  * the browser's own error page never takes this page's place while there's still no connection.
  * Coming back online, it asks again a few times before it waits for Try again, as a connection can
- * be a moment from working; a Try again that fails meanwhile doesn't call those asks off.
+ * be a moment from working. Those asks are counted from the device coming back, not by whoever
+ * asked: a Try again that fails meanwhile, even while an ask is on its way, carries them on.
  *
  * What the page says always fits where it stands. Each opening hides the words and waits afresh,
  * so nothing is said while the first page is on its way. "It opens once you're back online." is
@@ -45,14 +46,14 @@ const text = (value: string) => JSON.stringify(value)
  * for the first page, or the next ask.
  */
 const HANDOVER = `(function(){
-var words=document.getElementById('unreached'),waits=${JSON.stringify(LAUNCH_ASK_AGAIN)},timer,asked=0
+var words=document.getElementById('unreached'),waits=${JSON.stringify(LAUNCH_ASK_AGAIN)},timer,asked=0,again=waits.length
 function later(work,after){clearTimeout(timer);timer=setTimeout(work,after)}
 function open(){document.body.className='';words.hidden=true;later(function(){words.hidden=false},${LAUNCH_PATIENCE});location.replace(${text(LAUNCH_NEXT)})}
 function stay(){document.body.className=navigator.onLine===false?'staying offline':'staying';words.hidden=false}
-function ask(tries){var mine=++asked;fetch(${text(LAUNCH_PATH)},{method:'HEAD',cache:'no-store'}).then(function(){if(mine===asked)open()},function(){if(mine!==asked)return;stay();if(tries<waits.length&&navigator.onLine!==false)later(function(){ask(tries+1)},waits[tries])})}
+function ask(){var mine=++asked;fetch(${text(LAUNCH_PATH)},{method:'HEAD',cache:'no-store'}).then(function(){if(mine===asked)open()},function(){if(mine!==asked)return;stay();if(again<waits.length&&navigator.onLine!==false)later(function(){again++;ask()},waits[again])})}
 try{if('serviceWorker' in navigator&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches))navigator.serviceWorker.register(${text(LAUNCH_WORKER)},{scope:${text(LAUNCH_PATH)},updateViaCache:'none'}).catch(function(){})}catch(e){}
 document.getElementById('again').addEventListener('click',function(){ask()})
-addEventListener('online',function(){ask(0)})
+addEventListener('online',function(){again=0;ask()})
 if(navigator.onLine===false){stay();ask()}
 else open()
 })()`
