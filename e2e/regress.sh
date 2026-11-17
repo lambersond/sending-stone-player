@@ -248,3 +248,12 @@ run help 4 DND5E6=1 SHOTS=$O/shots-help
 # that doesn't come in 15 seconds; reduced motion; a light device and a dark one; an older worker
 # replaced, the retiring worker, an iPhone's Home Screen app.
 run launch 28 SHOTS=$O/shots-launch
+# Module 0.48.0 (items 67 and 68): coins added to a character, taken away and handed out from the
+# app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's three
+# buttons, a larger coin broken and smaller ones paying, more than the coins are worth held back,
+# other coins off in Foundry, the Gamemaster's at the character's page, a hand-out's whispers to each
+# and to the Gamemasters, both switches off, both dialogs on phones, a tablet and the desk, Help and
+# the campaign card; dnd5e 6.0.5; and module 0.47.0 (no button but Send to, crafted requests refused).
+run coins 43 SHOTS=$O/shots-048
+run coins 43 DND5E6=1 SHOTS=$O/shots-048
+run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-048

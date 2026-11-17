@@ -183,8 +183,9 @@ const boxOf = locator => locator.evaluate(el => {
 part('1. the hello and the answer')
 {
   const features = hello().data.features
-  check(same(features.hitPoints, { enabled: true, kinds: ['hitPoints'], reason: null }) && Object.keys(features).at(-1) === 'hitPoints',
-    `the hello takes hit points, on for a campaign saved without the switch, last among its features, rolls off (${JSON.stringify({ hitPoints: features.hitPoints, rolls: features.rolls?.enabled, keys: Object.keys(features) })})`)
+  // Changed on purpose (items 67 and 68): coins, from module 0.48.0, follow hit points.
+  check(same(features.hitPoints, { enabled: true, kinds: ['hitPoints'], reason: null }) && same(Object.keys(features).slice(-2), ['hitPoints', 'coins']),
+    `the hello takes hit points, on for a campaign saved without the switch, after Wild Shape and before coins, rolls off (${JSON.stringify({ hitPoints: features.hitPoints, rolls: features.rolls?.enabled, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.hitPoints === 1, `the app answers hitPoints: 1 (${hello().body})`)
   await until(() => hitPointsEnabled() === 't', 'the app to keep hit points on', 15_000)
   check(hitPointsEnabled() === 't' && sql(`select "rollsEnabled" from campaign where id = '${A}'`) === 'f', 'the campaign row keeps hitPointsEnabled on, the rolls off')

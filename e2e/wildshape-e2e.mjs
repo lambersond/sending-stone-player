@@ -387,8 +387,9 @@ if (SKEW039) {
 part('1. the hello and the answer')
 {
   const features = hello().data.features
+  // Changed on purpose (items 67 and 68): and coins added and taken away follow hit points (module 0.48.0).
   check(same(features.wildShape, { enabled: true, kinds: ['wildShape'], reason: null })
-    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints']),
+    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins']),
   `the hello takes Wild Shape, by the campaign's switch, after effects, before hit points (module 0.44.0) (${JSON.stringify({ wildShape: features.wildShape, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.wildShape === 1, `the app answers wildShape: 1 (${hello().body})`)
   await until(() => wildShapeEnabled() === 't', 'the app to keep Wild Shape on', 15_000)
