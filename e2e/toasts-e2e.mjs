@@ -497,8 +497,9 @@ const unforce = page => page.evaluate(() => { if (globalThis.__random) Math.rand
 /** Each accent's colour in the theme, as the page has it. */
 const ACCENT_VAR = { warning: '--color-warning', gold: '--color-gold', ruby: '--color-ruby', damage: '--color-damage', primary: '--color-primary' }
 /**
- * How a toast looks: its edge, border, shadow, badge, title and lines as computed; and its colours as
- * drawn, a pixel of its left edge and one of the card just inside its top edge, at the right.
+ * How a toast looks: its edge, border, shadow, badge, title and lines as computed; its colours as
+ * drawn, a pixel of its left edge and one of the card just inside its top edge, at the right; and
+ * whether it was fading as it was photographed.
  */
 async function lookOf(page, toast) {
   await toast.evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)))
@@ -524,6 +525,10 @@ async function lookOf(page, toast) {
     }
   }, ACCENT_VAR)
   const png = await toast.screenshot({ animations: 'disabled' })
+  // A toast fades for the last 200 ms of its 4 s, and Playwright finishes a fade it meets, or one
+  // that starts as it photographs, at once: such a photograph shows the page behind the toast.
+  // Not fading once the photograph is taken, it wasn't while it was.
+  const fading = await toast.evaluate(el => el.dataset.leaving === 'true', undefined, { timeout: 1_000 }).catch(() => true)
   const [edgePixel, tintPixel] = await page.evaluate(async ({ data, points, width }) => {
     const image = new Image()
     image.src = `data:image/png;base64,${data}`
@@ -536,25 +541,30 @@ async function lookOf(page, toast) {
     const scale = image.width / width
     return points.map(([x, y]) => [...drawn.getImageData(Math.round(x * scale), Math.round(y * scale), 1, 1).data].slice(0, 3))
   }, { data: png.toString('base64'), points: [[2, style.box.height / 2], [style.box.width - 28, 4]], width: style.box.width })
-  return { ...style, edgePixel, tintPixel }
+  return { ...style, edgePixel, tintPixel, fading }
 }
 /**
  * What of the bold card a toast's look lacks, at this width: a 4-pixel edge in its accent, drawn so; a
  * light tint of it over the card, drawn so; a faint border of it; the large shadow; the tray's badge,
  * a bold title, and its lines at text-sm; full width but for the gutters on a phone, max-w-md wider.
+ * A toast photographed as it faded is drawn clear, so its colours as drawn aren't read: that it was
+ * photographed too late is said in their place.
  */
 function unlike(look, width) {
   const bad = []
   const near = (a, b, by) => a.every((v, i) => Math.abs(v - b[i]) <= by)
   if (look.edge !== '4px' || !near(look.edgeRgb, look.accentRgb, 1)) bad.push(`edge ${look.edge} ${look.edgeRgb} not ${look.accentRgb}`)
-  if (!near(look.edgePixel, look.accentRgb, 8)) bad.push(`edge drawn ${look.edgePixel}`)
-  // How far the card's colour is drawn towards the accent's, and how far off that line.
-  const towards = look.accentRgb.map((v, i) => v - look.cardRgb[i])
-  const moved = look.tintPixel.map((v, i) => v - look.cardRgb[i])
-  const length = towards.reduce((sum, v) => sum + v * v, 0)
-  const t = moved.reduce((sum, v, i) => sum + v * towards[i], 0) / length
-  const off = Math.sqrt(moved.reduce((sum, v, i) => sum + (v - t * towards[i]) ** 2, 0))
-  if (!(t >= 0.05 && t <= 0.25 && off <= 8)) bad.push(`tint drawn ${look.tintPixel}: ${t.toFixed(3)} of the way from the card ${look.cardRgb} to ${look.accentRgb}, ${off.toFixed(1)} off`)
+  if (look.fading) bad.push('photographed as it faded, too late to read its colours as drawn')
+  else {
+    if (!near(look.edgePixel, look.accentRgb, 8)) bad.push(`edge drawn ${look.edgePixel}`)
+    // How far the card's colour is drawn towards the accent's, and how far off that line.
+    const towards = look.accentRgb.map((v, i) => v - look.cardRgb[i])
+    const moved = look.tintPixel.map((v, i) => v - look.cardRgb[i])
+    const length = towards.reduce((sum, v) => sum + v * v, 0)
+    const t = moved.reduce((sum, v, i) => sum + v * towards[i], 0) / length
+    const off = Math.sqrt(moved.reduce((sum, v, i) => sum + (v - t * towards[i]) ** 2, 0))
+    if (!(t >= 0.05 && t <= 0.25 && off <= 8)) bad.push(`tint drawn ${look.tintPixel}: ${t.toFixed(3)} of the way from the card ${look.cardRgb} to ${look.accentRgb}, ${off.toFixed(1)} off`)
+  }
   const alpha = Number(/\/\s*([\d.]+)\)$/.exec(look.border)?.[1] ?? /rgba\(.*,\s*([\d.]+)\)$/.exec(look.border)?.[1] ?? 1)
   if (!(alpha > 0 && alpha <= 0.5)) bad.push(`border ${look.border}`)
   if (!look.shadow.includes('0px 25px 50px -12px')) bad.push(`shadow ${look.shadow}`)
@@ -1430,12 +1440,14 @@ const gmView = await open({ width: 768, height: 1024, path: `/campaigns/${CAMPAI
   const views = [['on a phone', phone, 'your Gamemaster’s game'], ['on a tablet, dark', tablet, 'your Gamemaster’s game'], ["on the Gamemaster's page", gmView, 'your game']]
   const quiet = []
   const quietIds = []
+  const quietRows = []
   for (const [where, { page, sheet }, game] of views) {
     const count = requests()
     await watchToasts(page)
     const before = await toastIds(page)
     await sheet.getByRole('button', { name: /^Intelligence check/ }).click()
     await until(() => requests() > count, `the unfetched roll ${where} to be sent`)
+    quietRows.push(latestRequest().id)
     const toast = await popped(page, 'Intelligence check', before)
     await until(async () => (await readToast(toast)).table === `Sending to ${game}…`, `the toast ${where} to say it is on its way`, 5_000)
     quiet.push(toast)
@@ -1450,8 +1462,15 @@ const gmView = await open({ width: 768, height: 1024, path: `/campaigns/${CAMPAI
       `${where}, a roll the game hasn't picked up shows "Sending to ${game}…", and goes after ${Math.round(left?.at - shown?.at)} ms${left && shown ? '' : ` (${changes(samples)})`}`)
     await watchToasts(page)
   }
-  sql(`update roll_request set "createdAt" = now() - interval '31 seconds' where status = 'pending'`)
+  // Given up one page at a time, each toast looked at as it pops up again: it shows for 4 s, and a
+  // look, a photograph among its steps, takes a while. All three given up at once, the second and
+  // third were looked at seconds into their 4, and the tablet's was once photographed as it faded
+  // (ROADMAP item 71). The rolls still to be given up are kept from running out by themselves
+  // meanwhile, 30 s after they were sent.
   for (const [index, [where, { page }, game]] of views.entries()) {
+    const later = quietRows.slice(index + 1).map(id => `'${id}'`).join(', ')
+    if (later) sql(`update roll_request set "createdAt" = now() where id in (${later})`)
+    sql(`update roll_request set "createdAt" = now() - interval '31 seconds' where id = '${quietRows[index]}'`)
     const toast = quiet[index]
     await toast.waitFor({ timeout: 15_000 })
     await until(async () => (await readToast(toast)).table?.startsWith(`Not made at the table: ${game} didn’t pick it up`), `the toast ${where} to say it was given up`, 5_000)
@@ -1465,6 +1484,9 @@ const gmView = await open({ width: 768, height: 1024, path: `/campaigns/${CAMPAI
   const gmToasts = []
   for (const [index, [where, { page }]] of views.entries()) {
     await quiet[index].waitFor({ state: 'detached', timeout: 6_000 })
+    // The players' pages are told of the Gamemaster's check by its status: given up last, it pops up
+    // there a moment after its own page's.
+    if (index < 2) await until(() => page.evaluate(() => globalThis.__toastSamples.some(s => s.ids.some((id, at) => id.startsWith('gm:') && s.tables[at].startsWith('Not made at the table')))), `the Gamemaster's check, given up, to pop up ${where}`, 15_000)
     const samples = await stopWatching(page)
     const again = samples.find(s => s.ids.includes(quietIds[index]))
     const goneAgain = samples.find(s => again && s.at > again.at && !s.ids.includes(quietIds[index]))

@@ -246,6 +246,10 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the
     Gamemaster's leaving gives the fetch up, `fetchesNoted()` comes first, with no other await
     between it and `gmAway()`.
+  - A roll's toast shows for 4 s and fades for its last 200 ms, and Playwright's
+    `animations: 'disabled'` finishes a fade at once: a toast photographed then is drawn clear.
+    `lookOf` (`toasts-e2e.mjs`) says so, and toasts brought up on several pages are brought up,
+    and looked at, one page at a time.
 - **The launch page leaves as it is read** (v0.48.0, `launch-e2e.mjs`): its own script hands over to
   your characters at once, so the document never says it has loaded. Open `/launch` with
   `waitUntil: 'commit'`, and never wait for its load. While the suite holds its first page by a
