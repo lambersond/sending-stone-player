@@ -96,8 +96,8 @@ const GAME_WORDS = 'your Gamemaster’s game'
  * What a page of Alice's records of itself, on the page and in its own time: the device's buzzes,
  * its posts of rolls with the app's answers, the turn's toast cards as they show, change and go, the
  * presses with the drawn fill of the tab pressed each frame, context menus, clicks, the turn
- * panel's heading and End turn as they change, and its reads of the table as each is answered.
- * Its own fetch stays for the suite's own requests.
+ * panel's heading and End turn as they change, and its reads of the table as each is answered,
+ * with whose turn the answer says it is. Its own fetch stays for the suite's own requests.
  */
 const INSTRUMENT = () => {
   const now = () => performance.now()
@@ -121,8 +121,16 @@ const INSTRUMENT = () => {
       }
     } catch {}
     const made = original.apply(this, arguments)
-    // A read of the table, stamped as its answer arrives, before the page has it.
-    if (read) made.then(() => { e2e.reads.push({ t: now() }) }).catch(() => {})
+    // A read of the table, stamped as its answer arrives, before the page has it; and, once a copy
+    // of the answer is read, whose turn it says it is, by the combatant's id: none where the answer
+    // brought nothing new, or no turn.
+    if (read) {
+      made.then(response => {
+        const stamp = { t: now(), turn: null }
+        e2e.reads.push(stamp)
+        if (response.status === 200) response.clone().json().then(json => { stamp.turn = json?.combat?.currentId ?? null }).catch(() => {})
+      }).catch(() => {})
+    }
     if (record) {
       made.then(response => {
         record.status = response.status
@@ -546,13 +554,17 @@ part('3. undo')
   // start before the heading's record is written here: the turn's toast goes in the same render,
   // a layout effect of it sets state, and React then starts the countdown before the browser hands
   // the observer its record; what the page does until then came off the time measured (578 ms
-  // once, under load). So "no sooner" is counted from the read of the table that brought the turn,
-  // the last to arrive before the record, which is never after that render; "no later" from the
-  // record, as before.
-  const read = after.reads.findLast(r => r.t <= back.t)
-  const sinceRead = offered && read ? offered.t - read.t : NaN
-  check(!!offered && sinceRead >= 599 && offered.t - back.t <= 900 && taken.gone !== null && taken.gone <= back.t + 200,
-    `the panel "Your turn" again, the toast gone; End turn offered ${offered ? Math.round(offered.t - back.t) : '?'} ms after the panel shows the turn, ${Math.round(sinceRead)} ms after the page read it (600 ms)`)
+  // once, under load). So "no sooner" is counted from the read of the table that brought the turn:
+  // the first since Undo whose answer says the turn is Thorin's, which is never after that render,
+  // and which has to have arrived before the record, or the turn came some other way and no read
+  // is counted from. From the record the time is held to 300 ms either side of the 600: later is
+  // a late timer, as before; sooner, a countdown begun that long before the turn was drawn, which
+  // the read alone would let through.
+  const read = after.reads.find(r => r.turn === 'cbThorin')
+  const sinceRead = offered && read && read.t <= back.t ? offered.t - read.t : NaN
+  const sinceShown = offered ? offered.t - back.t : NaN
+  check(sinceRead >= 599 && sinceShown >= 300 && sinceShown <= 900 && taken.gone !== null && taken.gone <= back.t + 200,
+    `the panel "Your turn" again, the toast gone; End turn offered ${offered ? Math.round(sinceShown) : '?'} ms after the panel shows the turn, ${Number.isNaN(sinceRead) ? '?' : Math.round(sinceRead)} ms after the page read it (600 ms)`)
 }
 
 // =================================================================================================

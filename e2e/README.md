@@ -228,14 +228,17 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
   `waitFor()` on it, then `isVisible()`, `count()` or a time the page writes in once hydrated. The
   words a skeleton shows are hidden from `getByRole`, but `getByText` finds them. gm, gmerr and
   late-setup read pages straight after the navigation, and wait.
-- **Looks that came a moment early** (v0.48.0), and the waits that settle them:
+- **Moments the suites had wrong under load** (v0.48.0), and what settles each:
   - A menu or popover takes focus a frame after it shows: floating-ui focuses it from the next
     animation frame. `focusInside(locator)` (`world-030.mjs`) waits until focus is in it, or 5 s
     on, for the check after it to say where focus is.
   - A time counted in the page starts where the page's own does. endturn's records are written
     by a MutationObserver, which can run after the effect that starts End turn's 600 ms: "no
-    sooner" is counted from the read of the table that brought the turn, "no later" from the
-    record. So a countdown short by less than the page takes from that read to its draw passes.
+    sooner" is counted from the read of the table that brought the turn, the first whose answer
+    says the turn is the character's, and that read has to arrive before the record. From the
+    record the time is held to 300 ms either side of the 600. So a countdown short by less than
+    the page takes from that read to its draw passes, but never End turn offered sooner than
+    300 ms after the record.
   - `stopFetching({ age })` first lets a fetch under way reach the app, which notes a fetch as
     it takes it in, given up on or not: one given up on before that would be noted after the
     ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the
