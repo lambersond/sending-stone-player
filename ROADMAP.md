@@ -94,10 +94,15 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     loop are no longer needed for that: `findLink`'s two `import()` in `command-links.mjs` could be
     plain imports, and the hello could read the open dice asks by a plain import in place of the
     slot `later-dice.mjs` fills (`registerDiceAsks` in `dice-plan.mjs`). And the guard,
-    `test/import-layers.mjs`, reads only `.mjs` files under `scripts/` and the forms of import
-    Node 22 reads (`import defer` and `import source` are to be tried again when `.nvmrc` moves),
-    and doesn't check two rules the module's `CLAUDE.md` keeps by review alone: state written in
-    one script, and nothing run as a script loads outside `module.mjs`.
+    `test/import-layers.mjs`, reads text, not syntax, and its header says what that costs. It
+    reads only `.mjs` files under `scripts/` and the forms of import Node 22 reads (`import defer`
+    and `import source` are to be tried again when `.nvmrc` moves). It fails on some text that
+    imports nothing, such as an import spelt out in a comment or a JSDoc type, or `import's`
+    before a later apostrophe on its line, which is answered by rewording the text. A failure can
+    name the line of a comment above the import it means. Its time grows as the square of the text
+    in three ways, none near the module's scripts (all 77 take 0.04 seconds), one with a fix tried
+    and not taken. And it doesn't check two rules the module's `CLAUDE.md` keeps by review alone:
+    state written in one script, and nothing run as a script loads outside `module.mjs`.
 70. **e2e's help header check under load:** part 1 of `e2e/help-e2e.mjs`, plain, "the header's ?
     sits after Live and before Full screen", failed once under three lanes' load in the full e2e
     pass made for item 24, 2 seconds in, and passed alone (28 of 28): the header's buttons read
@@ -105,6 +110,14 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     once the page has hydrated (`useFullscreen` answers false until then), and the check reads the
     header as soon as the sheet is ready; it should wait for the button. Of a kind with items 41,
     42 and 57, and in no batch yet.
+71. **e2e's toasts colour check under load:** in `e2e/toasts-e2e.mjs`, plain, "on a tablet, dark,
+    given up by the app, it pops up again … the bold card in the warning's colours" failed once,
+    142 of 149, in the second full e2e pass made for item 24, and passed on its retry (149 of 149).
+    The suite runs alone on its lane, but other work was running on the machine. The tint it read
+    was darker than the card itself, where it wants it part of the way to the warning's colour.
+    Likely, from the numbers and not proven: the check reads the toast's look as soon as its words
+    are there, while it is still popping up; it could wait for the toast to settle. In no batch
+    yet.
 
 **Moved up from v1.x**
 

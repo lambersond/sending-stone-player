@@ -72,7 +72,8 @@ so an item from it is named with its number when it was built, which may since b
   v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
   taken away and handed out from the sheet (items 67 and 68). v1.x keeps critical hit options and
   gains inactive characters. Batch 1, item 24, reads as done; item 69 is what it left for later,
-  and item 70 an e2e check that failed once under load in its full pass. (app)
+  and items 70 and 71 are two e2e checks that each failed once under load in its full passes.
+  (app)
 
 ## v0.47.0 — 2026-11-12
 
