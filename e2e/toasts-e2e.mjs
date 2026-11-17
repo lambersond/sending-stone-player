@@ -527,8 +527,10 @@ async function lookOf(page, toast) {
   const png = await toast.screenshot({ animations: 'disabled' })
   // A toast fades for the last 200 ms of its 4 s, and Playwright finishes a fade it meets, or one
   // that starts as it photographs, at once: such a photograph shows the page behind the toast.
-  // Not fading once the photograph is taken, it wasn't while it was.
-  const fading = await toast.evaluate(el => el.dataset.leaving === 'true', undefined, { timeout: 1_000 }).catch(() => true)
+  // Not fading once the photograph is taken, it wasn't while it was; gone by then, it's taken as
+  // faded. Read as soon as the page answers, with no wait for the toast: a wait with a timeout
+  // would take a page busy past it for a fade.
+  const fading = await toast.evaluateAll(els => !els[0] || els[0].dataset.leaving === 'true')
   const [edgePixel, tintPixel] = await page.evaluate(async ({ data, points, width }) => {
     const image = new Image()
     image.src = `data:image/png;base64,${data}`
