@@ -1246,8 +1246,11 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     jest.restoreAllMocks()
   })
 
-  /** The strip, inside a pane that offers favorites and takes orders, each order saved as given. */
-  const renderOrdering = () => {
+  /**
+   * The strip of these favorites, inside a pane that offers favorites and takes orders, each order
+   * saved as given.
+   */
+  const renderOrdering = (favorites: SheetFavorite[] = sheetFavorites()) => {
     const save = jest.fn()
     const offering = offeringFavorites([
       'item:warhammer',
@@ -1259,7 +1262,7 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
         value={offering.value}
         ordering={{ on: true, arrange: entries => entries, save }}
       >
-        <FavoritesStrip {...propsFor(withFavorites())} />
+        <FavoritesStrip {...propsFor(withFavorites(favorites))} />
       </Favoriting>,
     )
     return save
@@ -1378,6 +1381,24 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     expect(
       fireEvent.contextMenu(rowOf('Superiority Dice'), { button: 2 }),
     ).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  // One favorite alone that moves has nowhere to go, so nothing is offered of it: here spell slots
+  // beside an old-style resource, which never moves.
+  it('offers no Reorder, and spell slots no menu, on a row that takes no focus, where they alone among them may move', () => {
+    renderOrdering(
+      sheetFavorites().filter(
+        ({ type }) => type === 'resource' || type === 'slots',
+      ),
+    )
+    expect(rows()).toHaveLength(2)
+    expect(
+      screen.queryByRole('button', { name: 'Reorder favorites' }),
+    ).toBeNull()
+    const row = rowOf('1st Level')
+    expect(row).not.toHaveAttribute('tabindex')
+    expect(fireEvent.contextMenu(row, { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
   })
 })
