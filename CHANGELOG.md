@@ -54,10 +54,26 @@ so an item from it is named with its number when it was built, which may since b
   the outlines above replaced it on all five. No page shows it now. It stays in the app
   (`src/components/loading-stone`) for the installed app's launch (ROADMAP item 56) and perhaps to
   lie over the outlines later. (app)
+- **The module's scripts no longer import one another in a loop.** 54 of the module's 72 scripts
+  imported one another in one loop, through 296 imports (ROADMAP item 24 counted 44 when it was
+  found). Ninety declarations moved, their text unchanged, to scripts that those which use them can
+  import without the loop, five of them new (`bridge-role.mjs`, `command-checks.mjs`,
+  `command-links.mjs`, `dnd5e-generation.mjs` and `wild-shape-hooks.mjs`); and in five places a
+  script is now handed a function as the module loads, where it used to import a script built on
+  it. The 77 scripts stand in seven layers, each importing only from its own layer or a lower one,
+  and `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop, on an import
+  up the layers and on a script in no layer. The module has a `CLAUDE.md` of its own: the layers,
+  what to do when a lower script needs something of a higher one, and the standing rules for
+  whoever changes it next. Nothing the module sends, takes or shows changes, and no module version
+  comes of it: the harness's 115 runs end as they did before, line for line, and the app's 125 e2e
+  runs pass against it. (module, item 24)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
   kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
-  v1.x's items but critical hit options join it as items 58 to 66, so v1.x keeps only critical hit
-  options. (app)
+  v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
+  taken away and handed out from the sheet (items 67 and 68). v1.x keeps critical hit options and
+  gains inactive characters. Batch 1, item 24, reads as done; item 69 is what it left for later,
+  and items 70 and 71 are two e2e checks that each failed once under load in its full passes.
+  (app)
 
 ## v0.47.0 — 2026-11-12
 

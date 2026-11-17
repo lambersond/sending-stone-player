@@ -60,10 +60,11 @@ All the work planned before v1.0, by number, kept under where each item came fro
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
 tweaks needed may change it as it goes. Next week aims at the first three.
 
-1. Item 24, the module's import cycle.
-2. Items 56, 47, 41, 42, 57, 23 and 29: the stone as the installed app opens, Move up and Move
-   down for every favorite, the three e2e races under load, Midi-QOL's reaction checks, and
-   effects carried back from Wild Shape.
+1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
+2. Items 56, 47, 41, 42, 57, 23, 29, 67 and 68: the stone as the installed app opens, Move up
+   and Move down for every favorite, the three e2e races under load, Midi-QOL's reaction checks,
+   effects carried back from Wild Shape, and coins added, taken away and handed out from the
+   sheet.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -79,12 +80,44 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
     `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
     dice, as it now does Midi's check as a use from the app begins.
-24. **The module's import cycle:** 44 of the module's `scripts/` files (`bridge.mjs`,
-    `commands.mjs`, `transport.mjs`, `chat-data.mjs`, `creatures.mjs`, `midi-prompts.mjs`,
-    `command-rolls.mjs` and others) already imported one another in one loop before the later dice,
-    and `later-dice.mjs` joins it through them, though `bridge.mjs` no longer imports it. No
-    top-level code depends on the loop; untangling it is a refactor of modules older than the later
-    dice.
+
+**Found while untangling the module's imports**
+
+69. **Left over from the module's import cycle:** small things item 24 left as they were, as it
+    moved code without rewriting it; none changes what the module does, and none is in a batch
+    yet. `summarizeCharacter` (`character-sync.mjs`) is called by nothing and could go. Twenty
+    names are still exported that nothing outside their own script reads now: eleven kinds' checks
+    and `isKey`, `isOptional` and `isRolled` in `command-rolls.mjs`, and `castFromItem`,
+    `dnd5eEnchant`, `midiEnchantNow`, `workflowSettled`, `currentTargets` and `setTargets` in
+    `command-uses.mjs`, which also imports two names it never uses (`DND5E_ACTIVITIES` and
+    `ownDamageConfig`, unused before the move too). Two things made to keep a script out of the
+    loop are no longer needed for that: `findLink`'s two `import()` in `command-links.mjs` could be
+    plain imports, and the hello could read the open dice asks by a plain import in place of the
+    slot `later-dice.mjs` fills (`registerDiceAsks` in `dice-plan.mjs`). And the guard,
+    `test/import-layers.mjs`, reads text, not syntax, and its header says what that costs. It
+    reads only `.mjs` files under `scripts/` and the forms of import Node 22 reads (`import defer`
+    and `import source` are to be tried again when `.nvmrc` moves). It fails on some text that
+    imports nothing, such as an import spelt out in a comment or a JSDoc type, or `import's`
+    before a later apostrophe on its line, which is answered by rewording the text. A failure can
+    name the line of a comment above the import it means. Its time grows as the square of the text
+    in three ways, none near the module's scripts (all 77 take 0.04 seconds), one with a fix tried
+    and not taken. And it doesn't check two rules the module's `CLAUDE.md` keeps by review alone:
+    state written in one script, and nothing run as a script loads outside `module.mjs`.
+70. **e2e's help header check under load:** part 1 of `e2e/help-e2e.mjs`, plain, "the header's ?
+    sits after Live and before Full screen", failed once under three lanes' load in the full e2e
+    pass made for item 24, 2 seconds in, and passed alone (28 of 28): the header's buttons read
+    status, Help and Delete Thorin, with no Full screen yet. The Full screen button is drawn only
+    once the page has hydrated (`useFullscreen` answers false until then), and the check reads the
+    header as soon as the sheet is ready; it should wait for the button. Of a kind with items 41,
+    42 and 57, and in no batch yet.
+71. **e2e's toasts colour check under load:** in `e2e/toasts-e2e.mjs`, plain, "on a tablet, dark,
+    given up by the app, it pops up again … the bold card in the warning's colours" failed once,
+    142 of 149, in the second full e2e pass made for item 24, and passed on its retry (149 of 149).
+    The suite runs alone on its lane, but other work was running on the machine. The tint it read
+    was darker than the card itself, where it wants it part of the way to the warning's colour.
+    Likely, from the numbers and not proven: the check reads the toast's look as soon as its words
+    are there, while it is still popping up; it could wait for the toast to settle. In no batch
+    yet.
 
 **Moved up from v1.x**
 
@@ -206,6 +239,39 @@ And from the owner's answers on item 19, later work too:
     nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
     read row by row, so one bad row can't blank a whole sheet. App and module, small.
 
+**Asked for on 2026-11-14**
+
+67. **Coins added and taken away from the sheet:** a player adds coins to their character or takes
+    them away, from the inventory's coins, without going to Foundry. The owner: "As a player
+    character, I want to be able to add/remove coins from my inventory so that I do not need to
+    go to the foundry to add/remove coins from my character", and as the Gamemaster, "for when a
+    player goes to a store to buy or sell items, gets food/drink at the tavern, or performs at
+    the tavern and earns some coin. I want to be able to just tell them to add/remove an amount,
+    and they can do it." Today the app shows each coin and moves coins between a character and a
+    party or another character (module 0.31.0's `transfer`), but nothing adds or removes them.
+    It needs a new command the module answers by changing the character's coins, behind a
+    feature it announces in its hello, and in the app an amount of each coin to add or take
+    away. The owner's answers (2026-11-14): each change posts a chat line in Foundry, "Thorin
+    paid 5 gp" or "Thorin received 5 gp"; taking more of a coin than the character holds breaks
+    a larger coin by default, and a new module setting lets the Gamemaster forbid that, when
+    such a change is refused; companions are left out, as none is known to carry coins.
+68. **Coins handed out to the party from a character:** a player picks fellow characters and the
+    amount each gets, and the app shows the total to be given before it's sent, then moves it
+    from the player's own coins, refused where they haven't that much. The owner: "As a player
+    character, I want to easily distribute coins to my fellow party members from my inventory so
+    that I don't have to do math or weird workarounds. The scenario was that the player wanted to
+    give 200 PP to each player by selecting the players and setting the coin amount each player
+    should get. Text should display the total amount to be given." Today a character gives coins
+    to one other character or a party at a time, and only a party's coin is shared among its
+    characters, all of one coin split evenly (module 0.32.0's `among`). It needs the module to
+    take a set amount each from a character to the characters picked, behind a feature in the
+    hello, and the app's dialog to pick them and show the total as it's set ("600 PP in all").
+    The owner's answers (2026-11-14): anyone in the campaign can be picked (once v1.x's inactive
+    characters exist, not those); several coins can go at once, such as 200 PP and 50 GP each;
+    and each character given coins is whispered how much they received and from whom. And
+    (2026-11-14, later): the Gamemaster gets a message for the hand-out too, and a hand-out breaks
+    a larger coin as item 67 does, under the same module setting.
+
 ## v1.0
 
 The major release of the app and the module, once the work planned before it is done and the
@@ -218,6 +284,10 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 
 1. **Critical hit options.** App criticals double only the dice; choices such as dnd5e's Critical
    Damage Modifiers or Midi-QOL's critical options could come back as a per-campaign setting.
+2. **Inactive characters:** a campaign's character can be marked inactive. The owner's gist
+   (2026-11-14), to flesh out later: an inactive character gets no updates in the app and can't
+   do anything from it, and its name shows in none of the app's lists (such as the characters
+   offered for item 68's hand-out); it's read-only, though its owner can still open its sheet.
 
 ## v2.0
 
