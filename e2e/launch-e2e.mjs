@@ -18,7 +18,9 @@
 // No check takes a fixed wait as its proof: each waits for the thing itself. /launch is opened with
 // waitUntil 'commit', as its own script leaves while it is still being read; and while its first page
 // is held the page tells the suite what it shows through a binding, as page.evaluate waits for a held
-// navigation. Synthetic data only (seed.sql's Alice and her Thorin). Screenshots to SHOTS.
+// navigation. A look at what the browser keeps, taken while a worker may be deleting, reads the caches'
+// names and opens none: opening a cache makes it. Synthetic data only (seed.sql's Alice and her
+// Thorin). Screenshots to SHOTS.
 import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { chromium, devices, request } from 'playwright'
@@ -119,28 +121,37 @@ async function device({ installed = false, signedIn = true, ...options }) {
 }
 
 // ---- Looks ----
-/** What a page's browser holds for the app: its tab's calls to register, the registrations, and each cache's entries. */
+/**
+ * What a page's browser holds for the app: its tab's calls to register, the registrations, and its caches' names.
+ * Their names alone: caches.open() makes the cache it is asked for, so a look that opened each one to list it would
+ * bring back, empty, a cache a worker deleted between the two. keptPage() looks inside, once nothing is changing.
+ */
 const workers = page => page.evaluate(async () => {
+  // A registration stands for a moment with no worker to name, as it is made and as it goes.
   const worker = registration => registration.active ?? registration.waiting ?? registration.installing
-  const script = registration => { const url = new URL(worker(registration).scriptURL); return url.pathname + url.search }
+  const script = registration => { const own = worker(registration); if (!own) return null; const url = new URL(own.scriptURL); return url.pathname + url.search }
   return {
     calls: JSON.parse(sessionStorage.getItem('launch-registers') ?? '[]'),
-    registrations: (await navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: new URL(registration.scope).pathname, script: script(registration), state: worker(registration).state, updateViaCache: registration.updateViaCache })),
-    kept: Object.fromEntries(await Promise.all((await caches.keys()).map(async name => [name, (await (await caches.open(name)).keys()).map(entry => new URL(entry.url).pathname)]))),
+    registrations: (await navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: new URL(registration.scope).pathname, script: script(registration), state: worker(registration)?.state ?? null, updateViaCache: registration.updateViaCache })),
+    kept: await caches.keys(),
   }
 })
-const nothing = held => held.calls.length === 0 && held.registrations.length === 0 && Object.keys(held.kept).length === 0
+const nothing = held => held.calls.length === 0 && held.registrations.length === 0 && held.kept.length === 0
 /** The launch worker, active for /launch alone. */
 const active = page => until(async () => {
   const { registrations } = await workers(page)
   return registrations.length === 1 && registrations[0].script === WORKER && registrations[0].state === 'activated' && registrations
 }, 'the launch worker to be active')
-/** The one page the launch worker keeps: its cache's name, and its bytes' digest, taken in the page. */
+/** The one page the launch worker keeps, looked at while no worker is deleting: what its cache holds, and the page's bytes' digest, taken in the page. */
 const keptPage = page => page.evaluate(async prefix => {
   const names = (await caches.keys()).filter(name => name.startsWith(prefix))
-  const kept = await (await caches.open(names[0])).match('/launch')
+  if (names.length !== 1) return { names, entries: [] }
+  const cache = await caches.open(names[0])
+  const entries = (await cache.keys()).map(entry => new URL(entry.url).pathname)
+  const kept = await cache.match('/launch')
+  if (!kept) return { names, entries }
   const digest = await crypto.subtle.digest('SHA-256', await kept.arrayBuffer())
-  return { names, type: kept.headers.get('content-type'), status: kept.status, sha: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('') }
+  return { names, entries, type: kept.headers.get('content-type'), status: kept.status, sha: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('') }
 }, KEPT)
 /** Your characters, read and hydrated: Thorin's row, which comes in behind its outline, and the theme's toggle. */
 const characters = async (page, timeout = 30_000) => {
@@ -272,8 +283,8 @@ const p = app.page
   const { kept } = await workers(p)
   const page = await keptPage(p)
   // The same tie as the release's check on the address it is deployed to: the cache is named for the page as served.
-  check(same(kept, { [`${KEPT}${sha256(body).slice(0, 12)}`]: ['/launch'] }) && page.sha === sha256(body) && page.status === 200 && page.type === 'text/html; charset=utf-8',
-    `it keeps one page and nothing else, /launch, byte for byte what the server sends signed out, in a cache named for it (${JSON.stringify(kept)})`)
+  check(same(kept, [`${KEPT}${sha256(body).slice(0, 12)}`]) && same(page.entries, ['/launch']) && page.sha === sha256(body) && page.status === 200 && page.type === 'text/html; charset=utf-8',
+    `it keeps one page and nothing else, /launch, byte for byte what the server sends signed out, in a cache named for it (${JSON.stringify({ kept, holds: page.entries })})`)
   check(await p.evaluate(() => navigator.serviceWorker.controller === null), 'your characters is not in its hands: no worker controls it')
 
   // The second opening, its first page held until the rune has been seen through two cycles.
@@ -304,7 +315,9 @@ const p = app.page
   await p.goto(`${BASE}/characters`)
   await characters(p)
   const after = await workers(p)
-  check(sheet && same(after.kept, kept) && (await keptPage(p)).sha === sha256(body), `Thorin's page is not in its hands either; after it, and your characters again, the one kept page is the same (${JSON.stringify(after.kept)})`)
+  const still = await keptPage(p)
+  check(sheet && same(after.kept, kept) && same(still.entries, ['/launch']) && still.sha === sha256(body),
+    `Thorin's page is not in its hands either; after it, and your characters again, the one kept page is the same (${JSON.stringify({ kept: after.kept, holds: still.entries })})`)
 }
 
 // =================================================================================================
@@ -449,17 +462,17 @@ part('8. a release, and the way out')
   const opening = await open(next.page)
   await characters(next.page)
   const registrations = await active(next.page)
-  const names = await until(async () => { const kept = Object.keys((await workers(next.page)).kept); return !kept.includes('sending-stone-launch-before') && kept }, 'the older cache to go', 10_000).catch(async () => Object.keys((await workers(next.page)).kept))
+  const names = await until(async () => { const { kept } = await workers(next.page); return !kept.includes('sending-stone-launch-before') && kept }, 'the older cache to go', 10_000).catch(async () => (await workers(next.page)).kept)
   check(opening.fromWorker && same(registrations, [{ scope: '/launch', script: WORKER, state: 'activated', updateViaCache: 'none' }])
     && same(names.toSorted(), [`${KEPT}${sha256(body).slice(0, 12)}`, 'something-else'].toSorted()),
     `an older worker and its cache: after one opening this release's worker has taken its place, the older launch cache is gone, and a cache that isn't the launch page's is left alone (${JSON.stringify(names)})`)
 
   await next.page.evaluate(() => navigator.serviceWorker.register('/launch-worker-retire.js', { scope: '/launch' }))
-  const retired = await until(async () => { const held = await workers(next.page); return held.registrations.length === 0 && same(Object.keys(held.kept), ['something-else']) && held }, 'the retiring worker to leave nothing', 10_000).catch(() => workers(next.page))
+  const retired = await until(async () => { const held = await workers(next.page); return held.registrations.length === 0 && same(held.kept, ['something-else']) && held }, 'the retiring worker to leave nothing', 10_000).catch(() => workers(next.page))
   const from = await open(next.page)
   await characters(next.page)
-  check(retired.registrations.length === 0 && same(Object.keys(retired.kept), ['something-else']) && !from.fromWorker && from.at === '/characters',
-    `the retiring worker, put in its place, deletes the launch page's cache and no other and unregisters itself; the next opening comes from the server and hands over as before (${JSON.stringify({ registrations: retired.registrations, kept: Object.keys(retired.kept), from })})`)
+  check(retired.registrations.length === 0 && same(retired.kept, ['something-else']) && !from.fromWorker && from.at === '/characters',
+    `the retiring worker, put in its place, deletes the launch page's cache and no other and unregisters itself; the next opening comes from the server and hands over as before (${JSON.stringify({ registrations: retired.registrations, kept: retired.kept, from })})`)
   await next.context.close()
 
   const home = await device({ ...IPHONE, installed: 'home screen' })
