@@ -102,6 +102,18 @@ so an item from it is named with its number when it was built, which may since b
   the slots' menu from the keyboard at 1280 px, and finds neither offered a move with module 0.46.0.
   Jest pins which move a skill's or a tool's menu leaves out at either end, and that one favorite
   alone that may move is offered no Reorder, and spell slots no menu. (app and module, item 47)
+- **Three end-to-end checks hold on a busy machine.** Each had failed once or twice under load and
+  passed alone, and none was a fault in the app: one looked at the page a frame before it was ready,
+  one timed it from a moment late, and one closed a game a moment before the app had noted its last
+  fetch. A row's menu is looked at once focus is in it, a frame after it shows (removals). End
+  turn's 600 ms are counted from the read of the table that brought the turn, and from when the
+  panel shows it they are held to 300 ms either side (endturn). Where a suite closes a game with
+  `stopFetching` and ages its polls, the fetch under way is first let reach the app, which notes a
+  fetch even when it's given up on (notesoffline, partynotes, wildshape, favoriting), and so it is
+  where notesoffline closes one by the Gamemaster leaving. Each check still fails where it did: a
+  menu that takes no focus, a countdown short by more than the few milliseconds the page takes to
+  draw the turn, a game that doesn't read closed. Two of the e2e README's known load races go. (app,
+  items 41, 42 and 57)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
   kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
   v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,

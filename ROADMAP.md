@@ -87,10 +87,10 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 56, 41, 42, 57, 67 and 68: the stone as the installed app opens, the three e2e races under
-   load, and coins added, taken away and handed out from the sheet. Items 23, 29 and 47, Midi-QOL's
-   reaction checks, effects carried back from Wild Shape, and Move up and Move down for every
-   favorite: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
+2. Items 56, 67, 68, 70 and 71: the stone as the installed app opens, coins added, taken away and
+   handed out from the sheet, and two more e2e checks under load. Items 23, 29, 47, 41, 42 and 57,
+   Midi-QOL's reaction checks, effects carried back from Wild Shape, Move up and Move down for every
+   favorite, and the three e2e races under load: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -125,15 +125,15 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     status, Help and Delete Thorin, with no Full screen yet. The Full screen button is drawn only
     once the page has hydrated (`useFullscreen` answers false until then), and the check reads the
     header as soon as the sheet is ready; it should wait for the button. Of a kind with items 41,
-    42 and 57, and in no batch yet.
+    42 and 57; in batch 2 since the owner's word of 2026-11-17.
 71. **e2e's toasts colour check under load:** in `e2e/toasts-e2e.mjs`, plain, "on a tablet, dark,
     given up by the app, it pops up again … the bold card in the warning's colours" failed once,
     142 of 149, in the second full e2e pass made for item 24, and passed on its retry (149 of 149).
     The suite runs alone on its lane, but other work was running on the machine. The tint it read
     was darker than the card itself, where it wants it part of the way to the warning's colour.
     Likely, from the numbers and not proven: the check reads the toast's look as soon as its words
-    are there, while it is still popping up; it could wait for the toast to settle. In no batch
-    yet.
+    are there, while it is still popping up; it could wait for the toast to settle.
+    In batch 2 since the owner's word of 2026-11-17.
 
 **Moved from the next slice**
 
@@ -158,21 +158,6 @@ And from the owner's answers on item 19, later work too:
     sidekicks, and a second scene with one character's sidekick, which is in a different encounter,
     how would you depict the two encounters? Foundry definately supports multiple encounters."
 
-**Found while building the next slice**
-
-41. **e2e's removals focus race:** part 13 of `e2e/removals-e2e.mjs`, plain, "while its removal is
-    on its way: … focus inside it", failed under three lanes' load in v0.45's full e2e pass and on
-    its retry there, and passed alone (81 of 81): the row's context menu opened with the right
-    items, but focus wasn't inside it just after the Remove dialog closed (`inside: false`). Most
-    likely the menu's first focus loses a race with focus going back from the closed dialog, or with
-    a re-render as the removal's waiting state arrives. The e2e README lists it among its known load
-    races.
-42. **e2e's endturn Undo under load:** part 3 of `e2e/endturn-e2e.mjs` with MIDI=1 failed in v0.45's
-    full e2e pass, End turn offered 578 ms after the panel shows the turn where the check wants 590
-    to 900 ms (the 600 ms arm), and passed on its retry: the arm's countdown starts before the
-    page's MutationObserver records the heading's text, and under load the gap grows. The e2e
-    README lists it among its known load races.
-
 **Asked for while building v0.48**
 
 56. **The stone lighting up as the installed app opens:** an installed app's first screen is drawn
@@ -181,16 +166,6 @@ And from the owner's answers on item 19, later work too:
     same stone, the same size, centred on the same dark background, lighting up the moment the app
     opens, until the first page takes over. Only the launch page is cached, never a signed-in page;
     a new release replaces it; tested on Android and iPhone home-screen apps.
-
-**Found while building v0.48**
-
-57. **e2e's notesoffline "the game closed" under load:** part 13 of `e2e/notesoffline-e2e.mjs`
-    (`orderMeanwhile`) timed out once, 43 of 47, waiting 15 seconds for the game to read as closed
-    after `stopFetching`, with the app on its lane slow to answer; it passed alone and in the full
-    pass. Likely, from the code and not proven: a command poll the app had already taken in
-    stamps `bridgePolledAt` after the suite ages it, and the notes API reads the game as live for
-    45 seconds after a poll. The suite could wait for in-flight polls to settle before ageing, or
-    age again once they have.
 
 **Found while building Batch 2**
 
@@ -248,6 +223,25 @@ And from the owner's answers on item 19, later work too:
     Incapacitated, and the druid comes back awake until the Gamemaster puts it on the druid. As
     before 0.48.0, and as item 29 was built: whether they should come back with the druid as
     conditions do is the owner's to say. In no batch yet.
+79. **End turn's 600 ms counted from when the page takes in the turn, not from when it's drawn:**
+    `useEndTurn` (`src/features/table/hooks/use-end-turn.ts`) starts them in the effect of the
+    render that first shows the turn. Where that render also takes a toast away, as when a turn is
+    taken back with Undo, React runs the effect before the browser draws; on a slow or busy device
+    the turn is then on screen a frame or more short of 600 ms before End turn can be tapped (at
+    least 22 ms short in v0.45's full e2e pass, under three lanes' load; a millisecond or two
+    alone). The 600 ms are the owner's (a tap aimed at the last heading, or a double tap across a
+    turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
+    the turn, they could start at the first frame drawn after it. Found while building item 42. In
+    no batch yet.
+80. **e2e checks of the same kinds as items 41 and 42, not yet seen to fail:** (a) a menu's or
+    popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
+    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:593` and `:610` ("Add to
+    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:326` and, to be
+    checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
+    look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
+    that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
+    600 ms)". Item 57's kind has none left: `stopFetching({ age })` waits, and so do notesoffline's
+    four closings by the Gamemaster leaving. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
