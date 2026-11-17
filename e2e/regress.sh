@@ -243,7 +243,8 @@ run help 4 DND5E6=1 SHOTS=$O/shots-help
 # workers; installed on a Pixel 7, the worker registered by the launch page for /launch alone and
 # keeping that one page, the second opening from it with the rune seen lighting while the first
 # page is held, Back, no other page controlled; signed out, an opening showing what the worker
-# keeps; the device offline, upright and on its side, Try again, back online; a first page that
-# doesn't come in 15 seconds; reduced motion; a light device and a dark one; an older worker
-# replaced, the retiring worker, an iPhone's Home Screen app.
-run launch 27 SHOTS=$O/shots-launch
+# keeps; the device offline, upright and on its side, Try again, back online with its first ask
+# unanswered and nothing said while the first page is on its way; a first page that doesn't come
+# in 15 seconds; reduced motion; a light device and a dark one; an older worker replaced, the
+# retiring worker, an iPhone's Home Screen app.
+run launch 28 SHOTS=$O/shots-launch

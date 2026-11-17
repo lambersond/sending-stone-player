@@ -1,4 +1,5 @@
 import {
+  LAUNCH_ASK_AGAIN,
   LAUNCH_COLORS,
   LAUNCH_NEXT,
   LAUNCH_PATH,
@@ -28,22 +29,31 @@ const text = (value: string) => JSON.stringify(value)
 /**
  * The launch page's script. Where the page runs as an installed app, it registers the launch
  * worker for this page's address alone: a browser's tab that comes here registers nothing. Then it
- * opens the first page at once, in this page's place, so that Back never returns here. Where the
- * device says it has no connection it stays instead and says so; Try again, and the device coming
- * back online, first ask whether the server answers, and only then open, so that the browser's own
- * error page never takes this page's place while there's still no connection. If the first page
- * hasn't come after a while, it says so too, still waiting.
+ * opens the first page at once, in this page's place, so that Back never returns here; if that
+ * hasn't come after a while, it says so, still waiting.
+ *
+ * Where the device says it has no connection it stays instead, dark, and says so. Try again, and
+ * the device coming back online, first ask whether the server answers, and only then open, so that
+ * the browser's own error page never takes this page's place while there's still no connection.
+ * Coming back online, it asks again a few times before it waits for Try again, as a connection can
+ * be a moment from working.
+ *
+ * What the page says always fits where it stands. Each opening hides the words and waits afresh,
+ * so nothing is said while the first page is on its way. "It opens once you're back online." is
+ * said only while the device says it isn't, as only coming back opens it. Only the latest ask
+ * counts, so an earlier one answered late changes nothing. One timer at a time: the wait for the
+ * first page, or the next ask.
  */
 const HANDOVER = `(function(){
-var words=document.getElementById('unreached')
-function open(){document.body.className='';location.replace(${text(LAUNCH_NEXT)})}
-function stay(){document.body.className='offline';words.hidden=false}
-function ask(){fetch(${text(LAUNCH_PATH)},{method:'HEAD',cache:'no-store'}).then(open,stay)}
+var words=document.getElementById('unreached'),waits=${JSON.stringify(LAUNCH_ASK_AGAIN)},timer,asked=0
+function open(){document.body.className='';words.hidden=true;clearTimeout(timer);timer=setTimeout(function(){words.hidden=false},${LAUNCH_PATIENCE});location.replace(${text(LAUNCH_NEXT)})}
+function stay(){document.body.className=navigator.onLine===false?'staying offline':'staying';words.hidden=false;clearTimeout(timer)}
+function ask(tries){var mine=++asked;fetch(${text(LAUNCH_PATH)},{method:'HEAD',cache:'no-store'}).then(function(){if(mine===asked)open()},function(){if(mine!==asked)return;stay();if(tries<waits.length&&navigator.onLine!==false)timer=setTimeout(function(){ask(tries+1)},waits[tries])})}
 try{if('serviceWorker' in navigator&&(navigator.standalone===true||matchMedia('(display-mode: standalone)').matches))navigator.serviceWorker.register(${text(LAUNCH_WORKER)},{scope:${text(LAUNCH_PATH)},updateViaCache:'none'}).catch(function(){})}catch(e){}
-document.getElementById('again').addEventListener('click',ask)
-addEventListener('online',ask)
+document.getElementById('again').addEventListener('click',function(){ask()})
+addEventListener('online',function(){ask(0)})
 if(navigator.onLine===false){stay();ask()}
-else{open();setTimeout(function(){words.hidden=false},${LAUNCH_PATIENCE})}
+else open()
 })()`
 
 /**
@@ -81,7 +91,7 @@ body{display:flex;align-items:center;justify-content:center;background:${backgro
 .dot,.arcs path{opacity:0}
 @media (prefers-reduced-motion:no-preference){${PARTS.map(part => lights(part)).join('')}}
 @media (prefers-reduced-motion:reduce){.dot,.arcs path{opacity:${LAUNCH_RUNE.still}}}
-.offline .dot,.offline .arcs path{animation:none;opacity:0}
+.staying .dot,.staying .arcs path{animation:none;opacity:0}
 ${PARTS.map(part => keyframes(part)).join('\n')}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 #unreached{position:absolute;top:calc(50% + ${size / 2 + 24}px);left:0;right:0;padding:0 16px;text-align:center}

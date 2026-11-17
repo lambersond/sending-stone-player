@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import vm from 'node:vm'
 import {
+  LAUNCH_ASK_AGAIN,
   LAUNCH_COLORS,
   LAUNCH_PATIENCE,
   LAUNCH_RUNE,
@@ -38,7 +39,8 @@ type Device = {
   standalone?: boolean
   displayMode?: 'browser' | 'standalone' | 'fullscreen'
   workers?: boolean | 'refused' | 'throwing'
-  server?: 'answers' | 'unreachable'
+  /** The server answers the page's asks, can't be reached, or is slow: they wait to be settled. */
+  server?: 'answers' | 'unreachable' | 'slow'
 }
 
 /** The launch page's script, run as a device's browser runs it; and what it did there. */
@@ -52,16 +54,27 @@ function run({
   const words = { hidden: true }
   const body = { className: '' }
   const heard: Record<string, () => void> = {}
-  const timers: { run: () => void; after: number }[] = []
+  const timers = new Map<number, { run: () => void; after: number }>()
+  let made = 0
   const state = { server }
+  /** The asks a slow server hasn't settled yet, in the order they were made. */
+  const slow: Record<'answer' | 'fail', () => void>[] = []
   const replace = jest.fn()
   const register = jest.fn(async () => {
     if (workers === 'refused') throw new Error('refused')
   })
-  const fetch = jest.fn(async () => {
-    if (state.server === 'unreachable') throw new TypeError('Failed to fetch')
-    return { ok: true }
-  })
+  const fetch = jest.fn(
+    () =>
+      new Promise((resolve, reject) => {
+        const ask = {
+          answer: () => resolve({ ok: true }),
+          fail: () => reject(new TypeError('Failed to fetch')),
+        }
+        if (state.server === 'answers') ask.answer()
+        else if (state.server === 'unreachable') ask.fail()
+        else slow.push(ask)
+      }),
+  )
   const serviceWorker =
     workers === 'throwing'
       ? {
@@ -70,6 +83,11 @@ function run({
           },
         }
       : { register }
+  const device = {
+    onLine,
+    standalone,
+    ...(workers ? { serviceWorker } : {}),
+  }
   vm.runInNewContext(script, {
     document: {
       body,
@@ -83,11 +101,7 @@ function run({
             },
     },
     location: { replace },
-    navigator: {
-      onLine,
-      standalone,
-      ...(workers ? { serviceWorker } : {}),
-    },
+    navigator: device,
     // As a browser answers a list of queries: it matches where any one of them does.
     matchMedia: (query: string) => ({
       matches: query
@@ -98,19 +112,40 @@ function run({
       heard[type] = listener
     },
     fetch,
-    setTimeout: (work: () => void, after: number) =>
-      void timers.push({ run: work, after }),
+    setTimeout: (work: () => void, after: number) => {
+      made += 1
+      timers.set(made, { run: work, after })
+      return made
+    },
+    clearTimeout: (id: number) => void timers.delete(id),
   })
+  /** How long each timer the page has set, and not cleared, waits. */
+  const waiting = () => [...timers.values()].map(({ after }) => after)
+  /** The page's oldest timer goes off, as if its time had passed. */
+  const pass = () => {
+    const [[id, timer]] = timers
+    timers.delete(id)
+    timer.run()
+  }
+  /** The device coming back online, as a browser tells the page so. */
+  const backOnline = () => {
+    device.onLine = true
+    heard.online()
+  }
   return {
     words,
     body,
     heard,
-    timers,
+    device,
     state,
+    slow,
     replace,
     register,
     fetch,
     settle,
+    waiting,
+    pass,
+    backOnline,
   }
 }
 
@@ -259,6 +294,10 @@ describe('features/launch/utils launchDocument', () => {
     // The second sentence is only for a device with no connection.
     expect(style).toContain('#offline{display:none;')
     expect(style).toContain('.offline #offline{display:block}')
+    // Staying, with nothing on its way, the rune is dark and still.
+    expect(style).toContain(
+      '.staying .dot,.staying .arcs path{animation:none;opacity:0}',
+    )
     // A phone on its side has the words beside the stone, where there's no room under it.
     expect(style).toContain(
       '@media (max-height:479px){#unreached{position:static;',
@@ -323,20 +362,46 @@ describe('the launch page’s script', () => {
   )
 
   it('says the first page couldn’t be reached once it has waited long enough, still waiting', () => {
-    const { timers, words, body, replace } = run()
+    const { waiting, pass, words, body, replace } = run()
 
-    expect(timers.map(({ after }) => after)).toEqual([LAUNCH_PATIENCE])
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
     expect(LAUNCH_PATIENCE).toBe(15_000)
-    timers[0].run()
+    pass()
 
     expect(words.hidden).toBe(false)
     // Not the second sentence, and the rune still lighting: the device has a connection.
     expect(body.className).toBe('')
     expect(replace).toHaveBeenCalledTimes(1)
+    expect(waiting()).toEqual([])
+  })
+
+  it('after that wait, Try again stays where the server can’t be reached, and opens once it answers, saying nothing again until it has waited again', async () => {
+    const { heard, pass, waiting, state, words, body, replace, settle } = run()
+    pass()
+
+    state.server = 'unreachable'
+    heard.again()
+    await settle()
+
+    // Dark, with nothing on its way; and only the first sentence: the device has a connection,
+    // so its coming back online is nothing to wait for.
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(body.className).toBe('staying')
+    expect(words.hidden).toBe(false)
+    expect(waiting()).toEqual([])
+
+    state.server = 'answers'
+    heard.again()
+    await settle()
+
+    expect(replace).toHaveBeenCalledTimes(2)
+    expect(body.className).toBe('')
+    expect(words.hidden).toBe(true)
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
   })
 
   it('on a device that says it has no connection, stays, dark and still, and says so', async () => {
-    const { replace, words, body, fetch, timers, settle } = run({
+    const { replace, words, body, fetch, waiting, settle } = run({
       onLine: false,
       server: 'unreachable',
     })
@@ -344,51 +409,161 @@ describe('the launch page’s script', () => {
 
     expect(replace).not.toHaveBeenCalled()
     expect(words.hidden).toBe(false)
-    expect(body.className).toBe('offline')
+    expect(body.className).toBe('staying offline')
     // It asked the server once all the same, in case the device was wrong.
     expect(fetch).toHaveBeenCalledTimes(1)
     expect(fetch).toHaveBeenCalledWith('/launch', {
       method: 'HEAD',
       cache: 'no-store',
     })
-    expect(timers).toHaveLength(0)
+    expect(waiting()).toEqual([])
   })
 
   it('opens at once where the device says it has no connection and the server answers', async () => {
-    const { replace, body, settle } = run({ onLine: false })
+    const { replace, words, body, waiting, settle } = run({ onLine: false })
     await settle()
 
     expect(replace).toHaveBeenCalledWith('/characters')
     expect(body.className).toBe('')
+    expect(words.hidden).toBe(true)
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
+  })
+
+  it('on Try again, stays as it is while the server still can’t be reached, and opens once it answers, saying nothing until it has waited', async () => {
+    const { heard, replace, words, body, state, waiting, settle } = run({
+      onLine: false,
+      server: 'unreachable',
+    })
+    await settle()
+
+    heard.again()
+    await settle()
+
+    // The browser's own error page never takes the launch page's place.
+    expect(replace).not.toHaveBeenCalled()
+    expect(words.hidden).toBe(false)
+    expect(body.className).toBe('staying offline')
+    expect(waiting()).toEqual([])
+
+    state.server = 'answers'
+    heard.again()
+    await settle()
+
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(replace).toHaveBeenCalledWith('/characters')
+    expect(body.className).toBe('')
+    // "Couldn't be reached" isn't so while the first page is on its way.
+    expect(words.hidden).toBe(true)
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
+  })
+
+  it('on the device coming back online, its first ask unanswered, says only that it couldn’t be reached, asks again a second later, and opens saying nothing', async () => {
+    const {
+      backOnline,
+      pass,
+      replace,
+      words,
+      body,
+      state,
+      fetch,
+      waiting,
+      settle,
+    } = run({ onLine: false, server: 'unreachable' })
+    await settle()
+
+    backOnline()
+    await settle()
+
+    expect(replace).not.toHaveBeenCalled()
+    expect(body.className).toBe('staying')
+    expect(words.hidden).toBe(false)
+    expect(waiting()).toEqual([1000])
+
+    state.server = 'answers'
+    pass()
+    await settle()
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(replace).toHaveBeenCalledWith('/characters')
+    expect(body.className).toBe('')
+    expect(words.hidden).toBe(true)
+    expect(waiting()).toEqual([LAUNCH_PATIENCE])
+  })
+
+  it('back online with a server that never answers, asks again after 1, 2 and 4 seconds, then waits for Try again', async () => {
+    const { backOnline, pass, replace, words, body, fetch, waiting, settle } =
+      run({ onLine: false, server: 'unreachable' })
+    await settle()
+    backOnline()
+    await settle()
+
+    // Each ask unanswered, it waits longer before the next.
+    for (const after of LAUNCH_ASK_AGAIN) {
+      expect(waiting()).toEqual([after])
+      pass()
+      await settle()
+    }
+
+    expect(LAUNCH_ASK_AGAIN).toEqual([1000, 2000, 4000])
+    // Its ask as it opened, the one as the device came back, and three more.
+    expect(fetch).toHaveBeenCalledTimes(5)
+    expect(waiting()).toEqual([])
+    expect(replace).not.toHaveBeenCalled()
+    expect(body.className).toBe('staying')
+    expect(words.hidden).toBe(false)
+  })
+
+  it('stops asking again once the device says it’s offline again, and says so', async () => {
+    const { backOnline, device, pass, body, fetch, waiting, settle } = run({
+      onLine: false,
+      server: 'unreachable',
+    })
+    await settle()
+    backOnline()
+    await settle()
+
+    device.onLine = false
+    pass()
+    await settle()
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(body.className).toBe('staying offline')
+    expect(waiting()).toEqual([])
   })
 
   it.each([
-    ['Try again', 'again'],
-    ['the device coming back online', 'online'],
-  ])(
-    'on %s, stays as it is while the server still can’t be reached, and opens once it answers',
-    async (_, heardAs) => {
-      const { heard, replace, words, body, state, settle } = run({
+    [
+      'answered, an earlier ask failing late',
+      'answer',
+      'fail',
+      { opened: 1, body: '', hidden: true },
+    ],
+    [
+      'failing, an earlier ask answered late',
+      'fail',
+      'answer',
+      { opened: 0, body: 'staying offline', hidden: false },
+    ],
+  ] as const)(
+    'counts only its latest ask: Try again %s changes nothing',
+    async (_, latest, earlier, end) => {
+      const { heard, slow, replace, words, body, settle } = run({
         onLine: false,
-        server: 'unreachable',
+        server: 'slow',
       })
+      // Its ask as it opened, then Try again's: both on their way.
+      heard.again()
+      expect(slow).toHaveLength(2)
+
+      slow[1][latest]()
+      await settle()
+      slow[0][earlier]()
       await settle()
 
-      heard[heardAs]()
-      await settle()
-
-      // The browser's own error page never takes the launch page's place.
-      expect(replace).not.toHaveBeenCalled()
-      expect(words.hidden).toBe(false)
-      expect(body.className).toBe('offline')
-
-      state.server = 'answers'
-      heard[heardAs]()
-      await settle()
-
-      expect(replace).toHaveBeenCalledTimes(1)
-      expect(replace).toHaveBeenCalledWith('/characters')
-      expect(body.className).toBe('')
+      expect(replace).toHaveBeenCalledTimes(end.opened)
+      expect(body.className).toBe(end.body)
+      expect(words.hidden).toBe(end.hidden)
     },
   )
 })

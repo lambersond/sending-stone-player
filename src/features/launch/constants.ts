@@ -18,6 +18,13 @@ export const LAUNCH_WORKER = '/launch-worker.js'
 export const LAUNCH_PATIENCE = 15_000
 
 /**
+ * When the device comes back online and the server doesn't answer the launch page's ask, how long
+ * it waits before each ask again: a connection can be a moment from working when the device says
+ * it's back. Then it waits for Try again.
+ */
+export const LAUNCH_ASK_AGAIN = [1000, 2000, 4000] as const
+
+/**
  * The launch page's look: the night an Android phone's own launch screen is drawn on, which is
  * the manifest's `background_color`, and the dark theme's own colours on it (globals.css).
  */

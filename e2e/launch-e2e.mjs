@@ -5,7 +5,8 @@
 // the app installed on a Pixel 7: the first opening from the server, the worker registered by the
 // launch page for /launch alone and keeping that one page; the second opening from the worker, its
 // rune watched lighting while the first page is held; Back; no other page controlled. Signed out; the
-// device offline, upright and on its side, with Try again; a first page that doesn't come; reduced
+// device offline, upright and on its side, with Try again; back online with its first ask unanswered,
+// and nothing said while the first page is on its way; a first page that doesn't come; reduced
 // motion; a light device and a dark one. And the way out: an older worker replaced, the retiring
 // worker, an iPhone's Home Screen app.
 //
@@ -78,10 +79,10 @@ const countRegisters = context => context.addInitScript(() => {
 })
 /**
  * What the launch page tells of itself while it shows: its look as it is first drawn, which of the
- * rune's parts are lit every 40 ms, and how each of its own asks of the server ended.
+ * rune's parts are lit and what it says every 40 ms, and how each of its own asks of the server ended.
  */
 async function listen(context) {
-  const told = { look: undefined, lit: [], asks: [] }
+  const told = { look: undefined, lit: [], said: [], asks: [] }
   await context.exposeBinding('launchTells', (_source, what, value) => { if (what === 'look') told.look = value; else told[what].push(value) })
   await context.addInitScript(() => {
     if (location.pathname !== '/launch') return
@@ -92,6 +93,10 @@ async function listen(context) {
       return asked
     }
     const lit = () => ['.dot', '.inner', '.outer'].map(part => (Number(getComputedStyle(document.querySelector(part)).opacity) > 0.5 ? part[1] : '')).join('')
+    const said = () => {
+      const words = document.getElementById('unreached')
+      return { body: document.body.className, words: words.hidden ? null : words.innerText.replace(/\s+/g, ' ').trim() }
+    }
     const begin = () => {
       const box = document.querySelector('.stone').getBoundingClientRect()
       window.launchTells('look', {
@@ -102,7 +107,7 @@ async function listen(context) {
         status: document.querySelector('[role="status"]').textContent.trim(),
         title: document.title,
       })
-      setInterval(() => window.launchTells('lit', lit()), 40)
+      setInterval(() => { window.launchTells('lit', lit()); window.launchTells('said', said()) }, 40)
     }
     // Not on DOMContentLoaded: the page's own script leaves at once, and the document never says it has loaded.
     const drawn = setInterval(() => { if (document.querySelector('.stone svg')) { clearInterval(drawn); begin() } }, 10)
@@ -357,7 +362,7 @@ part('5. the device offline')
   const opening = await open(p, { settle: false })
   await until(() => app.told.asks.length === 1, 'the launch page to have asked the server')
   let look = await standing(p)
-  check(opening.fromWorker && look.at === '/launch' && look.drawn && same(look.size, [144, 144]) && look.centred && look.body === 'offline' && same(look.lit, ['0', '0', '0']) && look.animating === 0
+  check(opening.fromWorker && look.at === '/launch' && look.drawn && same(look.size, [144, 144]) && look.centred && look.body === 'staying offline' && same(look.lit, ['0', '0', '0']) && look.animating === 0
     && look.words === OFFLINE && look.under && look.within && !look.scrolls && same(app.told.asks, ['unanswered']),
     `offline, the opening comes from the worker and stays: the stone in the middle, dark and still, "${OFFLINE.replace(' Try again', '')}" and Try again under it (${JSON.stringify(look)})`)
   await shoot(p, 'offline')
@@ -368,7 +373,7 @@ part('5. the device offline')
     await until(() => app.told.asks.length === 1 + tap || at(p) !== '/launch', 'Try again to ask the server', 10_000).catch(() => {})
   }
   look = at(p) === '/launch' ? await standing(p) : { at: p.url() }
-  check(look.at === '/launch' && look.drawn && look.body === 'offline' && look.words === OFFLINE && same(app.told.asks, ['unanswered', 'unanswered', 'unanswered']),
+  check(look.at === '/launch' && look.drawn && look.body === 'staying offline' && look.words === OFFLINE && same(app.told.asks, ['unanswered', 'unanswered', 'unanswered']),
     `Try again tapped twice, still offline, asks the server each time and leaves the stone and its words where they are: never the browser's own error page (${JSON.stringify({ at: look.at, asks: app.told.asks })})`)
 
   // A phone on its side: no room under the stone, so the words stand beside it.
@@ -383,13 +388,41 @@ part('5. the device offline')
     `on its side, at 800 by 360 and 640 by 360, the words stand beside the stone, Try again within the screen, and nothing to scroll (${JSON.stringify(sides.map(({ beside, within, scrolls }) => ({ beside, within, scrolls })))})`)
   await p.setViewportSize(PIXEL.viewport)
 
+  // Back online, as a connection can be a moment from working: the page's first ask then goes unanswered, at the network.
+  // Your characters is held, so that what the page says while it is on its way can be seen.
+  const launchAddress = url => url.pathname === '/launch'
+  let refused = 0
+  const refuseOnce = route => {
+    if (route.request().method() !== 'HEAD' || refused > 0) return route.fallback()
+    refused += 1
+    return route.abort('internetdisconnected')
+  }
+  await app.context.route(launchAddress, refuseOnce)
+  let letGo
+  const hold = new Promise(resolve => { letGo = resolve })
+  let asked = false
+  await app.context.route('**/characters', async route => { asked = true; await hold; await route.continue() })
+  const asks = app.told.asks.length
+  app.told.said.length = 0
   await app.context.setOffline(false)
+  const handed = await until(() => asked, 'the launch page, back online, to ask for your characters').then(() => true, () => false)
+  const between = app.told.said.splice(0)
+  const fromLit = app.told.lit.length
+  check(handed && refused === 1 && same(app.told.asks.slice(asks), ['unanswered', 'answered']) && between.some(said => said.body === 'staying' && said.words === `${UNREACHED} Try again`),
+    `back online, its first ask unanswered: it says only that Sending Stone couldn't be reached, asks again by itself, and hands over (${JSON.stringify({ asks: app.told.asks.slice(asks), between: [...new Set(between.map(said => `${said.body}: ${said.words}`))] })})`)
+
+  // While your characters is on its way, looked at through the binding: page.evaluate waits for the held navigation.
+  const onItsWay = await until(() => app.told.said.length >= 5 && app.told.said, 'the launch page to tell what it shows while your characters is on its way')
+  const lit = states(app.told.lit.slice(fromLit))
+  letGo()
   const opened = await p.waitForURL(`${BASE}/characters`, { timeout: 15_000 }).then(() => true, () => false)
   if (opened) await characters(p)
+  await app.context.unroute('**/characters')
+  await app.context.unroute(launchAddress, refuseOnce)
   // The page had long finished loading when it left: only its own replace keeps Back from it.
   const went = opened ? await back(p) : {}
-  check(opened && app.told.asks.at(-1) === 'answered' && went.at === '/characters' && !went.through.includes('/launch'),
-    `back online, it asks the server once more and opens by itself, in the stone's place: Back doesn't return to it (${JSON.stringify({ asks: app.told.asks, went })})`)
+  check(onItsWay.every(said => said.body === '' && said.words === null) && lit.some(state => state !== '') && opened && went.at === '/characters' && !went.through.includes('/launch'),
+    `while your characters is on its way nothing is said, and the rune lights again; then your characters takes the stone's place, and Back doesn't return to it (${JSON.stringify({ said: [...new Set(onItsWay.map(said => `${said.body}: ${said.words}`))], lit, went })})`)
 }
 
 // =================================================================================================
