@@ -104,11 +104,10 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 67, 68, 70 and 71: coins added, taken away and handed out from the sheet, and two more e2e
-   checks under load. Items 23, 29, 47, 41, 42, 57 and 56, Midi-QOL's reaction checks, effects
-   carried back from Wild Shape, Move up and Move down for every favorite, the three e2e races under
-   load, and the stone as the installed app opens: done, in [CHANGELOG.md](CHANGELOG.md)'s
-   v0.48.0-rc.
+2. Items 67 and 68: coins added, taken away and handed out from the sheet. Items 23, 29, 47, 41,
+   42, 57, 56, 70 and 71, Midi-QOL's reaction checks, effects carried back from Wild Shape, Move up
+   and Move down for every favorite, the three e2e races under load, the stone as the installed app
+   opens, and two more e2e checks under load: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -137,21 +136,6 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     in three ways, none near the module's scripts (all 77 take 0.04 seconds), one with a fix tried
     and not taken. And it doesn't check two rules the module's `CLAUDE.md` keeps by review alone:
     state written in one script, and nothing run as a script loads outside `module.mjs`.
-70. **e2e's help header check under load:** part 1 of `e2e/help-e2e.mjs`, plain, "the header's ?
-    sits after Live and before Full screen", failed once under three lanes' load in the full e2e
-    pass made for item 24, 2 seconds in, and passed alone (28 of 28): the header's buttons read
-    status, Help and Delete Thorin, with no Full screen yet. The Full screen button is drawn only
-    once the page has hydrated (`useFullscreen` answers false until then), and the check reads the
-    header as soon as the sheet is ready; it should wait for the button. Of a kind with items 41,
-    42 and 57; in batch 2 since the owner's word of 2026-11-17.
-71. **e2e's toasts colour check under load:** in `e2e/toasts-e2e.mjs`, plain, "on a tablet, dark,
-    given up by the app, it pops up again … the bold card in the warning's colours" failed once,
-    142 of 149, in the second full e2e pass made for item 24, and passed on its retry (149 of 149).
-    The suite runs alone on its lane, but other work was running on the machine. The tint it read
-    was darker than the card itself, where it wants it part of the way to the warning's colour.
-    Likely, from the numbers and not proven: the check reads the toast's look as soon as its words
-    are there, while it is still popping up; it could wait for the toast to settle.
-    In batch 2 since the owner's word of 2026-11-17.
 
 **Moved from the next slice**
 
@@ -242,15 +226,21 @@ And from the owner's answers on item 19, later work too:
     turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
     the turn, they could start at the first frame drawn after it. Found while building item 42. In
     no batch yet.
-80. **e2e checks of the same kinds as items 41 and 42, not yet seen to fail:** (a) a menu's or
-    popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
+80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
+    or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
     `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:593` and `:610` ("Add to
     favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:326` and, to be
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
     look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
     that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
-    600 ms)". Item 57's kind has none left: `stopFetching({ age })` waits, and so do notesoffline's
-    four closings by the Gamemaster leaving. In no batch yet.
+    600 ms)". (c) A page's header read before the page has hydrated, where Full screen is drawn only
+    once it has: to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several
+    looks at a page `goto()` loaded, which has been enough so far; help's `ready`
+    (`e2e/help-e2e.mjs`) is the wait. The party suite reads its header (`party-e2e.mjs:213`, `:505`)
+    after a link within the app or a wait for "Reconnecting", which only a page that has hydrated
+    shows. Item 57's kind has none left: `stopFetching({ age })` waits, and so do notesoffline's
+    four closings by the Gamemaster leaving. Nor has item 71's, a photograph read for its colors,
+    which is toasts' alone. In no batch yet.
 81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
     Android phone and an iPhone (v0.48's checks): the stone's size against Android's own launch
     screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
@@ -259,6 +249,12 @@ And from the owner's answers on item 19, later work too:
     once, waiting up to a second for it on an opening that has none. An opening connected but unable
     to reach Sending Stone still ends on the phone's own error page, which is item 63's. Left by
     item 56. In no batch yet.
+82. **The header's Help moves as a sheet hydrates:** Full screen is drawn only once the page has
+    hydrated (`useFullscreen` answers false until then), so between the sheet's markup arriving and
+    hydration the header's right has one button fewer than the outline before it and the header
+    after it: Live and Help sit one button's width to the right, then step back as Full screen
+    appears (36 px at 360, measured while building item 70). A slot kept for Full screen until then,
+    as the outline keeps one, would hold them still. Found while building item 70. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
