@@ -254,7 +254,10 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
   an opening shows the page the worker keeps is proved by a mark put into the kept page, not by the
   network being gone. A look at what the browser keeps reads `caches.keys()` and opens no cache
   while a worker may be deleting one: `caches.open()` makes the cache it is asked for, and a look
-  that opened each name to list it now and then brought a deleted cache back, empty.
+  that opened each name to list it now and then brought a deleted cache back, empty. Where it moves
+  the page's clock (`page.clock.fastForward`), it installs the clock and pauses it (`pauseAt`)
+  before the page opens: an installed clock runs on by itself, and a look "at 14 seconds" would
+  then rest on how fast the machine is.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across

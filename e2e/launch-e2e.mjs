@@ -16,7 +16,8 @@
 // device checklist. A really changed worker file taking the place of the one before it can't be
 // shown here: the lanes share one build, and a route never sees a worker script's update.
 //
-// No check takes a fixed wait as its proof: each waits for the thing itself. /launch is opened with
+// No check takes a fixed wait as its proof: each waits for the thing itself, and the one that moves the
+// page's clock stops it first, as an installed clock otherwise runs on by itself. /launch is opened with
 // waitUntil 'commit', as its own script leaves while it is still being read; and while its first page
 // is held the page tells the suite what it shows through a binding, as page.evaluate waits for a held
 // navigation. A look at what the browser keeps, taken while a worker may be deleting, reads the caches'
@@ -436,8 +437,11 @@ part('6. a first page that does not come')
 // =================================================================================================
 {
   const slow = await device(PIXEL)
-  // The page's own clock in the suite's hands, so that its 15 seconds pass when the suite says.
-  await slow.page.clock.install()
+  // The page's own clock in the suite's hands and stopped before the page opens, so that its 15 seconds pass when the
+  // suite says and never while the machine is slow: a paused clock moves only by fastForward.
+  const now = Date.now()
+  await slow.page.clock.install({ time: now })
+  await slow.page.clock.pauseAt(now + 1000)
   await staying(slow.context, slow.page)
   await slow.page.clock.fastForward(14_000)
   const before = await standing(slow.page)
@@ -447,10 +451,11 @@ part('6. a first page that does not come')
   check(before.words === null && waited.at === '/launch' && waited.words === `${UNREACHED} Try again` && waited.body === '' && waited.animating === 3 && waited.under && waited.within,
     `nothing is said for 14 seconds; after 15 with no first page, "${UNREACHED}" and Try again, the rune still lighting (${JSON.stringify({ before: before.words, after: waited.words, animating: waited.animating })})`)
   await shoot(slow.page, 'waited')
+  // The rest on time, as a device keeps it.
+  await slow.page.clock.resume()
   await slow.context.unroute('**/characters')
   await slow.page.getByRole('button', { name: 'Try again' }).tap()
   const opened = await slow.page.waitForURL(`${BASE}/characters`, { timeout: 15_000 }).then(() => true, () => false)
-  // What the page sends at once: its clock is still the suite's.
   if (opened) await slow.page.getByRole('heading', { level: 1, name: 'Alice Adventurer' }).waitFor()
   check(opened && same(slow.told.asks, ['answered']), `Try again asks the server, which answers, and opens your characters (${JSON.stringify(slow.told.asks)})`)
   await slow.context.close()
