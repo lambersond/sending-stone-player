@@ -66,6 +66,10 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   Midi looks for its reactions, the reaction is still offered, and taking it rolls its cost with
   your dice. Under dnd5e 6 with Midi-QOL's line for it the same is still to be seen: how that line
   looks for reactions was not read.
+- **A skill, a tool or spell slots moved from its menu:** on a phone, a long-press on a skill or
+  tool favorite still rolls with advantage, or opens Modify roll…, without a slip onto Move up or
+  Move down, which sit nearest the thumb; Move up and Move down there, and on spell slots held by
+  their name, save the order, and Foundry's sheet shows it.
 
 ## Before v1.0
 
@@ -74,10 +78,10 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 56, 47, 41, 42, 57, 29, 67 and 68: the stone as the installed app opens, Move up and Move
-   down for every favorite, the three e2e races under load, effects carried back from Wild Shape,
-   and coins added, taken away and handed out from the sheet. Item 23, Midi-QOL's reaction checks:
-   done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
+2. Items 56, 41, 42, 57, 29, 67 and 68: the stone as the installed app opens, the three e2e races
+   under load, effects carried back from Wild Shape, and coins added, taken away and handed out from
+   the sheet. Items 23 and 47, Midi-QOL's reaction checks and Move up and Move down for every
+   favorite: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -166,14 +170,6 @@ And from the owner's answers on item 19, later work too:
     page's MutationObserver records the heading's text, and under load the gap grows. The e2e
     README lists it among its known load races.
 
-**Found while building v0.47**
-
-47. **No Move up or Move down for a skill, tool or spell-slots favorite:** those rows among the
-    favorites have no menu (`useFavoriteChoice`, in
-    `src/features/sheet/components/favoriting/use-favorite-choice.ts`, gives Move up and Move down
-    only where a row has a choice), so on a phone they're put in order only by Reorder's arrows,
-    where the owner was told each favorite's menu would have them.
-
 **Asked for while building v0.48**
 
 56. **The stone lighting up as the installed app opens:** an installed app's first screen is drawn
@@ -204,6 +200,35 @@ And from the owner's answers on item 19, later work too:
     the module's `PROTOCOL.md`; the module could roll the first with Foundry's computer dice, as it
     does for a use from the app and, since 0.48.0, for the reactions Midi looks for. In no batch
     yet.
+73. **A roll's button drops the first Enter after its menu was opened from the keyboard:** with a
+    check's, save's or attack's button focused, the menu key or Shift+F10 opens its menu; whatever
+    is done there, the next Enter or Space on the button does nothing, and the one after rolls.
+    `RollButton` (`src/features/rolling/components/roll-button/roll-button.tsx`) marks every menu as
+    opened by a press, so that the tap ending a long-press doesn't roll too; a key's menu is
+    followed by no such tap, as `usePressMenu` already knows. Every roll button, from before v0.47;
+    found building item 47, whose Move up and Move down on a skill or tool favorite are one more way
+    into it, and seen in Chromium at 1280 px: after Shift+F10 and Escape on a skill favorite, the
+    first Enter rolled nothing and the second rolled. In no batch yet.
+74. **Keyboard focus after a favorite moves from one list to the other:** where the favorites are in
+    two lists side by side (their card 720 px wide or wider with no column of its own, as on a
+    laptop 1366 px wide), Move up or Move down chosen from a favorite's menu with the keyboard, on
+    the last row of the first list or the first of the second, takes the row to the other list and
+    leaves keyboard focus on the page, where a move within a list leaves it on the row; a row open
+    to its description is closed as it crosses, by the mouse too. `FavoritesList`
+    (`src/features/sheet/components/favorites/favorites-list.tsx`) draws the two halves as two
+    lists, so a row that crosses is drawn anew. Every favorite, since v0.47; item 47 brought a
+    skill, a tool and spell slots to it. Seen in Chromium at 1366 px on an item's row, a skill and
+    spell slots. The known limits say the same of Remove from favorites and Prepare. In no batch
+    yet.
+75. **The favorites in one list once Reorder has been opened:** where the favorites are in two lists
+    side by side, opening Reorder and closing it, by Cancel or by Save order, leaves them in one
+    list the card's full width, whatever the window's width after; another tab of the sheet and
+    back, or the page loaded again, brings the two back. `FavoritesList` measures its card with
+    `useWidth` (`src/features/sheet/hooks/use-width.ts`), which begins watching the element once;
+    while Reorder shows the card isn't drawn, and the one drawn after is never watched: the cause as
+    the code reads, the width itself not measured in the browser. A look only: every favorite is
+    there and works. Since v0.47 (Reorder); seen in Chromium at 1366 px, looking for the two lists
+    for item 47. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
@@ -382,8 +407,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   "Last changed by" line.
 - A favorite added from the app goes last; with a module before 0.47.0, favorites are put in order
   in Foundry only.
-- Skills, tools and spell slots are made favorites in Foundry, with no plan to change that unless
-  it's asked for.
+- Skills, tools and spell slots are made favorites, and removed, in Foundry: the app only puts them
+  in order. No plan to change that unless it's asked for.
 - Spell slots are spent and restored from the app one at a time: several are several taps, each
   asked first.
 - A spell slot's dots can be tapped on the Spells tab and on a spell-slots favorite only: the

@@ -29,9 +29,19 @@ so an item from it is named with its number when it was built, which may since b
   as 1d4 charges, that roll was made with the Gamemaster's dice settings, so under Manual Dice a
   window asked them, several times an attack, for a roll nobody used beyond telling whether the
   reaction could be paid for. The module now rolls those checks with Foundry's computer dice, for an
-  attack from the app or one made in Foundry. Under dnd5e 6 that holds where Midi-QOL's line for it
-  looks for reactions as its line for dnd5e 5 does. A reaction that is taken still rolls its cost as
-  before. (module, item 23)
+  attack from the app or one the Gamemaster makes in Foundry. Under dnd5e 6 that holds where
+  Midi-QOL's line for it looks for reactions as its line for dnd5e 5 does. A reaction that is taken
+  still rolls its cost as before. (module, item 23)
+- **Move up and Move down for a skill, a tool and spell slots among the favorites.** v0.47.0 gave a
+  favorite's menu Move up and Move down, but these three rows had no such menu, so on a phone they
+  moved only in Reorder. Now a skill's or a tool's menu (hold it, right-click it, or press the menu
+  key or Shift+F10) has its ways to roll, then Move up and Move down; and spell slots have a menu of
+  their own (hold their name, right-click their row, or press the menu key or Shift+F10 on it) with
+  Move up and Move down alone, their dots still spending and restoring a slot. Each is left out
+  where the favorite can't move that way, and none is offered with a module before 0.47.0. Skills,
+  tools and spell slots are still made favorites, and removed, in Foundry. Help says where the moves
+  are, and names module 0.47.0 for putting favorites in order. The module is unchanged: the order it
+  takes already named them. (app, item 47)
 
 ### Enhancements
 
@@ -79,6 +89,12 @@ so an item from it is named with its number when it was built, which may since b
   whoever changes it next. Nothing the module sends, takes or shows changes, and no module version
   comes of it: the harness's 115 runs end as they did before, line for line, and the app's 125 e2e
   runs pass against it. (module, item 24)
+- **A tool in the order the harness sends.** The module's `favoriting` harness puts a tool favorite
+  in order with a skill, spell slots, an item, an activity and an effect, under dnd5e 5.3.3 and
+  6.0.5; the app's `favoriting` e2e moves a skill and spell slots from their menus at 390 px, opens
+  the slots' menu from the keyboard at 1280 px, and finds neither offered a move with module 0.46.0.
+  Jest pins which move a skill's or a tool's menu leaves out at either end, and that one favorite
+  alone that may move is offered no Reorder, and spell slots no menu. (app and module, item 47)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
   kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
   v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
