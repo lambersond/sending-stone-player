@@ -102,6 +102,13 @@ describe('features/transfers/coins-dialog', () => {
       'sent',
     ],
     [
+      'more of a coin than the one it holds, which its other coins pay',
+      { currency: purse({ pp: 2, gp: 1 }) },
+      { Gold: '2' },
+      'You take away 2 gp. You hold only 1 gp, so other coins pay for the rest.',
+      'sent',
+    ],
+    [
       'more than its coins are worth',
       {},
       { Gold: '25' },

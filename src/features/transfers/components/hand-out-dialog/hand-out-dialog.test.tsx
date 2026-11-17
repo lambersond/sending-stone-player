@@ -110,6 +110,18 @@ describe('features/transfers/hand-out-dialog', () => {
       'You hold only 700 pp of the 750 pp in all, and your Gamemaster’s game doesn’t pay with other coins.',
     ],
     [
+      'one of a coin, where the game pays with no other',
+      { change: false, currency: purse({ pp: 1, gp: 3000 }) },
+      '1',
+      'You hold only 1 pp of the 3 pp in all, and your Gamemaster’s game doesn’t pay with other coins.',
+    ],
+    [
+      'a coin the giver holds none of, where the game pays with no other',
+      { change: false, currency: purse({ gp: 3000 }) },
+      '1',
+      'You hold none of the 3 pp in all, and your Gamemaster’s game doesn’t pay with other coins.',
+    ],
+    [
       'the Gamemaster’s, more than the character’s coins are worth',
       { role: 'gm' },
       '300',

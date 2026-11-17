@@ -37,7 +37,9 @@ const coins = (
 
 describe('utils/coins', () => {
   // The module's own table (PROTOCOL.md, Short of a coin): wherever it pays with other coins the
-  // app says so beforehand, and wherever it refuses, that the coins are worth too little.
+  // app says so beforehand, and wherever it refuses, that the coins are worth too little. Then the
+  // rule's edge: coins worth exactly what's paid pay it, a larger coin broken or smaller ones
+  // paying, as the game does (a silver less, as 1 gp and 14 sp are for 1 gp and 15 sp, is short).
   it.each([
     [{ pp: 2, gp: 3 }, { gp: 5 }, 'other', 'gp'],
     [{ gp: 12 }, { sp: 5 }, 'other', 'sp'],
@@ -61,6 +63,8 @@ describe('utils/coins', () => {
     [{ pp: 2, gp: 3 }, { gp: 25 }, 'short', 'gp'],
     [{ sp: 9, cp: 5 }, { gp: 1 }, 'short', 'gp'],
     [{ gp: 1, sp: 14 }, { gp: 1, sp: 15 }, 'short', 'sp'],
+    [{ pp: 1 }, { gp: 10 }, 'other', 'gp'],
+    [{ gp: 2, sp: 30 }, { gp: 5 }, 'other', 'gp'],
   ])('holding %j, paying %j is %s, of %s', (held, pay, state, coin) => {
     expect(coinsCovered(purse(held), pay)).toEqual({ state, coin })
   })

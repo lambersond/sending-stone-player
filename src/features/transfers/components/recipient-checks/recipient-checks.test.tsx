@@ -30,24 +30,23 @@ function Checks({
 }
 
 describe('features/transfers/recipient-checks', () => {
-  it('ticks any of them, none at first, kept in the list’s order whatever order they’re ticked in', async () => {
+  it('ticks any of them, none at first, kept in the list’s order whatever order they’re ticked in, with Select all from two', async () => {
     const user = userEvent.setup()
     const onTicked = jest.fn()
-    render(<Checks ends={characters(3)} onTicked={onTicked} />)
+    render(<Checks ends={characters(2)} onTicked={onTicked} />)
 
     const boxes = screen.getAllByRole('checkbox')
     expect(boxes.map(box => box.closest('label')?.textContent)).toEqual([
       'Select all',
       'Character 1',
       'Character 2',
-      'Character 3',
     ])
     expect(boxes.every(box => !(box as HTMLInputElement).checked)).toBe(true)
 
-    await user.click(screen.getByRole('checkbox', { name: 'Character 3' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Character 2' }))
     await user.click(screen.getByRole('checkbox', { name: 'Character 1' }))
-    expect(onTicked).toHaveBeenLastCalledWith(['actor1', 'actor3'])
-    await user.click(screen.getByRole('checkbox', { name: 'Character 3' }))
+    expect(onTicked).toHaveBeenLastCalledWith(['actor1', 'actor2'])
+    await user.click(screen.getByRole('checkbox', { name: 'Character 2' }))
     expect(onTicked).toHaveBeenLastCalledWith(['actor1'])
   })
 

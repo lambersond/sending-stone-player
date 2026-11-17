@@ -6355,6 +6355,12 @@ const coinsFeature = (sent: unknown) =>
     })?.data as { features?: { coins?: unknown } }
   ).features?.coins
 
+/** As many kinds of coin, each a key of its own, one of each. */
+const kinds = (count: number) =>
+  Object.fromEntries(
+    Array.from({ length: count }, (_, index) => [`c${index}`, 1]),
+  )
+
 /** A coins command's result, as read. */
 const coinsOf = (coins: unknown) =>
   parseGameEvent('command.result', { ...coinsResult(), coins })?.data as {
@@ -6439,6 +6445,14 @@ describe('schemas/sending-stone, coins added, taken away and handed out, from mo
         used: { gp: 100_000_000 },
       }).coins,
     ).toMatchObject({ used: { gp: 100_000_000 } })
+    // At its edges: one of a coin, and as many kinds as a change names; of the coins used, as many
+    // kinds as any world has.
+    expect(
+      coinsOf({ op: 'add', currency: kinds(10), used: null }).coins,
+    ).toMatchObject({ currency: kinds(10) })
+    expect(
+      coinsOf({ op: 'remove', currency: { gp: 1 }, used: kinds(64) }).coins,
+    ).toMatchObject({ used: kinds(64) })
   })
 
   it.each([
@@ -6446,6 +6460,7 @@ describe('schemas/sending-stone, coins added, taken away and handed out, from mo
     ['none where a count is no whole number', { pp: 0.5 }],
     ['none where a count is none', { pp: 0 }],
     ['none where they’re left out', undefined],
+    ['none where they’re of more kinds than any world has', kinds(65)],
   ])('reads the coins used as %s, the change itself still told', (_, used) => {
     expect(coinsOf({ op: 'remove', currency: { gp: 5 }, used }).coins).toEqual({
       op: 'remove',
@@ -6461,6 +6476,10 @@ describe('schemas/sending-stone, coins added, taken away and handed out, from mo
       'more of a coin than a change names',
       { op: 'add', currency: { gp: 10_000_001 }, used: null },
     ],
+    [
+      'more kinds of coin than a change names',
+      { op: 'add', currency: kinds(11), used: null },
+    ],
     ['no object', 'gp'],
   ])('leaves out a change with %s, keeping the rest', (_, coins) => {
     const data = coinsOf(coins)
@@ -6475,6 +6494,9 @@ describe('schemas/sending-stone, coins added, taken away and handed out, from mo
     expect(handedOut({ each: ['actorVex0001'] }).transfer).toMatchObject({
       each: ['actorVex0001'],
     })
+    // As many as one hands out to.
+    const twenty = Array.from({ length: 20 }, (_, index) => `actor${index}`)
+    expect(handedOut({ each: twenty }).transfer).toMatchObject({ each: twenty })
   })
 
   it('leaves out the coins a hand-out used where it can’t read them, keeping the rest of it', () => {

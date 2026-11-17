@@ -142,10 +142,12 @@ describe('features/transfers/coin-controls, from module 0.48.0', () => {
     expect(rowButtons()).toEqual(['Add or take away'])
     empty.unmount()
 
-    // Hand out with the coins' switch off, as moves have their own: but only where the module
-    // hands coins out, and there's another character to hand them to.
+    // Hand out with the coins' switch off, as moves have their own, a single copper being a coin
+    // to hand out: but only where the module hands coins out, and there's another character to
+    // hand them to.
     const moving = await renderCoins({
       moves: tableMoves({ handOut: { change: true } }),
+      sheet: holding({ cp: 1 }),
     })
     expect(rowButtons()).toEqual(['Send to', 'Hand out'])
     moving.unmount()

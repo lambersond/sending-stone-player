@@ -11,9 +11,9 @@ describe('features/transfers/coin-amounts/utils', () => {
       ['none of any', { gp: '0', sp: '' }, undefined],
       ['one coin', { gp: '5' }, { gp: 5 }],
       [
-        'several, those with none left out',
-        { pp: '2', gp: '0', sp: '30' },
-        { pp: 2, sp: 30 },
+        'several, one of a coin kept and those with none left out',
+        { pp: '1', gp: '0', sp: '30' },
+        { pp: 1, sp: 30 },
       ],
       ['more than is held', { gp: '500' }, { gp: 500 }],
       ['the most the game takes', { cp: '10000000' }, { cp: 10_000_000 }],
