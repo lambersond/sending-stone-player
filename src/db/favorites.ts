@@ -16,11 +16,9 @@ const FAVORITE_COMMAND: CommandSpec<'favorite'> = {
   kind: 'favorite',
   waiting: { kind: 'favorite', select: { payload: true } },
   // An order (module 0.47.0) only where its module said it puts them in the order sent.
-  takes: {
-    select: { favoriteFeatures: true },
-    of: (favorite, { favoriteFeatures = [] }) =>
-      favorite.op !== 'order' || favoriteFeatures.includes('orders'),
-  },
+  select: { favoriteFeatures: true },
+  takes: (favorite, { favoriteFeatures = [] }) =>
+    favorite.op !== 'order' || favoriteFeatures.includes('orders'),
   check: checkFavorite,
   // The same favorite isn't sent twice at once, as from a second tap: the game would make the
   // second of what the first left. An order (module 0.47.0) is made after those before it, from

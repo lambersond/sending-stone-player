@@ -1,3 +1,4 @@
+import { coinsAvailable } from '@/utils/coins'
 import { companionsByKey } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
@@ -115,8 +116,10 @@ export function ownCompanions(
  * with no switch; turn off, turn on and delete its own effects, from module 0.39.0, by the
  * campaign's switch, as favorites; use Wild Shape, from module 0.40.0, by the campaign's switch, as
  * effects; and set its hit points and temporary hit points, its form's while shaped, from module
- * 0.44.0, by the campaign's switch, as Wild Shape. What the character is, and what Wild Shape
- * gives, are on its sheet.
+ * 0.44.0, by the campaign's switch, as Wild Shape. From module 0.48.0, at either seat as moves
+ * are, whether it may add and take away its coins, by the campaign's switch, with whether another
+ * coin pays where it is short of one. What the character is, and what Wild Shape gives, are on its
+ * sheet.
  * @param connected - The seat's actor is in the campaign's roster.
  * @param listed - The campaign's groups, as its roster keeps them.
  */
@@ -132,6 +135,8 @@ export function seatAllows(
     effectsEnabled: boolean
     wildShapeEnabled: boolean
     hitPointsEnabled: boolean
+    coinsEnabled: boolean
+    coinFeatures: string[]
   },
   connected: boolean,
   listed: GroupEntry[],
@@ -160,5 +165,9 @@ export function seatAllows(
       wildShapeAvailable(campaign, now) && { wildShape: true as const }),
     ...(own &&
       hitPointsAvailable(campaign, now) && { hitPoints: true as const }),
+    ...(at &&
+      coinsAvailable(campaign, now) && {
+        coins: { change: campaign.coinFeatures.includes('change') },
+      }),
   }
 }

@@ -4,7 +4,8 @@ import type { SeatRole } from '@/types/seats'
 
 // How a move of items and coins (module 0.31.0) is told, in English: what moved, as the game's
 // chat line says it, where it stands on its way to the game, and why it wasn't made. From module
-// 0.33.0, a removal of the character's item is told the same way.
+// 0.33.0, a removal of the character's item is told the same way; and from module 0.48.0 coins
+// added to the character, taken away, or handed out to the characters picked.
 
 /**
  * What a move moves, as the module's chat line says it in English: "2 Potion of Healing", or
@@ -53,7 +54,9 @@ export function namesWords(names: string[]): string {
  * What a move is called on the Gamemaster's page, for the character's player to be shown it by
  * among the Gamemaster's rolls: such as "Give 5 gp to Vex" or "Take 1 Rope from The Iron Company",
  * and from module 0.32.0 "Send 1 Rope from The Iron Company to Vex" or "Distribute 4 pp from The
- * Iron Company among Bram, Lia, Thorin, and Vex", and from module 0.33.0 "Remove 1 Rope".
+ * Iron Company among Bram, Lia, Thorin, and Vex", and from module 0.33.0 "Remove 1 Rope"; and from
+ * module 0.48.0 "Add 5 gp", "Take away 5 gp" or "Hand out 200 pp and 50 gp each to Vex, Bram, and
+ * Lia".
  */
 export function moveLabel(move: LocalMove): string {
   switch (move.verb) {
@@ -72,6 +75,15 @@ export function moveLabel(move: LocalMove): string {
     case 'remove': {
       return `Remove ${move.things}`
     }
+    case 'receive': {
+      return `Add ${move.things}`
+    }
+    case 'pay': {
+      return `Take away ${move.things}`
+    }
+    case 'handOut': {
+      return `Hand out ${move.things} each to ${move.among ?? ''}`
+    }
   }
 }
 
@@ -88,7 +100,45 @@ export function moveReasons(
   return WORDS_BY_ROLE[role][verb]
 }
 
+/** The verbs of coins added to a character or taken away (module 0.48.0). */
+const COIN_VERBS: ReadonlySet<LocalMove['verb']> = new Set(['receive', 'pay'])
+
+/**
+ * Whose coins are too few for what's taken away or handed out, as the seat is told it: the
+ * player's own, or for the Gamemaster the character's.
+ */
+function shortOfCoins(role: SeatRole): string {
+  return role === 'gm'
+    ? 'they haven’t the coins for that'
+    : 'you haven’t the coins for that'
+}
+
+/**
+ * Why coins weren't added or taken away (module 0.48.0), in words: its own for what differs from a
+ * removal's, whose words it otherwise has; none for a transformed character, which has the roll's.
+ */
+function coinReasons(role: SeatRole): Record<string, string> {
+  const { game } = seatWords(role)
+  const notTaking = `${game} isn’t changing coins now`
+  return {
+    unavailable: notTaking,
+    off: notTaking,
+    busy: 'too many at once. Wait a moment',
+    moving: 'a change to these coins is still on its way',
+    invalid: `${game} couldn’t change them`,
+    unknown: 'that isn’t in the campaign any more',
+    gone: 'that coin isn’t on the sheet any more',
+    short: shortOfCoins(role),
+    error: 'something went wrong',
+    timeout: `${game} took too long. The sheet shows whether they changed`,
+    lost: `no answer from ${game}. The sheet shows whether they changed`,
+    network: 'Sending Stone couldn’t be reached',
+    expired: `${game} didn’t pick it up`,
+  }
+}
+
 function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
+  if (COIN_VERBS.has(verb)) return coinReasons(role)
   const { game } = seatWords(role)
   const removing = verb === 'remove'
   const notTaking = removing
@@ -98,6 +148,8 @@ function reasonsFor(role: SeatRole, verb: LocalMove['verb']) {
   if (verb === 'give' || removing) {
     short = role === 'gm' ? 'they haven’t that many' : 'you haven’t that many'
   }
+  // A hand-out's coins (module 0.48.0) may be paid with other coins: too few is of them all.
+  if (verb === 'handOut') short = shortOfCoins(role)
   // Whether it moved, or for a removal whether it was removed, is the sheet's to show.
   const happened = removing ? 'whether it was removed' : 'whether it moved'
   return {
@@ -143,6 +195,9 @@ function wordsFor(role: SeatRole) {
     send: reasonsFor(role, 'send'),
     distribute: reasonsFor(role, 'distribute'),
     remove: reasonsFor(role, 'remove'),
+    receive: reasonsFor(role, 'receive'),
+    pay: reasonsFor(role, 'pay'),
+    handOut: reasonsFor(role, 'handOut'),
   }
 }
 
@@ -153,7 +208,8 @@ const WORDS_BY_ROLE: Record<
 
 /**
  * Whether the game says it moved any of it before it failed; or for a removal, from module 0.33.0,
- * that the item itself was lowered or deleted before it did.
+ * that the item itself was lowered or deleted before it did. A hand-out that failed part way
+ * (module 0.48.0) lists those it gave, with what each was given.
  */
 function partly(
   move: LocalMove,
@@ -167,24 +223,62 @@ function partly(
   )
 }
 
-/** How each kind of move is told: being made, made, and not made, or made in part. */
+/**
+ * How each kind of move is told: being made, up to where it's made, as "Giving it" or "Taking it
+ * away"; made; and not made, or made in part.
+ */
 const VERBS: Record<
   LocalMove['verb'],
   { making: string; not: string; partly: string }
 > = {
-  give: { making: 'Giving', not: 'Not given', partly: 'Partly given' },
-  take: { making: 'Taking', not: 'Not taken', partly: 'Partly taken' },
-  send: { making: 'Sending', not: 'Not sent', partly: 'Partly sent' },
+  give: { making: 'Giving it', not: 'Not given', partly: 'Partly given' },
+  take: { making: 'Taking it', not: 'Not taken', partly: 'Partly taken' },
+  send: { making: 'Sending it', not: 'Not sent', partly: 'Partly sent' },
   distribute: {
-    making: 'Distributing',
+    making: 'Distributing it',
     not: 'Not distributed',
     partly: 'Partly distributed',
   },
-  remove: { making: 'Removing', not: 'Not removed', partly: 'Partly removed' },
+  remove: {
+    making: 'Removing it',
+    not: 'Not removed',
+    partly: 'Partly removed',
+  },
+  // From module 0.48.0. Coins are added or taken away in one write: never in part.
+  receive: { making: 'Adding it', not: 'Not added', partly: 'Not added' },
+  pay: {
+    making: 'Taking it away',
+    not: 'Not taken away',
+    partly: 'Not taken away',
+  },
+  handOut: {
+    making: 'Handing it out',
+    not: 'Not handed out',
+    partly: 'Partly handed out',
+  },
+}
+
+/**
+ * Which of the character's other coins the game says went beyond those taken away or handed out
+ * (module 0.48.0), as ", using 1 pp and 80 sp", by the sheet's abbreviations and in its order; none
+ * where none did, or the game hasn't said.
+ */
+function usingWords(
+  move: LocalMove,
+  used: Readonly<Record<string, number>> | null | undefined,
+): string {
+  const coins = Object.entries(move.abbreviations ?? {}).map(
+    ([id, abbreviation]) => ({ id, abbreviation }),
+  )
+  const words = used ? coinsWords(coins, used) : ''
+  return words ? `, using ${words}` : ''
 }
 
 /** What was done, as the line after who did it says it: "gave 5 gp to Vex". */
-function doneWords(move: LocalMove): string {
+function doneWords(
+  move: LocalMove,
+  state: Pick<TableRollState, 'transfer' | 'coins'>,
+): string {
   switch (move.verb) {
     case 'give': {
       return `gave ${move.things} to ${move.other}`
@@ -201,6 +295,16 @@ function doneWords(move: LocalMove): string {
     case 'remove': {
       return `removed ${move.things}`
     }
+    case 'receive': {
+      return `received ${move.things}`
+    }
+    case 'pay': {
+      return `paid ${move.things}${usingWords(move, state.coins?.used)}`
+    }
+    case 'handOut': {
+      const using = usingWords(move, state.transfer?.used)
+      return `handed out ${move.things} each to ${move.among ?? ''}${using}`
+    }
   }
 }
 
@@ -215,7 +319,7 @@ export function moveWords(
   move: LocalMove,
   state: Pick<
     TableRollState,
-    'status' | 'reason' | 'transfer' | 'removed' | 'unfollowed'
+    'status' | 'reason' | 'transfer' | 'removed' | 'coins' | 'unfollowed'
   >,
   role: SeatRole,
   fallback: Readonly<Record<string, string>> = {},
@@ -227,11 +331,11 @@ export function moveWords(
       return `Sending to ${game}…`
     }
     case 'rolling': {
-      return `${verb.making} it in ${game}…`
+      return `${verb.making} in ${game}…`
     }
     case 'done': {
       if (state.unfollowed) return `Sent to ${game}`
-      const done = doneWords(move)
+      const done = doneWords(move, state)
       return move.mover
         ? `${move.mover} ${done}`
         : `${done[0].toUpperCase()}${done.slice(1)}`

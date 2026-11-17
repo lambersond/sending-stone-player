@@ -70,6 +70,30 @@ export type Taking = {
   receivers?: MoveEnd[]
 }
 
+/**
+ * What a character's coins' dialog was opened with (module 0.48.0), as it stood then, kept as it
+ * closes: its coins, and whether the game pays with other coins where it's short of one.
+ */
+export type CoinChanging = {
+  mode: 'change'
+  currency: SheetCurrency[]
+  change: boolean
+}
+
+/**
+ * Whose coins a dialog adds to, takes away or hands out, as its words say them: "You" and "your"
+ * for a player, with "your Gamemaster’s game"; for the Gamemaster, the character's name, "their"
+ * and "your game".
+ */
+export type CoinSpeaker = {
+  who: string
+  /** "hold" or "holds", and "haven’t" or "hasn’t", as `who` takes them. */
+  hold: string
+  lack: string
+  their: string
+  game: string
+}
+
 /** What's being given, while its dialog is open, as it was when it opened. */
 export type Giving = {
   what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }

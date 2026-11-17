@@ -32,7 +32,8 @@ import type { Prisma } from '@prisma/client'
  * only among the party's characters, as its sheet was last sent; where what's moved is on the
  * sheet it's moved from, as last sent; and where none of it is on its way already, from the same
  * end, as from a retry, or a second tap, nor, from module 0.33.0, being removed from the seat's
- * character, nor in or around an item that is.
+ * character, nor in or around an item that is; nor, from module 0.48.0, coins of the seat's
+ * character while a change to its coins is on its way.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The move's id, or why it wasn't taken.
  */
@@ -95,7 +96,7 @@ export async function createTransferRequest(
     prisma.rollRequest.findMany({
       where: {
         ...madeBy(seat),
-        kind: { in: ['transfer', 'remove'] },
+        kind: { in: ['transfer', 'remove', 'coins'] },
         ...onItsWay(now),
       },
       select: { kind: true, payload: true },
@@ -125,6 +126,11 @@ export async function createTransferRequest(
           transfer.from === seat.actorId &&
           (transfer.items ?? []).some(({ id }) => related.has(id))
         )
+      }
+      // Coins added to the seat's character or taken away, from module 0.48.0, keep its coins from
+      // being moved from it meanwhile: both would be checked against the same coins.
+      if (kind === 'coins') {
+        return transfer.from === seat.actorId && !!transfer.currency
       }
       return overlaps(earlier?.transfer, transfer)
     })

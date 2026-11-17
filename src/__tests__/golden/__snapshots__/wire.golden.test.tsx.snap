@@ -1498,6 +1498,15 @@ exports[`what useTableRolls sends each command at the gm seat: commands gm 1`] =
     "url": "/api/campaigns/c1/characters/thorin/rolls",
   },
   {
+    "body": "{"kind":"coins","coins":{"op":"remove","currency":{"gp":5}},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Take away 5 gp"}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls",
+  },
+  {
     "body": undefined,
     "cache": "no-store",
     "headers": {},
@@ -1608,6 +1617,14 @@ exports[`what useTableRolls sends each command at the gm seat: commands gm 1`] =
     "method": "GET",
     "signal": true,
     "url": "/api/campaigns/c1/characters/thorin/rolls/req-14",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/campaigns/c1/characters/thorin/rolls/req-15",
   },
 ]
 `;
@@ -1741,6 +1758,15 @@ exports[`what useTableRolls sends each command at the player seat: commands play
     "url": "/api/characters/char-1/rolls",
   },
   {
+    "body": "{"kind":"coins","coins":{"op":"remove","currency":{"gp":5}},"mode":0,"explicit":false,"extras":[],"dice":[]}",
+    "headers": {
+      "Content-Type": "application/json",
+    },
+    "method": "POST",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls",
+  },
+  {
     "body": undefined,
     "cache": "no-store",
     "headers": {},
@@ -1851,6 +1877,14 @@ exports[`what useTableRolls sends each command at the player seat: commands play
     "method": "GET",
     "signal": true,
     "url": "/api/characters/char-1/rolls/req-14",
+  },
+  {
+    "body": undefined,
+    "cache": "no-store",
+    "headers": {},
+    "method": "GET",
+    "signal": true,
+    "url": "/api/characters/char-1/rolls/req-15",
   },
 ]
 `;

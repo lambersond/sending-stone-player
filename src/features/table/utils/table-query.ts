@@ -29,6 +29,8 @@ export function seenOf(view: TableView): ViewSeen {
     wildShape: view.wildShape === true,
     // From module 0.44.0: whether the player may set its character's hit points.
     hitPoints: view.hitPoints === true,
+    // From module 0.48.0: whether the seat may add and take away its character's coins.
+    coins: view.coins !== undefined,
   }
 }
 
@@ -50,6 +52,7 @@ export function tableQuery({
   effects,
   wildShape,
   hitPoints,
+  coins,
 }: ViewSeen): URLSearchParams {
   return seenQuery({
     version,
@@ -64,6 +67,7 @@ export function tableQuery({
     effects,
     wildshape: wildShape,
     hitpoints: hitPoints,
+    coins,
     sheet: sheetVersion,
   })
 }

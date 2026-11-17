@@ -14,6 +14,7 @@ import {
   TABLE_SEEN_EVERY,
 } from '@/constants/sending-stone'
 import { closePrompt } from '@/db/campaign-events'
+import { createCoinsRequest } from '@/db/coins'
 import { ago, COUNTED, due, holdCommand, madeBy, onItsWay } from '@/db/commands'
 import { FOUNDRY_ID } from '@/db/constants'
 import { recordDishResult } from '@/db/cookbook'
@@ -80,6 +81,7 @@ const OWN_CREATORS: Partial<Record<RollKind, CommandCreator>> = {
   effect: createEffectRequest,
   wildShape: createWildShapeRequest,
   hitPoints: createHitPointsRequest,
+  coins: createCoinsRequest,
 }
 
 const heldSelect = {
@@ -507,7 +509,8 @@ export async function getRollRequestView(
  * player's only. From module 0.39.0, a change to a character's own effects likewise, a player's
  * only, to the session whose hello said its campaign lets them. From module 0.40.0, Wild Shape
  * likewise, a player's only, to the session whose hello said its campaign lets them; and from
- * module 0.44.0 hit points set likewise, a companion's among them.
+ * module 0.44.0 hit points set likewise, a companion's among them. From module 0.48.0, coins added
+ * or taken away likewise, the Gamemaster's as a player's, as a move is.
  * @param session - The module session that fetched them.
  * @param campaign - The campaign as the fetch's check read it, once for all its claims; null where
  * it's gone.
@@ -534,13 +537,14 @@ export async function claimRollRequests(
   // ever taken, so none is handed over. A character's own effects changed, from module 0.39.0, as
   // favorites, by the campaign's own switch; and Wild Shape, from module 0.40.0, and hit points
   // set, from module 0.44.0, likewise, so a module before it, which says nothing of them, is never
-  // handed one.
+  // handed one. Coins added or taken away, from module 0.48.0, as moves do: the Gamemaster's too.
   const takes = (kind: RollKind) => {
     const field = (ROLL_KIND_INFO[kind] as RollKindInfo).own
     return current && !!field && campaign?.[field] === true
   }
   const transfers = takes('transfer')
   const removals = takes('remove')
+  const coins = takes('coins')
   // A row of a kind the session doesn't take now waits, and runs out.
   const withheld = OWN_KINDS.filter(kind => !takes(kind))
   const notWithheld = withheld.length > 0 ? { kind: { notIn: withheld } } : {}
@@ -560,6 +564,9 @@ export async function claimRollRequests(
           : []),
         ...(removals && ownerId
           ? [{ role: 'gm' as const, requestedById: ownerId, kind: 'remove' }]
+          : []),
+        ...(coins && ownerId
+          ? [{ role: 'gm' as const, requestedById: ownerId, kind: 'coins' }]
           : []),
       ],
     },

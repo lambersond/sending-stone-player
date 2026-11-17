@@ -3193,6 +3193,101 @@ describe('schemas/roll-request, hit points set, from module 0.44.0', () => {
   })
 })
 
+/** As many kinds of coin, each a key of its own, one of each. */
+const kinds = (count: number) =>
+  Object.fromEntries(
+    Array.from({ length: count }, (_, index) => [`c${index}`, 1]),
+  )
+
+describe('schemas/roll-request, coins added and taken away, from module 0.48.0', () => {
+  /** 5 gp taken away, as the dialog's Take away coins sends it. */
+  const paying = {
+    kind: 'coins',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    coins: { op: 'remove', currency: { gp: 5 } },
+  }
+  /** Coins as given, the rest as `paying` has them. */
+  const coins = (fields: unknown) => parseKind(paying, { coins: fields })
+  const message = 'Coins added or taken away, and only those, name the coins'
+  it.each([
+    ['coins taken away', { op: 'remove', currency: { gp: 5 } }],
+    ['coins added', { op: 'add', currency: { gp: 5 } }],
+    ['several kinds', { op: 'add', currency: { pp: 2, gp: 5, sp: 3 } }],
+    ['the most of one', { op: 'remove', currency: { cp: 10_000_000 } }],
+    ['ten kinds', { op: 'add', currency: kinds(10) }],
+  ])('takes %s, as they are', (_name, fields) => {
+    const parsed = coins(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...paying, coins: fields })
+  })
+
+  it.each([
+    ['no op', { currency: { gp: 5 } }],
+    ['an op of its own', { op: 'spend', currency: { gp: 5 } }],
+    ['none of a coin', { op: 'add', currency: { gp: 0 } }],
+    ['fewer than none', { op: 'remove', currency: { gp: -5 } }],
+    ['more than the most', { op: 'add', currency: { gp: 10_000_001 } }],
+    ['a part of a coin', { op: 'remove', currency: { gp: 1.5 } }],
+    ['a count as text', { op: 'add', currency: { gp: '5' } }],
+    ['no coins', { op: 'add' }],
+    ['no kind of coin', { op: 'add', currency: {} }],
+    ['eleven kinds', { op: 'add', currency: kinds(11) }],
+    ['a key no coin has', { op: 'add', currency: { 'Gold Pieces': 5 } }],
+    ['whom it is for', { op: 'add', currency: { gp: 5 }, to: 'actorVex0001' }],
+    ['not an object', 5],
+    ['null', null],
+  ])('refuses %s', (_name, fields) => {
+    expect(coins(fields).success).toBe(false)
+  })
+
+  it('takes coins only as themselves, and only naming their coins', () => {
+    expect(issuesOf(perception, { coins: paying.coins })).toEqual([
+      ['coins', message],
+    ])
+    expect(issuesOf(spending, { coins: paying.coins })).toEqual([
+      ['coins', message],
+    ])
+    expect(issuesOf(paying, { coins: undefined })).toEqual([['coins', message]])
+  })
+
+  it.each([
+    [
+      'a move',
+      { transfer: { from: 'actorThorin1', to: 'actorVex0001' } },
+      ['transfer', 'A move, and only that, names what moves'],
+    ],
+    [
+      'hit points',
+      { hitPoints: { op: 'set', value: 21, from: { value: 22 } } },
+      [
+        'hitPoints',
+        'Hit points set, and only those, name the numbers and what they were',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])('refuses coins naming %s, another kind’s field', (_n, fields, issue) => {
+    expect(issuesOf(paying, fields)).toContainEqual(issue)
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses coins with %s, as they throw no dice', (_name, fields) => {
+    expect(issuesOf(paying, fields)).toEqual([
+      ['dice', 'Changing coins throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(paying, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(paying, { of: 'actorThorin1' }).success).toBe(false)
+  })
+})
+
 describe('schemas/roll-request, a plain roll, from module 0.44.0', () => {
   /** 2d6 + 1d8 + 2, as the dice tray sends it, with the dice it threw. */
   const rolling = {

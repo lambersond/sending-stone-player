@@ -3731,6 +3731,78 @@ describe('an item removed, from module 0.33.0', () => {
   })
 })
 
+describe('coins added and taken away, from module 0.48.0', () => {
+  /** 5 gp taken away from Thorin, as the dialog logs it. */
+  const paid = moved({
+    verb: 'pay',
+    things: '5 gp',
+    other: 'Thorin',
+    abbreviations: { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' },
+  })
+  /** As the game answered it: a platinum of his broken for the rest. */
+  const done: TableRollState = {
+    status: 'done',
+    visible: true,
+    rolls: [],
+    coins: { op: 'remove', currency: { gp: 5 }, used: { pp: 1 } },
+  }
+  /** The Gamemaster's change to the character's coins, on its player's page. */
+  const gm = {
+    kind: 'gm' as const,
+    id: 'gm:req-coins',
+    label: 'Take away 5 gp',
+    rolled: 'coins' as const,
+    at: 0,
+  }
+
+  it('reads what was paid, with the other coins the game says it used, and lists it as paid', async () => {
+    const user = userEvent.setup()
+    render(
+      <RollTray
+        rolls={[
+          { ...paid, label: '5 gp' },
+          { ...paid, id: 'u-2', label: '5 gp' },
+        ]}
+        rolling={false}
+        table={{
+          states: new Map([['u-move', done]]),
+          available: true,
+          sending: true,
+        }}
+      />,
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '5 gpPaid 5 gp, using 1 pp',
+    )
+    await user.click(screen.getByText('Earlier rolls (1)'))
+    expect(
+      screen.getAllByRole('listitem').map(item => item.textContent),
+    ).toEqual(['5 gppaid'])
+  })
+
+  it("reads the Gamemaster's change as the character, on its player's page, by its label, beneath which nothing is said of rolls", () => {
+    expect(briefOf(gm, { status: 'rolling' }).table?.text).toBe(
+      'Changing it in your Gamemaster’s game…',
+    )
+    expect(briefOf(gm, done)).toMatchObject({
+      label: 'Take away 5 gp',
+      badge: 'use',
+      table: { text: 'Changed at the table' },
+    })
+    expect(
+      briefOf(gm, { status: 'failed', reason: 'short' }).table?.text,
+    ).toMatch(/^Not changed at the table: /)
+    render(
+      <RollTray
+        rolls={[gm]}
+        rolling={false}
+        table={{ states: new Map(), available: false, sending: true }}
+      />,
+    )
+    expect(screen.queryByText(/Only you see these rolls/)).toBeNull()
+  })
+})
+
 /** A recharge's d6, Fire Breath's, which came up as given. */
 const recharge = (
   value: number,

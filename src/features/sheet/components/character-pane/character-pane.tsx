@@ -68,6 +68,7 @@ export function CharacterPane({
   header,
   moves,
   removes,
+  coins,
   favorites: favoritesOn,
   favoriteOrders,
   effects: effectsOn,
@@ -119,11 +120,13 @@ export function CharacterPane({
   })
   // While the character is transformed, as by Wild Shape (module 0.40.0), what its form's sheet
   // can't keep, or its gear isn't on, isn't offered: favorites added or removed, effects changed,
-  // and its items given, removed or taken into it.
+  // its items given, removed or taken into it, and from module 0.48.0 its coins added or taken
+  // away.
   const shaped = sheet.form !== undefined
-  const { giving, removing, transfers } = useGiveRemove({
+  const { giving, removing, coinage, transfers } = useGiveRemove({
     moves,
     removes,
+    coins,
     shaped,
     sheet,
     table,
@@ -440,6 +443,7 @@ export function CharacterPane({
         />
         {giving.dialog}
         {removing.dialog}
+        {coinage.dialog}
         {entry.dialog}
         {conditions.panel}
       </SheetContext>

@@ -141,12 +141,13 @@ export async function holdCommand(
 /**
  * Take a command that rides to the game as a roll does but is none, for the Gamemaster's game to
  * make: an item removed (module 0.33.0), a favorite (0.37.0), an effect changed (0.39.0), Wild
- * Shape (0.40.0) or hit points set (0.44.0). From its player, or the campaign's Gamemaster at its
- * page where the kind is theirs to send too; while the campaign's own switch for it is on, its
- * module takes this one (`takes`) and is fetching; where the seat isn't sending too many, of rolls
- * and every other kind together; where the character is in the campaign's roster, or at a
- * companion's seat, where the kind lets one through, the companion is listed as its character's
- * now; where the sheet, as last sent, its own at a companion's, lets it be done (`check`); and
+ * Shape (0.40.0), hit points set (0.44.0) or coins added or taken away (0.48.0). From its player,
+ * or the campaign's Gamemaster at its page where the kind is theirs to send too; while the
+ * campaign's own switch for it is on, its module takes this one (`takes`) and is fetching; where
+ * the seat isn't sending too many, of rolls and every other kind together; where the character is
+ * in the campaign's roster, or at a companion's seat, where the kind lets one through, the
+ * companion is listed as its character's now; where the sheet, as last sent, its own at a
+ * companion's, lets it be done (`check`), by what the campaign's module does with it too; and
  * where nothing of the seat's on its way clashes with it, as from a second tap (`clashes`). A
  * companion's is kept as its key, with its character's id, for the module to make it on the
  * companion.
@@ -177,13 +178,13 @@ export async function createCommand<K extends CommandKind>(
       bridgePolledAt: true,
       characters: true,
       ...(companion && { companions: true }),
-      ...spec.takes?.select,
+      ...spec.select,
     },
   })) as CommandCampaign | null
   if (
     !campaign ||
     !switchOn(campaign, info.own) ||
-    (spec.takes && !spec.takes.of(value, campaign))
+    (spec.takes && !spec.takes(value, campaign))
   ) {
     return { status: 409, reason: 'unavailable' }
   }
@@ -206,7 +207,7 @@ export async function createCommand<K extends CommandKind>(
         }),
   ])
   const data = sheet?.data as unknown as CharacterSheet | undefined
-  const refusal = spec.check(value, data)
+  const refusal = spec.check(value, data, campaign)
   if (refusal) return { status: 422, reason: refusal }
   // The game would make the second of what the first left.
   if (spec.clashes(rows as WaitingRow[], value, data, actorId)) {

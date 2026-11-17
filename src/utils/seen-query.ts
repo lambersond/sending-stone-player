@@ -7,6 +7,7 @@ const FLAGS = [
   'effects',
   'wildshape',
   'hitpoints',
+  'coins',
 ] as const
 
 /**
@@ -31,6 +32,7 @@ export function seenQuery(seen: {
   effects?: boolean
   wildshape?: boolean
   hitpoints?: boolean
+  coins?: boolean
   sheet?: string
 }): URLSearchParams {
   const query = new URLSearchParams()

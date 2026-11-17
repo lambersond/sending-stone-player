@@ -84,6 +84,9 @@ describe('features/help/constants', () => {
       'Save and concentration prompts',
       'Allow Players to enter dice results manually',
       'Players move items and coins',
+      // From module 0.48.0: the Coins box's two.
+      'Allow Players to add and take away coins from the app',
+      'Pay with other coins when a character is short of one',
       'Allow Players to disable & remove their own active effects',
       'Allow Players to use Wild Shape from the app',
       'Allow Players to change their hit points from the app',

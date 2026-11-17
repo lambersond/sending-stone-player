@@ -3326,6 +3326,16 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       requestedById: 'gm-1',
       kind: 'hitPoints',
     },
+    // From module 0.48.0: a player's coins added or taken away, the Gamemaster's at their page,
+    // and another Gamemaster's.
+    {
+      id: 'coins-player',
+      role: 'player',
+      requestedById: 'user-1',
+      kind: 'coins',
+    },
+    { id: 'coins-gm', role: 'gm', requestedById: 'gm-1', kind: 'coins' },
+    { id: 'coins-other-gm', role: 'gm', requestedById: 'gm-2', kind: 'coins' },
   ].map((row, index) => ({
     ...row,
     campaignId: 'c1',
@@ -3572,6 +3582,23 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       'remove-gm',
       'hitpoints-player',
     ])
+  })
+
+  it("hands coins added or taken away over only to the hello's session, the Gamemaster's too, needing no gmRolls, and only its owner's, from module 0.48.0", async () => {
+    const changing = { ...removing, removalsEnabled: false, coinsEnabled: true }
+    await expect(fetched(changing)).resolves.toEqual([
+      'roll-player',
+      'coins-player',
+      'coins-gm',
+    ])
+    // A session the hello didn't come from is handed none: a module before 0.48.0 never is.
+    await expect(fetched(changing, 'session-old')).resolves.toEqual([
+      'roll-player',
+    ])
+    // Never as one of the Gamemaster's rolls, with coins off.
+    await expect(
+      fetched({ ...changing, coinsEnabled: false, rollFeatures: ['gmRolls'] }),
+    ).resolves.toEqual(['roll-player', 'roll-gm'])
   })
 
   it('withholds every Wild Shape while the campaign lets none, as a module before 0.40.0 says', async () => {

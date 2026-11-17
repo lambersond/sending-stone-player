@@ -587,6 +587,29 @@ describe("hooks/use-table-view, a player's own effects, from module 0.39.0", () 
     )
   })
 
+  it('asks with hit points before coins, saying whether the seat may add and take them away, from module 0.48.0', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        respond(200, {
+          ...initial,
+          hitPoints: true,
+          coins: { change: false },
+        }),
+      )
+      .mockResolvedValueOnce(respond(204))
+    renderHook(() => useTableView('/api/characters/char-1', initial))
+
+    // Without it, a page answered 204 would go on offering Add or take away once its game stopped
+    // fetching, or its campaign's switch went off.
+    await advance(POLL_INTERVAL)
+    await advance(POLL_INTERVAL)
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/characters/char-1/table?version=3&live=1&hitpoints=1&coins=1',
+      expect.anything(),
+    )
+  })
+
   it('asks with effects before Wild Shape, where the player may use both', async () => {
     jest
       .mocked(fetch)

@@ -26,6 +26,7 @@ import type {
   FavoriteEntry,
   HitPointsNow,
   GameDiceAsk,
+  CoinsChanged,
 } from '@/types/sending-stone'
 import type { DieSides, Advantage } from '@lambersond/3d-dice-core'
 
@@ -545,6 +546,11 @@ export type RollRequestView = {
    * For hit points set, from module 0.44.0, once made: the actor's after it, as the game says.
    */
   hitPoints?: HitPointsNow
+  /**
+   * For coins added or taken away, from module 0.48.0, once made: which, the coins asked for, and
+   * which of the character's other coins went, as the game says.
+   */
+  coins?: CoinsChanged
 }
 
 /**
@@ -947,18 +953,28 @@ export type LocalUse = {
 /**
  * Items or coins moved, as a page keeps the move: given, taken, or from module 0.32.0 sent from a
  * party or distributed among its characters, and between whom; or from module 0.33.0 removed from
- * the character.
+ * the character; or from module 0.48.0 coins the character received or paid, added to it or taken
+ * away, or handed out, so many to each of the characters picked.
  */
 export type LocalMove = {
-  verb: 'give' | 'take' | 'send' | 'distribute' | 'remove'
+  verb:
+    | 'give'
+    | 'take'
+    | 'send'
+    | 'distribute'
+    | 'remove'
+    | 'receive'
+    | 'pay'
+    | 'handOut'
   /**
    * As the chat line says it, such as "2 Potion of Healing", or for a distribution, all it shares,
-   * "100 gp".
+   * "100 gp"; for a hand-out, what each is given, "200 pp and 50 gp".
    */
   things: string
   /**
    * The other end's name: who it's given or sent to, or the party it's taken or distributed from;
-   * for a removal, the character it's removed from.
+   * for a removal, the character it's removed from; for coins added, taken away or handed out,
+   * the character whose coins they are.
    */
   other: string
   /** Who moved it, for the Gamemaster's words: the character's name. Unset for a player. */
@@ -968,11 +984,17 @@ export type LocalMove = {
   /** A send's: the party it's sent from, from module 0.32.0. */
   source?: string
   /**
-   * A distribution's: who shares it, as the line lists them, such as "Bram, Lia, Thorin, and Vex".
+   * A distribution's: who shares it, as the line lists them, such as "Bram, Lia, Thorin, and Vex";
+   * a hand-out's: who is given it.
    */
   among?: string
   /** A distribution's: each one's share, such as "25 gp". */
   each?: string
+  /**
+   * For coins taken away or handed out, from module 0.48.0: the sheet's coins' abbreviations, by
+   * key, in its order, by which the other coins the game says it used are told.
+   */
+  abbreviations?: Record<string, string>
 }
 
 /** A hit die spent, or a formula rolled, as this page keeps it. */

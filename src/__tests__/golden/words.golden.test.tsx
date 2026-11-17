@@ -981,6 +981,9 @@ describe('golden C4: words', () => {
         each: '1 pp',
       },
       { verb: 'remove', things: '1 Rope', other: '' },
+      // Coins added and taken away, from module 0.48.0.
+      { verb: 'receive', things: '5 gp', other: 'Thorin' },
+      { verb: 'pay', things: '5 gp', other: 'Thorin', mover: 'Thorin' },
     ]
 
     const MOVE_STATES: Record<

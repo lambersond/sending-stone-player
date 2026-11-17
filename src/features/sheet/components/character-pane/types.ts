@@ -23,6 +23,7 @@ import type {
   TableDiceAsk,
   TablePrompt,
   TableSheet,
+  TableView,
 } from '@/types/table'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -109,6 +110,12 @@ export type CharacterPaneProps = {
    * them.
    */
   removes?: boolean
+  /**
+   * Set where the seat may add coins to the character and take them away there, from module
+   * 0.48.0, as its campaign lets them: whether the game pays with other coins where it's short of
+   * one.
+   */
+  coins?: TableView['coins']
   /**
    * Whether the seat's player may add to and remove from the character's favorites there, from
    * module 0.37.0, as its game takes them: never at a creature's pane.

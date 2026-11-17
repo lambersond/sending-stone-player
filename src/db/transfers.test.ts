@@ -396,11 +396,12 @@ describe('db/transfers, createTransferRequest', () => {
         status: 409,
         reason: 'moving',
       })
-      // Its removals too, from module 0.33.0.
+      // Its removals too, from module 0.33.0; and, changed on purpose (item 67), its changes to
+      // coins, from module 0.48.0.
       expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
         where: {
           characterId: 'char-1',
-          kind: { in: ['transfer', 'remove'] },
+          kind: { in: ['transfer', 'remove', 'coins'] },
           OR: [
             { status: 'pending', createdAt: { gt: ago(30_000) } },
             { status: 'claimed', claimedAt: { gt: ago(75_000) } },
@@ -712,6 +713,44 @@ describe('db/transfers, a move beside a removal on its way, from module 0.33.0',
     await expect(
       createTransferRequest(thorin, give('potionThorin')),
     ).resolves.toEqual({ id: 'req-move' })
+  })
+
+  it('refuses a move of its coins while a change to them is on its way, from module 0.48.0, and takes one of an item, or of a party’s coins', async () => {
+    /** Thorin's coins being taken away, on their way from the seat. */
+    const paying = () => {
+      removing()
+      prismaMock.groupSheet.findUnique.mockResolvedValue({
+        data: { members: [], inventory: partyStash() },
+      } as any)
+      prismaMock.rollRequest.findMany.mockResolvedValue([
+        {
+          kind: 'coins',
+          payload: {
+            kind: 'coins',
+            mode: 0,
+            explicit: false,
+            extras: [],
+            dice: [],
+            coins: { op: 'remove', currency: { gp: 5 } },
+          },
+        },
+      ] as any)
+    }
+    paying()
+    await expect(
+      createTransferRequest(
+        thorin,
+        move({ from: THORIN, to: VEX, currency: { gp: 1 } }),
+      ),
+    ).resolves.toEqual({ status: 409, reason: 'moving' })
+    expect(prismaMock.rollRequest.create).not.toHaveBeenCalled()
+    // Its items aren't its coins, nor are a party's coins the character's.
+    for (const other of [give('potionThorin'), takeCoins(1)]) {
+      paying()
+      await expect(createTransferRequest(thorin, other)).resolves.toEqual({
+        id: 'req-move',
+      })
+    }
   })
 
   it('stores a move sent as typed in without it: nothing is typed in for a move', async () => {
