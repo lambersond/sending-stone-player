@@ -976,6 +976,8 @@ async function putInOrder() {
     && smallPosts.length === 1 && smallPosts[0]?.kind === 'favorite' && rolled.listed === 0 && !rolled.tumbled,
   `Move up puts Stealth above his slots at once, made as an order with skill:ste there, and Foundry's actor keeps it; nothing rolled: the phone's one POST a favorite's, no dice tumbling and no "Stealth check" among its rolls (${JSON.stringify({ shown: now.shown.slice(0, slotsAt + 3), made: made?.status, reason: made?.result?.reason, posts: smallPosts.map(post => post?.kind), rolled })})`)
   // Held by its name's own element: at 390 the row's middle can lie on its dots, which are their own.
+  // Once the toast of Stealth's move has gone, which lies over the top of the list in the picture.
+  await toastsGone(small)
   const slotsName = panelRow(small, '1st Level').getByText('1st Level', { exact: true })
   await slotsName.evaluate(el => el.scrollIntoView({ block: 'center' }))
   await small.hold(slotsName, 600)
