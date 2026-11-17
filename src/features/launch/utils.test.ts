@@ -88,8 +88,11 @@ function run({
       standalone,
       ...(workers ? { serviceWorker } : {}),
     },
+    // As a browser answers a list of queries: it matches where any one of them does.
     matchMedia: (query: string) => ({
-      matches: query === `(display-mode: ${displayMode})`,
+      matches: query
+        .split(',')
+        .some(one => one.trim() === `(display-mode: ${displayMode})`),
     }),
     addEventListener: (type: string, listener: () => void) => {
       heard[type] = listener
@@ -129,6 +132,15 @@ describe('features/launch/utils launchDocument', () => {
     expect(tight(style)).toContain(
       '.stone{position:relative;flex:none;width:144px;height:144px}',
     )
+    // On a phone it's laid out at the phone's own width, so the stone is the size it says.
+    expect(
+      page.querySelector('meta[name="viewport"]')?.getAttribute('content'),
+    ).toBe('width=device-width, initial-scale=1')
+    // "Loading…" is for a screen reader alone: nothing of it is drawn on the stone.
+    expect(status?.querySelector('span')?.className).toBe('sr')
+    expect(style).toContain(
+      '.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}',
+    )
   })
 
   it('draws the rune where the stone’s design carves it, hidden from assistive technology', () => {
@@ -148,6 +160,10 @@ describe('features/launch/utils launchDocument', () => {
     expect(svg?.querySelector('path.inner')?.getAttribute('d')).toBe(RUNE.inner)
     expect(svg?.querySelector('path.outer')?.getAttribute('d')).toBe(RUNE.outer)
     expect(tight(style)).toContain(`stroke-width:${RUNE.arcWidth};`)
+    // Over the stone itself, box for box.
+    expect(style).toContain(
+      '.stone img,.stone svg{position:absolute;inset:0;display:block;width:100%;height:100%}',
+    )
   })
 
   it('needs nothing else: no file of a release, one script, no stylesheet, only the manifest named', () => {
@@ -212,6 +228,9 @@ describe('features/launch/utils launchDocument', () => {
     expect(style).toContain(
       `mix-blend-mode:screen;filter:drop-shadow(0 0 2px ${LAUNCH_COLORS.glow}) drop-shadow(0 0 8px ${LAUNCH_COLORS.glow})`,
     )
+    // The rune is drawn in the glow's own colour: screened, a part left unpainted would not show.
+    expect(style).toContain(`.dot{fill:${LAUNCH_COLORS.glow}}`)
+    expect(style).toContain(`.arcs{fill:none;stroke:${LAUNCH_COLORS.glow};`)
   })
 
   it('moves only for someone who hasn’t asked for less motion, who sees the rune lit and still', () => {
