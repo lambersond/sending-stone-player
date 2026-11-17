@@ -60,11 +60,32 @@ so an item from it is named with its number when it was built, which may since b
   to sign in; a page that isn't open to you is not found. Opening one of these pages afresh, the
   outline may only flash where the data comes quickly; going to one from another page of the app, it
   may not show at all, and where it does, it shows for at least about a third of a second, so the
-  page comes up that much later than before. An installed app's launch screen is drawn by the phone
-  (on Android, from the app's manifest), so it stays still; signed in, the page's outline follows it
-  once the page starts loading. Where one of these pages can't read its data once its checks have
-  passed (the database down, say), it now answers 200 with the error shown in the page, where it
-  answered 500. (app)
+  page comes up that much later than before. An installed app's own launch screen is drawn by the
+  phone (on Android, from the app's manifest), so it stays still; the app's launch page, below,
+  follows it, and signed in, the page's outline follows that once the page starts loading. Where one
+  of these pages can't read its data once its checks have passed (the database down, say), it now
+  answers 200 with the error shown in the page, where it answered 500. (app)
+- **The stone lights up as the installed app opens.** An app added to a phone's Home Screen, or
+  installed on a computer, now opens on a launch page of its own: the stone in the middle of a
+  night-dark screen, the same one an Android phone's own launch screen is drawn on (an iPhone's own
+  is white), its rune lighting from the dot outward every 2 seconds, until your characters, or
+  sign-in, takes its place. From the second opening on the page is shown from the device itself,
+  before anything is asked of the network. Only that one page is kept there, the same for everyone,
+  never a page of yours; a release's new launch page shows from the second opening after it. Where
+  the device asks for reduced motion, the rune is lit and still. With the device offline (airplane
+  mode, or no Wi-Fi and no mobile data) the page stays and says "Sending Stone couldn’t be reached.
+  It opens once you’re back online.", with Try again, and opens by itself once the connection is
+  back, asking again over a few seconds where the connection isn't working at once; if Sending Stone
+  still can't be reached then, it says only the first sentence, with Try again. While a first page
+  is on its way it says nothing for 15 seconds; if it hasn't come by then, it says the first
+  sentence, with Try again, still waiting. Opened while connected but unable to reach Sending Stone,
+  the app shows the phone's own error page, as before. Each opening asks for the first page a little
+  later than before, a few hundredths of a second on a computer slowed to a phone's pace, and the
+  first opening after installing fetches the launch page from the network first. A browser's tab is
+  as before. An Android phone takes the new opening up by itself, within about a day of the release,
+  once the app is closed and the phone is charging on Wi-Fi; an iPhone keeps the address the app was
+  added with, so to see the stone there, remove Sending Stone from the Home Screen and add it again;
+  you'll sign in once more there. (app, item 56)
 - **Effects are kept when Wild Shape ends.** A Bless cast on the wolf, a potion fed to it or an
   effect the Gamemaster made on its sheet is now on the druid when Wild Shape ends, from the app, in
   Foundry or at 0 hit points, with the time it has left, and it still ends when its caster stops
@@ -80,9 +101,9 @@ so an item from it is named with its number when it was built, which may since b
   half a second each; where the device asks for reduced motion, the rune is lit and still. This
   release candidate first showed it in the middle of the page while your characters, your
   campaigns, a character's sheet, the Gamemaster's seat at one and an invite link read their data;
-  the outlines above replaced it on all five. No page shows it now. It stays in the app
-  (`src/components/loading-stone`) for the installed app's launch (ROADMAP item 56) and perhaps to
-  lie over the outlines later. (app)
+  the outlines above replaced it on all five. No page shows it now. The installed app's launch page
+  (item 56, above) now draws the same stone by itself; the component stays in the app
+  (`src/components/loading-stone`), perhaps to lie over the outlines later. (app)
 - **The module's scripts no longer import one another in a loop.** 54 of the module's 72 scripts
   imported one another in one loop, through 296 imports (ROADMAP item 24 counted 44 when it was
   found). Ninety declarations moved, their text unchanged, to scripts that those which use them can

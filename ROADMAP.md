@@ -79,6 +79,23 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 - **Effects taken off in Wild Shape:** an effect the druid had going in, removed from the wolf, is
   gone from the druid after the return; Encumbered and Bloodied are as the druid's own numbers have
   them; one that had already run out before Wild Shape is still on the druid.
+- **The stone as the installed app opens, on an Android phone:** on the production address, once the
+  phone has taken the new opening up (the app closed and the phone charging on Wi-Fi, within about a
+  day; or the app removed and installed again): from the second opening the stone shows from the
+  device, on the dark of the phone's own launch screen, its rune lighting from the dot outward until
+  your characters, or sign-in, takes its place. To see: whether the stone steps in size, shape or
+  place as the phone's screen gives way to the page, whether it is as sharp, and how long an opening
+  takes against before. In airplane mode the stone stays, dark, with its two sentences and Try
+  again, which changes nothing while offline; back online it opens by itself within a few seconds,
+  saying nothing while your characters loads. On its side, and in split screen, the words stand
+  beside the stone, clear of the screen's edges. With Remove animations on, the rune is lit and
+  still. Back on your characters closes the app.
+- **The same on an iPhone's Home Screen app,** removed and added again (it keeps the address it was
+  added with, and you sign in once more): iPhone's own white screen, then the stone, then your
+  characters. To see: how long the white shows, whether the rune keeps lighting, whether the stone
+  is sharp; and in airplane mode, from the third opening, the stone with its two sentences. Safari's
+  own "not connected" page there instead means an iPhone didn't finish installing the worker, which
+  has a known remedy.
 
 ## Before v1.0
 
@@ -87,10 +104,11 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 56, 67, 68, 70 and 71: the stone as the installed app opens, coins added, taken away and
-   handed out from the sheet, and two more e2e checks under load. Items 23, 29, 47, 41, 42 and 57,
-   Midi-QOL's reaction checks, effects carried back from Wild Shape, Move up and Move down for every
-   favorite, and the three e2e races under load: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
+2. Items 67, 68, 70 and 71: coins added, taken away and handed out from the sheet, and two more e2e
+   checks under load. Items 23, 29, 47, 41, 42, 57 and 56, Midi-QOL's reaction checks, effects
+   carried back from Wild Shape, Move up and Move down for every favorite, the three e2e races under
+   load, and the stone as the installed app opens: done, in [CHANGELOG.md](CHANGELOG.md)'s
+   v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -157,15 +175,6 @@ And from the owner's answers on item 19, later work too:
     shown in the app. Example, if there is an encounter on scene A with all the characters and their
     sidekicks, and a second scene with one character's sidekick, which is in a different encounter,
     how would you depict the two encounters? Foundry definately supports multiple encounters."
-
-**Asked for while building v0.48**
-
-56. **The stone lighting up as the installed app opens:** an installed app's first screen is drawn
-    by the phone (Android builds it from the manifest; an iPhone shows its own), so it stays still.
-    A small offline app shell, a service worker serving one cached launch page, could show the
-    same stone, the same size, centred on the same dark background, lighting up the moment the app
-    opens, until the first page takes over. Only the launch page is cached, never a signed-in page;
-    a new release replaces it; tested on Android and iPhone home-screen apps.
 
 **Found while building Batch 2**
 
@@ -242,6 +251,14 @@ And from the owner's answers on item 19, later work too:
     that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
     600 ms)". Item 57's kind has none left: `stopFetching({ age })` waits, and so do notesoffline's
     four closings by the Gamemaster leaving. In no batch yet.
+81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
+    Android phone and an iPhone (v0.48's checks): the stone's size against Android's own launch
+    screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
+    sizes); an iPhone's white first screen before the stone, which only a startup image for each
+    screen size covers; and, if an iPhone doesn't finish installing a worker whose page leaves at
+    once, waiting up to a second for it on an opening that has none. An opening connected but unable
+    to reach Sending Stone still ends on the phone's own error page, which is item 63's. Left by
+    item 56. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
@@ -260,14 +277,14 @@ And from the owner's answers on item 19, later work too:
     (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
     signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
     until the cache expires, so its lifetime is chosen with that in mind.
-63. **Offline mode:** the app keeps working on a device without a connection, such as a phone
-    that loses signal at the table: a player's characters, their last-seen sheets, notes and
-    journal kept on the device and readable offline, with what's out of date marked; notes
-    written offline sent once the device is back online; and rolls, moves and anything else
-    the game must answer refused plainly until then. It builds on item 56's app shell, a
-    service worker. A fairly large update: what's kept on a device and for whom (cleared on
-    sign-out, so a shared device keeps nothing), how long it's kept, and how a note changed
-    both offline and in Foundry meanwhile is settled.
+63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
+    loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
+    on the device and readable offline, with what's out of date marked; notes written offline sent
+    once the device is back online; and rolls, moves and anything else the game must answer refused
+    plainly until then. Item 56's launch worker (`/launch-worker.js`) keeps to `/launch` and its one
+    page; offline mode's worker is its own, for which `/sw.js` is left free. A fairly large update:
+    what's kept on a device and for whom (cleared on sign-out, so a shared device keeps nothing),
+    how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
 64. **Any ability or skill the game has, named as the game names it:** with dnd5e's Honor or
     Sanity turned on, or a world's own ability or skill, the sheet already shows and rolls them
     and the Gamemaster's asked saves work, but the app still knows only the six abilities and 18

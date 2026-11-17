@@ -85,4 +85,31 @@ Each module release's changes, in full, are in the module's
 [PROTOCOL.md](https://github.com/lambersond/fvtt-sending-stone/blob/main/PROTOCOL.md#additions-within-protocol-2).
 Each release adds its row here.
 
+## The installed app's launch page
+
+An installed app opens at `/launch` (the manifest's `start_url`): one document that needs no other
+file, built with the app by `src/app/launch/route.ts` from `src/features/launch`. It shows the stone
+and hands over to `/characters`. Where it runs as an installed app it registers
+`public/launch-worker.js` for the scope `/launch` alone; that worker keeps the launch page, and
+nothing else, and shows it with no network. No other page registers anything.
+
+- **A change to the launch page is a change to the worker.** The worker's cache is named for the
+  page; `src/features/launch/launch-worker.test.ts` fails, naming the new name, until `CACHE` in
+  `public/launch-worker.js` has it. Browsers take a changed worker the next time the app opens, and
+  the new page shows from the opening after that.
+- **Never rename `/launch-worker.js`, and never stop serving `/launch`:** an installed app keeps
+  opening there, and a browser that has the worker asks for it by that address.
+- **A rollback to a deployment from before v0.48 answers 404 at `/launch`** to an installed app that
+  has no worker yet.
+- **The launch page stays one document.** A Content-Security-Policy added to the app must allow its
+  inline style and script, or the stone never hands over.
+- **To take the worker away:** copy `public/launch-worker-retire.js` over `public/launch-worker.js`,
+  and take the registering line out of the launch page's script (`src/features/launch/utils.ts`), in
+  the same release.
+- **After a deploy:** `/launch` answers 200 to GET and HEAD with `Cache-Control: no-cache`; the
+  first 12 hex digits of the sha256 of its body are the worker's cache name; `/launch-worker.js`
+  answers with `no-cache, no-store, must-revalidate` and `default-src 'self'`. Try the installed app
+  on the production address: a protected preview refuses the worker's fetch, which carries no
+  cookies, and may add to the page.
+
 TODO
