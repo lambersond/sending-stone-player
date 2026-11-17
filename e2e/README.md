@@ -2,7 +2,7 @@
 
 The real Sending Stone module, in a stand-in Foundry (the module's own `test/fvtt`), posting from a
 game's page in Chromium to this app, built and served for real over its own Postgres database, with
-players and a Gamemaster in their own browsers. 55 suites, 125 runs (`regress.sh`), each on fresh data,
+players and a Gamemaster in their own browsers. 56 suites, 126 runs (`regress.sh`), each on fresh data,
 and each run's `ok` lines counted against the number it wants.
 
 They run locally, on Linux, from this checkout and the module's. Nothing here runs in CI yet.
@@ -244,6 +244,15 @@ lane 0. Add a suite to `solo` only after it fails in the lanes and passes alone.
     ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the
     Gamemaster's leaving gives the fetch up, `fetchesNoted()` comes first, with no other await
     between it and `gmAway()`.
+- **The launch page leaves as it is read** (v0.48.0, `launch-e2e.mjs`): its own script hands over to
+  your characters at once, so the document never says it has loaded. Open `/launch` with
+  `waitUntil: 'commit'`, and never wait for its load. While the suite holds its first page by a
+  route, `page.evaluate()` and `page.screenshot()` wait for that navigation: the page tells the
+  suite what it shows through a binding instead, or the first page is answered 204, which leaves
+  the launch page standing. "Installed" is an init script that answers the display mode, or
+  `navigator.standalone`. `setOffline()` cuts a page's requests but not a worker's own, so that
+  an opening shows the page the worker keeps is proved by a mark put into the kept page, not by the
+  network being gone.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across

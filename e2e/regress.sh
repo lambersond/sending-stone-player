@@ -238,3 +238,12 @@ run hitpoints 36 MIDI=1 SHOTS=$O/shots-044
 run help 28 SHOTS=$O/shots-help
 run help 4 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-help
 run help 4 DND5E6=1 SHOTS=$O/shots-help
+# Item 56: the installed app's launch page, with no Foundry. Nothing registered in a browser's tab,
+# nor in a browser's window made full screen; what the server sends for the page and its two
+# workers; installed on a Pixel 7, the worker registered by the launch page for /launch alone and
+# keeping that one page, the second opening from it with the rune seen lighting while the first
+# page is held, Back, no other page controlled; signed out, an opening showing what the worker
+# keeps; the device offline, upright and on its side, Try again, back online; a first page that
+# doesn't come in 15 seconds; reduced motion; a light device and a dark one; an older worker
+# replaced, the retiring worker, an iPhone's Home Screen app.
+run launch 27 SHOTS=$O/shots-launch
