@@ -874,6 +874,8 @@ exports[`golden C7: storage the campaign row a hello writes a full hello from mo
     "effectsEnabled": true,
     "wildShapeEnabled": true,
     "hitPointsEnabled": false,
+    "coinsEnabled": false,
+    "coinFeatures": [],
     "notesEnabled": true,
     "noteFeatures": [
      "orders"
@@ -1093,6 +1095,8 @@ exports[`golden C7: storage the campaign row a hello writes a hello from before 
     "effectsEnabled": false,
     "wildShapeEnabled": false,
     "hitPointsEnabled": false,
+    "coinsEnabled": false,
+    "coinFeatures": [],
     "notesEnabled": false,
     "noteFeatures": [],
     "tidyActive": null,

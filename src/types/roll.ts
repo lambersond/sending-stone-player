@@ -16,6 +16,7 @@ import type {
   SheetAction,
   SheetSpellSection,
   AloneSpend,
+  CoinOp,
   EffectOp,
   PrepareOp,
   SpellSlotOp,
@@ -178,6 +179,25 @@ export type TransferInput = {
   items?: { id: string; quantity: number }[]
   currency?: Record<string, number>
 }
+
+/**
+ * Coins added to the character or taken away, from module 0.48.0: which, and how many of each
+ * coin, by its key, such as "gp". Of a coin taken away, more than the character holds may be
+ * named: the game then pays with its other coins, where its campaign lets it.
+ */
+export type CoinsInput = {
+  op: CoinOp
+  currency: Record<string, number>
+}
+
+/**
+ * How coins to pay stand against those a sheet shows, as `coinsCovered` says: each paid from its
+ * own coins (`held`); or of `coin`, the largest coin paid there are too few of, more is paid than
+ * held, which the other coins are worth enough to pay for (`other`), aren't (`short`), or the app
+ * can't tell, as for a coin with no rate, and the game decides (`unknown`).
+ */
+export type CoinsCover =
+  { state: 'held' } | { state: 'other' | 'short' | 'unknown'; coin: string }
 
 /** An item removed from the character, from module 0.33.0. */
 export type RemoveInput = {
@@ -362,6 +382,8 @@ export type RollRequestInput = {
    * For hit points set, from module 0.44.0: the numbers wanted, and what the app showed of each.
    */
   hitPoints?: HitPointsInput
+  /** For coins added or taken away, from module 0.48.0: which, and how many of each coin. */
+  coins?: CoinsInput
   /** For a plain roll, from module 0.44.0: the dice picked, by size, and the number added. */
   plainRoll?: PlainRollInput
   /**
@@ -612,6 +634,7 @@ export type RollKindInfo = {
     | 'effectsEnabled'
     | 'wildShapeEnabled'
     | 'hitPointsEnabled'
+    | 'coinsEnabled'
   /** It waits while the character is transformed: it would change its own actor's things. */
   shaped?: true
 }

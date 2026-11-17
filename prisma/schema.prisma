@@ -291,6 +291,13 @@ model Campaign {
   // bridge.hello: by the campaign's own switch, on by default, under dnd5e. A module before it
   // says nothing, which clears it.
   hitPointsEnabled    Boolean          @default(false)
+  // Whether the campaign lets its players add coins to their characters and take them away from
+  // the app, from module 0.48.0's bridge.hello: by the campaign's own switch, on by default, under
+  // dnd5e. A module before it says nothing, which clears it.
+  coinsEnabled        Boolean          @default(false)
+  // What else the module does with coins added and taken away, from module 0.48.0's hello:
+  // 'change' where a character short of a coin pays with its other coins. Empty while they're off.
+  coinFeatures        String[]         @default([])
   // Whether Tidy 5e Sheets is active in the world, and its version, from module 0.44.0's
   // bridge.hello, under dnd5e, where Tidy is installed or a character holds its journal's entries:
   // a version unset while it isn't installed. Both unset where the hello says nothing of Tidy, as a

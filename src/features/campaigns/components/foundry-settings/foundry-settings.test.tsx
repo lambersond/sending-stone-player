@@ -248,11 +248,17 @@ describe('components/campaigns/foundry-settings', () => {
     expect(moves.parentElement?.previousElementSibling).toBe(
       rolls.parentElement,
     )
+    // Changed on purpose (item 67): from module 0.48.0 the players' coins follow the items and
+    // coins.
+    const coins = screen.getByRole('heading', { name: "Players' coins" })
+    expect(coins.parentElement?.previousElementSibling).toBe(
+      moves.parentElement,
+    )
     // Changed on purpose (round 0.38.0 §D9): from module 0.38.0, the Cookbook dishes section sits
-    // between the items and coins and the Foundry settings.
+    // between them and the Foundry settings.
     const dishes = screen.getByRole('heading', { name: 'Cookbook dishes' })
     expect(dishes.parentElement?.previousElementSibling).toBe(
-      moves.parentElement,
+      coins.parentElement,
     )
     // Changed on purpose (round 0.39.0 §4.7): from module 0.39.0 the players' effects come between
     // the Cookbook dishes and the Foundry settings, last in the page's right column, whose foot

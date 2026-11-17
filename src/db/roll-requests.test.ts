@@ -656,7 +656,8 @@ describe('db/roll-requests', () => {
           // session not known to take them; changed on purpose (round 0.37.0 §7.15): nor a
           // favorite, from module 0.37.0; changed on purpose (round 0.39.0 §1.10): nor an effect
           // changed, from module 0.39.0; changed on purpose (round 0.40.0 §10.3): nor Wild Shape,
-          // from module 0.40.0; changed on purpose (v0.44): nor hit points set, from module 0.44.0.
+          // from module 0.40.0; changed on purpose (v0.44): nor hit points set, from module 0.44.0;
+          // changed on purpose (item 67): nor coins added or taken away, from module 0.48.0.
           OR: [
             {
               role: 'player',
@@ -668,6 +669,7 @@ describe('db/roll-requests', () => {
                   'effect',
                   'wildShape',
                   'hitPoints',
+                  'coins',
                 ],
               },
             },
@@ -2016,6 +2018,8 @@ describe('db/roll-requests', () => {
           effectsEnabled: true,
           wildShapeEnabled: true,
           hitPointsEnabled: true,
+          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          coinsEnabled: true,
         },
       })
     })
@@ -2198,6 +2202,8 @@ describe('db/roll-requests', () => {
           wildShapeEnabled: true,
           // Changed on purpose (v0.44): hit points set, from module 0.44.0.
           hitPointsEnabled: true,
+          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          coinsEnabled: true,
           playersSeenAt: true,
         },
       })
@@ -3942,6 +3948,12 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
       kind: 'prepare',
       prepare: { op: 'prepare', id: 'witch' },
     },
+    // Changed on purpose (item 67): coins, from module 0.48.0, which no companion's are.
+    coins: {
+      ...NO_DICE,
+      kind: 'coins',
+      coins: { op: 'add', currency: { gp: 5 } },
+    },
   }
 
   // Changed on purpose (v0.44, decision Q1): every kind no companion takes is refused as the
@@ -3964,6 +3976,7 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
           favoritesEnabled: true,
           effectsEnabled: true,
           wildShapeEnabled: true,
+          coinsEnabled: true,
         }),
       })
       for (const seat of [atWolf, gmAtWolf]) {

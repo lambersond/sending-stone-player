@@ -82,6 +82,10 @@ const listed = async (fields: object) => {
       effectsEnabled: false,
       // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0.
       wildShapeEnabled: false,
+      // Changed on purpose (items 67 and 68): from module 0.48.0.
+      transferFeatures: [],
+      coinsEnabled: false,
+      coinFeatures: [],
       players: [],
       ...fields,
     },
@@ -158,6 +162,10 @@ describe('db/campaigns', () => {
           wildShapeEnabled: true,
           // Changed on purpose (v0.44): from module 0.44.0.
           hitPointsEnabled: true,
+          // Changed on purpose (items 67 and 68): from module 0.48.0.
+          transferFeatures: ['partySends', 'distribute', 'handOut', 'change'],
+          coinsEnabled: true,
+          coinFeatures: ['change'],
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -182,6 +190,9 @@ describe('db/campaigns', () => {
           effectsEnabled: false,
           wildShapeEnabled: false,
           hitPointsEnabled: false,
+          transferFeatures: [],
+          coinsEnabled: false,
+          coinFeatures: [],
           players: [],
         },
       ] as any)
@@ -204,8 +215,9 @@ describe('db/campaigns', () => {
             spells: false,
             prompts: true,
           },
-          // From module 0.31.0: turned on, and the game fetching moves.
-          transfers: { enabled: true, reaching: true },
+          // From module 0.31.0: turned on, and the game fetching moves; changed on purpose (item
+          // 68): and a character's coins handed out, from module 0.48.0.
+          transfers: { enabled: true, reaching: true, handOut: true },
           // Changed on purpose (round 0.38.0 §D9): dishes from the Magical Recipe Book, none.
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           // Changed on purpose (round 0.39.0 §1.10): its players may change their own effects.
@@ -214,6 +226,9 @@ describe('db/campaigns', () => {
           wildShape: { enabled: true },
           // Changed on purpose (v0.44): its players may set their hit points.
           hitPoints: { enabled: true },
+          // Changed on purpose (item 67): its players may add and take away coins, another coin
+          // paying where a character is short of one.
+          coins: { enabled: true, change: true },
           // Changed on purpose (v0.44 item 8): its players' chat, never cleared.
           chat: { messages: 42 },
           characters: [
@@ -256,11 +271,12 @@ describe('db/campaigns', () => {
             prompts: false,
           },
           // Turned on, but the game isn't fetching moves.
-          transfers: { enabled: true, reaching: false },
+          transfers: { enabled: true, reaching: false, handOut: false },
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
           effects: { enabled: false },
           wildShape: { enabled: false },
           hitPoints: { enabled: false },
+          coins: { enabled: false, change: false },
           chat: { messages: 0 },
           characters: [],
           groups: [],
@@ -382,6 +398,21 @@ describe('db/campaigns', () => {
       })
       const { select } = prismaMock.campaign.findMany.mock.calls[0][0] as any
       expect(select).toMatchObject({ hitPointsEnabled: true })
+    })
+
+    it('says whether the campaign lets its players change coins, from module 0.48.0, with whether other coins pay, and whether coins are handed out, as its hello said', async () => {
+      await expect(
+        listed({ coinsEnabled: true, transferFeatures: ['handOut'] }),
+      ).resolves.toMatchObject({
+        coins: { enabled: true, change: false },
+        transfers: { handOut: true },
+      })
+      const { select } = prismaMock.campaign.findMany.mock.calls[0][0] as any
+      expect(select).toMatchObject({
+        coinsEnabled: true,
+        coinFeatures: true,
+        transferFeatures: true,
+      })
     })
 
     it("says whether the campaign lets its players change their own effects, from module 0.39.0, as its hello said, and draws no player's picture", async () => {

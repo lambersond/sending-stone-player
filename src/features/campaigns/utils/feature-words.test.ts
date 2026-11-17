@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { hitPointsText } from './feature-words'
+import { coinsText, hitPointsText, movesText } from './feature-words'
 import type { OwnedCampaign } from '@/types/campaign'
 
 /** A campaign as its card is drawn, with what's given. */
@@ -62,5 +62,56 @@ describe('features/campaigns/utils/feature-words, hit points from the app (modul
     ],
   ])('says so with %s', (_name, fields, text) => {
     expect(hitPointsText(campaign(fields))).toBe(text)
+  })
+})
+
+describe('features/campaigns/utils/feature-words, coins from the app (module 0.48.0)', () => {
+  it.each([
+    [
+      'on in Foundry, other coins paying',
+      { coins: { enabled: true, change: true }, foundry: foundry('0.48.0') },
+      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
+    ],
+    [
+      'on in Foundry, no other coin paying',
+      { coins: { enabled: true, change: false }, foundry: foundry('0.48.0') },
+      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin is refused.',
+    ],
+    [
+      'a module before 0.48.0',
+      { foundry: foundry('0.47.0') },
+      'Your Sending Stone module doesn’t let players change coins yet. Version 0.48.0 or later does.',
+    ],
+    [
+      'another system',
+      {
+        coins: { enabled: false, change: false },
+        foundry: foundry('0.48.0', 'pf2e'),
+      },
+      'Off. Players’ coins need D&D Fifth Edition in Foundry.',
+    ],
+    [
+      'its switch off',
+      { coins: { enabled: false, change: false }, foundry: foundry('0.48.0') },
+      'Off. To let them, tick Allow Players to add and take away coins from the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
+    ],
+  ])('says so with %s', (_name, fields, text) => {
+    expect(coinsText(campaign(fields))).toBe(text)
+  })
+
+  it.each([
+    [
+      'a module that hands coins out',
+      true,
+      'Your players take from and give to the parties they own in Foundry, and give to each other, and hand out coins to several characters at once, from here. Each move is made in your game at once and posts a line in its chat.',
+    ],
+    [
+      'a module before it',
+      false,
+      'Your players take from and give to the parties they own in Foundry, and give to each other, from here. Each move is made in your game at once and posts a line in its chat.',
+    ],
+  ])('says what moves reach the game with %s', (_name, handOut, text) => {
+    const transfers = { enabled: true, reaching: true, handOut }
+    expect(movesText(campaign({ transfers }))).toBe(text)
   })
 })

@@ -27,7 +27,7 @@ const dice = (group: string) =>
 
 // Each list as the code said it by hand when the table was made (24f808b), copied once; with the
 // kinds of module 0.44.0 since, a plain roll and hit points set (v0.44) and the dice the game asks
-// for (item 11).
+// for (item 11), and of module 0.48.0, coins added or taken away (item 67).
 describe('constants/roll-kinds, the request-kind table', () => {
   it('has a row for each kind, in ROLL_KINDS’ order', () => {
     expect(Object.keys(ROLL_KIND_INFO)).toEqual([...ROLL_KINDS])
@@ -46,7 +46,16 @@ describe('constants/roll-kinds, the request-kind table', () => {
     [
       'OWN_KINDS',
       OWN_KINDS,
-      ['transfer', 'remove', 'favorite', 'effect', 'wildShape', 'hitPoints'],
+      // Changed on purpose (item 67): coins added or taken away have a switch of their own.
+      [
+        'transfer',
+        'remove',
+        'favorite',
+        'effect',
+        'wildShape',
+        'hitPoints',
+        'coins',
+      ],
     ],
   ])('%s, in order', (_, derived, literal) => {
     expect(derived).toEqual(literal)
@@ -97,6 +106,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
         'undoEndTurn',
         // Changed on purpose (item 11): its values are its answer's, never thrown dice.
         'dice',
+        // Changed on purpose (item 67): changing coins throws none.
+        'coins',
       ],
     ],
     [
@@ -165,12 +176,15 @@ describe('constants/roll-kinds, the request-kind table', () => {
         'prepare',
         'endTurn',
         'undoEndTurn',
+        // Changed on purpose (item 67): no companion is known to carry coins.
+        'coins',
       ],
     ],
     [
       'waiting while transformed (db/roll-requests.ts:160)',
       kindsWhere(kind => 'shaped' in ROLL_KIND_INFO[kind]),
-      ['transfer', 'remove', 'favorite', 'effect'],
+      // Changed on purpose (item 67): a transformed character's coins aren't on its form.
+      ['transfer', 'remove', 'favorite', 'effect', 'coins'],
     ],
   ])('%s, as a set', (_, derived, literal) => {
     expect(new Set(derived)).toEqual(new Set(literal))
@@ -215,6 +229,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
         undoEndTurn: 'A turn taken back',
         // Changed on purpose (item 11).
         dice: 'Dice the game asked for',
+        // Changed on purpose (item 67).
+        coins: 'Coins added or taken away',
       },
     ],
     [
@@ -232,6 +248,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
         effect: 'effectsEnabled',
         wildShape: 'wildShapeEnabled',
         hitPoints: 'hitPointsEnabled',
+        // Changed on purpose (item 67).
+        coins: 'coinsEnabled',
       },
     ],
   ])('%s, by kind', (_, derived, literal) => {

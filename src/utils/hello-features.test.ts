@@ -51,6 +51,8 @@ describe('utils/hello-features', () => {
         effectsEnabled: false,
         wildShapeEnabled: false,
         hitPointsEnabled: false,
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -71,6 +73,7 @@ describe('utils/hello-features', () => {
           'favorite',
           'wildShape',
           'hitPoints',
+          'coins',
           'plainRoll',
           'nonsense',
         ],
@@ -82,6 +85,8 @@ describe('utils/hello-features', () => {
         reason: null,
         partySends: true,
         distribute: true,
+        handOut: true,
+        change: true,
       },
     })
     expect(data.rollKinds).toEqual(['skill', 'plainRoll'])
@@ -117,6 +122,54 @@ describe('utils/hello-features', () => {
     },
   )
 
+  // Module 0.48.0: coins added and taken away have a switch of their own, and say whether a
+  // character short of a coin pays with its other coins, never while they're off.
+  it.each([
+    [
+      { enabled: true, kinds: ['coins'], reason: null, change: true },
+      true,
+      ['change'],
+    ],
+    [
+      { enabled: true, kinds: ['coins'], reason: null, change: false },
+      true,
+      [],
+    ],
+    [{ enabled: true, kinds: ['coins'], reason: null }, true, []],
+    [{ enabled: false, kinds: [], reason: 'off', change: true }, false, []],
+    [{ enabled: false, kinds: [], reason: 'system', change: false }, false, []],
+    [{ enabled: true, kinds: [], reason: null, change: true }, false, []],
+    [undefined, false, []],
+  ])('keeps coins from features.coins %j: %s, %j', (coins, on, features) => {
+    expect(helloCampaignData({ coins })).toMatchObject({
+      coinsEnabled: on,
+      coinFeatures: features,
+    })
+  })
+
+  // Module 0.48.0: a character's coins handed out, and whether its giver pays with other coins,
+  // after what module 0.32.0 said of moves, in the stored order.
+  it.each([
+    [
+      { partySends: true, distribute: true, handOut: true, change: true },
+      ['partySends', 'distribute', 'handOut', 'change'],
+    ],
+    [{ change: true, handOut: true }, ['handOut', 'change']],
+    [
+      { partySends: true, distribute: true, handOut: true },
+      ['partySends', 'distribute', 'handOut'],
+    ],
+    [{ partySends: true, distribute: true }, ['partySends', 'distribute']],
+  ])('keeps what else moves do from features.transfers %j', (more, kept) => {
+    const transfers = {
+      enabled: true,
+      kinds: ['transfer'],
+      reason: null,
+      ...more,
+    }
+    expect(helloCampaignData({ transfers }).transferFeatures).toEqual(kept)
+  })
+
   // Module 0.44.0: Tidy 5e Sheets, active or not, installed or not, as the hello's notes say it.
   it.each([
     [{ active: true, version: '14.4.1', actors: [] }, true, '14.4.1'],
@@ -141,10 +194,10 @@ describe('utils/hello-features', () => {
     })
   })
 
-  it('takes neither hit points nor a plain roll as a companion’s roll', () => {
+  it('takes neither hit points, coins nor a plain roll as a companion’s roll', () => {
     const { companionKinds } = helloCompanionData({
       companions: {
-        kinds: ['attack', 'hitPoints', 'plainRoll'],
+        kinds: ['attack', 'hitPoints', 'coins', 'plainRoll'],
         initiative: 'own',
       },
     })

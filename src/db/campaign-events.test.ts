@@ -186,6 +186,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -249,6 +252,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -311,6 +317,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -357,6 +366,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -478,6 +490,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -523,6 +538,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -576,6 +594,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -621,6 +642,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -679,6 +703,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -726,6 +753,9 @@ describe('db/campaign-events', () => {
           wildShapeEnabled: false,
           // Changed on purpose (v0.44): hit points set, from module 0.44.0.
           hitPointsEnabled: false,
+          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          coinsEnabled: false,
+          coinFeatures: [],
           notesEnabled: false,
           noteFeatures: [],
           tidyActive: null,
@@ -776,6 +806,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -1099,6 +1132,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -1151,6 +1187,9 @@ describe('db/campaign-events', () => {
         wildShapeEnabled: false,
         // Changed on purpose (v0.44): hit points set, from module 0.44.0.
         hitPointsEnabled: false,
+        // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+        coinsEnabled: false,
+        coinFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -1201,6 +1240,9 @@ describe('db/campaign-events', () => {
           wildShapeEnabled: false,
           // Changed on purpose (v0.44): hit points set, from module 0.44.0.
           hitPointsEnabled: false,
+          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          coinsEnabled: false,
+          coinFeatures: [],
           notesEnabled: false,
           noteFeatures: [],
           tidyActive: null,
@@ -2621,6 +2663,9 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
       wildShapeEnabled: false,
       // Changed on purpose (v0.44): hit points set, from module 0.44.0.
       hitPointsEnabled: false,
+      // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+      coinsEnabled: false,
+      coinFeatures: [],
     })
   })
 
@@ -2633,6 +2678,9 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
       wildShapeEnabled: false,
       // Changed on purpose (v0.44): hit points set, from module 0.44.0.
       hitPointsEnabled: false,
+      // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+      coinsEnabled: false,
+      coinFeatures: [],
     })
   })
 
@@ -2679,6 +2727,49 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
         },
       }),
     )
+  })
+})
+
+describe('db/campaign-events, coins added, taken away and handed out, from module 0.48.0', () => {
+  const off = { enabled: false, kinds: [], reason: 'off' }
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation((run: any) => run(prismaMock))
+  })
+
+  it('keeps the coins switch and whether other coins pay, as the hello is read, with rolls and moves off', async () => {
+    await expect(
+      stored({
+        rolls: off,
+        transfers: { ...off, handOut: false, change: false },
+        coins: { enabled: true, kinds: ['coins'], reason: null, change: true },
+      }),
+    ).resolves.toMatchObject({
+      rollsEnabled: false,
+      transfersEnabled: false,
+      transferFeatures: [],
+      coinsEnabled: true,
+      coinFeatures: ['change'],
+    })
+  })
+
+  it('reads anything but true as unsaid, of coins and of a hand-out alike', async () => {
+    await expect(
+      stored({
+        transfers: {
+          enabled: true,
+          kinds: ['transfer'],
+          reason: null,
+          handOut: 'yes',
+          change: 1,
+        },
+        coins: { enabled: true, kinds: ['coins'], reason: null, change: 'on' },
+      }),
+    ).resolves.toMatchObject({
+      transferFeatures: [],
+      coinsEnabled: true,
+      coinFeatures: [],
+    })
   })
 })
 

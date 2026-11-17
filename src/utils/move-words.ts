@@ -20,6 +20,28 @@ export function thingsWords(parts: MovedPart[]): string {
 }
 
 /**
+ * An amount of coins as the module's chat line says it in English, from module 0.48.0: each coin
+ * there's any of, in the sheet's order, which is dnd5e's, by its abbreviation, as "2 pp, 5 gp, and
+ * 3 sp"; a coin the sheet doesn't list after them, by its key. Nothing where there are none.
+ * @param coins - The sheet's coins, in its order.
+ * @param amounts - How many of each coin, by key.
+ */
+export function coinsWords(
+  coins: readonly { id: string; abbreviation: string }[],
+  amounts: Readonly<Record<string, number>>,
+): string {
+  const listed = new Set(coins.map(({ id }) => id))
+  const others = Object.keys(amounts)
+    .filter(id => !listed.has(id))
+    .map(id => ({ id, abbreviation: id }))
+  return thingsWords(
+    [...coins, ...others]
+      .filter(({ id }) => (amounts[id] ?? 0) >= 1)
+      .map(({ id, abbreviation }) => ({ coins: amounts[id], abbreviation })),
+  )
+}
+
+/**
  * Who shares a distribution, as the module's line lists them in English: "Bram, Lia, Thorin, and
  * Vex".
  */

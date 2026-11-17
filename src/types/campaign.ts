@@ -36,9 +36,10 @@ export type OwnedCampaign = {
   }
   /**
    * Whether players move items and coins from here, from module 0.31.0, apart from the rolls:
-   * turned on in Foundry, and whether the game is fetching moves now.
+   * turned on in Foundry, and whether the game is fetching moves now; and from module 0.48.0
+   * whether a character's coins may be handed out to several characters at once.
    */
-  transfers: { enabled: boolean; reaching: boolean }
+  transfers: { enabled: boolean; reaching: boolean; handOut?: boolean }
   /**
    * Dishes from the Magical Recipe Book, from module 0.38.0: whether the game takes them, and how
    * many wait for Foundry or wait in it for the Gamemaster. None reads as off.
@@ -60,6 +61,12 @@ export type OwnedCampaign = {
    * off.
    */
   hitPoints?: { enabled: boolean }
+  /**
+   * Whether the campaign lets its players add coins to their characters and take them away from
+   * here, from module 0.48.0, and whether a character short of a coin then pays with its other
+   * coins, as its last hello said. None reads as off.
+   */
+  coins?: { enabled: boolean; change: boolean }
   /**
    * Its players' chat here (v0.44): how many messages it holds, and when it was last cleared, by
    * its Gamemaster here or by Foundry's Clear Chat Log, as an ISO date; unset if it never was.

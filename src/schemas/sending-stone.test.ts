@@ -10,6 +10,7 @@ import {
   DISHES_OTHER_SYSTEM,
   DISHES_SWITCHED_OFF,
   dishResult,
+  coinsResult,
   distributedResult,
   EFFECTS_OTHER_SYSTEM,
   EFFECTS_SWITCHED_OFF,
@@ -19,6 +20,8 @@ import {
   FAVORITING,
   favoritedResult,
   fullerSheet,
+  handedOutResult,
+  HANDING_OUT,
   MAGIC_WEAPON_PROFILES,
   LOCK_CHECK,
   MAZE_CHECK,
@@ -32,6 +35,7 @@ import {
   REMOVING,
   roster,
   SENDING_TRANSFERS,
+  TAKING_COINS,
   sheetAction,
   sheetFavorites,
   sheetItem,
@@ -6338,5 +6342,155 @@ describe('schemas/sending-stone, dice the game rolls later, from module 0.44.0',
       type: 'roll.dice.closed',
       data: { id: 'ask1', reason: read },
     })
+  })
+})
+
+/** What a hello's features say of coins, as read. */
+const coinsFeature = (sent: unknown) =>
+  (
+    parseGameEvent('bridge.hello', {
+      characters: [],
+      combats: [],
+      features: { coins: sent },
+    })?.data as { features?: { coins?: unknown } }
+  ).features?.coins
+
+/** A coins command's result, as read. */
+const coinsOf = (coins: unknown) =>
+  parseGameEvent('command.result', { ...coinsResult(), coins })?.data as {
+    coins?: unknown
+    messageId: string | null
+  }
+
+/** A hand-out's result, as read, with these fields of its transfer. */
+const handedOut = (fields: object) => {
+  const { transfer, ...result } = handedOutResult()
+  return parseGameEvent('command.result', {
+    ...result,
+    transfer: { ...transfer, ...fields },
+  })?.data as { transfer?: Record<string, unknown>; messageId: string | null }
+}
+
+describe('schemas/sending-stone, coins added, taken away and handed out, from module 0.48.0', () => {
+  it('reads whether the campaign lets its players change coins, why not, and whether other coins pay', () => {
+    expect(coinsFeature(TAKING_COINS)).toEqual(TAKING_COINS)
+    expect(
+      coinsFeature({ enabled: false, kinds: [], reason: 'off', change: false }),
+    ).toEqual({ enabled: false, kinds: [], reason: 'off', change: false })
+    // Junk reads as none, and the rest of the hello still reads; a change that's no boolean, as
+    // not said.
+    expect(coinsFeature('on')).toBeNull()
+    expect(coinsFeature({ ...TAKING_COINS, change: 'yes' })).toEqual({
+      ...TAKING_COINS,
+      change: false,
+    })
+  })
+
+  it('reads features.transfers’ hand-out and its change, and reads junk as false', () => {
+    expect(transfers(HANDING_OUT)).toEqual(HANDING_OUT)
+    expect(transfers({ ...HANDING_OUT, handOut: 1, change: 'on' })).toEqual({
+      ...HANDING_OUT,
+      handOut: false,
+      change: false,
+    })
+    // Module 0.47.0 says neither.
+    expect(transfers(SENDING_TRANSFERS)).toEqual(SENDING_TRANSFERS)
+  })
+
+  it.each([
+    ['dnd5e’s platinum', 0.1, 0.1],
+    ['a coin with no rate', null, null],
+    ['a module before it, which says none', undefined, null],
+    ['a rate of none', 0, null],
+    ['a rate below none', -2, null],
+    ['what is no number', '10', null],
+  ])('reads a coin’s rate from %s', (_, conversion, read) => {
+    const sheet = fullerSheet()
+    const [coin] = sheet.inventory.currency
+    const sent = {
+      ...sheet,
+      inventory: {
+        ...sheet.inventory,
+        currency: [{ ...coin, conversion }],
+      },
+    }
+    const parsed = parseGameEvent('character.updated', {
+      character: { ...roster[0], sheet: sent },
+    }) as Extract<GameEvent, { type: 'character.updated' }>
+    expect(parsed.data.character.sheet?.inventory.currency).toEqual([
+      { ...coin, conversion: read },
+    ])
+  })
+
+  it('reads what coins a change added or took away, and which other coins went, far above what a command names', () => {
+    expect(coinsOf(coinsResult().coins).coins).toEqual({
+      op: 'remove',
+      currency: { gp: 5 },
+      used: { pp: 1 },
+    })
+    expect(
+      coinsOf({ op: 'add', currency: { pp: 2, gp: 5, sp: 3 }, used: null })
+        .coins,
+    ).toEqual({ op: 'add', currency: { pp: 2, gp: 5, sp: 3 }, used: null })
+    expect(
+      coinsOf({
+        op: 'remove',
+        currency: { pp: 10_000_000 },
+        used: { gp: 100_000_000 },
+      }).coins,
+    ).toMatchObject({ used: { gp: 100_000_000 } })
+  })
+
+  it.each([
+    ['none where they’re no counts by coin', 'pp'],
+    ['none where a count is no whole number', { pp: 0.5 }],
+    ['none where a count is none', { pp: 0 }],
+    ['none where they’re left out', undefined],
+  ])('reads the coins used as %s, the change itself still told', (_, used) => {
+    expect(coinsOf({ op: 'remove', currency: { gp: 5 }, used }).coins).toEqual({
+      op: 'remove',
+      currency: { gp: 5 },
+      used: null,
+    })
+  })
+
+  it.each([
+    ['an op that’s neither', { op: 'spend', currency: { gp: 5 }, used: null }],
+    ['no coins', { op: 'add', currency: {}, used: null }],
+    [
+      'more of a coin than a change names',
+      { op: 'add', currency: { gp: 10_000_001 }, used: null },
+    ],
+    ['no object', 'gp'],
+  ])('leaves out a change with %s, keeping the rest', (_, coins) => {
+    const data = coinsOf(coins)
+    expect(data.coins).toBeUndefined()
+    expect(data.messageId).toBe('m-line')
+  })
+
+  it('reads a hand-out’s result: no end, what each was given, those given it in order, and the coins used', () => {
+    expect(handedOut({}).transfer).toEqual(handedOutResult().transfer)
+    expect(handedOut({ used: null }).transfer).toMatchObject({ used: null })
+    // On a failure part way, those given so far.
+    expect(handedOut({ each: ['actorVex0001'] }).transfer).toMatchObject({
+      each: ['actorVex0001'],
+    })
+  })
+
+  it('leaves out the coins a hand-out used where it can’t read them, keeping the rest of it', () => {
+    const { transfer } = handedOut({ used: { pp: 'thirteen' } })
+    expect(transfer).toMatchObject({
+      currency: { pp: 200, gp: 50 },
+      each: ['actorVex0001', 'actorBram001', 'actorLia0001'],
+    })
+    expect(transfer?.used).toBeUndefined()
+  })
+
+  it('leaves out a hand-out to more than one hands out to, keeping the rest of its result', () => {
+    const data = handedOut({
+      each: Array.from({ length: 21 }, (_, index) => `actor${index}`),
+    })
+    expect(data.transfer).toBeUndefined()
+    expect(data.messageId).toBe('m-told')
   })
 })

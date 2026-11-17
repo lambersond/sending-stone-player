@@ -93,7 +93,7 @@ const UNAVAILABLE = {
  * the Magical Recipe Book, from module 0.39.0 their characters' own effects, and from module
  * 0.40.0 Wild Shape. Changed on purpose (round 0.38.0 §D9): dishes too. Changed on purpose (round
  * 0.39.0 §1.10): effects too. Changed on purpose (round 0.40.0 §10.3): Wild Shape too. And from
- * module 0.44.0, hit points set.
+ * module 0.44.0, hit points set; and from module 0.48.0, coins added and taken away.
  */
 const given = (
   rollsEnabled: boolean,
@@ -106,6 +106,7 @@ const given = (
   effectsEnabled = false,
   wildShapeEnabled = false,
   hitPointsEnabled = false,
+  coinsEnabled = false,
 ) =>
   jest.mocked(markBridgePolled).mockResolvedValue({
     rollsEnabled,
@@ -117,6 +118,7 @@ const given = (
     effectsEnabled,
     wildShapeEnabled,
     hitPointsEnabled,
+    coinsEnabled,
     playersPresent,
   })
 
@@ -398,6 +400,43 @@ describe('app/api/bridge/commands', () => {
 
     await expect(cold.json()).resolves.toEqual({
       commands: [setting],
+      wait: 10_000,
+      open: ['thorin'],
+    })
+    expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
+  })
+
+  it('hands over coins added or taken away with everything else off, from module 0.48.0, the Gamemaster’s marked as theirs', async () => {
+    const paying: RollCommand = {
+      id: 'req-coins',
+      actorId: 'thorin',
+      by: 'gm',
+      kind: 'coins',
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+      coins: { op: 'remove', currency: { gp: 5 } },
+    }
+    given(
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+    )
+    jest.mocked(claimRollRequests).mockResolvedValue([paying])
+
+    const cold = await post()
+
+    await expect(cold.json()).resolves.toEqual({
+      commands: [paying],
       wait: 10_000,
       open: ['thorin'],
     })

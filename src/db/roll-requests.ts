@@ -742,6 +742,7 @@ const CLAIM_CAMPAIGN = {
   effectsEnabled: true,
   wildShapeEnabled: true,
   hitPointsEnabled: true,
+  coinsEnabled: true,
 } as const satisfies Prisma.CampaignSelect satisfies Record<
   keyof ClaimCampaign,
   true

@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import {
   ArrowLeftRight,
+  Coins,
   CookingPot,
   Dices,
   Heart,
@@ -32,6 +33,7 @@ import { RevokeCookbookLink } from '@/features/campaigns/components/campaign-con
 import { subOf } from '@/features/campaigns/components/campaign-row/utils'
 import {
   chatText,
+  coinsText,
   companionsLine,
   dishesText,
   effectsText,
@@ -135,6 +137,14 @@ export function CampaignCard({
               Items and coins
             </h3>
             <p className='text-sm text-text-secondary'>{movesText(campaign)}</p>
+          </section>
+
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <Coins aria-hidden className='size-4 text-text-secondary' />
+              Players&apos; coins
+            </h3>
+            <p className='text-sm text-text-secondary'>{coinsText(campaign)}</p>
           </section>
 
           <section className='grid gap-1'>

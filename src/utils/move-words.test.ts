@@ -1,4 +1,5 @@
 import {
+  coinsWords,
   moveLabel,
   moveReasons,
   moveWords,
@@ -47,6 +48,26 @@ describe('utils/move-words', () => {
       [[{ coins: 12_500, abbreviation: 'gp' }], '12,500 gp'],
     ])('says %j as the chat line does: %s', (parts, words) => {
       expect(thingsWords(parts)).toBe(words)
+    })
+  })
+
+  describe('coinsWords', () => {
+    const sheet = [
+      { id: 'pp', abbreviation: 'pp' },
+      { id: 'gp', abbreviation: 'gp' },
+      { id: 'sp', abbreviation: 'sp' },
+    ]
+
+    it.each([
+      [{ gp: 5 }, '5 gp'],
+      // In the sheet's order, whatever order they're named in: stored, a result's are sorted.
+      [{ sp: 3, gp: 5, pp: 2 }, '2 pp, 5 gp, and 3 sp'],
+      [{ gp: 150, pp: 600 }, '600 pp and 150 gp'],
+      // None of a coin isn't said; a coin the sheet doesn't list is, after them, by its key.
+      [{ pp: 0, gp: 6000, crown: 2 }, '6,000 gp and 2 crown'],
+      [{}, ''],
+    ])('says %j as the chat line does: %s', (amounts, words) => {
+      expect(coinsWords(sheet, amounts)).toBe(words)
     })
   })
 
