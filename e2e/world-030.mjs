@@ -1010,6 +1010,18 @@ export async function shootBoth(who, name, locator, dir = SHOTS) {
 }
 /** How far the page scrolls sideways: 0 when it doesn't. */
 export const sideways = page => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+/**
+ * Until focus is inside an element, as a menu's is a frame after it shows (floating-ui gives a
+ * menu its focus from the next animation frame, so a look the moment it's visible can find focus
+ * still on what opened it); or `ms` on, wherever focus is then, for the check after it to say.
+ */
+export const focusInside = (locator, ms = 5_000) => locator.evaluate((el, ms) => new Promise(resolve => {
+  let over = false
+  const done = () => { over = true; clearTimeout(timer); resolve() }
+  const timer = setTimeout(done, ms)
+  const look = () => { if (over) return; if (el.contains(document.activeElement)) done(); else requestAnimationFrame(look) }
+  look()
+}), ms)
 /** What the app answers a request from this page, as JSON where it is; a POST of `body` as JSON. */
 export const call = (page, path, { method = 'GET', body } = {}) => page.evaluate(async ({ path, method, body }) => {
   const response = await fetch(path, { method, ...(body && { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), redirect: 'manual' })
