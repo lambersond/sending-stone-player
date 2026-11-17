@@ -83,7 +83,7 @@ export function launchDocument(stone: string): string {
 <title>${LAUNCH_WORDS.title}</title>
 <style>
 html,body{height:100%;margin:0}
-body{display:flex;align-items:center;justify-content:center;background:${background};color:${LAUNCH_COLORS.text};font:14px/1.5 system-ui,sans-serif;-webkit-text-size-adjust:100%}
+body{display:flex;align-items:center;justify-content:center;padding:0 16px;background:${background};color:${LAUNCH_COLORS.text};font:14px/1.5 system-ui,sans-serif;-webkit-text-size-adjust:100%}
 .stone{position:relative;flex:none;width:${size}px;height:${size}px}
 .stone img,.stone svg{position:absolute;inset:0;display:block;width:100%;height:100%}
 .stone svg{pointer-events:none;mix-blend-mode:screen;filter:drop-shadow(0 0 ${glow(2)} ${lit}) drop-shadow(0 0 ${glow(8)} ${lit})}
@@ -99,7 +99,7 @@ ${PARTS.map(part => keyframes(part)).join('\n')}
 #offline{display:none;color:${secondary}}
 .offline #offline{display:block}
 #again{display:block;margin:16px auto 0;height:40px;padding:0 16px;border:0;border-radius:12px;background:${primary};color:${onPrimary};font:600 14px/1 system-ui,sans-serif}
-@media (max-height:479px){#unreached{position:static;flex:0 1 280px;padding:0 16px 0 24px;text-align:left}#again{margin-left:0}}
+@media (max-height:479px){#unreached{position:static;flex:0 1 280px;padding:0 0 0 24px;text-align:left}#again{margin-left:0}}
 </style>
 </head>
 <body>

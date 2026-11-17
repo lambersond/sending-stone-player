@@ -5,10 +5,10 @@
 // the app installed on a Pixel 7: the first opening from the server, the worker registered by the
 // launch page for /launch alone and keeping that one page; the second opening from the worker, its
 // rune watched lighting while the first page is held; Back; no other page controlled. Signed out; the
-// device offline, upright and on its side, with Try again; back online with its first ask unanswered,
-// and nothing said while the first page is on its way; a first page that doesn't come; reduced
-// motion; a light device and a dark one. And the way out: an older worker replaced, the retiring
-// worker, an iPhone's Home Screen app.
+// device offline, upright, on its side and short and narrow, with Try again; back online with its
+// first ask unanswered, and nothing said while the first page is on its way; a first page that
+// doesn't come; reduced motion; a light device and a dark one. And the way out: an older worker
+// replaced, the retiring worker, an iPhone's Home Screen app.
 //
 // "Installed" is an init script that answers the display mode, or navigator.standalone: headless
 // Chromium installs nothing. What only a phone shows (its own launch screen giving way to this page,
@@ -178,6 +178,10 @@ const standing = page => page.evaluate(() => {
   const words = box(said)
   const again = box(document.getElementById('again'))
   const image = document.querySelector('.stone img')
+  const text = document.createRange()
+  text.selectNodeContents(said)
+  // The least room between the screen's sides and the stone, the words' own text or Try again.
+  const gutter = Math.min(...[stone, box(text), again].flatMap(({ left, right }) => [left, innerWidth - right]))
   return {
     at: location.pathname,
     body: document.body.className,
@@ -191,6 +195,7 @@ const standing = page => page.evaluate(() => {
     under: words.top >= stone.bottom,
     beside: words.left >= stone.right - 0.5 && words.top < stone.bottom && words.bottom > stone.top,
     within: words.left >= 0 && words.right <= innerWidth && again.left >= 0 && again.top >= 0 && again.right <= innerWidth && again.bottom <= innerHeight,
+    gutter: Math.round(gutter),
     scrolls: document.documentElement.scrollHeight > innerHeight || document.documentElement.scrollWidth > innerWidth,
     light: matchMedia('(prefers-color-scheme: light)').matches,
   }
@@ -363,7 +368,7 @@ part('5. the device offline')
   await until(() => app.told.asks.length === 1, 'the launch page to have asked the server')
   let look = await standing(p)
   check(opening.fromWorker && look.at === '/launch' && look.drawn && same(look.size, [144, 144]) && look.centred && look.body === 'staying offline' && same(look.lit, ['0', '0', '0']) && look.animating === 0
-    && look.words === OFFLINE && look.under && look.within && !look.scrolls && same(app.told.asks, ['unanswered']),
+    && look.words === OFFLINE && look.under && look.within && look.gutter >= 16 && !look.scrolls && same(app.told.asks, ['unanswered']),
     `offline, the opening comes from the worker and stays: the stone in the middle, dark and still, "${OFFLINE.replace(' Try again', '')}" and Try again under it (${JSON.stringify(look)})`)
   await shoot(p, 'offline')
   for (const tap of [1, 2]) {
@@ -376,16 +381,17 @@ part('5. the device offline')
   check(look.at === '/launch' && look.drawn && look.body === 'staying offline' && look.words === OFFLINE && same(app.told.asks, ['unanswered', 'unanswered', 'unanswered']),
     `Try again tapped twice, still offline, asks the server each time and leaves the stone and its words where they are: never the browser's own error page (${JSON.stringify({ at: look.at, asks: app.told.asks })})`)
 
-  // A phone on its side: no room under the stone, so the words stand beside it.
+  // A phone on its side, and a window both short and narrow (a split screen): no room under the stone, so the words stand beside it.
   const sides = []
-  for (const viewport of [{ width: 800, height: 360 }, { width: 640, height: 360 }]) {
+  for (const viewport of [{ width: 800, height: 360 }, { width: 640, height: 360 }, { width: 390, height: 479 }, { width: 360, height: 400 }]) {
     await p.setViewportSize(viewport)
     await p.waitForFunction(width => innerWidth === width, viewport.width)
-    sides.push(await standing(p))
+    sides.push({ ...(await standing(p)), viewport: `${viewport.width}x${viewport.height}` })
     if (viewport.width === 800) await shoot(p, 'offline-on-its-side')
+    if (viewport.width === 360) await shoot(p, 'offline-short-and-narrow')
   }
-  check(sides.every(side => side.beside && side.within && !side.scrolls && side.words === OFFLINE),
-    `on its side, at 800 by 360 and 640 by 360, the words stand beside the stone, Try again within the screen, and nothing to scroll (${JSON.stringify(sides.map(({ beside, within, scrolls }) => ({ beside, within, scrolls })))})`)
+  check(sides.every(side => side.beside && side.within && side.gutter >= 16 && !side.scrolls && side.words === OFFLINE),
+    `on its side, at 800 by 360 and 640 by 360, and short and narrow, at 390 by 479 and 360 by 400, the words stand beside the stone, the stone, the words and Try again at least 16 pixels from the screen's sides, and nothing to scroll (${JSON.stringify(sides.map(({ viewport, beside, within, gutter, scrolls }) => ({ viewport, beside, within, gutter, scrolls })))})`)
   await p.setViewportSize(PIXEL.viewport)
 
   // Back online, as a connection can be a moment from working: the page's first ask then goes unanswered, at the network.
