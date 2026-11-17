@@ -21,6 +21,18 @@ so an item from it is named with its number when it was built, which may since b
 
 ## v0.48.0-rc
 
+### Fixes
+
+- **Midi-QOL no longer asks the Gamemaster for dice as it looks for reactions.** As a creature is
+  attacked, hit, missed, damaged or healed, or makes a save, Midi-QOL works out what each of its
+  reactions would spend, to see which it could take. Where a reaction's cost is a dice formula, such
+  as 1d4 charges, that roll was made with the Gamemaster's dice settings, so under Manual Dice a
+  window asked them, several times an attack, for a roll nobody used beyond telling whether the
+  reaction could be paid for. The module now rolls those checks with Foundry's computer dice, for an
+  attack from the app or one made in Foundry. Under dnd5e 6 that holds where Midi-QOL's line for it
+  looks for reactions as its line for dnd5e 5 does. A reaction that is taken still rolls its cost as
+  before. (module, item 23)
+
 ### Enhancements
 
 - **Pages show an outline of themselves while they load.** Once a page has checked that it may be

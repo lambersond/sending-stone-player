@@ -54,6 +54,19 @@ Midi-QOL v14.0.x:
   hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
   module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
 
+## v0.48 (release candidate)
+
+Being built: what it holds so far is in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc entry.
+
+**To check at the table before module v0.48.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Midi-QOL's look for reactions:** with Manual Dice on, a creature holding a reaction that costs
+  dice, such as 1d4 charges, attacked from the app or by you in Foundry: no dice window opens as
+  Midi looks for its reactions, the reaction is still offered, and taking it rolls its cost with
+  your dice. Under dnd5e 6 with Midi-QOL's line for it the same is still to be seen: how that line
+  looks for reactions was not read.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
@@ -61,25 +74,15 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 56, 47, 41, 42, 57, 23, 29, 67 and 68: the stone as the installed app opens, Move up
-   and Move down for every favorite, the three e2e races under load, Midi-QOL's reaction checks,
-   effects carried back from Wild Shape, and coins added, taken away and handed out from the
-   sheet.
+2. Items 56, 47, 41, 42, 57, 29, 67 and 68: the stone as the installed app opens, Move up and Move
+   down for every favorite, the three e2e races under load, effects carried back from Wild Shape,
+   and coins added, taken away and handed out from the sheet. Item 23, Midi-QOL's reaction checks:
+   done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
-
-**Found while building Batch 2**
-
-23. **Midi-QOL's reaction checks ask the Gamemaster for dice:** as it looks for the reactions an
-    attack's targets could take, Midi-QOL works out what each would spend and throws that away
-    (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
-    with the Gamemaster's dice settings, and under Manual Dice Foundry asks them for a roll nobody
-    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
-    `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
-    dice, as it now does Midi's check as a use from the app begins.
 
 **Found while untangling the module's imports**
 
@@ -189,6 +192,18 @@ And from the owner's answers on item 19, later work too:
     stamps `bridgePolledAt` after the suite ages it, and the notes API reads the game as live for
     45 seconds after a poll. The suite could wait for in-flight polls to settle before ageing, or
     age again once they have.
+
+**Found while building Batch 2**
+
+72. **Midi-QOL's check of a Gamemaster's own use asks for its dice twice:** where Midi spends what a
+    use spends without its dialog, it works the cost out first and throws that away
+    (`checkAutoConsume` in its `MidiActivityMixin.ts`), so a dice cost is rolled twice with the
+    Gamemaster's dice settings, for a use they make in Foundry and for a reaction they take; and so
+    is the cost of another activity Midi pairs with a Gamemaster's own attack
+    (`checkOtherActivityConsumption`), read from its source and not tried. Midi's own, and said in
+    the module's `PROTOCOL.md`; the module could roll the first with Foundry's computer dice, as it
+    does for a use from the app and, since 0.48.0, for the reactions Midi looks for. In no batch
+    yet.
 
 **Moved from v1.x on 2026-11-13**
 
