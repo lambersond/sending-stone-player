@@ -6,11 +6,13 @@ import { ActionEntry } from '../action-entry/action-entry'
 import { FALLBACKS } from '../action-entry/constants'
 import { useCharging } from '../charging/use-charging'
 import { EffectEntry } from '../effects-tab/effect-entry'
+import { useFavoriteMoves } from '../favoriting/use-favorite-moves'
 import { FeatureEntry } from '../features-tab/feature-entry'
 import { HitDieIcon } from '../hit-dice/hit-die-icon'
 import { HitDieUse } from '../hit-dice/hit-die-use'
 import { hitDiceText } from '../hit-dice/utils'
 import { ItemEntry } from '../inventory-tab/item-entry'
+import { moveExtras } from '../item-menu/utils'
 import { ModeChip } from '../mode-chip/mode-chip'
 import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { SpellSlots } from '../spell-slots/spell-slots'
@@ -51,7 +53,9 @@ const ITEM_TYPES: Record<string, string> = {
  * A favorite, as the sheet shows it elsewhere. From module 0.37.0, its row's favorites entry is its
  * own, never the star's: Remove from favorites, as it's one; an activity's, the activity's, never
  * its item's; and none for a resource, the feature a resource stands for, a skill, a tool or spell
- * slots.
+ * slots. Where the favorites are put in order (module 0.47.0), a skill, a tool and spell slots have
+ * Move up and Move down all the same (ROADMAP item 47): a skill's or a tool's in its roll's menu,
+ * after its ways to roll; spell slots' in a menu of their row's own.
  */
 export function FavoriteRow({
   entry,
@@ -138,6 +142,7 @@ export function FavoriteRow({
     case 'check': {
       return (
         <CheckEntry
+          favoriteKey={entry.key}
           check={entry.check}
           source={entry.source}
           ability={abilities.find(({ id }) => id === entry.check.ability)}
@@ -149,6 +154,7 @@ export function FavoriteRow({
       return (
         <SlotsEntry
           characterId={characterId}
+          favoriteKey={entry.key}
           slots={entry.slots}
           favorite={target}
         />
@@ -194,18 +200,23 @@ export function FavoriteRow({
 /**
  * A pool of spell slots made a favorite, its dots as the Spells tab's are: from module 0.42.1,
  * where they spend and restore its slots, beneath its name in a narrow list, as on a phone or in
- * the desk's column, with room for nine.
+ * the desk's column, with room for nine. Among the favorites put in order, its row's own menu is
+ * Move up and Move down alone: its dots stay their own.
  */
 function SlotsEntry({
   characterId,
+  favoriteKey,
   slots,
   favorite,
 }: Readonly<{
   characterId: string
+  /** Its key among the favorites, by which it moves. */
+  favoriteKey: string
   slots: SheetSlotsFavorite
   favorite: FavoriteEntry['target']
 }>) {
   const charging = useCharging()
+  const moves = useFavoriteMoves(favoriteKey, slots.name)
   const pool = { id: slots.id, level: slots.level }
   return (
     <SheetEntry
@@ -214,6 +225,7 @@ function SlotsEntry({
       fallback={BookOpen}
       detail='Spell slots'
       favorite={favorite}
+      moves={moves}
       aside={<SpellSlots value={slots.value} max={slots.max} pool={pool} />}
       asideBelow={slotsLive(pool, slots.max, charging)}
     />
@@ -263,19 +275,24 @@ function ClassEntry({
 
 /**
  * A skill or tool made a favorite, which rolls a check when tapped, and offers advantage and the
- * like when held, as a skill does on the Character tab.
+ * like when held, as a skill does on the Character tab; and after them, among the favorites put in
+ * order, Move up and Move down, which roll nothing.
  */
 function CheckEntry({
+  favoriteKey,
   check,
   source,
   ability,
   d20,
 }: Readonly<{
+  /** Its key among the favorites, by which it moves. */
+  favoriteKey: string
   check: SheetSkill
   source: RollSource
   ability: SheetAbility | undefined
   d20: RollActions
 }>) {
+  const moves = useFavoriteMoves(favoriteKey, check.label)
   const proficiency = PROFICIENCY[String(check.proficiency)]
   const details = [
     proficiency,
@@ -290,7 +307,10 @@ function CheckEntry({
           mode: check.mode,
           source,
         }}
-        {...d20}
+        onRoll={d20.onRoll}
+        onMenu={(anchor, target, point) =>
+          d20.onMenu(anchor, target, point, moveExtras(moves))
+        }
         label={checkLabel({
           label: `${check.label} check`,
           total: check.total,

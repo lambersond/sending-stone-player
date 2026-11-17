@@ -16,7 +16,8 @@
 // Waiting while on its way, a second refused; a favorite made in Foundry meanwhile done with nothing
 // written; an item deleted in Foundry meanwhile refused `gone` by the module; crafted posts refused by
 // the app; never on a resource's feature, a resource, a skill, slots, a condition, a party's sheet, a
-// companion's pane or the Gamemaster's page; no switch; no longer offered once Foundry has been closed
+// companion's pane or the Gamemaster's page (a skill and slots have their moves all the same, below,
+// item 47); no switch; no longer offered once Foundry has been closed
 // a while (the view's 204 key, §7.7); phones; both themes. The contract's steps run in the order
 // Thorin's favorites allow: the keyboard (6) before the adds of 4, which make its rows favorites;
 // waiting (7) as 4 adds Fire Bolt; never offered (10) before the Rope is deleted (9). DND5E6=1: steps 1-5
@@ -26,7 +27,11 @@
 // Reorder's drag and keys and by Move up and Move down in a favorite's menu at 390, each the order
 // Foundry's actor keeps, Ki first, and (item 48) one made a favorite in Foundry while an order is on
 // its way moved up; under dnd5e 6.0.5 too; and module 0.36.0 offering none. SKEW=046
-// with MODULE=module-0.46.0 (part 16): favorites, never put in order.
+// with MODULE=module-0.46.0 (part 16): favorites, never put in order. And (item 47) a skill and spell
+// slots, which have no favorites entry of their own, moved all the same: at 390 Stealth's Move up
+// from its roll's menu, after its ways to roll, which rolls nothing, and his slots' from a menu of
+// their own, held by their name (part 14); at 1280 that menu by a right-click and from the keyboard
+// (part 10); with module 0.46.0 neither (part 16).
 // Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
@@ -315,6 +320,20 @@ async function rollLine(who, label) {
   await dialog.waitFor({ state: 'hidden' })
   return text
 }
+/** How many of the rolls behind the rolls' button, the latest and the earlier, have these words. */
+async function rollsSaying(who, words) {
+  const dialog = who.page.getByRole('dialog', { name: 'Your rolls' })
+  await who.page.getByRole('button', { name: /^Your rolls/ }).click()
+  await dialog.waitFor()
+  const count = await dialog.locator('[role="status"], li').filter({ hasText: words }).count()
+  await who.page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'hidden' })
+  return count
+}
+/** The ways to roll a check, as its menu lists them, before whatever else its row offers there. */
+const ROLL_WAYS = ['Roll with advantage', 'Roll with disadvantage', 'Modify roll…']
+/** A menu that should be open by now: its look, or null where none opened, so that a check says so. */
+const lookIfOpen = (menu, timeout = 5_000) => menu.waitFor({ timeout }).then(() => lookOf(menu), () => null)
 /** Until the page's own sheet says whether something is one of the character's favorites. */
 const sheetSays = (who, test, what) => until(async () => test((await sheetOf(who))?.favorites ?? []), what, 15_000)
 const GAME_WORDS = 'your Gamemaster’s game'
@@ -386,6 +405,13 @@ if (SKEW046) {
   await closeMenu(desk, menu)
   check(same(items, ['Remove from favorites']) && await panelOf(desk).getByRole('button', { name: 'Reorder favorites' }).count() === 0,
     `among his favorites no Reorder, and Lucky's menu "Remove from favorites" alone (${JSON.stringify(items)})`)
+  // Item 47: nor do his slots or Stealth move, which have no favorites entry of their own.
+  const slotsNone = await noMenu(desk, panelRow(desk, '1st Level'))
+  await panelOf(desk).getByRole('button', { name: /^Stealth check/ }).click({ button: 'right' })
+  const d20 = desk.page.getByRole('menu', { name: /^Stealth check/ })
+  const rolls = (await lookIfOpen(d20, 10_000))?.items ?? null
+  if (rolls) await closeMenu(desk, d20)
+  check(slotsNone && same(rolls, ROLL_WAYS), `nor do his slots or Stealth move: his 1st-level slots open no menu, and Stealth's is its ways to roll alone (${JSON.stringify({ slotsNone, rolls })})`)
   const LUCKY = { type: 'item', id: 'lucky' }
   const STEALTH = { type: 'skill', id: 'ste' }
   const SLOTS = { type: 'slots', id: 'spell1' }
@@ -762,13 +788,15 @@ function storedKey({ type, id }) {
   if (embedded === undefined) return `item:${first}`
   return embedded === 'Activity' ? `activity:${first}.${second}` : `effect:${first}.${second}`
 }
-/** The rows a favorite's menu opens from, among those that may be moved. */
+/** The rows whose own menu has Remove from favorites, among those that may be moved. */
 const WITH_MENUS = ['Lucky', 'Longsword', 'Fire Bolt', 'Second Wind', 'Fighter 5', 'Bless', 'Cloak of Protection', 'Cast Fireball', 'Spark Burst', 'Potion of Healing']
 /**
  * Thorin's favorites put in order from the app, where his module takes it: the hello and the view
  * say so; Reorder, beneath them at 1280, lists all but Ki, a drag of the third to the top and the
  * down key on a grip shown at once, saved as one order of them all, the list in the new order at
- * once, and Foundry's actor keeping it by dnd5e's sorts; then at 390 a favorite's menu offers Move
+ * once, and Foundry's actor keeping it by dnd5e's sorts; then at 390 (item 47) Stealth's roll menu
+ * ends with Move up and Move down and his slots, held by their name, have a menu of the two alone,
+ * each move made at once and kept, nothing rolled; a favorite's menu offers Move
  * up and Move down, each made at once and kept; and (item 48) one made a favorite in Foundry while an
  * order is on its way is taken into the order shown, its Move up made. Shots of the list and a
  * favorite's menu at 1280 and 390, at twice the pixels.
@@ -885,6 +913,73 @@ async function putInOrder() {
   await small.tab('Actions')
   const strip = panelOf(small)
   await until(async () => same(await namesIn(strip), ['Ki', ...keyed]), 'the phone\'s strip in the new order', 15_000)
+
+  // Item 47: a skill and spell slots, which have no favorites entry of their own, moved from their
+  // menus. Stealth up and then his slots up leaves the list as it was, for what follows.
+  const smallPosts = []
+  small.page.on('request', request => {
+    if (request.method() === 'POST' && /\/rolls$/.test(request.url())) smallPosts.push(request.postDataJSON())
+  })
+  /** Tap a move in a menu, where it offers it, and close the menu where it doesn't: whether tapped. */
+  async function tapMove(menu, move) {
+    const item = menu.getByRole('menuitem', { name: move, exact: true })
+    if (await item.count()) {
+      await paced()
+      await item.click()
+      return true
+    }
+    if (await small.page.getByRole('menu').count()) {
+      await small.page.keyboard.press('Escape')
+      await small.page.getByRole('menu').first().waitFor({ state: 'hidden' }).catch(() => {})
+    }
+    return false
+  }
+  /** The order a move made, once the module has answered it; none where none was sent. */
+  const moved = async (count, what) => ordered(count, what).catch(() => null)
+  /** Until the strip shows these, and Foundry's actor keeps them so: what each then has. */
+  async function kept(want, what) {
+    await until(async () => same(await namesIn(strip), ['Ki', ...want]), `${what}, shown`, 5_000).catch(() => {})
+    const shown = await namesIn(strip)
+    await until(async () => same((await foundryKeys(small)).map(key => listed.get(key)), want), `${what}, in Foundry`, 15_000).catch(() => {})
+    return { shown, foundry: (await foundryKeys(small)).map(key => listed.get(key)) }
+  }
+  const slotsAt = keyed.indexOf('1st Level')
+  const swapped = [...keyed]
+  swapped.splice(slotsAt, 2, 'Stealth', '1st Level')
+  const stealth = strip.getByRole('button', { name: /^Stealth check/ })
+  await stealth.evaluate(el => el.scrollIntoView({ block: 'center' }))
+  await small.hold(stealth, 600)
+  menu = small.page.getByRole('menu', { name: /^Stealth check/ })
+  let look = await lookIfOpen(menu)
+  check(slotsAt > 0 && keyed[slotsAt + 1] === 'Stealth' && same(look?.items, [...ROLL_WAYS, 'Move up', 'Move down']),
+    `at 390, his slots just above Stealth and neither first, a held touch on Stealth opens its roll's menu, its ways to roll, then "Move up" and "Move down" (${JSON.stringify({ keyed: keyed.slice(0, slotsAt + 2), items: look?.items })})`)
+  if (look) await shoot(small, 'favorites-skill-menu')
+  let sentBefore = orders().length
+  let tapped = await tapMove(menu, 'Move up')
+  let now = await kept(swapped, 'Stealth above his slots')
+  made = tapped ? await moved(sentBefore + 1, 'Stealth moved up in Foundry') : null
+  const rolled = await rollsSaying(small, 'Stealth check')
+  check(same(now.shown, ['Ki', ...swapped]) && made?.status === 'done' && made.payload.favorite.order.map(keyOf)[slotsAt] === 'skill:ste' && same(now.foundry, swapped)
+    && smallPosts.length === 1 && smallPosts[0]?.kind === 'favorite' && rolled === 0,
+  `Move up puts Stealth above his slots at once, made as an order with skill:ste there, and Foundry's actor keeps it; nothing rolled: the phone's one POST a favorite's, no "Stealth check" among its rolls (${JSON.stringify({ shown: now.shown.slice(0, slotsAt + 3), made: made?.status, reason: made?.result?.reason, posts: smallPosts.map(post => post?.kind), rolled })})`)
+  // Held by its name's own element: at 390 the row's middle can lie on its dots, which are their own.
+  const slotsName = panelRow(small, '1st Level').getByText('1st Level', { exact: true })
+  await slotsName.evaluate(el => el.scrollIntoView({ block: 'center' }))
+  await small.hold(slotsName, 600)
+  menu = small.page.getByRole('menu', { name: '1st Level', exact: true })
+  look = await lookIfOpen(menu)
+  check(same(look?.items, ['Move up', 'Move down']), `a held touch on his slots' name opens "1st Level", "Move up" and "Move down" alone (${JSON.stringify(look?.items ?? null)})`)
+  if (look) await shoot(small, 'favorites-slots-menu')
+  sentBefore = orders().length
+  tapped = await tapMove(menu, 'Move up')
+  now = await kept(keyed, 'his slots above Stealth again')
+  made = tapped ? await moved(sentBefore + 1, 'his slots moved up in Foundry') : null
+  check(same(now.shown, ['Ki', ...keyed]) && made?.status === 'done' && made.payload.favorite.order.map(keyOf)[slotsAt] === 'slots:spell1' && same(now.foundry, keyed),
+    `Move up puts his slots back above Stealth at once, made as an order with slots:spell1 there, and Foundry's actor keeps it (${JSON.stringify({ shown: now.shown.slice(0, slotsAt + 3), made: made?.status, reason: made?.result?.reason })})`)
+  await toastsGone(small)
+  // What follows waits on its own orders, counted from here.
+  const base = orders().length
+
   const at = keyed.findIndex((name, i) => i > 0 && i < keyed.length - 1 && WITH_MENUS.includes(name))
   const name = keyed[at]
   const target = panelTarget(small, name)
@@ -900,7 +995,7 @@ async function putInOrder() {
   up.splice(at - 1, 2, keyed[at], keyed[at - 1])
   await until(async () => same(await namesIn(strip), ['Ki', ...up]), 'moved up', 5_000).catch(() => {})
   check(same(await namesIn(strip), ['Ki', ...up]), `Move up puts ${name} one up at once (${JSON.stringify(await namesIn(strip))})`)
-  made = await ordered(sent + 2, 'moved up in Foundry')
+  made = await ordered(base + 1, 'moved up in Foundry')
   await until(async () => same((await foundryKeys(small)).map(key => listed.get(key)), up), 'Foundry\'s order with it up', 15_000).catch(() => {})
   check(made.status === 'done' && same((await foundryKeys(small)).map(key => listed.get(key)), up), `made, Foundry's actor keeps it one up (${made.status})`)
   const first = at - 1 === 0
@@ -912,7 +1007,7 @@ async function putInOrder() {
   await menu.getByRole('menuitem', { name: 'Move down', exact: true }).click()
   await until(async () => same(await namesIn(strip), ['Ki', ...keyed]), 'moved down', 5_000).catch(() => {})
   check(same(await namesIn(strip), ['Ki', ...keyed]), `Move down puts it back at once (${JSON.stringify(await namesIn(strip))})`)
-  made = await ordered(sent + 3, 'moved down in Foundry')
+  made = await ordered(base + 2, 'moved down in Foundry')
   await until(async () => same((await foundryKeys(small)).map(key => listed.get(key)), keyed), 'Foundry\'s order with it back', 15_000).catch(() => {})
   check(made.status === 'done' && same((await foundryKeys(small)).map(key => listed.get(key)), keyed), `made, Foundry's actor keeps it back (${made.status})`)
   await toastsGone(small)
@@ -1046,14 +1141,43 @@ await desk.tab('Features')
 await desk.tab('Actions')
 {
   check(await noMenu(desk, panelRow(desk, 'Ki')), 'among his favorites, the Ki resource\'s row opens no menu')
-  check(await noMenu(desk, panelRow(desk, '1st Level')), 'nor his 1st-level slots')
-  const stealth = panelOf(desk).getByRole('button', { name: /^Stealth/ }).first()
-  await stealth.click({ button: 'right' })
-  const d20 = desk.page.getByRole('menu').first()
-  await d20.waitFor({ timeout: 10_000 })
-  const items = await itemsOf(d20)
-  check(same(items, ['Roll with advantage', 'Roll with disadvantage', 'Modify roll…']), `Stealth's d20 menu is still its rolls' alone: ${JSON.stringify(items)}`)
-  await closeMenu(desk, d20)
+  // Changed on purpose (item 47): his slots and Stealth, which have no favorites entry of their
+  // own, are put in order all the same: Move up and Move down, never Remove from favorites. All but
+  // Ki move: Move up but for the first of them, Move down but for the last.
+  const moving = (await panelNames()).slice(1)
+  const movesOf = name => [...(moving[0] === name ? [] : ['Move up']), ...(moving.at(-1) === name ? [] : ['Move down'])]
+  const moves = movesOf('1st Level')
+  // His slots' row takes focus once it may move, and so has a menu to open.
+  const slots = panelTarget(desk, '1st Level')
+  await slots.waitFor({ timeout: 15_000 }).catch(() => {})
+  const row = await slots.count() > 0
+  let menu = row ? await menuOf(desk, slots, '1st Level').catch(() => null) : null
+  let items = menu && await itemsOf(menu)
+  if (menu) await closeMenu(desk, menu)
+  check(moving.includes('1st Level') && same(items, moves), `a right-click on his 1st-level slots' row opens "1st Level", its moves alone, no "Remove from favorites" (${JSON.stringify({ items, moves })})`)
+  // From the keyboard. The menu's first item takes focus a frame after the menu shows (item 41's
+  // race), so focus is read only once it's inside the menu, and after Escape once it's on the row.
+  const onRow = () => slots.evaluate(el => document.activeElement === el)
+  let look = null
+  let back = false
+  if (row) {
+    await slots.focus()
+    await desk.page.keyboard.press('Shift+F10')
+    menu = desk.page.getByRole('menu', { name: '1st Level', exact: true })
+    if (await lookIfOpen(menu, 10_000)) {
+      await until(async () => (await lookOf(menu)).inside, 'focus inside the menu', 5_000).catch(() => {})
+      look = await lookOf(menu)
+      await closeMenu(desk, menu)
+      await until(onRow, 'focus back on the row', 5_000).catch(() => {})
+      back = await onRow()
+    }
+  }
+  check(same(look?.items, moves) && look.focused === moves[0] && back, `Shift+F10 on that row opens it, "${moves[0]}" focused; Escape closes it, focus back on the row (${JSON.stringify({ look, back })})`)
+  await panelOf(desk).getByRole('button', { name: /^Stealth check/ }).click({ button: 'right' })
+  const d20 = desk.page.getByRole('menu', { name: /^Stealth check/ })
+  items = (await lookIfOpen(d20, 10_000))?.items ?? null
+  if (items) await closeMenu(desk, d20)
+  check(moving.includes('Stealth') && same(items, [...ROLL_WAYS, ...movesOf('Stealth')]), `Stealth's menu is its ways to roll, then its moves, no "Remove from favorites": ${JSON.stringify(items)}`)
 }
 await desk.tab('Effects')
 {

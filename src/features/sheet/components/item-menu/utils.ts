@@ -13,9 +13,13 @@ import {
 import { EFFECT_WORDS } from '@/utils/effect-words'
 import { PREPARE_WORDS } from '@/utils/prepare-words'
 import type { EffectChoice } from '../effect-controls/types'
-import type { FavoriteChoice, FavoriteChoiceId } from '../favoriting/types'
+import type {
+  FavoriteChoice,
+  FavoriteChoiceId,
+  FavoriteMoves,
+} from '../favoriting/types'
 import type { PrepareChoice } from '../preparing/types'
-import type { MenuItem } from '@/features/rolling/types'
+import type { MenuExtra, MenuItem } from '@/features/rolling/types'
 import type { EffectOp, PrepareOp } from '@/types/sending-stone'
 
 /** Add to favorites, in a row's menu, from module 0.37.0. */
@@ -132,15 +136,19 @@ export function effectItems(
  * that changes nothing in the game, and among the favorites Move up and Move down where it may
  * move so (module 0.47.0); for a spell, Prepare or Unprepare (module 0.42.1); Send to…; Remove…;
  * and an effect's own (module 0.39.0). Each waits, saying why, while it's on its way.
+ * @param moves - Where it may move among the favorites: its favorites entry's, or its own where it
+ *   has no entry, as spell slots (ROADMAP item 47).
  */
 export function menuItems({
   favorite,
+  moves,
   prepare,
   send,
   remove,
   effects,
 }: {
   favorite?: FavoriteChoice
+  moves?: FavoriteMoves
   prepare?: PrepareChoice
   send?: () => void
   remove?: { open: () => void; waiting: boolean }
@@ -158,8 +166,8 @@ export function menuItems({
         ]
       : []),
     // Among the favorites, from module 0.47.0: where it may move, Move up and Move down.
-    ...(favorite?.moves?.up ? [MOVE_UP] : []),
-    ...(favorite?.moves?.down ? [MOVE_DOWN] : []),
+    ...(moves?.up ? [MOVE_UP] : []),
+    ...(moves?.down ? [MOVE_DOWN] : []),
     // A spell's, from module 0.42.1, after its favorites entry: Prepare or Unprepare, as the sheet
     // has it now, waiting the same way.
     ...(prepare
@@ -178,5 +186,17 @@ export function menuItems({
     // An effect's own, after its favorites entry: Turn off or Turn on, then Delete… (module
     // 0.39.0).
     ...effects,
+  ]
+}
+
+/**
+ * Move up and Move down as a roll's menu offers them, after its ways to roll, for a skill or a tool
+ * among the favorites, whose row is its roll (ROADMAP item 47): each where it may move so, and what
+ * choosing it does.
+ */
+export function moveExtras(moves: FavoriteMoves | undefined): MenuExtra[] {
+  return [
+    ...(moves?.up ? [{ ...MOVE_UP, onChoose: moves.up }] : []),
+    ...(moves?.down ? [{ ...MOVE_DOWN, onChoose: moves.down }] : []),
   ]
 }

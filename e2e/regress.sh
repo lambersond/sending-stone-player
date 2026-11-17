@@ -191,11 +191,13 @@ run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 # dnd5e's own favorites; and module 0.36.0 (none). Since module 0.47.0 (item 28), part 14: put in
 # order by Reorder's drag and keys and by Move up and Move down at 390, under dnd5e 5 and 6, Foundry's
 # actor keeping each order, and (item 48) one made a favorite in Foundry while an order is on its way
-# moved up; module 0.36.0 offering none; and module 0.46.0, favorites never put in order.
-run favoriting 104 SHOTS=$O/shots-037
-run favoriting 71 DND5E6=1 SHOTS=$O/shots-037
+# moved up; module 0.36.0 offering none; and module 0.46.0, favorites never put in order. And (item
+# 47) a skill moved from its roll's menu and spell slots from a menu of their own at 390, that menu
+# from the keyboard at 1280, and neither with module 0.46.0.
+run favoriting 109 SHOTS=$O/shots-037
+run favoriting 75 DND5E6=1 SHOTS=$O/shots-037
 run favoriting 9 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
-run favoriting 5 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
+run favoriting 6 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
 # code, a card for the Gamemaster in Foundry and an effect on each character chosen; dnd5e 6.0.5
 # (off); and module 0.37.0 (none).

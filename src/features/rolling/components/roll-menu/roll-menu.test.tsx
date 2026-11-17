@@ -129,6 +129,32 @@ describe('components/character-sheet/roll-menu', () => {
     expect(onChoose).toHaveBeenCalledWith('dis')
   })
 
+  it('offers what else its part of the sheet does after the ways to roll it, the first of those still focused; one chosen does its own and closes the menu, and rolls nothing', async () => {
+    const user = userEvent.setup()
+    const onChoose = jest.fn()
+    const onClose = jest.fn()
+    const up = jest.fn()
+    render(<button type='button'>Perception</button>)
+    render(
+      <RollMenu
+        anchor={screen.getByRole('button', { name: 'Perception' })}
+        title='Perception check +7'
+        extras={[{ id: 'up', label: 'Move up', icon: Send, onChoose: up }]}
+        onChoose={onChoose}
+        onClose={onClose}
+      />,
+    )
+    const items = screen.getAllByRole('menuitem')
+    expect(items).toHaveLength(4)
+    expect(items.at(-1)).toHaveTextContent('Move up')
+    await waitFor(() => expect(items[0]).toHaveFocus())
+
+    await user.click(items[3])
+    expect(up).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onChoose).not.toHaveBeenCalled()
+  })
+
   it('moves between its items with the arrow keys', async () => {
     const user = userEvent.setup()
     const { onChoose } = renderMenu()

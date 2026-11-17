@@ -7,6 +7,7 @@ import type {
   RollActions,
   RollTarget,
   MenuPoint,
+  MenuExtra,
   RollChoice,
 } from '@/features/rolling/types'
 import type { SheetRoll } from '@/types/roll'
@@ -31,7 +32,8 @@ export function useD20Rolls(onRoll: (roll: SheetRoll) => void): {
     anchor: HTMLElement,
     target: RollTarget,
     point?: MenuPoint,
-  ) => setMenu({ anchor, target, point })
+    extras?: MenuExtra[],
+  ) => setMenu({ anchor, target, point, extras })
   // A choice from the menu is the player's say on this roll, as in dnd5e's roll dialog.
   const choose = (target: RollTarget, choice: RollChoice) => {
     setMenu(undefined)
