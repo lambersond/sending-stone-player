@@ -112,7 +112,8 @@ function run({
       heard[type] = listener
     },
     fetch,
-    setTimeout: (work: () => void, after: number) => {
+    // A timer set with no delay waits none, as a browser's does: it shows as 0, never as no timer.
+    setTimeout: (work: () => void, after = 0) => {
       made += 1
       timers.set(made, { run: work, after })
       return made
