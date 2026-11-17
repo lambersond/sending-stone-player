@@ -95,12 +95,13 @@ const GAME_WORDS = 'your Gamemaster’s game'
 /**
  * What a page of Alice's records of itself, on the page and in its own time: the device's buzzes,
  * its posts of rolls with the app's answers, the turn's toast cards as they show, change and go, the
- * presses with the drawn fill of the tab pressed each frame, context menus, clicks, and the turn
- * panel's heading and End turn as they change. Its own fetch stays for the suite's own requests.
+ * presses with the drawn fill of the tab pressed each frame, context menus, clicks, the turn
+ * panel's heading and End turn as they change, and its reads of the table as each is answered.
+ * Its own fetch stays for the suite's own requests.
  */
 const INSTRUMENT = () => {
   const now = () => performance.now()
-  const e2e = { buzz: [], posts: [], cards: [], presses: [], menus: [], clicks: [], headings: [], buttons: [] }
+  const e2e = { buzz: [], posts: [], cards: [], presses: [], menus: [], clicks: [], headings: [], buttons: [], reads: [] }
   window.__e2e = e2e
   const original = window.fetch
   window.__e2eFetch = original.bind(window)
@@ -109,8 +110,10 @@ const INSTRUMENT = () => {
   } catch {}
   window.fetch = function (input, init) {
     let record
+    let read = false
     try {
       const url = new URL(typeof input === 'string' ? input : (input.href ?? input.url), location.href)
+      read = String(init?.method ?? 'GET').toUpperCase() === 'GET' && /\/table$/.test(url.pathname)
       if (String(init?.method ?? 'GET').toUpperCase() === 'POST' && /\/rolls$/.test(url.pathname)) {
         const body = JSON.parse(init.body)
         record = { t: now(), path: url.pathname, kind: body.kind, body, status: null, reason: null, id: null }
@@ -118,6 +121,8 @@ const INSTRUMENT = () => {
       }
     } catch {}
     const made = original.apply(this, arguments)
+    // A read of the table, stamped as its answer arrives, before the page has it.
+    if (read) made.then(() => { e2e.reads.push({ t: now() }) }).catch(() => {})
     if (record) {
       made.then(response => {
         record.status = response.status
@@ -285,13 +290,14 @@ const nowIn = who => who.page.evaluate(() => performance.now())
 /** Where each record stands now, to read what comes after. */
 const mark = async who => {
   const log = await logOf(who)
-  return { t: await nowIn(who), cards: log.cards.length, posts: log.posts.length, presses: log.presses.length, buzz: log.buzz.length, menus: log.menus.length, clicks: log.clicks.length, headings: log.headings.length, buttons: log.buttons.length }
+  return { t: await nowIn(who), cards: log.cards.length, posts: log.posts.length, presses: log.presses.length, buzz: log.buzz.length, menus: log.menus.length, clicks: log.clicks.length, headings: log.headings.length, buttons: log.buttons.length, reads: log.reads.length }
 }
 const since = async (who, m) => {
   const log = await logOf(who)
   return {
     log, cards: log.cards.slice(m.cards), posts: log.posts.slice(m.posts), presses: log.presses.slice(m.presses), buzz: log.buzz.slice(m.buzz),
     menus: log.menus.slice(m.menus), clicks: log.clicks.slice(m.clicks), headings: log.headings.slice(m.headings), buttons: log.buttons.slice(m.buttons),
+    reads: log.reads.slice(m.reads),
   }
 }
 /** A card after a mark, of a kind, once shown. */
@@ -536,8 +542,17 @@ part('3. undo')
   const back = after.headings.find(h => h.text === 'Your turn')
   const offered = after.buttons.find(b => b.t >= back.t && b.look === 'End turn|')
   const taken = after.cards.find(c => c.kind === 'taking')
-  check(!!offered && offered.t - back.t >= 590 && offered.t - back.t <= 900 && taken.gone !== null && taken.gone <= back.t + 200,
-    `the panel "Your turn" again, the toast gone; End turn offered ${offered ? Math.round(offered.t - back.t) : '?'} ms after the panel shows the turn (600 ms)`)
+  // End turn's 600 ms are counted by the page from the render that first shows the turn, and can
+  // start before the heading's record is written here: the turn's toast goes in the same render,
+  // a layout effect of it sets state, and React then starts the countdown before the browser hands
+  // the observer its record; what the page does until then came off the time measured (578 ms
+  // once, under load). So "no sooner" is counted from the read of the table that brought the turn,
+  // the last to arrive before the record, which is never after that render; "no later" from the
+  // record, as before.
+  const read = after.reads.findLast(r => r.t <= back.t)
+  const sinceRead = offered && read ? offered.t - read.t : NaN
+  check(!!offered && sinceRead >= 599 && offered.t - back.t <= 900 && taken.gone !== null && taken.gone <= back.t + 200,
+    `the panel "Your turn" again, the toast gone; End turn offered ${offered ? Math.round(offered.t - back.t) : '?'} ms after the panel shows the turn, ${Math.round(sinceRead)} ms after the page read it (600 ms)`)
 }
 
 // =================================================================================================
