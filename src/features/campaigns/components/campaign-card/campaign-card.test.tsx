@@ -986,6 +986,8 @@ describe('components/campaigns/campaign-card', () => {
         'Wild Shape',
         // Changed on purpose (v0.44): the players' hit points follow Wild Shape (module 0.44.0).
         "Players' hit points",
+        // Changed on purpose (item 58): other creatures' health follows them (module 0.50.0).
+        "Other creatures' health",
       ])
       expect(screen.queryByRole('heading', { level: 4 })).toBeNull()
     })
@@ -1033,6 +1035,8 @@ describe('components/campaigns/campaign-card', () => {
         'Wild Shape',
         // Changed on purpose (v0.44): the players' hit points follow Wild Shape (module 0.44.0).
         "Players' hit points",
+        // Changed on purpose (item 58): other creatures' health follows them (module 0.50.0).
+        "Other creatures' health",
         'Foundry settings',
       ])
     })
@@ -1371,8 +1375,9 @@ describe('components/campaigns/campaign-card', () => {
     )
   })
 
-  // Each of its words is pinned in feature-words.test.ts: here, where they go.
-  it('says whether players set hit points from here (module 0.44.0), after Wild Shape, before the Foundry settings', () => {
+  // Each of its words is pinned in feature-words.test.ts: here, where they go. Changed on purpose
+  // (item 58): other creatures' health now stands between them and the Foundry settings.
+  it('says whether players set hit points from here (module 0.44.0), after Wild Shape, before other creatures’ health', () => {
     renderCard({
       hitPoints: { enabled: true },
       foundry: effectsFoundry('0.44.0', dnd5e('5.3.3')),
@@ -1387,6 +1392,32 @@ describe('components/campaigns/campaign-card', () => {
     ])
     expect(section.previousElementSibling).toBe(
       screen.getByRole('heading', { name: 'Wild Shape' }).parentElement,
+    )
+    expect(section.nextElementSibling).toBe(
+      screen.getByRole('heading', { name: "Other creatures' health" })
+        .parentElement,
+    )
+    expect(section.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  // Each of its words is pinned in feature-words.test.ts: here, where they go.
+  it('says whether players see how hurt other creatures are (module 0.50.0), after their own hit points, before the Foundry settings', () => {
+    renderCard({
+      health: { enabled: true, hitPoints: false },
+      foundry: effectsFoundry('0.50.0', dnd5e('5.3.3')),
+    })
+
+    const section = screen.getByRole('heading', {
+      name: "Other creatures' health",
+    }).parentElement as HTMLElement
+    expect(
+      [...section.querySelectorAll('p')].map(({ textContent }) => textContent),
+    ).toEqual([
+      'On in Foundry. Your players see how hurt other creatures in a fight are, but not their hit points.',
+    ])
+    expect(section.previousElementSibling).toBe(
+      screen.getByRole('heading', { name: "Players' hit points" })
+        .parentElement,
     )
     expect(section.nextElementSibling?.tagName).toBe('DETAILS')
     expect(section.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')

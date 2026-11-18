@@ -5,6 +5,7 @@ import {
   CookingPot,
   Dices,
   Heart,
+  HeartCrack,
   KeyRound,
   MessageSquare,
   PawPrint,
@@ -37,6 +38,7 @@ import {
   companionsLine,
   dishesText,
   effectsText,
+  healthText,
   hitPointsText,
   movesText,
   rollsText,
@@ -192,6 +194,16 @@ export function CampaignCard({
             </h3>
             <p className='text-sm text-text-secondary'>
               {hitPointsText(campaign)}
+            </p>
+          </section>
+
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <HeartCrack aria-hidden className='size-4 text-text-secondary' />
+              Other creatures&apos; health
+            </h3>
+            <p className='text-sm text-text-secondary'>
+              {healthText(campaign)}
             </p>
           </section>
 

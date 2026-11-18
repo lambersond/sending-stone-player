@@ -187,6 +187,31 @@ export function coinsText({ coins, foundry }: OwnedCampaign): string {
 const COINS_FROM = [0, 49, 0] as const
 
 /**
+ * Whether the campaign lets its players see how hurt other creatures in a fight are, from module
+ * 0.50.0, and whether their hit points too; and if not, why: a module before that has no such
+ * switch; under another system than D&D Fifth Edition the switch does nothing, which the hello's
+ * own system says.
+ */
+export function healthText({ health, foundry }: OwnedCampaign): string {
+  if (health?.enabled) {
+    const numbers = health.hitPoints
+      ? 'and their hit points'
+      : 'but not their hit points'
+    return `On in Foundry. Your players see how hurt other creatures in a fight are, ${numbers}.`
+  }
+  if (before(foundry?.module?.version, HEALTH_FROM)) {
+    return 'Your Sending Stone module doesn’t show players other creatures’ health yet. Version 0.50.0 or later does.'
+  }
+  if (foundry?.system && foundry.system.id !== 'dnd5e') {
+    return 'Off. Other creatures’ health needs D&D Fifth Edition in Foundry.'
+  }
+  return 'Off. To let them, tick Allow Players to see other creatures’ health in the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+}
+
+/** The first Sending Stone in Foundry that shows players how hurt other creatures are. */
+const HEALTH_FROM = [0, 50, 0] as const
+
+/**
  * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,
  * or that doesn't read as major.minor.patch, isn't.
  */
