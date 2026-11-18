@@ -233,6 +233,68 @@ describe('components/game-table/combat-tracker', () => {
     expect(screen.queryByText(/^Next:/)).not.toBeInTheDocument()
   })
 
+  // Item 58, module 0.50.0: another creature's health, in a word, or its hit points, on its row
+  // and in the turn panel on its turn; never the party's word.
+  describe('other creatures’ health (item 58)', () => {
+    const health = encounter({
+      currentId: 'ogre',
+      combatants: [
+        fighter({
+          id: 'ogre',
+          name: 'Ogre',
+          initiative: 19,
+          health: 'bloodied',
+        }),
+        fighter({
+          id: 'troll',
+          name: 'Troll',
+          initiative: 18,
+          hp: { value: 57, max: 59, temp: 0 },
+        }),
+        fighter({
+          id: 'thorin',
+          name: 'Thorin',
+          initiative: 17,
+          side: 'me',
+          hp: { value: 31, max: 44, temp: 0 },
+        }),
+        fighter({
+          id: 'pet',
+          name: 'Pet',
+          initiative: 15,
+          side: 'party',
+          hp: { value: 9, max: 9, temp: 0 },
+        }),
+      ],
+    })
+    const panel = () => screen.getByRole('region', { name: /is acting|turn/i })
+
+    it('reads how hurt a creature is on its row, in its tone, and another’s hit points as the party’s', () => {
+      render(<CombatTracker combat={health} />)
+
+      const [ogre, troll] = screen.getAllByRole('listitem')
+      const word = within(ogre).getByText('Bloodied')
+      expect(word).toHaveClass('text-warning')
+      expect(ogre).toHaveTextContent('Health Bloodied')
+      expect(troll).toHaveTextContent('Hit points 57 / 59')
+    })
+
+    it('shows the acting creature’s word in the turn panel', () => {
+      render(<CombatTracker combat={health} />)
+
+      expect(within(panel()).getByText('Bloodied')).toBeInTheDocument()
+    })
+
+    it.each([
+      ['a party member’s', 'pet'],
+      ['the seat’s own', 'thorin'],
+    ])('shows nothing of it on %s turn', (_, currentId) => {
+      render(<CombatTracker combat={{ ...health, currentId }} />)
+
+      expect(within(panel()).queryByText(/Hit points|Bloodied/)).toBeNull()
+    })
+  })
+
   describe('an encounter not under way (item 19)', () => {
     // What it says beneath its heading is `noCombatLines`' (v0.45, the owner's decision 1), whose
     // cases its own test covers; here, that each of its answers is drawn.

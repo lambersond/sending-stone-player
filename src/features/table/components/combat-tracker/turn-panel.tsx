@@ -3,8 +3,9 @@
 import clsx from 'clsx'
 import { TriangleAlert } from 'lucide-react'
 import { EndTurnButton } from '../end-turn-button/end-turn-button'
+import { CombatantHealth } from './combatant-health'
 import { useTurnFocus } from './use-turn-focus'
-import { refusalLine, turnHeading } from './utils'
+import { actingHealth, refusalLine, turnHeading } from './utils'
 import {
   currentCombatant,
   nextUp,
@@ -47,6 +48,8 @@ export function TurnPanel({
   const companion = own?.companion
   const mine = own !== undefined
   const heading = turnHeading(combat)
+  // How hurt the creature acting is, where the seat is shown it (module 0.50.0).
+  const acting = actingHealth(current)
 
   // End Turn, on the seat's turn as the panel shows it (module 0.36.0).
   const turn =
@@ -96,6 +99,11 @@ export function TurnPanel({
           />
         )}
       </div>
+      {acting && (
+        <div className='flex flex-col items-start gap-1.5'>
+          <CombatantHealth combatant={acting} />
+        </div>
+      )}
       {line && (
         <p
           role='alert'

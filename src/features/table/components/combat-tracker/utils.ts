@@ -7,7 +7,18 @@ import {
 } from '@/features/table/utils/end-turn'
 import type { PanelEnding } from '@/features/table/types'
 import type { SeatRole } from '@/types/seats'
-import type { TableCombat } from '@/types/table'
+import type { TableCombat, TableCombatant } from '@/types/table'
+
+/**
+ * The combatant whose turn it is, where it's a creature not of the party whose health or hit
+ * points the seat is shown, from module 0.50.0, for the turn panel; none on the party's turns.
+ */
+export function actingHealth(
+  current: TableCombatant | undefined,
+): TableCombatant | undefined {
+  if (current?.side !== 'other') return
+  return current.hp || current.health ? current : undefined
+}
 
 /**
  * An initiative as Foundry shows it. Systems break ties with decimals, such as D&D's dexterity

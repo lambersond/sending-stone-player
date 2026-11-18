@@ -1,3 +1,5 @@
+import type { Health } from '@/types/sending-stone'
+
 /** No keys, the same each time. */
 export const NO_KEYS: ReadonlySet<string> = new Set()
 
@@ -70,3 +72,19 @@ export const ASIDE_BESIDE =
 /** The column's tabs, Combat and Chat, in a bar atop it. Its display is its own. */
 export const ASIDE_TABS_BAR =
   'h-12 shrink-0 items-center gap-3 border-b border-border px-3'
+
+/** How hurt a creature not of the party is, in words, from module 0.50.0. */
+export const HEALTH_WORDS: Record<Health, string> = {
+  unhurt: 'Unhurt',
+  hurt: 'Hurt',
+  bloodied: 'Bloodied',
+  down: 'Down',
+}
+
+/** The colour each word is drawn in: the hit points bar's own, by how hurt. */
+export const HEALTH_TONES: Record<Health, string> = {
+  unhurt: 'text-text-secondary',
+  hurt: 'text-text-primary',
+  bloodied: 'text-warning',
+  down: 'text-danger',
+}
