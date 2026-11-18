@@ -145,19 +145,13 @@ so an item from it is named with its number when it was built, which may since b
   import without the loop, five of them new (`bridge-role.mjs`, `command-checks.mjs`,
   `command-links.mjs`, `dnd5e-generation.mjs` and `wild-shape-hooks.mjs`); and in five places a
   script is now handed a function as the module loads, where it used to import a script built on
-  it. The 77 scripts stand in seven layers, each importing only from its own layer or a lower one,
-  and `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop, on an import
-  up the layers and on a script in no layer. The module has a `CLAUDE.md` of its own: the layers,
-  what to do when a lower script needs something of a higher one, and the standing rules for
-  whoever changes it next. Nothing the module sends, takes or shows changes, and no module version
-  comes of it: the harness's 115 runs end as they did before, line for line, and the app's 125 e2e
-  runs pass against it. (module, item 24)
-- **A tool in the order the harness sends.** The module's `favoriting` harness puts a tool favorite
-  in order with a skill, spell slots, an item, an activity and an effect, under dnd5e 5.3.3 and
-  6.0.5; the app's `favoriting` e2e moves a skill and spell slots from their menus at 390 px, opens
-  the slots' menu from the keyboard at 1280 px, and finds neither offered a move with module 0.46.0.
-  Jest pins which move a skill's or a tool's menu leaves out at either end, and that one favorite
-  alone that may move is offered no Reorder, and spell slots no menu. (app and module, item 47)
+  it. The scripts, 77 then and 80 now, stand in seven layers, each importing only from its own layer
+  or a lower one, and `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop,
+  on an import up the layers and on a script in no layer. The module has a `CLAUDE.md` of its own:
+  the layers, what to do when a lower script needs something of a higher one, and the standing rules
+  for whoever changes it next. Nothing the module sends, takes or shows changes, and no module
+  version comes of it: the harness's 115 runs ended as they had before, line for line, and the app's
+  125 e2e runs passed against it. (module, item 24)
 - **Five end-to-end checks hold on a busy machine.** Each had failed once or twice under load and
   passed alone, and none was a fault in the app: two looked at the page a moment before it was
   ready, one timed it from a moment late, one closed a game a moment before the app had noted its
@@ -174,13 +168,78 @@ so an item from it is named with its number when it was built, which may since b
   countdown short by more than the few milliseconds the page takes to draw the turn, a game that
   doesn't read closed, Full screen out of its place, a toast in the wrong colors. Two of the e2e
   README's known load races go. (app, items 41, 42, 57, 70 and 71)
+- **End-to-end checks.** A new `launch` suite opens the installed app's launch page in Chromium,
+  with no Foundry: nothing registered in a browser's tab or in a window made full screen; what the
+  server sends for `/launch` and its two workers; installed on a Pixel 7, the worker kept for
+  `/launch` alone and the second opening from it, the rune seen lighting; signed out; offline,
+  upright, on its side and in a short, narrow window, with Try again, and back online with its first
+  ask refused; a first page that doesn't come in 15 seconds; reduced motion, a light device and a
+  dark one, an older worker replaced, the retiring worker and an iPhone's Home Screen app (item 56).
+  A new `coins` suite adds, takes away and hands out coins from the Currency row, in
+  `world-030.mjs`'s world: the hello and the app's answer, a larger coin broken and smaller ones
+  paying, more than the coins are worth refused, other coins off in Foundry, the Gamemaster's change
+  at a character's page, a hand-out's whispers, both switches off, both dialogs at 360, 390, 768 and
+  1280 px, Help and the campaign card; under dnd5e 5 and 6.0.5, and against module 0.47.0
+  (`e2e/skew.conf`'s 047), which offers no button but Send to (items 67 and 68). Ten suites that pin
+  what coins change take them in: the hello's features (cookbook, effects, favoriting, hitpoints,
+  notes and wildshape, and the moves' in givetake and transfers), the campaign card's words for
+  moves (transfers), the Currency row's buttons (givetake), the settings window (settings) and
+  Help's box (help). In `wildshape` part 10 (item 29), a Shield of Faith cast on the bear is
+  Elowen's after the return, until Rowan stops concentrating, and her Bless, taken off the bear, is
+  gone; under dnd5e 6 the kept effect is on her stored sheet, hers to turn off or delete.
+  `favoriting` (item 47) moves a skill and spell slots from their menus at 390 px (part 14), opens
+  the slots' menu by a right-click and from the keyboard at 1280 px (part 10), and finds neither
+  offered with module 0.46.0 (part 16). `step2` reads the Currency row's coins from the fact's own
+  value, where since items 67 and 68 it read the row's Add or take away: a check gone stale, not a
+  fault in the app, which the batch's full e2e pass found. `e2e/README.md` counts 57 suites and 129
+  runs. (app, items 29, 47, 56, 67 and 68)
+- **Jest tests.** New tests pin the launch page (`src/features/launch/utils.ts`): what it draws, and
+  its script opening the first page at once, saying nothing for 15 seconds while that page is on its
+  way, staying dark and still offline, Try again, and asking again after 1, 2 and 4 seconds once
+  back online, a Try again that fails calling none of those asks off; its worker and the worker that
+  retires it (`public/launch-worker.js` and `launch-worker-retire.js`), the `/launch` route, and the
+  manifest opening on it (item 56). Others pin the rule of paying in coins (`src/utils/coins.ts`), a
+  coins change's checks and request (`src/db/coins.ts`), a hand-out among the moves, the Currency
+  row's Add or take away and Hand out with their dialogs, amounts and recipients, and the hello's
+  `coins` and the moves' `handOut` and `change`, the words golden recording what the tray says of
+  coins added, taken away and handed out, and the wire golden a coins request (items 67 and 68); and
+  a skill and a tool moved from their roll's menu with nothing rolled, the move such a menu leaves
+  out at either end, spell slots' own menu, and one favorite alone that may move offered no Reorder,
+  and spell slots no menu (item 47). (app, items 47, 56, 67 and 68)
+- **The module harness.** `later-dice.mjs` checks, in all eight of its runs, that as Midi-QOL looks
+  for reactions their dice costs are rolled on Foundry's computer dice, for the Gamemaster's own
+  attack and for one from the app, and no one is asked, where a reaction taken is asked once as
+  before; and which activities count as a reaction's, Midi-QOL's other activations, dnd5e's own
+  activities and a Cast activity by its spell's among them. Midi-QOL's stand-in (`midi-fake.mjs`)
+  looks for reactions among an attack's targets, off unless a harness asks (item 23).
+  `wildshape.mjs` checks, in all three of its runs, the effects others put on a form kept on the
+  druid and those taken off it taken off her, under MIDI=1 at each kind of ending, and where a
+  return throws or is refused and along a chain of forms, its stand-ins (`transform5e.mjs` and
+  `effects-core.mjs`) making an actor's effects as Foundry and dnd5e do (item 29). `favoriting.mjs`
+  puts a tool in order among the favorites (item 47). Two new harnesses, `coins.mjs` and
+  `handouts.mjs`, under dnd5e 5.3.3 and 6.0.5, check coins added and taken away, the rule of paying
+  in coins by worked and random cases, and a hand-out, its whispers and what a failure part way
+  leaves; `dialog.mjs` checks the Coins box, `foundry-settings.mjs` its two rows, `step2.mjs` and
+  `groups.mjs` each coin's rate in a sheet's currency, and the harnesses that read the hello follow
+  its new fields. `test/README.md` counts 50 harnesses and 119 runs. (module, items 23, 29, 47, 67
+  and 68)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
-  kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
-  v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
-  taken away and handed out from the sheet (items 67 and 68). v1.x keeps critical hit options and
-  gains inactive characters. Batch 1, item 24, reads as done; item 69 is what it left for later,
-  and items 70 and 71 are two e2e checks that each failed once under load in its full passes.
-  (app)
+  kept, and a v0.48 section, the release candidate, lists seven checks to make at the table before
+  module v0.48.0 is tagged: Midi-QOL's look for reactions; a skill, a tool or spell slots moved from
+  its menu; effects kept from Wild Shape, and effects taken off in it; the stone as the installed
+  app opens, on an Android phone and on an iPhone's Home Screen; and coins added, taken away and
+  handed out. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0",
+  v1.x's items but critical hit options joining it as items 58 to 66; v1.x keeps critical hit
+  options and gains inactive characters. Batches 1 and 2 read as done, their items taken out:
+  item 24, then items 23, 29, 41, 42, 47, 56, 57, 67, 68, 70 and 71. Item 69 is what item 24 left
+  for later, and items 72 to 86, under "Found while building Batch 2", what batch 2 found or left:
+  Midi-QOL's check of a Gamemaster's own use (72); a roll's button after its menu, and the
+  favorites' two lists (73 to 75); Wild Shape (76 to 78); End turn's 600 ms (79); e2e checks of the
+  races' kinds not yet seen to fail (80); the launch page (81); Help's place as a sheet hydrates
+  (82); what coins found: a spell prepared's check, older moves' fractions of a coin, and focus
+  after a move (83 to 85); and toasts' tap check, which failed once under load (86). Item 63,
+  offline mode, is to have a worker of its own beside the launch page's, and the known limits say
+  what Wild Shape now keeps and that the app puts skills, tools and spell slots in order. (app)
 
 ## v0.47.0 — 2026-11-12
 

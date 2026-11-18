@@ -157,13 +157,14 @@ tweaks needed may change it as it goes. Next week aims at the first three.
 And from the owner's answers on item 19, later work too:
 
 36. **A sidekick fighting without its character, and two encounters at once:** a sidekick in an
-    encounter its character isn't in still brings that encounter to its campaign, as since module
-    0.36.0 (0.45.0 keeps the rule). The Combat tab shows one encounter, the one `pickCombat` ranks
-    first, under way first. The owner: "Yes, a sidekick could get into an encounter w/out the main
-    character. This opens up other questions around how many active encounters should be able to be
-    shown in the app. Example, if there is an encounter on scene A with all the characters and their
-    sidekicks, and a second scene with one character's sidekick, which is in a different encounter,
-    how would you depict the two encounters? Foundry definately supports multiple encounters."
+    encounter its character isn't in still brings that encounter to its campaign, as since
+    module 0.36.0 (0.45.0 keeps the rule). The Combat tab shows one encounter, the one `pickCombat`
+    ranks first, under way first. The owner: "Yes, a sidekick could get into an encounter w/out the
+    main character. This opens up other questions around how many active encounters should be able
+    to be shown in the app. Example, if there is an encounter on scene A with all the characters and
+    their sidekicks, and a second scene with one character's sidekick, which is in a different
+    encounter, how would you depict the two encounters? Foundry definately supports multiple
+    encounters."
 
 **Found while building Batch 2**
 
@@ -233,8 +234,8 @@ And from the owner's answers on item 19, later work too:
     no batch yet.
 80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
     or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
-    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:593` and `:610` ("Add to
-    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:326` and, to be
+    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:594` and `:611` ("Add to
+    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:331` and, to be
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
     look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
     that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
@@ -283,6 +284,18 @@ And from the owner's answers on item 19, later work too:
     tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet, where
     focus should go (the tray's line, or the row's label, which says what's on its way) is one
     decision for all of its moves. Found reviewing items 67 and 68. In no batch yet.
+86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
+    the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
+    300 ms of the tap, timed from before `page.touchscreen.tap` to the toast detached, so the 300 ms
+    count Playwright's own round trips and the page's main thread, not only the app's. It took
+    891 ms once, 13 of 149, in the e2e run made landing items 70 and 71, the suite alone on its lane
+    while another area's Jest and checks ran on the machine; it passed alone later on the same head
+    (149 of 149), as it did in the races70 lane's runs and in the batch's full e2e pass. Of a kind
+    with items 41, 42 and 70, which each failed once under load with the app right, but not one of
+    item 80's kinds: the nearest, (b), is a step of the test's that must land inside the page's own
+    600 ms, where this is a bound the suite sets on the page, timed from the test's side. The check
+    could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow
+    for the round trips. Found landing items 70 and 71. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
