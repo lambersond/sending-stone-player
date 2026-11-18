@@ -440,6 +440,64 @@ describe('components/transfers/give-controls', () => {
     ).toBeInTheDocument()
   })
 
+  // Review round 1 (item give): a give rolls nothing, so the give itself shows the tray on a tab
+  // that shows it only once something's been done there, as Effects: sent to characters as the
+  // game hands coins out (`onGive`), or to the party (`onMove`). This sheet writes its gold GP.
+  it.each([
+    [
+      'coins to a character, as the game hands them out',
+      'Vex',
+      { to: null, each: ['actorVex0001'] },
+      'Gave 5 GP to Vex',
+    ],
+    [
+      'coins to the party',
+      undefined,
+      { to: 'groupIronCo01' },
+      'Gave 5 GP to The Iron Company',
+    ],
+  ])(
+    'with module 0.49.0, shows the tray on Effects once it has given %s, as giving rolls nothing',
+    async (_what, tick, ends, line) => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValue(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            rolls: [],
+            transfer: {
+              from: 'actorThorin1',
+              items: [],
+              currency: { gp: 5 },
+              ...ends,
+            },
+          }),
+        )
+      const { user } = await renderGive({
+        moves: tableMoves({ handOut: { change: true } }),
+      })
+      const show = (tab: RegExp) =>
+        user.click(screen.getByRole('tab', { name: tab }))
+      await show(/^Effects/)
+      expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+
+      await show(/^Inventory/)
+      await user.click(coinsButton())
+      const dialog = within(screen.getByRole('dialog', { name: 'Give coins' }))
+      if (tick) await user.click(dialog.getByRole('checkbox', { name: tick }))
+      await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
+      await user.click(dialog.getByRole('button', { name: 'Give coins' }))
+      await show(/^Effects/)
+      const tray = screen.getByRole('region', { name: 'Your rolls' })
+      expect(
+        await within(tray).findByText(line, {}, { timeout: 3000 }),
+      ).toBeVisible()
+    },
+  )
+
   // Moved from coin-controls (item give).
   it('gives to characters by what the game says of moves paying with other coins, whatever the coins’ own switch is', async () => {
     // No coins' switch, so the page has no word of its own on other coins: the moves' says none.

@@ -248,6 +248,41 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     }
   })
 
+  // Review round 1 (item give): changing coins rolls nothing, so the change itself shows the tray
+  // on a tab that shows it only once something's been done there, as Effects.
+  it('shows the tray on Effects once it has removed coins, as changing them rolls nothing', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      .mockResolvedValue(
+        respond(200, {
+          id: 'req-1',
+          status: 'done',
+          visible: true,
+          rolls: [],
+          coins: { currency: { gp: 5 }, op: 'remove', used: { pp: 1 } },
+        }),
+      )
+    const { user } = await renderCoins()
+    const show = (tab: RegExp) =>
+      user.click(screen.getByRole('tab', { name: tab }))
+    await show(/^Effects/)
+    expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+
+    await show(/^Inventory/)
+    const dialog = await removeGold(user, '5')
+    await user.click(dialog.getByRole('button', { name: 'Remove coins' }))
+    await show(/^Effects/)
+    const tray = screen.getByRole('region', { name: 'Your rolls' })
+    expect(
+      await within(tray).findByText(
+        'Paid 5 gp, using 1 pp',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeVisible()
+  })
+
   it('changes them as the Gamemaster in the character’s name, called as their page calls it', async () => {
     jest
       .mocked(fetch)
