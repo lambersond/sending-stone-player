@@ -146,7 +146,7 @@ const trayShows = (who, ...words) => until(async () => {
 
 if (OLD) {
   // ===============================================================================================
-  // Module 0.47.0: nothing of coins but Send to
+  // Module 0.47.0: nothing of coins but Give
   // ===============================================================================================
   part('module 0.47.0: no coins added, taken away or handed out')
   const features = hello().data.features

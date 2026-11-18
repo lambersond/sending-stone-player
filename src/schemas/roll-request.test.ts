@@ -3228,7 +3228,7 @@ const kinds = (count: number) =>
   )
 
 describe('schemas/roll-request, a character’s coins handed out, from module 0.49.0', () => {
-  /** 200 pp and 50 gp each to Vex, Bram and Lia, as the dialog's Hand out sends it. */
+  /** 200 pp and 50 gp each to Vex, Bram and Lia, as Give sends it to several characters. */
   const handingOut = {
     kind: 'transfer',
     mode: 0,
@@ -3312,7 +3312,7 @@ describe('schemas/roll-request, a character’s coins handed out, from module 0.
 })
 
 describe('schemas/roll-request, coins added and taken away, from module 0.49.0', () => {
-  /** 5 gp taken away, as the dialog's Take away coins sends it. */
+  /** 5 gp taken away, as the dialog's Remove coins sends it. */
   const paying = {
     kind: 'coins',
     mode: 0,
