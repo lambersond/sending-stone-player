@@ -173,8 +173,9 @@ if (OLD) {
 part('1. the hello, the answer and the sheet')
 {
   const features = hello().data.features
-  check(same(features.coins, { enabled: true, kinds: ['coins'], reason: null, change: true }) && Object.keys(features).at(-1) === 'coins',
-    `the hello takes coins, on for a campaign saved without the switch, other coins paying, last among its features (${JSON.stringify({ coins: features.coins, keys: Object.keys(features) })})`)
+  // Changed on purpose (item 58): other creatures' health follows coins (module 0.50.0).
+  check(same(features.coins, { enabled: true, kinds: ['coins'], reason: null, change: true }) && Object.keys(features).at(-2) === 'coins' && Object.keys(features).at(-1) === 'health',
+    `the hello takes coins, on for a campaign saved without the switch, other coins paying, last among its features but other creatures' health (${JSON.stringify({ coins: features.coins, keys: Object.keys(features) })})`)
   check(same(features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true }),
     `and hands a character's coins out (${JSON.stringify(features.transfers)})`)
   check(JSON.parse(hello().body ?? '{}').features?.coins === 1, `the app answers coins: 1 (${hello().body})`)

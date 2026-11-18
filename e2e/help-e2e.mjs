@@ -112,6 +112,11 @@ const rowsOf = who => boxOf(who).locator('dl > div').evaluateAll(rows => rows.ma
  * coins be added and taken away, on unless its Gamemaster turns it off; never with module 0.42.0.
  */
 const COINS_ROW = `Adding and taking away coins: ${SKEW042 ? 'Not from here' : 'From here'}`
+/**
+ * Other creatures' health's row at either seat, since the app's item 58: not shown in this campaign,
+ * whose switch is off, nor with module 0.42.0, which has none.
+ */
+const HEALTH_ROW = 'Other creatures’ health: Not shown'
 const shown = async (who, text) => (await panelOf(who).getByText(text, { exact: true }).count()) > 0
 async function closeHelp(who) {
   await who.page.keyboard.press('Escape')
@@ -367,7 +372,8 @@ await openHelp(gm)
   check(await focused(gm) === 'h2 Help' && await panelOf(gm).getByText('What your player sees', { exact: true }).isVisible()
     && await panelOf(gm).getByText(`At your player’s sheet. This is the help your player sees. Here, you roll as ${LONG}, and your rolls are marked GM;`, { exact: false }).isVisible(),
     'at the Gamemaster\'s seat: "What your player sees", the seat\'s note naming her')
-  check(same(rows, [`Your rolls here: Made in your game as ${LONG}, marked GM`, 'Moving items and coins: Not from here', COINS_ROW, 'Removing items: From here'])
+  // Changed on purpose (item 58): other creatures' health, last, not shown in this campaign.
+  check(same(rows, [`Your rolls here: Made in your game as ${LONG}, marked GM`, 'Moving items and coins: Not from here', COINS_ROW, 'Removing items: From here', HEALTH_ROW])
     && await panelOf(gm).getByText('Your switches are on the Player actions tab of Sending Stone’s settings in Foundry.', { exact: true }).isVisible(),
     `its own box: ${JSON.stringify(rows)}`)
   const sections = await panelOf(gm).locator('section h3').allTextContents()
@@ -391,7 +397,7 @@ for (const [width, height] of [[390, 844], [1280, 800]]) {
     await sendFrom(who, false)
     await openHelp(who)
     const rows = await rowsOf(who)
-    check(same(rows, ['Your rolls here: Stay here: only you see them', 'Moving items and coins: Not from here', COINS_ROW, 'Removing items: From here']),
+    check(same(rows, ['Your rolls here: Stay here: only you see them', 'Moving items and coins: Not from here', COINS_ROW, 'Removing items: From here', HEALTH_ROW]),
       `with the Gamemaster's own Send to the table off at 390: ${JSON.stringify(rows)}`)
     await shoot(who, 'help-panel-gm-send-off')
   }

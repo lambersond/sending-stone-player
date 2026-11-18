@@ -184,7 +184,8 @@ part('1. the hello and the answer')
 {
   const features = hello().data.features
   // Changed on purpose (items 67 and 68): coins, from module 0.49.0, follow hit points.
-  check(same(features.hitPoints, { enabled: true, kinds: ['hitPoints'], reason: null }) && same(Object.keys(features).slice(-2), ['hitPoints', 'coins']),
+  // Changed on purpose (item 58): and other creatures' health follows coins (module 0.50.0).
+  check(same(features.hitPoints, { enabled: true, kinds: ['hitPoints'], reason: null }) && same(Object.keys(features).slice(-3), ['hitPoints', 'coins', 'health']),
     `the hello takes hit points, on for a campaign saved without the switch, after Wild Shape and before coins, rolls off (${JSON.stringify({ hitPoints: features.hitPoints, rolls: features.rolls?.enabled, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.hitPoints === 1, `the app answers hitPoints: 1 (${hello().body})`)
   await until(() => hitPointsEnabled() === 't', 'the app to keep hit points on', 15_000)
