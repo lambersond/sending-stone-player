@@ -327,8 +327,8 @@ And from the owner's answers on item 19, later work too:
 
 **Moved from v1.x on 2026-11-13**
 
-58. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
-    actual hit points (off by default, as it gives information away).
+Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+
 59. **Summon activities** used from the app.
 60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
     campaign's compendiums, such as another compendium or a world actor, used from the app too,

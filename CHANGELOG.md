@@ -21,6 +21,16 @@ so an item from it is named with its number when it was built, which may since b
 
 ## v0.50.0-rc
 
+### Features
+
+- **Other creatures' health on the Combat tab.** Where the Gamemaster allows it, each creature in a
+  fight that isn't the party's shows Unhurt, Hurt, Bloodied or Down on its row, and in the turn
+  panel on its turn; Bloodied is dnd5e's own. With a second switch, its hit points show instead.
+  Both are new switches on each campaign's Player actions tab in Foundry, off until turned on, and
+  the campaign card and Help say how they stand. A hidden combatant, a hidden token and a Secret one
+  are never shown. The words follow the game within a few seconds. Needs Sending Stone 0.50.0 in
+  Foundry; with an older one, the campaign card says so. (app and module, item 58)
+
 ### Fixes
 
 - **The campaign card and Help name module 0.49.0 for coins.** Coins came with module 0.49.0, but
@@ -28,6 +38,9 @@ so an item from it is named with its number when it was built, which may since b
   doesn't have. The card now tells a game before 0.49.0 "Your Sending Stone module doesn’t let
   players change coins yet. Version 0.49.0 or later does.", and Help names 0.49.0 for Hand out and
   the Coins box's two switches. (app)
+- **The party's hit points on the Combat tab follow the game.** They changed only at the next turn;
+  now they follow damage and healing within a few seconds, with Sending Stone 0.50.0. (app and
+  module, item 58)
 
 ### Enhancements
 
@@ -51,6 +64,24 @@ so an item from it is named with its number when it was built, which may since b
   told at the next read; and a Server Action that writes no cookie, so its page isn't read again.
   Every Server Action reads the session from the database, which the actions' tests and eslint keep
   so, and Jest pins the cookie's options as `AUTH_CACHE_MAX_AGE` gives them. (app, item 62)
+- **Other creatures' health, end to end.** A new `health` suite, in `world-030.mjs`'s world with
+  tokens, checks the hello and the app's answer; both switches off by default, and the switch turned
+  off mid-fight with Gamemaster-only details on; Unhurt for a Hostile, a Neutral and a Friendly
+  creature and nothing for a Secret one, a hidden token or a hidden combatant; a creature's fall
+  within seconds with no turn, then Defeated; one post for a new band and none within one; the hit
+  points with the second switch; a token hidden mid-fight; the turn panel, the Gamemaster's seat,
+  the party's own hit points between turns, Help and the campaign card; under dnd5e 5 and 6.0.5,
+  with 6.0.5's own Bloodied percent, and against module 0.49.0 (`e2e/skew.conf`'s 049), which shows
+  nothing. It reads every response the pages receive, so health or hit points withheld from a seat
+  are caught even where nothing on screen shows them. Nine suites take the new switches in: the
+  hello's features (coins, cookbook, effects, favoriting, hitpoints, notes and wildshape), the
+  campaign's settings rows (settings) and the Gamemaster's Help (help). In the module,
+  `creature-health.mjs` stands in the game's layer and `health-sync.mjs` in the layer of what each
+  app was told; a new `health.mjs` harness checks, under dnd5e 5.3.3 and 6.0.5, who is shown,
+  dnd5e's bands, and the watch with each of its triggers and gates, `dialog.mjs` checks the new box,
+  and the harnesses that read the hello follow its new field. Jest pins the seat's guard on another
+  creature's health and hit points, the rows and the turn panel, the card, Help and the hello. (app
+  and module, item 58)
 
 ## v0.49.0 — 2026-11-17
 
