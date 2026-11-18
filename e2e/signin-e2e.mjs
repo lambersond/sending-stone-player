@@ -4,16 +4,19 @@
 // Action asks the database. Each part has its own browser context and its own session for Alice
 // (e2e-signin-1 … e2e-signin-5), inserted here and deleted by id; seed.sql's own sessions are never
 // touched, no token is read from the database, and no cookie's value is printed.
-// 1. The table's first read sets the cookie: HttpOnly, SameSite Lax, Path /, for a minute; sealed.
+// 1. The page's first read of the app sets the cookie: HttpOnly, SameSite Lax, Path /, for a
+//    minute; sealed. (Those are the journal's and the recipe card's, as the page loads; the table's
+//    first poll comes 3 s later and takes the cookie.)
 // 2. Signed out in another tab: the session and both cookies gone, Thorin's tab to Sign in.
 // 3. A session deleted from the database still reads Thorin's table while its cookie lasts, but
 //    deleting Thorin asks the database: sent to Sign in, Thorin kept, both cookies gone.
 // 4. Once its cookie is gone, a deleted session's table goes to Sign in.
 // 5. Removed from the campaign, Vex's table is not found at its next read, cookie or no.
 // 6. A Server Action writes no cookie, so its page isn't read again.
-// Parts 3 to 5 delete a row right after a fresh cookie, and `cacheHeld` fails, as "too slow to test
-// the cache", rather than let a check run once the cookie may have lapsed. Run with --import
-// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs, as regress.sh does.
+// Parts 3 to 5 delete a row as soon as the cookie is fresh and every read the page asked before it
+// is answered, and `cacheHeld` fails, as "too slow to test the cache", rather than let a check run
+// once the cookie may have lapsed. Run with --import ./fvtt/unref-timers.mjs --import
+// ./fvtt/dnd5e-register.mjs, as regress.sh does.
 import { chromium } from 'playwright'
 import { BASE, cookieFor, sql } from './env.mjs'
 
@@ -44,7 +47,7 @@ async function signedIn(n) {
   await context.addCookies([await cookieFor(token)])
   const page = await context.newPage()
   page.on('pageerror', e => problems.push(`${id} pageerror: ${e.message}`))
-  return { id, context, page }
+  return { id, context, page, open: openReads(page) }
 }
 const sessionRows = id => Number(sql(`select count(*) from "session" where id = '${id}'`))
 const characterRows = id => Number(sql(`select count(*) from "character" where id = '${id}'`))
@@ -53,14 +56,30 @@ const cookiesOf = async context => (await context.cookies()).filter(c => c.name 
 const names = async context => (await cookiesOf(context)).map(c => c.name).sort()
 const dataCookie = async context => (await cookiesOf(context)).find(c => c.name === DATA)
 
-const isApp = response => response.url().startsWith(`${BASE}/api/`)
+/** Whether a request, or the response to one, is a read of the app. */
+const isApp = r => r.url().startsWith(`${BASE}/api/`)
 const setsData = async response => ((await response.headerValue('set-cookie')) ?? '').includes(`${DATA}=`)
+/** The page's reads of the app asked and not yet answered, kept from its first. */
+function openReads(page) {
+  const open = new Set()
+  page.on('request', r => { if (isApp(r)) open.add(r) })
+  page.on('requestfinished', r => open.delete(r))
+  page.on('requestfailed', r => open.delete(r))
+  return open
+}
 /**
- * Waits for a read of the app that sets the session's cookie cache, and says when it landed. Begin
+ * Waits for a read of the app that sets the session's cookie cache, then for every read the page
+ * asked before it to be answered, and says when the cache landed. As it loads, a page asks for its
+ * journal and its recipe card together, with no cache yet, so both go to the database: a session
+ * deleted while one of them is on its way is found gone there, and both cookies are expired. Begin
  * it before the navigation it waits on.
  */
-const freshCache = page =>
-  page.waitForResponse(async r => isApp(r) && await setsData(r), { timeout: 20_000 }).then(() => Date.now())
+async function freshCache({ page, open }) {
+  const landed = await page.waitForResponse(async r => isApp(r) && await setsData(r), { timeout: 20_000 }).then(() => Date.now())
+  const asked = [...open]
+  await until(() => asked.every(r => !open.has(r)), 'the reads asked before the cookie cache to be answered')
+  return landed
+}
 /** The answer to a table's next read: one asked from now on, never one already on its way. */
 const nextTable = async (page, sheet) => {
   const asked = await page.waitForRequest(r => r.url().startsWith(`${BASE}/api/characters/${sheet}/table`), { timeout: 15_000 })
@@ -80,13 +99,13 @@ const atSignIn = page => page.getByRole('heading', { level: 1, name: 'Sign in' }
 part('1. the cookie')
 const one = await signedIn(1)
 const thorin = one.page
-let fresh = freshCache(thorin)
+let fresh = freshCache(one)
 await thorin.goto(`${BASE}/characters/seedthorin`)
 let at = await fresh
 const cache = await dataCookie(one.context)
 const life = cache ? cache.expires - at / 1000 : NaN
 check(cache?.httpOnly === true && cache.sameSite === 'Lax' && cache.path === '/' && life >= 55 && life <= 65,
-  `the table's first read sets the session's cookie cache: HttpOnly, SameSite Lax, Path /, for a minute (${JSON.stringify(cache && { httpOnly: cache.httpOnly, sameSite: cache.sameSite, path: cache.path, life: Math.round(life) })})`)
+  `the page's first read sets the session's cookie cache: HttpOnly, SameSite Lax, Path /, for a minute (${JSON.stringify(cache && { httpOnly: cache.httpOnly, sameSite: cache.sameSite, path: cache.path, life: Math.round(life) })})`)
 const parts = cache.value.split('.')
 const readable = parts.map(p => Buffer.from(p, 'base64url').toString('latin1'))
 check(parts.length === 5 && !readable.some(text => /Alice|Adventurer|alice@/.test(text)),
@@ -118,7 +137,7 @@ await one.context.close()
 // ---- 3. A session deleted from the database ----
 part('3. a session deleted from the database')
 const two = await signedIn(2)
-fresh = freshCache(two.page)
+fresh = freshCache(two)
 await two.page.goto(`${BASE}/characters/seedthorin`)
 await fresh
 sql(`delete from "session" where id = '${two.id}'`)
@@ -142,7 +161,7 @@ await two.context.close()
 // ---- 4. The cookie runs out ----
 part('4. the cookie runs out')
 const three = await signedIn(3)
-fresh = freshCache(three.page)
+fresh = freshCache(three)
 await three.page.goto(`${BASE}/characters/seedthorin`)
 await fresh
 sql(`delete from "session" where id = '${three.id}'`)
@@ -158,7 +177,7 @@ await three.context.close()
 // ---- 5. Removed from the campaign ----
 part('5. removed from the campaign')
 const four = await signedIn(4)
-fresh = freshCache(four.page)
+fresh = freshCache(four)
 await four.page.goto(`${BASE}/characters/seedvex`)
 await fresh
 // As the Gamemaster's Remove does (removePlayer deletes the row).

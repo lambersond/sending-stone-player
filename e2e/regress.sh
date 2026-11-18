@@ -249,7 +249,7 @@ run help 4 DND5E6=1 SHOTS=$O/shots-help
 # replaced, the retiring worker, an iPhone's Home Screen app.
 run launch 28 SHOTS=$O/shots-launch
 # Item 62, with no Foundry: who is signed in is taken from Better Auth's sealed cookie for a minute.
-# The cookie as the table's first read sets it; signed out in another tab; a session deleted from the
+# The cookie as the page's first read sets it; signed out in another tab; a session deleted from the
 # database read while its cookie lasts but refused deleting Thorin; its cookie gone, to Sign in; Vex
 # removed, not found at once; and a Server Action that writes no cookie.
 run signin 9
