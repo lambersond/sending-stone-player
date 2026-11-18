@@ -138,9 +138,9 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     imports nothing, such as an import spelt out in a comment or a JSDoc type, or `import's`
     before a later apostrophe on its line, which is answered by rewording the text. A failure can
     name the line of a comment above the import it means. Its time grows as the square of the text
-    in three ways, none near the module's scripts (all 77 take 0.04 seconds), one with a fix tried
-    and not taken. And it doesn't check two rules the module's `CLAUDE.md` keeps by review alone:
-    state written in one script, and nothing run as a script loads outside `module.mjs`.
+    in three ways, none near the module's scripts (the 77 of item 24 took 0.04 seconds), one with a
+    fix tried and not taken. And it doesn't check two rules the module's `CLAUDE.md` keeps by review
+    alone: state written in one script, and nothing run as a script loads outside `module.mjs`.
 
 **Moved from the next slice**
 
@@ -291,7 +291,7 @@ And from the owner's answers on item 19, later work too:
     891 ms once, 13 of 149, in the e2e run made landing items 70 and 71, the suite alone on its lane
     while another area's Jest and checks ran on the machine; it passed alone later on the same head
     (149 of 149), as it did in the races70 lane's runs and in the batch's full e2e pass. Of a kind
-    with items 41, 42 and 70, which each failed once under load with the app right, but not one of
+    with items 41, 42 and 70, which each failed under load with the app right, but not one of
     item 80's kinds: the nearest, (b), is a step of the test's that must land inside the page's own
     600 ms, where this is a bound the suite sets on the page, timed from the test's side. The check
     could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow

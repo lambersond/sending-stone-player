@@ -174,7 +174,8 @@ so an item from it is named with its number when it was built, which may since b
   `/launch` alone and the second opening from it, the rune seen lighting; signed out; offline,
   upright, on its side and in a short, narrow window, with Try again, and back online with its first
   ask refused; a first page that doesn't come in 15 seconds; reduced motion, a light device and a
-  dark one, an older worker replaced, the retiring worker and an iPhone's Home Screen app (item 56).
+  dark one, an older worker replaced, the retiring worker and an iPhone's Home Screen app; and
+  `fullscreen` part 7 finds the manifest opening on `/launch` (item 56).
   A new `coins` suite adds, takes away and hands out coins from the Currency row, in
   `world-030.mjs`'s world: the hello and the app's answer, a larger coin broken and smaller ones
   paying, more than the coins are worth refused, other coins off in Foundry, the Gamemaster's change
@@ -206,23 +207,31 @@ so an item from it is named with its number when it was built, which may since b
   a skill and a tool moved from their roll's menu with nothing rolled, the move such a menu leaves
   out at either end, spell slots' own menu, and one favorite alone that may move offered no Reorder,
   and spell slots no menu (item 47). (app, items 47, 56, 67 and 68)
-- **The module harness.** `later-dice.mjs` checks, in all eight of its runs, that as Midi-QOL looks
+- **The module harness.** `later-dice.mjs` checks, in its four MIDI=1 runs, that as Midi-QOL looks
   for reactions their dice costs are rolled on Foundry's computer dice, for the Gamemaster's own
   attack and for one from the app, and no one is asked, where a reaction taken is asked once as
   before; and which activities count as a reaction's, Midi-QOL's other activations, dnd5e's own
-  activities and a Cast activity by its spell's among them. Midi-QOL's stand-in (`midi-fake.mjs`)
-  looks for reactions among an attack's targets, off unless a harness asks (item 23).
-  `wildshape.mjs` checks, in all three of its runs, the effects others put on a form kept on the
-  druid and those taken off it taken off her, under MIDI=1 at each kind of ending, and where a
-  return throws or is refused and along a chain of forms, its stand-ins (`transform5e.mjs` and
-  `effects-core.mjs`) making an actor's effects as Foundry and dnd5e do (item 29). `favoriting.mjs`
-  puts a tool in order among the favorites (item 47). Two new harnesses, `coins.mjs` and
-  `handouts.mjs`, under dnd5e 5.3.3 and 6.0.5, check coins added and taken away, the rule of paying
-  in coins by worked and random cases, and a hand-out, its whispers and what a failure part way
-  leaves; `dialog.mjs` checks the Coins box, `foundry-settings.mjs` its two rows, `step2.mjs` and
-  `groups.mjs` each coin's rate in a sheet's currency, and the harnesses that read the hello follow
-  its new fields. `test/README.md` counts 50 harnesses and 119 runs. (module, items 23, 29, 47, 67
-  and 68)
+  activities and a Cast activity by its spell's among them; and in its other four, that without
+  Midi-QOL, or with it installed but not active, the same check is asked as before. Midi-QOL's
+  stand-in (`midi-fake.mjs`) looks for reactions among an attack's targets, off unless a harness
+  asks (item 23). `wildshape.mjs` checks, in all three of its runs, the effects others put on a form
+  kept on the druid and those taken off it taken off her, under MIDI=1 at each kind of ending, and
+  where a return throws or is refused, and, under dnd5e 5, along a chain of forms, its stand-ins
+  (`transform5e.mjs` and `effects-core.mjs`) making an actor's effects as Foundry and dnd5e do
+  (item 29). `favoriting.mjs` puts a tool in order among the favorites (item 47). Two new harnesses,
+  `coins.mjs` and `handouts.mjs`, under dnd5e 5.3.3 and 6.0.5, check coins added and taken away, the
+  rule of paying in coins by worked and random cases, and a hand-out, its whispers and what a
+  failure part way leaves; `dialog.mjs` checks the Coins box, `foundry-settings.mjs` its two rows,
+  `step2.mjs` and `groups.mjs` each coin's rate in a sheet's currency, and the harnesses that read
+  the hello follow its new fields. `test/README.md` counts 50 harnesses and 119 runs. (module,
+  items 23, 29, 47, 67 and 68)
+- **Docs for v0.48.** README.md's supported-versions table gains v0.48.0. The module's
+  `PROTOCOL.md` gains each coin's rate in a sheet's currency (`conversion`), the `coins` command
+  with the hello's `features.coins`, a character's coins handed out (a third shape of `transfer`,
+  with the hello's `features.transfers.handOut` and `change`), the campaign's `coins` and
+  `coinChange` settings rows, effects kept from Wild Shape, Midi-QOL's checks of the reactions it
+  looks for rolled on Foundry's computer dice, and its "Module 0.48.0" entries; its `README.md`
+  says each. (app and module)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
   kept, and a v0.48 section, the release candidate, lists seven checks to make at the table before
   module v0.48.0 is tagged: Midi-QOL's look for reactions; a skill, a tool or spell slots moved from
