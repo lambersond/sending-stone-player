@@ -40,7 +40,7 @@ export type TransferControls = {
    * From module 0.33.0's feedback, on a party's sheet: what's on its way, by item id and `coins`,
    * said by one spinner beside the Currency label or the item's name, its buttons disabled with
    * none of their own. On a character's sheet, whose buttons say it themselves, only its coins,
-   * and only where its Currency row has more buttons than Send to (module 0.49.0).
+   * and only where its Currency row has Add or remove beside its Give (module 0.49.0).
    */
   waiting?: ReadonlySet<string>
 }
@@ -72,22 +72,13 @@ export type Taking = {
 }
 
 /**
- * What a character's coins' dialog was opened with (module 0.49.0), as it stood then, kept as it
- * closes: its coins, and whether the game pays with other coins where it's short of one; for a
- * hand-out, the character they're handed out from and the campaign's other characters.
+ * What a character's Add or remove dialog was opened with (module 0.49.0), as it stood then, kept
+ * as it closes: its coins, and whether the game pays with other coins where it's short of one.
  */
-export type CoinChanging =
-  | { mode: 'change'; currency: SheetCurrency[]; change: boolean }
-  | {
-      mode: 'handOut'
-      currency: SheetCurrency[]
-      change: boolean
-      from: string
-      characters: MoveEnd[]
-    }
+export type CoinChanging = { currency: SheetCurrency[]; change: boolean }
 
 /**
- * Whose coins a dialog adds to, takes away or hands out, as its words say them: "You" and "your"
+ * Whose coins a dialog adds to, removes or gives, as its words say them: "You" and "your"
  * for a player, with "your Gamemaster’s game"; for the Gamemaster, the character's name, "their"
  * and "your game".
  */
@@ -114,4 +105,9 @@ export type Giving = {
   /** The character it's given from. */
   from: string
   recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
+  /**
+   * From module 0.49.0, on a give of coins: they may go to any of `recipients.characters` at once,
+   * as the game hands coins out, paid with other coins where `change` says so.
+   */
+  handOut?: { change: boolean }
 }

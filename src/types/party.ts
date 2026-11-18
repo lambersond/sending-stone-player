@@ -86,9 +86,9 @@ export type TableMoves = {
   /** The campaign's other characters, in its roster's order. */
   characters: { id: string; name: string; portrait?: string }[]
   /**
-   * From module 0.49.0, at a character's sheet: set where its coins may be handed out to those
-   * characters, as its module says; `change` whether the game pays with its other coins where
-   * it's short of one.
+   * From module 0.49.0, at a character's sheet: set where its coins may be given to any of those
+   * characters at once, as its module hands coins out; `change` whether the game pays with its
+   * other coins where it's short of one.
    */
   handOut?: { change: boolean }
 }

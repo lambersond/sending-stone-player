@@ -959,8 +959,8 @@ export type LocalUse = {
 /**
  * Items or coins moved, as a page keeps the move: given, taken, or from module 0.32.0 sent from a
  * party or distributed among its characters, and between whom; or from module 0.33.0 removed from
- * the character; or from module 0.49.0 coins the character received or paid, added to it or taken
- * away, or handed out, so many to each of the characters picked.
+ * the character; or from module 0.49.0 coins the character received or paid, added to it or
+ * removed, or given to several characters at once (`handOut`), so many to each of those picked.
  */
 export type LocalMove = {
   verb:
@@ -974,13 +974,13 @@ export type LocalMove = {
     | 'handOut'
   /**
    * As the chat line says it, such as "2 Potion of Healing", or for a distribution, all it shares,
-   * "100 gp"; for a hand-out, what each is given, "200 pp and 50 gp".
+   * "100 gp"; for coins given to several characters, what each is given, "200 pp and 50 gp".
    */
   things: string
   /**
-   * The other end's name: who it's given or sent to, or the party it's taken or distributed from;
-   * for a removal, the character it's removed from; for coins added, taken away or handed out,
-   * the character whose coins they are.
+   * The other end's name: who it's given or sent to, one character given coins among them, or the
+   * party it's taken or distributed from; for a removal, the character it's removed from; for
+   * coins added, removed or given to several characters, the character whose coins they are.
    */
   other: string
   /** Who moved it, for the Gamemaster's words: the character's name. Unset for a player. */
@@ -991,14 +991,15 @@ export type LocalMove = {
   source?: string
   /**
    * A distribution's: who shares it, as the line lists them, such as "Bram, Lia, Thorin, and Vex";
-   * a hand-out's: who is given it.
+   * coins given to several characters': who is given them.
    */
   among?: string
   /** A distribution's: each one's share, such as "25 gp". */
   each?: string
   /**
-   * For coins taken away or handed out, from module 0.49.0: the sheet's coins' abbreviations, by
-   * key, in its order, by which the other coins the game says it used are told.
+   * For coins removed or given to characters, from module 0.49.0: the sheet's coins'
+   * abbreviations, by key, in its order, by which the other coins the game says it used are told.
+   * Only coins the game may pay with other coins carry them, so too few are of them all.
    */
   abbreviations?: Record<string, string>
 }

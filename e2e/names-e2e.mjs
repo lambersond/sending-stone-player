@@ -94,9 +94,10 @@ for (const width of [360, 390, 768, 1024, 1280]) {
 
   await alice.tab('Inventory')
   const sheet = page.getByRole('tabpanel').first()
-  await alice.currency(sheet).getByRole('button', { name: 'Send to', exact: true }).click()
+  // Changed on purpose (item give): the row's Send to is Give, its characters ticked.
+  await alice.currency(sheet).getByRole('button', { name: 'Give', exact: true }).click()
   const give = page.getByRole('dialog', { name: 'Give coins' })
-  await give.getByRole('radio', { name: LONG }).waitFor()
+  await give.getByRole('checkbox', { name: LONG }).waitFor()
   r.give = { ...await dialogRoom(give), pageX: await pageX(page) }
   await shoot(alice, 'names-give', give)
   await give.getByRole('button', { name: 'Cancel' }).click()

@@ -1,19 +1,21 @@
 // Coins added to a character, taken away and handed out from the app (module 0.49.0 and the app,
-// ROADMAP items 67 and 68), end to end, in the world of world-030.mjs, whose coins carry dnd5e's
-// rates. Ashlands, on dnd5e 5.3.3, has one campaign, Erebor, saved without the coins' switches, so
-// both read on, with moves on and its players' rolls off: coins go on their own. Alice plays Thorin
-// and runs the campaign; Bob plays Vex, and Carol's Bram has no page here. The hello and the app's
-// answer, each coin's rate on the sheet; the Currency row's three buttons in their order; 5 gp
+// ROADMAP items 67 and 68, and since item give the Currency row's Add or remove and one Give), end
+// to end, in the world of world-030.mjs, whose coins carry dnd5e's rates. Ashlands, on dnd5e 5.3.3,
+// has one campaign, Erebor, saved without the coins' switches, so both read on, with moves on and
+// its players' rolls off: coins go on their own. Alice plays Thorin and runs the campaign; Bob plays
+// Vex, and Carol's Bram has no page here. The hello and the app's answer, each coin's rate on the
+// sheet; the Currency row's two buttons in their order, Add or remove and Give; 5 gp
 // added, on the sheet, in Foundry's chat and the app's; 5 gp removed of 3 gp and 2 pp, a
 // platinum broken, the dialog saying so first and the tray after; 2 gp of 1 gp and 40 sp, silver
 // paying; more than the coins are worth held back in the dialog; the Gamemaster turning other
 // coins off, the dialog saying so and a crafted request refused short; the Gamemaster adding at
-// Thorin's page, marked as theirs; 2 gp each handed out to Vex and Bram, each whispered their own,
-// the Gamemasters the whole of it, Thorin's player reading all three and Vex's only his; the coins'
-// switch off, Add or remove gone within a poll and Hand out still there, then moves off and it
-// gone too; both dialogs at 360, 390, 768 and 1280 in both themes; Help's row and lines, and the
-// Gamemaster's campaign card. DND5E6=1: on dnd5e 6.0.5, whose sheet shows whole coins. SKEW=047:
-// module 0.47.0, which says nothing of coins: no button but Send to, Help "Not from here", the
+// Thorin's page, marked as theirs; through Give, 2 gp each to Vex and Bram, each whispered their
+// own, the Gamemasters the whole of it, Thorin's player reading all three and Vex's only his, and
+// 1 gp to Vex alone, whispered the same way; the coins' switch off, Add or remove gone within a poll
+// and Give still there, then moves off and it gone too; both dialogs at 360, 390, 768 and 1280 in
+// both themes; Help's row and lines, and the Gamemaster's campaign card. DND5E6=1: on dnd5e 6.0.5,
+// whose sheet shows whole coins. SKEW=047: module 0.47.0, which says nothing of coins: no button but
+// Give, Help "Not from here", the
 // card naming 0.49.0, and crafted requests refused. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
@@ -117,7 +119,8 @@ const rowButtons = who => who.currency().getByRole('button').evaluateAll(bs => b
 const rowButton = (who, name) => who.currency().getByRole('button', { name, exact: true })
 // Changed on purpose (item give): Add or take away reads Add or remove, its choices Add and Remove.
 const coinsDialog = who => who.page.getByRole('dialog', { name: 'Add or remove coins', exact: true })
-const handOutDialog = who => who.page.getByRole('dialog', { name: 'Hand out coins', exact: true })
+// Changed on purpose (item give): Send to and Hand out are one Give, whose dialog is Give coins.
+const giveDialog = who => who.page.getByRole('dialog', { name: 'Give coins', exact: true })
 const summary = dialog => dialog.locator('p[aria-live="polite"]').first().textContent()
 /** Ticks a radio or a checkbox as a tap does, on its label: the input itself is hidden from sight. */
 const tick = (dialog, role, name) => dialog.getByRole(role, { name, exact: true }).locator('xpath=ancestor::label[1]').click()
@@ -150,7 +153,8 @@ if (OLD) {
   check(!('coins' in features) && !('handOut' in features.transfers) && kept('"coinsEnabled"') === 'f' && kept('array_to_string("transferFeatures", \',\')') === 'partySends,distribute',
     `module 0.47.0's hello says nothing of coins nor of handing out, and the app keeps neither (${JSON.stringify({ transfers: features.transfers, kept: kept('array_to_string("transferFeatures", \',\')') })})`)
   await desk.currency().waitFor({ timeout: 15_000 })
-  check(same(await rowButtons(desk), ['Send to']), `Thorin's Currency row has Send to alone (${JSON.stringify(await rowButtons(desk))})`)
+  // Changed on purpose (item give): the row's Send to reads Give.
+  check(same(await rowButtons(desk), ['Give']), `Thorin's Currency row has Give alone (${JSON.stringify(await rowButtons(desk))})`)
   const coins = await crafted(desk, API, { kind: 'coins', coins: { op: 'add', currency: { gp: 5 } } })
   const each = await crafted(desk, API, { kind: 'transfer', transfer: { from: 'thorin', each: ['vex'], currency: { gp: 1 } } })
   check(coins.status === 409 && coins.json?.reason === 'unavailable' && each.status === 409 && each.json?.reason === 'unavailable' && commands().length === 0 && same(purse(thorin), { pp: 2, gp: 3 }),
@@ -194,8 +198,8 @@ part('1. the hello, the answer and the sheet')
 part('2. the Currency row')
 {
   await desk.currency().waitFor({ timeout: 15_000 })
-  await until(async () => (await rowButtons(desk)).length === 3, 'the row\'s three buttons', 20_000)
-  check(same(await rowButtons(desk), ['Add or remove', 'Send to', 'Hand out']), `Thorin's Currency row: ${JSON.stringify(await rowButtons(desk))}`)
+  await until(async () => (await rowButtons(desk)).length === 2, 'the row\'s two buttons', 20_000)
+  check(same(await rowButtons(desk), ['Add or remove', 'Give']), `Thorin's Currency row: ${JSON.stringify(await rowButtons(desk))}`)
 }
 
 // =================================================================================================
@@ -316,10 +320,10 @@ part('8. the Gamemaster\'s')
   await gmSheet.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
   await gmSheet.tab('Inventory')
   await gmSheet.currency().waitFor({ timeout: 15_000 })
-  await until(async () => (await rowButtons(gmSheet)).length === 3, 'the Gamemaster\'s three buttons', 20_000)
+  await until(async () => (await rowButtons(gmSheet)).length === 2, 'the Gamemaster\'s two buttons', 20_000)
   await paced()
   const dialog = await changing(gmSheet, 'Add', '4')
-  check(same(await rowButtons(gmSheet), ['Add or remove', 'Send to', 'Hand out']) && await summary(dialog) === 'Thorin adds 4 gp.', `the Gamemaster's row has the three too, and their dialog names him: "${await summary(dialog)}"`)
+  check(same(await rowButtons(gmSheet), ['Add or remove', 'Give']) && await summary(dialog) === 'Thorin adds 4 gp.', `the Gamemaster's row has the two too, and their dialog names him: "${await summary(dialog)}"`)
   await sendOf(dialog, 'Add coins').click()
   const made = await answered(4, 'the Gamemaster\'s coins')
   const line = lines().at(-1)
@@ -334,32 +338,35 @@ part('8. the Gamemaster\'s')
 // =================================================================================================
 // 9. 2 gp each handed out to Vex and Bram
 // =================================================================================================
-part('9. coins handed out')
+part('9. coins given to Vex and Bram')
 const bob = await browse({ width: 390, height: 844, who: BOB, path: '/characters/sheet-vex', toasts: false })
 await bob.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+const gms = game.users.filter(user => user.isGM).map(user => user.id).toSorted()
 {
   await holds({ gp: 10 })
   const before = lines().length
   await paced()
-  await rowButton(desk, 'Hand out').click()
-  const dialog = handOutDialog(desk)
+  // Changed on purpose (item give): Hand out is Give's, its characters ticked; Erebor has no party,
+  // so none is chosen as it opens.
+  await rowButton(desk, 'Give').click()
+  const dialog = giveDialog(desk)
   await dialog.waitFor({ timeout: 10_000 })
   const names = await dialog.getByRole('checkbox').evaluateAll(boxes => boxes.map(box => box.closest('label').textContent.trim()))
-  check(same(names, ['Select all', 'Vex', 'Bram']) && await summary(dialog) === 'Choose who gets them.', `the dialog lists the campaign's other characters under Select all (${JSON.stringify(names)}): "${await summary(dialog)}"`)
+  check(same(names, ['Select all', 'Vex', 'Bram']) && await dialog.getByRole('radio').count() === 0 && await summary(dialog) === 'Choose who gets it.',
+    `Give coins lists the campaign's other characters under Select all, and no party (${JSON.stringify(names)}): "${await summary(dialog)}"`)
   await tick(dialog, 'checkbox', 'Select all')
   await field(dialog, 'Gold').fill('2')
-  check(await summary(dialog) === 'You hand out 2 gp each to Vex and Bram: 4 gp in all.'
+  check(await summary(dialog) === 'You give 2 gp each to Vex and Bram: 4 gp in all.'
     && await dialog.getByText('Each is whispered what they received in Foundry’s chat, and your Gamemaster is told.', { exact: true }).count() === 1,
   `"${await summary(dialog)}", each whispered, the Gamemaster told`)
-  await shootBoth(desk, 'coins-hand-out', dialog)
-  await sendOf(dialog, 'Hand out').click()
-  const made = await answered(5, 'the hand-out')
+  await shootBoth(desk, 'coins-give-each', dialog)
+  await sendOf(dialog, 'Give coins').click()
+  const made = await answered(5, 'the give to Vex and Bram')
   check(made.status === 'done' && made.kind === 'transfer' && sameJson(made.payload.transfer, { from: 'thorin', each: ['vex', 'bram'], currency: { gp: 2 } })
     && sameJson(resultOf(made)?.transfer, { from: 'thorin', to: null, items: [], currency: { gp: 2 }, each: ['vex', 'bram'], used: null })
     && same(purse(thorin), { gp: 6 }) && same(purse(vex), { gp: 12 }) && same(purse(bram), { gp: 2 }),
   `one move, done: Thorin 6 gp, Vex 12, Bram 2, the result saying what each got (${JSON.stringify(resultOf(made)?.transfer)})`)
   const told = lines().slice(before)
-  const gms = game.users.filter(user => user.isGM).map(user => user.id).toSorted()
   check(told.length === 3 && told.every(line => line.whisper.length > 0 && line.actor === 'thorin' && line.author === 'alice')
     && same(told.map(line => [line.text, [...line.whisper].toSorted()]), [
       ['Vex received 2 gp from Thorin', ['bob']],
@@ -367,12 +374,42 @@ await bob.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeo
       ['Thorin handed out 2 gp each to Vex and Bram: 4 gp in all', gms],
     ]),
   `Foundry's chat: a whisper to each one's player, and one to the Gamemasters, none for all to read (${JSON.stringify(told.map(line => [line.text, line.whisper]))})`)
-  await trayShows(desk, 'Handed out 2 gp each to Vex and Bram')
+  await trayShows(desk, 'Gave 2 gp each to Vex and Bram')
   await until(async () => (await chatOf(bob, BOB_API)).some(text => text.includes('Vex received 2 gp from Thorin')), 'Bob\'s chat', 20_000)
   const theirs = await chatOf(bob, BOB_API)
   check(!theirs.some(text => text.includes('Bram received')) && !theirs.some(text => text.includes('handed out')), `Bob's page shows "Vex received 2 gp from Thorin", and neither Bram's nor the Gamemasters' (${JSON.stringify(theirs.filter(text => /received|handed/.test(text)))})`)
   await until(async () => (await chatOf(desk, API)).filter(text => /from Thorin|handed out/.test(text)).length === 3, 'Alice\'s chat', 20_000)
-  check(true, 'Alice, who wrote them, reads both whispers and the Gamemasters\' line, and her tray says "Handed out 2 gp each to Vex and Bram"')
+  check(true, 'Alice, who wrote them, reads both whispers and the Gamemasters\' line, and her tray says "Gave 2 gp each to Vex and Bram"')
+}
+
+// =================================================================================================
+// 9b. A give to one character: whispered as a hand-out to one (give-Q1 A)
+// =================================================================================================
+part('9b. coins given to Vex alone')
+{
+  const before = lines().length
+  await paced()
+  await rowButton(desk, 'Give').click()
+  const dialog = giveDialog(desk)
+  await dialog.waitFor({ timeout: 10_000 })
+  await tick(dialog, 'checkbox', 'Vex')
+  await field(dialog, 'Gold').fill('1')
+  const legend = await dialog.locator('fieldset legend').evaluateAll(all => all.map(l => l.textContent.trim()))
+  check(legend.includes('Coins') && !legend.includes('Each gets') && await summary(dialog) === 'You give 1 gp to Vex.'
+    && await dialog.getByText('Vex is whispered what they received in Foundry’s chat, and your Gamemaster is told.', { exact: true }).count() === 1,
+  `one character: the coins' legend "Coins", "${await summary(dialog)}", Vex whispered (${JSON.stringify(legend)})`)
+  await sendOf(dialog, 'Give coins').click()
+  const made = await answered(6, 'the give to Vex alone')
+  check(made.status === 'done' && sameJson(made.payload.transfer, { from: 'thorin', each: ['vex'], currency: { gp: 1 } }) && same(purse(thorin), { gp: 5 }) && same(purse(vex), { gp: 13 }),
+    `sent as a hand-out to one: ${JSON.stringify(made.payload.transfer)}, Thorin 5 gp, Vex 13`)
+  const told = lines().slice(before)
+  check(same(told.map(line => [line.text, [...line.whisper].toSorted()]), [
+    ['Vex received 1 gp from Thorin', ['bob']],
+    ['Thorin handed out 1 gp each to Vex: 1 gp in all', gms],
+  ]) && [...W.messages.values()].filter(m => /^<p>Gives /.test(m.content ?? '')).length === 0,
+  `Bob is whispered Vex's, the Gamemasters the whole of it, and no line is posted for all (${JSON.stringify(told.map(line => [line.text, line.whisper]))})`)
+  await trayShows(desk, 'Gave 1 gp to Vex')
+  check(true, 'the tray says "Gave 1 gp to Vex"')
 }
 
 // =================================================================================================
@@ -386,14 +423,14 @@ part('10. phones, a tablet and both themes')
     await seat.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
     await seat.tab('Inventory')
     await seat.currency().waitFor({ timeout: 15_000 })
-    await until(async () => (await rowButtons(seat)).length === 3, `the three buttons at ${width}`, 20_000)
+    await until(async () => (await rowButtons(seat)).length === 2, `the two buttons at ${width}`, 20_000)
     if (width === 360) {
       const look = await seat.currency().evaluate(group => {
         const card = group.closest('dl > div')
         const edge = card.getBoundingClientRect()
         return { inside: [...group.querySelectorAll('button')].every(b => b.getBoundingClientRect().left >= edge.left && b.getBoundingClientRect().right <= edge.right + 0.5), names: [...group.querySelectorAll('button')].map(b => b.textContent.trim()) }
       })
-      check(look.inside && same(look.names, ['Add or remove', 'Send to', 'Hand out']) && await sideways(seat.page) === 0, `at 360 the row's three buttons stay inside its card, nothing scrolling sideways (${JSON.stringify(look)})`)
+      check(look.inside && same(look.names, ['Add or remove', 'Give']) && await sideways(seat.page) === 0, `at 360 the row's two buttons stay inside its card, nothing scrolling sideways (${JSON.stringify(look)})`)
       await shootBoth(seat, 'coins-row', seat.currency().locator('xpath=ancestor::div[1]'))
     }
     const coins = await changing(seat, 'Remove', '5')
@@ -401,16 +438,17 @@ part('10. phones, a tablet and both themes')
     const fits = await sideways(seat.page) === 0
     await sendOf(coins, 'Cancel').click()
     await coins.waitFor({ state: 'hidden', timeout: 5_000 })
-    await rowButton(seat, 'Hand out').click()
-    const handOut = handOutDialog(seat)
-    await handOut.waitFor({ timeout: 10_000 })
-    await tick(handOut, 'checkbox', 'Vex')
-    await field(handOut, 'Gold').fill('2')
-    await shootBoth(seat, 'hand-out-dialog', handOut)
-    check(fits && await sideways(seat.page) === 0 && await summary(handOut) === 'You hand out 2 gp each to Vex: 2 gp in all.', `at ${width} both dialogs open, nothing scrolling sideways: "${await summary(handOut)}"`)
+    await rowButton(seat, 'Give').click()
+    const give = giveDialog(seat)
+    await give.waitFor({ timeout: 10_000 })
+    await tick(give, 'checkbox', 'Vex')
+    await tick(give, 'checkbox', 'Bram')
+    await field(give, 'Gold').fill('2')
+    await shootBoth(seat, 'give-dialog', give)
+    check(fits && await sideways(seat.page) === 0 && await summary(give) === 'You give 2 gp each to Vex and Bram: 4 gp in all.', `at ${width} both dialogs open, nothing scrolling sideways: "${await summary(give)}"`)
     await seat.view.close()
   }
-  check(commands().length === 5, 'looked at and cancelled, nothing more is sent')
+  check(commands().length === 6, 'looked at and cancelled, nothing more is sent')
 }
 
 // =================================================================================================
@@ -427,10 +465,10 @@ const section = article.locator('section').filter({ has: gm.page.getByRole('head
   const rows = await help.getByRole('region', { name: /^In this game, for / }).locator('dl > div').evaluateAll(all => all.map(row => `${row.querySelector('dt').textContent}: ${row.querySelector('dd').textContent}`))
   const text = await help.evaluate(el => el.innerText.replace(/\s+/g, ' '))
   check(rows.indexOf('Adding and removing coins: From here') === rows.indexOf('Moving items and coins: From here') + 1
-    && text.includes('Players move items and coins: Send to…, Take and Give (0.31.0), and Hand out (0.49.0).')
+    && text.includes('Players move items and coins: Send to…, Take and Give (0.31.0), and Give to several characters at once (0.49.0).')
     && text.includes('Allow Players to add and take away coins from the app: Add or remove, on the Inventory tab’s Currency row; on unless they turn it off (0.49.0).')
-    && text.includes('Pay with other coins when a character is short of one: removing or handing out more of a coin than you hold breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).'),
-  `Help's box has coins from here, after moves, and its switches name the two and Hand out (${JSON.stringify(rows.filter(row => /coins/.test(row)))})`)
+    && text.includes('Pay with other coins when a character is short of one: removing more of a coin than you hold, or giving characters more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).'),
+  `Help's box has coins from here, after moves, and its switches name the two and Give to several (${JSON.stringify(rows.filter(row => /coins/.test(row)))})`)
   await desk.page.keyboard.press('Escape')
   await help.waitFor({ state: 'hidden', timeout: 5_000 })
   await section.waitFor({ timeout: 15_000 })
@@ -452,10 +490,10 @@ part('12. the switches off')
   await until(() => hello()?.data?.features?.coins?.reason === 'off', 'the hello with the switch off, as posted', 10_000).catch(() => {})
   check(same(hello().data.features.coins, { enabled: false, kinds: [], reason: 'off', change: false }) && hello().data.features.transfers.handOut === true,
     `the coins' switch off in Foundry: the hello says coins are off, and hands out still (${JSON.stringify(hello().data.features.coins)})`)
-  await until(async () => same(await rowButtons(desk), ['Send to', 'Hand out']), 'Add or remove to go', 30_000)
+  await until(async () => same(await rowButtons(desk), ['Give']), 'Add or remove to go', 30_000)
   await paced()
   const refused = await crafted(desk, API, { kind: 'coins', coins: { op: 'add', currency: { gp: 1 } } })
-  check(refused.status === 409 && refused.json?.reason === 'unavailable', `within a poll, Add or remove is gone and Hand out still there; coins posted are answered ${refused.status} ${refused.json?.reason}`)
+  check(refused.status === 409 && refused.json?.reason === 'unavailable', `within a poll, Add or remove is gone and Give still there; coins posted are answered ${refused.status} ${refused.json?.reason}`)
   await gm.page.reload()
   await section.waitFor({ timeout: 15_000 })
   const said = (await section.locator('p').allTextContents()).join(' ')
@@ -464,8 +502,8 @@ part('12. the switches off')
   await until(() => kept('"transfersEnabled"') === 'f', 'the app to keep moves off', 20_000)
   await until(async () => (await rowButtons(desk)).length === 0, 'the row\'s buttons to go', 30_000)
   const each = await crafted(desk, API, { kind: 'transfer', transfer: { from: 'thorin', each: ['vex'], currency: { gp: 1 } } })
-  check(each.status === 409 && each.json?.reason === 'unavailable' && commands().length === 5 && same(purse(thorin), { pp: 2, gp: 3 }),
-    `moves off too, Hand out is gone; a hand-out posted is answered ${each.status} ${each.json?.reason}, nothing kept`)
+  check(each.status === 409 && each.json?.reason === 'unavailable' && commands().length === 6 && same(purse(thorin), { pp: 2, gp: 3 }),
+    `moves off too, Give is gone; a hand-out posted is answered ${each.status} ${each.json?.reason}, nothing kept`)
 }
 note(`${commands().length} coins commands and moves kept`)
 await finish()

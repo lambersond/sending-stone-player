@@ -36,11 +36,11 @@ function madeText({ rolls }: OwnedCampaign): string {
  */
 export function movesText({ transfers, foundry }: OwnedCampaign): string {
   if (transfers.enabled && transfers.reaching) {
-    // From module 0.49.0, a character's coins handed out too.
-    const others = transfers.handOut
-      ? 'give to each other, and hand out coins to several characters at once'
-      : 'give to each other'
-    return `Your players take from and give to the parties they own in Foundry, and ${others}, from here. Each move is made in your game at once and posts a line in its chat.`
+    // From module 0.49.0, a character's coins given to several characters at once, whispered.
+    if (transfers.handOut) {
+      return 'Your players take from and give to the parties they own in Foundry, and give to each other, from here; coins can go to several characters at once. Each move is made in your game at once and posts a line in its chat, but coins given to characters are whispered to each, and you are told.'
+    }
+    return 'Your players take from and give to the parties they own in Foundry, and give to each other, from here. Each move is made in your game at once and posts a line in its chat.'
   }
   if (transfers.enabled) {
     return 'Turned on in Foundry. Moves reach your game while it’s open.'

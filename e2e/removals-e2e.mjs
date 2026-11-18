@@ -255,7 +255,7 @@ const sheetTab = tabpanel(alice)
 await rowOf(sheetTab, 'Rope').waitFor({ timeout: 15_000 })
 if (NEW) await until(() => removesNow(alice, ALICE_API), 'the view to let Alice remove items', 15_000)
 check(await sheetTab.getByRole('button', { name: /^Give/ }).count() === 0 && await sheetTab.getByRole('button', { name: /^Send to/ }).count() === 0,
-  'moves off: no "Give…" nor "Send to" anywhere on Thorin\'s Inventory')
+  'moves off: no "Give…" nor the Currency row\'s Give anywhere on Thorin\'s Inventory')
 
 if (SKEW032) {
   // Module 0.32.0: no menu at all with moves off, and "Send to…" alone with them on.
@@ -270,7 +270,8 @@ if (SKEW032) {
   const hellos = postsOf('bridge.hello').length
   await game.settings.set('sending-stone', 'campaigns', [campaign({ transfers: true })])
   await until(() => postsOf('bridge.hello').length > hellos && transfersEnabled(), 'moves on', 15_000)
-  await until(async () => (await alice.page.getByRole('button', { name: /^Send to/ }).count()) > 0, 'the moves to show', 15_000)
+  // Changed on purpose (item give): the Currency row's Send to is Give.
+  await until(async () => (await alice.currency(sheetTab).getByRole('button', { name: 'Give', exact: true }).count()) > 0, 'the moves to show', 15_000)
   const menu = await menuOf(alice, rowOf(sheetTab, 'Rope'), 'Rope')
   const items = await itemsOf(menu)
   check(same(items, ['Send to…']), `moves on, the Rope's menu is "Send to…" alone (${JSON.stringify(items)})`)
@@ -726,7 +727,7 @@ watchPosts(gmThorin)
   tick(win, 'campaign.transfers', true)
   await save(win)
   await until(() => postsOf('bridge.hello').length > hellos && transfersEnabled(), 'moves on', 15_000)
-  await until(async () => (await sheetTab.getByRole('button', { name: /^Send to/ }).count()) > 0, 'her Currency row\'s Send to', 15_000)
+  await until(async () => (await alice.currency(sheetTab).getByRole('button', { name: 'Give', exact: true }).count()) > 0, 'her Currency row\'s Give', 15_000)
   check(true, 'ticked in Manage Campaigns, moves are on')
   await thorin.createEmbeddedDocuments('Item', [potionData('potion3', 3)], { keepId: true })
   await sheetHas(alice, ALICE_API, 'Potion of Healing', 3, 'a fresh stack of three potions')

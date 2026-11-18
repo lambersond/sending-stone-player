@@ -16,7 +16,8 @@
 // gives from Thorin's page, its line flagged theirs, and takes into a chosen Vex on the party page.
 // Switched off with a dialog open; with rolls on too. The dialog and the party panel at 360, 390,
 // 768 and 1280 px in both themes. Since module 0.32.0 and PR #44: the party opens from the Inventory
-// tab's party list, the character's coin button reads "Send to" on the Currency row, and the hello
+// tab's party list, the character's coin button reads Give (Send to until item give) on the Currency
+// row, its coins given to a character as a hand-out, whispered, with module 0.49.0, and the hello
 // says whether a party's Owner may send its things elsewhere and distribute its coin. Since module
 // 0.33.0's feedback, a party row waiting has one spinner, beside its name, its Take without one.
 // Since item 43 (v0.47), Thorin's sheet shows what he took within about a second of the panel's
@@ -113,6 +114,13 @@ const moves = () => JSON.parse(sql(`select coalesce(json_agg(r order by r."creat
 /** The lines Foundry's chat has of moves: their text, speaker, author and the module's flags. */
 const lineTexts = () => [...W.messages.values()].filter(m => /^<p>(Takes|Gives) /.test(m.content ?? ''))
   .map(m => ({ text: m.content.slice(3, -4), actor: m.speaker?.actor, author: m.author?.id ?? m.author, by: m.flags?.['sending-stone']?.by ?? null, whisper: m.whisper ?? [], id: m.id }))
+/**
+ * The whispers of coins given to characters (module 0.49.0, item give): to each one given, and to
+ * the Gamemasters, their text, speaker, author, the module's flag and whom they're whispered to.
+ */
+const whispered = () => [...W.messages.values()].filter(m => / (received|handed out) /.test(m.content ?? ''))
+  .map(m => ({ text: m.content.replace(/<[^>]+>/g, ''), actor: m.speaker?.actor, author: m.author?.id ?? m.author, by: m.flags?.['sending-stone']?.by ?? null, whisper: [...(m.whisper ?? [])].toSorted(), id: m.id }))
+const GMS = () => game.users.filter(user => user.isGM).map(user => user.id).toSorted()
 /** Every item an actor's inventory lists, at any depth: [name, quantity]. */
 const listed = inventory => [...(inventory?.sections ?? []).flatMap(s => s.items), ...(inventory?.containers ?? [])]
   .flatMap(function flat(item) { return [item, ...(item.contents ?? []).flatMap(flat)] })
@@ -187,8 +195,9 @@ const card = async who => {
 }
 const MOVES_OFF = 'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
 const MOVES_OLD = 'Players can’t move items and coins from here. Sending Stone 0.31.0 or later in Foundry lets them.'
-// Changed on purpose (item 68): the card says coins are handed out too, where the module hands them out (0.49.0).
-const MOVES_ON = 'Your players take from and give to the parties they own in Foundry, and give to each other, and hand out coins to several characters at once, from here. Each move is made in your game at once and posts a line in its chat.'
+// Changed on purpose (item 68): the card says coins are handed out too, where the module hands them out (0.49.0);
+// and (item give) that coins given to characters are whispered.
+const MOVES_ON = 'Your players take from and give to the parties they own in Foundry, and give to each other, from here; coins can go to several characters at once. Each move is made in your game at once and posts a line in its chat, but coins given to characters are whispered to each, and you are told.'
 const movesSection = article => article.locator('section').filter({ has: article.page().getByRole('heading', { name: 'Items and coins' }) })
 
 // =================================================================================================
@@ -202,7 +211,7 @@ await panel.getByRole('button', { name: 'Close' }).click()
 await alice.tab('Inventory')
 await openRow(alice, 'Potion of Healing')
 check(await alice.page.getByRole('button', { name: /^Give/ }).count() === 0 && await alice.page.getByRole('button', { name: /^Send to/ }).count() === 0,
-  'and her Inventory no Give… nor Send to, in an opened item or on her Currency row')
+  'and her Inventory no Give…, in an opened item, nor Give on her Currency row')
 {
   const refused = await crafted(alice, ALICE_API, { from: 'company', to: 'thorin', items: [{ id: 'rope', quantity: 1 }] })
   check(refused.status === 409 && refused.json?.reason === 'unavailable', `a crafted move is turned down: ${refused.status} ${refused.json?.reason}`)
@@ -303,11 +312,12 @@ await panel.getByRole('button', { name: 'Close' }).click()
   check(await takes(bobPanel).count() === 0, 'Bob, who only observes the Company, sees its sheet with no Take')
   await bobPanel.getByRole('button', { name: 'Close' }).click()
   await bob.tab('Inventory')
-  await bob.currency(bob.page.getByRole('tabpanel')).getByRole('button', { name: 'Send to', exact: true }).click()
+  // Changed on purpose (item give): the row's Give, its characters ticked.
+  await bob.currency(bob.page.getByRole('tabpanel')).getByRole('button', { name: 'Give', exact: true }).click()
   const dialog = bob.page.getByRole('dialog', { name: 'Give coins' })
   await dialog.waitFor()
-  check(await dialog.getByRole('group', { name: 'Parties' }).count() === 0 && same(await dialog.getByRole('group', { name: 'Characters' }).getByRole('radio').evaluateAll(rs => rs.map(r => r.closest('label').textContent.trim())), ['Thorin']),
-    "his Give coins lists Thorin under Characters, and no Parties")
+  check(await dialog.getByRole('group', { name: 'Parties' }).count() === 0 && same(await dialog.getByRole('group', { name: 'Characters' }).getByRole('checkbox').evaluateAll(rs => rs.map(r => r.closest('label').textContent.trim())), ['Thorin']),
+    "his Give coins lists Thorin under Characters, to tick, and no Parties")
   await dialog.getByRole('button', { name: 'Cancel' }).click()
 }
 {
@@ -588,18 +598,27 @@ check(made.status === 'done' && holding(vex, 'Potion of Healing')[0]?.system.qua
 await until(async () => listed((await call(bob.page, `${BOB_API}/table`)).json?.sheet?.inventory).some(it => it.name === 'Potion of Healing'), "Vex's sheet with the potion", 15_000)
 check(true, "Bob's sheet of Vex gains it")
 await bob.tab('Inventory')
-await bob.currency(bob.page.getByRole('tabpanel')).getByRole('button', { name: 'Send to', exact: true }).click()
+await bob.currency(bob.page.getByRole('tabpanel')).getByRole('button', { name: 'Give', exact: true }).click()
 dialog = bob.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
 check(await summary(dialog) === 'Choose who gets it.' && await dialog.getByRole('button', { name: 'Give coins' }).getAttribute('aria-disabled') === 'true',
   'Bob\'s Give coins: no one is chosen for him, "Choose who gets it."')
-await dialog.getByRole('radio', { name: /^Thorin/ }).check({ force: true })
+// Changed on purpose (item give): coins given to one character go as the game hands them out, whispered.
+await dialog.getByRole('checkbox', { name: /^Thorin/ }).check({ force: true })
 await dialog.getByRole('textbox', { name: 'Gold' }).fill('5')
-await dialog.getByRole('button', { name: 'Give coins' }).click()
-made = await answered(6, "Bob's 5 gp to Thorin")
-check(made.status === 'done' && vex.system.currency.gp === 5 && thorin.system.currency.gp === 70
-  && same({ ...lineTexts().at(-1), id: undefined }, { text: 'Gives 5 gp to Thorin', actor: 'vex', author: 'bob', by: null, whisper: [], id: undefined }),
-  `Bob sends Thorin 5 gp: "${lineTexts().at(-1).text}", spoken by Vex`)
+{
+  const publicBefore = lineTexts().length
+  const whispersBefore = whispered().length
+  await dialog.getByRole('button', { name: 'Give coins' }).click()
+  made = await answered(6, "Bob's 5 gp to Thorin")
+  check(made.status === 'done' && vex.system.currency.gp === 5 && thorin.system.currency.gp === 70 && sameJson(made.payload.transfer, { from: 'vex', each: ['thorin'], currency: { gp: 5 } }),
+    `Bob gives Thorin 5 gp, sent as a hand-out to one (${JSON.stringify(made.payload.transfer)})`)
+  const told = whispered().slice(whispersBefore).map(line => ({ ...line, id: undefined }))
+  check(lineTexts().length === publicBefore && same(told, [
+    { text: 'Thorin received 5 gp from Vex', actor: 'vex', author: 'bob', by: null, whisper: ['alice'], id: undefined },
+    { text: 'Vex handed out 5 gp each to Thorin: 5 gp in all', actor: 'vex', author: 'bob', by: null, whisper: GMS(), id: undefined },
+  ]), `Alice is whispered Thorin's, the Gamemasters the whole of it, and no line is posted for all (${JSON.stringify(told)})`)
+}
 await tray(bob).getByText('Gave 5 gp to Thorin').waitFor({ timeout: 15_000 })
 
 // =================================================================================================
@@ -724,25 +743,34 @@ part('11. the Gamemaster')
 const gmThorin = await browse({ width: 768, height: 1024, path: `/campaigns/${A}/characters/thorin`, toasts: false })
 await gmThorin.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
 await gmThorin.tab('Inventory')
-await gmThorin.currency(gmThorin.page.getByRole('tabpanel')).getByRole('button', { name: 'Send to', exact: true }).click()
+// Changed on purpose (item give): the row's Give; the parties to choose, Vex to tick; coins given to
+// him as the game hands them out, whispered to Bob and the Gamemasters, flagged the Gamemaster's.
+await gmThorin.currency(gmThorin.page.getByRole('tabpanel')).getByRole('button', { name: 'Give', exact: true }).click()
 dialog = gmThorin.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
 {
   const radios = await dialog.getByRole('radio').evaluateAll(rs => rs.map(r => r.closest('label').textContent.trim()))
-  check(same(radios, ['The Iron Company Primary', 'The Silent Order', 'Vex']), `on the Gamemaster's page of Thorin, Give coins lists every party and Vex (${JSON.stringify(radios)})`)
+  const boxes = await dialog.getByRole('checkbox').evaluateAll(rs => rs.map(r => r.closest('label').textContent.trim()))
+  check(same(radios, ['The Iron Company Primary', 'The Silent Order']) && same(boxes, ['Vex']), `on the Gamemaster's page of Thorin, Give coins lists every party and Vex to tick (${JSON.stringify([radios, boxes])})`)
 }
-await dialog.getByRole('radio', { name: /^Vex/ }).check({ force: true })
+await dialog.getByRole('checkbox', { name: /^Vex/ }).check({ force: true })
 await dialog.getByRole('textbox', { name: 'Gold' }).fill('5')
 check(await summary(dialog) === 'Thorin gives 5 gp to Vex.', `"${await summary(dialog)}"`)
 await shootBoth(gmThorin, 'gm-give-dialog', dialog)
+const whispersBeforeGm = whispered().length
+const publicBeforeGm = lineTexts().length
 await dialog.getByRole('button', { name: 'Give coins' }).click()
 made = await answered(11, "the Gamemaster's 5 gp to Vex")
 {
-  const line = lineTexts().at(-1)
+  const told = whispered().slice(whispersBeforeGm)
   const result = postsOf('command.result').find(p => p.data.id === made.id)?.data
-  check(made.status === 'done' && made.role === 'gm' && made.label === 'Give 5 gp to Vex' && same({ ...line, id: undefined }, { text: 'Gives 5 gp to Vex', actor: 'thorin', author: 'alice', by: 'gm', whisper: [], id: undefined })
-    && same(result?.messages, [line.id]) && vex.system.currency.gp === 10,
-    `its line "${line.text}", Thorin's, flagged the Gamemaster's and listed in the result's messages`)
+  check(made.status === 'done' && made.role === 'gm' && made.label === 'Give 5 gp to Vex' && sameJson(made.payload.transfer, { from: 'thorin', each: ['vex'], currency: { gp: 5 } })
+    && same(told.map(line => ({ ...line, id: undefined })), [
+      { text: 'Vex received 5 gp from Thorin', actor: 'thorin', author: 'alice', by: 'gm', whisper: ['bob'], id: undefined },
+      { text: 'Thorin handed out 5 gp each to Vex: 5 gp in all', actor: 'thorin', author: 'alice', by: 'gm', whisper: GMS(), id: undefined },
+    ]) && lineTexts().length === publicBeforeGm
+    && same(result?.messages, told.map(line => line.id)) && vex.system.currency.gp === 10,
+    `whispered to Bob and the Gamemasters, Thorin's, flagged the Gamemaster's and listed in the result's messages, none for all (${JSON.stringify(told.map(line => line.text))})`)
 }
 await tray(gmThorin).getByText('Thorin gave 5 gp to Vex').waitFor({ timeout: 15_000 })
 check(true, 'the Gamemaster\'s tray: "Thorin gave 5 gp to Vex"')
@@ -826,11 +854,11 @@ for (const width of [360, 390, 768, 1280]) {
   for (const scheme of ['light', 'dark']) {
     await theme(alice, scheme)
     await alice.tab('Inventory')
-    // The party rows and the Currency row's Send to, on her own Inventory: in view, nothing sideways.
+    // The party rows and the Currency row's Give, on her own Inventory: in view, nothing sideways.
     const fit = await alice.page.getByRole('tabpanel').evaluate(tab => {
       const inView = el => { const box = el.getBoundingClientRect(); return box.width > 0 && box.left >= 0 && box.right <= document.documentElement.clientWidth }
       const rows = [...tab.querySelectorAll('section[aria-labelledby="inventory-parties"] button')]
-      const send = [...tab.querySelectorAll('[role="group"] button')].find(b => b.textContent.trim() === 'Send to')
+      const send = [...tab.querySelectorAll('[role="group"] button')].find(b => b.textContent.trim() === 'Give')
       return { rows: rows.length, rowsFit: rows.every(inView), send: !!send && inView(send) }
     })
     const listWide = await sideways(alice.page)
@@ -848,7 +876,7 @@ for (const width of [360, 390, 768, 1280]) {
     })
     const fits = await dialog.evaluate(d => d.getBoundingClientRect().right <= document.documentElement.clientWidth && d.getBoundingClientRect().left >= 0)
     check(listWide === 0 && fit.rows === 1 && fit.rowsFit && fit.send && rowWide === 0 && await sideways(alice.page) === 0 && onTop && fits,
-      `at ${width} px, ${scheme}: her Inventory's party row and the Currency row's Send to fit, the party row with Take and the dialog scroll nothing sideways, the dialog on top and within the screen (${JSON.stringify(fit)})`)
+      `at ${width} px, ${scheme}: her Inventory's party row and the Currency row's Give fit, the party row with Take and the dialog scroll nothing sideways, the dialog on top and within the screen (${JSON.stringify(fit)})`)
     await shoot(alice, 'move-dialog', dialog)
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await panel.getByRole('button', { name: 'Close' }).click()

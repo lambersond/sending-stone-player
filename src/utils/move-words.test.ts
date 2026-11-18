@@ -171,7 +171,7 @@ describe('utils/move-words', () => {
       expect(moveWords(give, short, 'gm')).toBe(
         'Not given: they haven’t that many',
       )
-      expect(moveReasons('gm', 'give').unavailable).toBe(
+      expect(moveReasons('gm', { verb: 'give' }).unavailable).toBe(
         'your game isn’t taking moves now',
       )
     })
@@ -352,7 +352,7 @@ describe('utils/move-words, a party’s sends and distributions, from module 0.3
     'says members and split for a %s, for either seat',
     verb => {
       for (const role of ['player', 'gm'] as const) {
-        expect(moveReasons(role, verb)).toMatchObject({
+        expect(moveReasons(role, { verb })).toMatchObject({
           members: 'the party’s members have changed. Try again',
           split: 'there isn’t a whole coin for each of them',
         })
@@ -362,13 +362,19 @@ describe('utils/move-words, a party’s sends and distributions, from module 0.3
 
   it('says the party has too few for a take, a send or a distribution, and the giver for a give', () => {
     for (const verb of ['take', 'send', 'distribute'] as const) {
-      expect(moveReasons('player', verb).short).toBe(
+      expect(moveReasons('player', { verb }).short).toBe(
         'the party hasn’t that many',
       )
-      expect(moveReasons('gm', verb).short).toBe('the party hasn’t that many')
+      expect(moveReasons('gm', { verb }).short).toBe(
+        'the party hasn’t that many',
+      )
     }
-    expect(moveReasons('player', 'give').short).toBe('you haven’t that many')
-    expect(moveReasons('gm', 'give').short).toBe('they haven’t that many')
+    expect(moveReasons('player', { verb: 'give' }).short).toBe(
+      'you haven’t that many',
+    )
+    expect(moveReasons('gm', { verb: 'give' }).short).toBe(
+      'they haven’t that many',
+    )
   })
 })
 
@@ -500,13 +506,13 @@ describe('utils/move-words, an item removed, from module 0.33.0', () => {
   })
 
   it('says a move’s stack changed in the same words, and its own words otherwise', () => {
-    expect(moveReasons('player', 'give').changed).toBe(
+    expect(moveReasons('player', { verb: 'give' }).changed).toBe(
       'how many there are has changed. Try again',
     )
-    expect(moveReasons('player', 'give').timeout).toBe(
+    expect(moveReasons('player', { verb: 'give' }).timeout).toBe(
       'your Gamemaster’s game took too long. The sheet shows whether it moved',
     )
-    expect(moveReasons('gm', 'take').unavailable).toBe(
+    expect(moveReasons('gm', { verb: 'take' }).unavailable).toBe(
       'your game isn’t taking moves now',
     )
   })
@@ -630,8 +636,8 @@ describe('utils/move-words, coins added and removed, from module 0.49.0', () => 
     ],
   ])('says why they weren’t changed: %s', (reason, player, gm) => {
     for (const verb of ['receive', 'pay'] as const) {
-      expect(moveReasons('player', verb)[reason]).toBe(player)
-      expect(moveReasons('gm', verb)[reason]).toBe(gm)
+      expect(moveReasons('player', { verb })[reason]).toBe(player)
+      expect(moveReasons('gm', { verb })[reason]).toBe(gm)
     }
   })
 
@@ -642,7 +648,7 @@ describe('utils/move-words, coins added and removed, from module 0.49.0', () => 
     expect(
       moveWords(receive, state({ status: 'failed', reason: 'off' }), 'gm'),
     ).toBe('Not added: your game isn’t changing coins now')
-    expect(moveReasons('player', 'pay').shaped).toBeUndefined()
+    expect(moveReasons('player', { verb: 'pay' }).shaped).toBeUndefined()
     expect(
       moveWords(pay, state({ status: 'refused', reason: 'shaped' }), 'player', {
         shaped: 'that waits until your character is back in their own form',
@@ -663,33 +669,44 @@ const given = (each: string[], used: Record<string, number> | null) => ({
   used,
 })
 
-describe('utils/move-words, coins handed out, from module 0.49.0', () => {
+// Changed on purpose (item give): coins given to several characters at once are told as a Give,
+// and coins given to one character, as a give, carry the sheet's abbreviations too.
+describe('utils/move-words, coins given to characters, from module 0.49.0', () => {
+  const abbreviations = { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' }
   const handOut: LocalMove = {
     verb: 'handOut',
     things: '200 pp and 50 gp',
     other: 'Thorin',
     among: 'Vex, Bram, and Lia',
-    abbreviations: { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' },
+    abbreviations,
+  }
+  /** 5 gp given to Vex alone, as the Give dialog sends it. */
+  const toVex: LocalMove = {
+    verb: 'give',
+    things: '5 gp',
+    other: 'Vex',
+    abbreviations,
   }
   const ALL = ['actorVex0001', 'actorBram001', 'actorLia0001']
 
-  it('calls it what the Gamemaster’s page calls it, and says where it stands', () => {
+  it('calls a give to several what the Gamemaster’s page calls it, and says where it stands', () => {
     expect(moveLabel(handOut)).toBe(
-      'Hand out 200 pp and 50 gp each to Vex, Bram, and Lia',
+      'Give 200 pp and 50 gp each to Vex, Bram, and Lia',
     )
+    expect(moveLabel(toVex)).toBe('Give 5 gp to Vex')
     expect(moveWords(handOut, state({ status: 'rolling' }), 'player')).toBe(
-      'Handing it out in your Gamemaster’s game…',
+      'Giving it in your Gamemaster’s game…',
     )
   })
 
-  it('says what each was handed, to whom, and which other coins the game used', () => {
+  it('says what each was given, to whom, and which other coins the game used', () => {
     expect(
       moveWords(
         handOut,
         state({ status: 'done', transfer: given(ALL, null) }),
         'player',
       ),
-    ).toBe('Handed out 200 pp and 50 gp each to Vex, Bram, and Lia')
+    ).toBe('Gave 200 pp and 50 gp each to Vex, Bram, and Lia')
     expect(
       moveWords(
         { ...handOut, mover: 'Thorin' },
@@ -697,23 +714,61 @@ describe('utils/move-words, coins handed out, from module 0.49.0', () => {
         'gm',
       ),
     ).toBe(
-      'Thorin handed out 200 pp and 50 gp each to Vex, Bram, and Lia, using 13 pp',
+      'Thorin gave 200 pp and 50 gp each to Vex, Bram, and Lia, using 13 pp',
     )
+    expect(
+      moveWords(
+        toVex,
+        state({ status: 'done', transfer: given(['vex'], { pp: 1 }) }),
+        'player',
+      ),
+    ).toBe('Gave 5 gp to Vex, using 1 pp')
+    expect(
+      moveWords(
+        toVex,
+        state({ status: 'done', transfer: given(['vex'], null) }),
+        'player',
+      ),
+    ).toBe('Gave 5 gp to Vex')
   })
 
-  it('says why not as a give does, but of all its coins where they are too few, and in part where some were given', () => {
-    expect(moveReasons('player', 'handOut').short).toBe(
+  it.each<[string, Pick<LocalMove, 'verb' | 'abbreviations'>, string, string]>([
+    [
+      'a give of items, or of coins to a party',
+      { verb: 'give' },
+      'you haven’t that many',
+      'they haven’t that many',
+    ],
+    [
+      'coins given to one character',
+      { verb: 'give', abbreviations },
       'you haven’t the coins for that',
-    )
-    expect(moveReasons('gm', 'handOut').short).toBe(
       'they haven’t the coins for that',
-    )
-    expect(moveReasons('player', 'handOut').shaped).toBe(
-      moveReasons('player', 'give').shaped,
+    ],
+    [
+      'coins given to several',
+      { verb: 'handOut', abbreviations },
+      'you haven’t the coins for that',
+      'they haven’t the coins for that',
+    ],
+  ])(
+    'says too few, of %s, as the coins the game may pay with',
+    (_name, move, player, gm) => {
+      expect(moveReasons('player', move).short).toBe(player)
+      expect(moveReasons('gm', move).short).toBe(gm)
+    },
+  )
+
+  it('says why not as a give does, and in part where some were given', () => {
+    expect(moveReasons('player', handOut).shaped).toBe(
+      moveReasons('player', { verb: 'give' }).shaped,
     )
     expect(
       moveWords(handOut, state({ status: 'refused', reason: 'short' }), 'gm'),
-    ).toBe('Not handed out: they haven’t the coins for that')
+    ).toBe('Not given: they haven’t the coins for that')
+    expect(
+      moveWords(toVex, state({ status: 'refused', reason: 'short' }), 'player'),
+    ).toBe('Not given: you haven’t the coins for that')
     expect(
       moveWords(
         handOut,
@@ -724,7 +779,7 @@ describe('utils/move-words, coins handed out, from module 0.49.0', () => {
         }),
         'player',
       ),
-    ).toBe('Partly handed out: something went wrong')
+    ).toBe('Partly given: something went wrong')
   })
 })
 
@@ -735,8 +790,8 @@ describe('utils/move-words, a transformed character, from module 0.40.0', () => 
   it.each(['give', 'take', 'send', 'distribute'] as const)(
     'says why a %s with a transformed end was refused, for either seat',
     verb => {
-      expect(moveReasons('player', verb).shaped).toBe(SHAPED)
-      expect(moveReasons('gm', verb).shaped).toBe(SHAPED)
+      expect(moveReasons('player', { verb }).shaped).toBe(SHAPED)
+      expect(moveReasons('gm', { verb }).shaped).toBe(SHAPED)
     },
   )
 
@@ -755,7 +810,7 @@ describe('utils/move-words, a transformed character, from module 0.40.0', () => 
       things: '1 Rope',
       other: 'Elowen',
     }
-    expect(moveReasons('player', 'remove').shaped).toBeUndefined()
+    expect(moveReasons('player', { verb: 'remove' }).shaped).toBeUndefined()
     expect(
       moveWords(
         remove,

@@ -5767,7 +5767,8 @@ describe('components/character-sheet/character-pane, Wild Shape, from module 0.4
     const { rerender } = render(offered({ ...thorin, form: wolfForm() }))
 
     await show('Inventory')
-    expect(screen.queryByRole('button', { name: 'Send to' })).toBeNull()
+    // Changed on purpose (item give): the Currency row's Give, Send to before.
+    expect(screen.queryByRole('group', { name: 'Currency' })).toBeNull()
     // Neither Send to… nor Remove… (round 0.40.0 review): no menu at all, the browser's own.
     expect(
       fireEvent.contextMenu(itemRow('Equipment', 'Plain Ring'), { button: 2 }),
@@ -5809,7 +5810,12 @@ describe('components/character-sheet/character-pane, Wild Shape, from module 0.4
     ).toBeVisible()
     await userEvent.keyboard('{Escape}')
     await show('Inventory')
-    expect(screen.getByRole('button', { name: 'Send to' })).toBeVisible()
+    expect(
+      within(screen.getByRole('group', { name: 'Currency' })).getByRole(
+        'button',
+        { name: 'Give' },
+      ),
+    ).toBeVisible()
     fireEvent.contextMenu(itemRow('Equipment', 'Plain Ring'), { button: 2 })
     expect(screen.getByRole('menuitem', { name: 'Remove…' })).toBeEnabled()
     await userEvent.keyboard('{Escape}')

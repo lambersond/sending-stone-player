@@ -4,8 +4,9 @@
 // seat in the app. The Iron Company, the primary party, Alice's user owns and Bob's observes: its
 // members Thorin, Vex, Bram, Lia and Grumble, the Gamemaster's hireling; 4 pp, 103 gp, 8 sp and 3 cp,
 // 2 Rope, 3 Potions of Healing and a Backpack with a Bedroll in it. The Wardens of the Vale both
-// players own; The Silent Order neither. Moves on, rolls off. The character's Currency row's "Send
-// to" on the CURRENCY label's row, pushed right, opening 0.31.0's Give coins; half a space between a
+// players own; The Silent Order neither. Moves on, rolls off. The character's Currency row's Give
+// (Send to before item give) on the CURRENCY label's row, pushed right, opening 0.31.0's Give coins,
+// with module 0.49.0 the characters ticked; half a space between a
 // coin's amount and its abbreviation; "Send to…" in an item's own menu by a right-click, a held touch
 // and Shift+F10, never among the favorites, a press on Take left to Take. The party's Currency row:
 // Take, Send to, Give and Distribute. Distribute shares gold among the four, 3 gp left with the
@@ -216,17 +217,21 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ t
   // Changed on purpose (items 67 and 68): with module 0.49.0 the row's buttons are Add or take away,
   // Send to and Hand out, in that order, which may wrap under the label on a phone; with module
   // 0.31.0, Send to alone, on the label's row, as before. Changed on purpose (item give): Add or take
-  // away reads Add or remove.
-  check(same(names, NEW ? ['Add or remove', 'Send to', 'Hand out'] : ['Send to']) && (NEW || look.overlap) && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
-    `Thorin's Currency row has ${NEW ? 'Add or remove, Send to and Hand out, in that order, the last' : 'one button, "Send to", on the CURRENCY label\'s row,'} at the card's right edge, and none named Give coins (${JSON.stringify([names, look])})`)
+  // away reads Add or remove, and Send to and Hand out are one Give.
+  check(same(names, NEW ? ['Add or remove', 'Give'] : ['Give']) && (NEW || look.overlap) && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
+    `Thorin's Currency row has ${NEW ? 'Add or remove and Give, in that order, the last' : 'one button, "Give", on the CURRENCY label\'s row,'} at the card's right edge, and none named Give coins (${JSON.stringify([names, look])})`)
 }
-await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Send to', exact: true }).click()
+await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
 let dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
 {
+  // Changed on purpose (item give): with module 0.49.0 the characters are ticked, the parties still chosen.
   const radios = await radiosOf(dialog)
-  check(same(radios, NEW ? ['The Iron Company Primary', 'Wardens of the Vale', 'Vex', 'Bram', 'Lia'] : ['The Iron Company Primary', 'Wardens of the Vale', 'Vex', 'Bram', 'Lia']),
-    `"Send to" opens 0.31.0's "Give coins", its To without Thorin (${JSON.stringify(radios)})`)
+  const boxes = await dialog.getByRole('checkbox').evaluateAll(bs => bs.map(b => b.closest('label').textContent.trim()))
+  check(NEW
+    ? same(radios, ['The Iron Company Primary', 'Wardens of the Vale']) && same(boxes, ['Select all', 'Vex', 'Bram', 'Lia'])
+    : same(radios, ['The Iron Company Primary', 'Wardens of the Vale', 'Vex', 'Bram', 'Lia']) && boxes.length === 0,
+  `Give opens 0.31.0's "Give coins", its To without Thorin${NEW ? ', the characters ticked under Select all' : ''} (${JSON.stringify([radios, boxes])})`)
 }
 await dialog.getByRole('button', { name: 'Cancel' }).click()
 await dialog.waitFor({ state: 'hidden' })
@@ -823,24 +828,28 @@ part('15. a race')
     await alice.tab('Inventory')
     const group = tabpanel(alice).getByRole('group', { name: 'Currency', exact: true })
     const giveHold = holdWrite((kind, target) => kind === 'update' && target.id === 'thorin')
-    await group.getByRole('button', { name: 'Send to', exact: true }).click()
+    await group.getByRole('button', { name: 'Give', exact: true }).click()
     dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
     await dialog.waitFor()
-    await pick(dialog, /^Vex/)
+    // Changed on purpose (item give): with module 0.49.0 Vex is ticked, a hand-out to one, whose
+    // giver's write still comes first.
+    if (NEW) await dialog.getByRole('checkbox', { name: /^Vex/ }).locator('xpath=ancestor::label[1]').click()
+    else await pick(dialog, /^Vex/)
     await dialog.getByRole('textbox', { name: 'Gold' }).fill('1')
     await dialog.getByRole('button', { name: 'Give coins' }).click()
     await Promise.race([giveHold.held, wait(20_000)])
-    const send = group.getByRole('button', { name: 'Send to', exact: true })
-    await until(async () => (await send.getAttribute('aria-busy')) === 'true', 'his Send to to wait', 10_000)
+    const send = group.getByRole('button', { name: 'Give', exact: true })
+    await until(async () => (await send.getAttribute('aria-busy')) === 'true', 'his Give to wait', 10_000)
     const look = await currencyLook(group)
-    // Changed on purpose (items 67 and 68): with module 0.49.0 his row has three buttons, and says what's on its
-    // way once, by its label, as a party's does; with an older one Send to, alone, keeps its own spinner.
+    // Changed on purpose (items 67 and 68): with module 0.49.0 his row has more than one button, and says what's
+    // on its way once, by its label, as a party's does; with an older one Give, alone, keeps its own spinner.
+    // Changed on purpose (item give): the row's buttons are Add or remove and Give.
     check(NEW
-      ? look.busy === 'true' && look.buttons.length === 3 && look.buttons.every(b => b.disabled && b.svgs === 0) && look.termSpinners === 1 && look.right && look.name === 'Currency'
+      ? look.busy === 'true' && look.buttons.length === 2 && look.buttons.every(b => b.disabled && b.svgs === 0) && look.termSpinners === 1 && look.right && look.name === 'Currency'
       : look.buttons.length === 1 && look.buttons[0].disabled && look.buttons[0].svgs === 1 && look.termSpinners === 0 && look.busy === null,
     NEW
-      ? `on Thorin's own sheet: while his give is on its way, his Currency row is busy, each of its three buttons disabled with no spinner of its own, one spinner right of the label (${JSON.stringify(look)})`
-      : `on Thorin's own sheet, as before: while his give is on its way, his Send to has its own spinner, his "Currency" label none, the group not busy (${JSON.stringify(look)})`)
+      ? `on Thorin's own sheet: while his give is on its way, his Currency row is busy, both its buttons disabled with no spinner of their own, one spinner right of the label (${JSON.stringify(look)})`
+      : `on Thorin's own sheet, as before: while his give is on its way, his Give has its own spinner, his "Currency" label none, the group not busy (${JSON.stringify(look)})`)
     giveHold.release()
     // The give is the last move posted: it was taken before its write was held.
     await answered(moves().length, "Thorin's 1 gp to Vex")

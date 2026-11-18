@@ -39,14 +39,14 @@ export function coinAbbreviations(
 }
 
 /**
- * What a dialog says where coins taken from a character are more of a coin than it holds (module
- * 0.49.0), by the app's own count of what its coins are worth, which the game's stands over:
- * nothing where it holds them all, or the app can't tell and the game pays with other coins;
- * `note`, said after what it'll do, where its other coins pay; or `refused`, said in its place,
- * where they're worth too little, or the game doesn't pay with other coins.
- * @param pay - All that's taken, by coin: of a hand-out, every share together.
- * @param options - `change`: whether the game pays with other coins. `inAll`: that `pay` is a
- *   hand-out's shares together, which its words then say.
+ * What a dialog says where coins removed from a character, or given to characters, are more of a
+ * coin than it holds (module 0.49.0), by the app's own count of what its coins are worth, which
+ * the game's stands over: nothing where it holds them all, or the app can't tell and the game pays
+ * with other coins; `note`, said after what it'll do, where its other coins pay; or `refused`,
+ * said in its place, where they're worth too little, or the game doesn't pay with other coins.
+ * @param pay - All that's taken, by coin: of a give to several characters, every share together.
+ * @param options - `change`: whether the game pays with other coins. `inAll`: that `pay` is the
+ *   shares of a give to several characters together, which its words then say.
  */
 export function shortCoinWords(
   speaker: CoinSpeaker,
@@ -80,8 +80,9 @@ export function shortCoinWords(
 }
 
 /**
- * How few of a coin are held, after who holds them: "only 3 gp", or "no gp"; of a hand-out's
- * shares together, "only 20 gp of the 150 gp in all", or "none of the 150 gp in all".
+ * How few of a coin are held, after who holds them: "only 3 gp", or "no gp"; of the shares of a
+ * give to several characters together, "only 20 gp of the 150 gp in all", or "none of the 150 gp
+ * in all".
  */
 function heldWords(held: number, abbreviation: string, ofAll?: string): string {
   const only = `only ${held.toLocaleString('en')} ${abbreviation}`

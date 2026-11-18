@@ -117,7 +117,7 @@ export function reasonOf(
     (state.wildShape
       ? wildShapeReasons(role, state.wildShape)[key]
       : undefined) ??
-    (state.move ? moveReasons(role, state.move.verb)[key] : undefined) ??
+    (state.move ? moveReasons(role, state.move)[key] : undefined) ??
     // A spell slot spent or restored from the dots, from module 0.42.1.
     (state.spellSlot ? SLOT_REASONS[key] : undefined) ??
     (state.itemCast ? ITEM_CAST_REASONS[key] : undefined) ??

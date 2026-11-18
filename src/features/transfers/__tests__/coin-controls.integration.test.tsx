@@ -123,16 +123,17 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
   })
 
-  it('offers Add or remove on the Currency row before Send to, and Hand out after it, with moves off and no coins held too', async () => {
+  it('offers Add or remove on the Currency row before Give, with moves off and no coins held too', async () => {
+    // Changed on purpose (item give): Send to and Hand out are one Give, after Add or remove.
     const { unmount } = await renderCoins({
       coins: { change: true },
       moves: tableMoves({ handOut: { change: true } }),
     })
-    expect(rowButtons()).toEqual(['Add or remove', 'Send to', 'Hand out'])
+    expect(rowButtons()).toEqual(['Add or remove', 'Give'])
     expect(changeButton()).toHaveAttribute('aria-haspopup', 'dialog')
     unmount()
 
-    // Its own switch: there to add to an empty purse, where there's nothing to send or hand out.
+    // Its own switch: there to add to an empty purse, where there's nothing to give.
     const empty = await renderCoins({
       coins: { change: false },
       moves: tableMoves({ handOut: { change: false } }),
@@ -141,25 +142,18 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     expect(rowButtons()).toEqual(['Add or remove'])
     empty.unmount()
 
-    // Hand out with the coins' switch off, as moves have their own, a single copper being a coin
-    // to hand out: but only where the module hands coins out, and there's another character to
-    // hand them to.
-    const moving = await renderCoins({
+    // Give with the coins' switch off, as moves have their own, a single copper being a coin to
+    // give.
+    await renderCoins({
       moves: tableMoves({ handOut: { change: true } }),
       sheet: holding({ cp: 1 }),
     })
-    expect(rowButtons()).toEqual(['Send to', 'Hand out'])
-    moving.unmount()
-    await renderCoins({
-      coins: { change: true },
-      moves: tableMoves({ handOut: { change: true }, characters: [] }),
-    })
-    expect(rowButtons()).toEqual(['Add or remove', 'Send to'])
+    expect(rowButtons()).toEqual(['Give'])
   })
 
   it('offers none where the campaign lets no coins be changed, nor while the character is transformed', async () => {
     const { unmount } = await renderCoins({ moves: tableMoves() })
-    expect(rowButtons()).toEqual(['Send to'])
+    expect(rowButtons()).toEqual(['Give'])
     unmount()
 
     const shaped = shapedSheet()
@@ -172,8 +166,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
       },
     })
     expect(screen.queryByRole('button', { name: 'Add or remove' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Send to' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Hand out' })).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Currency' })).toBeNull()
   })
 
   it('takes coins away through the seat’s API, the tray following it to what the game says it used', async () => {
@@ -232,12 +225,11 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
       expect(
         screen.getByText('Removing it in your Gamemaster’s game…'),
       ).toBeInTheDocument()
-      // All three of the row's wait on it, as the app refuses another change or a move of its
-      // coins; and the row says so once, by its label, as a party's does, with no spinner in a
-      // button.
+      // Both of the row's wait on it, as the app refuses another change or a move of its coins;
+      // and the row says so once, by its label, as a party's does, with no spinner in a button.
       const row = screen.getByRole('group', { name: 'Currency' })
       expect(row).toHaveAttribute('aria-busy', 'true')
-      for (const name of ['Add or remove', 'Send to', 'Hand out']) {
+      for (const name of ['Add or remove', 'Give']) {
         const button = within(row).getByRole('button', { name })
         expect(button).toBeDisabled()
         expect(button).toHaveAttribute('aria-busy', 'true')
@@ -298,97 +290,6 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     ).toBeInTheDocument()
   })
 
-  it('hands coins out through the seat’s API as a move to each of those ticked, the tray saying what each got and what else the game used', async () => {
-    jest
-      .mocked(fetch)
-      .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
-      .mockResolvedValue(
-        respond(200, {
-          id: 'req-1',
-          status: 'done',
-          visible: true,
-          rolls: [],
-          transfer: {
-            from: 'actorThorin1',
-            to: null,
-            items: [],
-            currency: { gp: 2 },
-            each: ['actorVex0001', 'actorBram001'],
-            used: { pp: 1 },
-          },
-        }),
-      )
-    const { user } = await renderCoins({
-      coins: { change: true },
-      moves: tableMoves({
-        handOut: { change: true },
-        characters: [
-          { id: 'actorVex0001', name: 'Vex' },
-          { id: 'actorBram001', name: 'Bram' },
-        ],
-      }),
-    })
-    await user.click(screen.getByRole('button', { name: 'Hand out' }))
-    const dialog = within(
-      screen.getByRole('dialog', { name: 'Hand out coins' }),
-    )
-    await user.click(dialog.getByRole('checkbox', { name: 'Select all' }))
-    await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '2')
-    expect(
-      dialog.getByText(
-        'You hand out 2 gp each to Vex and Bram: 4 gp in all. You hold only 3 gp, so other coins pay for the rest.',
-      ),
-    ).toBeVisible()
-    await user.click(dialog.getByRole('button', { name: 'Hand out' }))
-
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(posts()).toEqual([
-      {
-        url: '/api/characters/char-1/rolls',
-        body: {
-          kind: 'transfer',
-          transfer: {
-            from: 'actorThorin1',
-            each: ['actorVex0001', 'actorBram001'],
-            currency: { gp: 2 },
-          },
-          mode: 0,
-          explicit: false,
-          extras: [],
-          dice: [],
-        },
-      },
-    ])
-    expect(
-      await screen.findByText(
-        'Handed out 2 gp each to Vex and Bram, using 1 pp',
-        {},
-        { timeout: 3000 },
-      ),
-    ).toBeInTheDocument()
-  })
-
-  it('hands out by what the game says of moves paying with other coins, whatever the coins’ own switch is', async () => {
-    // Coins' switch off, so the page has no word of its own on other coins: the moves' says none.
-    const { user } = await renderCoins({
-      moves: tableMoves({ handOut: { change: false } }),
-    })
-    await user.click(screen.getByRole('button', { name: 'Hand out' }))
-    const dialog = within(
-      screen.getByRole('dialog', { name: 'Hand out coins' }),
-    )
-    await user.click(dialog.getByRole('checkbox', { name: 'Vex' }))
-    await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
-
-    expect(
-      dialog.getByText(
-        'You hold only 3 gp of the 5 gp in all, and your Gamemaster’s game doesn’t pay with other coins.',
-      ),
-    ).toBeVisible()
-    await user.click(dialog.getByRole('button', { name: 'Hand out' }))
-    expect(posts()).toEqual([])
-  })
-
   it('leaves the row’s buttons be while an item, not coins, is on its way', async () => {
     const { user } = await renderCoins({
       coins: { change: true },
@@ -404,7 +305,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     ).toBeDisabled()
     const row = screen.getByRole('group', { name: 'Currency' })
     expect(row).not.toHaveAttribute('aria-busy')
-    for (const name of ['Add or remove', 'Send to', 'Hand out']) {
+    for (const name of ['Add or remove', 'Give']) {
       expect(within(row).getByRole('button', { name })).toBeEnabled()
     }
   })
@@ -465,13 +366,13 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
 
     it('offers the row’s buttons from what the table’s view says of coins and moves', async () => {
       await renderTable(tableView())
-      expect(rowButtons()).toEqual(['Add or remove', 'Send to', 'Hand out'])
+      expect(rowButtons()).toEqual(['Add or remove', 'Give'])
     })
 
     it('offers none at a character no longer in the game, whatever its view says', async () => {
       await renderTable(tableView({ connected: false }))
       expect(screen.queryByRole('button', { name: 'Add or remove' })).toBeNull()
-      expect(screen.queryByRole('button', { name: 'Hand out' })).toBeNull()
+      expect(screen.queryByRole('group', { name: 'Currency' })).toBeNull()
     })
   })
 })

@@ -132,11 +132,11 @@ run results 12 DND5E6=1 SHOTS=$O/shots-030
 run results 17 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
 # Module 0.31.0: moving items and coins (party ↔ character, character → character), dnd5e 6.0.5's
 # fractional coins, and module 0.30.0 (no moves); and Hit/miss and save results in the app.
-run transfers 76 SHOTS=$O/shots-031
-run transfers 80 DND5E6=1 SHOTS=$O/shots-031
+run transfers 77 SHOTS=$O/shots-031
+run transfers 81 DND5E6=1 SHOTS=$O/shots-031
 run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
-# to; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
+# to, Give since item give; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
 # and its coin distributed; dnd5e 6.0.5's fractions; and module 0.31.0 (none of the party's new ones).
 run givetake 67 SHOTS=$O/shots-032
 run givetake 68 DND5E6=1 SHOTS=$O/shots-032
@@ -254,13 +254,14 @@ run launch 28 SHOTS=$O/shots-launch
 # removed, not found at once; and a Server Action that writes no cookie.
 run signin 9
 # Module 0.49.0 (items 67 and 68): coins added to a character, taken away and handed out from the
-# app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's three
-# buttons, a larger coin broken and smaller ones paying, more than the coins are worth held back,
-# other coins off in Foundry, the Gamemaster's at the character's page, a hand-out's whispers to each
-# and to the Gamemasters, both switches off, both dialogs on phones, a tablet and the desk, Help and
-# the campaign card; dnd5e 6.0.5; and module 0.47.0 (no button but Send to, crafted requests refused).
-run coins 44 SHOTS=$O/shots-049
-run coins 44 DND5E6=1 SHOTS=$O/shots-049
+# app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's Add or
+# remove and Give (item give), a larger coin broken and smaller ones paying, more than the coins are
+# worth held back, other coins off in Foundry, the Gamemaster's at the character's page, Give's
+# whispers to each of two and to one, and to the Gamemasters, both switches off, both dialogs on
+# phones, a tablet and the desk, Help and the campaign card; dnd5e 6.0.5; and module 0.47.0 (no
+# button but Give, crafted requests refused).
+run coins 48 SHOTS=$O/shots-049
+run coins 48 DND5E6=1 SHOTS=$O/shots-049
 run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
 # Module 0.50.0 (item 58): other creatures' health on the Combat tab, in world-030's world with
 # tokens: the hello and the answer, both switches off, and nothing of it in what the pages receive;
