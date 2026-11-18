@@ -709,4 +709,33 @@ describe('components/transfers/move-dialog, a character’s Give of coins, from 
       mover: 'Thorin',
     })
   })
+
+  it('lists every one as a radio, with no Select all, where the module hands no coins out, and for a party’s Send coins', () => {
+    const chosenFrom = () =>
+      screen.getAllByRole('radio').map(radio => radio.getAttribute('value'))
+    // Before module 0.49.0: no `handOut`, so one party or character, as Send to was.
+    const { unmount } = renderDialog(
+      give({
+        what: { coins },
+        recipients: { parties: [party], characters: [vex, bram] },
+      }),
+    )
+    expect(chosenFrom()).toEqual([
+      'groupIronCo01',
+      'actorVex0001',
+      'actorBram001',
+    ])
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    unmount()
+
+    renderDialog({
+      mode: 'send',
+      from: party,
+      into: undefined,
+      what: { coins },
+      recipients: { parties: [], characters: [vex, bram] },
+    })
+    expect(chosenFrom()).toEqual(['actorVex0001', 'actorBram001'])
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
 })
