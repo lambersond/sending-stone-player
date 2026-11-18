@@ -170,6 +170,9 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         text: 'The Combat tab shows the initiative order and whose turn it is; on a wide screen it’s beside the sheet. Roll Initiative from the Character tab when the encounter starts. Where your Gamemaster’s game takes your rolls, the Combat tab has End turn on your turn, and Undo shows in a toast for 8 seconds after. Or press and hold the Combat tab for a second, from any tab: a toast says your turn is ending, and if you let go early, nothing happens. On a companion’s turn, the same ends its turn. A companion rolls its own initiative from its tab, unless your Gamemaster puts companions right after their character, when it isn’t rolled at all.',
       },
+      {
+        text: 'Where your Gamemaster allows it, each creature that isn’t one of the party shows how hurt it is: Unhurt, Hurt, Bloodied (at about half its hit points or less, by the game’s own rule) or Down (at 0). If they allow it, its hit points show instead, as the party’s do.',
+      },
     ],
   },
   {
@@ -270,6 +273,14 @@ export const HELP_SECTIONS: HelpSection[] = [
         text: ': whether your companions roll their own, or go right after you.',
       },
       {
+        lead: 'Allow Players to see other creatures’ health in the app',
+        text: ': Unhurt, Hurt, Bloodied or Down beside each creature on the Combat tab that isn’t the party’s (0.50.0).',
+      },
+      {
+        lead: 'Show their hit points too',
+        text: ': their hit points there instead (0.50.0).',
+      },
+      {
         lead: 'No switch, but a recent module',
         text: ': End turn (0.36.0), Remove… (0.33.0), favorites (0.37.0) and putting them in order (0.47.0), Prepare and spell slot dots (0.42.1), the dice tray made in their game (0.43.0), and dice an item rolls later (0.44.0).',
       },
@@ -345,6 +356,14 @@ export const PLAYER_ROWS = {
   favorites: { label: 'Favorites', ...FROM_HERE },
   effects: { label: 'Your own effects', ...FROM_HERE },
   wildShape: { label: 'Wild Shape', ...FROM_HERE },
+  // From module 0.50.0, at either seat: how hurt the creatures not of the party are, or their hit
+  // points, as the Gamemaster shows them.
+  health: {
+    label: 'Other creatures’ health',
+    on: 'How hurt they are',
+    hitPoints: 'Their hit points',
+    off: 'Not shown',
+  },
 } as const
 
 /**

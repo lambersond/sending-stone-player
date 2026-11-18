@@ -40,6 +40,8 @@ const everything = (fields: Partial<TableView> = {}): TableView =>
     wildShape: true,
     hitPoints: true,
     laterDice: true,
+    // Changed on purpose (item 58): from module 0.50.0, how hurt other creatures are.
+    health: 'health',
     ...fields,
   })
 
@@ -84,6 +86,8 @@ describe('features/help/utils', () => {
           '● Removing items: From here',
           '● Favorites: From here',
           '● Your own effects: From here',
+          // Changed on purpose (item 58): last, from module 0.50.0.
+          '● Other creatures’ health: How hurt they are',
         ],
       ],
       [
@@ -109,6 +113,8 @@ describe('features/help/utils', () => {
           '● Favorites: From here',
           '● Your own effects: From here',
           '● Wild Shape: From here',
+          // Changed on purpose (item 58): after Wild Shape, from module 0.50.0.
+          '● Other creatures’ health: How hurt they are',
         ],
       ],
       [
@@ -127,6 +133,8 @@ describe('features/help/utils', () => {
           '○ Removing items: Not from here',
           '○ Favorites: Not from here',
           '○ Your own effects: Not from here',
+          // Changed on purpose (item 58): last, from module 0.50.0.
+          '○ Other creatures’ health: Not shown',
         ],
       ],
     ])('says what %s allows the player', (_case, shown, rows) => {
@@ -191,16 +199,38 @@ describe('features/help/utils', () => {
       ['a druid with Wild Shape', druidSheet(), '● Wild Shape: From here'],
       ['one shaped now', shapedSheet(), '● Wild Shape: From here'],
     ])('has Wild Shape’s row for %s alone', (_case, sheet, row) => {
+      // Changed on purpose (item 58): other creatures' health comes after it, last.
       const view = everything({ sheet: toTableSheet(sheet, GAME) })
-      expect(rowsOf(facts({ view }))?.at(-1)).toBe(row)
+      expect(rowsOf(facts({ view }))?.at(-2)).toBe(row)
       expect(
         rowsOf(
           facts({
             view: everything({ wildShape: undefined, sheet: view.sheet }),
           }),
-        )?.at(-1),
+        )?.at(-2),
       ).toBe('○ Wild Shape: Not from here')
     })
+
+    it.each<[string, TableView['health'], string]>([
+      [
+        'how hurt they are',
+        'health',
+        '● Other creatures’ health: How hurt they are',
+      ],
+      [
+        'their hit points',
+        'hitPoints',
+        '● Other creatures’ health: Their hit points',
+      ],
+      ['nothing', undefined, '○ Other creatures’ health: Not shown'],
+    ])(
+      'says other creatures’ health shows %s at either seat (module 0.50.0)',
+      (_case, health, row) => {
+        const view = everything({ health, gm: { rolls: 'made' } })
+        expect(rowsOf(facts({ view }))?.at(-1)).toBe(row)
+        expect(rowsOf(facts({ view, gm: true }))?.at(-1)).toBe(row)
+      },
+    )
 
     it('says why something may be missing, and while the game is not connected that nothing is made there', () => {
       expect(helpBox(facts())?.notes).toEqual([
@@ -247,6 +277,8 @@ describe('features/help/utils', () => {
           // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
           '● Adding and taking away coins: From here',
           '○ Removing items: Not from here',
+          // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+          '● Other creatures’ health: How hurt they are',
         ])
         expect(helpBox(shown)?.notes).toEqual([
           {
@@ -267,8 +299,10 @@ describe('features/help/utils', () => {
       expect(typingOf(false)).toEqual(
         typingOf(true)?.filter(lead => lead !== 'Dice an item rolls later.'),
       )
+      // Changed on purpose (item 58): Combat's part on other creatures' health, and its two
+      // switches, from module 0.50.0.
       expect(helpSections(false).map(({ parts }) => parts.length)).toEqual([
-        8, 7, 1, 7, 3, 1, 10, 14,
+        8, 7, 1, 7, 3, 2, 10, 16,
       ])
     })
   })
