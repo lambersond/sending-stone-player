@@ -12,7 +12,8 @@
 // Thorin's page, marked as theirs; through Give, 2 gp each to Vex and Bram, each whispered their
 // own, the Gamemasters the whole of it, Thorin's player reading all three and Vex's only his, and
 // 1 gp to Vex alone, whispered the same way; the coins' switch off, Add or remove gone within a poll
-// and Give still there, then moves off and it gone too; both dialogs at 360, 390, 768 and 1280 in
+// and Give still there, then moves off and it gone too; the row's label, coins and buttons one below
+// another, and both dialogs, at 320, 360, 390, 560 (near the widest the card gets), 768 and 1280, in
 // both themes; Help's row and lines, and the Gamemaster's campaign card. DND5E6=1: on dnd5e 6.0.5,
 // whose sheet shows whole coins. SKEW=047: module 0.47.0, which says nothing of coins: no button but
 // Give, Help "Not from here", the
@@ -418,7 +419,10 @@ part('9b. coins given to Vex alone')
 part('10. phones, a tablet and both themes')
 {
   await holds({ pp: 2, gp: 3 })
-  for (const [width, height] of [[320, 640], [360, 780], [390, 844], [768, 1024], [1280, 800]]) {
+  // At 560 the card is 528 px wide, near its widest (543 at 575): the sheet keeps two columns until
+  // it is 576 wide, the Currency card across both, so a card that put its label, coins and buttons in
+  // one row would show it there, where at the other widths the row would wrap its buttons below.
+  for (const [width, height] of [[320, 640], [360, 780], [390, 844], [560, 800], [768, 1024], [1280, 800]]) {
     const seat = await browse({ device: { viewport: { width, height }, deviceScaleFactor: 2, isMobile: width < 1024, hasTouch: width < 1024 }, path: '/characters/sheet-thorin', toasts: false })
     await seat.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
     await seat.tab('Inventory')
@@ -426,18 +430,26 @@ part('10. phones, a tablet and both themes')
     await until(async () => (await rowButtons(seat)).length === 2, `the two buttons at ${width}`, 20_000)
     // Changed on purpose (item give): the buttons are below the coins, at the card's left, by their
     // boxes: below the coins and the label, inside the card, the first at its content's left; the
-    // card's children its label, its coins, then its buttons.
+    // coins below the label; the card's children its label, its coins, then its buttons. `room` is
+    // what the card's content has to spare were the label, the coins and the buttons in one row, at
+    // their own widths and gaps: at 560 there must be room, or the check there proves nothing.
     const look = await seat.currency().evaluate(group => {
       const card = group.closest('dl > div')
       const edge = card.getBoundingClientRect()
       const style = getComputedStyle(card)
       const contentLeft = edge.left + parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth)
+      const contentWidth = card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
       const label = card.querySelector('dt').getBoundingClientRect()
       const coins = card.querySelector('ul').getBoundingClientRect()
       const buttons = [...group.querySelectorAll('button')]
       const boxes = buttons.map(b => b.getBoundingClientRect())
+      const span = (first, last) => last.getBoundingClientRect().right - first.getBoundingClientRect().left
+      const items = card.querySelectorAll('ul > li')
+      const row = card.querySelector('dt > span').getBoundingClientRect().width + span(items[0], items[items.length - 1]) + span(buttons[0], buttons[buttons.length - 1]) + 2 * 8
       return {
+        room: Math.round(contentWidth - row),
         below: boxes.every(b => b.top >= coins.bottom - 0.5 && b.top >= label.bottom - 0.5),
+        stacked: coins.top >= label.bottom - 0.5,
         inside: boxes.every(b => b.left >= edge.left && b.right <= edge.right + 0.5 && b.bottom <= edge.bottom + 0.5),
         left: Math.abs(boxes[0].left - contentLeft) <= 1,
         children: [...card.children].map(child => child.tagName),
@@ -445,8 +457,8 @@ part('10. phones, a tablet and both themes')
         names: buttons.map(b => b.textContent.trim()),
       }
     })
-    check(look.below && look.inside && look.left && same(look.children, ['DT', 'DD', 'DD']) && look.name === 'Currency' && same(look.names, ['Add or remove', 'Give']) && await sideways(seat.page) === 0,
-      `at ${width} the row's two buttons are below its coins, at the card's left and inside it, nothing scrolling sideways (${JSON.stringify(look)})`)
+    check(look.below && look.stacked && look.inside && look.left && (width !== 560 || look.room > 0) && same(look.children, ['DT', 'DD', 'DD']) && look.name === 'Currency' && same(look.names, ['Add or remove', 'Give']) && await sideways(seat.page) === 0,
+      `at ${width} the row's two buttons are below its coins, its coins below its label, the buttons at the card's left and inside it${width === 560 ? ', on a card with room for all three in one row' : ''}, nothing scrolling sideways (${JSON.stringify(look)})`)
     if (width === 390 || width === 1280) await shootBoth(seat, 'coins-row', seat.currency().locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]'))
     const coins = await changing(seat, 'Remove', '5')
     await shootBoth(seat, 'coins-dialog', coins)

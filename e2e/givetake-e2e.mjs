@@ -5,7 +5,8 @@
 // members Thorin, Vex, Bram, Lia and Grumble, the Gamemaster's hireling; 4 pp, 103 gp, 8 sp and 3 cp,
 // 2 Rope, 3 Potions of Healing and a Backpack with a Bedroll in it. The Wardens of the Vale both
 // players own; The Silent Order neither. Moves on, rolls off. The character's Currency row's Give
-// (Send to before item give) below its coins, at the card's left, opening 0.31.0's Give coins, with
+// (Send to before item give) below its coins, at the card's left, the coins below the label, opening
+// 0.31.0's Give coins, with
 // module 0.49.0 the characters ticked; half a space between a coin's amount and its abbreviation;
 // "Send to…" in an item's own menu by a right-click, a held touch and Shift+F10, never among the
 // favorites, a press on Take left to Take. The party's Currency row: Take, Send to, Give and
@@ -206,7 +207,8 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ t
 {
   const names = await currencyButtons(sheetTab)
   // Changed on purpose (item give): the buttons are below the coins, the first at the card's left,
-  // under either module (the card is the app's); they were on the label's row, the last at its right.
+  // and the coins below the label, under either module (the card is the app's); they were on the
+  // label's row, the last at its right.
   const look = await sheetTab.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
     const card = group.closest('dl > div') ?? group.parentElement.parentElement
     const dt = card.querySelector('dt')
@@ -214,14 +216,14 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ t
     const coins = card.querySelector('ul').getBoundingClientRect()
     const style = getComputedStyle(card)
     const contentLeft = card.getBoundingClientRect().left + parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth)
-    return { below: buttons.every(b => b.top >= coins.bottom - 0.5), left: buttons[0].left - contentLeft, label: dt.textContent.trim() }
+    return { below: buttons.every(b => b.top >= coins.bottom - 0.5), stacked: coins.top >= dt.getBoundingClientRect().bottom - 0.5, left: buttons[0].left - contentLeft, label: dt.textContent.trim() }
   })
   // Changed on purpose (items 67 and 68): with module 0.49.0 the row's buttons are Add or take away,
   // Send to and Hand out, in that order, which may wrap under the label on a phone; with module
   // 0.31.0, Send to alone, on the label's row, as before. Changed on purpose (item give): Add or take
   // away reads Add or remove, and Send to and Hand out are one Give.
-  check(same(names, NEW ? ['Add or remove', 'Give'] : ['Give']) && look.below && Math.abs(look.left) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
-    `Thorin's Currency row has ${NEW ? 'Add or remove and Give, in that order,' : 'one button, "Give",'} below its coins, the first at the card's left edge, and none named Give coins (${JSON.stringify([names, look])})`)
+  check(same(names, NEW ? ['Add or remove', 'Give'] : ['Give']) && look.below && look.stacked && Math.abs(look.left) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
+    `Thorin's Currency row has ${NEW ? 'Add or remove and Give, in that order,' : 'one button, "Give",'} below its coins, the first at the card's left edge, its coins below its label, and none named Give coins (${JSON.stringify([names, look])})`)
 }
 await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
 let dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
@@ -870,13 +872,18 @@ for (const width of [360, 390, 768, 1280]) {
     const p = await openParty(alice)
     await p.getByRole('group', { name: 'Currency', exact: true }).waitFor()
     // Changed on purpose (item give): the party's group is below its coins at every width, at the
-    // card's left; it wrapped under the label, at the card's right, at 360.
+    // card's left, and its coins below its label; it wrapped under the label, at the card's right,
+    // at 360.
     const wraps = await p.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
       const card = group.closest('dl > div') ?? group.parentElement.parentElement
       const coins = card.querySelector('ul').getBoundingClientRect()
       const style = getComputedStyle(card)
       const first = group.querySelector('button').getBoundingClientRect()
-      return { below: group.getBoundingClientRect().top >= coins.bottom - 1, left: Math.abs(first.left - card.getBoundingClientRect().left - parseFloat(style.paddingLeft) - parseFloat(style.borderLeftWidth)) <= 1 }
+      return {
+        below: group.getBoundingClientRect().top >= coins.bottom - 1,
+        stacked: coins.top >= card.querySelector('dt').getBoundingClientRect().bottom - 1,
+        left: Math.abs(first.left - card.getBoundingClientRect().left - parseFloat(style.paddingLeft) - parseFloat(style.borderLeftWidth)) <= 1,
+      }
     })
     const partyWide = await sideways(alice.page)
     if (width === 390) await shoot(alice, 'givetake-currency', p)
@@ -899,8 +906,8 @@ for (const width of [360, 390, 768, 1280]) {
       return !!hit && item.contains(hit)
     })
     await alice.page.keyboard.press('Escape')
-    check(own === 0 && partyWide === 0 && sendWide === 0 && shareWide === 0 && onTop && wraps.below && wraps.left,
-      `at ${width} px, ${scheme}: the Currency rows, Send coins and Distribute coins scroll nothing sideways, the party's group below its coins at the card's left; the item's menu is on top (${JSON.stringify(wraps)})`)
+    check(own === 0 && partyWide === 0 && sendWide === 0 && shareWide === 0 && onTop && wraps.below && wraps.stacked && wraps.left,
+      `at ${width} px, ${scheme}: the Currency rows, Send coins and Distribute coins scroll nothing sideways, the party's group below its coins at the card's left, its coins below its label; the item's menu is on top (${JSON.stringify(wraps)})`)
     await p.getByRole('button', { name: 'Close' }).click()
     if (width === 1280) await spacing(alice, tabpanel(alice), "Thorin's Holdings")
   }
