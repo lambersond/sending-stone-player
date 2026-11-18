@@ -382,6 +382,12 @@ export const HEALTH_STATES = ['unhurt', 'hurt', 'bloodied', 'down'] as const
  */
 export const COIN_OPS = ['add', 'remove'] as const
 
+/**
+ * The format of quiet fetches this app answers, as it tells the module (`quiet`): from module
+ * 0.50.0, a fetch's `quiet` and the answer's, which the module sends and takes only then.
+ */
+export const QUIET_FETCHES = 1
+
 /** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
 export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/
 
@@ -622,6 +628,12 @@ export const COMMANDS_CHECK_EVERY = 1000
 export const COMMANDS_COLD_WAIT = 10_000
 /** When rolls are turned off for the campaign, how long before the module asks again. */
 export const COMMANDS_OFF_WAIT = 60_000
+/**
+ * While nobody is in the app, how long a module from 0.50.0 may wait before its next fetch, a
+ * quiet look, in place of COMMANDS_COLD_WAIT: well inside BRIDGE_POLLED_WITHIN, so its game still
+ * counts as fetching, and ROLL_PENDING_FOR, so a roll sent as someone arrives still reaches it.
+ */
+export const COMMANDS_QUIET_WAIT = 20_000
 
 /** How recently a player must have had their table open for a roll to be awaited. */
 export const PLAYERS_PRESENT_FOR = 120_000

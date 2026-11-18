@@ -14,6 +14,7 @@ import {
   MAX_ENVELOPE_BYTES,
   MIDI_PROMPTS,
   NOTES,
+  QUIET_FETCHES,
   REMOVALS,
   SLIM_SHEETS,
   TRANSFERS,
@@ -64,7 +65,8 @@ export const BRIDGE_SWITCHES = [
  * player, which the module asks, and takes the `dice` answer to, only then; and from module 0.49.0
  * coins added to a character and taken away, which the module fetches for only then; and from
  * module 0.50.0 how hurt other creatures are, and their hit points where their Gamemaster shows
- * them, which the module sends only then.
+ * them, which the module sends only then, and quiet fetches while nobody is in the app, which the
+ * module makes only then.
  */
 export const FEATURES = {
   commands: true,
@@ -86,6 +88,7 @@ export const FEATURES = {
   diceAsks: DICE_ASKS,
   coins: COINS,
   health: HEALTH,
+  quiet: QUIET_FETCHES,
 }
 
 /**

@@ -4,6 +4,7 @@
 import { Prisma, type CookbookDish } from '@prisma/client'
 import {
   acceptDish,
+  anyDishDue,
   claimDishes,
   deleteCookbookLink,
   findCookbookLink,
@@ -558,6 +559,25 @@ describe('claimDishes', () => {
     await claimDishes('c-prune', 'sess-1', campaign())
     expect(prunes('c-prune')).toHaveLength(2)
   })
+})
+
+describe('anyDishDue, from module 0.50.0', () => {
+  it.each([
+    ['a dish due', { id: 'row-1' }, true],
+    ['none', null, false],
+  ])(
+    'reads by one look whether %s waits, queued or overdue, of any version',
+    async (_name, found, waits) => {
+      prismaMock.cookbookDish.findFirst.mockResolvedValue(found as any)
+
+      await expect(anyDishDue('c1')).resolves.toBe(waits)
+
+      expect(prismaMock.cookbookDish.findFirst).toHaveBeenCalledWith({
+        where: { campaignId: 'c1', OR: due().OR },
+        select: { id: true },
+      })
+    },
+  )
 })
 
 describe('recordDishResult', () => {

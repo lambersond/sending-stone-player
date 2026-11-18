@@ -1022,6 +1022,26 @@ describe('schemas/roll-request', () => {
       commandsPollSchema.safeParse({ ...poll, campaign: undefined }).success,
     ).toBe(false)
   })
+
+  it.each([
+    [true, true],
+    [false, false],
+    ['yes', undefined],
+    [1, undefined],
+  ])(
+    "reads a fetch's quiet %p as %p, from module 0.50.0, never refusing it",
+    (quiet, read) => {
+      const poll = {
+        protocol: 2,
+        session: 'NXUK8r',
+        campaign: { id: 'camp-a', title: 'Ashlands' },
+        quiet,
+      }
+      const parsed = commandsPollSchema.safeParse(poll)
+      expect(parsed.success).toBe(true)
+      expect(parsed.data?.quiet).toBe(read)
+    },
+  )
 })
 
 /** Magic Weapon cast with a 4th-level slot, its +2 put on a longsword. */
