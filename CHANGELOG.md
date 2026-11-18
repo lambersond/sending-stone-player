@@ -91,10 +91,11 @@ so an item from it is named with its number when it was built, which may since b
   options are read from the environment in `src/auth-session.ts`, apart from Better Auth. (app,
   item 62)
 - **Hand out's dialog folded into Give's.** `RecipientChecks` is merged into `RecipientList`, which
-  draws a move's parties as radios and, on a character's Give of its coins, the characters as
-  checkboxes with Select all, the rules of what's ticked pure utilities (`recipient-list/utils.ts`);
-  Hand out's own dialog is gone, its rules now Give's (`move-dialog/utils.ts`), and the coins'
-  dialogs share one summary type, `FormSummary`. (app, item 89)
+  draws a move's parties and characters as radios and, on a character's Give of its coins where the
+  module hands coins out (0.49.0), the characters as checkboxes, with Select all where there are two
+  to twenty; the rules of what's ticked are pure utilities (`recipient-list/utils.ts`). Hand out's
+  own dialog is gone, its rules now Give's (`move-dialog/utils.ts`), and the coins' dialogs share
+  one summary type, `FormSummary`. (app, item 89)
 - **A migration.** `20261118090000_health` keeps whether a campaign's players see other creatures'
   health, and their hit points too, from the campaign's next hello. (app, item 58)
 - **End-to-end checks.** A new `signin` suite, with no Foundry, checks the session's cookie as a
@@ -163,9 +164,9 @@ so an item from it is named with its number when it was built, which may since b
   "Before v1.0", batch 4 reads as done, its items taken out: items 58, 61 and 62, with a line saying
   so where they stood, and item 89, the owner's coins work of 2026-11-17, numbered and done. Items
   87 and 88, under "Found while building Batch 4", are what item 62 found: `default.env`'s session
-  lifetime, and a session in daily use likely to end 30 days after its cookie was last set. Items 84
-  and 85 and v0.49's check of coins name Give and Add or remove, and the known limits say a session
-  ended from outside the app keeps working for up to a minute. (app)
+  lifetime, and a session in daily use likely to end 30 days after its cookie was last set. Item 84
+  names Give, item 85 and v0.49's check of coins name Give and Add or remove, and the known limits
+  say a session ended from outside the app keeps working for up to a minute. (app)
 
 ## v0.49.0 — 2026-11-17
 
