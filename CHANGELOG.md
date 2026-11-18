@@ -36,8 +36,8 @@ so an item from it is named with its number when it was built, which may since b
 - **The campaign card and Help name module 0.49.0 for coins.** Coins came with module 0.49.0, but
   the app named 0.48.0, so a game on module 0.48.0 was told to tick a switch for coins its module
   doesn't have. The card now tells a game before 0.49.0 "Your Sending Stone module doesn’t let
-  players change coins yet. Version 0.49.0 or later does.", and Help names 0.49.0 for Hand out and
-  the Coins box's two switches. (app)
+  players change coins yet. Version 0.49.0 or later does.", and Help names 0.49.0 for Give to
+  several characters at once and the Coins box's two switches. (app)
 - **The party's hit points on the Combat tab follow the game.** They changed only at the next turn;
   now they follow damage and healing within a few seconds, with Sending Stone 0.50.0. (app and
   module, item 58)
@@ -62,6 +62,20 @@ so an item from it is named with its number when it was built, which may since b
   noticed within about 20 seconds, and a dish from the Magical Recipe Book reaches the Gamemaster
   within about 20; the campaign's line in Foundry's settings window says when it is asked less. With
   an older module or app, nothing changes. (app and module, item 61)
+- **One Give for a character's coins, Add or remove, and the buttons under the coins.** On a
+  character's Inventory tab, the Currency row's Send to and Hand out are one button, Give, for its
+  player and for the Gamemaster at the character's page. Its dialog, Give coins, lists the parties
+  you may give to, one at a time, and the campaign's other characters, any of whom you tick, up to
+  20, with Select all where there are two to twenty; you type what each gets, and it says what that
+  comes to in all ("You give 2 gp each to Vex and Bram: 4 gp in all."). A party is given only coins
+  you hold, with All for each coin, and Foundry's chat says so for everyone, as Send to did.
+  Characters, one or several, are given coins as Hand out gave them: other coins pay where you're
+  short of one, unless your Gamemaster has turned that off; each is whispered what they received,
+  and the Gamemasters are told. So a give of coins to one character, posted for everyone before, is
+  now whispered, and its coin fields say what's held rather than offering All. Add or take away
+  reads Add or remove, and its dialog Add and Remove, as Help and the campaign card now say. The
+  buttons now sit below the coins, on a party's sheet too. With Sending Stone before 0.49.0 in
+  Foundry, Give opens the same dialog as Send to did, to one party or character. (app, item 89)
 
 ### Maintenance
 
@@ -101,6 +115,17 @@ so an item from it is named with its number when it was built, which may since b
   being made, a failed fetch, an app that stops saying `quiet`, and the settings window's line. Jest
   pins the look's answer and when it is held, when a fetch is told `quiet`, the fetch's own `quiet`,
   read leniently, whether a dish is due, and the hello's new feature. (app and module, item 61)
+- **Give and Add or remove, end to end.** The `coins` suite gives to two characters and to one, with
+  each one's whisper and the Gamemasters' line, finds the Currency row's buttons below its coins and
+  its coins below its label from 320 to 1280 px, 560 among them, where the card is widest, and Give
+  alone with module 0.47.0; `givetake` ticks characters in Give, finds the buttons below the coins
+  on a character's sheet and a party's, and Give's radios alone with module 0.31.0; and `transfers`,
+  `names`, `removals`, `step2` and `help` take Give, its checkboxes and the new words in. Jest pins
+  whom Give may tick and what its summary says (`move-dialog/utils.ts` and
+  `recipient-list/utils.ts`), Give with and without the module's hand-outs, the tray shown on
+  Effects after a give or a change of coins, Help's Gamemaster note whole, and in the words golden
+  each move's word among earlier rolls. The module's `PROTOCOL.md` and `README.md` name the app's
+  Give and Add or remove. (app and module, item 89)
 
 ## v0.49.0 — 2026-11-17
 

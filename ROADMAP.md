@@ -106,11 +106,25 @@ Midi-QOL v14.0.x:
   is sharp; and in airplane mode, from the third opening, the stone with its two sentences. Safari's
   own "not connected" page there instead means an iPhone didn't finish installing the worker, which
   has a known remedy.
-- **Coins added, taken away and handed out:** Add or take away and Hand out change the coins on the
-  character's sheet in Foundry as the app says, the change coming back as the tray says; "Thorin
-  paid 5 gp" is in everyone's chat, a hand-out's whispers only in each receiver's player's, the
-  Gamemasters' and the giver's player's; both switches in the campaign's Coins box are kept as
-  saved. Under dnd5e 6, a fraction of a coin the world shows stays as it was after a change.
+- **Coins added, taken away and handed out:** Add or remove and Give (v0.49's Add or take away and
+  Hand out) change the coins on the character's sheet in Foundry as the app says, the change coming
+  back as the tray says; "Thorin paid 5 gp" is in everyone's chat, a hand-out's whispers only in
+  each receiver's player's, the Gamemasters' and the giver's player's; both switches in the
+  campaign's Coins box are kept as saved. Under dnd5e 6, a fraction of a coin the world shows stays
+  as it was after a change.
+
+## v0.50 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc entry.
+
+**To check at the table before module v0.50.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Give:** 5 gp to one character is whispered to their player, and the Gamemasters are told
+  ("Thorin handed out 5 gp each to Vex: 5 gp in all"); 2 gp each to two, "Thorin handed out 2 gp
+  each to Vex and Bram: 4 gp in all"; 30 gp to the party is a line for everyone, "Gives 30 gp to The
+  Iron Company", spoken by the giver. On a phone and on the desk, the Currency row's buttons sit
+  under its coins, on a party's sheet too.
 
 ## Before v1.0
 
@@ -124,7 +138,8 @@ tweaks needed may change it as it goes. Next week aims at the first three.
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
-4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
+4. Items 61, 62 and 58, and 89, quieter polling, fewer sign-in reads, non-allies' health, and one
+   Give for coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
 5. Items 64, 65 and 66: any ability or skill the game has.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
@@ -279,20 +294,21 @@ And from the owner's answers on item 19, later work too:
     before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
     `OTHER_FIELDS`. Found building item 67. In no batch yet.
 84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
-    coin fractional digits, a character's coins moved (Send to, Take, Give) and a party's
-    distributed are written as floating point makes them: 10.7 gp less 10 is stored
-    as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes
-    to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
-    write through `coinUpdate`, as coins added, taken away and handed out do since 0.49.0. A default
-    dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it. Module only,
-    small. Found building items 67 and 68. In no batch yet.
+    coin fractional digits, coins moved to or from a party (a character's Give to a party, and a
+    party's Take, Send to and Give), coins given to another character from an app before v0.50.0,
+    and a party's distributed are written as floating point makes them: 10.7 gp less 10 is stored as
+    0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes to
+    no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
+    write through `coinUpdate`, as coins added, removed and given to characters do since 0.49.0. A
+    default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it.
+    Module only, small. Found building items 67 and 68. In no batch yet.
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
-    it, which waits disabled until the move is made. Seen for the Currency row's Add or take away
-    and Hand out (v0.49); by the same code it is so for the row's Send to and an item's Give…, from
-    v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which has no
-    tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet, where
-    focus should go (the tray's line, or the row's label, which says what's on its way) is one
+    it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
+    Give (v0.49's Add or take away and Hand out); by the same code it is so for an item's Give…,
+    from v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which
+    has no tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet,
+    where focus should go (the tray's line, or the row's label, which says what's on its way) is one
     decision for all of its moves. Found reviewing items 67 and 68. In no batch yet.
 86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
     the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
@@ -368,6 +384,11 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
     count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
     nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
     read row by row, so one bad row can't blank a whole sheet. App and module, small.
+
+**Asked for on 2026-11-17**
+
+Item 89, Add or remove, one Give for a character's coins, and the Currency row's buttons below its
+coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
 
 ## v1.0
 
