@@ -5,22 +5,23 @@
 // members Thorin, Vex, Bram, Lia and Grumble, the Gamemaster's hireling; 4 pp, 103 gp, 8 sp and 3 cp,
 // 2 Rope, 3 Potions of Healing and a Backpack with a Bedroll in it. The Wardens of the Vale both
 // players own; The Silent Order neither. Moves on, rolls off. The character's Currency row's Give
-// (Send to before item give) on the CURRENCY label's row, pushed right, opening 0.31.0's Give coins,
-// with module 0.49.0 the characters ticked; half a space between a
-// coin's amount and its abbreviation; "Send to…" in an item's own menu by a right-click, a held touch
-// and Shift+F10, never among the favorites, a press on Take left to Take. The party's Currency row:
-// Take, Send to, Give and Distribute. Distribute shares gold among the four, 3 gp left with the
-// party and saying so in Foundry's chat, and silver with none left; refused when the members change
-// under it, as the app or only the module knows. The party's coins and a Rope sent to Vex and to the
-// Wardens, a potion stacking there; Thorin's gold given to the party; a potion sent to Thorin a take.
-// Bob, an Observer, has none of it, and is refused; the Wardens' Owner sends from them. Crafted
-// refusals. The Gamemaster sends to The Silent Order and distributes platinum from Vex's page; the
-// party page keeps Take. A race between Alice's phone and tablet, refused by the app, by the module,
-// and while a move is on its way. Every width in both themes. Since module 0.33.0: "Remove…" after
-// "Send to…" in the character's item menu (not under module 0.31.0), and on the party's sheet one
-// spinner by "Currency" or by the item's name while it's on its way, its buttons disabled with none of
-// their own, the row or group busy; the character's own Send to keeps its spinner. DND5E6=1: dnd5e
-// 6.0.5's fractional gold. SKEW=031 with MODULE=module-0.31.0: gives only. Synthetic characters only. Run with --import
+// (Send to before item give) below its coins, at the card's left, opening 0.31.0's Give coins, with
+// module 0.49.0 the characters ticked; half a space between a coin's amount and its abbreviation;
+// "Send to…" in an item's own menu by a right-click, a held touch and Shift+F10, never among the
+// favorites, a press on Take left to Take. The party's Currency row: Take, Send to, Give and
+// Distribute, below its coins too since item give. Distribute shares gold among the four, 3 gp left
+// with the party and saying so in Foundry's chat, and silver with none left; refused when the
+// members change under it, as the app or only the module knows. The party's coins and a Rope sent
+// to Vex and to the Wardens, a potion stacking there; Thorin's gold given to the party; a potion
+// sent to Thorin a take. Bob, an Observer, has none of it, and is refused; the Wardens' Owner sends
+// from them. Crafted refusals. The Gamemaster sends to The Silent Order and distributes platinum
+// from Vex's page; the party page keeps Take. A race between Alice's phone and tablet, refused by
+// the app, by the module, and while a move is on its way. Every width in both themes. Since module
+// 0.33.0: "Remove…" after "Send to…" in the character's item menu (not under module 0.31.0), and on
+// the party's sheet one spinner by "Currency" or by the item's name while it's on its way, its
+// buttons disabled with none of their own, the row or group busy; the character's own Give keeps
+// its spinner where it's the row's only button. DND5E6=1: dnd5e 6.0.5's fractional gold. SKEW=031
+// with MODULE=module-0.31.0: gives only. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BASE, BOB, DND5E6, SHOTS_033, SKEW031, W, actors, browse, call, changeMembers, character, check, coinsInFoundry, embedded, finish, foundryWorld,

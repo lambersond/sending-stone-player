@@ -221,7 +221,8 @@ describe('components/transfers/give-controls', () => {
     expect(screen.queryByRole('button', { name: 'Give Torch' })).toBeNull()
   })
 
-  it('gives coins from beside them, while there’s a whole one to give', async () => {
+  // Changed on purpose (item give): below them, where they were beside them.
+  it('gives coins from below them, while there’s a whole one to give', async () => {
     const { unmount } = await renderGive()
     const coins = coinsButton()
     expect(coins).toHaveTextContent(/^Give$/)
