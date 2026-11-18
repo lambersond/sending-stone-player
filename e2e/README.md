@@ -268,6 +268,12 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
   the page's clock (`page.clock.fastForward`), it installs the clock and pauses it (`pauseAt`)
   before the page opens: an installed clock runs on by itself, and a look "at 14 seconds" would
   then rest on how fast the machine is.
+- **A roll sent as its page opens may be taken by a fetch answered at once** (v0.50.0,
+  `quiet-e2e.mjs`): the page's first poll, 3 seconds after it loads, is what notes the player there,
+  and a fetch that comes before it is answered at once with `wait` 10000 (module 0.49.0's, every
+  10 seconds). The module waits those 10 seconds before its next fetch, so a second roll sent
+  meanwhile waits too. quiet's "his next roll is made at once" first waits for an answer saying no
+  `wait`, a held one: the module then fetches again at once, held while the page is open.
 - **The e2e's databases** persist between passes; every run resets its own. Don't drop them unless asked.
 - Screenshot folders shared by several suites (shots-022, shots-026, shots-030) get pictures from
   whichever lane wrote last. No two suites write the same file name; prompts and gm reuse names across

@@ -6,7 +6,7 @@
 // nobody in the app: full fetches every 10 seconds for two minutes after the hello, then looks every
 // 20 seconds, each answered with nothing and `quiet`, the game counted as fetching throughout. 2. Bob
 // arrives and rolls at once: never refused, the game live and no "isn't connected" in Help, his roll
-// made within 28 seconds, held fetches after it and his next roll at once. 3. Everyone leaves; a dish
+// made within 28 seconds, and, the module's fetches held, his next at once. 3. Everyone leaves; a dish
 // posted by the Magical Recipe Book's server is found by the next look and handed over, its card in
 // Foundry within 25 seconds. 4. Notes written while Foundry is closed, nobody there as it reconnects:
 // the new page's first fetch is full and hands the note over within 5 seconds. SKEW=049 with
@@ -17,8 +17,8 @@
 // The cookbook's server first: it keeps Node's own fetch, which the Foundry stand-ins replace.
 import { dishBody, linkCode, postDish } from './cookbook-post.mjs'
 import {
-  BOB, W, browse, call, character, check, finish, foundryWorld, journal, lastHello, launch, newCampaign, pagesOf, part,
-  posted, postsOf, reloadFoundry, settled, sql, startFetching, startModule, stopFetching, until, wait,
+  BOB, W, browse, call, character, check, finish, foundryWorld, journal, lastHello, launch, newCampaign, note, pagesOf,
+  part, posted, postsOf, reloadFoundry, settled, sql, startFetching, startModule, stopFetching, until, wait,
 } from './world-030.mjs'
 
 const SKEW049 = process.env.SKEW === '049'
@@ -142,6 +142,13 @@ await help.getByRole('region', { name: /^In this game, for / }).waitFor({ timeou
 check((await help.getByText(NOT_CONNECTED, { exact: true }).count()) === 0, `Help's box says nothing of the game being away ("${NOT_CONNECTED}")`)
 await bob.page.keyboard.press('Escape')
 await help.waitFor({ state: 'hidden' })
+// His next roll once the module's fetches are held. The fetch that took his first may have been
+// answered at once, before his page's first poll noted him there (module 0.49.0's, every 10
+// seconds), its `wait` then waited before the next fetch. A held fetch's answer says no `wait`, and
+// the module fetches again at once, held while he's there.
+const heldFrom = Date.now()
+await until(() => !('wait' in fetches().at(-1).answer), 'a held answer, saying no wait', 40_000)
+note(`a held answer ${((Date.now() - heldFrom) / 1000).toFixed(1)} s after Help closed; his first roll's fetch said ${'wait' in handing.answer ? `wait ${handing.answer.wait}` : 'no wait'}`)
 const secondSent = Date.now()
 const second = await roll(bob)
 await until(() => resultOf(second.json.id), 'the second roll made in the game', 30_000)
