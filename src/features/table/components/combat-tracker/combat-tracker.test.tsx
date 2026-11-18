@@ -267,7 +267,6 @@ describe('components/game-table/combat-tracker', () => {
         }),
       ],
     })
-    const panel = () => screen.getByRole('region', { name: /is acting|turn/i })
 
     it('reads how hurt a creature is on its row, in its tone, and another’s hit points as the party’s', () => {
       render(<CombatTracker combat={health} />)
@@ -282,7 +281,8 @@ describe('components/game-table/combat-tracker', () => {
     it('shows the acting creature’s word in the turn panel', () => {
       render(<CombatTracker combat={health} />)
 
-      expect(within(panel()).getByText('Bloodied')).toBeInTheDocument()
+      const panel = turnPanel().closest('section') as HTMLElement
+      expect(within(panel).getByText('Bloodied')).toBeInTheDocument()
     })
 
     it.each([
@@ -291,7 +291,8 @@ describe('components/game-table/combat-tracker', () => {
     ])('shows nothing of it on %s turn', (_, currentId) => {
       render(<CombatTracker combat={{ ...health, currentId }} />)
 
-      expect(within(panel()).queryByText(/Hit points|Bloodied/)).toBeNull()
+      const panel = turnPanel().closest('section') as HTMLElement
+      expect(within(panel).queryByText(/Hit points|Bloodied/)).toBeNull()
     })
   })
 
