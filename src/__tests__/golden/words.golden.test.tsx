@@ -32,7 +32,7 @@ import {
 } from '@/features/notes/utils/order-words'
 import { RollToasts } from '@/features/rolling/components/roll-toasts/roll-toasts'
 import { RollTray } from '@/features/rolling/components/roll-tray/roll-tray'
-import { briefOf } from '@/features/rolling/utils/brief'
+import { breakdown, briefOf } from '@/features/rolling/utils/brief'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { slotName, slotWords } from '@/features/sheet/utils/slot-words'
 import { ChatLog } from '@/features/table/components/chat-log/chat-log'
@@ -1037,6 +1037,16 @@ describe('golden C4: words', () => {
       (verb, move) => {
         const words = {
           label: moveLabel(move),
+          // Changed on purpose (item give): the move's word among the earlier rolls, which a give
+          // to several characters says as "given".
+          brief: breakdown({
+            kind: 'use',
+            id: 'move',
+            label: moveLabel(move),
+            spell: false,
+            move,
+            at: 0,
+          }),
           reasons: Object.fromEntries(
             ROLES.map(role => [role, moveReasons(role, move)]),
           ),

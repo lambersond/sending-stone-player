@@ -16941,6 +16941,7 @@ exports[`golden C4: words word utilities a note’s time, at a fixed now, mid-da
 
 exports[`golden C4: words word utilities move words: distribute: distribute 1`] = `
 {
+  "brief": "distributed",
   "label": "Distribute 4 pp from The Iron Company among Bram, Lia, Thorin, and Vex",
   "lines": {
     "gm · done": "Distributed 4 pp among Bram, Lia, Thorin, and Vex (1 pp each)",
@@ -17023,6 +17024,7 @@ exports[`golden C4: words word utilities move words: distribute: distribute 1`] 
 
 exports[`golden C4: words word utilities move words: give: give 1`] = `
 {
+  "brief": "given",
   "label": "Give 2 Potion of Healing to Vex",
   "lines": {
     "gm · done": "Gave 2 Potion of Healing to Vex",
@@ -17105,6 +17107,7 @@ exports[`golden C4: words word utilities move words: give: give 1`] = `
 
 exports[`golden C4: words word utilities move words: give: give 2`] = `
 {
+  "brief": "given",
   "label": "Give 5 gp to Vex",
   "lines": {
     "gm · done": "Gave 5 gp to Vex",
@@ -17187,6 +17190,7 @@ exports[`golden C4: words word utilities move words: give: give 2`] = `
 
 exports[`golden C4: words word utilities move words: handOut: handOut 1`] = `
 {
+  "brief": "given",
   "label": "Give 200 pp and 50 gp each to Vex, Bram, and Lia",
   "lines": {
     "gm · done": "Gave 200 pp and 50 gp each to Vex, Bram, and Lia",
@@ -17269,6 +17273,7 @@ exports[`golden C4: words word utilities move words: handOut: handOut 1`] = `
 
 exports[`golden C4: words word utilities move words: pay: pay 1`] = `
 {
+  "brief": "paid",
   "label": "Remove 5 gp",
   "lines": {
     "gm · done": "Thorin paid 5 gp",
@@ -17331,6 +17336,7 @@ exports[`golden C4: words word utilities move words: pay: pay 1`] = `
 
 exports[`golden C4: words word utilities move words: receive: receive 1`] = `
 {
+  "brief": "received",
   "label": "Add 5 gp",
   "lines": {
     "gm · done": "Received 5 gp",
@@ -17393,6 +17399,7 @@ exports[`golden C4: words word utilities move words: receive: receive 1`] = `
 
 exports[`golden C4: words word utilities move words: remove: remove 1`] = `
 {
+  "brief": "removed",
   "label": "Remove 1 Rope",
   "lines": {
     "gm · done": "Removed 1 Rope",
@@ -17473,6 +17480,7 @@ exports[`golden C4: words word utilities move words: remove: remove 1`] = `
 
 exports[`golden C4: words word utilities move words: send: send 1`] = `
 {
+  "brief": "sent",
   "label": "Send 1 Rope from The Iron Company to Vex",
   "lines": {
     "gm · done": "Thorin sent 1 Rope from The Iron Company to Vex",
@@ -17555,6 +17563,7 @@ exports[`golden C4: words word utilities move words: send: send 1`] = `
 
 exports[`golden C4: words word utilities move words: take: take 1`] = `
 {
+  "brief": "taken",
   "label": "Take 1 Rope and 50 gp from The Iron Company",
   "lines": {
     "gm · done": "Took 1 Rope and 50 gp from The Iron Company",

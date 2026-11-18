@@ -74,8 +74,11 @@ describe('features/help/components/help-panel', () => {
     renderPanel({ gm: true, shown: view({ gm: { rolls: 'off' } }) })
 
     expect(panel()).toHaveTextContent(/^HelpWhat your player sees/)
+    // The whole note, named: changed on purpose (item give), their coins added, removed and given.
     expect(
-      screen.getByText(/^At your player’s sheet\. .* you roll as Thorin, /),
+      screen.getByText(
+        'At your player’s sheet. This is the help your player sees. Here, you roll as Thorin, and your rolls are marked GM; the box below says where they go. You can send and remove their items, and add, remove and give their coins too. Ending their turn, favorites, Prepare, effects, Wild Shape, hit points and typing in dice are your player’s alone, from their own page.',
+      ),
     ).toBeVisible()
     expect(
       within(panel())

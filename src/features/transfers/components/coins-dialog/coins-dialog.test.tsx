@@ -33,8 +33,10 @@ describe('features/transfers/coins-dialog', () => {
   it('asks which first, then how many, its button saying what it’ll do only once chosen', async () => {
     const { dialog, user, onChange, onClose } = renderDialog()
 
-    expect(dialog.getByRole('radio', { name: 'Add' })).not.toBeChecked()
-    expect(dialog.getByRole('radio', { name: 'Remove' })).not.toBeChecked()
+    // The two choices, in a group named for them, as a screen reader says it.
+    const choices = within(dialog.getByRole('group', { name: 'Add or remove' }))
+    expect(choices.getByRole('radio', { name: 'Add' })).not.toBeChecked()
+    expect(choices.getByRole('radio', { name: 'Remove' })).not.toBeChecked()
     expect(dialog.getByText('Choose Add or Remove.')).toBeVisible()
     expect(send(dialog)).toHaveTextContent(/^Add or remove$/)
     expect(send(dialog)).toHaveAttribute('aria-disabled', 'true')
