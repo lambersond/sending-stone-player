@@ -273,6 +273,10 @@ describe('db/table', () => {
           // Changed on purpose (round 3, decision 3): whether its module is one that asks for the
           // dice an item rolls later, by its versions, for Help; never what Foundry says of itself.
           laterDice: true,
+          // Changed on purpose (item 58): what its seats are shown of other creatures, from
+          // module 0.50.0.
+          healthEnabled: true,
+          healthFeatures: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -689,6 +693,39 @@ describe('db/table', () => {
         actorId: 'actor-gone',
       })
       expect(removed.connected).toBe(false)
+    })
+
+    // Item 58, module 0.50.0: the contract that a page gets only what its seat may see. With
+    // Gamemaster-only information on, the module sends every combatant's hit points, a Secret
+    // creature's among them, which has no `health`: its numbers never reach the page.
+    it('shows another creature’s hit points only beside its health, and only where its Gamemaster shows them', async () => {
+      const hp = { value: 4, max: 10, temp: 0 }
+      givenCampaign({
+        ...campaign,
+        healthEnabled: true,
+        healthFeatures: ['hitPoints'],
+      })
+      prismaMock.combat.findMany.mockResolvedValue([
+        {
+          data: combat({
+            combatants: [
+              combatant({ id: 'c-goblin', hp, health: 'bloodied' }),
+              combatant({ id: 'c-bandit', hp }),
+            ],
+          }),
+        },
+      ] as any)
+
+      for (const seat of [character, { ...character, role: 'gm' as const }]) {
+        const view = await getTableView(seat)
+        const [goblin, bandit] = view.combat!.combatants
+        expect(goblin).toMatchObject({ id: 'c-goblin', side: 'other', hp })
+        expect(bandit.id).toBe('c-bandit')
+        expect(bandit).not.toHaveProperty('hp')
+        expect(bandit).not.toHaveProperty('health')
+        expect(view.health).toBe('hitPoints')
+        expect(JSON.stringify(view)).not.toMatch(/"c-bandit"[^}]*"hp"/)
+      }
     })
   })
 })

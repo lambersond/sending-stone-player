@@ -19,6 +19,7 @@ import { toTablePrompts } from '@/utils/prompts'
 import { removalsAvailable } from '@/utils/removals'
 import { groupRoster } from '@/utils/roster'
 import {
+  othersHealth,
   ownCompanions,
   seatAllows,
   seatRolls,
@@ -280,6 +281,9 @@ const TABLE_CAMPAIGN = {
   chatClearedAt: true,
   // Whether its module is one that asks for the dice an item rolls later, for Help.
   laterDice: true,
+  // What its seats are shown of creatures not of the party, from module 0.50.0.
+  healthEnabled: true,
+  healthFeatures: true,
 } as const
 
 /**
@@ -306,7 +310,14 @@ export async function getTableView(
   const roster = campaign.characters as unknown as ConnectedCharacter[]
   // The campaign's characters' companions, from module 0.36.0: whose side each is on.
   const companions = companionRoster(campaign.companions)
-  const viewer = viewerOf(seat, roster, companions, campaign.origin)
+  // What its seats are shown of creatures not of the party, from module 0.50.0, both seats alike.
+  const viewer = viewerOf(
+    seat,
+    roster,
+    companions,
+    campaign.origin,
+    othersHealth(campaign),
+  )
   const own = ownCompanions(seat, companions)
   const rolls = seatRolls(seat, campaign)
   const now = Date.now()
@@ -380,6 +391,8 @@ export async function getTableView(
     // hello said last, at either seat, for Help: by its versions, never its switches, and stored,
     // never whether it polled lately (the owner's round 3 decision 3).
     ...(campaign.laterDice && { laterDice: true as const }),
+    // What the campaign shows of creatures not of the party, from module 0.50.0, for Help.
+    ...(viewer.health && { health: viewer.health }),
   }
 }
 

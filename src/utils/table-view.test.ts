@@ -20,6 +20,7 @@ import {
 } from '@/mocks/sending-stone'
 import type {
   CharacterSheet,
+  CombatantSummary,
   RollSummary,
   SerializedMessage,
   SheetContainer,
@@ -29,6 +30,17 @@ import type { Viewer } from '@/types/table'
 const viewer: Viewer = {
   actorId: 'actor-thorin',
   party: new Set(['actor-thorin', 'actor-vex']),
+}
+/** A combatant's hit points, health and side, as a seat shown `shown` sees them (item 58). */
+const shownOf = (
+  shown: Viewer['health'],
+  fields: Partial<CombatantSummary>,
+) => {
+  const [one] = toTableCombat(
+    combat({ combatants: [combatant({ id: 'c-one', ...fields })] }),
+    { ...viewer, ...(shown && { health: shown }) },
+  ).combatants
+  return { hp: one.hp, health: one.health, side: one.side }
 }
 const dnd5e = (
   fields: Partial<NonNullable<SerializedMessage['dnd5e']>>,
@@ -1837,6 +1849,67 @@ describe('utils/table-view', () => {
 
         expect(one.side).toBe(side)
         expect(one.stance).toBe(stance)
+      },
+    )
+  })
+
+  // Item 58, module 0.50.0: another creature's hit points or health reach a seat only beside the
+  // module's `health` key, as its campaign's Gamemaster allows; Gamemaster-only information, which
+  // sends every combatant's hit points, a Secret or hidden one's among them, never shows them.
+  describe('other creatures’ health, from module 0.50.0', () => {
+    const hp = { value: 5, max: 10, temp: 0 }
+
+    it.each([
+      ['nothing shown', undefined, { hp, health: 'bloodied' }, {}],
+      [
+        'health: its word only',
+        'health',
+        { hp, health: 'bloodied' },
+        { health: 'bloodied' },
+      ],
+      [
+        'hit points: its numbers only',
+        'hitPoints',
+        { hp, health: 'bloodied' },
+        { hp },
+      ],
+      // The critic's case: no `health` key, as for a Secret or hidden-token creature whose hit
+      // points Gamemaster-only information sent.
+      ['hit points, but no health key: neither', 'hitPoints', { hp }, {}],
+      ['health, but no health key: neither', 'health', { hp }, {}],
+      [
+        'hit points with health null: its numbers',
+        'hitPoints',
+        { hp, health: null },
+        { hp },
+      ],
+      ['health null: nothing', 'health', { hp, health: null }, {}],
+      ['defeated: no word', 'health', { health: 'down', defeated: true }, {}],
+      [
+        'defeated, hit points: its numbers stay',
+        'hitPoints',
+        { hp, health: 'down', defeated: true },
+        { hp },
+      ],
+    ] as const)('%s', (_, shown, fields, seen) => {
+      const { side, ...rest } = shownOf(shown, fields)
+      expect(side).toBe('other')
+      expect(rest).toEqual(seen)
+    })
+
+    it.each([
+      ['the party (a creature a player owns)', { playerOwned: true }, 'party'],
+      ['the seat’s own', { character: 'actor-thorin' }, 'me'],
+    ] as const)(
+      'gives %s its hit points, as before, never a word',
+      (_, fields, side) => {
+        for (const shown of [undefined, 'health', 'hitPoints'] as const) {
+          expect(shownOf(shown, { ...fields, hp, health: 'hurt' })).toEqual({
+            hp,
+            health: undefined,
+            side,
+          })
+        }
       },
     )
   })

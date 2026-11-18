@@ -12,6 +12,7 @@ import type {
   DiceAskPurpose,
   DiceAskRoll,
   GameDiceAsk,
+  Health,
   PromptSource,
   SheetWithheld,
   SerializedMessage,
@@ -26,6 +27,12 @@ import type {
 
 /** Whose side something is on, from this player's point of view. */
 export type Side = 'me' | 'party' | 'other'
+
+/**
+ * What a seat is shown of creatures not of the party, from module 0.50.0, as their campaign's
+ * Gamemaster allows: how hurt each is, or their hit points too.
+ */
+export type HealthShown = 'health' | 'hitPoints'
 
 /** What a combat roll or card is, for highlighting it. */
 export type TableAction =
@@ -181,8 +188,16 @@ export type TableCombatant = {
    * party, who are allies whatever their token says.
    */
   stance?: 'ally' | 'neutral'
-  /** Only for the party; a creature's hit points stay with the Gamemaster. */
+  /**
+   * For the party; for one not of the party, from module 0.50.0, only where its Gamemaster shows
+   * their hit points too.
+   */
   hp?: { value: number; max: number | null; temp: number }
+  /**
+   * For one not of the party, from module 0.50.0, where its Gamemaster shows how hurt it is and
+   * not its hit points; never beside Defeated.
+   */
+  health?: Health
   /**
    * One of the viewer's own creatures, other than the one they're at: their character, or a
    * companion of it.
@@ -443,6 +458,11 @@ export type TableView = {
    * where it isn't.
    */
   laterDice?: true
+  /**
+   * At either seat, for Help: what the campaign shows of creatures not of the party, from module
+   * 0.50.0, as its hello said last: how hurt each is, or their hit points too. Unset for none.
+   */
+  health?: HealthShown
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
@@ -543,6 +563,8 @@ export type Viewer = {
   portraits?: Map<string, string>
   companions?: Map<string, { of: string[]; portrait?: string; name: string }>
   of?: string
+  /** What the seat is shown of creatures not of the party, from module 0.50.0; unset for none. */
+  health?: HealthShown
 }
 
 /** What a message's targets are shown with, from the rest of the chat. */

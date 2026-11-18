@@ -1,4 +1,5 @@
 import {
+  othersHealth,
   ownCompanions,
   seatAllows,
   seatRolls,
@@ -143,6 +144,32 @@ describe('utils/table-seat', () => {
         undefined,
       )
     })
+
+    // Module 0.50.0: what it's shown of creatures not of the party, at either seat, unset for none.
+    it('carries what it is shown of other creatures, from module 0.50.0', () => {
+      expect(viewerOf(thorin, roster, [], ORIGIN, 'health').health).toBe(
+        'health',
+      )
+      expect(viewerOf(gm, roster, [], ORIGIN, 'hitPoints').health).toBe(
+        'hitPoints',
+      )
+      expect(viewerOf(thorin, roster, [], ORIGIN)).not.toHaveProperty('health')
+    })
+  })
+
+  describe('othersHealth', () => {
+    it.each([
+      [false, ['hitPoints'], undefined],
+      [true, [], 'health'],
+      [true, ['hitPoints'], 'hitPoints'],
+    ] as const)(
+      'with the switch %p and %j shows %p',
+      (healthEnabled, healthFeatures, shown) => {
+        expect(
+          othersHealth({ healthEnabled, healthFeatures: [...healthFeatures] }),
+        ).toBe(shown)
+      },
+    )
   })
 
   describe('ownCompanions', () => {
