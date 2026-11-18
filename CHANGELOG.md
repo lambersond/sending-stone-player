@@ -55,6 +55,13 @@ so an item from it is named with its number when it was built, which may since b
   characters, and every change on the campaign page, are still refused at once.
   `AUTH_CACHE_MAX_AGE` in `default.env` sets the minute, in whole seconds up to 3600; 0 asks the
   database every time, as before. (app, item 62)
+- **Quieter while nobody is in the app.** With module 0.50.0, a Foundry left open while nobody is in
+  the app asks it every 20 seconds where it asked every 10, and each of its fetches then costs the
+  database two or three operations where it cost seven or eight: nearly three quarters fewer
+  database operations in a quiet hour (measured: 50 to 14 a minute). Someone opening the app is
+  noticed within about 20 seconds, and a dish from the Magical Recipe Book reaches the Gamemaster
+  within about 20; the campaign's line in Foundry's settings window says when it is asked less. With
+  an older module or app, nothing changes. (app and module, item 61)
 
 ### Maintenance
 
@@ -82,6 +89,18 @@ so an item from it is named with its number when it was built, which may since b
   and the harnesses that read the hello follow its new field. Jest pins the seat's guard on another
   creature's health and hit points, the rows and the turn panel, the card, Help and the hello. (app
   and module, item 58)
+- **Quiet fetching, end to end.** A new `quiet` suite, run alone after the lanes on its own timings,
+  in `world-030.mjs`'s world, which now keeps whether each fetch was a quiet look, checks full
+  fetches every 10 seconds for two minutes after the hello, then quiet looks every 20, the game
+  counted as fetching throughout; someone arriving, their first roll taken and made within the wait
+  and their next at once; a dish from the Magical Recipe Book found by a look with no page open;
+  notes written while Foundry was closed handed over as it reconnects; and module 0.49.0
+  (`e2e/skew.conf`'s 049), fetched from as before. In the module, a new `quiet.mjs` harness checks
+  an app that doesn't say `quiet`, the two minutes at the usual pace after the hello or as fetching
+  starts, the full fetch every five minutes, a quiet wait capped as `wait` is, a hello, a command
+  being made, a failed fetch, an app that stops saying `quiet`, and the settings window's line. Jest
+  pins the look's answer and when it is held, when a fetch is told `quiet`, the fetch's own `quiet`,
+  read leniently, whether a dish is due, and the hello's new feature. (app and module, item 61)
 
 ## v0.49.0 — 2026-11-17
 

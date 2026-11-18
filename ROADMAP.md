@@ -333,12 +333,9 @@ Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-
 60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
     campaign's compendiums, such as another compendium or a world actor, used from the app too,
     where its player could use it in Foundry.
-61. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no
-    need to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking,
-    so the case to handle is Foundry open with nobody in the app; Foundry must still pick up notes
-    made offline as it connects.
 
-Item 62, fewer sign-in reads, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
 
 63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
     loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
