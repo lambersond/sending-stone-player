@@ -110,7 +110,7 @@ const rowsOf = who => boxOf(who).locator('dl > div').evaluateAll(rows => rows.ma
 /**
  * The coins' row at either seat, since module 0.49.0: from here wherever the campaign's module lets
  * coins be added and taken away, on unless its Gamemaster turns it off; never with module 0.42.0.
- * Changed on purpose (item give): the row reads "Adding and removing coins", as Add or remove does.
+ * Changed on purpose (item 89): the row reads "Adding and removing coins", as Add or remove does.
  */
 const COINS_ROW = `Adding and removing coins: ${SKEW042 ? 'Not from here' : 'From here'}`
 /**

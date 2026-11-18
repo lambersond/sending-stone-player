@@ -983,7 +983,7 @@ describe('golden C4: words', () => {
         each: '1 pp',
       },
       { verb: 'remove', things: '1 Rope', other: '' },
-      // Coins added and taken away, from module 0.49.0. Changed on purpose (item give): coins
+      // Coins added and taken away, from module 0.49.0. Changed on purpose (item 89): coins
       // taken away are told as removed, and coins given to several characters as a Give, with the
       // sheet's abbreviations a hand-out always carries.
       { verb: 'receive', things: '5 gp', other: 'Thorin' },
@@ -995,7 +995,7 @@ describe('golden C4: words', () => {
         among: 'Vex, Bram, and Lia',
         abbreviations: ABBREVIATIONS,
       },
-      // Changed on purpose (item give): coins given to one character, as a give with the sheet's
+      // Changed on purpose (item 89): coins given to one character, as a give with the sheet's
       // abbreviations, last, so that those before it keep their keys.
       {
         verb: 'give',
@@ -1037,7 +1037,7 @@ describe('golden C4: words', () => {
       (verb, move) => {
         const words = {
           label: moveLabel(move),
-          // Changed on purpose (item give): the move's word among the earlier rolls, which a give
+          // Changed on purpose (item 89): the move's word among the earlier rolls, which a give
           // to several characters says as "given".
           brief: breakdown({
             kind: 'use',

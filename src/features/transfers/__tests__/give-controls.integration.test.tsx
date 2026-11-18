@@ -119,7 +119,7 @@ const renderGive = async ({
 
 /**
  * The Currency row's Give, the button that gives coins: Send to from module 0.32.0's feedback, and
- * Give again since Send to and Hand out are one (item give).
+ * Give again since Send to and Hand out are one (item 89).
  */
 const coinsButton = () =>
   within(screen.getByRole('group', { name: 'Currency' })).getByRole('button', {
@@ -221,7 +221,7 @@ describe('components/transfers/give-controls', () => {
     expect(screen.queryByRole('button', { name: 'Give Torch' })).toBeNull()
   })
 
-  // Changed on purpose (item give): below them, where they were beside them.
+  // Changed on purpose (item 89): below them, where they were beside them.
   it('gives coins from below them, while there’s a whole one to give', async () => {
     const { unmount } = await renderGive()
     const coins = coinsButton()
@@ -352,7 +352,7 @@ describe('components/transfers/give-controls', () => {
     }
   })
 
-  // Moved from coin-controls (item give): Hand out's coins are Give's, to one or several.
+  // Moved from coin-controls (item 89): Hand out's coins are Give's, to one or several.
   it('with module 0.49.0, gives coins to the characters ticked as a hand-out through the seat’s API, to one and then to two, the tray saying what each got and what else the game used', async () => {
     const done = (id: string, each: string[], gp: number) =>
       respond(200, {
@@ -441,7 +441,7 @@ describe('components/transfers/give-controls', () => {
     ).toBeInTheDocument()
   })
 
-  // Review round 1 (item give): a give rolls nothing, so the give itself shows the tray on a tab
+  // Review round 1 (item 89): a give rolls nothing, so the give itself shows the tray on a tab
   // that shows it only once something's been done there, as Effects: sent to characters as the
   // game hands coins out (`onGive`), or to the party (`onMove`). This sheet writes its gold GP.
   it.each([
@@ -499,7 +499,7 @@ describe('components/transfers/give-controls', () => {
     },
   )
 
-  // Moved from coin-controls (item give).
+  // Moved from coin-controls (item 89).
   it('gives to characters by what the game says of moves paying with other coins, whatever the coins’ own switch is', async () => {
     // No coins' switch, so the page has no word of its own on other coins: the moves' says none.
     const { user } = await renderGive({

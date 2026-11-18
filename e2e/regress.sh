@@ -136,7 +136,7 @@ run transfers 77 SHOTS=$O/shots-031
 run transfers 81 DND5E6=1 SHOTS=$O/shots-031
 run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
-# to, Give since item give; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
+# to, Give since item 89; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
 # and its coin distributed; dnd5e 6.0.5's fractions; and module 0.31.0 (none of the party's new ones).
 run givetake 67 SHOTS=$O/shots-032
 run givetake 68 DND5E6=1 SHOTS=$O/shots-032
@@ -255,7 +255,7 @@ run launch 28 SHOTS=$O/shots-launch
 run signin 9
 # Module 0.49.0 (items 67 and 68): coins added to a character, taken away and handed out from the
 # app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's Add or
-# remove and Give (item give), a larger coin broken and smaller ones paying, more than the coins are
+# remove and Give (item 89), a larger coin broken and smaller ones paying, more than the coins are
 # worth held back, other coins off in Foundry, the Gamemaster's at the character's page, Give's
 # whispers to each of two and to one, and to the Gamemasters, both switches off, both dialogs on
 # phones, a tablet and the desk, the buttons below the coins and the coins below the label from 320

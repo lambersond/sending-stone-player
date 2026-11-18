@@ -1,5 +1,5 @@
 // Coins added to a character, taken away and handed out from the app (module 0.49.0 and the app,
-// ROADMAP items 67 and 68, and since item give the Currency row's Add or remove and one Give), end
+// ROADMAP items 67 and 68, and since item 89 the Currency row's Add or remove and one Give), end
 // to end, in the world of world-030.mjs, whose coins carry dnd5e's rates. Ashlands, on dnd5e 5.3.3,
 // has one campaign, Erebor, saved without the coins' switches, so both read on, with moves on and
 // its players' rolls off: coins go on their own. Alice plays Thorin and runs the campaign; Bob plays
@@ -118,9 +118,9 @@ await desk.tab('Inventory')
 /** The Currency row's buttons by their names, in order. */
 const rowButtons = who => who.currency().getByRole('button').evaluateAll(bs => bs.map(b => b.getAttribute('aria-label') ?? b.textContent.trim()).filter(name => !name.endsWith('exact amount')))
 const rowButton = (who, name) => who.currency().getByRole('button', { name, exact: true })
-// Changed on purpose (item give): Add or take away reads Add or remove, its choices Add and Remove.
+// Changed on purpose (item 89): Add or take away reads Add or remove, its choices Add and Remove.
 const coinsDialog = who => who.page.getByRole('dialog', { name: 'Add or remove coins', exact: true })
-// Changed on purpose (item give): Send to and Hand out are one Give, whose dialog is Give coins.
+// Changed on purpose (item 89): Send to and Hand out are one Give, whose dialog is Give coins.
 const giveDialog = who => who.page.getByRole('dialog', { name: 'Give coins', exact: true })
 const summary = dialog => dialog.locator('p[aria-live="polite"]').first().textContent()
 /** Ticks a radio or a checkbox as a tap does, on its label: the input itself is hidden from sight. */
@@ -154,7 +154,7 @@ if (OLD) {
   check(!('coins' in features) && !('handOut' in features.transfers) && kept('"coinsEnabled"') === 'f' && kept('array_to_string("transferFeatures", \',\')') === 'partySends,distribute',
     `module 0.47.0's hello says nothing of coins nor of handing out, and the app keeps neither (${JSON.stringify({ transfers: features.transfers, kept: kept('array_to_string("transferFeatures", \',\')') })})`)
   await desk.currency().waitFor({ timeout: 15_000 })
-  // Changed on purpose (item give): the row's Send to reads Give.
+  // Changed on purpose (item 89): the row's Send to reads Give.
   check(same(await rowButtons(desk), ['Give']), `Thorin's Currency row has Give alone (${JSON.stringify(await rowButtons(desk))})`)
   const coins = await crafted(desk, API, { kind: 'coins', coins: { op: 'add', currency: { gp: 5 } } })
   const each = await crafted(desk, API, { kind: 'transfer', transfer: { from: 'thorin', each: ['vex'], currency: { gp: 1 } } })
@@ -347,7 +347,7 @@ const gms = game.users.filter(user => user.isGM).map(user => user.id).toSorted()
   await holds({ gp: 10 })
   const before = lines().length
   await paced()
-  // Changed on purpose (item give): Hand out is Give's, its characters ticked; Erebor has no party,
+  // Changed on purpose (item 89): Hand out is Give's, its characters ticked; Erebor has no party,
   // so none is chosen as it opens.
   await rowButton(desk, 'Give').click()
   const dialog = giveDialog(desk)
@@ -428,7 +428,7 @@ part('10. phones, a tablet and both themes')
     await seat.tab('Inventory')
     await seat.currency().waitFor({ timeout: 15_000 })
     await until(async () => (await rowButtons(seat)).length === 2, `the two buttons at ${width}`, 20_000)
-    // Changed on purpose (item give): the buttons are below the coins, at the card's left, by their
+    // Changed on purpose (item 89): the buttons are below the coins, at the card's left, by their
     // boxes: below the coins and the label, inside the card, the first at its content's left; the
     // coins below the label; the card's children its label, its coins, then its buttons. `room` is
     // what the card's content has to spare were the label, the coins and the buttons in one row, at

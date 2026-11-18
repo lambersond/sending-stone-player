@@ -124,7 +124,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
   })
 
   it('offers Add or remove on the Currency row before Give, with moves off and no coins held too', async () => {
-    // Changed on purpose (item give): Send to and Hand out are one Give, after Add or remove.
+    // Changed on purpose (item 89): Send to and Hand out are one Give, after Add or remove.
     const { unmount } = await renderCoins({
       coins: { change: true },
       moves: tableMoves({ handOut: { change: true } }),
@@ -248,7 +248,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     }
   })
 
-  // Review round 1 (item give): changing coins rolls nothing, so the change itself shows the tray
+  // Review round 1 (item 89): changing coins rolls nothing, so the change itself shows the tray
   // on a tab that shows it only once something's been done there, as Effects.
   it('shows the tray on Effects once it has removed coins, as changing them rolls nothing', async () => {
     jest

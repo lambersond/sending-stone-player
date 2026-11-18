@@ -73,7 +73,7 @@ describe('components/transfers/party-controls', () => {
   })
 
   describe('the Currency row', () => {
-    // Changed on purpose (item give): below its coins, as the card puts every row's buttons.
+    // Changed on purpose (item 89): below its coins, as the card puts every row's buttons.
     it('offers an Owner Take, Send to, Give and Distribute, in that order, below its coins', () => {
       render(sheetOf(viewWith()))
 

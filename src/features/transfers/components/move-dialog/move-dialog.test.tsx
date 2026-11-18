@@ -598,7 +598,7 @@ describe('components/transfers/move-dialog, a party’s send and a give into it,
   })
 })
 
-// Changed on purpose (item give): Send to and Hand out are one Give. Its rules are utils.test.ts's;
+// Changed on purpose (item 89): Send to and Hand out are one Give. Its rules are utils.test.ts's;
 // these check that the dialog shows and sends them.
 describe('components/transfers/move-dialog, a character’s Give of coins, from module 0.49.0', () => {
   const bram = { id: 'actorBram001', name: 'Bram' }

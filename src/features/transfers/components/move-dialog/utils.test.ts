@@ -11,7 +11,7 @@ import { purse } from '@/mocks/sending-stone'
 import type { MoveEnd } from '@/features/transfers/types'
 
 // The rules of a character's Give of its coins to characters (module 0.49.0), which were the Hand
-// out dialog's (item give): MoveDialog only wires them.
+// out dialog's (item 89): MoveDialog only wires them.
 
 const VEX = { id: 'actorVex0001', name: 'Vex' }
 const BRAM = { id: 'actorBram001', name: 'Bram' }

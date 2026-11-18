@@ -16,7 +16,7 @@
 // gives from Thorin's page, its line flagged theirs, and takes into a chosen Vex on the party page.
 // Switched off with a dialog open; with rolls on too. The dialog and the party panel at 360, 390,
 // 768 and 1280 px in both themes. Since module 0.32.0 and PR #44: the party opens from the Inventory
-// tab's party list, the character's coin button reads Give (Send to until item give) on the Currency
+// tab's party list, the character's coin button reads Give (Send to until item 89) on the Currency
 // row, its coins given to a character as a hand-out, whispered, with module 0.49.0, and the hello
 // says whether a party's Owner may send its things elsewhere and distribute its coin. Since module
 // 0.33.0's feedback, a party row waiting has one spinner, beside its name, its Take without one.
@@ -115,7 +115,7 @@ const moves = () => JSON.parse(sql(`select coalesce(json_agg(r order by r."creat
 const lineTexts = () => [...W.messages.values()].filter(m => /^<p>(Takes|Gives) /.test(m.content ?? ''))
   .map(m => ({ text: m.content.slice(3, -4), actor: m.speaker?.actor, author: m.author?.id ?? m.author, by: m.flags?.['sending-stone']?.by ?? null, whisper: m.whisper ?? [], id: m.id }))
 /**
- * The whispers of coins given to characters (module 0.49.0, item give): to each one given, and to
+ * The whispers of coins given to characters (module 0.49.0, item 89): to each one given, and to
  * the Gamemasters, their text, speaker, author, the module's flag and whom they're whispered to.
  */
 const whispered = () => [...W.messages.values()].filter(m => / (received|handed out) /.test(m.content ?? ''))
@@ -196,7 +196,7 @@ const card = async who => {
 const MOVES_OFF = 'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
 const MOVES_OLD = 'Players can’t move items and coins from here. Sending Stone 0.31.0 or later in Foundry lets them.'
 // Changed on purpose (item 68): the card says coins are handed out too, where the module hands them out (0.49.0);
-// and (item give) that coins given to characters are whispered.
+// and (item 89) that coins given to characters are whispered.
 const MOVES_ON = 'Your players take from and give to the parties they own in Foundry, and give to each other, from here; coins can go to several characters at once. Each move is made in your game at once and posts a line in its chat, but coins given to characters are whispered to each, and you are told.'
 const movesSection = article => article.locator('section').filter({ has: article.page().getByRole('heading', { name: 'Items and coins' }) })
 
@@ -312,7 +312,7 @@ await panel.getByRole('button', { name: 'Close' }).click()
   check(await takes(bobPanel).count() === 0, 'Bob, who only observes the Company, sees its sheet with no Take')
   await bobPanel.getByRole('button', { name: 'Close' }).click()
   await bob.tab('Inventory')
-  // Changed on purpose (item give): the row's Give, its characters ticked.
+  // Changed on purpose (item 89): the row's Give, its characters ticked.
   await bob.currency(bob.page.getByRole('tabpanel')).getByRole('button', { name: 'Give', exact: true }).click()
   const dialog = bob.page.getByRole('dialog', { name: 'Give coins' })
   await dialog.waitFor()
@@ -603,7 +603,7 @@ dialog = bob.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
 check(await summary(dialog) === 'Choose who gets it.' && await dialog.getByRole('button', { name: 'Give coins' }).getAttribute('aria-disabled') === 'true',
   'Bob\'s Give coins: no one is chosen for him, "Choose who gets it."')
-// Changed on purpose (item give): coins given to one character go as the game hands them out, whispered.
+// Changed on purpose (item 89): coins given to one character go as the game hands them out, whispered.
 await dialog.getByRole('checkbox', { name: /^Thorin/ }).check({ force: true })
 await dialog.getByRole('textbox', { name: 'Gold' }).fill('5')
 {
@@ -743,7 +743,7 @@ part('11. the Gamemaster')
 const gmThorin = await browse({ width: 768, height: 1024, path: `/campaigns/${A}/characters/thorin`, toasts: false })
 await gmThorin.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
 await gmThorin.tab('Inventory')
-// Changed on purpose (item give): the row's Give; the parties to choose, Vex to tick; coins given to
+// Changed on purpose (item 89): the row's Give; the parties to choose, Vex to tick; coins given to
 // him as the game hands them out, whispered to Bob and the Gamemasters, flagged the Gamemaster's.
 await gmThorin.currency(gmThorin.page.getByRole('tabpanel')).getByRole('button', { name: 'Give', exact: true }).click()
 dialog = gmThorin.page.getByRole('dialog', { name: 'Give coins' })

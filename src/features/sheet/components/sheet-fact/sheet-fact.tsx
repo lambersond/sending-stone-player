@@ -28,7 +28,7 @@ export function SheetFact({
   const labelId = useId()
   if (action) {
     // The label, the fact, then what's done with it, at the card's left, wrapping to a second line
-    // only where the card is too narrow (the owner's words, item give): the spinner by the label.
+    // only where the card is too narrow (the owner's words, item 89): the spinner by the label.
     return (
       <div
         className={clsx(

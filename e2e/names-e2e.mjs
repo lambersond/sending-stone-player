@@ -94,7 +94,7 @@ for (const width of [360, 390, 768, 1024, 1280]) {
 
   await alice.tab('Inventory')
   const sheet = page.getByRole('tabpanel').first()
-  // Changed on purpose (item give): the row's Send to is Give, its characters ticked.
+  // Changed on purpose (item 89): the row's Send to is Give, its characters ticked.
   await alice.currency(sheet).getByRole('button', { name: 'Give', exact: true }).click()
   const give = page.getByRole('dialog', { name: 'Give coins' })
   await give.getByRole('checkbox', { name: LONG }).waitFor()

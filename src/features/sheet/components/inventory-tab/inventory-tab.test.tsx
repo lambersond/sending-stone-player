@@ -804,7 +804,7 @@ describe('moving items and coins, from module 0.31.0', () => {
     const currency = screen.getByText('Currency').parentElement as HTMLElement
     expect(currency.tagName).toBe('DT')
     expect(currency).toHaveTextContent(/^Currency$/)
-    // Changed on purpose (item give): below the coins, which follow the label.
+    // Changed on purpose (item 89): below the coins, which follow the label.
     expect(
       coins.closest('dd')?.previousElementSibling?.previousElementSibling,
     ).toBe(currency)
@@ -865,7 +865,7 @@ describe('the Currency row and coin spacing, from module 0.32.0’s feedback', (
     globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
   })
 
-  // Changed on purpose (item give): the controls are below the coins, at the card's left.
+  // Changed on purpose (item 89): the controls are below the coins, at the card's left.
   it('puts the coin’s controls below its coins, in a group the label names', () => {
     render(
       <InventoryTab

@@ -111,7 +111,7 @@ describe('features/campaigns/utils/feature-words, coins from the app (module 0.4
 
   it.each([
     [
-      // Changed on purpose (item give): coins given to characters are whispered.
+      // Changed on purpose (item 89): coins given to characters are whispered.
       'a module that hands coins out',
       true,
       'Your players take from and give to the parties they own in Foundry, and give to each other, from here; coins can go to several characters at once. Each move is made in your game at once and posts a line in its chat, but coins given to characters are whispered to each, and you are told.',

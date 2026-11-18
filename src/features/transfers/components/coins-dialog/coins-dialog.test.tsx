@@ -28,7 +28,7 @@ const renderDialog = (props: Partial<CoinsDialogProps> = {}) => {
 const send = (dialog: ReturnType<typeof within>) =>
   dialog.getAllByRole('button').at(-1) as HTMLElement
 
-// Changed on purpose (item give): Add or take away reads Add or remove, its choices Add and Remove.
+// Changed on purpose (item 89): Add or take away reads Add or remove, its choices Add and Remove.
 describe('features/transfers/coins-dialog', () => {
   it('asks which first, then how many, its button saying what it’ll do only once chosen', async () => {
     const { dialog, user, onChange, onClose } = renderDialog()

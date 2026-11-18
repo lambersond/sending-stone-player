@@ -525,7 +525,7 @@ const paid = (used: Record<string, number> | null) =>
     coins: { op: 'remove', currency: { gp: 5 }, used },
   })
 
-// Changed on purpose (item give): coins taken away are told as removed, as Add or remove says.
+// Changed on purpose (item 89): coins taken away are told as removed, as Add or remove says.
 describe('utils/move-words, coins added and removed, from module 0.49.0', () => {
   /** dnd5e's coins' abbreviations, as a sheet lists them, the largest first. */
   const abbreviations = { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' }
@@ -669,7 +669,7 @@ const given = (each: string[], used: Record<string, number> | null) => ({
   used,
 })
 
-// Changed on purpose (item give): coins given to several characters at once are told as a Give,
+// Changed on purpose (item 89): coins given to several characters at once are told as a Give,
 // and coins given to one character, as a give, carry the sheet's abbreviations too.
 describe('utils/move-words, coins given to characters, from module 0.49.0', () => {
   const abbreviations = { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' }

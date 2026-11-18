@@ -270,7 +270,7 @@ if (SKEW032) {
   const hellos = postsOf('bridge.hello').length
   await game.settings.set('sending-stone', 'campaigns', [campaign({ transfers: true })])
   await until(() => postsOf('bridge.hello').length > hellos && transfersEnabled(), 'moves on', 15_000)
-  // Changed on purpose (item give): the Currency row's Send to is Give.
+  // Changed on purpose (item 89): the Currency row's Send to is Give.
   await until(async () => (await alice.currency(sheetTab).getByRole('button', { name: 'Give', exact: true }).count()) > 0, 'the moves to show', 15_000)
   const menu = await menuOf(alice, rowOf(sheetTab, 'Rope'), 'Rope')
   const items = await itemsOf(menu)

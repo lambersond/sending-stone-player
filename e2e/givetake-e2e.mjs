@@ -5,12 +5,12 @@
 // members Thorin, Vex, Bram, Lia and Grumble, the Gamemaster's hireling; 4 pp, 103 gp, 8 sp and 3 cp,
 // 2 Rope, 3 Potions of Healing and a Backpack with a Bedroll in it. The Wardens of the Vale both
 // players own; The Silent Order neither. Moves on, rolls off. The character's Currency row's Give
-// (Send to before item give) below its coins, at the card's left, the coins below the label, opening
+// (Send to before item 89) below its coins, at the card's left, the coins below the label, opening
 // 0.31.0's Give coins, with
 // module 0.49.0 the characters ticked; half a space between a coin's amount and its abbreviation;
 // "Send to…" in an item's own menu by a right-click, a held touch and Shift+F10, never among the
 // favorites, a press on Take left to Take. The party's Currency row: Take, Send to, Give and
-// Distribute, below its coins too since item give. Distribute shares gold among the four, 3 gp left
+// Distribute, below its coins too since item 89. Distribute shares gold among the four, 3 gp left
 // with the party and saying so in Foundry's chat, and silver with none left; refused when the
 // members change under it, as the app or only the module knows. The party's coins and a Rope sent
 // to Vex and to the Wardens, a potion stacking there; Thorin's gold given to the party; a potion
@@ -206,7 +206,7 @@ const sheetTab = tabpanel(alice)
 await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ timeout: 15_000 })
 {
   const names = await currencyButtons(sheetTab)
-  // Changed on purpose (item give): the buttons are below the coins, the first at the card's left,
+  // Changed on purpose (item 89): the buttons are below the coins, the first at the card's left,
   // and the coins below the label, under either module (the card is the app's); they were on the
   // label's row, the last at its right.
   const look = await sheetTab.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
@@ -220,7 +220,7 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ t
   })
   // Changed on purpose (items 67 and 68): with module 0.49.0 the row's buttons are Add or take away,
   // Send to and Hand out, in that order, which may wrap under the label on a phone; with module
-  // 0.31.0, Send to alone, on the label's row, as before. Changed on purpose (item give): Add or take
+  // 0.31.0, Send to alone, on the label's row, as before. Changed on purpose (item 89): Add or take
   // away reads Add or remove, and Send to and Hand out are one Give.
   check(same(names, NEW ? ['Add or remove', 'Give'] : ['Give']) && look.below && look.stacked && Math.abs(look.left) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
     `Thorin's Currency row has ${NEW ? 'Add or remove and Give, in that order,' : 'one button, "Give",'} below its coins, the first at the card's left edge, its coins below its label, and none named Give coins (${JSON.stringify([names, look])})`)
@@ -229,7 +229,7 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('
 let dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
 {
-  // Changed on purpose (item give): with module 0.49.0 the characters are ticked, the parties still chosen.
+  // Changed on purpose (item 89): with module 0.49.0 the characters are ticked, the parties still chosen.
   const radios = await radiosOf(dialog)
   const boxes = await dialog.getByRole('checkbox').evaluateAll(bs => bs.map(b => b.closest('label').textContent.trim()))
   check(NEW
@@ -835,7 +835,7 @@ part('15. a race')
     await group.getByRole('button', { name: 'Give', exact: true }).click()
     dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
     await dialog.waitFor()
-    // Changed on purpose (item give): with module 0.49.0 Vex is ticked, a hand-out to one, whose
+    // Changed on purpose (item 89): with module 0.49.0 Vex is ticked, a hand-out to one, whose
     // giver's write still comes first.
     if (NEW) await dialog.getByRole('checkbox', { name: /^Vex/ }).locator('xpath=ancestor::label[1]').click()
     else await pick(dialog, /^Vex/)
@@ -847,7 +847,7 @@ part('15. a race')
     const look = await currencyLook(group)
     // Changed on purpose (items 67 and 68): with module 0.49.0 his row has more than one button, and says what's
     // on its way once, by its label, as a party's does; with an older one Give, alone, keeps its own spinner.
-    // Changed on purpose (item give): the row's buttons are Add or remove and Give.
+    // Changed on purpose (item 89): the row's buttons are Add or remove and Give.
     check(NEW
       ? look.busy === 'true' && look.buttons.length === 2 && look.buttons.every(b => b.disabled && b.svgs === 0) && look.termSpinners === 1 && look.right && look.name === 'Currency'
       : look.buttons.length === 1 && look.buttons[0].disabled && look.buttons[0].svgs === 1 && look.termSpinners === 0 && look.busy === null,
@@ -871,7 +871,7 @@ for (const width of [360, 390, 768, 1280]) {
     const own = await sideways(alice.page)
     const p = await openParty(alice)
     await p.getByRole('group', { name: 'Currency', exact: true }).waitFor()
-    // Changed on purpose (item give): the party's group is below its coins at every width, at the
+    // Changed on purpose (item 89): the party's group is below its coins at every width, at the
     // card's left, and its coins below its label; it wrapped under the label, at the card's right,
     // at 360.
     const wraps = await p.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
