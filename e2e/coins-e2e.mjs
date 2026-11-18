@@ -458,9 +458,10 @@ part('10. phones, a tablet and both themes')
     await give.waitFor({ timeout: 10_000 })
     await tick(give, 'checkbox', 'Vex')
     await tick(give, 'checkbox', 'Bram')
-    await field(give, 'Gold').fill('2')
+    // What each gets is what Thorin's 3 gp pay for, so the summary is the give's alone.
+    await field(give, 'Gold').fill('1')
     await shootBoth(seat, 'give-dialog', give)
-    check(fits && await sideways(seat.page) === 0 && await summary(give) === 'You give 2 gp each to Vex and Bram: 4 gp in all.', `at ${width} both dialogs open, nothing scrolling sideways: "${await summary(give)}"`)
+    check(fits && await sideways(seat.page) === 0 && await summary(give) === 'You give 1 gp each to Vex and Bram: 2 gp in all.', `at ${width} both dialogs open, nothing scrolling sideways: "${await summary(give)}"`)
     await seat.view.close()
   }
   check(commands().length === 6, 'looked at and cancelled, nothing more is sent')
