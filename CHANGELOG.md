@@ -19,7 +19,7 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
-## v0.48.0-rc
+## v0.49.0 — 2026-11-17
 
 ### Features
 
@@ -40,7 +40,7 @@ so an item from it is named with its number when it was built, which may since b
   character is short of one, without which more of a coin than is held is refused. It works under
   D&D Fifth Edition 5 and 6; under 6, a fraction of a coin the character stores stays as it is. It
   isn't offered while the character is transformed, as in Wild Shape, and never for a party's coins
-  or a companion's. Needs Sending Stone 0.48.0 in Foundry; with an older one, the campaign card and
+  or a companion's. Needs Sending Stone 0.49.0 in Foundry; with an older one, the campaign card and
   Help say so. (app and module, item 67)
 - **Coins handed out to several characters at once.** Hand out, on the same row, gives so many of
   each coin to each of the campaign's characters ticked, up to 20 at a time, with Select all where
@@ -54,7 +54,7 @@ so an item from it is named with its number when it was built, which may since b
   Thorin", and the Gamemasters are whispered one message with all of it; the giver's player reads
   each of them too, where the giver has one player of its own. Where one character can't be given
   their coins, what wasn't given goes back to the giver and no more is given. Needs Sending
-  Stone 0.48.0 in Foundry. (app and module, item 68)
+  Stone 0.49.0 in Foundry. (app and module, item 68)
 
 ### Fixes
 
@@ -80,26 +80,6 @@ so an item from it is named with its number when it was built, which may since b
 
 ### Enhancements
 
-- **Pages show an outline of themselves while they load.** Once a page has checked that it may be
-  shown, it now draws what it already knows at once and a shimmering outline of the rest while it
-  reads its data, where it showed nothing before. Your characters shows your name, both headings,
-  the invite form and "Running a game?" at once, and an outline of the list. A character's sheet, at
-  its player's seat or the Gamemaster's, shows the table laid out as it most often will be: its
-  header with the character's name, and at the Gamemaster's seat the GM pill and, under the header,
-  the note on whose sheet they're at, with an outline of where their rolls go; the sheet's tabs,
-  tiles and abilities; on a wide screen the combat and chat column, narrower the tabs. Your
-  campaigns shows its heading and an outline of its list, and of the campaign the link opens; an
-  invite link, an outline of the invite. A soft shine sweeps across each outline every 1.5 seconds;
-  where the device asks for reduced motion, the outline is still. A screen reader hears "Loading…".
-  The not-found pages and sign-in redirects are the same as before: signed out, the server sends you
-  to sign in; a page that isn't open to you is not found. Opening one of these pages afresh, the
-  outline may only flash where the data comes quickly; going to one from another page of the app, it
-  may not show at all, and where it does, it shows for at least about a third of a second, so the
-  page comes up that much later than before. An installed app's own launch screen is drawn by the
-  phone (on Android, from the app's manifest), so it stays still; the app's launch page, below,
-  follows it, and signed in, the page's outline follows that once the page starts loading. Where one
-  of these pages can't read its data once its checks have passed (the database down, say), it now
-  answers 200 with the error shown in the page, where it answered 500. (app)
 - **The stone lights up as the installed app opens.** An app added to a phone's Home Screen, or
   installed on a computer, now opens on a launch page of its own: the stone in the middle of a
   night-dark screen, the same one an Android phone's own launch screen is drawn on (an iPhone's own
@@ -131,27 +111,9 @@ so an item from it is named with its number when it was built, which may since b
 
 ### Maintenance
 
-- **The loading stone, kept for later.** The app's stone, its carved rune lighting like a signal's
-  bars, over and over every 2 seconds: dark, then the dot, the dot and the inner arc, all three,
-  half a second each; where the device asks for reduced motion, the rune is lit and still. This
-  release candidate first showed it in the middle of the page while your characters, your
-  campaigns, a character's sheet, the Gamemaster's seat at one and an invite link read their data;
-  the outlines above replaced it on all five. No page shows it now. The installed app's launch page
-  (item 56, above) now draws the same stone by itself; the component stays in the app
-  (`src/components/loading-stone`), perhaps to lie over the outlines later. (app)
-- **The module's scripts no longer import one another in a loop.** 54 of the module's 72 scripts
-  imported one another in one loop, through 296 imports (ROADMAP item 24 counted 44 when it was
-  found). Ninety declarations moved, their text unchanged, to scripts that those which use them can
-  import without the loop, five of them new (`bridge-role.mjs`, `command-checks.mjs`,
-  `command-links.mjs`, `dnd5e-generation.mjs` and `wild-shape-hooks.mjs`); and in five places a
-  script is now handed a function as the module loads, where it used to import a script built on
-  it. The scripts, 77 then and 80 now, stand in seven layers, each importing only from its own layer
-  or a lower one, and `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop,
-  on an import up the layers and on a script in no layer. The module has a `CLAUDE.md` of its own:
-  the layers, what to do when a lower script needs something of a higher one, and the standing rules
-  for whoever changes it next. Nothing the module sends, takes or shows changes, and no module
-  version comes of it: the harness's 115 runs ended as they had before, line for line, and the app's
-  125 e2e runs passed against it. (module, item 24)
+- **The loading stone, still kept for later.** The installed app's launch page (item 56, above) now
+  draws the same stone by itself; the component stays in the app (`src/components/loading-stone`),
+  perhaps to lie over the pages' outlines later. (app)
 - **Five end-to-end checks hold on a busy machine.** Each had failed once or twice under load and
   passed alone, and none was a fault in the app: two looked at the page a moment before it was
   ready, one timed it from a moment late, one closed a game a moment before the app had noted its
@@ -225,30 +187,83 @@ so an item from it is named with its number when it was built, which may since b
   `step2.mjs` and `groups.mjs` each coin's rate in a sheet's currency, and the harnesses that read
   the hello follow its new fields. `test/README.md` counts 50 harnesses and 119 runs. (module,
   items 23, 29, 47, 67 and 68)
-- **Docs for v0.48.** README.md's supported-versions table gains v0.48.0. The module's
+- **Docs for v0.49.** README.md's supported-versions table gains v0.49.0. The module's
   `PROTOCOL.md` gains each coin's rate in a sheet's currency (`conversion`), the `coins` command
   with the hello's `features.coins`, a character's coins handed out (a third shape of `transfer`,
   with the hello's `features.transfers.handOut` and `change`), the campaign's `coins` and
   `coinChange` settings rows, effects kept from Wild Shape, Midi-QOL's checks of the reactions it
-  looks for rolled on Foundry's computer dice, and its "Module 0.48.0" entries; its `README.md`
+  looks for rolled on Foundry's computer dice, and its "Module 0.49.0" entries; its `README.md`
   says each. (app and module)
+- **ROADMAP kept current.** ROADMAP.md gains a v0.49 section, the release candidate, listing seven
+  checks to make at the table before module v0.49.0 is tagged: Midi-QOL's look for reactions; a
+  skill, a tool or spell slots moved from its menu; effects kept from Wild Shape, and effects taken
+  off in it; the stone as the installed app opens, on an Android phone and on an iPhone's Home
+  Screen; and coins added, taken away and handed out. Under "Before v1.0", batch 2 reads as done,
+  its items taken out: items 23, 29, 41, 42, 47, 56, 57, 67, 68, 70 and 71. Items 72 to 86, under
+  "Found while building Batch 2", are what batch 2 found or left: Midi-QOL's check of a Gamemaster's
+  own use (72); a roll's button after its menu, and the favorites' two lists (73 to 75); Wild Shape
+  (76 to 78); End turn's 600 ms (79); e2e checks of the races' kinds not yet seen to fail (80); the
+  launch page (81); Help's place as a sheet hydrates (82); what coins found: a spell prepared's
+  check, older moves' fractions of a coin, and focus after a move (83 to 85); and toasts' tap check,
+  which failed once under load (86). Item 63, offline mode, is to have a worker of its own beside
+  the launch page's, and the known limits say what Wild Shape now keeps and that the app puts
+  skills, tools and spell slots in order. (app)
+
+## v0.48.0 — 2026-11-16
+
+### Enhancements
+
+- **Pages show an outline of themselves while they load.** Once a page has checked that it may be
+  shown, it now draws what it already knows at once and a shimmering outline of the rest while it
+  reads its data, where it showed nothing before. Your characters shows your name, both headings,
+  the invite form and "Running a game?" at once, and an outline of the list. A character's sheet, at
+  its player's seat or the Gamemaster's, shows the table laid out as it most often will be: its
+  header with the character's name, and at the Gamemaster's seat the GM pill and, under the header,
+  the note on whose sheet they're at, with an outline of where their rolls go; the sheet's tabs,
+  tiles and abilities; on a wide screen the combat and chat column, narrower the tabs. Your
+  campaigns shows its heading and an outline of its list, and of the campaign the link opens; an
+  invite link, an outline of the invite. A soft shine sweeps across each outline every 1.5 seconds;
+  where the device asks for reduced motion, the outline is still. A screen reader hears "Loading…".
+  The not-found pages and sign-in redirects are the same as before: signed out, the server sends you
+  to sign in; a page that isn't open to you is not found. Opening one of these pages afresh, the
+  outline may only flash where the data comes quickly; going to one from another page of the app, it
+  may not show at all, and where it does, it shows for at least about a third of a second, so the
+  page comes up that much later than before. An installed app's launch screen is drawn by the phone
+  (on Android, from the app's manifest), so it stays still; signed in, the page's outline follows it
+  once the page starts loading. Where one of these pages can't read its data once its checks have
+  passed (the database down, say), it now answers 200 with the error shown in the page, where it
+  answered 500. (app)
+
+### Maintenance
+
+- **The loading stone, kept for later.** The app's stone, its carved rune lighting like a signal's
+  bars, over and over every 2 seconds: dark, then the dot, the dot and the inner arc, all three,
+  half a second each; where the device asks for reduced motion, the rune is lit and still. v0.48.0's
+  release candidate first showed it in the middle of the page while your characters, your
+  campaigns, a character's sheet, the Gamemaster's seat at one and an invite link read their data;
+  the outlines above replaced it on all five. No page shows it now. It stays in the app
+  (`src/components/loading-stone`) for the installed app's launch (ROADMAP item 56) and perhaps to
+  lie over the outlines later. (app)
+- **The module's scripts no longer import one another in a loop.** 54 of the module's 72 scripts
+  imported one another in one loop, through 296 imports (ROADMAP item 24 counted 44 when it was
+  found). Ninety declarations moved, their text unchanged, to scripts that those which use them can
+  import without the loop, five of them new (`bridge-role.mjs`, `command-checks.mjs`,
+  `command-links.mjs`, `dnd5e-generation.mjs` and `wild-shape-hooks.mjs`); and in five places a
+  script is now handed a function as the module loads, where it used to import a script built on it.
+  The 77 scripts stand in seven layers, each importing only from its own layer or a lower one, and
+  `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop, on an import up the
+  layers and on a script in no layer. The module has a `CLAUDE.md` of its own: the layers, what to
+  do when a lower script needs something of a higher one, and the standing rules for whoever changes
+  it next. Nothing the module sends, takes or shows changes, and it is all module 0.48.0 brings: the
+  harness's 115 runs end as they did before, line for line, and the app's 125 e2e runs pass against
+  it. (module, item 24)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
-  kept, and a v0.48 section, the release candidate, lists seven checks to make at the table before
-  module v0.48.0 is tagged: Midi-QOL's look for reactions; a skill, a tool or spell slots moved from
-  its menu; effects kept from Wild Shape, and effects taken off in it; the stone as the installed
-  app opens, on an Android phone and on an iPhone's Home Screen; and coins added, taken away and
-  handed out. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0",
-  v1.x's items but critical hit options joining it as items 58 to 66; v1.x keeps critical hit
-  options and gains inactive characters. Batches 1 and 2 read as done, their items taken out:
-  item 24, then items 23, 29, 41, 42, 47, 56, 57, 67, 68, 70 and 71. Item 69 is what item 24 left
-  for later, and items 72 to 86, under "Found while building Batch 2", what batch 2 found or left:
-  Midi-QOL's check of a Gamemaster's own use (72); a roll's button after its menu, and the
-  favorites' two lists (73 to 75); Wild Shape (76 to 78); End turn's 600 ms (79); e2e checks of the
-  races' kinds not yet seen to fail (80); the launch page (81); Help's place as a sheet hydrates
-  (82); what coins found: a spell prepared's check, older moves' fractions of a coin, and focus
-  after a move (83 to 85); and toasts' tap check, which failed once under load (86). Item 63,
-  offline mode, is to have a worker of its own beside the launch page's, and the known limits say
-  what Wild Shape now keeps and that the app puts skills, tools and spell slots in order. (app)
+  kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
+  v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
+  taken away and handed out from the sheet (items 67 and 68). v1.x keeps critical hit options and
+  gains inactive characters. Batch 1, item 24, reads as done; item 69 is what it left for later,
+  and items 70 and 71 are two e2e checks that each failed once under load in its full passes.
+  (app)
 
 ## v0.47.0 — 2026-11-12
 
