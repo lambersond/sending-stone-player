@@ -114,6 +114,10 @@ so an item from it is named with its number when it was built, which may since b
 - **The loading stone, still kept for later.** The installed app's launch page (item 56, above) now
   draws the same stone by itself; the component stays in the app (`src/components/loading-stone`),
   perhaps to lie over the pages' outlines later. (app)
+- **Three new module scripts, each in its layer.** `coin-change.mjs` is in the game's layer,
+  `wild-shape-effects.mjs` in the sheets' and `command-coins.mjs` in the commands', so the module's
+  80 scripts, 77 in v0.48.0, still stand in seven layers with no loop among their imports, as
+  `npm test`'s guard checks. (module, items 29, 67 and 68)
 - **Five end-to-end checks hold on a busy machine.** Each had failed once or twice under load and
   passed alone, and none was a fault in the app: two looked at the page a moment before it was
   ready, one timed it from a moment late, one closed a game a moment before the app had noted its
@@ -249,14 +253,14 @@ so an item from it is named with its number when it was built, which may since b
   found). Ninety declarations moved, their text unchanged, to scripts that those which use them can
   import without the loop, five of them new (`bridge-role.mjs`, `command-checks.mjs`,
   `command-links.mjs`, `dnd5e-generation.mjs` and `wild-shape-hooks.mjs`); and in five places a
-  script is now handed a function as the module loads, where it used to import a script built on it.
-  The 77 scripts stand in seven layers, each importing only from its own layer or a lower one, and
-  `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop, on an import up the
-  layers and on a script in no layer. The module has a `CLAUDE.md` of its own: the layers, what to
-  do when a lower script needs something of a higher one, and the standing rules for whoever changes
-  it next. Nothing the module sends, takes or shows changes, and it is all module 0.48.0 brings: the
-  harness's 115 runs end as they did before, line for line, and the app's 125 e2e runs pass against
-  it. (module, item 24)
+  script is now handed a function as the module loads, where it used to import a script built on
+  it. The 77 scripts stand in seven layers, each importing only from its own layer or a lower one,
+  and `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop, on an import
+  up the layers and on a script in no layer. The module has a `CLAUDE.md` of its own: the layers,
+  what to do when a lower script needs something of a higher one, and the standing rules for
+  whoever changes it next. Nothing the module sends, takes or shows changes, and it is all module
+  0.48.0 brings: the harness's 115 runs end as they did before, line for line, and the app's 125
+  e2e runs pass against it. (module, item 24)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
   kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
   v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
