@@ -2,8 +2,12 @@ import { MOST_AMONG } from '@/constants/sending-stone'
 import { coinAbbreviations, shortCoinWords } from '@/features/transfers/utils'
 import { coinTotals } from '@/utils/coins'
 import { coinsWords, namesWords } from '@/utils/move-words'
-import type { HandOutDialogProps, HandOutSummary } from './types'
-import type { CoinSpeaker, MoveEnd } from '@/features/transfers/types'
+import type { HandOutDialogProps } from './types'
+import type {
+  CoinSpeaker,
+  FormSummary,
+  MoveEnd,
+} from '@/features/transfers/types'
 import type { SheetCurrency } from '@/types/sending-stone'
 
 /**
@@ -22,7 +26,7 @@ export function handOutSummary(
   currency: readonly SheetCurrency[],
   change: boolean,
   speaker: CoinSpeaker,
-): HandOutSummary {
+): FormSummary {
   if (to.length === 0) return { text: 'Choose who gets them.', ready: false }
   if (to.length > MOST_AMONG) {
     return { text: `Choose up to ${MOST_AMONG} at a time.`, ready: false }

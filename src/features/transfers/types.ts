@@ -100,6 +100,14 @@ export type CoinSpeaker = {
   game: string
 }
 
+/** What a coins dialog says it'll do, or still needs, and whether it may be sent. */
+export type FormSummary = {
+  text: string
+  /** Said after it where other coins pay for the rest. */
+  note?: string
+  ready: boolean
+}
+
 /** What's being given, while its dialog is open, as it was when it opened. */
 export type Giving = {
   what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }

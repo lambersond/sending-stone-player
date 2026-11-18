@@ -2,7 +2,7 @@
 
 import clsx from 'clsx'
 import { CoinAmounts } from '../coin-amounts/coin-amounts'
-import { RecipientChecks } from '../recipient-checks/recipient-checks'
+import { RecipientList } from '../recipient-list/recipient-list'
 import { useHandOutForm } from './use-hand-out-form'
 import { Modal } from '@/components/modal/modal'
 import type { HandOutDialogProps } from './types'
@@ -41,10 +41,11 @@ function HandOutForm(props: Readonly<HandOutDialogProps>) {
     <form onSubmit={submit} noValidate className='grid gap-5'>
       <fieldset>
         <legend className='mb-2 text-sm font-medium'>To</legend>
-        <RecipientChecks
+        <RecipientList
           characters={characters}
           value={ticked}
           onChange={setTicked}
+          several
         />
       </fieldset>
       <CoinAmounts

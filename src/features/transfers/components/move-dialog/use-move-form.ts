@@ -33,14 +33,14 @@ export function useMoveForm({
   const currency = 'coins' in what ? what.coins : undefined
   const take = mode === 'take'
   const choices = choicesOf({ mode, receivers, recipients })
-  const [chosen, setChosen] = useState<string | undefined>(() =>
+  const [chosen, setChosen] = useState<string[]>(() =>
     firstChosen({ mode, recipients }),
   )
   const [count, setCount] = useState('1')
   const [coins, setCoins] = useState<Record<string, string>>({})
 
   const { max, counted, tooMany, quantity } = itemAmounts(item, count)
-  const recipient = choices ? choices.find(({ id }) => id === chosen) : into
+  const recipient = choices ? choices.find(({ id }) => id === chosen[0]) : into
   const moved = currency ? coinsMoved(currency, coins) : undefined
   const things = thingsOf(item, quantity, currency, moved)
   // On the Gamemaster's party page, who takes it is who it's taken into, once they're chosen.

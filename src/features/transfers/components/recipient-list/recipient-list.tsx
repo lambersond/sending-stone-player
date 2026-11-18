@@ -1,10 +1,12 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { UserRound, Users, type LucideIcon } from 'lucide-react'
+import { Check, UserRound, Users, type LucideIcon } from 'lucide-react'
+import { allTicked, everyTicked, tickedAfter } from './utils'
 import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import { SearchField } from '@/components/search-field/search-field'
+import { MOST_AMONG } from '@/constants/sending-stone'
 import { matchesSearch, searchKey } from '@/utils/search'
 import type { Section } from './types'
 import type { MoveEnd } from '@/features/transfers/types'
@@ -12,30 +14,39 @@ import type { MoveEnd } from '@/features/transfers/types'
 /*
  * Who a move goes to (module 0.31.0): the parties first, then the campaign's characters, each with
  * its portrait. They're the browser's own radio buttons, one group across both, so arrow keys move
- * the choice as they do in any form, and a screen reader says which is chosen of how many.
+ * the choice as they do in any form, and a screen reader says which is chosen of how many. From
+ * module 0.49.0, on a character's Give of its coins (`several`), the characters are the browser's
+ * own checkboxes instead, any of them ticked, with Select all first among them where one give may
+ * go to them all; a party is still chosen alone, its radio letting go of the characters, and a
+ * character ticked letting go of the party.
  */
 
 /** How many there may be before they can be searched by name, as the picker's targets. */
 const SEARCH_ABOVE = 5
 
 /**
- * The parties and characters to choose one from, under their headings, a section with none left
- * out; searched by name once there are more than a few, the one chosen kept whatever's typed.
- * @param value - The one chosen, if one is.
+ * The parties and characters to choose from, under their headings, a section with none left out;
+ * searched by name once there are more than a few, those picked kept whatever's typed.
+ * @param value - Those picked, by id: one, or with `several` any of the characters.
  */
 export function RecipientList({
   parties = [],
   characters,
   value,
   onChange,
+  several = false,
 }: Readonly<{
   parties?: MoveEnd[]
   characters: MoveEnd[]
-  value?: string
-  onChange: (id: string) => void
+  value: readonly string[]
+  onChange: (ids: string[]) => void
+  /**
+   * From module 0.49.0, on a character's Give of its coins: any of the characters may be ticked,
+   * or one party chosen alone.
+   */
+  several?: boolean
 }>) {
   const id = useId()
-  const name = `${id}-to`
   const [query, setQuery] = useState('')
   const sections: Section[] = [
     { key: 'parties', label: 'Parties', ends: parties, fallback: Users },
@@ -59,9 +70,15 @@ export function RecipientList({
   const shown = sections
     .map(section => ({
       ...section,
-      ends: section.ends.filter(end => end.id === value || matches(end)),
+      ends: section.ends.filter(end => value.includes(end.id) || matches(end)),
     }))
     .filter(({ ends }) => ends.length > 0)
+  // Ticks, for the characters of a give of coins: radios for the rest.
+  const ticks = (key: Section['key']) => several && key === 'characters'
+  const selectsAll =
+    several && characters.length > 1 && characters.length <= MOST_AMONG
+  const pick = (key: Section['key'], end: string) =>
+    onChange(ticks(key) ? tickedAfter(value, end, characters) : [end])
   return (
     <div className='flex flex-col gap-3'>
       {searchable && (
@@ -85,15 +102,27 @@ export function RecipientList({
             aria-labelledby={`${id}-${key}`}
             className='flex flex-col gap-1.5'
           >
+            {ticks(key) && selectsAll && (
+              <Option
+                kind='checkbox'
+                name={`${id}-all`}
+                checked={everyTicked(value, characters)}
+                onChange={() => onChange(allTicked(value, characters))}
+              >
+                <span className='min-w-0 flex-1'>Select all</span>
+              </Option>
+            )}
             {ends.map(end => (
               <Option
                 key={end.id}
-                end={end}
-                name={name}
-                fallback={fallback}
-                checked={end.id === value}
-                onChange={onChange}
-              />
+                kind={ticks(key) ? 'checkbox' : 'radio'}
+                name={ticks(key) ? `${id}-each` : `${id}-to`}
+                value={end.id}
+                checked={value.includes(end.id)}
+                onChange={() => pick(key, end.id)}
+              >
+                <EndName end={end} fallback={fallback} />
+              </Option>
             ))}
           </div>
         </div>
@@ -105,28 +134,33 @@ export function RecipientList({
   )
 }
 
-/** One to choose: a card around the radio button, as the picker's choices look. */
+/**
+ * One to choose or tick: a card around the radio button or checkbox, as the picker's choices look,
+ * with a dot or a check drawn by kind.
+ */
 function Option({
-  end,
+  kind,
   name,
-  fallback,
+  value,
   checked,
   onChange,
+  children,
 }: Readonly<{
-  end: MoveEnd
+  kind: 'radio' | 'checkbox'
   name: string
-  fallback: LucideIcon
+  value?: string
   checked: boolean
-  onChange: (id: string) => void
+  onChange: () => void
+  children: ReactNode
 }>) {
   return (
     <label className='block cursor-pointer'>
       <input
-        type='radio'
+        type={kind}
         name={name}
-        value={end.id}
+        value={value}
         checked={checked}
-        onChange={() => onChange(end.id)}
+        onChange={onChange}
         className='peer sr-only'
       />
       <span
@@ -137,25 +171,51 @@ function Option({
             : 'border-border hover:bg-primary/5',
         )}
       >
-        <span
-          aria-hidden
-          className={clsx(
-            'size-3.5 shrink-0 rounded-full border',
-            checked ? 'border-4 border-primary' : 'border-border',
-          )}
-        />
-        <EntryIcon src={end.portrait} fallback={fallback} />
-        {/* Its name wraps, whole, to be read before it's chosen: one kept on one line held the
-            move's fieldset, as wide as what's in it, past the dialog's edge. */}
-        <span className='min-w-0 flex-1 wrap-anywhere'>{end.name}</span>
-        {/* Said after the name, as "The Iron Company Primary". */}
-        {end.primary && ' '}
-        {end.primary && (
-          <span className='shrink-0 text-xs font-normal text-text-secondary'>
-            Primary
+        {kind === 'radio' ? (
+          <span
+            aria-hidden
+            className={clsx(
+              'size-3.5 shrink-0 rounded-full border',
+              checked ? 'border-4 border-primary' : 'border-border',
+            )}
+          />
+        ) : (
+          <span
+            aria-hidden
+            className={clsx(
+              'flex size-4 shrink-0 items-center justify-center rounded border',
+              checked
+                ? 'border-primary bg-primary text-on-primary'
+                : 'border-border',
+            )}
+          >
+            {checked && <Check className='size-3' strokeWidth={3} />}
           </span>
         )}
+        {children}
       </span>
     </label>
+  )
+}
+
+/** Who an end is, on its card: its portrait, its name, and "Primary" after the primary party's. */
+function EndName({
+  end,
+  fallback,
+}: Readonly<{ end: MoveEnd; fallback: LucideIcon }>) {
+  return (
+    <>
+      <EntryIcon src={end.portrait} fallback={fallback} />
+      {/* Its name wraps, whole, to be read before it's chosen: one kept on one line held the
+          move's fieldset, as wide as what's in it, past the dialog's edge. */}
+      <span className='min-w-0 flex-1 wrap-anywhere'>{end.name}</span>
+      {/* Said after the name, as "The Iron Company Primary". */}
+      {end.primary && ' '}
+      {end.primary && (
+        <span className='shrink-0 text-xs font-normal text-text-secondary'>
+          Primary
+        </span>
+      )}
+    </>
   )
 }

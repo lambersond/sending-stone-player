@@ -22,11 +22,3 @@ export type HandOutDialogProps = {
     words: LocalMove
   }) => void
 }
-
-/** What the dialog says it'll do, or still needs, and whether it may be sent. */
-export type HandOutSummary = {
-  text: string
-  /** Said after it where other coins pay for the rest. */
-  note?: string
-  ready: boolean
-}

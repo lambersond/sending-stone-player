@@ -56,14 +56,19 @@ export function choicesOf({
     : recipients && [...recipients.parties, ...recipients.characters]
 }
 
-/** Who a move goes to as its dialog opens: a give, the primary party; a send, none until chosen. */
+/**
+ * Who a move goes to as its dialog opens, by id: a give, the primary party, where it may go there;
+ * a send, none until chosen.
+ */
 export function firstChosen({
   mode,
   recipients,
-}: Pick<MoveDialogProps, 'mode' | 'recipients'>): string | undefined {
-  return mode === 'give'
-    ? recipients?.parties.find(({ primary }) => primary)?.id
-    : undefined
+}: Pick<MoveDialogProps, 'mode' | 'recipients'>): string[] {
+  const primary =
+    mode === 'give'
+      ? recipients?.parties.find(({ primary }) => primary)
+      : undefined
+  return primary ? [primary.id] : []
 }
 
 /**

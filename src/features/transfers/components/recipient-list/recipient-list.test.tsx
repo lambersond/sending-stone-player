@@ -20,22 +20,41 @@ const more = ['Arwen', 'Bilbo', 'Celeborn', 'Durin'].map(name => ({
   name,
 }))
 
-/** The list as a dialog holds it: the one chosen. */
+/** The list as a dialog holds it: those picked, said as they change. */
 function Held({
   parties,
   characters,
-  start,
-}: Readonly<{ parties?: MoveEnd[]; characters: MoveEnd[]; start?: string }>) {
+  start = [],
+  several,
+  onPicked,
+}: Readonly<{
+  parties?: MoveEnd[]
+  characters: MoveEnd[]
+  start?: string[]
+  several?: boolean
+  onPicked?: (ids: string[]) => void
+}>) {
   const [value, setValue] = useState(start)
   return (
     <RecipientList
       parties={parties}
       characters={characters}
       value={value}
-      onChange={setValue}
+      onChange={ids => {
+        setValue(ids)
+        onPicked?.(ids)
+      }}
+      several={several}
     />
   )
 }
+
+/** So many of the campaign's characters, named Character 1 and on. */
+const numbered = (count: number): MoveEnd[] =>
+  Array.from({ length: count }, (_, index) => ({
+    id: `actor${index + 1}`,
+    name: `Character ${index + 1}`,
+  }))
 
 describe('components/transfers/recipient-list', () => {
   it('lists parties, then characters, each under its heading, as native radios of one name', () => {
@@ -102,7 +121,9 @@ describe('components/transfers/recipient-list', () => {
 
   it('chooses the one tapped, and the browser’s arrows move it', async () => {
     const user = userEvent.setup()
-    render(<Held parties={[iron]} characters={[vex]} start='groupIronCo01' />)
+    render(
+      <Held parties={[iron]} characters={[vex]} start={['groupIronCo01']} />,
+    )
     const party = screen.getByRole('radio', {
       name: 'The Iron Company Primary',
     })
@@ -127,7 +148,7 @@ describe('components/transfers/recipient-list', () => {
       <Held
         parties={[iron, order]}
         characters={[vex, ...more]}
-        start='actorVex0001'
+        start={['actorVex0001']}
       />,
     )
     const search = screen.getByRole('searchbox', { name: 'Search by name' })
@@ -151,5 +172,91 @@ describe('components/transfers/recipient-list', () => {
     await user.type(search, 'zzz')
     expect(screen.getByText('No one matches')).toBeVisible()
     expect(screen.getAllByRole('radio')).toHaveLength(1)
+  })
+})
+
+// From module 0.49.0, on a character's Give of its coins: what's picked follows
+// utils.test.ts's rules; these check that the list draws and wires them.
+describe('components/transfers/recipient-list, several characters (module 0.49.0)', () => {
+  it('ticks the characters, as native checkboxes, and chooses a party alone, as a radio', async () => {
+    const user = userEvent.setup()
+    const onPicked = jest.fn()
+    render(
+      <Held
+        parties={[iron, order]}
+        characters={[vex, ...more.slice(0, 2)]}
+        start={['groupIronCo01']}
+        several
+        onPicked={onPicked}
+      />,
+    )
+    const parties = screen.getByRole('group', { name: 'Parties' })
+    const characters = screen.getByRole('group', { name: 'Characters' })
+    expect(within(parties).getAllByRole('radio')).toHaveLength(2)
+    expect(within(parties).queryAllByRole('checkbox')).toHaveLength(0)
+    expect(
+      within(characters)
+        .getAllByRole('checkbox')
+        .map(box => box.closest('label')?.textContent),
+    ).toEqual(['Select all', 'Vex', 'Arwen', 'Bilbo'])
+    expect(within(characters).queryAllByRole('radio')).toHaveLength(0)
+
+    // A character ticked lets go of the party; the party chosen again unticks the characters.
+    await user.click(screen.getByRole('checkbox', { name: 'Bilbo' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Vex' }))
+    expect(onPicked).toHaveBeenLastCalledWith(['actorVex0001', 'actorBilbo'])
+    expect(
+      screen.getByRole('radio', { name: 'The Iron Company Primary' }),
+    ).not.toBeChecked()
+    await user.click(screen.getByRole('radio', { name: 'The Silent Order' }))
+    expect(onPicked).toHaveBeenLastCalledWith(['groupOrder01'])
+    expect(screen.getByRole('checkbox', { name: 'Vex' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Bilbo' })).not.toBeChecked()
+  })
+
+  it('ticks them all with Select all, ticked itself once they all are, and none with it again', async () => {
+    const user = userEvent.setup()
+    const onPicked = jest.fn()
+    render(<Held characters={numbered(20)} several onPicked={onPicked} />)
+    const all = screen.getByRole('checkbox', { name: 'Select all' })
+
+    await user.click(all)
+    expect(onPicked.mock.lastCall?.[0]).toHaveLength(20)
+    expect(all).toBeChecked()
+    await user.click(screen.getByRole('checkbox', { name: 'Character 7' }))
+    expect(all).not.toBeChecked()
+    await user.click(all)
+    await user.click(all)
+    expect(onPicked).toHaveBeenLastCalledWith([])
+  })
+
+  it.each([
+    ['more than one give goes to', 21],
+    ['only one to tick', 1],
+  ])('has no Select all where there are %s', (_name, count) => {
+    render(<Held characters={numbered(count)} several />)
+    expect(screen.queryByRole('checkbox', { name: 'Select all' })).toBeNull()
+    expect(screen.getAllByRole('checkbox')).toHaveLength(count)
+  })
+
+  it('keeps those ticked while searching, and ticks those hidden too with Select all', async () => {
+    const user = userEvent.setup()
+    render(<Held parties={[iron]} characters={[vex, ...more]} several />)
+    await user.click(screen.getByRole('checkbox', { name: 'Durin' }))
+    await user.type(screen.getByRole('searchbox'), 'vex')
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .map(box => box.closest('label')?.textContent),
+    ).toEqual(['Select all', 'Vex', 'Durin'])
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select all' }))
+    // Every character, those the search hid too, which show once ticked.
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .filter(box => (box as HTMLInputElement).checked)
+        .map(box => box.closest('label')?.textContent),
+    ).toEqual(['Select all', 'Vex', 'Arwen', 'Bilbo', 'Celeborn', 'Durin'])
   })
 })

@@ -1,7 +1,7 @@
 import { coinAbbreviations, shortCoinWords } from '@/features/transfers/utils'
 import { coinsWords } from '@/utils/move-words'
-import type { CoinsChosen, CoinsSummary } from './types'
-import type { CoinSpeaker } from '@/features/transfers/types'
+import type { CoinsChosen } from './types'
+import type { CoinSpeaker, FormSummary } from '@/features/transfers/types'
 import type { CoinsInput, LocalMove } from '@/types/roll'
 import type { CoinOp, SheetCurrency } from '@/types/sending-stone'
 
@@ -24,7 +24,7 @@ export function coinsSummary(
   currency: readonly SheetCurrency[],
   change: boolean,
   speaker: CoinSpeaker,
-): CoinsSummary {
+): FormSummary {
   if (!op) return { text: 'Choose Add or Remove.', ready: false }
   if (!amounts) return { text: 'Choose how many.', ready: false }
   const things = coinsWords(currency, amounts)
