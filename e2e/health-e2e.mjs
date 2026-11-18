@@ -177,9 +177,14 @@ sql(`insert into "character" (id, name, "gameUrl", "campaignTitle", "campaignId"
 const PLAYER_PAGE = '/characters/sheet-thorin'
 const GM_SEAT = `/campaigns/${A}/characters/thorin`
 const GM_PAGE = `/campaigns?campaign=${A}`
-/** A page in a browser of its own, every response from the app it receives kept as text. */
+/**
+ * A page in a browser of its own, every response from the app it receives kept as text; at twice
+ * its pixels, as a phone's and a laptop's screen draw it, for its screenshots.
+ */
 async function open(width, height, path) {
-  const who = await browse({ width, height, toasts: false })
+  const mobile = width < 1024
+  const device = { viewport: { width, height }, deviceScaleFactor: 2, isMobile: mobile, hasTouch: mobile }
+  const who = await browse({ width, height, toasts: false, device })
   who.bodies = []
   who.page.on('response', async response => {
     if (!response.url().startsWith(BASE)) return
