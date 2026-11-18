@@ -258,10 +258,10 @@ run signin 9
 # remove and Give (item give), a larger coin broken and smaller ones paying, more than the coins are
 # worth held back, other coins off in Foundry, the Gamemaster's at the character's page, Give's
 # whispers to each of two and to one, and to the Gamemasters, both switches off, both dialogs on
-# phones, a tablet and the desk, Help and the campaign card; dnd5e 6.0.5; and module 0.47.0 (no
-# button but Give, crafted requests refused).
-run coins 48 SHOTS=$O/shots-049
-run coins 48 DND5E6=1 SHOTS=$O/shots-049
+# phones, a tablet and the desk, the buttons below the coins from 320 to 1280, Help and the campaign
+# card; dnd5e 6.0.5; and module 0.47.0 (no button but Give, crafted requests refused).
+run coins 53 SHOTS=$O/shots-049
+run coins 53 DND5E6=1 SHOTS=$O/shots-049
 run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
 # Module 0.50.0 (item 58): other creatures' health on the Combat tab, in world-030's world with
 # tokens: the hello and the answer, both switches off, and nothing of it in what the pages receive;

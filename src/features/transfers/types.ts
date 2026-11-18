@@ -21,7 +21,7 @@ export type TransferControls = {
   item?: (
     item: SheetItem | SheetContainer,
   ) => { aside?: ReactNode; body?: ReactNode } | undefined
-  /** Beside the Currency fact's coins. */
+  /** Under the Currency fact's coins. */
   coins?: (currency: SheetCurrency[]) => ReactNode
   /**
    * From module 0.32.0's feedback: what "Send to…" in an item's own menu opens for it, on a

@@ -18,8 +18,8 @@ import type { Coin } from './types'
 import type { SheetInventory } from '@/types/sending-stone'
 
 /**
- * Coin, how much the character carries, and how many items they are attuned to; on the coin's
- * label's row, how it's moved, where the sheet gives it a way (module 0.31.0).
+ * Coin, how much the character carries, and how many items they are attuned to; below the coins,
+ * how they're moved, where the sheet gives them a way (module 0.31.0).
  */
 export function Holdings({
   inventory,

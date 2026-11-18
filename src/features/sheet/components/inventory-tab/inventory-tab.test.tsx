@@ -804,7 +804,10 @@ describe('moving items and coins, from module 0.31.0', () => {
     const currency = screen.getByText('Currency').parentElement as HTMLElement
     expect(currency.tagName).toBe('DT')
     expect(currency).toHaveTextContent(/^Currency$/)
-    expect(coins.closest('dd')?.previousElementSibling).toBe(currency)
+    // Changed on purpose (item give): below the coins, which follow the label.
+    expect(
+      coins.closest('dd')?.previousElementSibling?.previousElementSibling,
+    ).toBe(currency)
   })
 
   it('gives none without controls, even inside a sheet that has some, nor to the favorites', async () => {
@@ -850,10 +853,10 @@ describe('moving items and coins, from module 0.31.0', () => {
 })
 
 describe('the Currency row and coin spacing, from module 0.32.0’s feedback', () => {
-  const sendTo: TransferControls = {
+  const give: TransferControls = {
     coins: () => (
       <button type='button' aria-haspopup='dialog'>
-        Send to
+        Give
       </button>
     ),
   }
@@ -862,14 +865,15 @@ describe('the Currency row and coin spacing, from module 0.32.0’s feedback', (
     globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
   })
 
-  it('puts the coin’s controls on its label’s row, in a group the label names, before the coins', () => {
+  // Changed on purpose (item give): the controls are below the coins, at the card's left.
+  it('puts the coin’s controls below its coins, in a group the label names', () => {
     render(
       <InventoryTab
         characterId='char-1'
         onRoll={jest.fn()}
         onRollDamage={jest.fn()}
         sheet={toTableSheet(fullerSheet(), 'https://my-game.forge-vtt.com')}
-        transfers={sendTo}
+        transfers={give}
       />,
     )
 
@@ -881,14 +885,14 @@ describe('the Currency row and coin spacing, from module 0.32.0’s feedback', (
       within(group)
         .getAllByRole('button')
         .map(button => button.textContent),
-    ).toEqual(['Send to'])
-    // Label, then its controls, then the coins, in one card, the controls pushed right.
+    ).toEqual(['Give'])
+    // Label, then the coins, then their controls, in one column of the card, at its left.
     const card = label.parentElement as HTMLElement
-    expect(card).toHaveClass('flex-wrap', 'justify-between')
-    expect(group.closest('dd')).toHaveClass('ml-auto')
+    expect(card).toHaveClass('flex-col')
+    expect(card).not.toHaveClass('justify-between')
+    expect(group).not.toHaveClass('justify-end')
     const coins = screen.getByTitle('Gold').closest('dd') as HTMLElement
-    expect(coins).toHaveClass('basis-full')
-    expect([...card.children]).toEqual([label, group.closest('dd'), coins])
+    expect([...card.children]).toEqual([label, coins, group.closest('dd')])
   })
 
   it('names no group where the coin has no control', () => {

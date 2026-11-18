@@ -204,22 +204,23 @@ const sheetTab = tabpanel(alice)
 await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ timeout: 15_000 })
 {
   const names = await currencyButtons(sheetTab)
+  // Changed on purpose (item give): the buttons are below the coins, the first at the card's left,
+  // under either module (the card is the app's); they were on the label's row, the last at its right.
   const look = await sheetTab.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
     const card = group.closest('dl > div') ?? group.parentElement.parentElement
     const dt = card.querySelector('dt')
-    // The last of its buttons: from module 0.49.0 the row has three.
-    const button = [...group.querySelectorAll('button')].at(-1).getBoundingClientRect()
-    const label = dt.getBoundingClientRect()
+    const buttons = [...group.querySelectorAll('button')].map(b => b.getBoundingClientRect())
+    const coins = card.querySelector('ul').getBoundingClientRect()
     const style = getComputedStyle(card)
-    const contentRight = card.getBoundingClientRect().right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth)
-    return { overlap: button.top < label.bottom && label.top < button.bottom, right: contentRight - button.right, label: dt.textContent.trim() }
+    const contentLeft = card.getBoundingClientRect().left + parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth)
+    return { below: buttons.every(b => b.top >= coins.bottom - 0.5), left: buttons[0].left - contentLeft, label: dt.textContent.trim() }
   })
   // Changed on purpose (items 67 and 68): with module 0.49.0 the row's buttons are Add or take away,
   // Send to and Hand out, in that order, which may wrap under the label on a phone; with module
   // 0.31.0, Send to alone, on the label's row, as before. Changed on purpose (item give): Add or take
   // away reads Add or remove, and Send to and Hand out are one Give.
-  check(same(names, NEW ? ['Add or remove', 'Give'] : ['Give']) && (NEW || look.overlap) && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
-    `Thorin's Currency row has ${NEW ? 'Add or remove and Give, in that order, the last' : 'one button, "Give", on the CURRENCY label\'s row,'} at the card's right edge, and none named Give coins (${JSON.stringify([names, look])})`)
+  check(same(names, NEW ? ['Add or remove', 'Give'] : ['Give']) && look.below && Math.abs(look.left) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
+    `Thorin's Currency row has ${NEW ? 'Add or remove and Give, in that order,' : 'one button, "Give",'} below its coins, the first at the card's left edge, and none named Give coins (${JSON.stringify([names, look])})`)
 }
 await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
 let dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
@@ -867,12 +868,15 @@ for (const width of [360, 390, 768, 1280]) {
     const own = await sideways(alice.page)
     const p = await openParty(alice)
     await p.getByRole('group', { name: 'Currency', exact: true }).waitFor()
-    const wraps = width <= 360 ? await p.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
+    // Changed on purpose (item give): the party's group is below its coins at every width, at the
+    // card's left; it wrapped under the label, at the card's right, at 360.
+    const wraps = await p.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
       const card = group.closest('dl > div') ?? group.parentElement.parentElement
-      const label = card.querySelector('dt').getBoundingClientRect()
+      const coins = card.querySelector('ul').getBoundingClientRect()
       const style = getComputedStyle(card)
-      return { below: group.getBoundingClientRect().top >= label.bottom - 1, right: Math.abs(card.getBoundingClientRect().right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth) - group.getBoundingClientRect().right) <= 1 }
-    }) : { below: true, right: true }
+      const first = group.querySelector('button').getBoundingClientRect()
+      return { below: group.getBoundingClientRect().top >= coins.bottom - 1, left: Math.abs(first.left - card.getBoundingClientRect().left - parseFloat(style.paddingLeft) - parseFloat(style.borderLeftWidth)) <= 1 }
+    })
     const partyWide = await sideways(alice.page)
     if (width === 390) await shoot(alice, 'givetake-currency', p)
     await p.getByRole('button', { name: 'Send to', exact: true }).click()
@@ -894,8 +898,8 @@ for (const width of [360, 390, 768, 1280]) {
       return !!hit && item.contains(hit)
     })
     await alice.page.keyboard.press('Escape')
-    check(own === 0 && partyWide === 0 && sendWide === 0 && shareWide === 0 && onTop && wraps.below && wraps.right,
-      `at ${width} px, ${scheme}: the Currency rows, Send coins and Distribute coins scroll nothing sideways${width <= 360 ? ', the party\'s group wraps under its label at the card\'s right' : ''}; the item's menu is on top`)
+    check(own === 0 && partyWide === 0 && sendWide === 0 && shareWide === 0 && onTop && wraps.below && wraps.left,
+      `at ${width} px, ${scheme}: the Currency rows, Send coins and Distribute coins scroll nothing sideways, the party's group below its coins at the card's left; the item's menu is on top (${JSON.stringify(wraps)})`)
     await p.getByRole('button', { name: 'Close' }).click()
     if (width === 1280) await spacing(alice, tabpanel(alice), "Thorin's Holdings")
   }

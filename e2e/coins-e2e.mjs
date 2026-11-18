@@ -418,21 +418,36 @@ part('9b. coins given to Vex alone')
 part('10. phones, a tablet and both themes')
 {
   await holds({ pp: 2, gp: 3 })
-  for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]) {
+  for (const [width, height] of [[320, 640], [360, 780], [390, 844], [768, 1024], [1280, 800]]) {
     const seat = await browse({ device: { viewport: { width, height }, deviceScaleFactor: 2, isMobile: width < 1024, hasTouch: width < 1024 }, path: '/characters/sheet-thorin', toasts: false })
     await seat.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
     await seat.tab('Inventory')
     await seat.currency().waitFor({ timeout: 15_000 })
     await until(async () => (await rowButtons(seat)).length === 2, `the two buttons at ${width}`, 20_000)
-    if (width === 360) {
-      const look = await seat.currency().evaluate(group => {
-        const card = group.closest('dl > div')
-        const edge = card.getBoundingClientRect()
-        return { inside: [...group.querySelectorAll('button')].every(b => b.getBoundingClientRect().left >= edge.left && b.getBoundingClientRect().right <= edge.right + 0.5), names: [...group.querySelectorAll('button')].map(b => b.textContent.trim()) }
-      })
-      check(look.inside && same(look.names, ['Add or remove', 'Give']) && await sideways(seat.page) === 0, `at 360 the row's two buttons stay inside its card, nothing scrolling sideways (${JSON.stringify(look)})`)
-      await shootBoth(seat, 'coins-row', seat.currency().locator('xpath=ancestor::div[1]'))
-    }
+    // Changed on purpose (item give): the buttons are below the coins, at the card's left, by their
+    // boxes: below the coins and the label, inside the card, the first at its content's left; the
+    // card's children its label, its coins, then its buttons.
+    const look = await seat.currency().evaluate(group => {
+      const card = group.closest('dl > div')
+      const edge = card.getBoundingClientRect()
+      const style = getComputedStyle(card)
+      const contentLeft = edge.left + parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth)
+      const label = card.querySelector('dt').getBoundingClientRect()
+      const coins = card.querySelector('ul').getBoundingClientRect()
+      const buttons = [...group.querySelectorAll('button')]
+      const boxes = buttons.map(b => b.getBoundingClientRect())
+      return {
+        below: boxes.every(b => b.top >= coins.bottom - 0.5 && b.top >= label.bottom - 0.5),
+        inside: boxes.every(b => b.left >= edge.left && b.right <= edge.right + 0.5 && b.bottom <= edge.bottom + 0.5),
+        left: Math.abs(boxes[0].left - contentLeft) <= 1,
+        children: [...card.children].map(child => child.tagName),
+        name: document.getElementById(group.getAttribute('aria-labelledby'))?.textContent.trim(),
+        names: buttons.map(b => b.textContent.trim()),
+      }
+    })
+    check(look.below && look.inside && look.left && same(look.children, ['DT', 'DD', 'DD']) && look.name === 'Currency' && same(look.names, ['Add or remove', 'Give']) && await sideways(seat.page) === 0,
+      `at ${width} the row's two buttons are below its coins, at the card's left and inside it, nothing scrolling sideways (${JSON.stringify(look)})`)
+    if (width === 390 || width === 1280) await shootBoth(seat, 'coins-row', seat.currency().locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]'))
     const coins = await changing(seat, 'Remove', '5')
     await shootBoth(seat, 'coins-dialog', coins)
     const fits = await sideways(seat.page) === 0

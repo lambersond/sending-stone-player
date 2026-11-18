@@ -397,9 +397,10 @@ const panel = sheetPane.getByRole('tabpanel')
 check(await panel.getAttribute('aria-labelledby') === 'sheet-tab-inventory', 'Inventory opens')
 widths = await tabWidths()
 check(widths[2] > 80 && widths[0] <= 34, `and now it is the labelled tab (${widths})`)
-// A fact with something done with it has that on a dd of its own before the fact's (SheetFact): the
-// Currency row's Add or remove, on by default since 0.49.0. The fact is its card's last dd.
-const facts = await panel.locator('dl').first().locator('dt').evaluateAll(all => all.map(dt => `${dt.textContent}: ${dt.parentElement.lastElementChild.textContent}`))
+// A fact with something done with it has that on a dd of its own after the fact's (SheetFact): the
+// Currency row's Add or remove, on by default since 0.49.0, below its coins since item give. The
+// fact is the dd right after its label, whatever follows it.
+const facts = await panel.locator('dl').first().locator('dt').evaluateAll(all => all.map(dt => `${dt.textContent}: ${dt.nextElementSibling.textContent}`))
 check(same(facts, ['Currency: 2 PP12.8k GP0 SP', 'Encumbrance: 62.5 / 255 lb', 'Attunement: 1 / 3']), `her coin, load and attunement, thousands of gold shortened: ${facts.join(' | ')}`)
 await panel.getByRole('button', { name: '12.8k GP, exact amount' }).click()
 check(await page.getByRole('dialog', { name: '12,877 GP' }).isVisible(), 'a tap on 12.8k GP gives the exact amount')
