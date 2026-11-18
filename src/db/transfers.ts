@@ -27,12 +27,14 @@ import type { Prisma } from '@prisma/client'
  * Take a move of items and coins for the Gamemaster's game to make, from a character's player or
  * the campaign's Gamemaster as it: while the campaign lets them be moved and its module is
  * fetching moves, and a distribution only where its module shares a party's coin (module 0.32.0),
- * and the seat isn't sending too many, of rolls and moves together; where the seat may make it, by
+ * a hand-out only where it hands a character's coins out (module 0.48.0), and the seat isn't
+ * sending too many, of rolls and moves together; where the seat may make it, by
  * the campaign's roster, its groups' access and what its module does with moves; a distribution
  * only among the party's characters, as its sheet was last sent; where what's moved is on the
  * sheet it's moved from, as last sent; and where none of it is on its way already, from the same
  * end, as from a retry, or a second tap, nor, from module 0.33.0, being removed from the seat's
- * character, nor in or around an item that is.
+ * character, nor in or around an item that is; nor, from module 0.48.0, coins of the seat's
+ * character while a change to its coins is on its way.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns The move's id, or why it wasn't taken.
  */
@@ -58,8 +60,13 @@ export async function createTransferRequest(
   if (!campaign || !transfersAvailable(campaign)) {
     return { status: 409, reason: 'unavailable' }
   }
-  // A distribution needs a module that shares a party's coin.
-  if (transfer.among && !campaign.transferFeatures.includes('distribute')) {
+  // A distribution needs a module that shares a party's coin; a hand-out, one that hands a
+  // character's coins out (module 0.48.0).
+  const { transferFeatures } = campaign
+  if (
+    (transfer.among && !transferFeatures.includes('distribute')) ||
+    (transfer.each && !transferFeatures.includes('handOut'))
+  ) {
     return { status: 409, reason: 'unavailable' }
   }
 
@@ -95,7 +102,7 @@ export async function createTransferRequest(
     prisma.rollRequest.findMany({
       where: {
         ...madeBy(seat),
-        kind: { in: ['transfer', 'remove'] },
+        kind: { in: ['transfer', 'remove', 'coins'] },
         ...onItsWay(now),
       },
       select: { kind: true, payload: true },
@@ -112,7 +119,12 @@ export async function createTransferRequest(
   if (members) return { status: 422, reason: members }
   const data = sheet?.data as unknown as
     { inventory?: SheetInventory } | undefined
-  const holdings = checkHoldings(transfer, data)
+  // A hand-out is paid with other coins only where its module says it pays with them.
+  const holdings = checkHoldings(
+    transfer,
+    data,
+    transferFeatures.includes('change'),
+  )
   if (holdings) return { status: 422, reason: holdings }
   if (
     moving.some(({ kind, payload }) => {
@@ -125,6 +137,11 @@ export async function createTransferRequest(
           transfer.from === seat.actorId &&
           (transfer.items ?? []).some(({ id }) => related.has(id))
         )
+      }
+      // Coins added to the seat's character or taken away, from module 0.48.0, keep its coins from
+      // being moved from it meanwhile: both would be checked against the same coins.
+      if (kind === 'coins') {
+        return transfer.from === seat.actorId && !!transfer.currency
       }
       return overlaps(earlier?.transfer, transfer)
     })

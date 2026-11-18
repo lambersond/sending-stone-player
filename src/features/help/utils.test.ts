@@ -33,6 +33,7 @@ const everything = (fields: Partial<TableView> = {}): TableView =>
     ],
     rollFeatures: ['prompts', 'effectDice'],
     moves: { parties: [], characters: [] },
+    coins: { change: true },
     removes: true,
     favorites: true,
     effects: true,
@@ -79,6 +80,7 @@ describe('features/help/utils', () => {
           '● Dice an item rolls later: Asked for',
           '● Hit points: Set from here',
           '● Moving items and coins: From here',
+          '● Adding and taking away coins: From here',
           '● Removing items: From here',
           '● Favorites: From here',
           '● Your own effects: From here',
@@ -102,6 +104,7 @@ describe('features/help/utils', () => {
           '○ Dice an item rolls later: Not while Send is off',
           '● Hit points: Set from here',
           '● Moving items and coins: From here',
+          '● Adding and taking away coins: From here',
           '● Removing items: From here',
           '● Favorites: From here',
           '● Your own effects: From here',
@@ -120,6 +123,7 @@ describe('features/help/utils', () => {
           '○ Typing in your dice: Not in this game',
           '○ Hit points: Not from here',
           '○ Moving items and coins: Not from here',
+          '○ Adding and taking away coins: Not from here',
           '○ Removing items: Not from here',
           '○ Favorites: Not from here',
           '○ Your own effects: Not from here',
@@ -230,7 +234,7 @@ describe('features/help/utils', () => {
         '○ Your rolls here: Stay here: your game takes no rolls now',
       ],
     ] as const)(
-      'tells the Gamemaster where their rolls go, %s, Send to the table on here: %s, and what they may move and remove',
+      'tells the Gamemaster where their rolls go, %s, Send to the table on here: %s, and what they may move, change and remove',
       (rolls, send, row) => {
         const shown = facts({
           gm: true,
@@ -240,6 +244,8 @@ describe('features/help/utils', () => {
         expect(rowsOf(shown)).toEqual([
           row,
           '● Moving items and coins: From here',
+          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          '● Adding and taking away coins: From here',
           '○ Removing items: Not from here',
         ])
         expect(helpBox(shown)?.notes).toEqual([
@@ -262,7 +268,7 @@ describe('features/help/utils', () => {
         typingOf(true)?.filter(lead => lead !== 'Dice an item rolls later.'),
       )
       expect(helpSections(false).map(({ parts }) => parts.length)).toEqual([
-        8, 7, 1, 7, 3, 1, 10, 12,
+        8, 7, 1, 7, 3, 1, 10, 14,
       ])
     })
   })

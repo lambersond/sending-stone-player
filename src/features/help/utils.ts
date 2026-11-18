@@ -38,7 +38,7 @@ export function helpSections(laterDice: boolean): HelpSection[] {
  * The "In this game" box (H2 B), only while the character plays in its campaign: at the player's
  * seat, what the campaign allows them now, with why something may be missing, and while the
  * Gamemaster's game isn't connected, that nothing is made there; at the Gamemaster's, where their
- * rolls here go, and what they may move and remove (H3 B).
+ * rolls here go, what they may move and remove, and whether they may change its coins (H3 B).
  */
 export function helpBox(facts: HelpFacts): HelpBox | undefined {
   if (!facts.playing) return undefined
@@ -98,6 +98,7 @@ function playerRows({ view, typing, send }: HelpFacts): BoxRow[] {
   rows.push(
     row(PLAYER_ROWS.hitPoints, view.hitPoints === true),
     row(PLAYER_ROWS.moves, view.moves !== undefined),
+    row(PLAYER_ROWS.coins, view.coins !== undefined),
     row(PLAYER_ROWS.removes, view.removes === true),
     row(PLAYER_ROWS.favorites, view.favorites === true),
     row(PLAYER_ROWS.effects, view.effects === true),
@@ -117,7 +118,8 @@ function typingRow(typing: HelpFacts['typing']): BoxRow {
 
 /**
  * The Gamemaster's rows: where their rolls here go, made in the game only while their own Send to
- * the table is on here, and what they may move and remove.
+ * the table is on here, and what they may move and remove, and from module 0.48.0 whether they may
+ * add and take away the character's coins.
  */
 function gmRows({ view, name, send }: HelpFacts): BoxRow[] {
   const rolls = view.gm?.rolls ?? 'off'
@@ -129,6 +131,7 @@ function gmRows({ view, name, send }: HelpFacts): BoxRow[] {
       on: where === 'made',
     },
     row(PLAYER_ROWS.moves, view.moves !== undefined),
+    row(PLAYER_ROWS.coins, view.coins !== undefined),
     row(PLAYER_ROWS.removes, view.removes === true),
   ]
 }

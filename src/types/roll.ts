@@ -16,6 +16,7 @@ import type {
   SheetAction,
   SheetSpellSection,
   AloneSpend,
+  CoinOp,
   EffectOp,
   PrepareOp,
   SpellSlotOp,
@@ -25,6 +26,7 @@ import type {
   FavoriteEntry,
   HitPointsNow,
   GameDiceAsk,
+  CoinsChanged,
 } from '@/types/sending-stone'
 import type { DieSides, Advantage } from '@lambersond/3d-dice-core'
 
@@ -164,20 +166,45 @@ export type PlainRollInput = {
 /**
  * Items and coins moved, from module 0.31.0: the two ends by their Foundry actor ids, one of them
  * the character's, and what moves, each item by its id and how many of it, and each coin by its
- * key, such as "gp", and how many.
+ * key, such as "gp", and how many. Or a party's coin shared among its characters, or from module
+ * 0.48.0 a character's coins handed out, so many to each of the characters picked.
  */
 export type TransferInput = {
   from: string
-  /** The receiving end; never with `among`. */
+  /** The receiving end; never with `among` or `each`. */
   to?: string
   /**
    * From module 0.32.0, a distribution: the party's characters its coin is shared among, never
    * with `to`.
    */
   among?: string[]
+  /**
+   * From module 0.48.0, a hand-out: the characters each given `currency`, of the coins of the
+   * character it's made as, never with `to` or `among`, nor with items.
+   */
+  each?: string[]
   items?: { id: string; quantity: number }[]
   currency?: Record<string, number>
 }
+
+/**
+ * Coins added to the character or taken away, from module 0.48.0: which, and how many of each
+ * coin, by its key, such as "gp". Of a coin taken away, more than the character holds may be
+ * named: the game then pays with its other coins, where its campaign lets it.
+ */
+export type CoinsInput = {
+  op: CoinOp
+  currency: Record<string, number>
+}
+
+/**
+ * How coins to pay stand against those a sheet shows, as `coinsCovered` says: each paid from its
+ * own coins (`held`); or of `coin`, the largest coin paid there are too few of, more is paid than
+ * held, which the other coins are worth enough to pay for (`other`), aren't (`short`), or the app
+ * can't tell, as for a coin with no rate, and the game decides (`unknown`).
+ */
+export type CoinsCover =
+  { state: 'held' } | { state: 'other' | 'short' | 'unknown'; coin: string }
 
 /** An item removed from the character, from module 0.33.0. */
 export type RemoveInput = {
@@ -362,6 +389,8 @@ export type RollRequestInput = {
    * For hit points set, from module 0.44.0: the numbers wanted, and what the app showed of each.
    */
   hitPoints?: HitPointsInput
+  /** For coins added or taken away, from module 0.48.0: which, and how many of each coin. */
+  coins?: CoinsInput
   /** For a plain roll, from module 0.44.0: the dice picked, by size, and the number added. */
   plainRoll?: PlainRollInput
   /**
@@ -523,6 +552,11 @@ export type RollRequestView = {
    * For hit points set, from module 0.44.0, once made: the actor's after it, as the game says.
    */
   hitPoints?: HitPointsNow
+  /**
+   * For coins added or taken away, from module 0.48.0, once made: which, the coins asked for, and
+   * which of the character's other coins went, as the game says.
+   */
+  coins?: CoinsChanged
 }
 
 /**
@@ -612,6 +646,7 @@ export type RollKindInfo = {
     | 'effectsEnabled'
     | 'wildShapeEnabled'
     | 'hitPointsEnabled'
+    | 'coinsEnabled'
   /** It waits while the character is transformed: it would change its own actor's things. */
   shaped?: true
 }
@@ -924,18 +959,28 @@ export type LocalUse = {
 /**
  * Items or coins moved, as a page keeps the move: given, taken, or from module 0.32.0 sent from a
  * party or distributed among its characters, and between whom; or from module 0.33.0 removed from
- * the character.
+ * the character; or from module 0.48.0 coins the character received or paid, added to it or taken
+ * away, or handed out, so many to each of the characters picked.
  */
 export type LocalMove = {
-  verb: 'give' | 'take' | 'send' | 'distribute' | 'remove'
+  verb:
+    | 'give'
+    | 'take'
+    | 'send'
+    | 'distribute'
+    | 'remove'
+    | 'receive'
+    | 'pay'
+    | 'handOut'
   /**
    * As the chat line says it, such as "2 Potion of Healing", or for a distribution, all it shares,
-   * "100 gp".
+   * "100 gp"; for a hand-out, what each is given, "200 pp and 50 gp".
    */
   things: string
   /**
    * The other end's name: who it's given or sent to, or the party it's taken or distributed from;
-   * for a removal, the character it's removed from.
+   * for a removal, the character it's removed from; for coins added, taken away or handed out,
+   * the character whose coins they are.
    */
   other: string
   /** Who moved it, for the Gamemaster's words: the character's name. Unset for a player. */
@@ -945,11 +990,17 @@ export type LocalMove = {
   /** A send's: the party it's sent from, from module 0.32.0. */
   source?: string
   /**
-   * A distribution's: who shares it, as the line lists them, such as "Bram, Lia, Thorin, and Vex".
+   * A distribution's: who shares it, as the line lists them, such as "Bram, Lia, Thorin, and Vex";
+   * a hand-out's: who is given it.
    */
   among?: string
   /** A distribution's: each one's share, such as "25 gp". */
   each?: string
+  /**
+   * For coins taken away or handed out, from module 0.48.0: the sheet's coins' abbreviations, by
+   * key, in its order, by which the other coins the game says it used are told.
+   */
+  abbreviations?: Record<string, string>
 }
 
 /** A hit die spent, or a formula rolled, as this page keeps it. */

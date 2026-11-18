@@ -878,6 +878,21 @@ describe('what useTableRolls sends', () => {
           { op: 'revert' },
         ),
       () => void result.current.readWildShapeForms(),
+      // Changed on purpose (item 67): coins taken away, from module 0.48.0, last, so that those
+      // before it keep their ids.
+      () =>
+        result.current.sendCoins(
+          logged({
+            label: 'Take away',
+            move: {
+              verb: 'pay',
+              things: '5 gp',
+              other: 'Thorin',
+              mover: 'Thorin',
+            },
+          }),
+          { op: 'remove', currency: { gp: 5 } },
+        ),
     )
     expect(await polled()).toMatchSnapshot(`commands ${name}`)
   })

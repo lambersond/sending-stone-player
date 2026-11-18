@@ -57,9 +57,10 @@ export async function createWildShapeRequest(
 /**
  * Whether a favorite, an effect, a move or a removal waits until its character is back in its own
  * form, from module 0.40.0: the seat's character is transformed, as its sheet last said, or, for a
- * move, a character at either end is, its giver or its recipient, or one a party's coin is shared
- * among. What the form holds is a copy that dnd5e's return loses, and its own gear isn't on it.
- * Checked before each kind's own ladder, so the player is told so first.
+ * move, a character at either end is, its giver or its recipient, one a party's coin is shared
+ * among, or from module 0.48.0 one coins are handed out to. What the form holds is a copy that
+ * dnd5e's return loses, and its own gear isn't on it. Checked before each kind's own ladder, so
+ * the player is told so first.
  * @param seat - Who is at the sheet, already checked to be the signed-in user's.
  * @returns 422 `shaped`, or nothing where none is transformed or the seat names no character.
  */
@@ -71,7 +72,12 @@ export async function shapedRefusal(
   if (!campaignId || !actorId) return undefined
   const transfer = input.kind === 'transfer' ? input.transfer : undefined
   const ends = transfer
-    ? [transfer.from, transfer.to, ...(transfer.among ?? [])]
+    ? [
+        transfer.from,
+        transfer.to,
+        ...(transfer.among ?? []),
+        ...(transfer.each ?? []),
+      ]
     : []
   // A party at an end has no sheet among the characters', so is never found here.
   const ids = [

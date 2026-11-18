@@ -26,8 +26,9 @@ export function Holdings({
 }: Readonly<{ inventory: SheetInventory }>) {
   const { currency, encumbrance, attunement } = inventory
   const moves = useTransferring().coins?.(currency)
-  // On a party's sheet, from module 0.33.0's feedback: one spinner by the label while its coins
-  // are on their way, its buttons disabled without their own.
+  // On a party's sheet, from module 0.33.0's feedback, and on a character's whose row has more
+  // buttons than Send to (module 0.48.0): one spinner by the label while its coins are on their
+  // way, its buttons disabled without their own.
   const waiting = useTransferring().waiting?.has('coins') === true
   return (
     // On a phone, coin across the top, and load and attunement side by side under it.

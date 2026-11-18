@@ -54,6 +54,54 @@ Midi-QOL v14.0.x:
   hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
   module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
 
+## v0.48 (release candidate)
+
+Being built: what it holds so far is in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc entry.
+
+**To check at the table before module v0.48.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Midi-QOL's look for reactions:** with Manual Dice on, a creature holding a reaction that costs
+  dice, such as 1d4 charges, attacked from the app or by you in Foundry: no dice window opens as
+  Midi looks for its reactions, the reaction is still offered, and taking it rolls its cost with
+  your dice. Under dnd5e 6 with Midi-QOL's line for it the same is still to be seen: how that line
+  looks for reactions was not read.
+- **A skill, a tool or spell slots moved from its menu:** on a phone, a long-press on a skill or
+  tool favorite still rolls with advantage, or opens Modify roll…, without a slip onto Move up or
+  Move down, which sit nearest the thumb; Move up and Move down there, and on spell slots held by
+  their name, save the order, and Foundry's sheet shows it.
+- **Effects kept from Wild Shape:** a Bless cast on the wolf, some rounds gone, is on the druid
+  after Return from the app and after Foundry's own Restore, with the same time left; it goes when
+  the cleric stops concentrating; with Midi-QOL at its defaults the cleric is still concentrating
+  after the return, also after a Restore made while you view a scene with none of the druid's
+  tokens. With DAE, an effect's "on" macro runs once. The same spell cast on the druid again later
+  refreshes the kept effect, not a second one.
+- **Effects taken off in Wild Shape:** an effect the druid had going in, removed from the wolf, is
+  gone from the druid after the return; Encumbered and Bloodied are as the druid's own numbers have
+  them; one that had already run out before Wild Shape is still on the druid.
+- **The stone as the installed app opens, on an Android phone:** on the production address, once the
+  phone has taken the new opening up (the app closed and the phone charging on Wi-Fi, within about a
+  day; or the app removed and installed again): from the second opening the stone shows from the
+  device, on the dark of the phone's own launch screen, its rune lighting from the dot outward until
+  your characters, or sign-in, takes its place. To see: whether the stone steps in size, shape or
+  place as the phone's screen gives way to the page, whether it is as sharp, and how long an opening
+  takes against before. In airplane mode the stone stays, dark, with its two sentences and Try
+  again, which changes nothing while offline; back online it opens by itself within a few seconds,
+  saying nothing while your characters loads. On its side, and in split screen, the words stand
+  beside the stone, clear of the screen's edges. With Remove animations on, the rune is lit and
+  still. Back on your characters closes the app.
+- **The same on an iPhone's Home Screen app,** removed and added again (it keeps the address it was
+  added with, and you sign in once more): iPhone's own white screen, then the stone, then your
+  characters. To see: how long the white shows, whether the rune keeps lighting, whether the stone
+  is sharp; and in airplane mode, from the third opening, the stone with its two sentences. Safari's
+  own "not connected" page there instead means an iPhone didn't finish installing the worker, which
+  has a known remedy.
+- **Coins added, taken away and handed out:** Add or take away and Hand out change the coins on the
+  character's sheet in Foundry as the app says, the change coming back as the tray says; "Thorin
+  paid 5 gp" is in everyone's chat, a hand-out's whispers only in each receiver's player's, the
+  Gamemasters' and the giver's player's; both switches in the campaign's Coins box are kept as
+  saved. Under dnd5e 6, a fraction of a coin the world shows stays as it was after a change.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
@@ -61,25 +109,15 @@ plan of 2026-11-13 takes it in batches, in this order; feedback from the table, 
 tweaks needed may change it as it goes. Next week aims at the first three.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
-2. Items 56, 47, 41, 42, 57, 23, 29, 67 and 68: the stone as the installed app opens, Move up
-   and Move down for every favorite, the three e2e races under load, Midi-QOL's reaction checks,
-   effects carried back from Wild Shape, and coins added, taken away and handed out from the
-   sheet.
+2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
+   back from Wild Shape, Move up and Move down for every favorite, the three e2e races under load,
+   the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
+   and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
-
-**Found while building Batch 2**
-
-23. **Midi-QOL's reaction checks ask the Gamemaster for dice:** as it looks for the reactions an
-    attack's targets could take, Midi-QOL works out what each would spend and throws that away
-    (`doReactions` in its `utils.ts`), so a reaction whose cost is a dice formula is rolled there
-    with the Gamemaster's dice settings, and under Manual Dice Foundry asks them for a roll nobody
-    uses, for an attack from the app or not. It's Midi's own, unchanged by module 0.44.0, whose
-    `PROTOCOL.md` and README say so; the module could roll those checks with Foundry's computer
-    dice, as it now does Midi's check as a use from the app begins.
 
 **Found while untangling the module's imports**
 
@@ -100,30 +138,9 @@ tweaks needed may change it as it goes. Next week aims at the first three.
     imports nothing, such as an import spelt out in a comment or a JSDoc type, or `import's`
     before a later apostrophe on its line, which is answered by rewording the text. A failure can
     name the line of a comment above the import it means. Its time grows as the square of the text
-    in three ways, none near the module's scripts (all 77 take 0.04 seconds), one with a fix tried
-    and not taken. And it doesn't check two rules the module's `CLAUDE.md` keeps by review alone:
-    state written in one script, and nothing run as a script loads outside `module.mjs`.
-70. **e2e's help header check under load:** part 1 of `e2e/help-e2e.mjs`, plain, "the header's ?
-    sits after Live and before Full screen", failed once under three lanes' load in the full e2e
-    pass made for item 24, 2 seconds in, and passed alone (28 of 28): the header's buttons read
-    status, Help and Delete Thorin, with no Full screen yet. The Full screen button is drawn only
-    once the page has hydrated (`useFullscreen` answers false until then), and the check reads the
-    header as soon as the sheet is ready; it should wait for the button. Of a kind with items 41,
-    42 and 57, and in no batch yet.
-71. **e2e's toasts colour check under load:** in `e2e/toasts-e2e.mjs`, plain, "on a tablet, dark,
-    given up by the app, it pops up again … the bold card in the warning's colours" failed once,
-    142 of 149, in the second full e2e pass made for item 24, and passed on its retry (149 of 149).
-    The suite runs alone on its lane, but other work was running on the machine. The tint it read
-    was darker than the card itself, where it wants it part of the way to the warning's colour.
-    Likely, from the numbers and not proven: the check reads the toast's look as soon as its words
-    are there, while it is still popping up; it could wait for the toast to settle. In no batch
-    yet.
-
-**Moved up from v1.x**
-
-29. **Effects carried back from Wild Shape:** effects put on or taken off the beast, such as a Bless
-    cast on the wolf, kept on the character when Wild Shape ends, not only conditions and
-    concentration.
+    in three ways, none near the module's scripts (the 77 of item 24 took 0.04 seconds), one with a
+    fix tried and not taken. And it doesn't check two rules the module's `CLAUDE.md` keeps by review
+    alone: state written in one script, and nothing run as a script loads outside `module.mjs`.
 
 **Moved from the next slice**
 
@@ -140,55 +157,145 @@ tweaks needed may change it as it goes. Next week aims at the first three.
 And from the owner's answers on item 19, later work too:
 
 36. **A sidekick fighting without its character, and two encounters at once:** a sidekick in an
-    encounter its character isn't in still brings that encounter to its campaign, as since module
-    0.36.0 (0.45.0 keeps the rule). The Combat tab shows one encounter, the one `pickCombat` ranks
-    first, under way first. The owner: "Yes, a sidekick could get into an encounter w/out the main
-    character. This opens up other questions around how many active encounters should be able to be
-    shown in the app. Example, if there is an encounter on scene A with all the characters and their
-    sidekicks, and a second scene with one character's sidekick, which is in a different encounter,
-    how would you depict the two encounters? Foundry definately supports multiple encounters."
+    encounter its character isn't in still brings that encounter to its campaign, as since
+    module 0.36.0 (0.45.0 keeps the rule). The Combat tab shows one encounter, the one `pickCombat`
+    ranks first, under way first. The owner: "Yes, a sidekick could get into an encounter w/out the
+    main character. This opens up other questions around how many active encounters should be able
+    to be shown in the app. Example, if there is an encounter on scene A with all the characters and
+    their sidekicks, and a second scene with one character's sidekick, which is in a different
+    encounter, how would you depict the two encounters? Foundry definately supports multiple
+    encounters."
 
-**Found while building the next slice**
+**Found while building Batch 2**
 
-41. **e2e's removals focus race:** part 13 of `e2e/removals-e2e.mjs`, plain, "while its removal is
-    on its way: … focus inside it", failed under three lanes' load in v0.45's full e2e pass and on
-    its retry there, and passed alone (81 of 81): the row's context menu opened with the right
-    items, but focus wasn't inside it just after the Remove dialog closed (`inside: false`). Most
-    likely the menu's first focus loses a race with focus going back from the closed dialog, or with
-    a re-render as the removal's waiting state arrives. The e2e README lists it among its known load
-    races.
-42. **e2e's endturn Undo under load:** part 3 of `e2e/endturn-e2e.mjs` with MIDI=1 failed in v0.45's
-    full e2e pass, End turn offered 578 ms after the panel shows the turn where the check wants 590
-    to 900 ms (the 600 ms arm), and passed on its retry: the arm's countdown starts before the
-    page's MutationObserver records the heading's text, and under load the gap grows. The e2e
-    README lists it among its known load races.
-
-**Found while building v0.47**
-
-47. **No Move up or Move down for a skill, tool or spell-slots favorite:** those rows among the
-    favorites have no menu (`useFavoriteChoice`, in
-    `src/features/sheet/components/favoriting/use-favorite-choice.ts`, gives Move up and Move down
-    only where a row has a choice), so on a phone they're put in order only by Reorder's arrows,
-    where the owner was told each favorite's menu would have them.
-
-**Asked for while building v0.48**
-
-56. **The stone lighting up as the installed app opens:** an installed app's first screen is drawn
-    by the phone (Android builds it from the manifest; an iPhone shows its own), so it stays still.
-    A small offline app shell, a service worker serving one cached launch page, could show the
-    same stone, the same size, centred on the same dark background, lighting up the moment the app
-    opens, until the first page takes over. Only the launch page is cached, never a signed-in page;
-    a new release replaces it; tested on Android and iPhone home-screen apps.
-
-**Found while building v0.48**
-
-57. **e2e's notesoffline "the game closed" under load:** part 13 of `e2e/notesoffline-e2e.mjs`
-    (`orderMeanwhile`) timed out once, 43 of 47, waiting 15 seconds for the game to read as closed
-    after `stopFetching`, with the app on its lane slow to answer; it passed alone and in the full
-    pass. Likely, from the code and not proven: a command poll the app had already taken in
-    stamps `bridgePolledAt` after the suite ages it, and the notes API reads the game as live for
-    45 seconds after a poll. The suite could wait for in-flight polls to settle before ageing, or
-    age again once they have.
+72. **Midi-QOL's check of a Gamemaster's own use asks for its dice twice:** where Midi spends what a
+    use spends without its dialog, it works the cost out first and throws that away
+    (`checkAutoConsume` in its `MidiActivityMixin.ts`), so a dice cost is rolled twice with the
+    Gamemaster's dice settings, for a use they make in Foundry and for a reaction they take; and so
+    is the cost of another activity Midi pairs with a Gamemaster's own attack
+    (`checkOtherActivityConsumption`), read from its source and not tried. Midi's own, and said in
+    the module's `PROTOCOL.md`; the module could roll the first with Foundry's computer dice, as it
+    does for a use from the app and, since 0.48.0, for the reactions Midi looks for. In no batch
+    yet.
+73. **A roll's button drops the first Enter after its menu was opened from the keyboard:** with a
+    check's, save's or attack's button focused, the menu key or Shift+F10 opens its menu; whatever
+    is done there, the next Enter or Space on the button does nothing, and the one after rolls.
+    `RollButton` (`src/features/rolling/components/roll-button/roll-button.tsx`) marks every menu as
+    opened by a press, so that the tap ending a long-press doesn't roll too; a key's menu is
+    followed by no such tap, as `usePressMenu` already knows. Every roll button, from before v0.47;
+    found building item 47, whose Move up and Move down on a skill or tool favorite are one more way
+    into it, and seen in Chromium at 1280 px: after Shift+F10 and Escape on a skill favorite, the
+    first Enter rolled nothing and the second rolled. In no batch yet.
+74. **Keyboard focus after a favorite moves from one list to the other:** where the favorites are in
+    two lists side by side (their card 720 px wide or wider with no column of its own, as on a
+    laptop 1366 px wide), Move up or Move down chosen from a favorite's menu with the keyboard, on
+    the last row of the first list or the first of the second, takes the row to the other list and
+    leaves keyboard focus on the page, where a move within a list leaves it on the row; a row open
+    to its description is closed as it crosses, by the mouse too. `FavoritesList`
+    (`src/features/sheet/components/favorites/favorites-list.tsx`) draws the two halves as two
+    lists, so a row that crosses is drawn anew. Every favorite, since v0.47; item 47 brought a
+    skill, a tool and spell slots to it. Seen in Chromium at 1366 px on an item's row, a skill and
+    spell slots. The known limits say the same of Remove from favorites and Prepare. In no batch
+    yet.
+75. **The favorites in one list once Reorder has been opened:** where the favorites are in two lists
+    side by side, opening Reorder and closing it, by Cancel or by Save order, leaves them in one
+    list the card's full width, whatever the window's width after; another tab of the sheet and
+    back, or the page loaded again, brings the two back. `FavoritesList` measures its card with
+    `useWidth` (`src/features/sheet/hooks/use-width.ts`), which begins watching the element once;
+    while Reorder shows the card isn't drawn, and the one drawn after is never watched: the cause as
+    the code reads, the width itself not measured in the browser. A look only: every favorite is
+    there and works. Since v0.47 (Reorder); seen in Chromium at 1366 px, looking for the two lists
+    for item 47. In no batch yet.
+76. **What a druid begins in Wild Shape:** a spell a Moon druid casts as a beast and concentrates
+    on, such as Moonbeam or Fount of Moonlight, ends in Foundry when Wild Shape ends. Whether what
+    it kept up, a template on the map or an effect on another creature, ends with the form or is
+    left behind is Foundry's own, not checked here. Item 29 keeps what others put on the form, and
+    leaves this as it was. In no batch yet.
+77. **An effect changed in place in Wild Shape:** where the druid already has an effect and the same
+    spell or item is used on the beast again, dnd5e refreshes the beast's copy; the druid comes back
+    with the old one, with its old time left, or still turned off. The same for one a Gamemaster
+    turns off or edits on the form. In no batch yet.
+78. **Status effects that are no condition, in Wild Shape:** Sleeping, Dodging, Hiding, Marked and
+    dnd5e's other status effects that are no condition are neither kept nor taken off when Wild
+    Shape ends: one put on the form ends with it, and one the druid already had stays though it was
+    taken off the form. Sleeping put on the wolf ends Wild Shape, as it makes the form
+    Incapacitated, and the druid comes back awake until the Gamemaster puts it on the druid. As
+    before 0.48.0, and as item 29 was built: whether they should come back with the druid as
+    conditions do is the owner's to say. In no batch yet.
+79. **End turn's 600 ms counted from when the page takes in the turn, not from when it's drawn:**
+    `useEndTurn` (`src/features/table/hooks/use-end-turn.ts`) starts them in the effect of the
+    render that first shows the turn. Where that render also takes a toast away, as when a turn is
+    taken back with Undo, React runs the effect before the browser draws; on a slow or busy device
+    the turn is then on screen a frame or more short of 600 ms before End turn can be tapped (at
+    least 22 ms short in v0.45's full e2e pass, under three lanes' load; a millisecond or two
+    alone). The 600 ms are the owner's (a tap aimed at the last heading, or a double tap across a
+    turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
+    the turn, they could start at the first frame drawn after it. Found while building item 42. In
+    no batch yet.
+80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
+    or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
+    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:594` and `:611` ("Add to
+    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:331` and, to be
+    checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
+    look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
+    that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
+    600 ms)". (c) A page's header read before the page has hydrated, where Full screen is drawn only
+    once it has: to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several
+    looks at a page `goto()` loaded, which has been enough so far; help's `ready`
+    (`e2e/help-e2e.mjs`) is the wait. The party suite reads its header (`party-e2e.mjs:213`, `:505`)
+    after a link within the app or a wait for "Reconnecting", which only a page that has hydrated
+    shows. Item 57's kind has none left: `stopFetching({ age })` waits, and so do notesoffline's
+    four closings by the Gamemaster leaving. Nor has item 71's, a photograph read for its colors,
+    which is toasts' alone. In no batch yet.
+81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
+    Android phone and an iPhone (v0.48's checks): the stone's size against Android's own launch
+    screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
+    sizes); an iPhone's white first screen before the stone, which only a startup image for each
+    screen size covers; and, if an iPhone doesn't finish installing a worker whose page leaves at
+    once, waiting up to a second for it on an opening that has none. An opening connected but unable
+    to reach Sending Stone still ends on the phone's own error page, which is item 63's. Left by
+    item 56. In no batch yet.
+82. **The header's Help moves as a sheet hydrates:** Full screen is drawn only once the page has
+    hydrated (`useFullscreen` answers false until then), so between the sheet's markup arriving and
+    hydration the header's right has one button fewer than the outline before it and the header
+    after it: Live and Help sit one button's width to the right, then step back as Full screen
+    appears (36 px at 360, measured while building item 70). A slot kept for Full screen until then,
+    as the outline keeps one, would hold them still. Found while building item 70. In no batch yet.
+83. **A spell prepared's check lets three other kinds' fields by:** a `prepare` command that also
+    names `hitPoints`, `rerolls` or `enchantment` isn't refused `"invalid"` by the module: its list
+    of other kinds' fields (`OTHERS` above `checkPrepareCommand`, in the module's
+    `scripts/command-rolls.mjs`) lacks those three, where hit points' own list has every one. The
+    module would prepare the spell and ignore the rest. The app's schema refuses such a request
+    before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
+    `OTHER_FIELDS`. Found building item 67. In no batch yet.
+84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
+    coin fractional digits, a character's coins moved (Send to, Take, Give) and a party's
+    distributed are written as floating point makes them: 10.7 gp less 10 is stored
+    as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes
+    to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
+    write through `coinUpdate`, as coins added, taken away and handed out do since 0.48.0. A default
+    dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it. Module only,
+    small. Found building items 67 and 68. In no batch yet.
+85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
+    keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
+    it, which waits disabled until the move is made. Seen for the Currency row's Add or take away
+    and Hand out (v0.48); by the same code it is so for the row's Send to and an item's Give…, from
+    v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which has no
+    tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet, where
+    focus should go (the tray's line, or the row's label, which says what's on its way) is one
+    decision for all of its moves. Found reviewing items 67 and 68. In no batch yet.
+86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
+    the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
+    300 ms of the tap, timed from before `page.touchscreen.tap` to the toast detached, so the 300 ms
+    count Playwright's own round trips and the page's main thread, not only the app's. It took
+    891 ms once, 13 of 149, in the e2e run made landing items 70 and 71, the suite alone on its lane
+    while another area's Jest and checks ran on the machine; it passed alone later on the same head
+    (149 of 149), as it did in the races70 lane's runs and in the batch's full e2e pass. Of a kind
+    with items 41, 42 and 70, which each failed under load with the app right, but not one of
+    item 80's kinds: the nearest, (b), is a step of the test's that must land inside the page's own
+    600 ms, where this is a bound the suite sets on the page, timed from the test's side. The check
+    could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow
+    for the round trips. Found landing items 70 and 71. In no batch yet.
 
 **Moved from v1.x on 2026-11-13**
 
@@ -207,14 +314,14 @@ And from the owner's answers on item 19, later work too:
     (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
     signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
     until the cache expires, so its lifetime is chosen with that in mind.
-63. **Offline mode:** the app keeps working on a device without a connection, such as a phone
-    that loses signal at the table: a player's characters, their last-seen sheets, notes and
-    journal kept on the device and readable offline, with what's out of date marked; notes
-    written offline sent once the device is back online; and rolls, moves and anything else
-    the game must answer refused plainly until then. It builds on item 56's app shell, a
-    service worker. A fairly large update: what's kept on a device and for whom (cleared on
-    sign-out, so a shared device keeps nothing), how long it's kept, and how a note changed
-    both offline and in Foundry meanwhile is settled.
+63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
+    loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
+    on the device and readable offline, with what's out of date marked; notes written offline sent
+    once the device is back online; and rolls, moves and anything else the game must answer refused
+    plainly until then. Item 56's launch worker (`/launch-worker.js`) keeps to `/launch` and its one
+    page; offline mode's worker is its own, for which `/sw.js` is left free. A fairly large update:
+    what's kept on a device and for whom (cleared on sign-out, so a shared device keeps nothing),
+    how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
 64. **Any ability or skill the game has, named as the game names it:** with dnd5e's Honor or
     Sanity turned on, or a world's own ability or skill, the sheet already shows and rolls them
     and the Gamemaster's asked saves work, but the app still knows only the six abilities and 18
@@ -238,39 +345,6 @@ And from the owner's answers on item 19, later work too:
     count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
     nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
     read row by row, so one bad row can't blank a whole sheet. App and module, small.
-
-**Asked for on 2026-11-14**
-
-67. **Coins added and taken away from the sheet:** a player adds coins to their character or takes
-    them away, from the inventory's coins, without going to Foundry. The owner: "As a player
-    character, I want to be able to add/remove coins from my inventory so that I do not need to
-    go to the foundry to add/remove coins from my character", and as the Gamemaster, "for when a
-    player goes to a store to buy or sell items, gets food/drink at the tavern, or performs at
-    the tavern and earns some coin. I want to be able to just tell them to add/remove an amount,
-    and they can do it." Today the app shows each coin and moves coins between a character and a
-    party or another character (module 0.31.0's `transfer`), but nothing adds or removes them.
-    It needs a new command the module answers by changing the character's coins, behind a
-    feature it announces in its hello, and in the app an amount of each coin to add or take
-    away. The owner's answers (2026-11-14): each change posts a chat line in Foundry, "Thorin
-    paid 5 gp" or "Thorin received 5 gp"; taking more of a coin than the character holds breaks
-    a larger coin by default, and a new module setting lets the Gamemaster forbid that, when
-    such a change is refused; companions are left out, as none is known to carry coins.
-68. **Coins handed out to the party from a character:** a player picks fellow characters and the
-    amount each gets, and the app shows the total to be given before it's sent, then moves it
-    from the player's own coins, refused where they haven't that much. The owner: "As a player
-    character, I want to easily distribute coins to my fellow party members from my inventory so
-    that I don't have to do math or weird workarounds. The scenario was that the player wanted to
-    give 200 PP to each player by selecting the players and setting the coin amount each player
-    should get. Text should display the total amount to be given." Today a character gives coins
-    to one other character or a party at a time, and only a party's coin is shared among its
-    characters, all of one coin split evenly (module 0.32.0's `among`). It needs the module to
-    take a set amount each from a character to the characters picked, behind a feature in the
-    hello, and the app's dialog to pick them and show the total as it's set ("600 PP in all").
-    The owner's answers (2026-11-14): anyone in the campaign can be picked (once v1.x's inactive
-    characters exist, not those); several coins can go at once, such as 200 PP and 50 GP each;
-    and each character given coins is whispered how much they received and from whom. And
-    (2026-11-14, later): the Gamemaster gets a message for the hand-out too, and a hand-out breaks
-    a larger coin as item 67 does, under the same module setting.
 
 ## v1.0
 
@@ -367,8 +441,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   "Last changed by" line.
 - A favorite added from the app goes last; with a module before 0.47.0, favorites are put in order
   in Foundry only.
-- Skills, tools and spell slots are made favorites in Foundry, with no plan to change that unless
-  it's asked for.
+- Skills, tools and spell slots are made favorites, and removed, in Foundry: the app only puts them
+  in order. No plan to change that unless it's asked for.
 - Spell slots are spent and restored from the app one at a time: several are several taps, each
   asked first.
 - A spell slot's dots can be tapped on the Spells tab and on a spell-slots favorite only: the
@@ -418,11 +492,13 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - A party sheet has no Report a bug or Request a feature link. Kept as is unless it's asked for.
 - Only the 2024 Wild Shape is used from the app: a 2014 druid's Wild Shape is used in Foundry, and
   the app follows the form. Kept as is.
-- Effects gained or ended in Wild Shape, other than conditions and concentration, aren't carried
-  back: dnd5e's return keeps the character's own effects as they were at the change, so a Bless
-  cast on the wolf ends with the form. Conditions gained in form are put on the character, and
-  conditions and concentration that ended in form are taken off (other effects are planned for
-  v1.x).
+- What a druid begins in Wild Shape isn't carried back: a spell cast as a beast and concentrated on
+  ends with the form, as does an effect of the form's own features, and anything on the form's
+  items. Effects others put on the form are kept on the character, and those taken off it, or run
+  out on it, are taken off the character; one the character already had that is only changed on the
+  form stays as it was, as does one that had already run out before Wild Shape. A status effect that
+  is no condition, such as Sleeping, Dodging, Hiding or Marked, is neither kept nor taken off: one
+  put on the form ends with it, and the character's own stay as they were.
 - Bonus Actions are counted only under Midi-QOL's Enforce bonus actions, in a fight: elsewhere
   Change and Return say they take one. A return or an ending made in Foundry isn't counted, as
   Midi-QOL counts none.

@@ -39,6 +39,7 @@ export function useGiveControls({
   role,
   name,
   actorId,
+  labelWaits = false,
   logMove,
   setActed,
 }: Readonly<{
@@ -47,6 +48,11 @@ export function useGiveControls({
   role: SeatRole
   name: string
   actorId?: string
+  /**
+   * Whether the Currency row's label says its coins are on their way, as where the row has other
+   * buttons (module 0.48.0): its Send to then waits with no spinner of its own.
+   */
+  labelWaits?: boolean
   logMove: (move: LocalMove) => LocalUse
   setActed: (acted: boolean) => void
 }>): { controls: TransferControls; dialog: ReactNode } {
@@ -94,6 +100,7 @@ export function useGiveControls({
           {
             className: ROW_BUTTON,
             busy: pending.has(PENDING_COINS),
+            quiet: labelWaits,
             onGive: () => give({ coins: currency }),
           },
           'Send to',
@@ -101,7 +108,7 @@ export function useGiveControls({
       // What "Send to…" in an item's own menu opens: the dialog its Give… opens.
       send: item => (item.quantity >= 1 ? () => give({ item }) : undefined),
     }
-  }, [actorId, moves, pending])
+  }, [actorId, moves, pending, labelWaits])
 
   const dialog =
     giving &&

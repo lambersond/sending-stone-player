@@ -24,8 +24,20 @@ import type { LucideIcon } from 'lucide-react'
 /** What a part of the sheet that rolls a d20 does when tapped, or held for its menu. */
 export type RollActions = {
   onRoll: (target: RollTarget) => void
-  onMenu: (anchor: HTMLElement, target: RollTarget, point?: MenuPoint) => void
+  onMenu: (
+    anchor: HTMLElement,
+    target: RollTarget,
+    point?: MenuPoint,
+    extras?: MenuExtra[],
+  ) => void
 }
+
+/**
+ * Something else a roll's menu offers of its part of the sheet, after the ways to roll it, which
+ * rolls nothing: as Move up and Move down on a skill or a tool among the favorites, whose row is
+ * its roll (ROADMAP item 47). What it does when chosen, once the menu has closed.
+ */
+export type MenuExtra = MenuItem<string> & { onChoose: () => void }
 
 /** How damage or healing is to be rolled, as chosen from its menu. */
 export type DamageChoice = { critical?: boolean; modifiers?: DamageModifiers }

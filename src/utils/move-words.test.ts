@@ -1,4 +1,5 @@
 import {
+  coinsWords,
   moveLabel,
   moveReasons,
   moveWords,
@@ -47,6 +48,26 @@ describe('utils/move-words', () => {
       [[{ coins: 12_500, abbreviation: 'gp' }], '12,500 gp'],
     ])('says %j as the chat line does: %s', (parts, words) => {
       expect(thingsWords(parts)).toBe(words)
+    })
+  })
+
+  describe('coinsWords', () => {
+    const sheet = [
+      { id: 'pp', abbreviation: 'pp' },
+      { id: 'gp', abbreviation: 'gp' },
+      { id: 'sp', abbreviation: 'sp' },
+    ]
+
+    it.each([
+      [{ gp: 5 }, '5 gp'],
+      // In the sheet's order, whatever order they're named in: stored, a result's are sorted.
+      [{ sp: 3, gp: 5, pp: 2 }, '2 pp, 5 gp, and 3 sp'],
+      [{ gp: 150, pp: 600 }, '600 pp and 150 gp'],
+      // None of a coin isn't said; a coin the sheet doesn't list is, after them, by its key.
+      [{ pp: 0, gp: 6000, crown: 2 }, '6,000 gp and 2 crown'],
+      [{}, ''],
+    ])('says %j as the chat line does: %s', (amounts, words) => {
+      expect(coinsWords(sheet, amounts)).toBe(words)
     })
   })
 
@@ -488,6 +509,221 @@ describe('utils/move-words, an item removed, from module 0.33.0', () => {
     expect(moveReasons('gm', 'take').unavailable).toBe(
       'your game isn’t taking moves now',
     )
+  })
+})
+
+/** Coins taken away, as the game answered: 5 gp, with what else it says it used. */
+const paid = (used: Record<string, number> | null) =>
+  state({
+    status: 'done',
+    coins: { op: 'remove', currency: { gp: 5 }, used },
+  })
+
+describe('utils/move-words, coins added and taken away, from module 0.48.0', () => {
+  /** dnd5e's coins' abbreviations, as a sheet lists them, the largest first. */
+  const abbreviations = { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' }
+  const receive: LocalMove = {
+    verb: 'receive',
+    things: '5 gp',
+    other: 'Thorin',
+  }
+  const pay: LocalMove = {
+    verb: 'pay',
+    things: '5 gp',
+    other: 'Thorin',
+    abbreviations,
+  }
+  it('calls each what the Gamemaster’s page calls it', () => {
+    expect(moveLabel(receive)).toBe('Add 5 gp')
+    expect(moveLabel(pay)).toBe('Take away 5 gp')
+  })
+
+  it('says where each stands, for either seat', () => {
+    expect(moveWords(receive, state({ status: 'rolling' }), 'player')).toBe(
+      'Adding it in your Gamemaster’s game…',
+    )
+    expect(moveWords(pay, state({ status: 'rolling' }), 'gm')).toBe(
+      'Taking it away in your game…',
+    )
+    expect(moveWords(receive, state({ status: 'done' }), 'player')).toBe(
+      'Received 5 gp',
+    )
+    expect(moveWords({ ...pay, mover: 'Thorin' }, paid(null), 'gm')).toBe(
+      'Thorin paid 5 gp',
+    )
+  })
+
+  it.each([
+    ['none, as the game says', null, 'Paid 5 gp'],
+    ['a larger coin broken', { pp: 1 }, 'Paid 5 gp, using 1 pp'],
+    // As a jsonb column gives its keys back, by name: told in the sheet's order all the same.
+    [
+      'a larger coin and smaller ones',
+      { sp: 80, pp: 1 },
+      'Paid 5 gp, using 1 pp and 80 sp',
+    ],
+    ['a coin the sheet doesn’t list', { gems: 2 }, 'Paid 5 gp, using 2 gems'],
+  ])(
+    'says which other coins the game used to pay: %s',
+    (_name, used, words) => {
+      expect(moveWords(pay, paid(used), 'player')).toBe(words)
+    },
+  )
+
+  it('says nothing of other coins where the game’s answer couldn’t be followed, nor of coins added', () => {
+    expect(moveWords(pay, state({ status: 'done' }), 'player')).toBe(
+      'Paid 5 gp',
+    )
+    expect(
+      moveWords(
+        receive,
+        state({
+          status: 'done',
+          coins: { op: 'add', currency: { gp: 5 }, used: null },
+        }),
+        'player',
+      ),
+    ).toBe('Received 5 gp')
+  })
+
+  it.each([
+    [
+      'unavailable',
+      'your Gamemaster’s game isn’t changing coins now',
+      'your game isn’t changing coins now',
+    ],
+    [
+      'off',
+      'your Gamemaster’s game isn’t changing coins now',
+      'your game isn’t changing coins now',
+    ],
+    [
+      'moving',
+      'a change to these coins is still on its way',
+      'a change to these coins is still on its way',
+    ],
+    [
+      'invalid',
+      'your Gamemaster’s game couldn’t change them',
+      'your game couldn’t change them',
+    ],
+    [
+      'gone',
+      'that coin isn’t on the sheet any more',
+      'that coin isn’t on the sheet any more',
+    ],
+    [
+      'short',
+      'you haven’t the coins for that',
+      'they haven’t the coins for that',
+    ],
+    [
+      'timeout',
+      'your Gamemaster’s game took too long. The sheet shows whether they changed',
+      'your game took too long. The sheet shows whether they changed',
+    ],
+    [
+      'lost',
+      'no answer from your Gamemaster’s game. The sheet shows whether they changed',
+      'no answer from your game. The sheet shows whether they changed',
+    ],
+  ])('says why they weren’t changed: %s', (reason, player, gm) => {
+    for (const verb of ['receive', 'pay'] as const) {
+      expect(moveReasons('player', verb)[reason]).toBe(player)
+      expect(moveReasons('gm', verb)[reason]).toBe(gm)
+    }
+  })
+
+  it('says each not made, never in part, and leaves a transformed character to the roll’s words', () => {
+    expect(
+      moveWords(pay, state({ status: 'refused', reason: 'short' }), 'player'),
+    ).toBe('Not taken away: you haven’t the coins for that')
+    expect(
+      moveWords(receive, state({ status: 'failed', reason: 'off' }), 'gm'),
+    ).toBe('Not added: your game isn’t changing coins now')
+    expect(moveReasons('player', 'pay').shaped).toBeUndefined()
+    expect(
+      moveWords(pay, state({ status: 'refused', reason: 'shaped' }), 'player', {
+        shaped: 'that waits until your character is back in their own form',
+      }),
+    ).toBe(
+      'Not taken away: that waits until your character is back in their own form',
+    )
+  })
+})
+
+/** As the game answered it: what each was given, to whom, and what else it used. */
+const given = (each: string[], used: Record<string, number> | null) => ({
+  from: 'actorThorin1',
+  to: null,
+  items: [],
+  currency: { pp: 200, gp: 50 },
+  each,
+  used,
+})
+
+describe('utils/move-words, coins handed out, from module 0.48.0', () => {
+  const handOut: LocalMove = {
+    verb: 'handOut',
+    things: '200 pp and 50 gp',
+    other: 'Thorin',
+    among: 'Vex, Bram, and Lia',
+    abbreviations: { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' },
+  }
+  const ALL = ['actorVex0001', 'actorBram001', 'actorLia0001']
+
+  it('calls it what the Gamemaster’s page calls it, and says where it stands', () => {
+    expect(moveLabel(handOut)).toBe(
+      'Hand out 200 pp and 50 gp each to Vex, Bram, and Lia',
+    )
+    expect(moveWords(handOut, state({ status: 'rolling' }), 'player')).toBe(
+      'Handing it out in your Gamemaster’s game…',
+    )
+  })
+
+  it('says what each was handed, to whom, and which other coins the game used', () => {
+    expect(
+      moveWords(
+        handOut,
+        state({ status: 'done', transfer: given(ALL, null) }),
+        'player',
+      ),
+    ).toBe('Handed out 200 pp and 50 gp each to Vex, Bram, and Lia')
+    expect(
+      moveWords(
+        { ...handOut, mover: 'Thorin' },
+        state({ status: 'done', transfer: given(ALL, { pp: 13 }) }),
+        'gm',
+      ),
+    ).toBe(
+      'Thorin handed out 200 pp and 50 gp each to Vex, Bram, and Lia, using 13 pp',
+    )
+  })
+
+  it('says why not as a give does, but of all its coins where they are too few, and in part where some were given', () => {
+    expect(moveReasons('player', 'handOut').short).toBe(
+      'you haven’t the coins for that',
+    )
+    expect(moveReasons('gm', 'handOut').short).toBe(
+      'they haven’t the coins for that',
+    )
+    expect(moveReasons('player', 'handOut').shaped).toBe(
+      moveReasons('player', 'give').shaped,
+    )
+    expect(
+      moveWords(handOut, state({ status: 'refused', reason: 'short' }), 'gm'),
+    ).toBe('Not handed out: they haven’t the coins for that')
+    expect(
+      moveWords(
+        handOut,
+        state({
+          status: 'failed',
+          reason: 'error',
+          transfer: given(['actorVex0001'], null),
+        }),
+        'player',
+      ),
+    ).toBe('Partly handed out: something went wrong')
   })
 })
 

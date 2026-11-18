@@ -201,6 +201,7 @@ export type ViewSeen = {
   effects: boolean
   wildShape: boolean
   hitPoints: boolean
+  coins: boolean
 }
 
 /**

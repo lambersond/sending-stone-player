@@ -8,18 +8,22 @@ import {
 } from '../../utils/tray-words'
 import type { LocalRoll, TableRollState } from '@/types/roll'
 
+/** The Gamemaster's as the character that are moves: of items and coins, removals, and coins. */
+const GM_MOVES: ReadonlySet<string> = new Set(['transfer', 'remove', 'coins'])
+
 /**
- * Whether all the tray lists is items and coins moved, from module 0.31.0, or items removed, from
- * module 0.33.0, the player's or the Gamemaster's as the character: each is sent to the game, and
- * made or turned down there, whatever the game takes of the player's rolls and whether this device
- * sends them, so that what's said of rolls reaching it, or not, isn't said of them.
+ * Whether all the tray lists is items and coins moved, from module 0.31.0, items removed, from
+ * module 0.33.0, or coins added or taken away, from module 0.48.0, the player's or the Gamemaster's
+ * as the character: each is sent to the game, and made or turned down there, whatever the game
+ * takes of the player's rolls and whether this device sends them, so that what's said of rolls
+ * reaching it, or not, isn't said of them.
  */
 export function movesAlone(rolls: readonly LocalRoll[]): boolean {
   return (
     rolls.length > 0 &&
     rolls.every(roll =>
       roll.kind === 'gm'
-        ? roll.rolled === 'transfer' || roll.rolled === 'remove'
+        ? GM_MOVES.has(roll.rolled)
         : roll.kind === 'use' && !!roll.move,
     )
   )

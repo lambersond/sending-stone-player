@@ -20,7 +20,7 @@ export const GO_TO = { label: 'Go to a section', caption: 'Go to' } as const
 
 /** At the Gamemaster's seat only, above the box (H3 B). */
 export const GM_NOTE =
-  'At your player’s sheet. This is the help your player sees. Here, you roll as {name}, and your rolls are marked GM; the box below says where they go. You can send and remove their items too. Ending their turn, favorites, Prepare, effects, Wild Shape, hit points and typing in dice are your player’s alone, from their own page.'
+  'At your player’s sheet. This is the help your player sees. Here, you roll as {name}, and your rolls are marked GM; the box below says where they go. You can send and remove their items, and add, take away and hand out their coins too. Ending their turn, favorites, Prepare, effects, Wild Shape, hit points and typing in dice are your player’s alone, from their own page.'
 
 /**
  * The eight sections (H4 B), each part a bold lead and what follows it, which carries its own
@@ -86,7 +86,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'A row, such as an item, a spell, a feature or an effect',
-        text: ': Add to favorites or Remove from favorites, and among your favorites Move up and Move down; for a spell, Prepare or Unprepare; for an item, Send to… and Remove…; for one of your own effects, Turn off or Turn on, and Delete…. Each is there only where your Gamemaster’s game takes it.',
+        text: ': Add to favorites or Remove from favorites; for a spell, Prepare or Unprepare; for an item, Send to… and Remove…; for one of your own effects, Turn off or Turn on, and Delete…. Among your favorites, Move up and Move down put them in order: a skill or a tool has them after its ways to roll, and spell slots when you hold their name. Each is there only where your Gamemaster’s game takes it.',
       },
       {
         lead: 'The Combat tab.',
@@ -239,7 +239,15 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Players move items and coins',
-        text: ': Send to…, Take and Give (0.31.0).',
+        text: ': Send to…, Take and Give (0.31.0), and Hand out (0.48.0).',
+      },
+      {
+        lead: 'Allow Players to add and take away coins from the app',
+        text: ': Add or take away, on the Inventory tab’s Currency row; on unless they turn it off (0.48.0).',
+      },
+      {
+        lead: 'Pay with other coins when a character is short of one',
+        text: ': taking away or handing out more of a coin than you hold breaks a larger coin, then uses smaller ones; on unless they turn it off (0.48.0).',
       },
       {
         lead: 'Allow Players to disable & remove their own active effects',
@@ -263,7 +271,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'No switch, but a recent module',
-        text: ': End turn (0.36.0), Remove… (0.33.0), favorites (0.37.0), Prepare and spell slot dots (0.42.1), the dice tray made in their game (0.43.0), and dice an item rolls later (0.44.0).',
+        text: ': End turn (0.36.0), Remove… (0.33.0), favorites (0.37.0) and putting them in order (0.47.0), Prepare and spell slot dots (0.42.1), the dice tray made in their game (0.43.0), and dice an item rolls later (0.44.0).',
       },
     ],
   },
@@ -332,6 +340,7 @@ export const PLAYER_ROWS = {
     off: 'Not from here',
   },
   moves: { label: 'Moving items and coins', ...FROM_HERE },
+  coins: { label: 'Adding and taking away coins', ...FROM_HERE },
   removes: { label: 'Removing items', ...FROM_HERE },
   favorites: { label: 'Favorites', ...FROM_HERE },
   effects: { label: 'Your own effects', ...FROM_HERE },

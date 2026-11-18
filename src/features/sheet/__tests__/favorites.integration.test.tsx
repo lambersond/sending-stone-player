@@ -1199,7 +1199,7 @@ describe('components/character-sheet/favorites, removed from the app, from modul
     expect(offering.chosen).toEqual([])
   })
 
-  it('offers none on a resource, spell slots, or a skill, which keeps its roll menu', () => {
+  it('offers none on a resource or spell slots, and a skill its roll menu alone, where the favorites aren’t put in order', () => {
     renderOffered()
     for (const name of ['Superiority Dice', '1st Level']) {
       expect(fireEvent.contextMenu(rowOf(name), { button: 2 })).toBe(true)
@@ -1246,8 +1246,11 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     jest.restoreAllMocks()
   })
 
-  /** The strip, inside a pane that offers favorites and takes orders, each order saved as given. */
-  const renderOrdering = () => {
+  /**
+   * The strip of these favorites, inside a pane that offers favorites and takes orders, each order
+   * saved as given.
+   */
+  const renderOrdering = (favorites: SheetFavorite[] = sheetFavorites()) => {
     const save = jest.fn()
     const offering = offeringFavorites([
       'item:warhammer',
@@ -1259,7 +1262,7 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
         value={offering.value}
         ordering={{ on: true, arrange: entries => entries, save }}
       >
-        <FavoritesStrip {...propsFor(withFavorites())} />
+        <FavoritesStrip {...propsFor(withFavorites(favorites))} />
       </Favoriting>,
     )
     return save
@@ -1309,6 +1312,94 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
       ],
       'Warhammer',
     )
+  })
+
+  // ROADMAP item 47: a skill, a tool and spell slots, which have no favorites entry of their own.
+  it.each([
+    [
+      'a skill',
+      'Perception check',
+      'Move up',
+      ['skill:prc', 'effect:blessed'],
+      'Perception',
+    ],
+    [
+      'a tool',
+      "Thieves' Tools check",
+      'Move down',
+      ['slots:spell1', 'tool:thief'],
+      "Thieves' Tools",
+    ],
+  ])(
+    'offers Move up and Move down on %s among them, after its ways to roll, which rolls nothing',
+    async (_kind, button, move, moved, name) => {
+      const user = userEvent.setup()
+      const save = renderOrdering()
+      onRoll.mockClear()
+      fireEvent.contextMenu(
+        screen.getByRole('button', { name: new RegExp(`^${button}`) }),
+      )
+      const menu = screen.getByRole('menu', { name: new RegExp(`^${button}`) })
+      expect(itemsOf(menu)).toEqual([
+        'Roll with advantage',
+        'Roll with disadvantage',
+        'Modify roll…',
+        'Move up',
+        'Move down',
+      ])
+      await user.click(within(menu).getByRole('menuitem', { name: move }))
+      expect(screen.queryByRole('menu')).toBeNull()
+      expect(save).toHaveBeenCalledTimes(1)
+      const [[order, label]] = save.mock.calls
+      expect(order.join(' ')).toContain(moved.join(' '))
+      expect(label).toBe(name)
+      expect(onRoll).not.toHaveBeenCalled()
+    },
+  )
+
+  it('gives spell slots among them a menu of their own, Move up alone as they are last, on a row that takes focus for it', async () => {
+    const user = userEvent.setup()
+    const save = renderOrdering()
+    const row = rowOf('1st Level')
+    expect(row).toHaveAttribute('tabindex', '0')
+    fireEvent.contextMenu(row, { button: 2 })
+    const menu = screen.getByRole('menu', { name: '1st Level' })
+    expect(itemsOf(menu)).toEqual(['Move up'])
+    await user.click(within(menu).getByRole('menuitem'))
+    expect(save).toHaveBeenCalledWith(
+      [
+        'item:warhammer',
+        'activity:staff.cast-fireball',
+        'effect:blessed',
+        'skill:prc',
+        'slots:spell1',
+        'tool:thief',
+      ],
+      '1st Level',
+    )
+    // An old-style resource stays first: no menu, no moves.
+    expect(
+      fireEvent.contextMenu(rowOf('Superiority Dice'), { button: 2 }),
+    ).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  // One favorite alone that moves has nowhere to go, so nothing is offered of it: here spell slots
+  // beside an old-style resource, which never moves.
+  it('offers no Reorder, and spell slots no menu, on a row that takes no focus, where they alone among them may move', () => {
+    renderOrdering(
+      sheetFavorites().filter(
+        ({ type }) => type === 'resource' || type === 'slots',
+      ),
+    )
+    expect(rows()).toHaveLength(2)
+    expect(
+      screen.queryByRole('button', { name: 'Reorder favorites' }),
+    ).toBeNull()
+    const row = rowOf('1st Level')
+    expect(row).not.toHaveAttribute('tabindex')
+    expect(fireEvent.contextMenu(row, { button: 2 })).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 })
 

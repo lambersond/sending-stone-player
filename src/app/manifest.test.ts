@@ -27,8 +27,11 @@ describe('app/manifest', () => {
       name: 'Sending Stone',
       short_name: 'Sending Stone',
       display: 'standalone',
-      start_url: '/characters',
+      // Its launch page, which hands over to the characters (ROADMAP item 56).
+      start_url: '/launch',
       scope: '/',
+      // The night the launch page is drawn on, so the phone's launch screen and it read as one.
+      background_color: '#0d0d14',
     })
     // It opens within what it is the app of.
     expect(app.start_url?.startsWith(app.scope ?? '')).toBe(true)

@@ -39,7 +39,8 @@ export type TransferControls = {
   /**
    * From module 0.33.0's feedback, on a party's sheet: what's on its way, by item id and `coins`,
    * said by one spinner beside the Currency label or the item's name, its buttons disabled with
-   * none of their own. Unset on a character's sheet, whose buttons say it themselves.
+   * none of their own. On a character's sheet, whose buttons say it themselves, only its coins,
+   * and only where its Currency row has more buttons than Send to (module 0.48.0).
    */
   waiting?: ReadonlySet<string>
 }
@@ -68,6 +69,35 @@ export type Taking = {
   what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
   /** On the Gamemaster's party page, the characters to take into. */
   receivers?: MoveEnd[]
+}
+
+/**
+ * What a character's coins' dialog was opened with (module 0.48.0), as it stood then, kept as it
+ * closes: its coins, and whether the game pays with other coins where it's short of one; for a
+ * hand-out, the character they're handed out from and the campaign's other characters.
+ */
+export type CoinChanging =
+  | { mode: 'change'; currency: SheetCurrency[]; change: boolean }
+  | {
+      mode: 'handOut'
+      currency: SheetCurrency[]
+      change: boolean
+      from: string
+      characters: MoveEnd[]
+    }
+
+/**
+ * Whose coins a dialog adds to, takes away or hands out, as its words say them: "You" and "your"
+ * for a player, with "your Gamemaster’s game"; for the Gamemaster, the character's name, "their"
+ * and "your game".
+ */
+export type CoinSpeaker = {
+  who: string
+  /** "hold" or "holds", and "haven’t" or "hasn’t", as `who` takes them. */
+  hold: string
+  lack: string
+  their: string
+  game: string
 }
 
 /** What's being given, while its dialog is open, as it was when it opened. */

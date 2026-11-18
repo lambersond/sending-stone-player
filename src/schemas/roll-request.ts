@@ -4,6 +4,7 @@ import { DIE_SIZES } from '@/constants/dice'
 import { ROLL_KIND_INFO } from '@/constants/roll-kinds'
 import {
   ATTACK_MODE,
+  COIN_OPS,
   DAMAGE_TYPE,
   DICE_ASK_ID,
   EFFECT_DIE_FACES,
@@ -44,6 +45,7 @@ import { MAX_DICE, MAX_FLAT } from '@/utils/roll-modifiers'
 import type { Issue, RequestRule } from '@/schemas/types'
 import type {
   AttackTarget,
+  CoinsInput,
   DamageModifiers,
   DiceAnswerTerm,
   DieSize,
@@ -146,13 +148,19 @@ const MOST_COINS = 10
  * Items and coins moved, from module 0.31.0: from one end to another, each a campaign character
  * or party by its Foundry id, one to ten items, each once and by how many, or one to ten kinds of
  * coin, or both. A coin of none isn't sent. From module 0.32.0, or a distribution: one kind of a
- * party's coin shared among its characters, `among`, in place of `to`.
+ * party's coin shared among its characters, `among`, in place of `to`. From module 0.48.0, or a
+ * hand-out: one to ten kinds of a character's coin, so many to each of `each`, in place of `to`.
  */
 const transferSchema: z.ZodType<TransferInput> = z
   .strictObject({
     from: z.string().regex(FOUNDRY_ID),
     to: z.string().regex(FOUNDRY_ID).optional(),
     among: z
+      .array(z.string().regex(FOUNDRY_ID))
+      .min(1)
+      .max(MOST_AMONG)
+      .optional(),
+    each: z
       .array(z.string().regex(FOUNDRY_ID))
       .min(1)
       .max(MOST_AMONG)
@@ -178,14 +186,20 @@ const transferSchema: z.ZodType<TransferInput> = z
   })
 
 /**
- * A move goes to one end, or is shared among characters, from module 0.32.0: one kind of a party's
- * coin, never to itself, a share each.
+ * A move goes one way: to one end; or shared among characters, from module 0.32.0, one kind of a
+ * party's coin, never to itself, a share each; or handed out to each of the characters named, from
+ * module 0.48.0.
  */
 function shareRules(transfer: TransferInput, issue: Issue) {
-  const { to, among } = transfer
-  if ((to === undefined) === (among === undefined)) {
-    issue('to', 'A move goes to one end, or is shared among characters')
+  const { to, among, each } = transfer
+  const ways = [to, among, each].filter(way => way !== undefined).length
+  if (ways !== 1) {
+    issue(
+      'to',
+      'A move goes to one end, is shared among characters, or is handed out to each',
+    )
   }
+  if (each) handOutRules(transfer, each, issue)
   if (!among) return
   if (new Set(among).size < among.length) {
     issue('among', 'Each character is given one share')
@@ -198,6 +212,25 @@ function shareRules(transfer: TransferInput, issue: Issue) {
   }
   if (Object.keys(transfer.currency ?? {}).length !== 1) {
     issue('currency', 'One kind of coin is shared at a time')
+  }
+}
+
+/**
+ * A hand-out, from module 0.48.0, gives coins alone, one to ten kinds, to each character once,
+ * never to the one whose coins they are.
+ */
+function handOutRules(transfer: TransferInput, each: string[], issue: Issue) {
+  if (new Set(each).size < each.length) {
+    issue('each', 'Each character is handed coins once')
+  }
+  if (each.includes(transfer.from)) {
+    issue('each', "A character doesn't hand out to itself")
+  }
+  if (transfer.items !== undefined) {
+    issue('items', 'Only coins are handed out')
+  }
+  if (transfer.currency === undefined) {
+    issue('currency', 'A hand-out names its coins')
   }
 }
 
@@ -242,6 +275,25 @@ const removeSchema: z.ZodType<RemoveInput> = z
       message: 'From 1 to as many as there are, or none of a stack of none',
     },
   )
+
+/**
+ * Coins added to the character or taken away, from module 0.48.0: which, and one to ten kinds of
+ * coin, each a whole number from 1 to 10,000,000 of it, as a move names them. More of a coin may be
+ * taken away than the character holds: the game then pays with its other coins, where its campaign
+ * lets it. Nothing else.
+ */
+const coinsSchema: z.ZodType<CoinsInput> = z.strictObject({
+  op: z.enum(COIN_OPS),
+  currency: z
+    .record(z.string().regex(COIN_KEY), z.int().min(1).max(MOST_MOVED))
+    .refine(
+      currency => {
+        const kinds = Object.keys(currency).length
+        return kinds >= 1 && kinds <= MOST_COINS
+      },
+      { message: 'From one to ten kinds of coin' },
+    ),
+})
 
 /** What may be done to a favorite, from module 0.37.0: added, or removed. */
 const favoriteOp = z.enum(['add', 'remove'])
@@ -426,8 +478,8 @@ function plainOnce({ terms }: PlainRollInput): boolean {
  * module 0.40.0, Wild Shape its op and form; and from module 0.42.1, a spell slot spent or restored
  * its pool, which, and the count it was made from; and from module 0.42.1 a spell prepared or
  * unprepared which spell, and which of those; and from module 0.44.0 hit points set the numbers
- * and what they were, and a plain roll its dice. A field more than one kind names lists them all,
- * `kinds`.
+ * and what they were, and a plain roll its dice; and from module 0.48.0 coins added or taken away
+ * which, and the coins. A field more than one kind names lists them all, `kinds`.
  */
 const OWN_FIELDS: Readonly<
   Record<
@@ -487,6 +539,10 @@ const OWN_FIELDS: Readonly<
     message:
       'Hit points set, and only those, name the numbers and what they were',
   },
+  coins: {
+    field: 'coins',
+    message: 'Coins added or taken away, and only those, name the coins',
+  },
   plainRoll: {
     field: 'plainRoll',
     message: 'A dice roll, and only that, names its dice',
@@ -522,6 +578,7 @@ const PLAIN_WORDS: Partial<Record<RollRequestInput['kind'], string>> = {
   wildShape: 'Wild Shape throws no dice',
   prepare: 'Preparing a spell throws no dice',
   hitPoints: 'Setting hit points throws no dice',
+  coins: 'Changing coins throws no dice',
   endTurn: 'Ending a turn throws no dice',
   undoEndTurn: 'Taking a turn back throws no dice',
   dice: 'Dice the game asked for are answered term by term, never thrown',
@@ -618,7 +675,9 @@ const effectDieSchema = z.strictObject({
  * once, and the number added, and nothing else, and throws those dice, each size's together, in
  * the same order, typed in or not. From module 0.44.0 too, dice the game asked for name the ask,
  * and what was typed, term by term, each term by its roll's and its own place, with a value for
- * each of its dice, at most 100 terms; and nothing else, and throw no dice of their own.
+ * each of its dice, at most 100 terms; and nothing else, and throw no dice of their own. From
+ * module 0.48.0, coins added or taken away name which, and one to ten kinds of coin, and nothing
+ * else, and throw no dice.
  */
 export const rollRequestSchema: z.ZodType<RollRequestInput> = z
   .strictObject({
@@ -700,6 +759,8 @@ export const rollRequestSchema: z.ZodType<RollRequestInput> = z
       .optional(),
     // From module 0.44.0: hit points set, from what the page showed; and a plain roll's dice.
     hitPoints: hitPointsSchema.optional(),
+    // From module 0.48.0: coins added to the character or taken away.
+    coins: coinsSchema.optional(),
     plainRoll: plainRollSchema.optional(),
     turn: turnSchema.optional(),
     undo: z.string().regex(REQUEST_ID).optional(),
@@ -984,7 +1045,8 @@ function enchantRules(request: RollRequestInput, issue: Issue) {
  * and a spell slot spent or restored from module 0.42.1, each name what they're of, and nothing
  * else does; charges, how many, which nothing else says. And from module 0.42.1, a spell prepared
  * or unprepared names its spell, and nothing else does; and from module 0.44.0, hit points set
- * their numbers, and a plain roll its dice.
+ * their numbers, and a plain roll its dice; and from module 0.48.0, coins added or taken away
+ * their coins.
  */
 function ownFieldRules(request: RollRequestInput, issue: Issue) {
   for (const [kind, { field, kinds, message }] of Object.entries(OWN_FIELDS)) {

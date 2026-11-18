@@ -6,6 +6,7 @@ import {
   ROLLS_KEPT_FOR,
 } from '@/constants/sending-stone'
 import { companionDiceAsks, viewDiceAsks } from '@/db/dice-asks'
+import { coinsAvailable } from '@/utils/coins'
 import { companionAsks } from '@/utils/companion-asks'
 import { companionRoster, tableCompanion } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
@@ -149,6 +150,7 @@ export async function getCampaignStatus(
       effects: false,
       wildShape: false,
       hitPoints: false,
+      coins: false,
     }
   }
   const now = Date.now()
@@ -164,6 +166,7 @@ export async function getCampaignStatus(
         effectsEnabled: true,
         wildShapeEnabled: true,
         hitPointsEnabled: true,
+        coinsEnabled: true,
       },
     }),
     gmRolls
@@ -216,6 +219,9 @@ export async function getCampaignStatus(
       !!seat.actorId &&
       !!campaign &&
       hitPointsAvailable(campaign, now),
+    // Whether the seat may add and take away its character's coins, from module 0.48.0, by the
+    // campaign's switch: the Gamemaster's at its page too, as `moves`.
+    coins: !!seat.actorId && !!campaign && coinsAvailable(campaign, now),
   }
 }
 
@@ -268,6 +274,9 @@ const TABLE_CAMPAIGN = {
   effectsEnabled: true,
   wildShapeEnabled: true,
   hitPointsEnabled: true,
+  coinsEnabled: true,
+  coinFeatures: true,
+  transferFeatures: true,
   chatClearedAt: true,
   // Whether its module is one that asks for the dice an item rolls later, for Help.
   laterDice: true,

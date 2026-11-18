@@ -3,6 +3,7 @@ import type {
   DICE_ASK_AGAIN,
   DICE_ASK_FACES,
   DICE_ASK_PURPOSES,
+  COIN_OPS,
   EFFECT_OPS,
   PREPARE_OPS,
   WILD_SHAPE_OPS,
@@ -472,6 +473,12 @@ export type SheetCurrency = {
   label: string
   abbreviation: string
   value: number
+  /**
+   * Its rate, from module 0.48.0: how many of it make one gp, as dnd5e's configuration has it, 0.1
+   * for pp and 10 for sp; null for a coin with none, as a world's own may have, and unset or null
+   * from a module before it.
+   */
+  conversion?: number | null
 }
 
 export type SheetInventory = {
@@ -1541,6 +1548,13 @@ export type BridgeFeatures = {
      */
     partySends?: boolean
     distribute?: boolean
+    /**
+     * From module 0.48.0: whether a character's coins may be handed out, a set amount to each of
+     * the characters picked, wherever moves are on; and whether a giver short of a coin pays with
+     * its other coins, the campaign's Pay with other coins when a character is short of one.
+     */
+    handOut?: boolean
+    change?: boolean
   } | null
   /**
    * Whether the module removes characters' items for the app, `"remove"` among its kinds; or not,
@@ -1626,6 +1640,18 @@ export type BridgeFeatures = {
     enabled: boolean
     kinds: string[]
     reason: string | null
+  } | null
+  /**
+   * Whether the campaign lets its players add coins to their characters and take them away from
+   * here, `"coins"` among its kinds, by its own switch under dnd5e, on by default, apart from the
+   * rolls and the moves; or not, and why (`"off"`, `"system"`); and whether a character short of a
+   * coin pays with its other coins (`change`). Module 0.48.0.
+   */
+  coins?: {
+    enabled: boolean
+    kinds: string[]
+    reason: string | null
+    change?: boolean
   } | null
 }
 
@@ -1895,6 +1921,11 @@ export type CommandResult = {
    * its form's while shaped, or the companion's. Module 0.44.0.
    */
   hitPoints?: HitPointsNow
+  /**
+   * For coins added or taken away, on "done": which, the coins asked for, and which of the
+   * character's other coins went beyond them, null where none did, as for every add. Module 0.48.0.
+   */
+  coins?: CoinsChanged
   /**
    * For a note command, the note and its page's revision now: none for a delete, which says so,
    * or where the page is hidden from the app. Module 0.34.0.
@@ -2328,6 +2359,30 @@ export type TransferMoved = {
   currency: Record<string, number> | null
   /** A distribution's characters that were given their share, in order. */
   among?: string[]
+  /**
+   * A hand-out's characters that were given its coins, in order, from module 0.48.0: `currency`
+   * is then what each was given, never the total.
+   */
+  each?: string[]
+  /**
+   * A hand-out's: which of the giver's other coins went beyond those handed out, by coin; null
+   * where none did, and where it failed part way.
+   */
+  used?: Record<string, number> | null
+}
+
+/** What may be done to a character's coins from the app, from module 0.48.0. */
+export type CoinOp = (typeof COIN_OPS)[number]
+
+/**
+ * What coins added or taken away changed, as the game says it, from module 0.48.0: which, the coins
+ * asked for, by coin, and which of the character's other coins went beyond them, as where a larger
+ * coin was broken, null where none did. Its counts may be far above those asked for.
+ */
+export type CoinsChanged = {
+  op: CoinOp
+  currency: Record<string, number>
+  used: Record<string, number> | null
 }
 
 /** What a removal removed, as the game says it: by id and count alone. Module 0.33.0. */

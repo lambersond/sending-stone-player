@@ -978,6 +978,8 @@ describe('components/campaigns/campaign-card', () => {
         // The straight apostrophe four end-to-end suites read.
         "Players' rolls",
         'Items and coins',
+        // Changed on purpose (item 67): the players' coins follow them (module 0.48.0).
+        "Players' coins",
         'Cookbook dishes',
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows the players' effects.
         "Players' effects",
@@ -1022,6 +1024,8 @@ describe('components/campaigns/campaign-card', () => {
         'Chat',
         "Players' rolls",
         'Items and coins',
+        // Changed on purpose (item 67): the players' coins follow them (module 0.48.0).
+        "Players' coins",
         'Cookbook dishes',
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape between the players' effects and
         // the Foundry settings.
@@ -1385,6 +1389,29 @@ describe('components/campaigns/campaign-card', () => {
       screen.getByRole('heading', { name: 'Wild Shape' }).parentElement,
     )
     expect(section.nextElementSibling?.tagName).toBe('DETAILS')
+    expect(section.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  // Each of its words is pinned in feature-words.test.ts: here, where they go.
+  it('says whether players add and take away coins from here (module 0.48.0), after Items and coins, before the Cookbook dishes', () => {
+    renderCard({
+      coins: { enabled: true, change: true },
+      foundry: effectsFoundry('0.48.0', dnd5e('5.3.3')),
+    })
+
+    const section = screen.getByRole('heading', { name: "Players' coins" })
+      .parentElement as HTMLElement
+    expect(
+      [...section.querySelectorAll('p')].map(({ textContent }) => textContent),
+    ).toEqual([
+      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
+    ])
+    expect(section.previousElementSibling).toBe(
+      screen.getByRole('heading', { name: 'Items and coins' }).parentElement,
+    )
+    expect(section.nextElementSibling).toBe(
+      screen.getByRole('heading', { name: 'Cookbook dishes' }).parentElement,
+    )
     expect(section.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
   })
 })

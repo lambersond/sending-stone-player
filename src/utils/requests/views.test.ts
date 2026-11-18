@@ -611,6 +611,30 @@ describe('utils/roll-requests', () => {
     })
   })
 
+  describe('toRollRequestView for coins added or taken away, from module 0.48.0', () => {
+    it('passes on what the game says it changed, and which other coins it used, whether or not the line shows', () => {
+      const coins = {
+        op: 'remove' as const,
+        currency: { gp: 5 },
+        used: { pp: 1 },
+      }
+      expect(changed({ coins }, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        total: undefined,
+        rolls: [],
+        coins,
+      })
+      expect(changed({ coins, visible: false }, 'done')).toEqual({
+        id: 'req-1',
+        status: 'done',
+        visible: false,
+        coins,
+      })
+    })
+  })
+
   describe('toRollRequestView for hit dice spent at once, from module 0.20.0', () => {
     it('shows what every die the game made came to, added up, and gave back, and how many it made', () => {
       const view = spentAtOnce(true, 3)

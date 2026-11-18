@@ -37,6 +37,7 @@ import { moveLabel } from '@/utils/move-words'
 import type { WildShapeForms, RechargeRoll } from '@/features/rolling/types'
 import type {
   TableRollState,
+  CoinsInput,
   DamageModifiers,
   EndEnchantmentSource,
   FavoriteInput,
@@ -480,6 +481,23 @@ export function useTableRolls(
   )
 
   /**
+   * Add coins to the character or take them away, from module 0.48.0. No switch of this device's
+   * holds it back: a change to its coins has no version made here instead.
+   */
+  const sendCoins = useCallback(
+    (changed: LocalUse, coins: CoinsInput) => {
+      if (!changed.move) return
+      start(
+        changed.id,
+        { kind: 'coins', coins, ...NO_DICE },
+        { move: changed.move },
+        moveLabel(changed.move),
+      )
+    },
+    [start],
+  )
+
+  /**
    * Add to or remove from the character's favorites, from module 0.37.0. No switch of this device's
    * holds it back: a favorite has no version made here instead.
    */
@@ -684,6 +702,7 @@ export function useTableRolls(
     sendSpellSlot,
     sendTransfer,
     sendRemove,
+    sendCoins,
     sendFavorite,
     sendEffect,
     sendPrepare,

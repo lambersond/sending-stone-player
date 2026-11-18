@@ -169,6 +169,10 @@ describe('utils/table-seat', () => {
       effectsEnabled: true,
       wildShapeEnabled: true,
       hitPointsEnabled: true,
+      // Coins, from module 0.48.0: off but where a case turns them on.
+      coinsEnabled: false,
+      coinFeatures: [] as string[],
+      transferFeatures: [] as string[],
     }
     const allows = (
       at: SheetSeat,
@@ -228,6 +232,52 @@ describe('utils/table-seat', () => {
 
     it("lets the Gamemaster only move and remove, as a player's own are theirs", () => {
       expect(Object.keys(allows(gm))).toEqual(['moves', 'removes'])
+    })
+
+    it('lets either seat add and take away coins, from module 0.48.0, while the campaign lets them, saying whether another coin pays', () => {
+      expect(allows(thorin, { coinsEnabled: true }).coins).toEqual({
+        change: false,
+      })
+      expect(
+        allows(gm, { coinsEnabled: true, coinFeatures: ['change'] }).coins,
+      ).toEqual({ change: true })
+      // With moves off too: coins have a switch of their own.
+      expect(
+        Object.keys(
+          allows(gm, { coinsEnabled: true, transfersEnabled: false }),
+        ),
+      ).toEqual(['removes', 'coins'])
+      // Never while the campaign's switch is off, whatever its module says of other coins; nor out
+      // of the roster, nor while the game isn't fetching.
+      const on = { coinsEnabled: true, coinFeatures: ['change'] }
+      for (const allowed of [
+        allows(thorin, { coinFeatures: ['change'] }),
+        allows(thorin, on, false),
+        allows(thorin, { ...on, bridgePolledAt: new Date(NOW - 3_600_000) }),
+      ]) {
+        expect(allowed).not.toHaveProperty('coins')
+      }
+    })
+
+    it('lets either seat hand its coins out with its moves, from module 0.48.0, where its module says so, saying whether another coin pays', () => {
+      expect(
+        allows(thorin, { transferFeatures: ['partySends', 'handOut'] }).moves
+          ?.handOut,
+      ).toEqual({ change: false })
+      expect(
+        allows(gm, { transferFeatures: ['handOut', 'change'] }).moves?.handOut,
+      ).toEqual({ change: true })
+      // Not from a module before it, whatever else it says; nor with moves off, with coins on.
+      expect(
+        allows(thorin, { transferFeatures: ['partySends', 'change'] }).moves,
+      ).not.toHaveProperty('handOut')
+      expect(
+        allows(thorin, {
+          transferFeatures: ['handOut'],
+          transfersEnabled: false,
+          coinsEnabled: true,
+        }),
+      ).not.toHaveProperty('moves')
     })
 
     it('allows nothing where the character is not in the roster, or the game is not fetching', () => {

@@ -6,8 +6,10 @@ import { Logo } from '@/components/logo/logo'
  * lighting a part at a time and going dark again, over and over, as globals.css's rune keyframes
  * time it. Someone who'd rather nothing moved sees it lit and still. It says "Loading…" to a
  * screen reader; the light is only for the eye. No page shows it now, as each shows a shimmering
- * skeleton of itself while it reads its data; it's kept for the installed app's launch page
- * (ROADMAP item 56), and perhaps for an overlay on a skeleton later.
+ * skeleton of itself while it reads its data. The installed app's launch page
+ * (`src/features/launch`, ROADMAP item 56) draws the same stone by itself, as it has to be one
+ * document that needs no other file; its test fails if its rune's keyframes differ from
+ * globals.css's. This component is kept, perhaps for an overlay on a skeleton later.
  */
 export function LoadingStone() {
   return (

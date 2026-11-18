@@ -32,6 +32,7 @@ export function D20Dialogs({
           anchor={menu.anchor}
           point={menu.point}
           title={`${menu.target.label} ${formatModifier(menu.target.modifier)}`}
+          extras={menu.extras}
           onChoose={choice => choose(menu.target, choice)}
           onClose={() => setMenu(undefined)}
         />

@@ -70,6 +70,8 @@ describe('db/table', () => {
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
         hitPoints: false,
+        // Changed on purpose (item 67): whether the seat may add and take away coins.
+        coins: false,
       })
       expect(prismaMock.campaign.findUnique).toHaveBeenCalledWith({
         where: { id: 'c1' },
@@ -92,6 +94,8 @@ describe('db/table', () => {
           wildShapeEnabled: true,
           // Changed on purpose (v0.44): whether the campaign lets its players set hit points.
           hitPointsEnabled: true,
+          // Changed on purpose (item 67): whether it lets coins be added and taken away.
+          coinsEnabled: true,
         },
       })
     })
@@ -117,6 +121,8 @@ describe('db/table', () => {
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
         hitPoints: false,
+        // Changed on purpose (item 67): whether the seat may add and take away coins.
+        coins: false,
       })
     })
 
@@ -138,6 +144,8 @@ describe('db/table', () => {
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
         hitPoints: false,
+        // Changed on purpose (item 67): whether the seat may add and take away coins.
+        coins: false,
       })
       expect(prismaMock.campaign.findUnique).not.toHaveBeenCalled()
 
@@ -157,6 +165,8 @@ describe('db/table', () => {
         // Changed on purpose (round 0.40.0 §10.3): whether the player may use Wild Shape.
         wildShape: false,
         hitPoints: false,
+        // Changed on purpose (item 67): whether the seat may add and take away coins.
+        coins: false,
       })
     })
 
@@ -252,6 +262,12 @@ describe('db/table', () => {
           wildShapeEnabled: true,
           // Changed on purpose (v0.44): whether the campaign lets its players set hit points.
           hitPointsEnabled: true,
+          // Changed on purpose (item 67): whether it lets coins be added and taken away, and
+          // whether its module pays with other coins.
+          coinsEnabled: true,
+          coinFeatures: true,
+          // Changed on purpose (item 68): whether its module hands a character's coins out.
+          transferFeatures: true,
           // Changed on purpose (v0.44 item 8): when its chat was last cleared.
           chatClearedAt: true,
           // Changed on purpose (round 3, decision 3): whether its module is one that asks for the
@@ -744,6 +760,8 @@ describe("db/table, the Gamemaster at a character's sheet (#156)", () => {
       // Changed on purpose (round 0.40.0 §10.3): nor Wild Shape.
       wildShape: false,
       hitPoints: false,
+      // Changed on purpose (item 67): whether the seat may add and take away coins.
+      coins: false,
     })
   })
 
@@ -2090,6 +2108,89 @@ describe('db/table, hit points, from module 0.44.0', () => {
 
     const gone = await getTableView({ ...character, actorId: 'actor-gone' })
     expect(gone).not.toHaveProperty('hitPoints')
+  })
+})
+
+/** The campaign, letting coins be added and taken away as given, and fetching as lately. */
+const changingCoins = (
+  coinsEnabled = true,
+  coinFeatures: string[] = ['change'],
+  bridgePolledAt: Date | null = new Date(Date.now() - 5000),
+) =>
+  givenCampaign({
+    ...campaign,
+    groups: [],
+    rollsEnabled: false,
+    rollKinds: [],
+    rollFeatures: [],
+    transfersEnabled: false,
+    removalsEnabled: false,
+    favoritesEnabled: false,
+    effectsEnabled: false,
+    wildShapeEnabled: false,
+    hitPointsEnabled: false,
+    coinsEnabled,
+    coinFeatures,
+    bridgePolledAt,
+  })
+
+describe('db/table, coins added and taken away, from module 0.48.0', () => {
+  /** The campaign's Gamemaster at the character's page. */
+  const gm = {
+    ...character,
+    role: 'gm' as const,
+    userId: 'gm-1',
+    characterId: null,
+  }
+
+  it('lets either seat change them while the campaign lets them, the rolls, moves and everything else off', async () => {
+    changingCoins()
+
+    for (const seat of [character, gm]) {
+      const view = await getTableView(seat)
+      expect(view.coins).toEqual({ change: true })
+      expect(view).not.toHaveProperty('moves')
+      await expect(getCampaignStatus(seat)).resolves.toMatchObject({
+        moves: false,
+        coins: true,
+      })
+    }
+  })
+
+  it('says whether another coin pays as the module said last', async () => {
+    changingCoins(true, [])
+
+    const view = await getTableView(character)
+    expect(view.coins).toEqual({ change: false })
+  })
+
+  it.each([
+    [
+      'the campaign lets none, as before module 0.48.0',
+      () => changingCoins(false),
+    ],
+    [
+      'its module isn’t fetching',
+      () => changingCoins(true, ['change'], new Date(Date.now() - 46_000)),
+    ],
+  ])('lets no one change them while %s', async (_name, arrange) => {
+    arrange()
+
+    expect(await getTableView(character)).not.toHaveProperty('coins')
+    await expect(getCampaignStatus(character)).resolves.toMatchObject({
+      coins: false,
+    })
+  })
+
+  it('lets no one change those of a character no longer in the roster, nor at a seat with no character', async () => {
+    changingCoins()
+
+    const gone = await getTableView({ ...character, actorId: 'actor-gone' })
+    expect(gone).not.toHaveProperty('coins')
+    // The poll's key too, which the page reads as its view: there are no coins to change.
+    await expect(
+      getCampaignStatus({ ...character, actorId: null }),
+    ).resolves.toMatchObject({ coins: false })
   })
 })
 

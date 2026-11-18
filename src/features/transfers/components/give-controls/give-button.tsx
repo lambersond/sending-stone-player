@@ -6,6 +6,7 @@ export function GiveButton({
   label,
   className,
   busy,
+  quiet = false,
   onGive,
   children,
 }: Readonly<{
@@ -13,9 +14,15 @@ export function GiveButton({
   label?: string
   className: string
   busy: boolean
+  /**
+   * On a row whose label says what's on its way, as a character's Currency row does from module
+   * 0.48.0: it waits, disabled, with no spinner of its own.
+   */
+  quiet?: boolean
   onGive: () => void
   children?: ReactNode
 }>) {
+  const spins = busy && !quiet
   return (
     <button
       type='button'
@@ -24,9 +31,9 @@ export function GiveButton({
       disabled={busy}
       aria-busy={busy || undefined}
       onClick={onGive}
-      className={clsx(className, busy && 'inline-flex items-center gap-1')}
+      className={clsx(className, spins && 'inline-flex items-center gap-1')}
     >
-      {busy && (
+      {spins && (
         <LoaderCircle
           aria-hidden
           className='size-3.5 motion-safe:animate-spin'

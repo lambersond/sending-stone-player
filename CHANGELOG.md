@@ -21,6 +21,63 @@ so an item from it is named with its number when it was built, which may since b
 
 ## v0.48.0-rc
 
+### Features
+
+- **Coins added to a character and taken away from the Currency row.** On a character's Inventory
+  tab, Add or take away opens a dialog that asks Add or Take away and how many of each coin, and
+  says what will happen before anything is sent; the character's player has it, and the Gamemaster
+  at the character's page. Each change posts a line in Foundry's chat for everyone, "Thorin received
+  5 gp" or "Thorin paid 5 gp", the Gamemaster's marked as theirs. Taking away more of a coin than
+  the character holds breaks a larger coin, the nearest first, with the change in the fewest coins,
+  in electrum only where electrum is what's taken away: 5 gp from 3 gp and 2 pp leaves 1 pp and 8
+  gp. With no larger coin left, smaller coins pay: 5 gp from 2 gp and 40 sp leaves 10 sp. At dnd5e's
+  own rates only an amount worth more than all the character's coins is refused, and the dialog says
+  so first; the tray says what else was used, "Paid 5 gp, using 1 pp". While a change or a move of
+  the character's coins is on its way, the row's buttons wait, with one spinner by its label, as a
+  party's row does. Each campaign has two new switches in Foundry, in a Coins box on its Player
+  actions tab, both on until turned off: Allow Players to add and take away coins from the app,
+  which counts for the Gamemaster's own changes from the app too, and Pay with other coins when a
+  character is short of one, without which more of a coin than is held is refused. It works under
+  D&D Fifth Edition 5 and 6; under 6, a fraction of a coin the character stores stays as it is. It
+  isn't offered while the character is transformed, as in Wild Shape, and never for a party's coins
+  or a companion's. Needs Sending Stone 0.48.0 in Foundry; with an older one, the campaign card and
+  Help say so. (app and module, item 67)
+- **Coins handed out to several characters at once.** Hand out, on the same row, gives so many of
+  each coin to each of the campaign's characters ticked, up to 20 at a time, with Select all where
+  there are two to twenty to tick, and shows the total as it's set ("4 gp in all"); the Gamemaster
+  can at the giver's page. It's there wherever the Gamemaster has turned on Players move items and
+  coins, the character holds a whole coin and the campaign has another character to give it to, but
+  not while the character is transformed, as in Wild Shape; a hand-out to a character who is
+  transformed is refused. The total is taken from the giver as coins taken away are, other coins
+  paying unless the Gamemaster has turned that off. No line is posted for everyone: each character
+  given coins who has a player is whispered what they received, "Vex received 200 pp and 50 gp from
+  Thorin", and the Gamemasters are whispered one message with all of it; the giver's player reads
+  each of them too, where the giver has one player of its own. Where one character can't be given
+  their coins, what wasn't given goes back to the giver and no more is given. Needs Sending
+  Stone 0.48.0 in Foundry. (app and module, item 68)
+
+### Fixes
+
+- **Midi-QOL no longer asks the Gamemaster for dice as it looks for reactions.** As a creature is
+  attacked, hit, missed, damaged or healed, or makes a save, Midi-QOL works out what each of its
+  reactions would spend, to see which it could take. Where a reaction's cost is a dice formula, such
+  as 1d4 charges, that roll was made with the Gamemaster's dice settings, so under Manual Dice a
+  window asked them, several times an attack, for a roll nobody used beyond telling whether the
+  reaction could be paid for. The module now rolls those checks with Foundry's computer dice, for an
+  attack from the app or one the Gamemaster makes in Foundry. Under dnd5e 6 that holds where
+  Midi-QOL's line for it looks for reactions as its line for dnd5e 5 does. A reaction that is taken
+  still rolls its cost as before. (module, item 23)
+- **Move up and Move down for a skill, a tool and spell slots among the favorites.** v0.47.0 gave a
+  favorite's menu Move up and Move down, but these three rows had no such menu, so on a phone they
+  moved only in Reorder. Now a skill's or a tool's menu (hold it, right-click it, or press the menu
+  key or Shift+F10) has its ways to roll, then Move up and Move down; and spell slots have a menu of
+  their own (hold their name, right-click their row, or press the menu key or Shift+F10 on it) with
+  Move up and Move down alone, their dots still spending and restoring a slot. Each is left out
+  where the favorite can't move that way, and none is offered with a module before 0.47.0. Skills,
+  tools and spell slots are still made favorites, and removed, in Foundry. Help says where the moves
+  are, and names module 0.47.0 for putting favorites in order. The module is unchanged: the order it
+  takes already named them. (app, item 47)
+
 ### Enhancements
 
 - **Pages show an outline of themselves while they load.** Once a page has checked that it may be
@@ -38,11 +95,39 @@ so an item from it is named with its number when it was built, which may since b
   to sign in; a page that isn't open to you is not found. Opening one of these pages afresh, the
   outline may only flash where the data comes quickly; going to one from another page of the app, it
   may not show at all, and where it does, it shows for at least about a third of a second, so the
-  page comes up that much later than before. An installed app's launch screen is drawn by the phone
-  (on Android, from the app's manifest), so it stays still; signed in, the page's outline follows it
-  once the page starts loading. Where one of these pages can't read its data once its checks have
-  passed (the database down, say), it now answers 200 with the error shown in the page, where it
-  answered 500. (app)
+  page comes up that much later than before. An installed app's own launch screen is drawn by the
+  phone (on Android, from the app's manifest), so it stays still; the app's launch page, below,
+  follows it, and signed in, the page's outline follows that once the page starts loading. Where one
+  of these pages can't read its data once its checks have passed (the database down, say), it now
+  answers 200 with the error shown in the page, where it answered 500. (app)
+- **The stone lights up as the installed app opens.** An app added to a phone's Home Screen, or
+  installed on a computer, now opens on a launch page of its own: the stone in the middle of a
+  night-dark screen, the same one an Android phone's own launch screen is drawn on (an iPhone's own
+  is white), its rune lighting from the dot outward every 2 seconds, until your characters, or
+  sign-in, takes its place. From the second opening on the page is shown from the device itself,
+  before anything is asked of the network. Only that one page is kept there, the same for everyone,
+  never a page of yours; a release's new launch page shows from the second opening after it. Where
+  the device asks for reduced motion, the rune is lit and still. With the device offline (airplane
+  mode, or no Wi-Fi and no mobile data) the page stays and says "Sending Stone couldn’t be reached.
+  It opens once you’re back online.", with Try again, and opens by itself once the connection is
+  back, asking again over a few seconds where the connection isn't working at once; if Sending Stone
+  still can't be reached then, it says only the first sentence, with Try again. While a first page
+  is on its way it says nothing for 15 seconds; if it hasn't come by then, it says the first
+  sentence, with Try again, still waiting. Opened while connected but unable to reach Sending Stone,
+  the app shows the phone's own error page, as before. Each opening asks for the first page a little
+  later than before, a few hundredths of a second on a computer slowed to a phone's pace, and the
+  first opening after installing fetches the launch page from the network first. A browser's tab is
+  as before. An Android phone takes the new opening up by itself, within about a day of the release,
+  once the app is closed and the phone is charging on Wi-Fi; an iPhone keeps the address the app was
+  added with, so to see the stone there, remove Sending Stone from the Home Screen and add it again;
+  you'll sign in once more there. (app, item 56)
+- **Effects are kept when Wild Shape ends.** A Bless cast on the wolf, a potion fed to it or an
+  effect the Gamemaster made on its sheet is now on the druid when Wild Shape ends, from the app, in
+  Foundry or at 0 hit points, with the time it has left, and it still ends when its caster stops
+  concentrating. An effect taken off the wolf, or one that ran out on it, is taken off the druid
+  too. Before, only conditions and concentration were. As before, what the form's own features gave
+  it and a spell the druid began as a beast end with the form, and a status effect that is no
+  condition, such as Sleeping or Marked, is neither kept nor taken off. (module, item 29)
 
 ### Maintenance
 
@@ -51,29 +136,119 @@ so an item from it is named with its number when it was built, which may since b
   half a second each; where the device asks for reduced motion, the rune is lit and still. This
   release candidate first showed it in the middle of the page while your characters, your
   campaigns, a character's sheet, the Gamemaster's seat at one and an invite link read their data;
-  the outlines above replaced it on all five. No page shows it now. It stays in the app
-  (`src/components/loading-stone`) for the installed app's launch (ROADMAP item 56) and perhaps to
-  lie over the outlines later. (app)
+  the outlines above replaced it on all five. No page shows it now. The installed app's launch page
+  (item 56, above) now draws the same stone by itself; the component stays in the app
+  (`src/components/loading-stone`), perhaps to lie over the outlines later. (app)
 - **The module's scripts no longer import one another in a loop.** 54 of the module's 72 scripts
   imported one another in one loop, through 296 imports (ROADMAP item 24 counted 44 when it was
   found). Ninety declarations moved, their text unchanged, to scripts that those which use them can
   import without the loop, five of them new (`bridge-role.mjs`, `command-checks.mjs`,
   `command-links.mjs`, `dnd5e-generation.mjs` and `wild-shape-hooks.mjs`); and in five places a
   script is now handed a function as the module loads, where it used to import a script built on
-  it. The 77 scripts stand in seven layers, each importing only from its own layer or a lower one,
-  and `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop, on an import
-  up the layers and on a script in no layer. The module has a `CLAUDE.md` of its own: the layers,
-  what to do when a lower script needs something of a higher one, and the standing rules for
-  whoever changes it next. Nothing the module sends, takes or shows changes, and no module version
-  comes of it: the harness's 115 runs end as they did before, line for line, and the app's 125 e2e
-  runs pass against it. (module, item 24)
+  it. The scripts, 77 then and 80 now, stand in seven layers, each importing only from its own layer
+  or a lower one, and `npm test` first runs a guard (`test/import-layers.mjs`) that fails on a loop,
+  on an import up the layers and on a script in no layer. The module has a `CLAUDE.md` of its own:
+  the layers, what to do when a lower script needs something of a higher one, and the standing rules
+  for whoever changes it next. Nothing the module sends, takes or shows changes, and no module
+  version comes of it: the harness's 115 runs ended as they had before, line for line, and the app's
+  125 e2e runs passed against it. (module, item 24)
+- **Five end-to-end checks hold on a busy machine.** Each had failed once or twice under load and
+  passed alone, and none was a fault in the app: two looked at the page a moment before it was
+  ready, one timed it from a moment late, one closed a game a moment before the app had noted its
+  last fetch, and one photographed a toast as it faded. A row's menu is looked at once focus is in
+  it, a frame after it shows (removals). End turn's 600 ms are counted from the read of the table
+  that brought the turn, and from when the panel shows it they are held to 300 ms either side
+  (endturn). Where a suite closes a game with `stopFetching` and ages its polls, the fetch under way
+  is first let reach the app, which notes a fetch even when it's given up on (notesoffline,
+  partynotes, wildshape, favoriting), and so it is where notesoffline closes one by the Gamemaster
+  leaving. The help suite takes a page as ready once Full screen is in its header, which a page
+  draws only when it has hydrated (help). Toasts given up on three pages are brought up and
+  photographed one page at a time, each in its own 4 seconds, and a photograph taken as a toast
+  fades says so (toasts). Each check still fails where it did: a menu that takes no focus, a
+  countdown short by more than the few milliseconds the page takes to draw the turn, a game that
+  doesn't read closed, Full screen out of its place, a toast in the wrong colors. Two of the e2e
+  README's known load races go. (app, items 41, 42, 57, 70 and 71)
+- **End-to-end checks.** A new `launch` suite opens the installed app's launch page in Chromium,
+  with no Foundry: nothing registered in a browser's tab or in a window made full screen; what the
+  server sends for `/launch` and its two workers; installed on a Pixel 7, the worker kept for
+  `/launch` alone and the second opening from it, the rune seen lighting; signed out; offline,
+  upright, on its side and in a short, narrow window, with Try again, and back online with its first
+  ask refused; a first page that doesn't come in 15 seconds; reduced motion, a light device and a
+  dark one, an older worker replaced, the retiring worker and an iPhone's Home Screen app; and
+  `fullscreen` part 7 finds the manifest opening on `/launch` (item 56).
+  A new `coins` suite adds, takes away and hands out coins from the Currency row, in
+  `world-030.mjs`'s world: the hello and the app's answer, a larger coin broken and smaller ones
+  paying, more than the coins are worth refused, other coins off in Foundry, the Gamemaster's change
+  at a character's page, a hand-out's whispers, both switches off, both dialogs at 360, 390, 768 and
+  1280 px, Help and the campaign card; under dnd5e 5 and 6.0.5, and against module 0.47.0
+  (`e2e/skew.conf`'s 047), which offers no button but Send to (items 67 and 68). Ten suites that pin
+  what coins change take them in: the hello's features (cookbook, effects, favoriting, hitpoints,
+  notes and wildshape, and the moves' in givetake and transfers), the campaign card's words for
+  moves (transfers), the Currency row's buttons (givetake), the settings window (settings) and
+  Help's box (help). In `wildshape` part 10 (item 29), a Shield of Faith cast on the bear is
+  Elowen's after the return, until Rowan stops concentrating, and her Bless, taken off the bear, is
+  gone; under dnd5e 6 the kept effect is on her stored sheet, hers to turn off or delete.
+  `favoriting` (item 47) moves a skill and spell slots from their menus at 390 px (part 14), opens
+  the slots' menu by a right-click and from the keyboard at 1280 px (part 10), and finds neither
+  offered with module 0.46.0 (part 16). `step2` reads the Currency row's coins from the fact's own
+  value, where since items 67 and 68 it read the row's Add or take away: a check gone stale, not a
+  fault in the app, which the batch's full e2e pass found. `e2e/README.md` counts 57 suites and 129
+  runs. (app, items 29, 47, 56, 67 and 68)
+- **Jest tests.** New tests pin the launch page (`src/features/launch/utils.ts`): what it draws, and
+  its script opening the first page at once, saying nothing for 15 seconds while that page is on its
+  way, staying dark and still offline, Try again, and asking again after 1, 2 and 4 seconds once
+  back online, a Try again that fails calling none of those asks off; its worker and the worker that
+  retires it (`public/launch-worker.js` and `launch-worker-retire.js`), the `/launch` route, and the
+  manifest opening on it (item 56). Others pin the rule of paying in coins (`src/utils/coins.ts`), a
+  coins change's checks and request (`src/db/coins.ts`), a hand-out among the moves, the Currency
+  row's Add or take away and Hand out with their dialogs, amounts and recipients, and the hello's
+  `coins` and the moves' `handOut` and `change`, the words golden recording what the tray says of
+  coins added, taken away and handed out, and the wire golden a coins request (items 67 and 68); and
+  a skill and a tool moved from their roll's menu with nothing rolled, the move such a menu leaves
+  out at either end, spell slots' own menu, and one favorite alone that may move offered no Reorder,
+  and spell slots no menu (item 47). (app, items 47, 56, 67 and 68)
+- **The module harness.** `later-dice.mjs` checks, in its four MIDI=1 runs, that as Midi-QOL looks
+  for reactions their dice costs are rolled on Foundry's computer dice, for the Gamemaster's own
+  attack and for one from the app, and no one is asked, where a reaction taken is asked once as
+  before; and which activities count as a reaction's, Midi-QOL's other activations, dnd5e's own
+  activities and a Cast activity by its spell's among them; and in its other four, that without
+  Midi-QOL, or with it installed but not active, the same check is asked as before. Midi-QOL's
+  stand-in (`midi-fake.mjs`) looks for reactions among an attack's targets, off unless a harness
+  asks (item 23). `wildshape.mjs` checks, in all three of its runs, the effects others put on a form
+  kept on the druid and those taken off it taken off her, under MIDI=1 at each kind of ending, and
+  where a return throws or is refused, and, under dnd5e 5, along a chain of forms, its stand-ins
+  (`transform5e.mjs` and `effects-core.mjs`) making an actor's effects as Foundry and dnd5e do
+  (item 29). `favoriting.mjs` puts a tool in order among the favorites (item 47). Two new harnesses,
+  `coins.mjs` and `handouts.mjs`, under dnd5e 5.3.3 and 6.0.5, check coins added and taken away, the
+  rule of paying in coins by worked and random cases, and a hand-out, its whispers and what a
+  failure part way leaves; `dialog.mjs` checks the Coins box, `foundry-settings.mjs` its two rows,
+  `step2.mjs` and `groups.mjs` each coin's rate in a sheet's currency, and the harnesses that read
+  the hello follow its new fields. `test/README.md` counts 50 harnesses and 119 runs. (module,
+  items 23, 29, 47, 67 and 68)
+- **Docs for v0.48.** README.md's supported-versions table gains v0.48.0. The module's
+  `PROTOCOL.md` gains each coin's rate in a sheet's currency (`conversion`), the `coins` command
+  with the hello's `features.coins`, a character's coins handed out (a third shape of `transfer`,
+  with the hello's `features.transfers.handOut` and `change`), the campaign's `coins` and
+  `coinChange` settings rows, effects kept from Wild Shape, Midi-QOL's checks of the reactions it
+  looks for rolled on Foundry's computer dice, and its "Module 0.48.0" entries; its `README.md`
+  says each. (app and module)
 - **ROADMAP kept current.** ROADMAP.md's v0.47 section reads as released, its checks at the table
-  kept. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0";
-  v1.x's items but critical hit options join it as items 58 to 66, and batch 2 gains coins added,
-  taken away and handed out from the sheet (items 67 and 68). v1.x keeps critical hit options and
-  gains inactive characters. Batch 1, item 24, reads as done; item 69 is what it left for later,
-  and items 70 and 71 are two e2e checks that each failed once under load in its full passes.
-  (app)
+  kept, and a v0.48 section, the release candidate, lists seven checks to make at the table before
+  module v0.48.0 is tagged: Midi-QOL's look for reactions; a skill, a tool or spell slots moved from
+  its menu; effects kept from Wild Shape, and effects taken off in it; the stone as the installed
+  app opens, on an Android phone and on an iPhone's Home Screen; and coins added, taken away and
+  handed out. The work before v1.0 is planned in batches, in the owner's order, under "Before v1.0",
+  v1.x's items but critical hit options joining it as items 58 to 66; v1.x keeps critical hit
+  options and gains inactive characters. Batches 1 and 2 read as done, their items taken out:
+  item 24, then items 23, 29, 41, 42, 47, 56, 57, 67, 68, 70 and 71. Item 69 is what item 24 left
+  for later, and items 72 to 86, under "Found while building Batch 2", what batch 2 found or left:
+  Midi-QOL's check of a Gamemaster's own use (72); a roll's button after its menu, and the
+  favorites' two lists (73 to 75); Wild Shape (76 to 78); End turn's 600 ms (79); e2e checks of the
+  races' kinds not yet seen to fail (80); the launch page (81); Help's place as a sheet hydrates
+  (82); what coins found: a spell prepared's check, older moves' fractions of a coin, and focus
+  after a move (83 to 85); and toasts' tap check, which failed once under load (86). Item 63,
+  offline mode, is to have a worker of its own beside the launch page's, and the known limits say
+  what Wild Shape now keeps and that the app puts skills, tools and spell slots in order. (app)
 
 ## v0.47.0 — 2026-11-12
 

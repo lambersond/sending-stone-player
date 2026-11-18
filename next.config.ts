@@ -14,6 +14,23 @@ const nextConfig: NextConfig = {
     'domelementtype',
     'entities',
   ],
+  // The installed app's launch page and its worker (ROADMAP item 56): neither is kept by a
+  // browser's or a server's cache, so that a release's launch page and worker, or the worker that
+  // retires it, reach an installed app the next time it opens. The worker may fetch from this app
+  // alone.
+  headers: async () => [
+    {
+      source: '/launch',
+      headers: [{ key: 'Cache-Control', value: 'no-cache' }],
+    },
+    {
+      source: '/launch-worker.js',
+      headers: [
+        { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+        { key: 'Content-Security-Policy', value: "default-src 'self'" },
+      ],
+    },
+  ],
   images: {
     remotePatterns: [
       {

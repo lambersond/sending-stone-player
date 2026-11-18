@@ -115,10 +115,13 @@ export async function listOwnedCampaigns(
       rollFeatures: true,
       bridgePolledAt: true,
       transfersEnabled: true,
+      transferFeatures: true,
       dishesEnabled: true,
       effectsEnabled: true,
       wildShapeEnabled: true,
       hitPointsEnabled: true,
+      coinsEnabled: true,
+      coinFeatures: true,
       chatClearedAt: true,
       refusedAt: true,
       refusalReason: true,
@@ -171,6 +174,8 @@ export async function listOwnedCampaigns(
       transfers: {
         enabled: campaign.transfersEnabled,
         reaching: transfersAvailable(campaign),
+        // Whether a character's coins may be handed out too, from module 0.48.0.
+        handOut: campaign.transferFeatures.includes('handOut'),
       },
       // Dishes from the Magical Recipe Book, from module 0.38.0: waiting for Foundry, queued or
       // handed over unanswered, and in Foundry, waiting for the Gamemaster.
@@ -190,6 +195,13 @@ export async function listOwnedCampaigns(
       // Whether the campaign lets its players set hit points from here, from module 0.44.0, as its
       // last hello said.
       hitPoints: { enabled: campaign.hitPointsEnabled },
+      // Whether the campaign lets its players add coins to their characters and take them away
+      // from here, from module 0.48.0, and whether a character short of a coin pays with its
+      // other coins, as its last hello said.
+      coins: {
+        enabled: campaign.coinsEnabled,
+        change: campaign.coinFeatures.includes('change'),
+      },
       // Its players' chat here, and when it was last cleared (v0.44).
       chat: {
         messages: messages.get(campaign.id) ?? 0,

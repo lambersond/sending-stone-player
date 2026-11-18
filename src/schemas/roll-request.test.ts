@@ -1676,12 +1676,20 @@ describe('a party’s coin distributed, from module 0.32.0', () => {
     [
       'both an end and those it’s shared among',
       { to: 'actorThorin1' },
-      ['transfer.to', 'A move goes to one end, or is shared among characters'],
+      // Changed on purpose (item 68): a hand-out is a third way, from module 0.48.0.
+      [
+        'transfer.to',
+        'A move goes to one end, is shared among characters, or is handed out to each',
+      ],
     ],
     [
       'neither',
       { among: undefined },
-      ['transfer.to', 'A move goes to one end, or is shared among characters'],
+      // Changed on purpose (item 68): a hand-out is a third way, from module 0.48.0.
+      [
+        'transfer.to',
+        'A move goes to one end, is shared among characters, or is handed out to each',
+      ],
     ],
     ['no one to share among', { among: [] }, ['transfer.among']],
     [
@@ -3190,6 +3198,185 @@ describe('schemas/roll-request, hit points set, from module 0.44.0', () => {
   it('refuses one saying whose it is, or of whom', () => {
     expect(parseKind(setting, { by: 'gm' }).success).toBe(false)
     expect(parseKind(setting, { of: 'actorThorin1' }).success).toBe(false)
+  })
+})
+
+/** As many kinds of coin, each a key of its own, one of each. */
+const kinds = (count: number) =>
+  Object.fromEntries(
+    Array.from({ length: count }, (_, index) => [`c${index}`, 1]),
+  )
+
+describe('schemas/roll-request, a character’s coins handed out, from module 0.48.0', () => {
+  /** 200 pp and 50 gp each to Vex, Bram and Lia, as the dialog's Hand out sends it. */
+  const handingOut = {
+    kind: 'transfer',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    transfer: {
+      from: 'actorThorin1',
+      each: ['actorVex0001', 'actorBram001', 'actorLia0001'],
+      currency: { pp: 200, gp: 50 },
+    },
+  }
+  const handsOut = (transfer: object) =>
+    issuesOf(handingOut, {
+      transfer: { ...handingOut.transfer, ...transfer },
+    })
+  const way =
+    'A move goes to one end, is shared among characters, or is handed out to each'
+
+  it('takes a hand-out, to one character or to twenty, of one to ten kinds of coin', () => {
+    expect(parseKind(handingOut, {}).data).toEqual(handingOut)
+    expect(handsOut({ each: ['actorVex0001'] })).toEqual([])
+    expect(
+      handsOut({
+        each: Array.from({ length: 20 }, (_, index) => `actor${index}`),
+        currency: kinds(10),
+      }),
+    ).toEqual([])
+  })
+
+  it.each([
+    ['an end too', { to: 'actorVex0001' }, ['transfer.to', way]],
+    [
+      'those a coin is shared among too',
+      { among: ['actorVex0001'] },
+      ['transfer.to', way],
+    ],
+    ['no one', { each: [] }, ['transfer.each']],
+    [
+      'more than twenty',
+      { each: Array.from({ length: 21 }, (_, index) => `actor${index}`) },
+      ['transfer.each'],
+    ],
+    [
+      'one character twice',
+      { each: ['actorVex0001', 'actorVex0001'] },
+      ['transfer.each', 'Each character is handed coins once'],
+    ],
+    [
+      'the giver among them',
+      { each: ['actorVex0001', 'actorThorin1'] },
+      ['transfer.each', "A character doesn't hand out to itself"],
+    ],
+    [
+      'items',
+      { items: [{ id: 'rope00000001', quantity: 1 }] },
+      ['transfer.items', 'Only coins are handed out'],
+    ],
+    [
+      'no coins',
+      { currency: undefined },
+      ['transfer.currency', 'A hand-out names its coins'],
+    ],
+    [
+      'no kind of coin',
+      { currency: {} },
+      ['transfer.currency', 'From one to ten kinds of coin'],
+    ],
+    [
+      'eleven kinds of coin',
+      { currency: kinds(11) },
+      ['transfer.currency', 'From one to ten kinds of coin'],
+    ],
+    ['none of a coin', { currency: { gp: 0 } }, ['transfer.currency.gp']],
+  ])('refuses a hand-out with %s', (_name, transfer, issue) => {
+    const [path, message] = issue
+    const found = handsOut(transfer)
+    expect(found.map(([at]) => at)).toContain(path)
+    if (message) expect(found).toContainEqual([path, message])
+  })
+})
+
+describe('schemas/roll-request, coins added and taken away, from module 0.48.0', () => {
+  /** 5 gp taken away, as the dialog's Take away coins sends it. */
+  const paying = {
+    kind: 'coins',
+    mode: 0,
+    explicit: false,
+    extras: [],
+    dice: [],
+    coins: { op: 'remove', currency: { gp: 5 } },
+  }
+  /** Coins as given, the rest as `paying` has them. */
+  const coins = (fields: unknown) => parseKind(paying, { coins: fields })
+  const message = 'Coins added or taken away, and only those, name the coins'
+  it.each([
+    ['coins taken away', { op: 'remove', currency: { gp: 5 } }],
+    ['coins added', { op: 'add', currency: { gp: 5 } }],
+    ['several kinds', { op: 'add', currency: { pp: 2, gp: 5, sp: 3 } }],
+    ['the most of one', { op: 'remove', currency: { cp: 10_000_000 } }],
+    ['ten kinds', { op: 'add', currency: kinds(10) }],
+  ])('takes %s, as they are', (_name, fields) => {
+    const parsed = coins(fields)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ ...paying, coins: fields })
+  })
+
+  it.each([
+    ['no op', { currency: { gp: 5 } }],
+    ['an op of its own', { op: 'spend', currency: { gp: 5 } }],
+    ['none of a coin', { op: 'add', currency: { gp: 0 } }],
+    ['fewer than none', { op: 'remove', currency: { gp: -5 } }],
+    ['more than the most', { op: 'add', currency: { gp: 10_000_001 } }],
+    ['a part of a coin', { op: 'remove', currency: { gp: 1.5 } }],
+    ['a count as text', { op: 'add', currency: { gp: '5' } }],
+    ['no coins', { op: 'add' }],
+    ['no kind of coin', { op: 'add', currency: {} }],
+    ['eleven kinds', { op: 'add', currency: kinds(11) }],
+    ['a key no coin has', { op: 'add', currency: { 'Gold Pieces': 5 } }],
+    ['whom it is for', { op: 'add', currency: { gp: 5 }, to: 'actorVex0001' }],
+    ['not an object', 5],
+    ['null', null],
+  ])('refuses %s', (_name, fields) => {
+    expect(coins(fields).success).toBe(false)
+  })
+
+  it('takes coins only as themselves, and only naming their coins', () => {
+    expect(issuesOf(perception, { coins: paying.coins })).toEqual([
+      ['coins', message],
+    ])
+    expect(issuesOf(spending, { coins: paying.coins })).toEqual([
+      ['coins', message],
+    ])
+    expect(issuesOf(paying, { coins: undefined })).toEqual([['coins', message]])
+  })
+
+  it.each([
+    [
+      'a move',
+      { transfer: { from: 'actorThorin1', to: 'actorVex0001' } },
+      ['transfer', 'A move, and only that, names what moves'],
+    ],
+    [
+      'hit points',
+      { hitPoints: { op: 'set', value: 21, from: { value: 22 } } },
+      [
+        'hitPoints',
+        'Hit points set, and only those, name the numbers and what they were',
+      ],
+    ],
+    ['a key', { key: 'prc' }, ['key', 'Nothing to name']],
+  ])('refuses coins naming %s, another kind’s field', (_n, fields, issue) => {
+    expect(issuesOf(paying, fields)).toContainEqual(issue)
+  })
+
+  it.each([
+    ['advantage', { mode: 1 }],
+    ['a term added', { extras: [{ sign: 1, flat: 2 }] }],
+    ['a die', { dice: [{ faces: 20, results: [14] }] }],
+  ])('refuses coins with %s, as they throw no dice', (_name, fields) => {
+    expect(issuesOf(paying, fields)).toEqual([
+      ['dice', 'Changing coins throws no dice'],
+    ])
+  })
+
+  it('refuses one saying whose it is, or of whom', () => {
+    expect(parseKind(paying, { by: 'gm' }).success).toBe(false)
+    expect(parseKind(paying, { of: 'actorThorin1' }).success).toBe(false)
   })
 })
 

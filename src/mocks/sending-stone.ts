@@ -25,6 +25,7 @@ import type {
   SheetContainer,
   SheetCounter,
   SheetCreature,
+  SheetCurrency,
   SheetEffectDie,
   SheetEnchantment,
   SheetFavorite,
@@ -539,10 +540,29 @@ export function fullerSheet(
           contents: null,
         },
       ],
+      // Each coin's rate, how many make one gp, from module 0.48.0.
       currency: [
-        { id: 'pp', label: 'Platinum', abbreviation: 'PP', value: 2 },
-        { id: 'gp', label: 'Gold', abbreviation: 'GP', value: 41 },
-        { id: 'sp', label: 'Silver', abbreviation: 'SP', value: 0 },
+        {
+          id: 'pp',
+          label: 'Platinum',
+          abbreviation: 'PP',
+          value: 2,
+          conversion: 0.1,
+        },
+        {
+          id: 'gp',
+          label: 'Gold',
+          abbreviation: 'GP',
+          value: 41,
+          conversion: 1,
+        },
+        {
+          id: 'sp',
+          label: 'Silver',
+          abbreviation: 'SP',
+          value: 0,
+          conversion: 10,
+        },
       ],
       encumbrance: {
         value: 62.5,
@@ -1951,8 +1971,20 @@ export function groupSheet(fields: Partial<GroupSheet> = {}): GroupSheet {
         },
       ],
       currency: [
-        { id: 'pp', label: 'Platinum', abbreviation: 'PP', value: 0 },
-        { id: 'gp', label: 'Gold', abbreviation: 'GP', value: 1250 },
+        {
+          id: 'pp',
+          label: 'Platinum',
+          abbreviation: 'PP',
+          value: 0,
+          conversion: 0.1,
+        },
+        {
+          id: 'gp',
+          label: 'Gold',
+          abbreviation: 'GP',
+          value: 1250,
+          conversion: 1,
+        },
       ],
       encumbrance: null,
       attunement: null,
@@ -2201,7 +2233,10 @@ export function ironCompany(fields: Partial<GroupEntry> = {}): GroupEntry {
   })
 }
 
-/** Where Thorin's player may move to, as their table view says: The Iron Company and Vex. */
+/**
+ * Where Thorin's player may move to, as their table view says: The Iron Company and Vex. No coins
+ * handed out, as a module before 0.48.0 leaves it, unless `fields` say.
+ */
 export function tableMoves(fields: Partial<TableMoves> = {}): TableMoves {
   return {
     parties: [{ id: 'groupIronCo01', name: 'The Iron Company', primary: true }],
@@ -4294,6 +4329,81 @@ export function mockTurnCombat(fields: Partial<TableCombat> = {}): TableCombat {
         companion: 'scene1-batToken',
       },
     ],
+    ...fields,
+  }
+}
+
+// Module 0.48.0: coins added to a character and taken away, and a character's coins handed out.
+
+/** What a hello from module 0.48.0 says of coins under dnd5e, on, other coins paying. */
+export const TAKING_COINS = switchedOn('coins', { change: true })
+
+/**
+ * What a hello from module 0.48.0 says of moves, on, under dnd5e: a character's coins handed out,
+ * its giver paying with other coins where it's short of one.
+ */
+export const HANDING_OUT = switchedOn('transfer', {
+  partySends: true,
+  distribute: true,
+  handOut: true,
+  change: true,
+})
+
+/** dnd5e's coins as a sheet lists them, the largest first, each with its rate. */
+const COINS = [
+  { id: 'pp', label: 'Platinum', abbreviation: 'pp', conversion: 0.1 },
+  { id: 'gp', label: 'Gold', abbreviation: 'gp', conversion: 1 },
+  { id: 'ep', label: 'Electrum', abbreviation: 'ep', conversion: 2 },
+  { id: 'sp', label: 'Silver', abbreviation: 'sp', conversion: 10 },
+  { id: 'cp', label: 'Copper', abbreviation: 'cp', conversion: 100 },
+] as const
+
+/**
+ * A character's coins as a sheet from module 0.48.0 lists them: dnd5e's five, in its order, each
+ * with its rate, holding these and none of the rest.
+ */
+export function purse(
+  held: Partial<Record<(typeof COINS)[number]['id'], number>> = {},
+): SheetCurrency[] {
+  return COINS.map(coin => ({ ...coin, value: held[coin.id] ?? 0 }))
+}
+
+/** 5 gp taken away from Thorin, who held 3 gp: a platinum of his broken for the rest. */
+export function coinsResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-coins',
+    ...DONE_HEAD,
+    messageId: 'm-line',
+    visible: true,
+    rolls: [],
+    coins: { op: 'remove', currency: { gp: 5 }, used: { pp: 1 } },
+    ...fields,
+  }
+}
+
+/**
+ * 200 pp and 50 gp each handed out by Thorin to Vex, Bram and Lia, who held 700 pp and 20 gp: 13
+ * more platinum of his broken for the gold.
+ */
+export function handedOutResult(
+  fields: Partial<CommandResult> = {},
+): CommandResult {
+  return {
+    id: 'req-move',
+    ...DONE_HEAD,
+    messageId: 'm-told',
+    visible: true,
+    rolls: [],
+    transfer: {
+      from: 'actorThorin1',
+      to: null,
+      items: [],
+      currency: { pp: 200, gp: 50 },
+      each: ['actorVex0001', 'actorBram001', 'actorLia0001'],
+      used: { pp: 13 },
+    },
     ...fields,
   }
 }

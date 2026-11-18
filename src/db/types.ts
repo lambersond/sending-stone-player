@@ -30,10 +30,11 @@ export type RollSeat = Pick<
 /**
  * A command a seat sends that rides to the game as a roll does but is none, each with a switch of
  * the campaign's own, as `createCommand` takes it: an item removed, a favorite, an effect changed,
- * Wild Shape, and from module 0.44.0 hit points set. A move has gates of its own.
+ * Wild Shape, from module 0.44.0 hit points set, and from module 0.48.0 coins added or taken away.
+ * A move has gates of its own.
  */
 export type CommandKind =
-  'remove' | 'favorite' | 'effect' | 'wildShape' | 'hitPoints'
+  'remove' | 'favorite' | 'effect' | 'wildShape' | 'hitPoints' | 'coins'
 
 /** What a command does, as its input holds it under its kind. */
 export type CommandValue<K extends CommandKind> = NonNullable<
@@ -49,8 +50,8 @@ export type WaitingRow = {
 
 /**
  * What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster, at a
- * companion's seat (module 0.44.0) its companions, and what more the kind's `takes` reads, as
- * favorites' features (module 0.47.0).
+ * companion's seat (module 0.44.0) its companions, and what more the kind's `select` asks for, as
+ * favorites' features (module 0.47.0) and coins' (module 0.48.0).
  */
 export type CommandCampaign = Partial<
   Record<NonNullable<RollKindInfo['own']>, boolean>
@@ -59,6 +60,7 @@ export type CommandCampaign = Partial<
   characters: Prisma.JsonValue
   companions?: Prisma.JsonValue
   favoriteFeatures?: string[]
+  coinFeatures?: string[]
 }
 
 /** How `createCommand` takes one kind of command. */
@@ -74,20 +76,22 @@ export type CommandSpec<K extends CommandKind> = {
     select: { kind?: true; actorId?: true; payload: true }
     skip?: (value: CommandValue<K>) => boolean
   }
+  /** What more of the campaign it's read for, with the rest of it, for `takes` and `check`. */
+  select?: { favoriteFeatures?: true; coinFeatures?: true }
   /**
-   * What more of the campaign it's read for, and whether its module takes this one by it, where
-   * the kind's switch alone doesn't say: a favorites order only where the module puts them in the
-   * order sent (module 0.47.0). Read with the rest of the campaign; refused as while the switch is
-   * off.
+   * Whether its module takes this one, where the kind's switch alone doesn't say: a favorites
+   * order only where the module puts them in the order sent (module 0.47.0). Refused as while the
+   * switch is off.
    */
-  takes?: {
-    select: { favoriteFeatures: true }
-    of: (value: CommandValue<K>, campaign: CommandCampaign) => boolean
-  }
-  /** Why the sheet, as last sent, refuses it, if it does. */
+  takes?: (value: CommandValue<K>, campaign: CommandCampaign) => boolean
+  /**
+   * Why the sheet, as last sent, refuses it, if it does; by what the campaign's module does with
+   * it too, as whether another coin pays for one a character is short of (module 0.48.0).
+   */
   check: (
     value: CommandValue<K>,
     sheet: CharacterSheet | undefined,
+    campaign: CommandCampaign,
   ) => RollRefusal | undefined
   /** Whether a row on its way would have the game make it twice, or on what that one left. */
   clashes: (
@@ -218,7 +222,8 @@ export type CompanionStatus = {
  * whether the player may change its character's own effects, which likewise changes with no new
  * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
  * with no new version; and from module 0.44.0 whether the player may set its character's hit
- * points, which likewise changes with no new version.
+ * points, which likewise changes with no new version; and from module 0.48.0 whether the seat may
+ * add and take away its character's coins, which likewise changes with no new version.
  */
 export type CampaignStatus = {
   version: number
@@ -234,6 +239,7 @@ export type CampaignStatus = {
   effects: boolean
   wildShape: boolean
   hitPoints: boolean
+  coins: boolean
 }
 
 /** A book's notes drawn ahead of the transaction that keeps them, by note, for one origin. */

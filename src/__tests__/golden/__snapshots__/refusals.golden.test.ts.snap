@@ -2163,13 +2163,15 @@ exports[`parseGameEvent reads group.updated: group.updated read 1`] = `
         "id": "pp",
         "label": "Platinum",
         "abbreviation": "PP",
-        "value": 0
+        "value": 0,
+        "conversion": 0.1
        },
        {
         "id": "gp",
         "label": "Gold",
         "abbreviation": "GP",
-        "value": 1250
+        "value": 1250,
+        "conversion": 1
        }
       ],
       "encumbrance": null,

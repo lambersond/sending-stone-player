@@ -47,6 +47,9 @@ const listed = async (fields: object) => {
       rollKinds: [],
       rollFeatures: [],
       bridgePolledAt: null,
+      // Changed on purpose (items 67 and 68): what else its module does with moves and coins.
+      transferFeatures: [],
+      coinFeatures: [],
       refusedAt: null,
       refusalReason: null,
       refusalStatus: null,

@@ -129,7 +129,8 @@ async function answered(count, what) {
 }
 
 if (NEW) {
-  check(same(firstHello.data.features.transfers, { enabled: false, kinds: [], reason: 'off', partySends: false, distribute: false }),
+  // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.48.0).
+  check(same(firstHello.data.features.transfers, { enabled: false, kinds: [], reason: 'off', partySends: false, distribute: false, handOut: false, change: false }),
     `1. off by default: the hello says ${JSON.stringify(firstHello.data.features.transfers)}`)
 } else {
   check(!('transfers' in (firstHello.data.features ?? {})), `module 0.30.0's hello says nothing of moves (${JSON.stringify(Object.keys(firstHello.data.features ?? {}))})`)
@@ -186,7 +187,8 @@ const card = async who => {
 }
 const MOVES_OFF = 'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
 const MOVES_OLD = 'Players can’t move items and coins from here. Sending Stone 0.31.0 or later in Foundry lets them.'
-const MOVES_ON = 'Your players take from and give to the parties they own in Foundry, and give to each other, from here. Each move is made in your game at once and posts a line in its chat.'
+// Changed on purpose (item 68): the card says coins are handed out too, where the module hands them out (0.48.0).
+const MOVES_ON = 'Your players take from and give to the parties they own in Foundry, and give to each other, and hand out coins to several characters at once, from here. Each move is made in your game at once and posts a line in its chat.'
 const movesSection = article => article.locator('section').filter({ has: article.page().getByRole('heading', { name: 'Items and coins' }) })
 
 // =================================================================================================
@@ -273,7 +275,7 @@ const switchedAt = Date.now()
 const helloOn = () => postsOf('bridge.hello').slice(hellos).find(p => p.data.features?.transfers?.enabled === true)
 await until(() => helloOn(), 'a hello saying moves are made', 15_000).catch(() => {})
 const onHello = helloOn() ?? postsOf('bridge.hello').at(-1)
-check(same(onHello.data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true }) && onHello.data.features.rolls.enabled === false,
+check(same(onHello.data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true }) && onHello.data.features.rolls.enabled === false,
   `ticked and saved, the hello says moves are made, rolls still off: ${JSON.stringify(onHello.data.features.transfers)}`)
 await until(() => enabled(), 'the app to take moves', 15_000)
 await until(() => helloAnswers.some(t => t >= switchedAt), "the hello's answer", 15_000)

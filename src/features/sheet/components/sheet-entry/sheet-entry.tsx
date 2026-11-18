@@ -13,6 +13,7 @@ import { keyTarget } from './utils'
 import { EntryIcon } from '@/components/entry-icon/entry-icon'
 import type { DescriptionOrigin } from '../description-actions/types'
 import type { EffectChoice } from '../effect-controls/types'
+import type { FavoriteMoves } from '../favoriting/types'
 import type { PrepareChoice } from '../preparing/types'
 import type { MenuPoint } from '@/features/rolling/types'
 import type { FavoriteTarget } from '@/types/roll'
@@ -41,6 +42,7 @@ export function SheetEntry({
   favoriteKey,
   onMenu,
   favorite: target = keyTarget(favoriteKey),
+  moves,
   busy = false,
   open: held,
   onOpenChange,
@@ -100,6 +102,11 @@ export function SheetEntry({
    */
   favorite?: FavoriteTarget | null
   /**
+   * Among the favorites, for a row with no favorites entry of its own, as spell slots: where it may
+   * move, Move up and Move down alone in its own menu (ROADMAP item 47).
+   */
+  moves?: FavoriteMoves
+  /**
    * From module 0.33.0's feedback, on a party's sheet: while it's on its way, one spinner right of
    * its name, and its row busy, in place of one on each of its buttons.
    */
@@ -139,6 +146,7 @@ export function SheetEntry({
   const favorite = useFavorite(favoriteKey)
   const own = useItemMenu(name, {
     favorite: useFavoriteChoice(target, name),
+    moves,
     prepare: prepareChoice,
     effect: effectChoice,
     onDelete,

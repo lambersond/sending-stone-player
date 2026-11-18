@@ -22,9 +22,9 @@
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { JSDOM } from 'jsdom'
 import {
-  BASE, BOB, DND5E6, MODULE, SKEW032, W, actors, browse, call, character, check, embedded, escapeRe, finish, foundryWorld,
-  group, holdWrite, launch, newCampaign, note, part, posted, postsOf, quantityInFoundry, same, sameJson, settled, shoot, shootBoth,
-  sideways, sql, startModule, theme, until, wait, writes,
+  BASE, BOB, DND5E6, MODULE, SKEW032, W, actors, browse, call, character, check, embedded, escapeRe, finish, focusInside,
+  foundryWorld, group, holdWrite, launch, newCampaign, note, part, posted, postsOf, quantityInFoundry, same, sameJson, settled, shoot,
+  shootBoth, sideways, sql, startModule, theme, until, wait, writes,
 } from './world-030.mjs'
 
 const GAME = 'https://iron-hills.forge-vtt.com'
@@ -686,6 +686,8 @@ watchPosts(gmThorin)
   await removeButton(dialog).click()
   await Promise.race([hold.held, wait(20_000)])
   const menu = await menuOf(alice, rowOf(sheetTab, 'Potion of Healing'), 'Potion of Healing')
+  // The menu takes focus a frame after it shows: looked at once focus is in it (ROADMAP item 41).
+  await focusInside(menu)
   const look = await menu.evaluate(m => {
     const item = [...m.querySelectorAll('[role="menuitem"]')].find(i => i.textContent.includes('Remove…'))
     const said = ids => (ids ?? '').split(' ').filter(Boolean).map(id => document.getElementById(id)?.textContent.trim()).join(' ')

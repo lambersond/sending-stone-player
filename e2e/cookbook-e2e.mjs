@@ -336,7 +336,7 @@ if (!TAKING) {
     // Changed on purpose (round 0.39.0 §1.11): a player's own effects follow dishes.
     // Changed on purpose (round 0.40.0 §10.4): and Wild Shape follows effects.
     // Changed on purpose (v0.44): and hit points set from the app follow Wild Shape (module 0.44.0).
-    check(same(features.dishes, { enabled: false, kinds: [], reason: 'system', versions: [] }) && same(Object.keys(features).slice(-5), ['favorites', 'dishes', 'effects', 'wildShape', 'hitPoints']),
+    check(same(features.dishes, { enabled: false, kinds: [], reason: 'system', versions: [] }) && same(Object.keys(features).slice(-6), ['favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins']),
       `under dnd5e 6.0.5, with the switch on, the hello says dishes are off for the system, after favorites, before effects, Wild Shape and hit points (${JSON.stringify({ dishes: features.dishes, keys: Object.keys(features) })})`)
   }
   await wait(3000)
@@ -391,8 +391,9 @@ part('1. the hello and the answer')
   // Changed on purpose (round 0.39.0 §1.11): a player's own effects follow dishes.
   // Changed on purpose (round 0.40.0 §10.4): and Wild Shape follows effects.
   // Changed on purpose (v0.44): and hit points set from the app follow Wild Shape (module 0.44.0).
+  // Changed on purpose (items 67 and 68): and coins follow hit points (module 0.48.0), here and above.
   check(same(features.dishes, { enabled: true, kinds: ['dish'], reason: null, versions: [1] })
-    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints']),
+    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins']),
   `the hello takes dishes, by the campaign's switch, version 1, after favorites, before effects and Wild Shape (${JSON.stringify({ dishes: features.dishes, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.dishes === 1, `the app answers dishes: 1 (${hello().body})`)
   await until(() => enabled() === 't|1', 'the app to keep dishes on', 15_000)

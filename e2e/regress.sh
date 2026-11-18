@@ -191,11 +191,13 @@ run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 # dnd5e's own favorites; and module 0.36.0 (none). Since module 0.47.0 (item 28), part 14: put in
 # order by Reorder's drag and keys and by Move up and Move down at 390, under dnd5e 5 and 6, Foundry's
 # actor keeping each order, and (item 48) one made a favorite in Foundry while an order is on its way
-# moved up; module 0.36.0 offering none; and module 0.46.0, favorites never put in order.
-run favoriting 104 SHOTS=$O/shots-037
-run favoriting 71 DND5E6=1 SHOTS=$O/shots-037
+# moved up; module 0.36.0 offering none; and module 0.46.0, favorites never put in order. And (item
+# 47) a skill moved from its roll's menu and spell slots from a menu of their own at 390, that menu
+# from the keyboard at 1280, and neither with module 0.46.0.
+run favoriting 109 SHOTS=$O/shots-037
+run favoriting 75 DND5E6=1 SHOTS=$O/shots-037
 run favoriting 9 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
-run favoriting 5 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
+run favoriting 6 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
 # code, a card for the Gamemaster in Foundry and an effect on each character chosen; dnd5e 6.0.5
 # (off); and module 0.37.0 (none).
@@ -210,9 +212,10 @@ run effects 7 SKEW=038 MODULE=$O/module-0.38.1 SHOTS=$O/shots-039
 # The campaign page, option A (v0.39): the Gamemaster's campaigns as a list and the chosen one.
 run campaigns 54 SHOTS=$O/shots-039
 # Module 0.40.0: Wild Shape from the app, a 2024 druid's known forms, the shaped seat; dnd5e 6.0.5;
-# and module 0.39.0 (none).
-run wildshape 93 TIMEOUT=900 SHOTS=$O/shots-040
-run wildshape 32 DND5E6=1 SHOTS=$O/shots-040
+# and module 0.39.0 (none). Since module 0.48.0 its return keeps the effects others put on the form,
+# and takes off those taken off it.
+run wildshape 96 TIMEOUT=900 SHOTS=$O/shots-040
+run wildshape 33 DND5E6=1 SHOTS=$O/shots-040
 run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040
 # Module 0.41.0: the saves the game asks of companions, on their own panes; Midi-QOL's; dnd5e 6.0.5;
 # and module 0.40.0 (none).
@@ -235,3 +238,22 @@ run hitpoints 36 MIDI=1 SHOTS=$O/shots-044
 run help 28 SHOTS=$O/shots-help
 run help 4 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-help
 run help 4 DND5E6=1 SHOTS=$O/shots-help
+# Item 56: the installed app's launch page, with no Foundry. Nothing registered in a browser's tab,
+# nor in a browser's window made full screen; what the server sends for the page and its two
+# workers; installed on a Pixel 7, the worker registered by the launch page for /launch alone and
+# keeping that one page, the second opening from it with the rune seen lighting while the first
+# page is held, Back, no other page controlled; signed out, an opening showing what the worker
+# keeps; the device offline, upright, on its side and short and narrow, Try again, back online
+# with its first ask unanswered and nothing said while the first page is on its way; a first page
+# that doesn't come in 15 seconds; reduced motion; a light device and a dark one; an older worker
+# replaced, the retiring worker, an iPhone's Home Screen app.
+run launch 28 SHOTS=$O/shots-launch
+# Module 0.48.0 (items 67 and 68): coins added to a character, taken away and handed out from the
+# app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's three
+# buttons, a larger coin broken and smaller ones paying, more than the coins are worth held back,
+# other coins off in Foundry, the Gamemaster's at the character's page, a hand-out's whispers to each
+# and to the Gamemasters, both switches off, both dialogs on phones, a tablet and the desk, Help and
+# the campaign card; dnd5e 6.0.5; and module 0.47.0 (no button but Send to, crafted requests refused).
+run coins 44 SHOTS=$O/shots-048
+run coins 44 DND5E6=1 SHOTS=$O/shots-048
+run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-048

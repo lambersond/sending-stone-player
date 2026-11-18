@@ -3,7 +3,11 @@
 import { ChoiceMenu } from '@/features/rolling/components/roll-menu/choice-menu'
 import type { Opened } from './types'
 import type { EffectChoice } from '../effect-controls/types'
-import type { FavoriteChoice, FavoriteChoiceId } from '../favoriting/types'
+import type {
+  FavoriteChoice,
+  FavoriteChoiceId,
+  FavoriteMoves,
+} from '../favoriting/types'
 import type { PrepareChoice } from '../preparing/types'
 import type { MenuItem } from '@/features/rolling/types'
 import type { EffectOp, PrepareOp } from '@/types/sending-stone'
@@ -18,6 +22,7 @@ export function ItemMenu({
   items,
   onClose,
   favorite,
+  moves,
   prepare,
   send,
   remove,
@@ -29,6 +34,8 @@ export function ItemMenu({
   items: MenuItem<FavoriteChoiceId | PrepareOp | 'send' | 'remove' | EffectOp>[]
   onClose: () => void
   favorite?: FavoriteChoice
+  /** Where it may move among the favorites, from module 0.47.0, as `useItemMenu` has it. */
+  moves?: FavoriteMoves
   prepare?: PrepareChoice
   send?: () => void
   remove?: { open: () => void; waiting: boolean }
@@ -54,11 +61,11 @@ export function ItemMenu({
           }
           // Among the favorites, from module 0.47.0.
           case 'up': {
-            favorite?.moves?.up?.()
+            moves?.up?.()
             break
           }
           case 'down': {
-            favorite?.moves?.down?.()
+            moves?.down?.()
             break
           }
           case 'send': {

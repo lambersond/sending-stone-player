@@ -62,6 +62,8 @@ function outcomesOf(result: CommandResult | null) {
   const alone = result?.alone ? { alone: result.alone } : {}
   // The hit points set, from module 0.44.0, as the game says they are after it.
   const hitPoints = result?.hitPoints ? { hitPoints: result.hitPoints } : {}
+  // The coins added or taken away, from module 0.48.0, and what else the game used to pay them.
+  const coins = result?.coins ? { coins: result.coins } : {}
   return {
     ...moved,
     ...removed,
@@ -70,6 +72,7 @@ function outcomesOf(result: CommandResult | null) {
     ...wildShape,
     ...alone,
     ...hitPoints,
+    ...coins,
   }
 }
 

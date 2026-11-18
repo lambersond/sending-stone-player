@@ -117,10 +117,11 @@ const held = (actor, key) => actor._source.system.currency[key]
 const holding = (actor, name) => [...actor.items].filter(it => it.name === name)
 
 if (NEW) {
-  check(same(hello().data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true }),
-    `the hello says moves are made, a party's things may be sent by its Owner and its coin distributed (${JSON.stringify(hello().data.features.transfers)})`)
-  await until(() => features() === 'partySends,distribute', 'the app to keep both', 15_000)
-  check(features() === 'partySends,distribute', `and the app keeps both (${features()})`)
+  // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.48.0).
+  check(same(hello().data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true }),
+    `the hello says moves are made, a party's things may be sent by its Owner, its coin distributed, and a character's coins handed out (${JSON.stringify(hello().data.features.transfers)})`)
+  await until(() => features() === 'partySends,distribute,handOut,change', 'the app to keep them', 15_000)
+  check(features() === 'partySends,distribute,handOut,change', `and the app keeps them (${features()})`)
 } else {
   check(same(hello().data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null }), `module 0.31.0's hello says moves are made, nothing more (${JSON.stringify(hello().data.features.transfers)})`)
   await wait(1000)
@@ -205,14 +206,18 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ t
   const look = await sheetTab.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
     const card = group.closest('dl > div') ?? group.parentElement.parentElement
     const dt = card.querySelector('dt')
-    const button = group.querySelector('button').getBoundingClientRect()
+    // The last of its buttons: from module 0.48.0 the row has three.
+    const button = [...group.querySelectorAll('button')].at(-1).getBoundingClientRect()
     const label = dt.getBoundingClientRect()
     const style = getComputedStyle(card)
     const contentRight = card.getBoundingClientRect().right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth)
     return { overlap: button.top < label.bottom && label.top < button.bottom, right: contentRight - button.right, label: dt.textContent.trim() }
   })
-  check(same(names, ['Send to']) && look.overlap && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
-    `Thorin's Currency row has one button, "Send to", on the CURRENCY label's row, at the card's right edge, and none named Give coins (${JSON.stringify([names, look])})`)
+  // Changed on purpose (items 67 and 68): with module 0.48.0 the row's buttons are Add or take away,
+  // Send to and Hand out, in that order, which may wrap under the label on a phone; with module
+  // 0.31.0, Send to alone, on the label's row, as before.
+  check(same(names, NEW ? ['Add or take away', 'Send to', 'Hand out'] : ['Send to']) && (NEW || look.overlap) && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
+    `Thorin's Currency row has ${NEW ? 'Add or take away, Send to and Hand out, in that order, the last' : 'one button, "Send to", on the CURRENCY label\'s row,'} at the card's right edge, and none named Give coins (${JSON.stringify([names, look])})`)
 }
 await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Send to', exact: true }).click()
 let dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
@@ -827,8 +832,14 @@ part('15. a race')
     const send = group.getByRole('button', { name: 'Send to', exact: true })
     await until(async () => (await send.getAttribute('aria-busy')) === 'true', 'his Send to to wait', 10_000)
     const look = await currencyLook(group)
-    check(look.buttons.length === 1 && look.buttons[0].disabled && look.buttons[0].svgs === 1 && look.termSpinners === 0 && look.busy === null,
-      `on Thorin's own sheet, as before: while his give is on its way, his Send to has its own spinner, his "Currency" label none, the group not busy (${JSON.stringify(look)})`)
+    // Changed on purpose (items 67 and 68): with module 0.48.0 his row has three buttons, and says what's on its
+    // way once, by its label, as a party's does; with an older one Send to, alone, keeps its own spinner.
+    check(NEW
+      ? look.busy === 'true' && look.buttons.length === 3 && look.buttons.every(b => b.disabled && b.svgs === 0) && look.termSpinners === 1 && look.right && look.name === 'Currency'
+      : look.buttons.length === 1 && look.buttons[0].disabled && look.buttons[0].svgs === 1 && look.termSpinners === 0 && look.busy === null,
+    NEW
+      ? `on Thorin's own sheet: while his give is on its way, his Currency row is busy, each of its three buttons disabled with no spinner of its own, one spinner right of the label (${JSON.stringify(look)})`
+      : `on Thorin's own sheet, as before: while his give is on its way, his Send to has its own spinner, his "Currency" label none, the group not busy (${JSON.stringify(look)})`)
     giveHold.release()
     // The give is the last move posted: it was taken before its write was held.
     await answered(moves().length, "Thorin's 1 gp to Vex")
