@@ -79,53 +79,93 @@ so an item from it is named with its number when it was built, which may since b
 
 ### Maintenance
 
-- **Sign-in reads, end to end.** A new `signin` suite checks the session's cookie as a browser holds
-  it: sealed, a minute long, gone at sign-out; a session deleted from the database read for no
-  longer than its cookie, and refused deleting a character at once; a player removed from a campaign
-  told at the next read; and a Server Action that writes no cookie, so its page isn't read again.
-  Every Server Action reads the session from the database, which the actions' tests and eslint keep
-  so, and Jest pins the cookie's options as `AUTH_CACHE_MAX_AGE` gives them. (app, item 62)
-- **Other creatures' health, end to end.** A new `health` suite, in `world-030.mjs`'s world with
-  tokens, checks the hello and the app's answer; both switches off by default, and the switch turned
-  off mid-fight with Gamemaster-only details on; Unhurt for a Hostile, a Neutral and a Friendly
-  creature and nothing for a Secret one, a hidden token or a hidden combatant; a creature's fall
-  within seconds with no turn, then Defeated; one post for a new band and none within one; the hit
-  points with the second switch; a token hidden mid-fight; the turn panel, the Gamemaster's seat,
-  the party's own hit points between turns, Help and the campaign card; under dnd5e 5 and 6.0.5,
-  with 6.0.5's own Bloodied percent, and against module 0.49.0 (`e2e/skew.conf`'s 049), which shows
-  nothing. It reads every response the pages receive, so health or hit points withheld from a seat
-  are caught even where nothing on screen shows them. Nine suites take the new switches in: the
-  hello's features (coins, cookbook, effects, favoriting, hitpoints, notes and wildshape), the
-  campaign's settings rows (settings) and the Gamemaster's Help (help). In the module,
-  `creature-health.mjs` stands in the game's layer and `health-sync.mjs` in the layer of what each
-  app was told; a new `health.mjs` harness checks, under dnd5e 5.3.3 and 6.0.5, who is shown,
-  dnd5e's bands, and the watch with each of its triggers and gates, `dialog.mjs` checks the new box,
-  and the harnesses that read the hello follow its new field. Jest pins the seat's guard on another
-  creature's health and hit points, the rows and the turn panel, the card, Help and the hello. (app
-  and module, item 58)
-- **Quiet fetching, end to end.** A new `quiet` suite, run alone after the lanes on its own timings,
-  in `world-030.mjs`'s world, which now keeps whether each fetch was a quiet look, checks full
-  fetches every 10 seconds for two minutes after the hello, then quiet looks every 20, the game
-  counted as fetching throughout; someone arriving, their first roll taken and made within the wait
-  and their next at once; a dish from the Magical Recipe Book found by a look with no page open;
-  notes written while Foundry was closed handed over as it reconnects; and module 0.49.0
-  (`e2e/skew.conf`'s 049), fetched from as before. In the module, a new `quiet.mjs` harness checks
-  an app that doesn't say `quiet`, the two minutes at the usual pace after the hello or as fetching
-  starts, the full fetch every five minutes, a quiet wait capped as `wait` is, a hello, a command
-  being made, a failed fetch, an app that stops saying `quiet`, and the settings window's line. Jest
-  pins the look's answer and when it is held, when a fetch is told `quiet`, the fetch's own `quiet`,
-  read leniently, whether a dish is due, and the hello's new feature. (app and module, item 61)
-- **Give and Add or remove, end to end.** The `coins` suite gives to two characters and to one, with
-  each one's whisper and the Gamemasters' line, finds the Currency row's buttons below its coins and
-  its coins below its label from 320 to 1280 px, 560 among them, where the card is widest, and Give
-  alone with module 0.47.0; `givetake` ticks characters in Give, finds the buttons below the coins
-  on a character's sheet and a party's, and Give's radios alone with module 0.31.0; and `transfers`,
-  `names`, `removals`, `step2` and `help` take Give, its checkboxes and the new words in. Jest pins
-  whom Give may tick and what its summary says (`move-dialog/utils.ts` and
-  `recipient-list/utils.ts`), Give with and without the module's hand-outs, the tray shown on
-  Effects after a give or a change of coins, Help's Gamemaster note whole, and in the words golden
-  each move's word among earlier rolls. The module's `PROTOCOL.md` and `README.md` name the app's
-  Give and Add or remove. (app and module, item 89)
+- **Two new module scripts, each in its layer.** `creature-health.mjs`, how hurt a creature is by
+  dnd5e's own rule, is in the game's layer, and `health-sync.mjs`, which sends a fight's combatants
+  again as their health changes, in the layer of what each app was told, so the module's 82 scripts,
+  80 in v0.49.0, still stand in seven layers with no loop among their imports, as `npm test`'s guard
+  checks. (module, item 58)
+- **Every Server Action asks the database who is signed in.** The 16 Server Actions, in
+  `src/app/characters/actions.ts` and `src/app/campaigns/actions.ts`, read the session with
+  `requireCheckedUser`, never from its sealed cookie, and eslint refuses those files the two readers
+  that may take it from the cookie, `getCurrentUser` and `requireUser`. Better Auth's session
+  options are read from the environment in `src/auth-session.ts`, apart from Better Auth. (app,
+  item 62)
+- **Hand out's dialog folded into Give's.** `RecipientChecks` is merged into `RecipientList`, which
+  draws a move's parties as radios and, on a character's Give of its coins, the characters as
+  checkboxes with Select all, the rules of what's ticked pure utilities (`recipient-list/utils.ts`);
+  Hand out's own dialog is gone, its rules now Give's (`move-dialog/utils.ts`), and the coins'
+  dialogs share one summary type, `FormSummary`. (app, item 89)
+- **A migration.** `20261118090000_health` keeps whether a campaign's players see other creatures'
+  health, and their hit points too, from the campaign's next hello. (app, item 58)
+- **End-to-end checks.** A new `signin` suite, with no Foundry, checks the session's cookie as a
+  browser holds it: sealed, a minute long, gone at sign-out; a session deleted from the database
+  read for no longer than its cookie, and refused deleting a character at once; a player removed
+  from a campaign told at the next read; and a Server Action that writes no cookie, so its page
+  isn't read again (item 62). A new `health` suite, in `world-030.mjs`'s world with tokens, checks
+  the hello and the app's answer; both switches off by default, and the switch turned off mid-fight
+  with Gamemaster-only details on; Unhurt for a Hostile, a Neutral and a Friendly creature and
+  nothing for a Secret one, a hidden token or a hidden combatant; a creature's fall within seconds
+  with no turn, then Defeated; one post for a new band and none within one; the hit points with the
+  second switch; a token hidden mid-fight; the turn panel, the Gamemaster's seat, the party's own
+  hit points between turns, Help and the campaign card; under dnd5e 5 and 6.0.5, with 6.0.5's own
+  Bloodied percent, and against module 0.49.0 (`e2e/skew.conf`'s 049), which shows nothing. It reads
+  every response the pages receive, so health or hit points withheld from a seat are caught even
+  where nothing on screen shows them. Nine suites take the new switches in: the hello's features
+  (coins, cookbook, effects, favoriting, hitpoints, notes and wildshape), the campaign's settings
+  rows (settings) and the Gamemaster's Help (help) (item 58). A new `quiet` suite, run alone after
+  the lanes on its own timings, in `world-030.mjs`'s world, which now keeps whether each fetch was a
+  quiet look, checks full fetches every 10 seconds for two minutes after the hello, then quiet looks
+  every 20, the game counted as fetching throughout; someone arriving, their first roll taken and
+  made within the wait and their next at once; a dish from the Magical Recipe Book found by a look
+  with no page open; notes written while Foundry was closed handed over as it reconnects; and module
+  0.49.0, fetched from as before (item 61). The `coins` suite gives to two characters and to one,
+  with each one's whisper and the Gamemasters' line, finds the Currency row's buttons below its
+  coins and its coins below its label from 320 to 1280 px, 560 among them, where the card is widest,
+  and Give alone with module 0.47.0; `givetake` ticks characters in Give, finds the buttons below
+  the coins on a character's sheet and a party's, and Give's radios alone with module 0.31.0;
+  `transfers`, `names`, `removals` and `help` take Give, its checkboxes and the new words in; and
+  `step2` reads the Currency row's coins right after its label, its buttons now below them (item
+  89). `e2e/README.md` counts 60 suites and 135 runs. (app, items 58, 61, 62 and 89)
+- **Jest tests.** New tests pin Better Auth's session options as `AUTH_CACHE_MAX_AGE` gives them
+  (`src/auth-session.ts`), with the actions' tests that every Server Action reads the session from
+  the database (item 62); the seat's guard on another creature's health and hit points, the Combat
+  tab's rows and the turn panel, the campaign card, Help and the hello's `health`, the routes golden
+  reading the table's two new columns (item 58); a quiet look's answer and when it is held, when a
+  fetch is told `quiet`, the fetch's own `quiet`, read leniently, whether a dish is due, and the
+  hello's `quiet` (item 61); and whom Give may tick and what its summary says
+  (`move-dialog/utils.ts` and `recipient-list/utils.ts`), Give with and without the module's
+  hand-outs, the tray shown on Effects after a give or a change of coins, Help's Gamemaster note
+  whole, and in the words golden each move's word among earlier rolls (item 89). (app, items 58, 61,
+  62 and 89)
+- **The module harness.** A new `health.mjs` harness checks, under dnd5e 5.3.3 and 6.0.5, who is
+  shown, dnd5e's bands, and the watch with each of its triggers and gates; `dialog.mjs` checks the
+  settings window's new box, and the harnesses that read the hello or the campaign's settings rows
+  follow their new fields (item 58). A new `quiet.mjs` harness checks an app that doesn't say
+  `quiet`, the two minutes at the usual pace after the hello or as fetching starts, the full fetch
+  every five minutes, a quiet wait capped as `wait` is, a hello, a command being made, a failed
+  fetch, an app that stops saying `quiet`, and the settings window's line (item 61).
+  `test/README.md` counts 52 harnesses and 122 runs. (module, items 58 and 61)
+- **Docs for v0.50.** README.md's supported-versions table gains v0.50.0, and its v0.49.0 row names
+  Give and Add or remove, which module 0.49.0's hand-outs and coins serve; its Tested line names
+  module 0.47.0 and 0.49.0. The module's `PROTOCOL.md` gains how hurt other creatures in a fight are
+  (a combatant's `health`, and its `hp` by a second switch), the hello's `features.health`, the
+  campaign's `health` and `healthHitPoints` settings rows and `combat.combatant.updated` between
+  combat events; quiet fetching while nobody is in the app (a fetch's `quiet`, an answer's `quiet`
+  and a listener's `"quiet": 1`); and its two "Module 0.50.0" entries; and it names the app's Give
+  where it said Hand out. Its `README.md` says each, names Give and Add or remove, and its Layout
+  lists `creature-health.mjs` and `health-sync.mjs`; its `CLAUDE.md`'s layers name how hurt a
+  creature is among the game's and the creatures' health among what each app was told. (app and
+  module)
+- **ROADMAP kept current.** ROADMAP.md gains a v0.50 section, the release candidate, listing four
+  checks to make at the table before module v0.50.0 is tagged: other creatures' health with real
+  tokens under the two switches; a Foundry left open while nobody is in the app, and someone
+  arriving; signing in and out on the deployed app; and Give and Add or remove in a real game. Under
+  "Before v1.0", batch 4 reads as done, its items taken out: items 58, 61 and 62, with a line saying
+  so where they stood, and item 89, the owner's coins work of 2026-11-17, numbered and done. Items
+  87 and 88, under "Found while building Batch 4", are what item 62 found: `default.env`'s session
+  lifetime, and a session in daily use likely to end 30 days after its cookie was last set. Items 84
+  and 85 and v0.49's check of coins name Give and Add or remove, and the known limits say a session
+  ended from outside the app keeps working for up to a minute. (app)
 
 ## v0.49.0 — 2026-11-17
 

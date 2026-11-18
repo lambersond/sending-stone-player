@@ -120,11 +120,32 @@ Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.50.
 **To check at the table before module v0.50.0 is tagged** (built and tested against stand-ins only),
 with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 
-- **Give:** 5 gp to one character is whispered to their player, and the Gamemasters are told
-  ("Thorin handed out 5 gp each to Vex: 5 gp in all"); 2 gp each to two, "Thorin handed out 2 gp
+- **Other creatures' health:** in a fight on a scene with the creatures' tokens, a player's Combat
+  tab says nothing of how hurt the monsters are until Allow Players to see other creatures' health
+  in the app is ticked on the campaign's Player actions tab; then each creature that isn't the
+  party's, a Friendly one too, reads Unhurt, then Hurt, Bloodied at half its hit points or less and
+  Down at 0 as you damage it in Foundry, on its row and in the turn panel on its turn, within a few
+  seconds and with no turn passed; with Show their hit points too ticked, its hit points show
+  instead. A hidden combatant, a token hidden from players and a Secret one show nothing, and one
+  hidden mid-fight loses what it showed; the party's own hit points follow damage and healing
+  between turns.
+- **Quieter while nobody is in the app:** with Foundry open and no character or party open in the
+  app for a few minutes, the campaign's line in Sending Stone's settings window says the app is
+  asked every 20 seconds; a player who then opens their character is noticed within about 20
+  seconds, their first roll reaching the game then and the next at once, and the line goes back to
+  its usual words; a dish from the Magical Recipe Book reaches you within about 20 seconds. The same
+  with Foundry's tab in the background, where a browser slows a page's timers.
+- **Sign-in on the deployed app:** on the production address, signed in on a phone and on a
+  computer, a table left open for several minutes keeps reading the game and its rolls go through;
+  signing out in one tab sends the table open in another tab of that browser to Sign in at its next
+  read, and the other device stays signed in.
+- **Give and Add or remove:** on a character's Inventory tab, on a phone and on the desk, Add or
+  remove and Give sit under the coins, and a party's buttons under its coins too. 5 gp given to one
+  character is whispered to their player, "Vex received 5 gp from Thorin", and the Gamemasters are
+  told "Thorin handed out 5 gp each to Vex: 5 gp in all"; 2 gp each to two, "Thorin handed out 2 gp
   each to Vex and Bram: 4 gp in all"; 30 gp to the party is a line for everyone, "Gives 30 gp to The
-  Iron Company", spoken by the giver. On a phone and on the desk, the Currency row's buttons sit
-  under its coins, on a party's sheet too.
+  Iron Company", spoken by the giver. Add or remove's dialog reads Add and Remove, and each change
+  is still a line for everyone, "Thorin paid 5 gp".
 
 ## Before v1.0
 
@@ -138,8 +159,8 @@ tweaks needed may change it as it goes. Next week aims at the first three.
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
-4. Items 61, 62 and 58, and 89, quieter polling, fewer sign-in reads, non-allies' health, and one
-   Give for coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
+   and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
 5. Items 64, 65 and 66: any ability or skill the game has.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
