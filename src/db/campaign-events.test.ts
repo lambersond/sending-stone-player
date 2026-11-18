@@ -189,6 +189,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -255,6 +258,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -320,6 +326,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -369,6 +378,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -493,6 +505,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -541,6 +556,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -597,6 +615,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -645,6 +666,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -706,6 +730,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -756,6 +783,9 @@ describe('db/campaign-events', () => {
           // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
           coinsEnabled: false,
           coinFeatures: [],
+          // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+          healthEnabled: false,
+          healthFeatures: [],
           notesEnabled: false,
           noteFeatures: [],
           tidyActive: null,
@@ -809,6 +839,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -1135,6 +1168,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -1190,6 +1226,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -1243,6 +1282,9 @@ describe('db/campaign-events', () => {
           // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
           coinsEnabled: false,
           coinFeatures: [],
+          // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+          healthEnabled: false,
+          healthFeatures: [],
           notesEnabled: false,
           noteFeatures: [],
           tidyActive: null,
@@ -2666,6 +2708,9 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
       // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
       coinsEnabled: false,
       coinFeatures: [],
+      // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+      healthEnabled: false,
+      healthFeatures: [],
     })
   })
 
@@ -2681,6 +2726,9 @@ describe('db/campaign-events, Wild Shape, from module 0.40.0', () => {
       // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
       coinsEnabled: false,
       coinFeatures: [],
+      // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+      healthEnabled: false,
+      healthFeatures: [],
     })
   })
 
@@ -2750,6 +2798,9 @@ describe('db/campaign-events, coins added, taken away and handed out, from modul
       transferFeatures: [],
       coinsEnabled: true,
       coinFeatures: ['change'],
+      // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+      healthEnabled: false,
+      healthFeatures: [],
     })
   })
 
@@ -2769,6 +2820,9 @@ describe('db/campaign-events, coins added, taken away and handed out, from modul
       transferFeatures: [],
       coinsEnabled: true,
       coinFeatures: [],
+      // Changed on purpose (item 58): other creatures' health, from module 0.50.0.
+      healthEnabled: false,
+      healthFeatures: [],
     })
   })
 })

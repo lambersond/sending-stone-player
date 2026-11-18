@@ -6516,3 +6516,53 @@ describe('schemas/sending-stone, coins added, taken away and handed out, from mo
     expect(data.messageId).toBe('m-told')
   })
 })
+
+/** A combatant's health, as read from a combatant's update. */
+const healthOf = (health: unknown) =>
+  (
+    parseGameEvent('combat.combatant.updated', {
+      combatId: 'cmbt1',
+      combatant: {
+        id: 'c1',
+        name: 'Goblin',
+        ...(health !== undefined && { health }),
+      },
+    }) as any
+  ).data.combatant
+
+describe('schemas/sending-stone, other creatures’ health, from module 0.50.0', () => {
+  it.each([['unhurt'], ['hurt'], ['bloodied'], ['down'], [null]])(
+    'keeps a combatant’s health %p',
+    health => {
+      expect(healthOf(health).health).toBe(health)
+    },
+  )
+
+  // Anything else is dropped whole, so the combatant counts as one the module doesn't show.
+  it.each([['secret'], [3], ['dead'], [undefined]])(
+    'drops a combatant’s health %p',
+    health => {
+      const read = healthOf(health)
+      expect(read.health).toBeUndefined()
+      expect(JSON.stringify(read)).not.toMatch(/health|secret|dead/)
+    },
+  )
+
+  it('reads whether the campaign’s players see it, why not, and whether their hit points too', () => {
+    const on = { enabled: true, reason: null, hitPoints: true }
+    expect(helloWith({ health: on }).features.health).toEqual(on)
+    expect(
+      helloWith({ health: { enabled: false, reason: 'off', hitPoints: false } })
+        .features.health,
+    ).toEqual({ enabled: false, reason: 'off', hitPoints: false })
+    // Junk reads as none, and the rest of the hello still reads; hit points that are no boolean,
+    // as not said.
+    expect(helloWith({ health: 'on' }).features.health).toBeNull()
+    expect(
+      helloWith({ health: { enabled: 'yes', hitPoints: 'yes' } }).features
+        .health,
+    ).toEqual({ enabled: false, reason: null, hitPoints: false })
+    // A module before it says nothing.
+    expect(helloWith({}).features.health).toBeUndefined()
+  })
+})

@@ -364,6 +364,19 @@ export const DICE_ASKS = 1
 export const COINS = 1
 
 /**
+ * The format of other creatures' health this app reads, as it tells the module (`health`): from
+ * module 0.50.0, a combatant's `health`, its `hp` where its Gamemaster shows it, and the hello's
+ * `features.health`, which the module sends only then.
+ */
+export const HEALTH = 1
+
+/**
+ * How hurt a creature not of the party is, from module 0.50.0, as the module counts it by dnd5e's
+ * own Bloodied rule, least hurt first.
+ */
+export const HEALTH_STATES = ['unhurt', 'hurt', 'bloodied', 'down'] as const
+
+/**
  * What a player may do to their character's coins from here, from module 0.49.0's `coins` command:
  * add some, or take some away.
  */

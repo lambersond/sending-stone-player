@@ -298,6 +298,13 @@ model Campaign {
   // What else the module does with coins added and taken away, from module 0.49.0's hello:
   // 'change' where a character short of a coin pays with its other coins. Empty while they're off.
   coinFeatures        String[]         @default([])
+  // Whether the campaign's players see how hurt other creatures in a fight are, from module
+  // 0.50.0's bridge.hello: by the campaign's own switch, off by default, under dnd5e. A module
+  // before it says nothing, which clears it.
+  healthEnabled       Boolean          @default(false)
+  // What else they see of other creatures, from module 0.50.0's hello: 'hitPoints' where their hit
+  // points show too. Empty while it's off.
+  healthFeatures      String[]         @default([])
   // Whether Tidy 5e Sheets is active in the world, and its version, from module 0.44.0's
   // bridge.hello, under dnd5e, where Tidy is installed or a character holds its journal's entries:
   // a version unset while it isn't installed. Both unset where the hello says nothing of Tidy, as a
