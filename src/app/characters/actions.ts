@@ -11,7 +11,7 @@ import {
   setCharacterManualDice,
 } from '@/db/characters'
 import { makeCookbookLink, revokeCookbookLink } from '@/db/cookbook'
-import { requireUser } from '@/lib/session'
+import { requireCheckedUser } from '@/lib/session'
 import { toInviteCode } from '@/schemas/campaign'
 import type { ChoiceProblem } from '@/db/types'
 import type {
@@ -34,7 +34,7 @@ export async function joinAsCharacter(
   _state: ChooseCharacterFormState,
   formData: FormData,
 ): Promise<ChooseCharacterFormState> {
-  const user = await requireUser(`${JOIN_PATH}/${inviteCode}`)
+  const user = await requireCheckedUser(`${JOIN_PATH}/${inviteCode}`)
   const actorId = String(formData.get('actorId') ?? '')
   if (!actorId) return { message: 'Choose a character.' }
 
@@ -49,7 +49,7 @@ export async function chooseActor(
   _state: ChooseCharacterFormState,
   formData: FormData,
 ): Promise<ChooseCharacterFormState> {
-  const user = await requireUser()
+  const user = await requireCheckedUser()
   const actorId = String(formData.get('actorId') ?? '')
   if (!actorId) return { message: 'Choose a character.' }
 
@@ -67,7 +67,7 @@ export async function openInvite(
   _state: InviteFormState,
   formData: FormData,
 ): Promise<InviteFormState> {
-  await requireUser()
+  await requireCheckedUser()
   const value = String(formData.get('invite') ?? '')
   const inviteCode = toInviteCode(value)
   if (!inviteCode) {
@@ -80,13 +80,13 @@ export async function openInvite(
 export async function deleteCharacterAndLeave(
   characterId: string,
 ): Promise<void> {
-  const user = await requireUser()
+  const user = await requireCheckedUser()
   await deleteCharacter(user.id, characterId)
   redirect('/characters')
 }
 
 export async function removeCharacter(characterId: string): Promise<void> {
-  const user = await requireUser()
+  const user = await requireCheckedUser()
   await deleteCharacter(user.id, characterId)
   refresh()
 }
@@ -99,7 +99,7 @@ export async function markChatReadUpTo(
   characterId: string,
   readAt: string,
 ): Promise<void> {
-  const user = await requireUser()
+  const user = await requireCheckedUser()
   const at = Date.parse(readAt)
   if (Number.isNaN(at)) return
   await markChatRead(user.id, characterId, new Date(Math.min(at, Date.now())))
@@ -110,7 +110,7 @@ export async function setManualDice(
   characterId: string,
   on: boolean,
 ): Promise<void> {
-  const user = await requireUser()
+  const user = await requireCheckedUser()
   if (typeof on !== 'boolean') return
   await setCharacterManualDice(user.id, characterId, on)
 }
@@ -123,7 +123,7 @@ export async function setManualDice(
 export async function makeCookbookCode(
   characterId: string,
 ): Promise<CookbookCodeAnswer> {
-  const user = await requireUser()
+  const user = await requireCheckedUser()
   const made = await makeCookbookLink(user.id, characterId)
   if (made === 'missing') {
     return { message: 'This character is no longer in a campaign.' }
@@ -136,6 +136,6 @@ export async function makeCookbookCode(
 
 /** Revoke the player's link code for the Magical Recipe Book: its dishes stop reaching the game. */
 export async function revokeCookbookCode(characterId: string): Promise<void> {
-  const user = await requireUser()
+  const user = await requireCheckedUser()
   await revokeCookbookLink(user.id, characterId)
 }

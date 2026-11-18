@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getCurrentUser, requireUser } from './session'
+import { getCurrentUser, requireCheckedUser, requireUser } from './session'
 import { auth } from '@/auth'
 
 jest.mock('@/auth', () => ({ auth: { api: { getSession: jest.fn() } } }))
@@ -16,17 +16,30 @@ const getSession = auth.api.getSession as unknown as jest.Mock
 const user = { id: 'user-1', name: 'Alice' }
 
 describe('lib/session', () => {
-  it('reads the session from the request headers', async () => {
-    getSession.mockResolvedValue({ session: {}, user })
+  // The cookie may answer for pages and the routes; a Server Action always asks the database and
+  // writes no cookie, so its page isn't read again (ROADMAP item 62).
+  it.each([
+    ['getCurrentUser', getCurrentUser, undefined],
+    ['requireUser', () => requireUser(), undefined],
+    [
+      'requireCheckedUser',
+      () => requireCheckedUser(),
+      { disableCookieCache: true, disableRefresh: true },
+    ],
+  ])(
+    '%s reads the session from the request headers, with query %p',
+    async (_name, read, query) => {
+      getSession.mockResolvedValue({ session: {}, user })
 
-    await expect(getCurrentUser()).resolves.toBe(user)
-    expect(getSession).toHaveBeenCalledWith({
-      headers: expect.any(Headers),
-    })
-    expect(getSession.mock.calls[0][0].headers.get('cookie')).toBe(
-      'session=abc',
-    )
-  })
+      await expect(read()).resolves.toBe(user)
+      const [options] = getSession.mock.calls[0]
+      expect(options).toEqual({
+        headers: expect.any(Headers),
+        ...(query && { query }),
+      })
+      expect(options.headers.get('cookie')).toBe('session=abc')
+    },
+  )
 
   it('has no user when nobody is signed in', async () => {
     getSession.mockResolvedValue(null)
@@ -34,24 +47,29 @@ describe('lib/session', () => {
     await expect(getCurrentUser()).resolves.toBeUndefined()
   })
 
-  it('requireUser returns the signed-in user', async () => {
-    getSession.mockResolvedValue({ session: {}, user })
+  describe.each([
+    ['requireUser', requireUser],
+    ['requireCheckedUser', requireCheckedUser],
+  ])('%s', (_name, readUser) => {
+    it('returns the signed-in user', async () => {
+      getSession.mockResolvedValue({ session: {}, user })
 
-    await expect(requireUser()).resolves.toBe(user)
-    expect(redirect).not.toHaveBeenCalled()
-  })
+      await expect(readUser()).resolves.toBe(user)
+      expect(redirect).not.toHaveBeenCalled()
+    })
 
-  it('requireUser sends anyone not signed in to the login page', async () => {
-    getSession.mockResolvedValue(null)
+    it('sends anyone not signed in to the login page', async () => {
+      getSession.mockResolvedValue(null)
 
-    await expect(requireUser()).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/login')
-  })
+      await expect(readUser()).rejects.toThrow('NEXT_REDIRECT')
+      expect(redirect).toHaveBeenCalledWith('/login')
+    })
 
-  it('requireUser can bring them back to the page they were on once signed in', async () => {
-    getSession.mockResolvedValue(null)
+    it('can bring them back to the page they were on once signed in', async () => {
+      getSession.mockResolvedValue(null)
 
-    await expect(requireUser('/join/abc?x=1')).rejects.toThrow('NEXT_REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/login?next=%2Fjoin%2Fabc%3Fx%3D1')
+      await expect(readUser('/join/abc?x=1')).rejects.toThrow('NEXT_REDIRECT')
+      expect(redirect).toHaveBeenCalledWith('/login?next=%2Fjoin%2Fabc%3Fx%3D1')
+    })
   })
 })

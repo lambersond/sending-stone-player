@@ -19,7 +19,7 @@ import {
   setCharacterManualDice,
 } from '@/db/characters'
 import { makeCookbookLink, revokeCookbookLink } from '@/db/cookbook'
-import { requireUser } from '@/lib/session'
+import { requireCheckedUser } from '@/lib/session'
 
 jest.mock('next/cache', () => ({ refresh: jest.fn() }))
 jest.mock('next/navigation', () => ({
@@ -38,7 +38,7 @@ jest.mock('@/db/cookbook', () => ({
   makeCookbookLink: jest.fn(),
   revokeCookbookLink: jest.fn(),
 }))
-jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
+jest.mock('@/lib/session', () => ({ requireCheckedUser: jest.fn() }))
 
 const formData = (values: Record<string, string>) => {
   const data = new FormData()
@@ -48,7 +48,7 @@ const formData = (values: Record<string, string>) => {
 
 describe('app/characters/actions', () => {
   beforeEach(() => {
-    jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
+    jest.mocked(requireCheckedUser).mockResolvedValue({ id: 'user-1' } as any)
   })
 
   describe('joinAsCharacter', () => {
@@ -58,7 +58,7 @@ describe('app/characters/actions', () => {
       await expect(
         joinAsCharacter('code-1', {}, formData({ actorId: 'actor-vex' })),
       ).rejects.toThrow('NEXT_REDIRECT')
-      expect(requireUser).toHaveBeenCalledWith('/join/code-1')
+      expect(requireCheckedUser).toHaveBeenCalledWith('/join/code-1')
       expect(joinCampaign).toHaveBeenCalledWith('user-1', 'code-1', 'actor-vex')
       expect(redirect).toHaveBeenCalledWith('/characters/char-9')
     })
@@ -174,7 +174,9 @@ describe('app/characters/actions', () => {
     })
 
     it('does nothing for someone not signed in', async () => {
-      jest.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
+      jest
+        .mocked(requireCheckedUser)
+        .mockRejectedValue(new Error('NEXT_REDIRECT'))
 
       await expect(removeCharacter('char-1')).rejects.toThrow('NEXT_REDIRECT')
       expect(deleteCharacter).not.toHaveBeenCalled()
@@ -207,12 +209,12 @@ describe('app/characters/actions', () => {
 
 describe('app/characters/actions, typing in their own dice, from module 0.32.0', () => {
   beforeEach(() => {
-    jest.mocked(requireUser).mockReset()
+    jest.mocked(requireCheckedUser).mockReset()
     jest.mocked(setCharacterManualDice).mockReset()
   })
 
   it("remembers the signed-in player's choice for their character", async () => {
-    jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
+    jest.mocked(requireCheckedUser).mockResolvedValue({ id: 'user-1' } as any)
 
     await setManualDice('char-1', true)
     await setManualDice('char-1', false)
@@ -232,7 +234,9 @@ describe('app/characters/actions, typing in their own dice, from module 0.32.0',
   })
 
   it('needs someone signed in', async () => {
-    jest.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
+    jest
+      .mocked(requireCheckedUser)
+      .mockRejectedValue(new Error('NEXT_REDIRECT'))
 
     await expect(setManualDice('char-1', true)).rejects.toThrow('NEXT_REDIRECT')
     expect(setCharacterManualDice).not.toHaveBeenCalled()
@@ -241,7 +245,7 @@ describe('app/characters/actions, typing in their own dice, from module 0.32.0',
   it.each(['true', 1, undefined, {}])(
     'ignores %p, which is no choice',
     async on => {
-      jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
+      jest.mocked(requireCheckedUser).mockResolvedValue({ id: 'user-1' } as any)
 
       await setManualDice('char-1', on as any)
 
@@ -252,8 +256,8 @@ describe('app/characters/actions, typing in their own dice, from module 0.32.0',
 
 describe('app/characters/actions, the Magical Recipe Book, from module 0.38.0', () => {
   beforeEach(() => {
-    jest.mocked(requireUser).mockReset()
-    jest.mocked(requireUser).mockResolvedValue({ id: 'user-1' } as any)
+    jest.mocked(requireCheckedUser).mockReset()
+    jest.mocked(requireCheckedUser).mockResolvedValue({ id: 'user-1' } as any)
   })
 
   it("makes a link code for the signed-in player's character, shown once", async () => {
@@ -286,7 +290,9 @@ describe('app/characters/actions, the Magical Recipe Book, from module 0.38.0', 
   })
 
   it('needs someone signed in', async () => {
-    jest.mocked(requireUser).mockRejectedValue(new Error('NEXT_REDIRECT'))
+    jest
+      .mocked(requireCheckedUser)
+      .mockRejectedValue(new Error('NEXT_REDIRECT'))
 
     await expect(makeCookbookCode('char-1')).rejects.toThrow('NEXT_REDIRECT')
     await expect(revokeCookbookCode('char-1')).rejects.toThrow('NEXT_REDIRECT')

@@ -11,7 +11,7 @@ import {
 } from '@/db/campaigns'
 import { clearCampaignChat } from '@/db/chat'
 import { revokeCampaignCookbookLink } from '@/db/cookbook'
-import { requireUser } from '@/lib/session'
+import { requireCheckedUser } from '@/lib/session'
 import { campaignSetupSchema, secretSchema } from '@/schemas/campaign'
 import type { CampaignSetupFormState, SecretFormState } from '@/types/campaign'
 
@@ -21,7 +21,7 @@ export async function setUpCampaignAction(
   _state: CampaignSetupFormState,
   formData: FormData,
 ): Promise<CampaignSetupFormState> {
-  const user = await requireUser(PAGE)
+  const user = await requireCheckedUser(PAGE)
   const values = {
     title: String(formData.get('title') ?? ''),
     gameUrl: String(formData.get('gameUrl') ?? ''),
@@ -68,7 +68,7 @@ export async function changeSecretAction(
   _state: SecretFormState,
   formData: FormData,
 ): Promise<SecretFormState> {
-  const user = await requireUser(PAGE)
+  const user = await requireCheckedUser(PAGE)
   const parsed = secretSchema.safeParse(formData.get('secret') ?? '')
   if (!parsed.success) return { error: parsed.error.issues[0].message }
   await changeCampaignSecret(user.id, campaignId, parsed.data)
@@ -79,7 +79,7 @@ export async function changeSecretAction(
 }
 
 export async function resetInviteAction(campaignId: string): Promise<void> {
-  const user = await requireUser(PAGE)
+  const user = await requireCheckedUser(PAGE)
   await resetInviteCode(user.id, campaignId)
   refresh()
 }
@@ -89,7 +89,7 @@ export async function removePlayerAction(
   campaignId: string,
   characterId: string,
 ): Promise<void> {
-  const user = await requireUser(PAGE)
+  const user = await requireCheckedUser(PAGE)
   await removePlayer(user.id, campaignId, characterId)
   refresh()
 }
@@ -102,7 +102,7 @@ export async function revokeCookbookLinkAction(
   campaignId: string,
   characterId: string,
 ): Promise<void> {
-  const user = await requireUser(PAGE)
+  const user = await requireCheckedUser(PAGE)
   await revokeCampaignCookbookLink(user.id, campaignId, characterId)
   refresh()
 }
@@ -112,13 +112,13 @@ export async function revokeCookbookLinkAction(
  * it is.
  */
 export async function clearChatAction(campaignId: string): Promise<void> {
-  const user = await requireUser(PAGE)
+  const user = await requireCheckedUser(PAGE)
   await clearCampaignChat(user.id, campaignId)
   refresh()
 }
 
 export async function removeCampaignAction(campaignId: string): Promise<void> {
-  const user = await requireUser(PAGE)
+  const user = await requireCheckedUser(PAGE)
   await removeCampaign(user.id, campaignId)
   refresh()
 }
