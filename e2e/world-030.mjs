@@ -41,7 +41,9 @@
 // module 0.37.0. Since module 0.39.0 (its contract §1.11): SKEW=038 is module 0.38.1. Since module
 // 0.40.0 (its contract §10.4): SKEW=039 is module 0.39.0. Since module 0.41.0 (its contract §8.4):
 // SKEW=040 is module 0.40.0. Since module 0.42.0 (its contract §8.5): SKEW=041 is module 0.41.0. Since
-// module 0.42.1 and 0.44.0 (v0.44): SKEW=042 is module 0.42.0.
+// module 0.42.1 and 0.44.0 (v0.44): SKEW=042 is module 0.42.0. Since module 0.50.0 (item 61): each
+// fetch for commands `posted` keeps its own `quiet`, as `look`: true a quiet look, false a full fetch,
+// left out by a module before 0.50.0.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
@@ -177,7 +179,7 @@ export async function launch(game) {
       })
     }
     if (relay.lose?.(sent)) {
-      posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, campaign: sent.campaign?.id ?? null, session: sent.session, status: 400, body: '', lost: true })
+      posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, campaign: sent.campaign?.id ?? null, session: sent.session, look: sent.quiet, status: 400, body: '', lost: true })
       return { ok: false, status: 400, statusText: 'Bad Request', headers: new Headers(), json: async () => ({}), text: async () => '' }
     }
     // Foundry "closed": the fetch for commands waits, unanswered, until it's open again, whatever
@@ -207,7 +209,7 @@ export async function launch(game) {
     // Its page reloaded while it was on its way: its answer reaches no one.
     if (deadSessions.has(sent.session)) return new Promise(() => {})
     const told = (relay.answerAs && body && sent.type) ? relay.answerAs(body, sent) : body
-    posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, campaign: sent.campaign?.id ?? null, session: sent.session, bytes: Buffer.byteLength(init.body), status, body, told })
+    posted.push({ url: String(url), type: sent.type ?? 'fetch', data: sent.data, campaign: sent.campaign?.id ?? null, session: sent.session, look: sent.quiet, bytes: Buffer.byteLength(init.body), status, body, told })
     if (status >= 300) problems.push(`${sent.type ?? url} → ${status}`)
     return {
       ok: status >= 200 && status < 300, status, statusText,

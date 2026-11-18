@@ -275,3 +275,11 @@ run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
 run health 32 SHOTS=$O/shots-050
 run health 32 DND5E6=1 SHOTS=$O/shots-050
 run health 6 SKEW=049 MODULE=$O/module-0.49.0 SHOTS=$O/shots-050
+# Item 61 (module 0.50.0): quieter fetching while Foundry is open and nobody is in the app, in
+# world-030's world: full fetches every 10 seconds for two minutes after the hello, then quiet looks
+# every 20, the game counted as fetching throughout; someone arriving and rolling at once; a dish
+# from the Magical Recipe Book found by a look; notes written while Foundry was closed handed over
+# as it reconnects, nobody in the app; and module 0.49.0, which fetches as before. About 6 and 3
+# minutes, on its own timings: run alone after the lanes (lanes.conf's solo).
+run quiet 26 TIMEOUT=600
+run quiet 12 TIMEOUT=600 SKEW=049 MODULE=$O/module-0.49.0
