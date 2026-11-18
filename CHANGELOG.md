@@ -29,6 +29,29 @@ so an item from it is named with its number when it was built, which may since b
   players change coins yet. Version 0.49.0 or later does.", and Help names 0.49.0 for Hand out and
   the Coins box's two switches. (app)
 
+### Enhancements
+
+- **Fewer sign-in reads.** The table, the party sheet, the journal and a companion's pane, which
+  each ask for news every 3 seconds, and the recipe card, every 15, now take who is signed in from
+  the session's sealed cookie for up to a minute at a time, where each of their reads asked the
+  database: about 28,600 fewer database operations in a three-hour session with four players, a
+  sixth of all the app makes in one (measured: an idle table poll makes 3.67 where it made 5.57, and
+  an idle party sheet's poll 2.11 where it made 4). Signing out works at once, as before. A session
+  ended from outside the app, such as one deleted from the database, now keeps working for up to a
+  minute (`AUTH_CACHE_MAX_AGE`) before it goes to Sign in; joining, choosing, leaving and deleting
+  characters, and every change on the campaign page, are still refused at once.
+  `AUTH_CACHE_MAX_AGE` in `default.env` sets the minute, in whole seconds up to 3600; 0 asks the
+  database every time, as before. (app, item 62)
+
+### Maintenance
+
+- **Sign-in reads, end to end.** A new `signin` suite checks the session's cookie as a browser holds
+  it: sealed, a minute long, gone at sign-out; a session deleted from the database read for no
+  longer than its cookie, and refused deleting a character at once; a player removed from a campaign
+  told at the next read; and a Server Action that writes no cookie, so its page isn't read again.
+  Every Server Action reads the session from the database, which the actions' tests and eslint keep
+  so, and Jest pins the cookie's options as `AUTH_CACHE_MAX_AGE` gives them. (app, item 62)
+
 ## v0.49.0 — 2026-11-17
 
 ### Features

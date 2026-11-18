@@ -307,6 +307,24 @@ And from the owner's answers on item 19, later work too:
     could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow
     for the round trips. Found landing items 70 and 71. In no batch yet.
 
+**Found while building Batch 4**
+
+87. **default.env's session lifetime:** its note says a session lasts 7 days unless `AUTH_MAX_AGE`
+    says otherwise, with 604800 as its example; `src/auth.ts` has made it 30 days since 81a8278
+    (now `src/auth-session.ts`). The note could say 30 days, with 2592000. Found planning item 62.
+    In no batch yet.
+88. **A session in daily use is likely to end 30 days after its cookie was last set:** Better Auth
+    pushes a session's end back once a day, on whichever read of it comes first. After a day away
+    that is usually a page opened afresh, a Server Component, which can't set a cookie (Next allows
+    that only in a Server Action or Route Handler; Better Auth's `nextCookies` skips the push-back
+    only for a client navigation's RSC request, and swallows the error). So the new end is written
+    to the database, the browser keeps the old cookie and its Max-Age, and the table's polls,
+    finding the session fresh, never set it again. Read from Better Auth 1.7.7's
+    `api/routes/session.mjs:198-214` and `integrations/next-js.mjs:67-69, 91-95`, not tried. It was
+    so before item 62; since it, a Server Action no longer pushes the end back either (its read
+    passes `disableRefresh`), and the table's polls still do. Found planning item 62. In no batch
+    yet.
+
 **Moved from v1.x on 2026-11-13**
 
 58. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
@@ -319,11 +337,9 @@ And from the owner's answers on item 19, later work too:
     need to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking,
     so the case to handle is Foundry open with nobody in the app; Foundry must still pick up notes
     made offline as it connects.
-62. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
-    player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
-    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
-    signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
-    until the cache expires, so its lifetime is chosen with that in mind.
+
+Item 62, fewer sign-in reads, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+
 63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
     loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
     on the device and readable offline, with what's out of date marked; notes written offline sent
@@ -520,3 +536,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
   outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
   Polymorphing and the source's permissions apply (from outside the compendiums: planned for v1.x).
+- A session ended from outside the app, such as one deleted from the database or revoked through
+  Better Auth's own endpoints, still reads the table, the party sheet and the journal, and still
+  sends what the table sends the game (rolls, moves, hit points, coins and ending a turn among them)
+  and notes, for up to a minute (`AUTH_CACHE_MAX_AGE`); joining, choosing, leaving or deleting a
+  character and every change on the campaign page ask the database and are refused at once.
