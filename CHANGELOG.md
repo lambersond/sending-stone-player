@@ -19,6 +19,16 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
+## v0.50.0-rc
+
+### Fixes
+
+- **The campaign card and Help name module 0.49.0 for coins.** Coins came with module 0.49.0, but
+  the app named 0.48.0, so a game on module 0.48.0 was told to tick a switch for coins its module
+  doesn't have. The card now tells a game before 0.49.0 "Your Sending Stone module doesn’t let
+  players change coins yet. Version 0.49.0 or later does.", and Help names 0.49.0 for Hand out and
+  the Coins box's two switches. (app)
+
 ## v0.49.0 — 2026-11-17
 
 ### Features
