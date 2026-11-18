@@ -5,7 +5,8 @@
 // Gamemaster is at Thorin's page and on the campaigns page. The fight, under way: a Goblin, Hostile,
 // 10 of 10; an Ogre, Neutral, 59 of 59; a Wolf, Friendly and no one's, 11 of 11; a Bandit whose token
 // is Secret, 11 of 11; a Scout whose token is hidden, 9 of 9; and the Lurker, a hidden combatant.
-// The hello and the app's answer, both switches off; the switch on within a poll, Unhurt for the
+// The hello and the app's answer, both switches off, and nothing of the other creatures' health or
+// hit points in what the pages' own requests receive; the switch on within a poll, Unhurt for the
 // three shown and nothing for the rest; the Goblin's fall, Hurt, Bloodied and Down within seconds
 // with no turn, then Defeated with no word; the posts counted, one for a new band and none in the
 // same one; their hit points with the second switch; the Wolf's token hidden mid-fight, its health
@@ -14,9 +15,11 @@
 // on, and never the Bandit's, the Scout's or the Lurker's in what the pages' own requests receive,
 // read from every response at both seats, not only from what they show; the turn panel on the
 // Ogre's turn; the Gamemaster at Thorin's page; Thorin's own hit points between turns (the owner's
-// Q3 A); Help's part and row; the campaign card; and the Combat tab and the turn panel with each
-// switch at 390 and 1280, in both themes. DND5E6=1: on dnd5e 6.0.5, each creature's own Bloodied
-// percent, the Goblin's 25 as an effect would make it: 4 of 10 Hurt, 2 of 10 Bloodied. SKEW=049:
+// Q3 A); Help's part and row; the switch off mid-fight, with Gamemaster-only details on, and nothing
+// of the other creatures' health or hit points in what the page receives after; the campaign card;
+// and the Combat tab and the turn panel with each switch at 390 and 1280, in both themes. DND5E6=1:
+// on dnd5e 6.0.5, each creature's own Bloodied percent, the Goblin's 25 as an effect would make it:
+// 4 of 10 Hurt, 2 of 10 Bloodied. SKEW=049:
 // module 0.49.0, which says nothing of health: no word, no other creature's numbers with
 // Gamemaster-only details on, in what is shown or received, Help "Not shown", and the card naming
 // 0.50.0. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
@@ -170,6 +173,10 @@ function leaksIn(bodies, numbersShown) {
 }
 /** The bodies a page received since `from`, that name the fight's Ogre: the views it was sent. */
 const viewsSince = (who, from) => who.bodies.slice(from).filter(body => body.includes('cbOgre'))
+/** The objects of the Goblin, the Ogre and the Wolf in these bodies: the creatures shown while it's on. */
+const othersOf = bodies => ['cbGoblin', 'cbOgre', 'cbWolf'].flatMap(id => bodies.flatMap(body => combatantsIn(body, id)))
+/** Those of them that hold health or hit points, where the switch is off. */
+const heldOf = bodies => othersOf(bodies).filter(object => /"(hp|health)":/.test(object))
 
 // ---- The pages ----
 sql(`insert into "character" (id, name, "gameUrl", "campaignTitle", "campaignId", "actorId", "userId", "updatedAt")
@@ -293,6 +300,11 @@ part('1. off by default')
     `the hello says health is off, for a campaign saved without the switches, last among its features (${JSON.stringify({ health: features.health, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.health === 1 && kept('"healthEnabled"') === 'f', `the app answers health: 1, and keeps it off (${hello().body})`)
   await wait(2000)
+  const bodies = [...desk.bodies, ...phone.bodies]
+  const others = othersOf(bodies)
+  const held = [...heldOf(bodies), ...leaksIn(bodies, false)]
+  check(others.length > 0 && held.length === 0,
+    `the ${others.length} objects of the Goblin, the Ogre and the Wolf in what Alice's two pages received hold neither health nor hit points, nor anything of the Bandit's, the Scout's or the Lurker's (${JSON.stringify(held.slice(0, 2))})`)
   check(bare(await rowText(desk, 'Goblin')) && bare(await rowText(phone, 'Goblin')), "the Goblin's row has no word and no numbers")
   const said = await cardSays(gm)
   check(said === 'Off. To let them, tick Allow Players to see other creatures’ health in the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
@@ -515,6 +527,35 @@ part('10. Help')
     return row === 'Other creatures’ health: Their hit points'
   }, "Help's row: Their hit points", 15_000).catch(() => {})
   check(row === 'Other creatures’ health: Their hit points', `with hit points too, Help's row: ${row}`)
+}
+
+// =================================================================================================
+// 11. Switched off mid-fight
+// =================================================================================================
+part('11. switched off mid-fight')
+{
+  // Both switches on until now: the first turned off, as the Gamemaster saves it, then
+  // Gamemaster-only details on, so the app keeps every creature's hit points and must hold them back.
+  await switches({}, 'the switch off')
+  await until(() => kept('"healthEnabled"') === 'f', 'the app to keep it off', 15_000)
+  await rowReads(desk, 'Ogre', bare, 'the Ogre: nothing, within a poll')
+  await gmDetails(true)
+  await until(() => JSON.parse(sql(`select data::text from combat where "campaignId" = '${A}'`)).combatants.find(c => c.id === 'cbOgre')?.hp,
+    "every creature's hit points kept, as the module sends them with Gamemaster-only details", 15_000)
+  const from = desk.bodies.length
+  await desk.page.reload()
+  await combatShown(desk)
+  await rowReads(desk, 'Thorin', says('12 / 30'), "Thorin's row: 12 / 30, after the reload")
+  await wait(3000)
+  const bodies = desk.bodies.slice(from)
+  const views = viewsSince(desk, from)
+  const others = othersOf(bodies)
+  const held = [...heldOf(bodies), ...leaksIn(bodies, false)]
+  check(views.length > 0 && others.length > 0 && held.length === 0,
+    `with the switch off and Gamemaster-only details on, the ${others.length} objects of the Goblin, the Ogre and the Wolf in the ${views.length} views Alice's page received hold neither health nor hit points, though the app keeps them, nor anything of the Bandit's, the Scout's or the Lurker's (${JSON.stringify(held.slice(0, 2))})`)
+  const shown = await Promise.all(['Goblin', 'Ogre', 'Wolf'].map(name => rowText(desk, name)))
+  check(shown.every(bare) && (await rowText(desk, 'Thorin')).includes('12 / 30'),
+    `and the Goblin, the Ogre and the Wolf show neither a word nor numbers; Thorin still his (${JSON.stringify(shown)})`)
 }
 note(`${postsOf('combat.combatant.updated').filter(p => p.campaign === 'erebor').length} combatant updates posted`)
 await finish()

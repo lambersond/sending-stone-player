@@ -263,13 +263,15 @@ run coins 44 SHOTS=$O/shots-049
 run coins 44 DND5E6=1 SHOTS=$O/shots-049
 run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
 # Module 0.50.0 (item 58): other creatures' health on the Combat tab, in world-030's world with
-# tokens: the hello and the answer, both switches off; Unhurt for the Hostile, Neutral and Friendly
-# creatures and nothing for a Secret one, a hidden token or a hidden combatant; a creature's fall
-# within seconds with no turn, then Defeated; one post for a new band, none in the same one; their
-# hit points with the second switch; a token hidden mid-fight, its health and hit points gone from
-# what the page receives; Gamemaster-only details, and never more in what the pages'
-# own requests receive; the turn panel; the Gamemaster's seat; the party's own hit points between
-# turns; Help and the campaign card; dnd5e 6.0.5's own Bloodied percent; and module 0.49.0 (nothing).
-run health 29 SHOTS=$O/shots-050
-run health 29 DND5E6=1 SHOTS=$O/shots-050
+# tokens: the hello and the answer, both switches off, and nothing of it in what the pages receive;
+# Unhurt for the Hostile, Neutral and Friendly creatures and nothing for a Secret one, a hidden token
+# or a hidden combatant; a creature's fall within seconds with no turn, then Defeated; one post for a
+# new band, none in the same one; their hit points with the second switch; a token hidden mid-fight,
+# its health and hit points gone from what the page receives; Gamemaster-only details, and never
+# more in what the pages' own requests receive; the turn panel; the Gamemaster's seat; the party's
+# own hit points between turns; Help and the campaign card; the switch off mid-fight, with
+# Gamemaster-only details on, and nothing of it in what the page receives; dnd5e 6.0.5's own
+# Bloodied percent; and module 0.49.0 (nothing).
+run health 32 SHOTS=$O/shots-050
+run health 32 DND5E6=1 SHOTS=$O/shots-050
 run health 6 SKEW=049 MODULE=$O/module-0.49.0 SHOTS=$O/shots-050
