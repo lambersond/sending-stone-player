@@ -1424,7 +1424,7 @@ describe('components/campaigns/campaign-card', () => {
   })
 
   // Each of its words is pinned in feature-words.test.ts: here, where they go.
-  it('says whether players add and take away coins from here (module 0.49.0), after Items and coins, before the Cookbook dishes', () => {
+  it('says whether players add and remove coins from here (module 0.49.0), after Items and coins, before the Cookbook dishes', () => {
     renderCard({
       coins: { enabled: true, change: true },
       foundry: effectsFoundry('0.49.0', dnd5e('5.3.3')),
@@ -1435,7 +1435,7 @@ describe('components/campaigns/campaign-card', () => {
     expect(
       [...section.querySelectorAll('p')].map(({ textContent }) => textContent),
     ).toEqual([
-      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
+      'On in Foundry. Your players add coins to their characters and remove them from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
     ])
     expect(section.previousElementSibling).toBe(
       screen.getByRole('heading', { name: 'Items and coins' }).parentElement,

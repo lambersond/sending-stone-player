@@ -519,7 +519,8 @@ const paid = (used: Record<string, number> | null) =>
     coins: { op: 'remove', currency: { gp: 5 }, used },
   })
 
-describe('utils/move-words, coins added and taken away, from module 0.49.0', () => {
+// Changed on purpose (item give): coins taken away are told as removed, as Add or remove says.
+describe('utils/move-words, coins added and removed, from module 0.49.0', () => {
   /** dnd5e's coins' abbreviations, as a sheet lists them, the largest first. */
   const abbreviations = { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' }
   const receive: LocalMove = {
@@ -535,7 +536,7 @@ describe('utils/move-words, coins added and taken away, from module 0.49.0', () 
   }
   it('calls each what the Gamemaster’s page calls it', () => {
     expect(moveLabel(receive)).toBe('Add 5 gp')
-    expect(moveLabel(pay)).toBe('Take away 5 gp')
+    expect(moveLabel(pay)).toBe('Remove 5 gp')
   })
 
   it('says where each stands, for either seat', () => {
@@ -543,7 +544,7 @@ describe('utils/move-words, coins added and taken away, from module 0.49.0', () 
       'Adding it in your Gamemaster’s game…',
     )
     expect(moveWords(pay, state({ status: 'rolling' }), 'gm')).toBe(
-      'Taking it away in your game…',
+      'Removing it in your game…',
     )
     expect(moveWords(receive, state({ status: 'done' }), 'player')).toBe(
       'Received 5 gp',
@@ -637,7 +638,7 @@ describe('utils/move-words, coins added and taken away, from module 0.49.0', () 
   it('says each not made, never in part, and leaves a transformed character to the roll’s words', () => {
     expect(
       moveWords(pay, state({ status: 'refused', reason: 'short' }), 'player'),
-    ).toBe('Not taken away: you haven’t the coins for that')
+    ).toBe('Not removed: you haven’t the coins for that')
     expect(
       moveWords(receive, state({ status: 'failed', reason: 'off' }), 'gm'),
     ).toBe('Not added: your game isn’t changing coins now')
@@ -647,7 +648,7 @@ describe('utils/move-words, coins added and taken away, from module 0.49.0', () 
         shaped: 'that waits until your character is back in their own form',
       }),
     ).toBe(
-      'Not taken away: that waits until your character is back in their own form',
+      'Not removed: that waits until your character is back in their own form',
     )
   })
 })

@@ -229,8 +229,8 @@ describe('constants/roll-kinds, the request-kind table', () => {
         undoEndTurn: 'A turn taken back',
         // Changed on purpose (item 11).
         dice: 'Dice the game asked for',
-        // Changed on purpose (item 67).
-        coins: 'Coins added or taken away',
+        // Changed on purpose (item 67), and (item give) worded as the Add or remove button.
+        coins: 'Coins added or removed',
       },
     ],
     [

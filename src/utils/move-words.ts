@@ -5,7 +5,7 @@ import type { SeatRole } from '@/types/seats'
 // How a move of items and coins (module 0.31.0) is told, in English: what moved, as the game's
 // chat line says it, where it stands on its way to the game, and why it wasn't made. From module
 // 0.33.0, a removal of the character's item is told the same way; and from module 0.49.0 coins
-// added to the character, taken away, or handed out to the characters picked.
+// added to the character, removed, or handed out to the characters picked.
 
 /**
  * What a move moves, as the module's chat line says it in English: "2 Potion of Healing", or
@@ -55,7 +55,7 @@ export function namesWords(names: string[]): string {
  * among the Gamemaster's rolls: such as "Give 5 gp to Vex" or "Take 1 Rope from The Iron Company",
  * and from module 0.32.0 "Send 1 Rope from The Iron Company to Vex" or "Distribute 4 pp from The
  * Iron Company among Bram, Lia, Thorin, and Vex", and from module 0.33.0 "Remove 1 Rope"; and from
- * module 0.49.0 "Add 5 gp", "Take away 5 gp" or "Hand out 200 pp and 50 gp each to Vex, Bram, and
+ * module 0.49.0 "Add 5 gp", "Remove 5 gp" or "Hand out 200 pp and 50 gp each to Vex, Bram, and
  * Lia".
  */
 export function moveLabel(move: LocalMove): string {
@@ -79,7 +79,7 @@ export function moveLabel(move: LocalMove): string {
       return `Add ${move.things}`
     }
     case 'pay': {
-      return `Take away ${move.things}`
+      return `Remove ${move.things}`
     }
     case 'handOut': {
       return `Hand out ${move.things} each to ${move.among ?? ''}`
@@ -100,11 +100,11 @@ export function moveReasons(
   return WORDS_BY_ROLE[role][verb]
 }
 
-/** The verbs of coins added to a character or taken away (module 0.49.0). */
+/** The verbs of coins added to a character or removed (module 0.49.0). */
 const COIN_VERBS: ReadonlySet<LocalMove['verb']> = new Set(['receive', 'pay'])
 
 /**
- * Whose coins are too few for what's taken away or handed out, as the seat is told it: the
+ * Whose coins are too few for what's removed or handed out, as the seat is told it: the
  * player's own, or for the Gamemaster the character's.
  */
 function shortOfCoins(role: SeatRole): string {
@@ -114,7 +114,7 @@ function shortOfCoins(role: SeatRole): string {
 }
 
 /**
- * Why coins weren't added or taken away (module 0.49.0), in words: its own for what differs from a
+ * Why coins weren't added or removed (module 0.49.0), in words: its own for what differs from a
  * removal's, whose words it otherwise has; none for a transformed character, which has the roll's.
  */
 function coinReasons(role: SeatRole): Record<string, string> {
@@ -244,13 +244,9 @@ const VERBS: Record<
     not: 'Not removed',
     partly: 'Partly removed',
   },
-  // From module 0.49.0. Coins are added or taken away in one write: never in part.
+  // From module 0.49.0. Coins are added or removed in one write: never in part.
   receive: { making: 'Adding it', not: 'Not added', partly: 'Not added' },
-  pay: {
-    making: 'Taking it away',
-    not: 'Not taken away',
-    partly: 'Not taken away',
-  },
+  pay: { making: 'Removing it', not: 'Not removed', partly: 'Not removed' },
   handOut: {
     making: 'Handing it out',
     not: 'Not handed out',
@@ -259,7 +255,7 @@ const VERBS: Record<
 }
 
 /**
- * Which of the character's other coins the game says went beyond those taken away or handed out
+ * Which of the character's other coins the game says went beyond those removed or handed out
  * (module 0.49.0), as ", using 1 pp and 80 sp", by the sheet's abbreviations and in its order; none
  * where none did, or the game hasn't said.
  */

@@ -600,7 +600,7 @@ describe("hooks/use-table-view, a player's own effects, from module 0.39.0", () 
       .mockResolvedValueOnce(respond(204))
     renderHook(() => useTableView('/api/characters/char-1', initial))
 
-    // Without it, a page answered 204 would go on offering Add or take away once its game stopped
+    // Without it, a page answered 204 would go on offering Add or remove once its game stopped
     // fetching, or its campaign's switch went off.
     await advance(POLL_INTERVAL)
     await advance(POLL_INTERVAL)

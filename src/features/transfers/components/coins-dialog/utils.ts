@@ -8,14 +8,14 @@ import type { CoinOp, SheetCurrency } from '@/types/sending-stone'
 /** What the dialog's button says: what it'll do, once that's chosen. */
 export function coinsLabel(op: CoinOp | undefined): string {
   if (op === 'add') return 'Add coins'
-  if (op === 'remove') return 'Take away coins'
-  return 'Add or take away'
+  if (op === 'remove') return 'Remove coins'
+  return 'Add or remove'
 }
 
 /**
- * What the dialog says it'll do, or what it still needs: whether to add or take away, then how
- * many; and for coins taken away that are more of one than the character holds, that other coins
- * pay for the rest, or why it can't be sent.
+ * What the dialog says it'll do, or what it still needs: whether to add or remove, then how many;
+ * and for coins removed that are more of one than the character holds, that other coins pay for
+ * the rest, or why it can't be sent.
  * @param currency - The character's coins, as the sheet had them when the dialog opened.
  * @param change - Whether the game pays with other coins where the character is short of one.
  */
@@ -25,7 +25,7 @@ export function coinsSummary(
   change: boolean,
   speaker: CoinSpeaker,
 ): CoinsSummary {
-  if (!op) return { text: 'Choose Add or Take away.', ready: false }
+  if (!op) return { text: 'Choose Add or Remove.', ready: false }
   if (!amounts) return { text: 'Choose how many.', ready: false }
   const things = coinsWords(currency, amounts)
   const you = speaker.who === 'You'
@@ -39,7 +39,7 @@ export function coinsSummary(
     change,
   })
   if (refused) return { text: refused, ready: false }
-  const text = `${speaker.who} ${you ? 'take' : 'takes'} away ${things}.`
+  const text = `${speaker.who} ${you ? 'remove' : 'removes'} ${things}.`
   return { text, ...(note && { note }), ready: true }
 }
 

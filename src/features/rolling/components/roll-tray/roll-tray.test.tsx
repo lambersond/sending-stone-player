@@ -3750,7 +3750,7 @@ describe('coins added and taken away, from module 0.49.0', () => {
   const gm = {
     kind: 'gm' as const,
     id: 'gm:req-coins',
-    label: 'Take away 5 gp',
+    label: 'Remove 5 gp',
     rolled: 'coins' as const,
     at: 0,
   }
@@ -3785,7 +3785,7 @@ describe('coins added and taken away, from module 0.49.0', () => {
       'Changing it in your Gamemaster’s game…',
     )
     expect(briefOf(gm, done)).toMatchObject({
-      label: 'Take away 5 gp',
+      label: 'Remove 5 gp',
       badge: 'use',
       table: { text: 'Changed at the table' },
     })

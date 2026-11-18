@@ -8,23 +8,23 @@ import type { CoinsDialogProps } from './types'
 import type { CoinOp } from '@/types/sending-stone'
 
 /*
- * Coins added to a character or taken away (module 0.49.0), asked in a dialog of its own, as when
+ * Coins added to a character or removed (module 0.49.0), asked in a dialog of its own, as when
  * they're paid or buy something: which of the two, how many of each coin, and what it'll do. Coins
- * taken away may be more of one than the character holds, where the game pays with its other
- * coins, which the dialog says; where they're worth too little, or the game doesn't, it can't be
- * sent. It's sent at once, the dialog closing as it is, as where it stands is told in the tray.
+ * removed may be more of one than the character holds, where the game pays with its other coins,
+ * which the dialog says; where they're worth too little, or the game doesn't, it can't be sent.
+ * It's sent at once, the dialog closing as it is, as where it stands is told in the tray.
  */
 
 /** The two things done here, as their choice names them. */
 const OPS: readonly { op: CoinOp; label: string }[] = [
   { op: 'add', label: 'Add' },
-  { op: 'remove', label: 'Take away' },
+  { op: 'remove', label: 'Remove' },
 ]
 
 /**
- * The dialog a character's coins are added or taken away in: the choice of which, a number for
- * each coin, what it'll do, and Cancel or the change, which does nothing until both are chosen and
- * the coins cover it.
+ * The dialog a character's coins are added or removed in: the choice of which, a number for each
+ * coin, what it'll do, and Cancel or the change, which does nothing until both are chosen and the
+ * coins cover it.
  */
 export function CoinsDialog(props: Readonly<CoinsDialogProps>) {
   const { open, onClose } = props
@@ -34,7 +34,7 @@ export function CoinsDialog(props: Readonly<CoinsDialogProps>) {
     <Modal
       open={open}
       onClose={onClose}
-      title='Add or take away coins'
+      title='Add or remove coins'
       fullOnPhone
     >
       <CoinsForm {...props} />
@@ -51,7 +51,7 @@ function CoinsForm(props: Readonly<CoinsDialogProps>) {
   return (
     <form onSubmit={submit} noValidate className='grid gap-5'>
       <fieldset>
-        <legend className='sr-only'>Add or take away</legend>
+        <legend className='sr-only'>Add or remove</legend>
         <div className='grid grid-cols-2 gap-1 rounded-xl border border-border bg-page p-1'>
           {OPS.map(option => (
             <label

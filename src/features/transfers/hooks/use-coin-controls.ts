@@ -14,7 +14,7 @@ import type { TableView } from '@/types/table'
 
 /*
  * A character's Currency row's own buttons (module 0.49.0), either side of its Send to: Add or
- * take away, while the campaign lets its coins be changed from here; and Hand out, while the game
+ * remove, while the campaign lets its coins be changed from here; and Hand out, while the game
  * takes moves and its module hands coins out, to any of the campaign's other characters. For its
  * player and the Gamemaster at its page. Each opens its dialog, and what's sent is followed in the
  * tray and the toasts, as a give. A row of several buttons says what's on its way once, by its
@@ -26,7 +26,7 @@ import type { TableView } from '@/types/table'
  * The Currency row's own buttons and the dialog they open, which is held here, so that it stays
  * open however its row changes, or should its button go, as when the game stops changing coins:
  * what's sent then says why it wasn't made.
- * @param coins - Whether the seat may add and take away the character's coins now, and whether
+ * @param coins - Whether the seat may add and remove the character's coins now, and whether
  *   the game pays with other coins where it's short of one.
  * @param moves - Where the seat may move to, while the game takes moves: its `handOut` says
  *   whether the character's coins may be handed out to its `characters`.
@@ -56,7 +56,7 @@ export function useCoinControls({
   logMove: (move: LocalMove) => LocalUse
   setActed: (acted: boolean) => void
 }>): {
-  /** Add or take away, for the row's coins; unset where they can't be changed from here. */
+  /** Add or remove, for the row's coins; unset where they can't be changed from here. */
   change?: (currency: SheetCurrency[]) => ReactNode
   /** Hand out, where there's a whole coin and someone to hand it to; unset where it can't be. */
   handOut?: (currency: SheetCurrency[]) => ReactNode
@@ -91,7 +91,7 @@ export function useCoinControls({
             setOpen(true)
           },
         },
-        'Add or take away',
+        'Add or remove',
       )
   }, [coins, busy])
   const handOut = useMemo(() => {

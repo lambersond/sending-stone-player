@@ -91,8 +91,7 @@ const rowButtons = () =>
   within(screen.getByRole('group', { name: 'Currency' }))
     .getAllByRole('button')
     .map(button => button.textContent)
-const changeButton = () =>
-  screen.getByRole('button', { name: 'Add or take away' })
+const changeButton = () => screen.getByRole('button', { name: 'Add or remove' })
 
 /** What was posted, and where. */
 const posts = () =>
@@ -101,16 +100,16 @@ const posts = () =>
     .mock.calls.filter(([, init]) => init?.method === 'POST')
     .map(([url, init]) => ({ url, body: JSON.parse(String(init?.body)) }))
 
-/** Take away so many gold pieces, in the dialog the row's button opens. */
-const takeAway = async (
+/** Remove so many gold pieces, in the dialog the row's button opens. */
+const removeGold = async (
   user: ReturnType<typeof userEvent.setup>,
   gold: string,
 ) => {
   await user.click(changeButton())
   const dialog = within(
-    screen.getByRole('dialog', { name: 'Add or take away coins' }),
+    screen.getByRole('dialog', { name: 'Add or remove coins' }),
   )
-  await user.click(dialog.getByRole('radio', { name: 'Take away' }))
+  await user.click(dialog.getByRole('radio', { name: 'Remove' }))
   await user.type(dialog.getByRole('textbox', { name: 'Gold' }), gold)
   return dialog
 }
@@ -124,12 +123,12 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
   })
 
-  it('offers Add or take away on the Currency row before Send to, and Hand out after it, with moves off and no coins held too', async () => {
+  it('offers Add or remove on the Currency row before Send to, and Hand out after it, with moves off and no coins held too', async () => {
     const { unmount } = await renderCoins({
       coins: { change: true },
       moves: tableMoves({ handOut: { change: true } }),
     })
-    expect(rowButtons()).toEqual(['Add or take away', 'Send to', 'Hand out'])
+    expect(rowButtons()).toEqual(['Add or remove', 'Send to', 'Hand out'])
     expect(changeButton()).toHaveAttribute('aria-haspopup', 'dialog')
     unmount()
 
@@ -139,7 +138,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
       moves: tableMoves({ handOut: { change: false } }),
       sheet: holding({}),
     })
-    expect(rowButtons()).toEqual(['Add or take away'])
+    expect(rowButtons()).toEqual(['Add or remove'])
     empty.unmount()
 
     // Hand out with the coins' switch off, as moves have their own, a single copper being a coin
@@ -155,7 +154,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
       coins: { change: true },
       moves: tableMoves({ handOut: { change: true }, characters: [] }),
     })
-    expect(rowButtons()).toEqual(['Add or take away', 'Send to'])
+    expect(rowButtons()).toEqual(['Add or remove', 'Send to'])
   })
 
   it('offers none where the campaign lets no coins be changed, nor while the character is transformed', async () => {
@@ -172,9 +171,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
         inventory: { ...shaped.inventory, currency: purse({ gp: 3 }) },
       },
     })
-    expect(
-      screen.queryByRole('button', { name: 'Add or take away' }),
-    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add or remove' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Send to' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Hand out' })).toBeNull()
   })
@@ -207,13 +204,13 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
         },
         userEvent.setup({ advanceTimers: jest.advanceTimersByTime }),
       )
-      const dialog = await takeAway(user, '5')
+      const dialog = await removeGold(user, '5')
       expect(
         dialog.getByText(
-          'You take away 5 gp. You hold only 3 gp, so other coins pay for the rest.',
+          'You remove 5 gp. You hold only 3 gp, so other coins pay for the rest.',
         ),
       ).toBeVisible()
-      await user.click(dialog.getByRole('button', { name: 'Take away coins' }))
+      await user.click(dialog.getByRole('button', { name: 'Remove coins' }))
 
       expect(screen.queryByRole('dialog')).toBeNull()
       // A player's change is called nothing, as their page needs no name for it.
@@ -233,14 +230,14 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
 
       await advance(CHECK_EVERY)
       expect(
-        screen.getByText('Taking it away in your Gamemaster’s game…'),
+        screen.getByText('Removing it in your Gamemaster’s game…'),
       ).toBeInTheDocument()
       // All three of the row's wait on it, as the app refuses another change or a move of its
       // coins; and the row says so once, by its label, as a party's does, with no spinner in a
       // button.
       const row = screen.getByRole('group', { name: 'Currency' })
       expect(row).toHaveAttribute('aria-busy', 'true')
-      for (const name of ['Add or take away', 'Send to', 'Hand out']) {
+      for (const name of ['Add or remove', 'Send to', 'Hand out']) {
         const button = within(row).getByRole('button', { name })
         expect(button).toBeDisabled()
         expect(button).toHaveAttribute('aria-busy', 'true')
@@ -278,7 +275,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     })
     await user.click(changeButton())
     const dialog = within(
-      screen.getByRole('dialog', { name: 'Add or take away coins' }),
+      screen.getByRole('dialog', { name: 'Add or remove coins' }),
     )
     await user.click(dialog.getByRole('radio', { name: 'Add' }))
     await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
@@ -407,7 +404,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     ).toBeDisabled()
     const row = screen.getByRole('group', { name: 'Currency' })
     expect(row).not.toHaveAttribute('aria-busy')
-    for (const name of ['Add or take away', 'Send to', 'Hand out']) {
+    for (const name of ['Add or remove', 'Send to', 'Hand out']) {
       expect(within(row).getByRole('button', { name })).toBeEnabled()
     }
   })
@@ -417,20 +414,18 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
       .mocked(fetch)
       .mockResolvedValue(respond(409, { reason: 'unavailable' }))
     const { user, rerenderWith } = await renderCoins()
-    const dialog = await takeAway(user, '1')
+    const dialog = await removeGold(user, '1')
 
     rerenderWith({})
     // Its button is gone; the dialog isn't, with what was typed in it.
-    expect(
-      screen.queryByRole('button', { name: 'Add or take away' }),
-    ).toBeNull()
-    expect(dialog.getByText('You take away 1 gp.')).toBeVisible()
-    await user.click(dialog.getByRole('button', { name: 'Take away coins' }))
+    expect(screen.queryByRole('button', { name: 'Add or remove' })).toBeNull()
+    expect(dialog.getByText('You remove 1 gp.')).toBeVisible()
+    await user.click(dialog.getByRole('button', { name: 'Remove coins' }))
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(
       await screen.findByText(
-        'Not taken away: your Gamemaster’s game isn’t changing coins now',
+        'Not removed: your Gamemaster’s game isn’t changing coins now',
       ),
     ).toBeInTheDocument()
   })
@@ -470,14 +465,12 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
 
     it('offers the row’s buttons from what the table’s view says of coins and moves', async () => {
       await renderTable(tableView())
-      expect(rowButtons()).toEqual(['Add or take away', 'Send to', 'Hand out'])
+      expect(rowButtons()).toEqual(['Add or remove', 'Send to', 'Hand out'])
     })
 
     it('offers none at a character no longer in the game, whatever its view says', async () => {
       await renderTable(tableView({ connected: false }))
-      expect(
-        screen.queryByRole('button', { name: 'Add or take away' }),
-      ).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Add or remove' })).toBeNull()
       expect(screen.queryByRole('button', { name: 'Hand out' })).toBeNull()
     })
   })

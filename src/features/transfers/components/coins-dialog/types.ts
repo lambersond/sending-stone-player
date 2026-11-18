@@ -24,7 +24,7 @@ export type CoinsSummary = {
   ready: boolean
 }
 
-/** What's chosen in the dialog: whether to add or take away, if either yet, and how many. */
+/** What's chosen in the dialog: whether to add or remove, if either yet, and how many. */
 export type CoinsChosen = {
   op?: CoinOp
   amounts?: Record<string, number>

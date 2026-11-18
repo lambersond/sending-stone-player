@@ -20,7 +20,7 @@ const renderDialog = (props: Partial<CoinsDialogProps> = {}) => {
     ...props,
   }
   render(<CoinsDialog {...all} />)
-  const dialog = screen.getByRole('dialog', { name: 'Add or take away coins' })
+  const dialog = screen.getByRole('dialog', { name: 'Add or remove coins' })
   return { ...all, dialog: within(dialog), user: userEvent.setup() }
 }
 
@@ -28,24 +28,25 @@ const renderDialog = (props: Partial<CoinsDialogProps> = {}) => {
 const send = (dialog: ReturnType<typeof within>) =>
   dialog.getAllByRole('button').at(-1) as HTMLElement
 
+// Changed on purpose (item give): Add or take away reads Add or remove, its choices Add and Remove.
 describe('features/transfers/coins-dialog', () => {
   it('asks which first, then how many, its button saying what it’ll do only once chosen', async () => {
     const { dialog, user, onChange, onClose } = renderDialog()
 
     expect(dialog.getByRole('radio', { name: 'Add' })).not.toBeChecked()
-    expect(dialog.getByRole('radio', { name: 'Take away' })).not.toBeChecked()
-    expect(dialog.getByText('Choose Add or Take away.')).toBeVisible()
-    expect(send(dialog)).toHaveTextContent(/^Add or take away$/)
+    expect(dialog.getByRole('radio', { name: 'Remove' })).not.toBeChecked()
+    expect(dialog.getByText('Choose Add or Remove.')).toBeVisible()
+    expect(send(dialog)).toHaveTextContent(/^Add or remove$/)
     expect(send(dialog)).toHaveAttribute('aria-disabled', 'true')
     expect(dialog.queryByText('Foundry’s chat will say so.')).toBeNull()
     // Typing alone chooses neither.
     await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
-    expect(dialog.getByText('Choose Add or Take away.')).toBeVisible()
+    expect(dialog.getByText('Choose Add or Remove.')).toBeVisible()
     await user.click(send(dialog))
     expect(onChange).not.toHaveBeenCalled()
 
-    await user.click(dialog.getByRole('radio', { name: 'Take away' }))
-    expect(send(dialog)).toHaveTextContent(/^Take away coins$/)
+    await user.click(dialog.getByRole('radio', { name: 'Remove' }))
+    expect(send(dialog)).toHaveTextContent(/^Remove coins$/)
     await user.clear(dialog.getByRole('textbox', { name: 'Gold' }))
     expect(dialog.getByText('Choose how many.')).toBeVisible()
     expect(send(dialog)).toHaveAttribute('aria-disabled', 'true')
@@ -86,26 +87,26 @@ describe('features/transfers/coins-dialog', () => {
       'sent' | 'held back',
     ]
   >([
-    ['coins it holds', {}, { Gold: '3' }, 'You take away 3 gp.', 'sent'],
+    ['coins it holds', {}, { Gold: '3' }, 'You remove 3 gp.', 'sent'],
     [
       'more of a coin than it holds, which its other coins pay',
       {},
       { Gold: '5' },
-      'You take away 5 gp. You hold only 3 gp, so other coins pay for the rest.',
+      'You remove 5 gp. You hold only 3 gp, so other coins pay for the rest.',
       'sent',
     ],
     [
       'a coin it holds none of, which its other coins pay',
       {},
       { Silver: '7' },
-      'You take away 7 sp. You hold no sp, so other coins pay for the rest.',
+      'You remove 7 sp. You hold no sp, so other coins pay for the rest.',
       'sent',
     ],
     [
       'more of a coin than the one it holds, which its other coins pay',
       { currency: purse({ pp: 2, gp: 1 }) },
       { Gold: '2' },
-      'You take away 2 gp. You hold only 1 gp, so other coins pay for the rest.',
+      'You remove 2 gp. You hold only 1 gp, so other coins pay for the rest.',
       'sent',
     ],
     [
@@ -130,7 +131,7 @@ describe('features/transfers/coins-dialog', () => {
         ),
       },
       { Gold: '5' },
-      'You take away 5 gp.',
+      'You remove 5 gp.',
       'sent',
     ],
     [
@@ -149,7 +150,7 @@ describe('features/transfers/coins-dialog', () => {
       'the Gamemaster’s, more of a coin than the character holds',
       { role: 'gm' },
       { Gold: '5' },
-      'Thorin takes away 5 gp. Thorin holds only 3 gp, so other coins pay for the rest.',
+      'Thorin removes 5 gp. Thorin holds only 3 gp, so other coins pay for the rest.',
       'sent',
     ],
     [
@@ -167,10 +168,10 @@ describe('features/transfers/coins-dialog', () => {
       'held back',
     ],
   ])(
-    'says what taking away does: %s',
+    'says what removing does: %s',
     async (_name, props, typed, summary, outcome) => {
       const { dialog, user, onChange } = renderDialog(props)
-      await user.click(dialog.getByRole('radio', { name: 'Take away' }))
+      await user.click(dialog.getByRole('radio', { name: 'Remove' }))
       for (const [coin, count] of Object.entries(typed)) {
         await user.type(dialog.getByRole('textbox', { name: coin }), count)
       }
@@ -188,9 +189,9 @@ describe('features/transfers/coins-dialog', () => {
     },
   )
 
-  it('sends coins taken away as paid, with the sheet’s abbreviations for what else the game uses, in the character’s name at the Gamemaster’s page', async () => {
+  it('sends coins removed as paid, with the sheet’s abbreviations for what else the game uses, in the character’s name at the Gamemaster’s page', async () => {
     const { dialog, user, onChange } = renderDialog({ role: 'gm' })
-    await user.click(dialog.getByRole('radio', { name: 'Take away' }))
+    await user.click(dialog.getByRole('radio', { name: 'Remove' }))
     await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
     await user.click(send(dialog))
 

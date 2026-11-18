@@ -75,12 +75,12 @@ describe('features/campaigns/utils/feature-words, coins from the app (module 0.4
     [
       'on in Foundry, other coins paying',
       { coins: { enabled: true, change: true }, foundry: foundry('0.49.0') },
-      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
+      'On in Foundry. Your players add coins to their characters and remove them from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
     ],
     [
       'on in Foundry, no other coin paying',
       { coins: { enabled: true, change: false }, foundry: foundry('0.49.0') },
-      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin is refused.',
+      'On in Foundry. Your players add coins to their characters and remove them from here, and each change posts a line in your game’s chat. A character short of a coin is refused.',
     ],
     [
       'a module before 0.49.0',

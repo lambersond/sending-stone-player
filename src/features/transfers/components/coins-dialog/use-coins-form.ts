@@ -6,8 +6,8 @@ import type { CoinsDialogProps } from './types'
 import type { CoinOp } from '@/types/sending-stone'
 
 /**
- * The form coins are added or taken away in, as its dialog shows it: whether to add or take away,
- * none chosen at first, how many of each coin, what it says it'll do, and its button's words; and
+ * The form coins are added or removed in, as its dialog shows it: whether to add or remove, none
+ * chosen at first, how many of each coin, what it says it'll do, and its button's words; and
  * Submit, which sends it once it may be, and closes the dialog.
  */
 export function useCoinsForm({

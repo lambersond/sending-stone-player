@@ -215,9 +215,10 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ t
   })
   // Changed on purpose (items 67 and 68): with module 0.49.0 the row's buttons are Add or take away,
   // Send to and Hand out, in that order, which may wrap under the label on a phone; with module
-  // 0.31.0, Send to alone, on the label's row, as before.
-  check(same(names, NEW ? ['Add or take away', 'Send to', 'Hand out'] : ['Send to']) && (NEW || look.overlap) && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
-    `Thorin's Currency row has ${NEW ? 'Add or take away, Send to and Hand out, in that order, the last' : 'one button, "Send to", on the CURRENCY label\'s row,'} at the card's right edge, and none named Give coins (${JSON.stringify([names, look])})`)
+  // 0.31.0, Send to alone, on the label's row, as before. Changed on purpose (item give): Add or take
+  // away reads Add or remove.
+  check(same(names, NEW ? ['Add or remove', 'Send to', 'Hand out'] : ['Send to']) && (NEW || look.overlap) && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
+    `Thorin's Currency row has ${NEW ? 'Add or remove, Send to and Hand out, in that order, the last' : 'one button, "Send to", on the CURRENCY label\'s row,'} at the card's right edge, and none named Give coins (${JSON.stringify([names, look])})`)
 }
 await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Send to', exact: true }).click()
 let dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
