@@ -587,7 +587,7 @@ describe("hooks/use-table-view, a player's own effects, from module 0.39.0", () 
     )
   })
 
-  it('asks with hit points before coins, saying whether the seat may add and take them away, from module 0.48.0', async () => {
+  it('asks with hit points before coins, saying whether the seat may add and take them away, from module 0.49.0', async () => {
     jest
       .mocked(fetch)
       .mockResolvedValueOnce(

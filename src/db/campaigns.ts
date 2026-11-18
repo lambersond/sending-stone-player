@@ -174,7 +174,7 @@ export async function listOwnedCampaigns(
       transfers: {
         enabled: campaign.transfersEnabled,
         reaching: transfersAvailable(campaign),
-        // Whether a character's coins may be handed out too, from module 0.48.0.
+        // Whether a character's coins may be handed out too, from module 0.49.0.
         handOut: campaign.transferFeatures.includes('handOut'),
       },
       // Dishes from the Magical Recipe Book, from module 0.38.0: waiting for Foundry, queued or
@@ -196,7 +196,7 @@ export async function listOwnedCampaigns(
       // last hello said.
       hitPoints: { enabled: campaign.hitPointsEnabled },
       // Whether the campaign lets its players add coins to their characters and take them away
-      // from here, from module 0.48.0, and whether a character short of a coin pays with its
+      // from here, from module 0.49.0, and whether a character short of a coin pays with its
       // other coins, as its last hello said.
       coins: {
         enabled: campaign.coinsEnabled,

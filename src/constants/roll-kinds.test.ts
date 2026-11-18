@@ -27,7 +27,7 @@ const dice = (group: string) =>
 
 // Each list as the code said it by hand when the table was made (24f808b), copied once; with the
 // kinds of module 0.44.0 since, a plain roll and hit points set (v0.44) and the dice the game asks
-// for (item 11), and of module 0.48.0, coins added or taken away (item 67).
+// for (item 11), and of module 0.49.0, coins added or taken away (item 67).
 describe('constants/roll-kinds, the request-kind table', () => {
   it('has a row for each kind, in ROLL_KINDS’ order', () => {
     expect(Object.keys(ROLL_KIND_INFO)).toEqual([...ROLL_KINDS])

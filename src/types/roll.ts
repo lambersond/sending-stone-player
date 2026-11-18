@@ -167,7 +167,7 @@ export type PlainRollInput = {
  * Items and coins moved, from module 0.31.0: the two ends by their Foundry actor ids, one of them
  * the character's, and what moves, each item by its id and how many of it, and each coin by its
  * key, such as "gp", and how many. Or a party's coin shared among its characters, or from module
- * 0.48.0 a character's coins handed out, so many to each of the characters picked.
+ * 0.49.0 a character's coins handed out, so many to each of the characters picked.
  */
 export type TransferInput = {
   from: string
@@ -179,7 +179,7 @@ export type TransferInput = {
    */
   among?: string[]
   /**
-   * From module 0.48.0, a hand-out: the characters each given `currency`, of the coins of the
+   * From module 0.49.0, a hand-out: the characters each given `currency`, of the coins of the
    * character it's made as, never with `to` or `among`, nor with items.
    */
   each?: string[]
@@ -188,7 +188,7 @@ export type TransferInput = {
 }
 
 /**
- * Coins added to the character or taken away, from module 0.48.0: which, and how many of each
+ * Coins added to the character or taken away, from module 0.49.0: which, and how many of each
  * coin, by its key, such as "gp". Of a coin taken away, more than the character holds may be
  * named: the game then pays with its other coins, where its campaign lets it.
  */
@@ -389,7 +389,7 @@ export type RollRequestInput = {
    * For hit points set, from module 0.44.0: the numbers wanted, and what the app showed of each.
    */
   hitPoints?: HitPointsInput
-  /** For coins added or taken away, from module 0.48.0: which, and how many of each coin. */
+  /** For coins added or taken away, from module 0.49.0: which, and how many of each coin. */
   coins?: CoinsInput
   /** For a plain roll, from module 0.44.0: the dice picked, by size, and the number added. */
   plainRoll?: PlainRollInput
@@ -553,7 +553,7 @@ export type RollRequestView = {
    */
   hitPoints?: HitPointsNow
   /**
-   * For coins added or taken away, from module 0.48.0, once made: which, the coins asked for, and
+   * For coins added or taken away, from module 0.49.0, once made: which, the coins asked for, and
    * which of the character's other coins went, as the game says.
    */
   coins?: CoinsChanged
@@ -959,7 +959,7 @@ export type LocalUse = {
 /**
  * Items or coins moved, as a page keeps the move: given, taken, or from module 0.32.0 sent from a
  * party or distributed among its characters, and between whom; or from module 0.33.0 removed from
- * the character; or from module 0.48.0 coins the character received or paid, added to it or taken
+ * the character; or from module 0.49.0 coins the character received or paid, added to it or taken
  * away, or handed out, so many to each of the characters picked.
  */
 export type LocalMove = {
@@ -997,7 +997,7 @@ export type LocalMove = {
   /** A distribution's: each one's share, such as "25 gp". */
   each?: string
   /**
-   * For coins taken away or handed out, from module 0.48.0: the sheet's coins' abbreviations, by
+   * For coins taken away or handed out, from module 0.49.0: the sheet's coins' abbreviations, by
    * key, in its order, by which the other coins the game says it used are told.
    */
   abbreviations?: Record<string, string>

@@ -611,7 +611,7 @@ describe('utils/roll-requests', () => {
     })
   })
 
-  describe('toRollRequestView for coins added or taken away, from module 0.48.0', () => {
+  describe('toRollRequestView for coins added or taken away, from module 0.49.0', () => {
     it('passes on what the game says it changed, and which other coins it used, whether or not the line shows', () => {
       const coins = {
         op: 'remove' as const,

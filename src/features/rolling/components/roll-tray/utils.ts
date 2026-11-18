@@ -13,7 +13,7 @@ const GM_MOVES: ReadonlySet<string> = new Set(['transfer', 'remove', 'coins'])
 
 /**
  * Whether all the tray lists is items and coins moved, from module 0.31.0, items removed, from
- * module 0.33.0, or coins added or taken away, from module 0.48.0, the player's or the Gamemaster's
+ * module 0.33.0, or coins added or taken away, from module 0.49.0, the player's or the Gamemaster's
  * as the character: each is sent to the game, and made or turned down there, whatever the game
  * takes of the player's rolls and whether this device sends them, so that what's said of rolls
  * reaching it, or not, isn't said of them.

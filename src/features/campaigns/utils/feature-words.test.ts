@@ -65,34 +65,39 @@ describe('features/campaigns/utils/feature-words, hit points from the app (modul
   })
 })
 
-describe('features/campaigns/utils/feature-words, coins from the app (module 0.48.0)', () => {
+describe('features/campaigns/utils/feature-words, coins from the app (module 0.49.0)', () => {
   it.each([
     [
       'on in Foundry, other coins paying',
-      { coins: { enabled: true, change: true }, foundry: foundry('0.48.0') },
+      { coins: { enabled: true, change: true }, foundry: foundry('0.49.0') },
       'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
     ],
     [
       'on in Foundry, no other coin paying',
-      { coins: { enabled: true, change: false }, foundry: foundry('0.48.0') },
+      { coins: { enabled: true, change: false }, foundry: foundry('0.49.0') },
       'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin is refused.',
     ],
     [
-      'a module before 0.48.0',
+      'a module before 0.49.0',
       { foundry: foundry('0.47.0') },
-      'Your Sending Stone module doesn’t let players change coins yet. Version 0.48.0 or later does.',
+      'Your Sending Stone module doesn’t let players change coins yet. Version 0.49.0 or later does.',
+    ],
+    [
+      'module 0.48.0, which has no switch for coins',
+      { foundry: foundry('0.48.0') },
+      'Your Sending Stone module doesn’t let players change coins yet. Version 0.49.0 or later does.',
     ],
     [
       'another system',
       {
         coins: { enabled: false, change: false },
-        foundry: foundry('0.48.0', 'pf2e'),
+        foundry: foundry('0.49.0', 'pf2e'),
       },
       'Off. Players’ coins need D&D Fifth Edition in Foundry.',
     ],
     [
       'its switch off',
-      { coins: { enabled: false, change: false }, foundry: foundry('0.48.0') },
+      { coins: { enabled: false, change: false }, foundry: foundry('0.49.0') },
       'Off. To let them, tick Allow Players to add and take away coins from the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
     ],
   ])('says so with %s', (_name, fields, text) => {

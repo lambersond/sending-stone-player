@@ -878,7 +878,7 @@ describe('what useTableRolls sends', () => {
           { op: 'revert' },
         ),
       () => void result.current.readWildShapeForms(),
-      // Changed on purpose (item 67): coins taken away, from module 0.48.0, last, so that those
+      // Changed on purpose (item 67): coins taken away, from module 0.49.0, last, so that those
       // before it keep their ids.
       () =>
         result.current.sendCoins(

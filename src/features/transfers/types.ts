@@ -40,7 +40,7 @@ export type TransferControls = {
    * From module 0.33.0's feedback, on a party's sheet: what's on its way, by item id and `coins`,
    * said by one spinner beside the Currency label or the item's name, its buttons disabled with
    * none of their own. On a character's sheet, whose buttons say it themselves, only its coins,
-   * and only where its Currency row has more buttons than Send to (module 0.48.0).
+   * and only where its Currency row has more buttons than Send to (module 0.49.0).
    */
   waiting?: ReadonlySet<string>
 }
@@ -72,7 +72,7 @@ export type Taking = {
 }
 
 /**
- * What a character's coins' dialog was opened with (module 0.48.0), as it stood then, kept as it
+ * What a character's coins' dialog was opened with (module 0.49.0), as it stood then, kept as it
  * closes: its coins, and whether the game pays with other coins where it's short of one; for a
  * hand-out, the character they're handed out from and the campaign's other characters.
  */

@@ -17,7 +17,7 @@ const COINS_WAITING: ReadonlySet<string> = new Set([PENDING_COINS])
  * Give and Remove…, on the Inventory tab: Send to…, from module 0.31.0, its dialog held here, so
  * that it outlives the row it was opened from, and the controls going, as when the game stops
  * taking moves; and Remove…, from module 0.33.0, beside it, with moves off too. From module
- * 0.48.0, the Currency row's Add or take away, before its Send to, with moves off too, and Hand
+ * 0.49.0, the Currency row's Add or take away, before its Send to, with moves off too, and Hand
  * out, after it; and where the row has either, what's on its way is said once, by its label, as on
  * a party's sheet. None while the character is transformed (`shaped`), whose gear isn't on.
  */

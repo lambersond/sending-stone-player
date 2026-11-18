@@ -40,7 +40,7 @@ export function coinAbbreviations(
 
 /**
  * What a dialog says where coins taken from a character are more of a coin than it holds (module
- * 0.48.0), by the app's own count of what its coins are worth, which the game's stands over:
+ * 0.49.0), by the app's own count of what its coins are worth, which the game's stands over:
  * nothing where it holds them all, or the app can't tell and the game pays with other coins;
  * `note`, said after what it'll do, where its other coins pay; or `refused`, said in its place,
  * where they're worth too little, or the game doesn't pay with other coins.

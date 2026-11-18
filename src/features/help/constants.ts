@@ -239,15 +239,15 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Players move items and coins',
-        text: ': Send to…, Take and Give (0.31.0), and Hand out (0.48.0).',
+        text: ': Send to…, Take and Give (0.31.0), and Hand out (0.49.0).',
       },
       {
         lead: 'Allow Players to add and take away coins from the app',
-        text: ': Add or take away, on the Inventory tab’s Currency row; on unless they turn it off (0.48.0).',
+        text: ': Add or take away, on the Inventory tab’s Currency row; on unless they turn it off (0.49.0).',
       },
       {
         lead: 'Pay with other coins when a character is short of one',
-        text: ': taking away or handing out more of a coin than you hold breaks a larger coin, then uses smaller ones; on unless they turn it off (0.48.0).',
+        text: ': taking away or handing out more of a coin than you hold breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).',
       },
       {
         lead: 'Allow Players to disable & remove their own active effects',

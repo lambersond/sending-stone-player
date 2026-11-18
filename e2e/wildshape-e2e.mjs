@@ -14,7 +14,7 @@
 // header, ribbon, Character tab, toast, focus and chat line; the seat while shaped (the Bite, a merged
 // skill, End Turn on the wolf's turn, controls hidden, her familiar, a save card asked of the form);
 // time left; a refusal while the game isn't taking Wild Shape; changing while shaped; Return and its
-// confirm, and since module 0.48.0 the effects kept and taken off by it (Shield of Faith, cast on the
+// confirm, and since module 0.49.0 the effects kept and taken off by it (Shield of Faith, cast on the
 // Black Bear, hers after it until its caster stops concentrating; Bless, taken off the bear, gone);
 // the endings (its hours, 0 hit points) and the banner; the replacement after a Long Rest;
 // the Moon; a Polymorph made in Foundry; the Gamemaster's page; two taps; a Wild Shape made in Foundry
@@ -278,7 +278,7 @@ async function effectNames(who) {
   return (await tabpanel(who).locator('li .font-medium').allTextContents()).map(name => name.trim())
 }
 /**
- * Module 0.48.0 (item 29): Rowan concentrating on Shield of Faith, and the effect it keeps up put on a
+ * Module 0.49.0 (item 29): Rowan concentrating on Shield of Faith, and the effect it keeps up put on a
  * form of Elowen's, as dnd5e applies one: by `origin` under dnd5e 5, by `system.origin` under 6.
  */
 async function shieldOfFaithOn(form) {
@@ -387,7 +387,7 @@ if (SKEW039) {
 part('1. the hello and the answer')
 {
   const features = hello().data.features
-  // Changed on purpose (items 67 and 68): and coins added and taken away follow hit points (module 0.48.0).
+  // Changed on purpose (items 67 and 68): and coins added and taken away follow hit points (module 0.49.0).
   check(same(features.wildShape, { enabled: true, kinds: ['wildShape'], reason: null })
     && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins']),
   `the hello takes Wild Shape, by the campaign's switch, after effects, before hit points (module 0.44.0) (${JSON.stringify({ wildShape: features.wildShape, keys: Object.keys(features) })})`)
@@ -574,7 +574,7 @@ let started
 if (DND5E6) {
   // 10, then 14, under dnd5e 6.0.5.
   part('10. return (dnd5e 6.0.5)')
-  // Module 0.48.0: Shield of Faith on the Wolf, its origin where dnd5e 6 keeps it.
+  // Module 0.49.0: Shield of Faith on the Wolf, its origin where dnd5e 6 keeps it.
   const conc6 = await shieldOfFaithOn(formOf())
   await returnFrom(desk)
   check(!formOf() && same(bothTokens(), ['elowen', 'elowen']) && elowen.system.attributes.hp.temp === 5,
@@ -582,7 +582,7 @@ if (DND5E6) {
   const kept6 = () => (stored()?.effects ?? []).flatMap(section => section.effects).find(effect => effect.name === 'Shield of Faith')
   await until(() => kept6(), 'Shield of Faith on her stored sheet', 20_000).catch(() => {})
   check(same(kept6()?.ops, ['disable', 'delete']) && elowen.effects.get('sofOnTheForm0000')?.toObject().system.origin.effect === conc6.uuid,
-    `0.48.0: Shield of Faith, cast on the Wolf, is on her stored sheet after the return, hers to turn off or delete, its origin in system.origin (${JSON.stringify(kept6()?.ops)})`)
+    `0.49.0: Shield of Faith, cast on the Wolf, is on her stored sheet after the return, hers to turn off or delete, its origin in system.origin (${JSON.stringify(kept6()?.ops)})`)
   await rowan.endConcentration(conc6)
 }
 
@@ -848,7 +848,7 @@ part('10. return')
 let sofConc = null
 {
   const bear = formOf()
-  // Module 0.48.0 (item 29): before she returns, Rowan casts Shield of Faith on the Black Bear, and her
+  // Module 0.49.0 (item 29): before she returns, Rowan casts Shield of Faith on the Black Bear, and her
   // Bless is taken off it.
   sofConc = await shieldOfFaithOn(bear)
   await bear.effects.get('rowanBlessOnElow').delete()
@@ -879,22 +879,22 @@ let sofConc = null
   check(toast.includes('5 temporary hit points stay'), `the toast: "${toast}"`)
   await until(async () => (await focusOf(desk)).id === 'sheet-panel', 'focus on the panel', 15_000).catch(() => {})
   check((await focusOf(desk)).id === 'sheet-panel', 'focus on the tab panel')
-  // Module 0.48.0: what was put on the bear is hers now, what was taken off it is gone from her, and
+  // Module 0.49.0: what was put on the bear is hers now, what was taken off it is gone from her, and
   // what a caster's concentration keeps up still ends with it.
   await tab(desk, 'Effects')
   const kept = await effectControls(desk, 'Shield of Faith').catch(() => [])
   check(kept.includes('Turn off Shield of Faith') && Boolean(elowen.effects.get('sofOnTheForm0000')),
-    `0.48.0: Shield of Faith, cast on the Black Bear, is on her after the return, hers to turn off: ${JSON.stringify(kept)}`)
+    `0.49.0: Shield of Faith, cast on the Black Bear, is on her after the return, hers to turn off: ${JSON.stringify(kept)}`)
   await until(async () => !(await effectNames(desk)).includes('Bless'), 'Bless to leave her Effects tab', 20_000).catch(() => {})
   const names = await effectNames(desk)
-  check(!names.includes('Bless') && !elowen.effects.get('rowanBlessOnElow'), `0.48.0: Bless, taken off the Black Bear, is gone from her: ${JSON.stringify(names)}`)
+  check(!names.includes('Bless') && !elowen.effects.get('rowanBlessOnElow'), `0.49.0: Bless, taken off the Black Bear, is gone from her: ${JSON.stringify(names)}`)
 }
 
 // A phone of Alice's, open from here on, for the banner and the phone's checks.
 const phone = await browse({ width: 390, height: 844, path: '/characters/sheet-elowen' })
 await phone.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
 {
-  // Part 10's last, module 0.48.0: the kept effect as she sees it, at 1280 and on the phone, and then
+  // Part 10's last, module 0.49.0: the kept effect as she sees it, at 1280 and on the phone, and then
   // gone with its caster's concentration.
   await tab(phone, 'Effects')
   await effectControls(phone, 'Shield of Faith').catch(() => [])
@@ -902,7 +902,7 @@ await phone.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ tim
   await rowan.endConcentration(sofConc)
   await until(async () => !(await effectNames(desk)).includes('Shield of Faith'), 'Shield of Faith to leave her Effects tab', 20_000).catch(() => {})
   check(!(await effectNames(desk)).includes('Shield of Faith') && !elowen.effects.get('sofOnTheForm0000'),
-    `0.48.0: once Rowan stops concentrating, Shield of Faith leaves her: ${JSON.stringify(await effectNames(desk))}`)
+    `0.49.0: once Rowan stops concentrating, Shield of Faith leaves her: ${JSON.stringify(await effectNames(desk))}`)
 }
 
 // =================================================================================================

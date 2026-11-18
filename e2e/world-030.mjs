@@ -317,7 +317,7 @@ export async function foundryWorld({ system = DND5E6 ? '6.0.5' : '5.3.3', dice6 
     spellcasting: { spell: leveled },
     damageTypes: Object.fromEntries(['piercing', 'slashing', 'fire', 'cold', 'thunder'].map(type => [type, { label: capital(type) }])),
     healingTypes: { healing: { label: 'Healing' } },
-    // Each with dnd5e's rate, how many make one gp (D5 config.mjs, DND5E.currencies), since module 0.48.0.
+    // Each with dnd5e's rate, how many make one gp (D5 config.mjs, DND5E.currencies), since module 0.49.0.
     currencies: Object.fromEntries(Object.entries({ pp: 0.1, gp: 1, ep: 2, sp: 10, cp: 100 }).map(([id, conversion]) => [id, { label: `DND5E.Currency${id.toUpperCase()}`, abbreviation: `DND5E.CurrencyAbbr${id.toUpperCase()}`, conversion }])),
     weightUnits: { lb: { abbreviation: 'lb' } },
     activityActivationTypes: {

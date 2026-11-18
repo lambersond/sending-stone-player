@@ -118,7 +118,7 @@ export const EVENTS = {
  * Wild Shape form or a companion set to the numbers the player entered, no roll either.
  * And from module 0.44.0, the dice a typing player types in for a later roll of a typed roll's
  * run, which the game asks of them: no roll of its own, but the dice of one.
- * And from module 0.48.0, coins added to the character or taken away, no roll either.
+ * And from module 0.49.0, coins added to the character or taken away, no roll either.
  */
 export const ROLL_KINDS = [
   'skill',
@@ -358,13 +358,13 @@ export const DICE_ASKS = 1
 
 /**
  * The format of coins added and taken away this app takes, as it tells the module (`coins`): from
- * module 0.48.0, the `coins` command, its result's `coins` and the hello's `features.coins`, which
+ * module 0.49.0, the `coins` command, its result's `coins` and the hello's `features.coins`, which
  * the module fetches for only then.
  */
 export const COINS = 1
 
 /**
- * What a player may do to their character's coins from here, from module 0.48.0's `coins` command:
+ * What a player may do to their character's coins from here, from module 0.49.0's `coins` command:
  * add some, or take some away.
  */
 export const COIN_OPS = ['add', 'remove'] as const
@@ -507,7 +507,7 @@ export const MOST_COMPANIONS = 50
  * nor from module 0.40.0 Wild Shape, which only a character uses, nor from module 0.42.1 a spell
  * slot spent or restored, which an NPC's sheet changes in Foundry, nor from module 0.42.1 a spell
  * prepared, which an NPC has prepared already, nor from module 0.44.0 a plain roll, which is the
- * character's own, nor from module 0.48.0 coins added or taken away, as none is known to carry
+ * character's own, nor from module 0.49.0 coins added or taken away, as none is known to carry
  * coins. But not hit points, which from module 0.44.0 a player sets for their companion as they
  * could on its sheet. The module's list has `note` and `dish` too, which aren't rolls here.
  */

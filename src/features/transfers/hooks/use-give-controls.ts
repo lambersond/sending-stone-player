@@ -50,7 +50,7 @@ export function useGiveControls({
   actorId?: string
   /**
    * Whether the Currency row's label says its coins are on their way, as where the row has other
-   * buttons (module 0.48.0): its Send to then waits with no spinner of its own.
+   * buttons (module 0.49.0): its Send to then waits with no spinner of its own.
    */
   labelWaits?: boolean
   logMove: (move: LocalMove) => LocalUse

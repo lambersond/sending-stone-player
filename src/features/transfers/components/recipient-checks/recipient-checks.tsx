@@ -8,7 +8,7 @@ import { MOST_AMONG } from '@/constants/sending-stone'
 import type { MoveEnd } from '@/features/transfers/types'
 
 /*
- * Who coins are handed out to (module 0.48.0): any of the campaign's other characters, each with
+ * Who coins are handed out to (module 0.49.0): any of the campaign's other characters, each with
  * its portrait, as a move's recipients look. They're the browser's own checkboxes, so Space ticks
  * one as in any form, and a screen reader says which are ticked.
  */

@@ -36,7 +36,7 @@ export type OwnedCampaign = {
   }
   /**
    * Whether players move items and coins from here, from module 0.31.0, apart from the rolls:
-   * turned on in Foundry, and whether the game is fetching moves now; and from module 0.48.0
+   * turned on in Foundry, and whether the game is fetching moves now; and from module 0.49.0
    * whether a character's coins may be handed out to several characters at once.
    */
   transfers: { enabled: boolean; reaching: boolean; handOut?: boolean }
@@ -63,7 +63,7 @@ export type OwnedCampaign = {
   hitPoints?: { enabled: boolean }
   /**
    * Whether the campaign lets its players add coins to their characters and take them away from
-   * here, from module 0.48.0, and whether a character short of a coin then pays with its other
+   * here, from module 0.49.0, and whether a character short of a coin then pays with its other
    * coins, as its last hello said. None reads as off.
    */
   coins?: { enabled: boolean; change: boolean }

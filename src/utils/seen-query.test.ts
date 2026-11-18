@@ -49,7 +49,7 @@ describe('utils/seen-query', () => {
         version: 12,
       },
       // Changed on purpose (v0.44): hit points, from module 0.44.0, after Wild Shape; and (item
-      // 67) coins, from module 0.48.0, after them.
+      // 67) coins, from module 0.49.0, after them.
       'version=12&live=1&rolls=r3&gm=made&gmrolls=g2&moves=1&typed=1&removes=1&favorites=1&effects=1&wildshape=1&hitpoints=1&coins=1&sheet=s1',
     ],
   ])('%s', (_, seen, query) => {

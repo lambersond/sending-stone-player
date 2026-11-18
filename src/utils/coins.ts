@@ -3,7 +3,7 @@ import type { CoinsCover, CoinsInput } from '@/types/roll'
 import type { SheetCurrency, SheetInventory } from '@/types/sending-stone'
 import type { RollRefusal } from '@/utils/requests/types'
 
-// How this app checks coins added to a character and taken away (module 0.48.0), and a character's
+// How this app checks coins added to a character and taken away (module 0.49.0), and a character's
 // coins handed out, before the Gamemaster's module is sent them: whether the game takes them now,
 // and whether the coins a sheet showed last can pay what's taken. The module pays as its own rule
 // has it, a larger coin broken first, then smaller ones, and says which coins went; the app copies

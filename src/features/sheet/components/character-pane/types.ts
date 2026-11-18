@@ -112,7 +112,7 @@ export type CharacterPaneProps = {
   removes?: boolean
   /**
    * Set where the seat may add coins to the character and take them away there, from module
-   * 0.48.0, as its campaign lets them: whether the game pays with other coins where it's short of
+   * 0.49.0, as its campaign lets them: whether the game pays with other coins where it's short of
    * one.
    */
   coins?: TableView['coins']

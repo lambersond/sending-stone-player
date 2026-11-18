@@ -8,7 +8,7 @@ import { wholeCoins } from '@/utils/coins'
 import type { SheetCurrency } from '@/types/sending-stone'
 
 /*
- * How many of each coin to add, take away or hand out (module 0.48.0), typed. Unlike a move's
+ * How many of each coin to add, take away or hand out (module 0.49.0), typed. Unlike a move's
  * coins, they aren't capped at what the character holds: coins are added from nothing, and what's
  * taken away may be paid with other coins. What's held is said beside each, of its whole coins.
  */

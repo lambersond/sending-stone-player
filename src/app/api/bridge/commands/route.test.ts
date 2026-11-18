@@ -93,7 +93,7 @@ const UNAVAILABLE = {
  * the Magical Recipe Book, from module 0.39.0 their characters' own effects, and from module
  * 0.40.0 Wild Shape. Changed on purpose (round 0.38.0 §D9): dishes too. Changed on purpose (round
  * 0.39.0 §1.10): effects too. Changed on purpose (round 0.40.0 §10.3): Wild Shape too. And from
- * module 0.44.0, hit points set; and from module 0.48.0, coins added and taken away.
+ * module 0.44.0, hit points set; and from module 0.49.0, coins added and taken away.
  */
 const given = (
   rollsEnabled: boolean,
@@ -406,7 +406,7 @@ describe('app/api/bridge/commands', () => {
     expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
   })
 
-  it('hands over coins added or taken away with everything else off, from module 0.48.0, the Gamemaster’s marked as theirs', async () => {
+  it('hands over coins added or taken away with everything else off, from module 0.49.0, the Gamemaster’s marked as theirs', async () => {
     const paying: RollCommand = {
       id: 'req-coins',
       actorId: 'thorin',

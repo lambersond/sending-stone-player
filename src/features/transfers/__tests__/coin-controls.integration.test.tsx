@@ -115,7 +115,7 @@ const takeAway = async (
   return dialog
 }
 
-describe('features/transfers/coin-controls, from module 0.48.0', () => {
+describe('features/transfers/coin-controls, from module 0.49.0', () => {
   beforeEach(() => {
     globalThis.localStorage.clear()
     // The tray, not the toasts, which would say the same again.

@@ -111,7 +111,7 @@ const given = ({
 /** What was stored for the module to fetch. */
 const created = () => prismaMock.rollRequest.create.mock.calls[0][0].data
 
-describe('db/coins, createCoinsRequest, from module 0.48.0', () => {
+describe('db/coins, createCoinsRequest, from module 0.49.0', () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: NOW })
     for (const mock of [
@@ -193,7 +193,7 @@ describe('db/coins, createCoinsRequest, from module 0.48.0', () => {
 
   it.each([
     [
-      'the campaign lets none, as before module 0.48.0',
+      'the campaign lets none, as before module 0.49.0',
       { coinsEnabled: false },
     ],
     ['the module isn’t fetching', { bridgePolledAt: ago(46_000) }],

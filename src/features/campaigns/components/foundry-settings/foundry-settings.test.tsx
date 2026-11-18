@@ -248,7 +248,7 @@ describe('components/campaigns/foundry-settings', () => {
     expect(moves.parentElement?.previousElementSibling).toBe(
       rolls.parentElement,
     )
-    // Changed on purpose (item 67): from module 0.48.0 the players' coins follow the items and
+    // Changed on purpose (item 67): from module 0.49.0 the players' coins follow the items and
     // coins.
     const coins = screen.getByRole('heading', { name: "Players' coins" })
     expect(coins.parentElement?.previousElementSibling).toBe(

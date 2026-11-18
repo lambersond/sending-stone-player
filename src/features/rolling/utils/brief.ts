@@ -57,7 +57,7 @@ const DAMAGE_ACCENTS: Record<
 
 /**
  * What items or coins moved did, in a word, as its line says it, from module 0.31.0; and from
- * module 0.48.0 what coins added, taken away or handed out did.
+ * module 0.49.0 what coins added, taken away or handed out did.
  */
 const MOVED: Record<LocalMove['verb'], string> = {
   give: 'given',

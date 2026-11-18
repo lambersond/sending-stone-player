@@ -657,7 +657,7 @@ describe('db/roll-requests', () => {
           // favorite, from module 0.37.0; changed on purpose (round 0.39.0 §1.10): nor an effect
           // changed, from module 0.39.0; changed on purpose (round 0.40.0 §10.3): nor Wild Shape,
           // from module 0.40.0; changed on purpose (v0.44): nor hit points set, from module 0.44.0;
-          // changed on purpose (item 67): nor coins added or taken away, from module 0.48.0.
+          // changed on purpose (item 67): nor coins added or taken away, from module 0.49.0.
           OR: [
             {
               role: 'player',
@@ -2018,7 +2018,7 @@ describe('db/roll-requests', () => {
           effectsEnabled: true,
           wildShapeEnabled: true,
           hitPointsEnabled: true,
-          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
           coinsEnabled: true,
         },
       })
@@ -2202,7 +2202,7 @@ describe('db/roll-requests', () => {
           wildShapeEnabled: true,
           // Changed on purpose (v0.44): hit points set, from module 0.44.0.
           hitPointsEnabled: true,
-          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
           coinsEnabled: true,
           playersSeenAt: true,
         },
@@ -3326,7 +3326,7 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
       requestedById: 'gm-1',
       kind: 'hitPoints',
     },
-    // From module 0.48.0: a player's coins added or taken away, the Gamemaster's at their page,
+    // From module 0.49.0: a player's coins added or taken away, the Gamemaster's at their page,
     // and another Gamemaster's.
     {
       id: 'coins-player',
@@ -3584,14 +3584,14 @@ describe('db/roll-requests, handing over removals of items, from module 0.33.0',
     ])
   })
 
-  it("hands coins added or taken away over only to the hello's session, the Gamemaster's too, needing no gmRolls, and only its owner's, from module 0.48.0", async () => {
+  it("hands coins added or taken away over only to the hello's session, the Gamemaster's too, needing no gmRolls, and only its owner's, from module 0.49.0", async () => {
     const changing = { ...removing, removalsEnabled: false, coinsEnabled: true }
     await expect(fetched(changing)).resolves.toEqual([
       'roll-player',
       'coins-player',
       'coins-gm',
     ])
-    // A session the hello didn't come from is handed none: a module before 0.48.0 never is.
+    // A session the hello didn't come from is handed none: a module before 0.49.0 never is.
     await expect(fetched(changing, 'session-old')).resolves.toEqual([
       'roll-player',
     ])
@@ -3975,7 +3975,7 @@ describe('db/roll-requests, a companion’s rolls, from module 0.36.0', () => {
       kind: 'prepare',
       prepare: { op: 'prepare', id: 'witch' },
     },
-    // Changed on purpose (item 67): coins, from module 0.48.0, which no companion's are.
+    // Changed on purpose (item 67): coins, from module 0.49.0, which no companion's are.
     coins: {
       ...NO_DICE,
       kind: 'coins',

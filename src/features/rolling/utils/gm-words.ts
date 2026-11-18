@@ -20,7 +20,7 @@ import type { SeatRole } from '@/types/seats'
  * is; a use, as the player's own are, and anything else they send that throws no dice, as it has
  * no total: charges spent or Heroic Inspiration, from module 0.29.0, a spell slot spent or
  * restored, from module 0.42.1, items and coins moved, from module 0.31.0, items removed, from
- * module 0.33.0, and coins added or taken away, from module 0.48.0; damage, on its own too from
+ * module 0.33.0, and coins added or taken away, from module 0.49.0; damage, on its own too from
  * module 0.36.0; or else a roll with a total, as a check is.
  */
 export function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
@@ -35,7 +35,7 @@ export function gmShape(roll: LocalGmRoll): 'use' | 'ask' | 'damage' | 'check' {
  * What's said of a use of the Gamemaster's as the character as it goes, and once done: of charges
  * spent, that they were; of Heroic Inspiration, which their page doesn't say was used or gained,
  * that it changed; of items or coins moved, from module 0.31.0, that they were; of an item
- * removed, from module 0.33.0, that it was; of coins added or taken away, from module 0.48.0, that
+ * removed, from module 0.33.0, that it was; of coins added or taken away, from module 0.49.0, that
  * they changed; of anything else, that it was used.
  */
 function gmVerbs(roll: LocalGmRoll): { doing: string; done: string } {

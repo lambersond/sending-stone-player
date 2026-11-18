@@ -3,7 +3,7 @@ import { HandOutDialog } from '@/features/transfers/components/hand-out-dialog/h
 import type { CoinDialogsProps } from './types'
 
 /**
- * The dialog a character's Currency row's own buttons open (module 0.48.0), for what it was last
+ * The dialog a character's Currency row's own buttons open (module 0.49.0), for what it was last
  * opened with, kept as it closes: its coins added or taken away, or handed out.
  */
 export function CoinDialogs({

@@ -1,4 +1,4 @@
-// Coins added to a character, taken away and handed out from the app (module 0.48.0 and the app,
+// Coins added to a character, taken away and handed out from the app (module 0.49.0 and the app,
 // ROADMAP items 67 and 68), end to end, in the world of world-030.mjs, whose coins carry dnd5e's
 // rates. Ashlands, on dnd5e 5.3.3, has one campaign, Erebor, saved without the coins' switches, so
 // both read on, with moves on and its players' rolls off: coins go on their own. Alice plays Thorin
@@ -14,7 +14,7 @@
 // gone too; both dialogs at 360, 390, 768 and 1280 in both themes; Help's row and lines, and the
 // Gamemaster's campaign card. DND5E6=1: on dnd5e 6.0.5, whose sheet shows whole coins. SKEW=047:
 // module 0.47.0, which says nothing of coins: no button but Send to, Help "Not from here", the
-// card naming 0.48.0, and crafted requests refused. Synthetic characters only. Run with --import
+// card naming 0.49.0, and crafted requests refused. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BOB, DND5E6, W, browse, call, character, check, coinsInFoundry, embedded, finish, foundryWorld, launch, newCampaign,
@@ -25,13 +25,13 @@ import {
 const OLD = process.env.SKEW === '047'
 const GAME = 'https://ashlands-coins.forge-vtt.com'
 const ADDRESS = 'ashlands-coins.forge-vtt.com'
-const SECRET = 'erebor-coins-48'
+const SECRET = 'erebor-coins-49'
 const TITLE = 'Erebor'
 await launch(GAME)
 const { id: A } = await newCampaign({ title: TITLE, address: ADDRESS, secret: SECRET })
 await foundryWorld({ dice6: DND5E6, more: true })
 // A checkout's module.json carries its last release's version: the one this release stamps.
-game.modules.get('sending-stone').version = OLD ? '0.47.0' : '0.48.0'
+game.modules.get('sending-stone').version = OLD ? '0.47.0' : '0.49.0'
 
 // ---- The world: Thorin, Alice's; Vex, Bob's; Bram, Carol's ----
 const actor = (id, name, owner) => {
@@ -46,7 +46,7 @@ const bram = actor('bram', 'Bram', 'carol')
 embedded(thorin, { currency: { pp: 2, gp: 3 } })
 embedded(vex, { currency: { gp: 10 } })
 embedded(bram, {})
-// Saved before 0.48.0: no coins nor coinChange key, so both read on; moves on, the rolls off.
+// Saved before 0.49.0: no coins nor coinChange key, so both read on; moves on, the rolls off.
 const campaign = changes => ({ id: 'erebor', title: TITLE, characters: ['thorin', 'vex', 'bram'], groups: [], rolls: false, transfers: true, ...changes })
 await startModule({ campaigns: [campaign()], secrets: { erebor: SECRET } })
 await settled()
@@ -163,7 +163,7 @@ if (OLD) {
   const section = gm.page.getByRole('article', { name: TITLE }).locator('section').filter({ has: gm.page.getByRole('heading', { name: "Players' coins" }) })
   await section.waitFor({ timeout: 15_000 })
   const said = (await section.locator('p').allTextContents()).join(' ')
-  check(said === 'Your Sending Stone module doesn’t let players change coins yet. Version 0.48.0 or later does.', `the Gamemaster's campaign card: "${said}"`)
+  check(said === 'Your Sending Stone module doesn’t let players change coins yet. Version 0.49.0 or later does.', `the Gamemaster's campaign card: "${said}"`)
   await finish()
 }
 
@@ -425,9 +425,9 @@ const section = article.locator('section').filter({ has: gm.page.getByRole('head
   const rows = await help.getByRole('region', { name: /^In this game, for / }).locator('dl > div').evaluateAll(all => all.map(row => `${row.querySelector('dt').textContent}: ${row.querySelector('dd').textContent}`))
   const text = await help.evaluate(el => el.innerText.replace(/\s+/g, ' '))
   check(rows.indexOf('Adding and taking away coins: From here') === rows.indexOf('Moving items and coins: From here') + 1
-    && text.includes('Players move items and coins: Send to…, Take and Give (0.31.0), and Hand out (0.48.0).')
-    && text.includes('Allow Players to add and take away coins from the app: Add or take away, on the Inventory tab’s Currency row; on unless they turn it off (0.48.0).')
-    && text.includes('Pay with other coins when a character is short of one: taking away or handing out more of a coin than you hold breaks a larger coin, then uses smaller ones; on unless they turn it off (0.48.0).'),
+    && text.includes('Players move items and coins: Send to…, Take and Give (0.31.0), and Hand out (0.49.0).')
+    && text.includes('Allow Players to add and take away coins from the app: Add or take away, on the Inventory tab’s Currency row; on unless they turn it off (0.49.0).')
+    && text.includes('Pay with other coins when a character is short of one: taking away or handing out more of a coin than you hold breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).'),
   `Help's box has coins from here, after moves, and its switches name the two and Hand out (${JSON.stringify(rows.filter(row => /coins/.test(row)))})`)
   await desk.page.keyboard.press('Escape')
   await help.waitFor({ state: 'hidden', timeout: 5_000 })

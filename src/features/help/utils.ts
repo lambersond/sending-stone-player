@@ -118,7 +118,7 @@ function typingRow(typing: HelpFacts['typing']): BoxRow {
 
 /**
  * The Gamemaster's rows: where their rolls here go, made in the game only while their own Send to
- * the table is on here, and what they may move and remove, and from module 0.48.0 whether they may
+ * the table is on here, and what they may move and remove, and from module 0.49.0 whether they may
  * add and take away the character's coins.
  */
 function gmRows({ view, name, send }: HelpFacts): BoxRow[] {

@@ -244,7 +244,7 @@ describe('features/help/utils', () => {
         expect(rowsOf(shown)).toEqual([
           row,
           '● Moving items and coins: From here',
-          // Changed on purpose (item 67): coins added and taken away, from module 0.48.0.
+          // Changed on purpose (item 67): coins added and taken away, from module 0.49.0.
           '● Adding and taking away coins: From here',
           '○ Removing items: Not from here',
         ])

@@ -216,7 +216,7 @@ function OwnSheet({
       moves={view.connected ? view.moves : undefined}
       // Nor its items removed there (module 0.33.0), by either seat.
       removes={view.connected && view.removes === true}
-      // Nor its coins added or taken away there (module 0.48.0), by either seat.
+      // Nor its coins added or taken away there (module 0.49.0), by either seat.
       coins={view.connected ? view.coins : undefined}
       favorites={view.connected && view.favorites === true}
       favoriteOrders={view.connected && view.favoriteOrders === true}

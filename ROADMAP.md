@@ -10,7 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.47.0 and its app, with v0.46.0, v0.45.0 and v0.44.0 before it.
+Released: module v0.49.0 and its app, with v0.48.0, v0.47.0, v0.46.0, v0.45.0 and v0.44.0
+before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -54,12 +55,21 @@ Midi-QOL v14.0.x:
   hit points from the app off, the campaign card's Players' hit points line says to tick it; with a
   module before 0.43.0, the dice tray says the module makes its rolls from version 0.43.0.
 
-## v0.48 (release candidate)
+## v0.48 (released, nothing to check at the table)
 
-Being built: what it holds so far is in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc entry.
+Released on 2026-11-16: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0 entry. v0.48 is
+the release candidate for v1.0 after v0.47: it runs at the table for a while before v1.0 is tagged.
+Nothing in it waits to be checked there: the module's scripts no longer import one another in a
+loop, with nothing the module sends, takes or shows changed, and the app's pages draw an outline of
+themselves while they load.
 
-**To check at the table before module v0.48.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+## v0.49 (released, to check at the table)
+
+Released on 2026-11-17: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0 entry. v0.49 is
+the release candidate for v1.0 after v0.48: it runs at the table for a while before v1.0 is tagged.
+
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Midi-QOL's look for reactions:** with Manual Dice on, a creature holding a reaction that costs
   dice, such as 1d4 charges, attacked from the app or by you in Foundry: no dice window opens as
@@ -108,11 +118,11 @@ All the work planned before v1.0, by number, kept under where each item came fro
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
 tweaks needed may change it as it goes. Next week aims at the first three.
 
-1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
+1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
    back from Wild Shape, Move up and Move down for every favorite, the three e2e races under load,
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
-   and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0-rc.
+   and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -175,7 +185,7 @@ And from the owner's answers on item 19, later work too:
     is the cost of another activity Midi pairs with a Gamemaster's own attack
     (`checkOtherActivityConsumption`), read from its source and not tried. Midi's own, and said in
     the module's `PROTOCOL.md`; the module could roll the first with Foundry's computer dice, as it
-    does for a use from the app and, since 0.48.0, for the reactions Midi looks for. In no batch
+    does for a use from the app and, since 0.49.0, for the reactions Midi looks for. In no batch
     yet.
 73. **A roll's button drops the first Enter after its menu was opened from the keyboard:** with a
     check's, save's or attack's button focused, the menu key or Shift+F10 opens its menu; whatever
@@ -220,7 +230,7 @@ And from the owner's answers on item 19, later work too:
     Shape ends: one put on the form ends with it, and one the druid already had stays though it was
     taken off the form. Sleeping put on the wolf ends Wild Shape, as it makes the form
     Incapacitated, and the druid comes back awake until the Gamemaster puts it on the druid. As
-    before 0.48.0, and as item 29 was built: whether they should come back with the druid as
+    before 0.49.0, and as item 29 was built: whether they should come back with the druid as
     conditions do is the owner's to say. In no batch yet.
 79. **End turn's 600 ms counted from when the page takes in the turn, not from when it's drawn:**
     `useEndTurn` (`src/features/table/hooks/use-end-turn.ts`) starts them in the effect of the
@@ -248,7 +258,7 @@ And from the owner's answers on item 19, later work too:
     four closings by the Gamemaster leaving. Nor has item 71's, a photograph read for its colors,
     which is toasts' alone. In no batch yet.
 81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
-    Android phone and an iPhone (v0.48's checks): the stone's size against Android's own launch
+    Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
     screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
     sizes); an iPhone's white first screen before the stone, which only a startup image for each
     screen size covers; and, if an iPhone doesn't finish installing a worker whose page leaves at
@@ -273,13 +283,13 @@ And from the owner's answers on item 19, later work too:
     distributed are written as floating point makes them: 10.7 gp less 10 is stored
     as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes
     to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
-    write through `coinUpdate`, as coins added, taken away and handed out do since 0.48.0. A default
+    write through `coinUpdate`, as coins added, taken away and handed out do since 0.49.0. A default
     dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it. Module only,
     small. Found building items 67 and 68. In no batch yet.
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
     it, which waits disabled until the move is made. Seen for the Currency row's Add or take away
-    and Hand out (v0.48); by the same code it is so for the row's Send to and an item's Give…, from
+    and Hand out (v0.49); by the same code it is so for the row's Send to and an item's Give…, from
     v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which has no
     tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet, where
     focus should go (the tray's line, or the row's label, which says what's on its way) is one

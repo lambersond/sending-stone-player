@@ -5,7 +5,7 @@ import type { SheetSeat } from '@/types/character'
 import type { RollRequestInput } from '@/types/roll'
 import type { RollRejection } from '@/utils/requests/types'
 
-// Coins added to a character or taken away from the app (module 0.48.0) ride to the game as a
+// Coins added to a character or taken away from the app (module 0.49.0) ride to the game as a
 // removal does: held here as a RollRequest of the kind `coins`, for the seat's character, which the
 // module fetches at most once. They have a switch of their own, the campaign's, apart from the
 // rolls and from moves, on by default. The Gamemaster's at the character's page is taken too, and
@@ -34,7 +34,7 @@ const COINS_COMMAND: CommandSpec<'coins'> = {
 }
 
 /**
- * Take coins added to a character or taken away, from module 0.48.0, for the Gamemaster's game to
+ * Take coins added to a character or taken away, from module 0.49.0, for the Gamemaster's game to
  * make: from the character's player, or the campaign's Gamemaster at its page; while the campaign
  * lets its players and its module is fetching; where the seat isn't sending too many, of rolls and
  * every other kind together; where the character is in the campaign's roster; where each coin is

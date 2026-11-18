@@ -425,7 +425,7 @@ describe('app/api/characters/[id]/table', () => {
     expect(answers.map(({ status }) => status)).toEqual([204, 200, 204, 200])
   })
 
-  it('sends the view to a viewer who missed the game taking coins, or no longer taking them (module 0.48.0)', async () => {
+  it('sends the view to a viewer who missed the game taking coins, or no longer taking them (module 0.49.0)', async () => {
     const status = {
       version: 7,
       live: true,
