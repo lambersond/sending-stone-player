@@ -285,11 +285,10 @@ describe('components/game-table/combat-tracker', () => {
       expect(within(panel).getByText('Bloodied')).toBeInTheDocument()
     })
 
-    it.each([
-      ['a party member’s', 'pet'],
-      ['the seat’s own', 'thorin'],
-    ])('shows nothing of it on %s turn', (_, currentId) => {
-      render(<CombatTracker combat={{ ...health, currentId }} />)
+    // Whose turn shows it is actingHealth's rule, each case in utils.test.ts. Here, that the panel
+    // asks it: a party member's turn, whose row has its hit points, shows none in the panel.
+    it('asks whose health the panel may show: none on a party member’s turn', () => {
+      render(<CombatTracker combat={{ ...health, currentId: 'pet' }} />)
 
       const panel = turnPanel().closest('section') as HTMLElement
       expect(within(panel).queryByText(/Hit points|Bloodied/)).toBeNull()
