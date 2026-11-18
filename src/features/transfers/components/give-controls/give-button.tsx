@@ -16,7 +16,7 @@ export function GiveButton({
   busy: boolean
   /**
    * On a row whose label says what's on its way, as a character's Currency row does from module
-   * 0.48.0: it waits, disabled, with no spinner of its own.
+   * 0.49.0: it waits, disabled, with no spinner of its own.
    */
   quiet?: boolean
   onGive: () => void

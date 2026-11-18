@@ -397,7 +397,7 @@ describe('db/transfers, createTransferRequest', () => {
         reason: 'moving',
       })
       // Its removals too, from module 0.33.0; and, changed on purpose (item 67), its changes to
-      // coins, from module 0.48.0.
+      // coins, from module 0.49.0.
       expect(prismaMock.rollRequest.findMany).toHaveBeenCalledWith({
         where: {
           characterId: 'char-1',
@@ -612,7 +612,7 @@ describe('db/transfers, a party’s things sent and distributed, from module 0.3
 const handOut = (gp = 2, from = THORIN) =>
   move({ from, each: [VEX], currency: { gp } })
 
-describe('db/transfers, a character’s coins handed out, from module 0.48.0', () => {
+describe('db/transfers, a character’s coins handed out, from module 0.49.0', () => {
   beforeEach(() => {
     jest.useFakeTimers({ now: NOW })
     for (const mock of [
@@ -653,7 +653,7 @@ describe('db/transfers, a character’s coins handed out, from module 0.48.0', (
     })
   })
 
-  it('refuses one while the module hands none out, as before 0.48.0, for either seat', async () => {
+  it('refuses one while the module hands none out, as before 0.49.0, for either seat', async () => {
     for (const transferFeatures of [
       [],
       ['partySends', 'distribute', 'change'],
@@ -805,7 +805,7 @@ describe('db/transfers, a move beside a removal on its way, from module 0.33.0',
     ).resolves.toEqual({ id: 'req-move' })
   })
 
-  it('refuses a move of its coins while a change to them is on its way, from module 0.48.0, and takes one of an item, or of a party’s coins', async () => {
+  it('refuses a move of its coins while a change to them is on its way, from module 0.49.0, and takes one of an item, or of a party’s coins', async () => {
     /** Thorin's coins being taken away, on their way from the seat. */
     const paying = () => {
       removing()

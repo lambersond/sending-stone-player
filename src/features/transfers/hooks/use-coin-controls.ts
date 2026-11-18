@@ -13,7 +13,7 @@ import type { SheetCurrency } from '@/types/sending-stone'
 import type { TableView } from '@/types/table'
 
 /*
- * A character's Currency row's own buttons (module 0.48.0), either side of its Send to: Add or
+ * A character's Currency row's own buttons (module 0.49.0), either side of its Send to: Add or
  * take away, while the campaign lets its coins be changed from here; and Hand out, while the game
  * takes moves and its module hands coins out, to any of the campaign's other characters. For its
  * player and the Gamemaster at its page. Each opens its dialog, and what's sent is followed in the

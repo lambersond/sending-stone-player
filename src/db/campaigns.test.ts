@@ -82,7 +82,7 @@ const listed = async (fields: object) => {
       effectsEnabled: false,
       // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0.
       wildShapeEnabled: false,
-      // Changed on purpose (items 67 and 68): from module 0.48.0.
+      // Changed on purpose (items 67 and 68): from module 0.49.0.
       transferFeatures: [],
       coinsEnabled: false,
       coinFeatures: [],
@@ -162,7 +162,7 @@ describe('db/campaigns', () => {
           wildShapeEnabled: true,
           // Changed on purpose (v0.44): from module 0.44.0.
           hitPointsEnabled: true,
-          // Changed on purpose (items 67 and 68): from module 0.48.0.
+          // Changed on purpose (items 67 and 68): from module 0.49.0.
           transferFeatures: ['partySends', 'distribute', 'handOut', 'change'],
           coinsEnabled: true,
           coinFeatures: ['change'],
@@ -216,7 +216,7 @@ describe('db/campaigns', () => {
             prompts: true,
           },
           // From module 0.31.0: turned on, and the game fetching moves; changed on purpose (item
-          // 68): and a character's coins handed out, from module 0.48.0.
+          // 68): and a character's coins handed out, from module 0.49.0.
           transfers: { enabled: true, reaching: true, handOut: true },
           // Changed on purpose (round 0.38.0 §D9): dishes from the Magical Recipe Book, none.
           dishes: { enabled: false, waiting: 0, inFoundry: 0 },
@@ -400,7 +400,7 @@ describe('db/campaigns', () => {
       expect(select).toMatchObject({ hitPointsEnabled: true })
     })
 
-    it('says whether the campaign lets its players change coins, from module 0.48.0, with whether other coins pay, and whether coins are handed out, as its hello said', async () => {
+    it('says whether the campaign lets its players change coins, from module 0.49.0, with whether other coins pay, and whether coins are handed out, as its hello said', async () => {
       await expect(
         listed({ coinsEnabled: true, transferFeatures: ['handOut'] }),
       ).resolves.toMatchObject({

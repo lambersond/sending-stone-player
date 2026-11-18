@@ -8,7 +8,7 @@ import { Modal } from '@/components/modal/modal'
 import type { HandOutDialogProps } from './types'
 
 /*
- * A character's coins handed out (module 0.48.0), asked in a dialog of its own: to any of the
+ * A character's coins handed out (module 0.49.0), asked in a dialog of its own: to any of the
  * campaign's other characters, a set amount of each coin to each of those ticked, as a share of
  * loot is paid. It says what each gets and what that comes to in all; that may be more of a coin
  * than the character holds, where the game pays with its other coins. No line is posted for all

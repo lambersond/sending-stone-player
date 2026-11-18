@@ -1676,7 +1676,7 @@ describe('a party’s coin distributed, from module 0.32.0', () => {
     [
       'both an end and those it’s shared among',
       { to: 'actorThorin1' },
-      // Changed on purpose (item 68): a hand-out is a third way, from module 0.48.0.
+      // Changed on purpose (item 68): a hand-out is a third way, from module 0.49.0.
       [
         'transfer.to',
         'A move goes to one end, is shared among characters, or is handed out to each',
@@ -1685,7 +1685,7 @@ describe('a party’s coin distributed, from module 0.32.0', () => {
     [
       'neither',
       { among: undefined },
-      // Changed on purpose (item 68): a hand-out is a third way, from module 0.48.0.
+      // Changed on purpose (item 68): a hand-out is a third way, from module 0.49.0.
       [
         'transfer.to',
         'A move goes to one end, is shared among characters, or is handed out to each',
@@ -3207,7 +3207,7 @@ const kinds = (count: number) =>
     Array.from({ length: count }, (_, index) => [`c${index}`, 1]),
   )
 
-describe('schemas/roll-request, a character’s coins handed out, from module 0.48.0', () => {
+describe('schemas/roll-request, a character’s coins handed out, from module 0.49.0', () => {
   /** 200 pp and 50 gp each to Vex, Bram and Lia, as the dialog's Hand out sends it. */
   const handingOut = {
     kind: 'transfer',
@@ -3291,7 +3291,7 @@ describe('schemas/roll-request, a character’s coins handed out, from module 0.
   })
 })
 
-describe('schemas/roll-request, coins added and taken away, from module 0.48.0', () => {
+describe('schemas/roll-request, coins added and taken away, from module 0.49.0', () => {
   /** 5 gp taken away, as the dialog's Take away coins sends it. */
   const paying = {
     kind: 'coins',

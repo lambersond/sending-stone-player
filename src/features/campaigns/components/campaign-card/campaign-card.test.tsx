@@ -978,7 +978,7 @@ describe('components/campaigns/campaign-card', () => {
         // The straight apostrophe four end-to-end suites read.
         "Players' rolls",
         'Items and coins',
-        // Changed on purpose (item 67): the players' coins follow them (module 0.48.0).
+        // Changed on purpose (item 67): the players' coins follow them (module 0.49.0).
         "Players' coins",
         'Cookbook dishes',
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape follows the players' effects.
@@ -1024,7 +1024,7 @@ describe('components/campaigns/campaign-card', () => {
         'Chat',
         "Players' rolls",
         'Items and coins',
-        // Changed on purpose (item 67): the players' coins follow them (module 0.48.0).
+        // Changed on purpose (item 67): the players' coins follow them (module 0.49.0).
         "Players' coins",
         'Cookbook dishes',
         // Changed on purpose (round 0.40.0 §10.3): Wild Shape between the players' effects and
@@ -1393,10 +1393,10 @@ describe('components/campaigns/campaign-card', () => {
   })
 
   // Each of its words is pinned in feature-words.test.ts: here, where they go.
-  it('says whether players add and take away coins from here (module 0.48.0), after Items and coins, before the Cookbook dishes', () => {
+  it('says whether players add and take away coins from here (module 0.49.0), after Items and coins, before the Cookbook dishes', () => {
     renderCard({
       coins: { enabled: true, change: true },
-      foundry: effectsFoundry('0.48.0', dnd5e('5.3.3')),
+      foundry: effectsFoundry('0.49.0', dnd5e('5.3.3')),
     })
 
     const section = screen.getByRole('heading', { name: "Players' coins" })

@@ -474,7 +474,7 @@ export type SheetCurrency = {
   abbreviation: string
   value: number
   /**
-   * Its rate, from module 0.48.0: how many of it make one gp, as dnd5e's configuration has it, 0.1
+   * Its rate, from module 0.49.0: how many of it make one gp, as dnd5e's configuration has it, 0.1
    * for pp and 10 for sp; null for a coin with none, as a world's own may have, and unset or null
    * from a module before it.
    */
@@ -1549,7 +1549,7 @@ export type BridgeFeatures = {
     partySends?: boolean
     distribute?: boolean
     /**
-     * From module 0.48.0: whether a character's coins may be handed out, a set amount to each of
+     * From module 0.49.0: whether a character's coins may be handed out, a set amount to each of
      * the characters picked, wherever moves are on; and whether a giver short of a coin pays with
      * its other coins, the campaign's Pay with other coins when a character is short of one.
      */
@@ -1645,7 +1645,7 @@ export type BridgeFeatures = {
    * Whether the campaign lets its players add coins to their characters and take them away from
    * here, `"coins"` among its kinds, by its own switch under dnd5e, on by default, apart from the
    * rolls and the moves; or not, and why (`"off"`, `"system"`); and whether a character short of a
-   * coin pays with its other coins (`change`). Module 0.48.0.
+   * coin pays with its other coins (`change`). Module 0.49.0.
    */
   coins?: {
     enabled: boolean
@@ -1923,7 +1923,7 @@ export type CommandResult = {
   hitPoints?: HitPointsNow
   /**
    * For coins added or taken away, on "done": which, the coins asked for, and which of the
-   * character's other coins went beyond them, null where none did, as for every add. Module 0.48.0.
+   * character's other coins went beyond them, null where none did, as for every add. Module 0.49.0.
    */
   coins?: CoinsChanged
   /**
@@ -2360,7 +2360,7 @@ export type TransferMoved = {
   /** A distribution's characters that were given their share, in order. */
   among?: string[]
   /**
-   * A hand-out's characters that were given its coins, in order, from module 0.48.0: `currency`
+   * A hand-out's characters that were given its coins, in order, from module 0.49.0: `currency`
    * is then what each was given, never the total.
    */
   each?: string[]
@@ -2371,11 +2371,11 @@ export type TransferMoved = {
   used?: Record<string, number> | null
 }
 
-/** What may be done to a character's coins from the app, from module 0.48.0. */
+/** What may be done to a character's coins from the app, from module 0.49.0. */
 export type CoinOp = (typeof COIN_OPS)[number]
 
 /**
- * What coins added or taken away changed, as the game says it, from module 0.48.0: which, the coins
+ * What coins added or taken away changed, as the game says it, from module 0.49.0: which, the coins
  * asked for, by coin, and which of the character's other coins went beyond them, as where a larger
  * coin was broken, null where none did. Its counts may be far above those asked for.
  */

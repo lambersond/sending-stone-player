@@ -169,7 +169,7 @@ describe('utils/table-seat', () => {
       effectsEnabled: true,
       wildShapeEnabled: true,
       hitPointsEnabled: true,
-      // Coins, from module 0.48.0: off but where a case turns them on.
+      // Coins, from module 0.49.0: off but where a case turns them on.
       coinsEnabled: false,
       coinFeatures: [] as string[],
       transferFeatures: [] as string[],
@@ -234,7 +234,7 @@ describe('utils/table-seat', () => {
       expect(Object.keys(allows(gm))).toEqual(['moves', 'removes'])
     })
 
-    it('lets either seat add and take away coins, from module 0.48.0, while the campaign lets them, saying whether another coin pays', () => {
+    it('lets either seat add and take away coins, from module 0.49.0, while the campaign lets them, saying whether another coin pays', () => {
       expect(allows(thorin, { coinsEnabled: true }).coins).toEqual({
         change: false,
       })
@@ -259,7 +259,7 @@ describe('utils/table-seat', () => {
       }
     })
 
-    it('lets either seat hand its coins out with its moves, from module 0.48.0, where its module says so, saying whether another coin pays', () => {
+    it('lets either seat hand its coins out with its moves, from module 0.49.0, where its module says so, saying whether another coin pays', () => {
       expect(
         allows(thorin, { transferFeatures: ['partySends', 'handOut'] }).moves
           ?.handOut,

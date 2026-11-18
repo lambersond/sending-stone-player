@@ -83,7 +83,7 @@ const FEATURES = {
   // Changed on purpose (item 11): from module 0.44.0, the dice the game rolls later in a typed
   // roll's run, asked of its player, and the `dice` command answering one.
   diceAsks: 1,
-  // Changed on purpose (item 67): from module 0.48.0, coins added to a character and taken away,
+  // Changed on purpose (item 67): from module 0.49.0, coins added to a character and taken away,
   // fetched for with everything else off.
   coins: 1,
 }
@@ -956,7 +956,7 @@ describe('app/api/events', () => {
       }
     })
 
-    it('says it takes coins added and taken away, from module 0.48.0, after the dice asks, last, as a whole number', async () => {
+    it('says it takes coins added and taken away, from module 0.49.0, after the dice asks, last, as a whole number', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       for (const type of ['bridge.hello', 'bridge.heartbeat']) {

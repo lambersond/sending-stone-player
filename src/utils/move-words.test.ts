@@ -519,7 +519,7 @@ const paid = (used: Record<string, number> | null) =>
     coins: { op: 'remove', currency: { gp: 5 }, used },
   })
 
-describe('utils/move-words, coins added and taken away, from module 0.48.0', () => {
+describe('utils/move-words, coins added and taken away, from module 0.49.0', () => {
   /** dnd5e's coins' abbreviations, as a sheet lists them, the largest first. */
   const abbreviations = { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' }
   const receive: LocalMove = {
@@ -662,7 +662,7 @@ const given = (each: string[], used: Record<string, number> | null) => ({
   used,
 })
 
-describe('utils/move-words, coins handed out, from module 0.48.0', () => {
+describe('utils/move-words, coins handed out, from module 0.49.0', () => {
   const handOut: LocalMove = {
     verb: 'handOut',
     things: '200 pp and 50 gp',

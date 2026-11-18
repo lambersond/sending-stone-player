@@ -116,7 +116,7 @@ export function ownCompanions(
  * with no switch; turn off, turn on and delete its own effects, from module 0.39.0, by the
  * campaign's switch, as favorites; use Wild Shape, from module 0.40.0, by the campaign's switch, as
  * effects; and set its hit points and temporary hit points, its form's while shaped, from module
- * 0.44.0, by the campaign's switch, as Wild Shape. From module 0.48.0, at either seat as moves
+ * 0.44.0, by the campaign's switch, as Wild Shape. From module 0.49.0, at either seat as moves
  * are, whether it may add and take away its coins, by the campaign's switch, with whether another
  * coin pays where it is short of one; and with its moves, whether it may hand its coins out. What
  * the character is, and what Wild Shape gives, are on its sheet.

@@ -30,7 +30,7 @@ export type RollSeat = Pick<
 /**
  * A command a seat sends that rides to the game as a roll does but is none, each with a switch of
  * the campaign's own, as `createCommand` takes it: an item removed, a favorite, an effect changed,
- * Wild Shape, from module 0.44.0 hit points set, and from module 0.48.0 coins added or taken away.
+ * Wild Shape, from module 0.44.0 hit points set, and from module 0.49.0 coins added or taken away.
  * A move has gates of its own.
  */
 export type CommandKind =
@@ -51,7 +51,7 @@ export type WaitingRow = {
 /**
  * What `createCommand` reads of a campaign: the kind's switch, its last fetch, its roster, at a
  * companion's seat (module 0.44.0) its companions, and what more the kind's `select` asks for, as
- * favorites' features (module 0.47.0) and coins' (module 0.48.0).
+ * favorites' features (module 0.47.0) and coins' (module 0.49.0).
  */
 export type CommandCampaign = Partial<
   Record<NonNullable<RollKindInfo['own']>, boolean>
@@ -86,7 +86,7 @@ export type CommandSpec<K extends CommandKind> = {
   takes?: (value: CommandValue<K>, campaign: CommandCampaign) => boolean
   /**
    * Why the sheet, as last sent, refuses it, if it does; by what the campaign's module does with
-   * it too, as whether another coin pays for one a character is short of (module 0.48.0).
+   * it too, as whether another coin pays for one a character is short of (module 0.49.0).
    */
   check: (
     value: CommandValue<K>,
@@ -222,7 +222,7 @@ export type CompanionStatus = {
  * whether the player may change its character's own effects, which likewise changes with no new
  * version; and from module 0.40.0 whether the player may use Wild Shape, which likewise changes
  * with no new version; and from module 0.44.0 whether the player may set its character's hit
- * points, which likewise changes with no new version; and from module 0.48.0 whether the seat may
+ * points, which likewise changes with no new version; and from module 0.49.0 whether the seat may
  * add and take away its character's coins, which likewise changes with no new version.
  */
 export type CampaignStatus = {

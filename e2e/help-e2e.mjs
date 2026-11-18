@@ -108,7 +108,7 @@ async function openHelp(who) {
 const boxOf = who => panelOf(who).getByRole('region', { name: /^In this game, for / })
 const rowsOf = who => boxOf(who).locator('dl > div').evaluateAll(rows => rows.map(row => `${row.querySelector('dt').textContent}: ${row.querySelector('dd').textContent}`))
 /**
- * The coins' row at either seat, since module 0.48.0: from here wherever the campaign's module lets
+ * The coins' row at either seat, since module 0.49.0: from here wherever the campaign's module lets
  * coins be added and taken away, on unless its Gamemaster turns it off; never with module 0.42.0.
  */
 const COINS_ROW = `Adding and taking away coins: ${SKEW042 ? 'Not from here' : 'From here'}`

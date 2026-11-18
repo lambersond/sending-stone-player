@@ -585,7 +585,7 @@ const handOut = (from = THORIN, each = [VEX, BALIN]) => ({
   currency: { gp: 2 },
 })
 
-describe('utils/transfers, a character’s coins handed out, from module 0.48.0', () => {
+describe('utils/transfers, a character’s coins handed out, from module 0.49.0', () => {
   describe('checkEnds', () => {
     it('lets a player hand out their own character’s coins, and the Gamemaster as that character', () => {
       expect(checkEnds(player(), handOut(), roster, groups)).toBeUndefined()

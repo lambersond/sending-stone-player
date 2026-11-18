@@ -117,7 +117,7 @@ const held = (actor, key) => actor._source.system.currency[key]
 const holding = (actor, name) => [...actor.items].filter(it => it.name === name)
 
 if (NEW) {
-  // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.48.0).
+  // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.49.0).
   check(same(hello().data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true }),
     `the hello says moves are made, a party's things may be sent by its Owner, its coin distributed, and a character's coins handed out (${JSON.stringify(hello().data.features.transfers)})`)
   await until(() => features() === 'partySends,distribute,handOut,change', 'the app to keep them', 15_000)
@@ -206,14 +206,14 @@ await sheetTab.getByRole('group', { name: 'Currency', exact: true }).waitFor({ t
   const look = await sheetTab.getByRole('group', { name: 'Currency', exact: true }).evaluate(group => {
     const card = group.closest('dl > div') ?? group.parentElement.parentElement
     const dt = card.querySelector('dt')
-    // The last of its buttons: from module 0.48.0 the row has three.
+    // The last of its buttons: from module 0.49.0 the row has three.
     const button = [...group.querySelectorAll('button')].at(-1).getBoundingClientRect()
     const label = dt.getBoundingClientRect()
     const style = getComputedStyle(card)
     const contentRight = card.getBoundingClientRect().right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth)
     return { overlap: button.top < label.bottom && label.top < button.bottom, right: contentRight - button.right, label: dt.textContent.trim() }
   })
-  // Changed on purpose (items 67 and 68): with module 0.48.0 the row's buttons are Add or take away,
+  // Changed on purpose (items 67 and 68): with module 0.49.0 the row's buttons are Add or take away,
   // Send to and Hand out, in that order, which may wrap under the label on a phone; with module
   // 0.31.0, Send to alone, on the label's row, as before.
   check(same(names, NEW ? ['Add or take away', 'Send to', 'Hand out'] : ['Send to']) && (NEW || look.overlap) && Math.abs(look.right) <= 1 && /^currency$/i.test(look.label) && await sheetTab.getByRole('button', { name: 'Give coins' }).count() === 0,
@@ -832,7 +832,7 @@ part('15. a race')
     const send = group.getByRole('button', { name: 'Send to', exact: true })
     await until(async () => (await send.getAttribute('aria-busy')) === 'true', 'his Send to to wait', 10_000)
     const look = await currencyLook(group)
-    // Changed on purpose (items 67 and 68): with module 0.48.0 his row has three buttons, and says what's on its
+    // Changed on purpose (items 67 and 68): with module 0.49.0 his row has three buttons, and says what's on its
     // way once, by its label, as a party's does; with an older one Send to, alone, keeps its own spinner.
     check(NEW
       ? look.busy === 'true' && look.buttons.length === 3 && look.buttons.every(b => b.disabled && b.svgs === 0) && look.termSpinners === 1 && look.right && look.name === 'Currency'

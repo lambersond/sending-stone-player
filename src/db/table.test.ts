@@ -2134,7 +2134,7 @@ const changingCoins = (
     bridgePolledAt,
   })
 
-describe('db/table, coins added and taken away, from module 0.48.0', () => {
+describe('db/table, coins added and taken away, from module 0.49.0', () => {
   /** The campaign's Gamemaster at the character's page. */
   const gm = {
     ...character,
@@ -2166,7 +2166,7 @@ describe('db/table, coins added and taken away, from module 0.48.0', () => {
 
   it.each([
     [
-      'the campaign lets none, as before module 0.48.0',
+      'the campaign lets none, as before module 0.49.0',
       () => changingCoins(false),
     ],
     [

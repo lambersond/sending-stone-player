@@ -51,7 +51,7 @@ export function transfersAvailable(
  * `unknown`, as a group that isn't there is, whatever the other end, so a made-up id never says one
  * is; and so is a group among those a distribution is shared among, for every seat. The Gamemaster
  * may move anything between the campaign's characters and groups, party to party too from module
- * 0.32.0. From module 0.48.0, a hand-out is to the campaign's characters alone, of the coins of the
+ * 0.32.0. From module 0.49.0, a hand-out is to the campaign's characters alone, of the coins of the
  * character it's made as, the Gamemaster's too: never a party's, nor another character's.
  * @param roster - The campaign's characters, from its hello.
  * @param groups - Its groups, as its roster keeps them.
@@ -78,7 +78,7 @@ export function checkEnds(
   // Those a distribution shares among are characters alone: a group among them says nothing of
   // whether it's one.
   if (among?.some(id => !character(id))) return 'unknown'
-  // Nor are those coins are handed out to (module 0.48.0).
+  // Nor are those coins are handed out to (module 0.49.0).
   if (each?.some(id => !character(id))) return 'unknown'
   const { actorId } = seat
   if (!actorId || !character(actorId)) return 'not-yours'
@@ -171,7 +171,7 @@ function accessOf(
  * with as many of it, and each coin, of its whole coins; never part of a container that holds, or
  * may hold, anything, which moves whole; and never an item with the container it's in, which it
  * moves with already. A distribution, from module 0.32.0, shares a whole coin at least with each
- * of those it's shared among. A hand-out, from module 0.48.0, takes each count once for every
+ * of those it's shared among. A hand-out, from module 0.49.0, takes each count once for every
  * character named, paid as coins taken away are: by the character's other coins too, where the
  * game pays with them (`checkCoins`).
  * @param sheet - The `from` end's sheet: a character's or a group's.

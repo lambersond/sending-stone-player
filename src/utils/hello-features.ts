@@ -41,7 +41,7 @@ export const HELLO_ROLL_FLAGS = [
 /**
  * What else the game does with moves, as a hello says it, in the order the campaign keeps them:
  * from module 0.32.0, a party's things sent elsewhere by its Owner, and its coin distributed; and
- * from module 0.48.0, a character's coins handed out, and its giver paying with other coins where
+ * from module 0.49.0, a character's coins handed out, and its giver paying with other coins where
  * it's short of one.
  */
 const HELLO_TRANSFER_FLAGS = [
@@ -72,14 +72,14 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
   // switch under dnd5e 5.
   const dishesOn = kindOn(features?.dishes, 'dish')
   // Whether its players may add coins to their characters and take them away from here, from
-  // module 0.48.0, by its own switch under dnd5e.
+  // module 0.49.0, by its own switch under dnd5e.
   const coinsOn = kindOn(features?.coins, 'coins')
   return {
     // Whether its players may roll in the game from here. A module before 0.10.0 can't make their
     // rolls, and says nothing of them.
     rollsEnabled: features?.rolls?.enabled === true,
     // A move of items and coins, a removal, a favorite, from module 0.39.0 an effect changed, from
-    // module 0.40.0 Wild Shape, from module 0.44.0 hit points set, or from module 0.48.0 coins
+    // module 0.40.0 Wild Shape, from module 0.44.0 hit points set, or from module 0.49.0 coins
     // added or taken away, is never one of the rolls, even where a module says so: each has its
     // own feature. A plain roll, from module 0.44.0, is one of them.
     rollKinds: (features?.rolls?.kinds ?? []).filter(
@@ -91,7 +91,7 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
       flag => features?.rolls?.[flag] === true,
     ),
     transfersEnabled: transfersOn,
-    // What else it does with moves, from module 0.32.0, and from module 0.48.0 whether a
+    // What else it does with moves, from module 0.32.0, and from module 0.49.0 whether a
     // character's coins may be handed out ('handOut') and a giver short of a coin pays with its
     // other coins ('change'); nothing while moves are off, and a module before each says nothing
     // of it, which clears it.
@@ -135,7 +135,7 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
     // apart from the rolls: a module before it says nothing of them, which clears it.
     hitPointsEnabled: kindOn(features?.hitPoints, 'hitPoints'),
     // Whether the campaign lets its players add coins to their characters and take them away from
-    // here, from module 0.48.0, by its own switch under dnd5e, apart from the rolls and the moves:
+    // here, from module 0.49.0, by its own switch under dnd5e, apart from the rolls and the moves:
     // a module before it says nothing of them, which clears it.
     coinsEnabled: coinsOn,
     // What else it does with them: 'change' where a character short of a coin pays with its other
@@ -162,7 +162,7 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
  * How its characters' companions roll, as a hello says it (module 0.36.0): the kinds a companion's
  * rolls may be, never one no companion's is, nor one this app doesn't know, nor one with a switch
  * of its own, as hit points set from module 0.44.0, which a companion takes wherever its own
- * feature does, or coins from module 0.48.0, which none takes; and how they enter initiative, each
+ * feature does, or coins from module 0.49.0, which none takes; and how they enter initiative, each
  * its own roll unless the module says otherwise. A module before it says nothing of them, which
  * clears the first and sets the second back to its own roll.
  */

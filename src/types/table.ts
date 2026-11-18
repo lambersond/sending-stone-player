@@ -424,7 +424,7 @@ export type TableView = {
    */
   hitPoints?: true
   /**
-   * From module 0.48.0: whether the seat may add coins to the character and take them away, its
+   * From module 0.49.0: whether the seat may add coins to the character and take them away, its
    * player's or the Gamemaster's at its page: set only while the campaign lets them, its module
    * is fetching, and the character is in its roster. `change` says whether another coin pays
    * where the character is short of one, as its module said last.

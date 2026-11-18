@@ -743,7 +743,7 @@ export const inventorySchema: z.ZodType<SheetInventory> = z
         label: z.string().catch(''),
         abbreviation: z.string().catch(''),
         value: z.number().catch(0),
-        // From module 0.48.0: its rate, how many of it make one gp. None for a coin with no rate,
+        // From module 0.49.0: its rate, how many of it make one gp. None for a coin with no rate,
         // for one that isn't a number above 0, and from a module before it.
         conversion: orNull(z.number().positive()),
       }),
@@ -1627,7 +1627,7 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // distributed.
         partySends: z.boolean().optional().catch(false),
         distribute: z.boolean().optional().catch(false),
-        // From module 0.48.0: a character's coins may be handed out, a set amount to each of the
+        // From module 0.49.0: a character's coins may be handed out, a set amount to each of the
         // characters picked; and whether a giver short of a coin pays with its other coins.
         handOut: z.boolean().optional().catch(false),
         change: z.boolean().optional().catch(false),
@@ -1746,7 +1746,7 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
       .nullable()
       .optional()
       .catch(null),
-    // From module 0.48.0: whether the campaign lets its players add coins to their characters and
+    // From module 0.49.0: whether the campaign lets its players add coins to their characters and
     // take them away here, by its own switch, on by default, under dnd5e; and whether a character
     // short of a coin pays with its other coins.
     coins: z
@@ -1986,7 +1986,7 @@ const beastSchema: z.ZodType<BeastEntry> = z.object({
 
 /**
  * Which of a character's other coins went as its coins were taken away or handed out, from module
- * 0.48.0: by coin, a whole number of 1 or more each, of no more kinds than any world has. Its
+ * 0.49.0: by coin, a whole number of 1 or more each, of no more kinds than any world has. Its
  * counts may be far above what one command names, as where smaller coins pay for larger ones.
  */
 const usedCoinsSchema = z
@@ -2120,7 +2120,7 @@ const commandResultSchema: z.ZodType<CommandResult> = z.object({
         .nullable(),
       // A distribution's characters that were given their share, in order (module 0.32.0).
       among: z.array(z.string().min(1).max(64)).max(MOST_AMONG).optional(),
-      // A hand-out's characters that were given its coins, in order (module 0.48.0): `currency` is
+      // A hand-out's characters that were given its coins, in order (module 0.49.0): `currency` is
       // then what each was given, never the total; and which of the giver's other coins went.
       each: z.array(z.string().min(1).max(64)).max(MOST_AMONG).optional(),
       used: leftOut(usedCoinsSchema.nullable()),
@@ -2202,7 +2202,7 @@ const commandResultSchema: z.ZodType<CommandResult> = z.object({
       max: z.number().nullable(),
     }),
   ),
-  // From module 0.48.0, for coins added or taken away: which, the coins asked for, and which of
+  // From module 0.49.0, for coins added or taken away: which, the coins asked for, and which of
   // the character's other coins went, none for an add. Anything else is left out, and the rest
   // still read; coins used that can't be read are read as none, the change itself still told.
   coins: leftOut(

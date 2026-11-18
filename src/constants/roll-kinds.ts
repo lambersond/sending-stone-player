@@ -126,7 +126,7 @@ export const ROLL_KIND_INFO = {
     gm: false,
     own: 'hitPointsEnabled',
   },
-  // From module 0.48.0, by a switch of its own: coins added to the character or taken away, by
+  // From module 0.49.0, by a switch of its own: coins added to the character or taken away, by
   // its player or the Gamemaster at its page, each a line in the game's chat; never a companion's.
   coins: {
     gmLabel: 'Coins added or taken away',
@@ -165,7 +165,7 @@ export const ANSWER_KINDS = [
 /**
  * The kinds with a switch of the campaign's own, never one of the rolls, in ROLL_KINDS' order, as
  * the server withholds them: a move, a removal, a favorite, an effect changed, Wild Shape, from
- * module 0.44.0 hit points set and from module 0.48.0 coins added or taken away.
+ * module 0.44.0 hit points set and from module 0.49.0 coins added or taken away.
  */
 export const OWN_KINDS: readonly RollKind[] = kindsWhere(
   kind => 'own' in ROLL_KIND_INFO[kind],

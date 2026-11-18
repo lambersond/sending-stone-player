@@ -120,7 +120,7 @@ export function CharacterPane({
   })
   // While the character is transformed, as by Wild Shape (module 0.40.0), what its form's sheet
   // can't keep, or its gear isn't on, isn't offered: favorites added or removed, effects changed,
-  // its items given, removed or taken into it, and from module 0.48.0 its coins added or taken
+  // its items given, removed or taken into it, and from module 0.49.0 its coins added or taken
   // away.
   const shaped = sheet.form !== undefined
   const { giving, removing, coinage, transfers } = useGiveRemove({

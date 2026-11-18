@@ -3731,7 +3731,7 @@ describe('an item removed, from module 0.33.0', () => {
   })
 })
 
-describe('coins added and taken away, from module 0.48.0', () => {
+describe('coins added and taken away, from module 0.49.0', () => {
   /** 5 gp taken away from Thorin, as the dialog logs it. */
   const paid = moved({
     verb: 'pay',

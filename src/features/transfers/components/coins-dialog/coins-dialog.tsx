@@ -8,7 +8,7 @@ import type { CoinsDialogProps } from './types'
 import type { CoinOp } from '@/types/sending-stone'
 
 /*
- * Coins added to a character or taken away (module 0.48.0), asked in a dialog of its own, as when
+ * Coins added to a character or taken away (module 0.49.0), asked in a dialog of its own, as when
  * they're paid or buy something: which of the two, how many of each coin, and what it'll do. Coins
  * taken away may be more of one than the character holds, where the game pays with its other
  * coins, which the dialog says; where they're worth too little, or the game doesn't, it can't be

@@ -148,7 +148,7 @@ const MOST_COINS = 10
  * Items and coins moved, from module 0.31.0: from one end to another, each a campaign character
  * or party by its Foundry id, one to ten items, each once and by how many, or one to ten kinds of
  * coin, or both. A coin of none isn't sent. From module 0.32.0, or a distribution: one kind of a
- * party's coin shared among its characters, `among`, in place of `to`. From module 0.48.0, or a
+ * party's coin shared among its characters, `among`, in place of `to`. From module 0.49.0, or a
  * hand-out: one to ten kinds of a character's coin, so many to each of `each`, in place of `to`.
  */
 const transferSchema: z.ZodType<TransferInput> = z
@@ -188,7 +188,7 @@ const transferSchema: z.ZodType<TransferInput> = z
 /**
  * A move goes one way: to one end; or shared among characters, from module 0.32.0, one kind of a
  * party's coin, never to itself, a share each; or handed out to each of the characters named, from
- * module 0.48.0.
+ * module 0.49.0.
  */
 function shareRules(transfer: TransferInput, issue: Issue) {
   const { to, among, each } = transfer
@@ -216,7 +216,7 @@ function shareRules(transfer: TransferInput, issue: Issue) {
 }
 
 /**
- * A hand-out, from module 0.48.0, gives coins alone, one to ten kinds, to each character once,
+ * A hand-out, from module 0.49.0, gives coins alone, one to ten kinds, to each character once,
  * never to the one whose coins they are.
  */
 function handOutRules(transfer: TransferInput, each: string[], issue: Issue) {
@@ -277,7 +277,7 @@ const removeSchema: z.ZodType<RemoveInput> = z
   )
 
 /**
- * Coins added to the character or taken away, from module 0.48.0: which, and one to ten kinds of
+ * Coins added to the character or taken away, from module 0.49.0: which, and one to ten kinds of
  * coin, each a whole number from 1 to 10,000,000 of it, as a move names them. More of a coin may be
  * taken away than the character holds: the game then pays with its other coins, where its campaign
  * lets it. Nothing else.
@@ -478,7 +478,7 @@ function plainOnce({ terms }: PlainRollInput): boolean {
  * module 0.40.0, Wild Shape its op and form; and from module 0.42.1, a spell slot spent or restored
  * its pool, which, and the count it was made from; and from module 0.42.1 a spell prepared or
  * unprepared which spell, and which of those; and from module 0.44.0 hit points set the numbers
- * and what they were, and a plain roll its dice; and from module 0.48.0 coins added or taken away
+ * and what they were, and a plain roll its dice; and from module 0.49.0 coins added or taken away
  * which, and the coins. A field more than one kind names lists them all, `kinds`.
  */
 const OWN_FIELDS: Readonly<
@@ -676,7 +676,7 @@ const effectDieSchema = z.strictObject({
  * the same order, typed in or not. From module 0.44.0 too, dice the game asked for name the ask,
  * and what was typed, term by term, each term by its roll's and its own place, with a value for
  * each of its dice, at most 100 terms; and nothing else, and throw no dice of their own. From
- * module 0.48.0, coins added or taken away name which, and one to ten kinds of coin, and nothing
+ * module 0.49.0, coins added or taken away name which, and one to ten kinds of coin, and nothing
  * else, and throw no dice.
  */
 export const rollRequestSchema: z.ZodType<RollRequestInput> = z
@@ -759,7 +759,7 @@ export const rollRequestSchema: z.ZodType<RollRequestInput> = z
       .optional(),
     // From module 0.44.0: hit points set, from what the page showed; and a plain roll's dice.
     hitPoints: hitPointsSchema.optional(),
-    // From module 0.48.0: coins added to the character or taken away.
+    // From module 0.49.0: coins added to the character or taken away.
     coins: coinsSchema.optional(),
     plainRoll: plainRollSchema.optional(),
     turn: turnSchema.optional(),
@@ -1045,7 +1045,7 @@ function enchantRules(request: RollRequestInput, issue: Issue) {
  * and a spell slot spent or restored from module 0.42.1, each name what they're of, and nothing
  * else does; charges, how many, which nothing else says. And from module 0.42.1, a spell prepared
  * or unprepared names its spell, and nothing else does; and from module 0.44.0, hit points set
- * their numbers, and a plain roll its dice; and from module 0.48.0, coins added or taken away
+ * their numbers, and a plain roll its dice; and from module 0.49.0, coins added or taken away
  * their coins.
  */
 function ownFieldRules(request: RollRequestInput, issue: Issue) {

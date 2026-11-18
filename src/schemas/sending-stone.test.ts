@@ -6377,7 +6377,7 @@ const handedOut = (fields: object) => {
   })?.data as { transfer?: Record<string, unknown>; messageId: string | null }
 }
 
-describe('schemas/sending-stone, coins added, taken away and handed out, from module 0.48.0', () => {
+describe('schemas/sending-stone, coins added, taken away and handed out, from module 0.49.0', () => {
   it('reads whether the campaign lets its players change coins, why not, and whether other coins pay', () => {
     expect(coinsFeature(TAKING_COINS)).toEqual(TAKING_COINS)
     expect(

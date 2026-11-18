@@ -129,7 +129,7 @@ async function answered(count, what) {
 }
 
 if (NEW) {
-  // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.48.0).
+  // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.49.0).
   check(same(firstHello.data.features.transfers, { enabled: false, kinds: [], reason: 'off', partySends: false, distribute: false, handOut: false, change: false }),
     `1. off by default: the hello says ${JSON.stringify(firstHello.data.features.transfers)}`)
 } else {
@@ -187,7 +187,7 @@ const card = async who => {
 }
 const MOVES_OFF = 'Players can’t move items and coins from here. To let them, tick Players move items and coins on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
 const MOVES_OLD = 'Players can’t move items and coins from here. Sending Stone 0.31.0 or later in Foundry lets them.'
-// Changed on purpose (item 68): the card says coins are handed out too, where the module hands them out (0.48.0).
+// Changed on purpose (item 68): the card says coins are handed out too, where the module hands them out (0.49.0).
 const MOVES_ON = 'Your players take from and give to the parties they own in Foundry, and give to each other, and hand out coins to several characters at once, from here. Each move is made in your game at once and posts a line in its chat.'
 const movesSection = article => article.locator('section').filter({ has: article.page().getByRole('heading', { name: 'Items and coins' }) })
 

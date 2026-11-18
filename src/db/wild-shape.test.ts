@@ -677,7 +677,7 @@ describe('db/wild-shape, shapedRefusal, from module 0.40.0', () => {
       'the party’s coin is shared among her and Thorin',
       { from: PARTY, among: [THORIN, ELOWEN], currency: { gp: 2 } },
     ],
-    // From module 0.48.0.
+    // From module 0.49.0.
     [
       'Thorin hands coins out to her',
       { from: THORIN, each: [ELOWEN], currency: { gp: 2 } },

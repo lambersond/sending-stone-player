@@ -141,7 +141,7 @@ export async function holdCommand(
 /**
  * Take a command that rides to the game as a roll does but is none, for the Gamemaster's game to
  * make: an item removed (module 0.33.0), a favorite (0.37.0), an effect changed (0.39.0), Wild
- * Shape (0.40.0), hit points set (0.44.0) or coins added or taken away (0.48.0). From its player,
+ * Shape (0.40.0), hit points set (0.44.0) or coins added or taken away (0.49.0). From its player,
  * or the campaign's Gamemaster at its page where the kind is theirs to send too; while the
  * campaign's own switch for it is on, its module takes this one (`takes`) and is fetching; where
  * the seat isn't sending too many, of rolls and every other kind together; where the character is

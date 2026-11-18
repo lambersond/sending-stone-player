@@ -540,7 +540,7 @@ export function fullerSheet(
           contents: null,
         },
       ],
-      // Each coin's rate, how many make one gp, from module 0.48.0.
+      // Each coin's rate, how many make one gp, from module 0.49.0.
       currency: [
         {
           id: 'pp',
@@ -2235,7 +2235,7 @@ export function ironCompany(fields: Partial<GroupEntry> = {}): GroupEntry {
 
 /**
  * Where Thorin's player may move to, as their table view says: The Iron Company and Vex. No coins
- * handed out, as a module before 0.48.0 leaves it, unless `fields` say.
+ * handed out, as a module before 0.49.0 leaves it, unless `fields` say.
  */
 export function tableMoves(fields: Partial<TableMoves> = {}): TableMoves {
   return {
@@ -4333,13 +4333,13 @@ export function mockTurnCombat(fields: Partial<TableCombat> = {}): TableCombat {
   }
 }
 
-// Module 0.48.0: coins added to a character and taken away, and a character's coins handed out.
+// Module 0.49.0: coins added to a character and taken away, and a character's coins handed out.
 
-/** What a hello from module 0.48.0 says of coins under dnd5e, on, other coins paying. */
+/** What a hello from module 0.49.0 says of coins under dnd5e, on, other coins paying. */
 export const TAKING_COINS = switchedOn('coins', { change: true })
 
 /**
- * What a hello from module 0.48.0 says of moves, on, under dnd5e: a character's coins handed out,
+ * What a hello from module 0.49.0 says of moves, on, under dnd5e: a character's coins handed out,
  * its giver paying with other coins where it's short of one.
  */
 export const HANDING_OUT = switchedOn('transfer', {
@@ -4359,7 +4359,7 @@ const COINS = [
 ] as const
 
 /**
- * A character's coins as a sheet from module 0.48.0 lists them: dnd5e's five, in its order, each
+ * A character's coins as a sheet from module 0.49.0 lists them: dnd5e's five, in its order, each
  * with its rate, holding these and none of the rest.
  */
 export function purse(

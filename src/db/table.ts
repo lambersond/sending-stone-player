@@ -219,7 +219,7 @@ export async function getCampaignStatus(
       !!seat.actorId &&
       !!campaign &&
       hitPointsAvailable(campaign, now),
-    // Whether the seat may add and take away its character's coins, from module 0.48.0, by the
+    // Whether the seat may add and take away its character's coins, from module 0.49.0, by the
     // campaign's switch: the Gamemaster's at its page too, as `moves`.
     coins: !!seat.actorId && !!campaign && coinsAvailable(campaign, now),
   }

@@ -122,7 +122,7 @@ describe('utils/hello-features', () => {
     },
   )
 
-  // Module 0.48.0: coins added and taken away have a switch of their own, and say whether a
+  // Module 0.49.0: coins added and taken away have a switch of their own, and say whether a
   // character short of a coin pays with its other coins, never while they're off.
   it.each([
     [
@@ -147,7 +147,7 @@ describe('utils/hello-features', () => {
     })
   })
 
-  // Module 0.48.0: a character's coins handed out, and whether its giver pays with other coins,
+  // Module 0.49.0: a character's coins handed out, and whether its giver pays with other coins,
   // after what module 0.32.0 said of moves, in the stored order.
   it.each([
     [

@@ -107,7 +107,7 @@ if (SKEW) {
   // Changed on purpose (round 0.40.0 §10.4): Wild Shape from the app, after effects.
   // Changed on purpose (v0.44 item 4, module 0.44.0): hit points from the app, after Wild Shape, on
   // for a campaign saved without the switch.
-  // Changed on purpose (items 67 and 68, module 0.48.0): the Coins box's two, after hit points, on
+  // Changed on purpose (items 67 and 68, module 0.49.0): the Coins box's two, after hit points, on
   // for a campaign saved without them.
   check(same(campaignRows, ['Players roll in the app: On', 'Attacks, spells and features: Off', 'Save and concentration prompts: Off',
     'Allow Players to enter dice results manually: Off', 'Players move items and coins: Off', 'Dishes from the Magical Recipe Book: Off',
