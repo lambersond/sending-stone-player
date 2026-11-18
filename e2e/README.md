@@ -2,7 +2,7 @@
 
 The real Sending Stone module, in a stand-in Foundry (the module's own `test/fvtt`), posting from a
 game's page in Chromium to this app, built and served for real over its own Postgres database, with
-players and a Gamemaster in their own browsers. 57 suites, 129 runs (`regress.sh`), each on fresh data,
+players and a Gamemaster in their own browsers. 58 suites, 130 runs (`regress.sh`), each on fresh data,
 and each run's `ok` lines counted against the number it wants.
 
 They run locally, on Linux, from this checkout and the module's. Nothing here runs in CI yet.
@@ -45,7 +45,8 @@ the suites expect to find: two users, Alice (`e2e-user`, "Alice Adventurer") and
 one session each, `e2e-token` and `e2e-bob-token`, valid for 7 days from the reset; and two campaigns
 of the Lonely Mountain game from before Gamemasters set campaigns up here, with no owner, in which Alice
 already plays Thorin Oakenshield and Vex (gm-e2e binds them again, theme-e2e opens that Thorin).
-Everything else (campaigns, characters, rolls) the suites make themselves.
+Everything else (campaigns, characters, rolls) the suites make themselves. signin adds sessions of its
+own for Alice, `e2e-signin-1` to `e2e-signin-5`, and deletes them, and deletes Vex's character.
 
 ## Running
 

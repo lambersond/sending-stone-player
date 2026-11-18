@@ -248,6 +248,11 @@ run help 4 DND5E6=1 SHOTS=$O/shots-help
 # that doesn't come in 15 seconds; reduced motion; a light device and a dark one; an older worker
 # replaced, the retiring worker, an iPhone's Home Screen app.
 run launch 28 SHOTS=$O/shots-launch
+# Item 62, with no Foundry: who is signed in is taken from Better Auth's sealed cookie for a minute.
+# The cookie as the table's first read sets it; signed out in another tab; a session deleted from the
+# database read while its cookie lasts but refused deleting Thorin; its cookie gone, to Sign in; Vex
+# removed, not found at once; and a Server Action that writes no cookie.
+run signin 9
 # Module 0.49.0 (items 67 and 68): coins added to a character, taken away and handed out from the
 # app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's three
 # buttons, a larger coin broken and smaller ones paying, more than the coins are worth held back,
