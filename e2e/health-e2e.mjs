@@ -8,7 +8,9 @@
 // The hello and the app's answer, both switches off; the switch on within a poll, Unhurt for the
 // three shown and nothing for the rest; the Goblin's fall, Hurt, Bloodied and Down within seconds
 // with no turn, then Defeated with no word; the posts counted, one for a new band and none in the
-// same one; their hit points with the second switch; Gamemaster-only details, hit points off, then
+// same one; their hit points with the second switch; the Wolf's token hidden mid-fight, its health
+// and hit points gone from what the page's own requests receive, then shown again;
+// Gamemaster-only details, hit points off, then
 // on, and never the Bandit's, the Scout's or the Lurker's in what the pages' own requests receive,
 // read from every response at both seats, not only from what they show; the turn panel on the
 // Ogre's turn; the Gamemaster at Thorin's page; Thorin's own hit points between turns (the owner's
@@ -375,6 +377,33 @@ part('5. hit points too')
   const said = await cardSays(gm)
   check(said === 'On in Foundry. Your players see how hurt other creatures in a fight are, and their hit points.', `the Gamemaster's campaign card: "${said}"`)
   await shots('hit-points')
+}
+
+// =================================================================================================
+// 5b. A token hidden mid-fight
+// =================================================================================================
+part('5b. a token hidden mid-fight')
+{
+  // Both switches on: the Wolf, Friendly and no one's, shows its hit points until its token is
+  // hidden from players, as Foundry hides one: written, then updateToken with `hidden`.
+  const before = updatesOf('cbWolf').length
+  await tokens.wolf.update({ hidden: true })
+  await until(() => updatesOf('cbWolf').length > before, "the Wolf's update", 5_000)
+  const posted = updatesOf('cbWolf').slice(before).map(p => p.data)
+  check(posted.length === 1 && same(posted[0].changes, ['hp', 'health']) && !('hp' in posted[0].combatant) && !('health' in posted[0].combatant),
+    `the Wolf's token hidden from players mid-fight posts its combatant with neither its health nor its hit points, with no turn (${JSON.stringify(posted)})`)
+  await rowReads(desk, 'Wolf', bare, 'the Wolf: nothing, within 5 s', 5_000)
+  const from = desk.bodies.length
+  await desk.page.reload()
+  await combatShown(desk)
+  await rowReads(desk, 'Ogre', says('Hit points 57 / 59'), 'the Ogre: 57 / 59, after the reload')
+  await wait(3000)
+  const views = viewsSince(desk, from)
+  const wolf = views.flatMap(body => combatantsIn(body, 'cbWolf'))
+  check(bare(await rowText(desk, 'Wolf')) && views.length > 0 && wolf.length > 0 && !wolf.some(object => /"(hp|health)":/.test(object)),
+    `the Wolf's row shows nothing, and the ${views.length} views Alice's page received after hold the Wolf with neither (${JSON.stringify(wolf.slice(0, 1))})`)
+  await tokens.wolf.update({ hidden: false })
+  await rowReads(desk, 'Wolf', says('Hit points 11 / 11'), 'the Wolf shown again: 11 / 11', 5_000)
 }
 
 // =================================================================================================

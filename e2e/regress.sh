@@ -266,9 +266,10 @@ run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
 # tokens: the hello and the answer, both switches off; Unhurt for the Hostile, Neutral and Friendly
 # creatures and nothing for a Secret one, a hidden token or a hidden combatant; a creature's fall
 # within seconds with no turn, then Defeated; one post for a new band, none in the same one; their
-# hit points with the second switch; Gamemaster-only details, and never more in what the pages'
+# hit points with the second switch; a token hidden mid-fight, its health and hit points gone from
+# what the page receives; Gamemaster-only details, and never more in what the pages'
 # own requests receive; the turn panel; the Gamemaster's seat; the party's own hit points between
 # turns; Help and the campaign card; dnd5e 6.0.5's own Bloodied percent; and module 0.49.0 (nothing).
-run health 27 SHOTS=$O/shots-050
-run health 27 DND5E6=1 SHOTS=$O/shots-050
+run health 29 SHOTS=$O/shots-050
+run health 29 DND5E6=1 SHOTS=$O/shots-050
 run health 6 SKEW=049 MODULE=$O/module-0.49.0 SHOTS=$O/shots-050
