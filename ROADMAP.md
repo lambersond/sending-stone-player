@@ -155,6 +155,11 @@ Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.51.
 **To check at the table before module v0.51.0 is tagged** (built and tested against stand-ins only),
 with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 
+- **Companions on another scene:** with a familiar summoned and an owned sidekick's unlinked token
+  on one scene, then another scene made active: each keeps its tab, pinned, with the note on its
+  sheet; a check rolled from its tab is made by its token's creature in Foundry; the campaign card
+  marks each "(on another scene)" or "(summoned, on another scene)"; reloading the Gamemaster's
+  Foundry drops neither; and deleting or hiding a token takes its companion away.
 - **Two encounters at once:** on two scenes, a fight with everyone on one and a companion's fight
   on the other, both begun: the Combat tab shows a tab for each, a dot on the companion's tab on
   its turn, and holding the Combat tab ends that turn while you view the other scene; the
@@ -205,19 +210,8 @@ tweaks needed may change it as it goes. Next week aims at the first three.
 
 **Moved from the next slice**
 
-18. **Companions and sidekicks wherever they are:** a companion or sidekick has its own tab and can
-    be rolled with even when it isn't on its player's scene or level, with a warning that it isn't
-    there. Today the module lists a linked NPC wherever its tokens are, but an unlinked token and a
-    summoned creature only while they're visible on the active scene, and never looks at levels
-    (`scripts/creatures.mjs`). The owner's answers: on which scenes a companion is found, "Ideally
-    all of them, however if NPC sheets never get deleted it could pose an issue of too many.
-    Perhaps this is a more complex feature than originally thought."; where its character is, C,
-    the active scene only and no levels, "but this could conflict with the #3 answer's example"
-    (item 36).
-
-And from the owner's answers on item 19, later work too:
-
-Item 36, two encounters at once, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+Items 18 and 36, companions and sidekicks wherever they are and two encounters at once, are done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
 
 **Found while building Batch 2**
 
@@ -515,7 +509,9 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Whether a change to a message brings it back after a clear is told by Foundry's time for the
   message against the app's: where the Gamemaster's computer clock is well off, a message posted
   just before the clear can come back, or one posted just after it stay out.
-- Companions show while on the active scene; a linked NPC its player owns shows always.
+- Companions are found on every scene, but no level is read: one on another level of the active
+  scene counts as there. With a module before 0.51.0, companions show while on the active scene; a
+  linked NPC its player owns shows always.
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.
 - Damage on its own never spends the action itself, and with Spend off it counts nothing.

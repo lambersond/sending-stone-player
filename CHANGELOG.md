@@ -21,6 +21,18 @@ so an item from it is named with its number when it was built, which may since b
 
 ## v0.51.0-rc
 
+### Features
+
+- **Companions on another scene.** A familiar or other summoned creature, a sidekick, or another
+  creature a player owns keeps its tab when its tokens are on another scene than the active one: a
+  pin on its tab, ", on another scene" in its description, and a note on its sheet, at the player's
+  seat and the Gamemaster's. It is still rolled for there; an attack at a target the Gamemaster
+  isn't viewing may be refused, as before. A summons stays, even on a map left behind, until its
+  tokens are deleted or hidden. The Gamemaster's campaign card marks each one "(on another scene)",
+  or "(summoned, on another scene)", and Help says so. Needs Sending Stone 0.51.0 in Foundry; with
+  an older one, companions show as before, a summons or an unlinked token's creature only while its
+  token is on the active scene. (app and module, item 18)
+
 ### Enhancements
 
 - **Two encounters at once.** When the party fights on one scene and a companion on another, both
@@ -38,10 +50,22 @@ so an item from it is named with its number when it was built, which may since b
   encounter, the keys, the companion's initiative and targets in its own encounter, another
   player's page and the Gamemaster's, the column at 1280, and module 0.50.0 beside them, offered no
   initiative it would refuse. (app, item 36)
-- **A migration.** `20261119100000_initiative_anywhere` keeps whether a campaign's module, 0.51.0
-  or later, takes initiative from the app into a begun encounter its scene has chosen, whichever
-  scene the Gamemaster views, from the campaign's next hello; until then the app offers initiative
-  as with an older module. (app, item 36)
+- **Companions on another scene, end to end.** The `companions` e2e suite finds a sidekick and
+  summoned creatures on another scene kept and marked: their tabs, the note on a sheet at the
+  player's seat and the Gamemaster's, the Gamemaster's campaign card and Help; a check rolled for
+  one there and made; a reload keeping them; and a Gamemaster's page load, its hello sent before any
+  answer, dropping none. A new run against module 0.50.0 (`e2e/skew.conf`'s 050) finds the summons
+  there marked gone and cleared by a reload, as before, and Help saying nothing of them. The module
+  harness's `companions.mjs` checks the lists on every scene for an app that answers 3 and today's
+  for one that answers 2, none away with no scene active, the hello built before any answer and
+  again, the two cuts, a scene made with its tokens, and 10,000 tokens never made into creatures.
+  (app and module, item 18)
+- **Two migrations.** `20261119090000_companions_away` keeps whether a campaign's module, 0.51.0 or
+  later, lists companions on every scene, each saying whether it's away, for Help, from the
+  campaign's next hello (item 18); `20261119100000_initiative_anywhere` keeps whether a campaign's
+  module, 0.51.0 or later, takes initiative from the app into a begun encounter its scene has
+  chosen, whichever scene the Gamemaster views, from the campaign's next hello; until then the app
+  offers initiative as with an older module (item 36). (app, items 18 and 36)
 
 ## v0.50.0 — 2026-11-18
 
