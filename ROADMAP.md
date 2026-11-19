@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.50.0 and its app, with v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0 and
-v0.44.0 before it.
+Released: module v0.51.0 and its app, with v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0
+and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -148,12 +148,13 @@ Midi-QOL v14.0.x:
   Iron Company", spoken by the giver. Add or remove's dialog reads Add and Remove, and each change
   is still a line for everyone, "Thorin paid 5 gp".
 
-## v0.51 (release candidate)
+## v0.51 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc entry.
+Released on 2026-11-19: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0 entry. v0.51 is
+the release candidate for v1.0 after v0.50: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.51.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Companions on another scene:** with a familiar summoned and an owned sidekick's unlinked token
   on one scene, then another scene made active: each keeps its tab, pinned, with the note on its
@@ -185,7 +186,7 @@ tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to c
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
 3. Items 18, 36 and 91, companions and sidekicks wherever they are, two encounters at once, and Give
-   to parties and characters alike: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+   to parties and characters alike: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -218,7 +219,7 @@ tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to c
 **Moved from the next slice**
 
 Items 18 and 36, companions and sidekicks wherever they are and two encounters at once, are done, in
-[CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+[CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 **Found while building Batch 2**
 
@@ -437,7 +438,7 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 Item 91, Give coins to parties and characters alike (on a character's Give of its coins the parties
 are checkboxes, as the characters are, and one give may go to any of them together, each given the
-same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 **Found while building Batch 3**
 
