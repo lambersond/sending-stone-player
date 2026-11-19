@@ -178,7 +178,7 @@ Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to come.
+tweaks needed may change it as it goes. Batches 1 to 5 are done; 6 and 7 are to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -189,7 +189,8 @@ tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to c
    to parties and characters alike: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
-5. Items 64, 65 and 66: any ability or skill the game has.
+5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
+   ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
 
@@ -392,14 +393,8 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
     what's kept on a device and for whom (cleared on sign-out, so a shared device keeps nothing),
     how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
 
-Items 64 and 65, any ability or skill the game has, named as the game names it, and checks on any
-ability, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
-
-66. **Eight abilities, laid out:** with Honor and Sanity on, the abilities grid ends on a short
-    row (3, 3 and 2 on a phone), and the loading skeleton draws six; its columns could follow the
-    count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
-    nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
-    read row by row, so one bad row can't blank a whole sheet. App and module, small.
+Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
+ability, and eight abilities laid out, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
 
 **Asked for on 2026-11-17**
 
@@ -470,10 +465,10 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 96. **"an" before a "u" that sounds like "you":** the app's one rule for "a" or "an" (`articleOf`,
     `src/utils/articles.ts`), which the chat's request cards and companions' notices use, among
-    others, says "an" before every vowel. So a world's own skill, tool or ability whose name begins
-    with a "u" said "you", or with "Eu", would read "an Utility check" or "an European". dnd5e's own
-    names all read right. A short list of such beginnings beside the silent h's would mend it. Found
-    building item 64. In no batch yet.
+    others, says "an" before every vowel. So a world's own skill or ability, or a Wild Shape form or
+    ammunition, whose name begins with a "u" said "you", or with "Eu", would read "an Utility check"
+    or "an European". dnd5e's own names all read right. A short list of such beginnings beside the
+    silent h's would mend it. Found building item 64. In no batch yet.
 97. **A world's own tools aren't in a description's hash:** since module 0.52.0 a description's hash
     holds the game's abilities and skills (`textFormat`, the module's `scripts/sheet-texts.mjs`),
     which decide which checks are links and so every later link's number. A world's own tools decide

@@ -35,6 +35,28 @@ so an item from it is named with its number when it was built, which may since b
   kept its copy; a card already in the chat stays text; and a choice of checks such as Wisdom or
   Honor is a Wisdom check alone, as before. (app and module, items 64 and 65)
 
+### Fixes
+
+- **One unreadable ability or skill no longer hides a sheet.** An ability or skill the app can't
+  read is left out and the rest of the sheet shows, where the whole sheet read as not yet arrived. A
+  class it can't read is left out, where it emptied the class line and the hit dice. (app, item 66)
+- **Wild Shape and a world's own ability.** On a transformed character's sheet, an ability with no
+  type, as a world's own may have, is marked as the form's, as dnd5e takes its score from the
+  creature. A transformation that keeps the whole character, as Appearance does, no longer marks
+  every ability as the creature's. Needs Sending Stone 0.52.0 in Foundry; with an older one, a
+  world's own ability shows unmarked and Appearance marks every ability as the creature's. (app and
+  module, items 64 and 66)
+
+### Enhancements
+
+- **Seven or eight abilities in even rows.** With Honor or Sanity on, or a world's own abilities,
+  the abilities follow how many there are. Eight lie four and four on most phones (384 px wide and
+  up), on a tablet and on a laptop, and all in one row only where the sheet is widest. Seven lie
+  four and three. A narrower phone keeps three to a row, and six are as before. The loading sheet
+  still draws six, so with more, the tiles move as the sheet arrives. Where a save shows Adv or Dis
+  in a narrow tile, it leaves out the word "Save" and keeps its shield, which also mends a chip cut
+  short at 1024 px. (app, item 66)
+
 ### Maintenance
 
 - **Any ability, end to end.** `links` gains a part with dnd5e's Honor and Sanity on and Etiquette,
@@ -54,6 +76,20 @@ so an item from it is named with its number when it was built, which may since b
   (`src/utils/game-names.ts`), "an" before a silent h (`src/utils/articles.ts`) and any ability's
   key in the schemas, a description's links, an item's chips, the chat's cards and a companion's
   notice. (app and module, items 64 and 65)
+- **Seven and eight abilities, end to end.** `sheet` gains a part in which Foundry turns on Honor
+  and Sanity and Thorin's sheet shows eight abilities without a reload, laid out at ten widths from
+  320 to 1920 px: three, three and two on a sheet under 384 px, four and four up to a 1024-px sheet,
+  and eight in a row from it, with nothing in a tile cut short, a save's and a check's Adv and Dis
+  among them; then, with Sanity off again, seven at three widths. The module harness's `wildshape`
+  checks, under dnd5e 5.3.3 and 6.0.5, that a world's own ability with no type (Luck) is listed as
+  the form's under Wild Shape and Honor, a mental one, isn't; that a transformation keeping only the
+  physical lists her mental ones, Honor among them, and Luck; and that one keeping her whole self,
+  as Appearance does, lists none. Jest pins the abilities' columns for each count
+  (`src/features/sheet/utils/abilities-grid.ts`), a list that must be there read entry by entry
+  (`requiredListOf`, `src/schemas/utils.ts`), a sheet's abilities, skills and classes read row by
+  row, a sheet with no list of abilities or of skills dropped, one with no abilities showing no
+  Abilities heading, and a save's word left out of a narrow tile only where it shows Adv or Dis.
+  (app and module, item 66)
 
 ## v0.51.0 — 2026-11-19
 
