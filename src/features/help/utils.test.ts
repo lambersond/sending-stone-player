@@ -300,9 +300,9 @@ describe('features/help/utils', () => {
         typingOf(true)?.filter(lead => lead !== 'Dice an item rolls later.'),
       )
       // Changed on purpose (item 58): Combat's part on other creatures' health, and its two
-      // switches, from module 0.50.0.
+      // switches, from module 0.50.0; and (item 36) Combat's part on two encounters at once.
       expect(helpSections(false).map(({ parts }) => parts.length)).toEqual([
-        8, 7, 1, 7, 3, 2, 10, 16,
+        8, 7, 1, 7, 3, 3, 10, 16,
       ])
     })
   })
