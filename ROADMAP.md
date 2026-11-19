@@ -411,6 +411,20 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 Item 89, Add or remove, one Give for a character's coins, and the Currency row's buttons below its
 coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
 
+**Found in Batch 4's last checks**
+
+90. **e2e's next read of the table after a recharge, under load:** part 15 of `e2e/alone-e2e.mjs`
+    (line 1114), at 1280, "the page read the table as the game answered the recharge …, and again
+    … ms after that read", wants the page's next read to begin within 850 ms of the end of the read
+    on its way as the game answered. The page waits 500 ms (`READ_AGAIN_AFTER`, since v0.46.0), and
+    waited 1 s before, measured at 986 ms and more. It took 875 ms once, under `MIDI=1`, in batch
+    4's full e2e pass, three lanes up on four cores, and passed when rerun alone on its lane at once
+    (131 of 131). The other seven in the logs still on disk took 533 to 734 ms. The gap is timed
+    from the stand-in's side, so it counts the page's own work after a read (reading the answer,
+    drawing it) as well as the wait. Of a kind with item 86. The check could time the wait from the
+    page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
+    last checks. In no batch yet.
+
 ## v1.0
 
 The major release of the app and the module, once the work planned before it is done and the

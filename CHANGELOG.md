@@ -164,7 +164,9 @@ so an item from it is named with its number when it was built, which may since b
   "Before v1.0", batch 4 reads as done, its items taken out: items 58, 61 and 62, with a line saying
   so where they stood, and item 89, the owner's coins work of 2026-11-17, numbered and done. Items
   87 and 88, under "Found while building Batch 4", are what item 62 found: `default.env`'s session
-  lifetime, and a session in daily use likely to end 30 days after its cookie was last set. Item 84
+  lifetime, and a session in daily use likely to end 30 days after its cookie was last set. Item 90,
+  under "Found in Batch 4's last checks", is alone's check of the next read of the table after a
+  recharge, which took 875 ms against its 850 once under load in batch 4's full e2e pass. Item 84
   names Give, item 85 and v0.49's check of coins name Give and Add or remove, and the known limits
   say a session ended from outside the app keeps working for up to a minute. (app)
 
