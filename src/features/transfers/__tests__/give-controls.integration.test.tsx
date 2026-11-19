@@ -499,7 +499,6 @@ describe('components/transfers/give-controls', () => {
     },
   )
 
-  // Moved from coin-controls (item 89).
   it('with module 0.51.0, gives coins to a party and a character ticked together, one hand-out through the seat’s API, the tray naming both', async () => {
     const PARTY = 'groupIronCo01'
     const VEX = 'actorVex0001'
@@ -554,6 +553,7 @@ describe('components/transfers/give-controls', () => {
     ).toBeInTheDocument()
   })
 
+  // Moved from coin-controls (item 89).
   it('gives to characters by what the game says of moves paying with other coins, whatever the coins’ own switch is', async () => {
     // No coins' switch, so the page has no word of its own on other coins: the moves' says none.
     const { user } = await renderGive({
