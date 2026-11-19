@@ -19,6 +19,42 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
+## v0.52.0-rc
+
+### Features
+
+- **Honor, Sanity and a world's own abilities and skills.** With dnd5e's Honor or Sanity on, or a
+  world's own ability or skill, their saving throws and checks are buttons, named as your game names
+  them, in an item's text, on an item's check activity and on the Gamemaster's request card
+  ("Gamemaster asks for an Honor (Etiquette) check"), and a choice such as Wisdom or Honor offers
+  both. A companion's notice ("Bat is asked for a Sanity saving throw"), the chat's rolls ("Sanity
+  save") and an item's save chip ("SAN 13") use your game's names too. Checks need Sending Stone
+  0.52.0 in Foundry, which sends every description again once. With module 0.51.0, only saves: a
+  description or card it sends from now on works at once, and a description already sent works once
+  it is read again, after the Gamemaster's next Foundry load or up to a day later on a device that
+  kept its copy; a card already in the chat stays text; and a choice of checks such as Wisdom or
+  Honor is a Wisdom check alone, as before. (app and module, items 64 and 65)
+
+### Maintenance
+
+- **Any ability, end to end.** `links` gains a part with dnd5e's Honor and Sanity on and Etiquette,
+  a world's own skill on Honor: an item's Sanity save, its Wisdom or Sanity save, its Honor check,
+  its Wisdom or Honor check and its Etiquette are buttons named as the sheet names them; the Sanity
+  save is made in the game against its DC and named "Sanity save" in the chat; and Etiquette asked
+  of the table reads "Thorin asks for an Honor (Etiquette) check". A new run of that part against
+  module 0.51.0 (`e2e/skew.conf`'s new 051) finds the saves buttons, the checks on Honor text and
+  Wisdom or Honor a Wisdom check alone, and makes the Sanity save. `companionsaves` finds a Bat
+  asked for a Sanity save named so in its character's notice, and, with `laterdice`, the hello's
+  `anyAbility` last of its `rolls`. The module harness checks that checks on any ability go only to
+  an app that answers `anyAbility`, in descriptions, check activities, request cards, companions'
+  and Wild Shape forms' sheets, and the commands that read a description's links; that a choice is
+  sent whole or not at all, a check in it on an ability the game doesn't have passed over;
+  descriptions in format 8, their hashes new; and a campaign's sheets and companions sent again as
+  its app starts or stops reading checks on any ability. Jest pins the game's names
+  (`src/utils/game-names.ts`), "an" before a silent h (`src/utils/articles.ts`) and any ability's
+  key in the schemas, a description's links, an item's chips, the chat's cards and a companion's
+  notice. (app and module, items 64 and 65)
+
 ## v0.51.0 — 2026-11-19
 
 ### Features

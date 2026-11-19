@@ -391,24 +391,10 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
     page; offline mode's worker is its own, for which `/sw.js` is left free. A fairly large update:
     what's kept on a device and for whom (cleared on sign-out, so a shared device keeps nothing),
     how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
-64. **Any ability or skill the game has, named as the game names it:** with dnd5e's Honor or
-    Sanity turned on, or a world's own ability or skill, the sheet already shows and rolls them
-    and the Gamemaster's asked saves work, but the app still knows only the six abilities and 18
-    skills in places, by English name (`src/constants/dnd5e.ts`, and the schemas' `abilityId`).
-    It should accept any ability the character's sheet has, the server's checks per character
-    staying the safety, and name abilities and skills from the sheet the module already sends.
-    Then a Sanity save in an item's text or on the Gamemaster's request card is a button again,
-    "Wisdom or Sanity" keeps both, and a companion's notice says "a Sanity saving throw", not "a
-    san saving throw"; a game in another language sees its own names there too. App only; both
-    parts ship together. From v0.48's look at how flexible the app is.
-65. **Checks on any ability:** the module still sends checks (in chat asks, description links and
-    an item's check activity) only for the six abilities, so an Honor check, a check of a world's
-    own ability or a skill tied to one (Etiquette on Honor) stays plain text, and "DC 12 Wisdom or
-    Honor check" becomes a button offering only Wisdom while it reads "or Honor". Once item 64 is
-    in, the module sends any ability the game has, behind a feature the app announces in its
-    hello so an older app is never sent one; a choice is linked whole or not at all; PROTOCOL.md
-    says so, with harness cases for Honor, Sanity, a world's skill on Honor and an untyped
-    ability. Module and app; needs item 64.
+
+Items 64 and 65, any ability or skill the game has, named as the game names it, and checks on any
+ability, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
+
 66. **Eight abilities, laid out:** with Honor and Sanity on, the abilities grid ends on a short
     row (3, 3 and 2 on a phone), and the loading skeleton draws six; its columns could follow the
     count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
@@ -479,6 +465,23 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     its lane at once (146 of 146 in 323 s). Of a kind with items 90 and 94. The runs could be given
     `TIMEOUT=600`, as `typed`'s and `notesoffline`'s are, or the suite split in two. Found in batch
     3's last checks. In no batch yet.
+
+**Found while building Batch 5**
+
+96. **"an" before a "u" that sounds like "you":** the app's one rule for "a" or "an" (`articleOf`,
+    `src/utils/articles.ts`), which the chat's request cards and companions' notices use, among
+    others, says "an" before every vowel. So a world's own skill, tool or ability whose name begins
+    with a "u" said "you", or with "Eu", would read "an Utility check" or "an European". dnd5e's own
+    names all read right. A short list of such beginnings beside the silent h's would mend it. Found
+    building item 64. In no batch yet.
+97. **A world's own tools aren't in a description's hash:** since module 0.52.0 a description's hash
+    holds the game's abilities and skills (`textFormat`, the module's `scripts/sheet-texts.mjs`),
+    which decide which checks are links and so every later link's number. A world's own tools decide
+    that for a tool check too (`isTool`, `scripts/sheet-links.mjs`), and aren't in it. So a tool
+    added mid-campaign can, after a reload, renumber a description's links under the same hash, and
+    an app's copy name a link as one it no longer is, until the description changes. One more line
+    in `textFormat` would mend it, renewing every hash once more. Found building item 65. In no
+    batch yet.
 
 ## v1.0
 
