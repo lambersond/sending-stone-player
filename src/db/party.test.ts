@@ -715,6 +715,27 @@ describe('db/party, a party’s things sent and distributed, from module 0.32.0'
     expect(prismaMock.actorSheet.findUnique).not.toHaveBeenCalled()
   })
 
+  it('gives a player’s coins as the game hands them out where the module hands them to parties (0.51.0), paid as it says', async () => {
+    sending(['partySends', 'distribute', 'handOut', 'change', 'handOutParties'])
+    const paying = await movesOf(player(), 'company')
+    expect(paying?.give).toEqual({
+      currency: COINS,
+      handOut: { change: true },
+    })
+    sending(['handOut', 'handOutParties'])
+    const exact = await movesOf(player(), 'company')
+    expect(exact?.give).toEqual({
+      currency: COINS,
+      handOut: { change: false },
+    })
+    // Module 0.49.0 or 0.50.0: as any give.
+    sending(['partySends', 'distribute', 'handOut', 'change'])
+    const older = await movesOf(player(), 'company')
+    expect(older?.give).toEqual({
+      currency: COINS,
+    })
+  })
+
   it('sends neither where the module does neither, though a player’s give is 0.31.0’s', async () => {
     sending([])
 

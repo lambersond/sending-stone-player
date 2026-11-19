@@ -61,7 +61,12 @@ export type PartyMoving =
       what: Taking['what']
       recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
     }
-  | { mode: 'give'; coins: SheetCurrency[] }
+  | {
+      mode: 'give'
+      coins: SheetCurrency[]
+      /** From module 0.51.0: given as the game hands coins out (`TableMoves.handOut`). */
+      handOut?: { change: boolean }
+    }
   | { mode: 'distribute'; coins: SheetCurrency[]; among: MoveEnd[] }
 
 /** What's being taken, or was last, with who may take it as its dialog opened. */

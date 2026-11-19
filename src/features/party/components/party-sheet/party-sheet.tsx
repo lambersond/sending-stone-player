@@ -100,6 +100,8 @@ export function PartySheet({
   )
   const gives =
     takes && own && role === 'player' ? view.moves?.give?.currency : undefined
+  // From module 0.51.0, the party is given them as the game hands coins out.
+  const handOut = gives && view.moves?.give?.handOut
   const { pending, take } = transfers
   const controls = useMemo(
     () =>
@@ -111,6 +113,7 @@ export function PartySheet({
             ...(recipients && { recipients }),
             ...(receivers && { receivers }),
             ...(gives && { gives }),
+            ...(handOut && { handOut }),
             among,
             onOpen: opened => {
               setMoving(opened)
@@ -118,7 +121,17 @@ export function PartySheet({
             },
           })
         : NO_TRANSFERS,
-    [takes, group, pending, sends, recipients, receivers, gives, among],
+    [
+      takes,
+      group,
+      pending,
+      sends,
+      recipients,
+      receivers,
+      gives,
+      handOut,
+      among,
+    ],
   )
   const close = useCallback(() => setOpen(false), [])
   // A move sent closes its dialog on a Take that waits for it, which can't be given focus back:
