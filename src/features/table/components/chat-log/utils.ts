@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { articleOf } from '@/utils/articles'
 
 /**
  * A message's bubble, its pointed corner toward the speaker's avatar; gold all round for a
@@ -20,7 +21,10 @@ function edgeOf(whisper: boolean, mine: boolean): string {
   return mine ? 'border-primary/30' : 'border-border'
 }
 
-/** The article before what a roll request card asks for: "an" before a vowel, else "a". */
+/**
+ * The article before what a roll request card asks for: "an" before a vowel or a silent h, as "an
+ * Honor (Etiquette) check", else "a".
+ */
 export function article(title: string): string {
-  return /^[AEIOU]/.test(title) ? 'an' : 'a'
+  return articleOf(title)
 }
