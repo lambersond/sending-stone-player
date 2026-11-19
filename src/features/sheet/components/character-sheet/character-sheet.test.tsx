@@ -781,14 +781,19 @@ describe('components/character-sheet/character-sheet', () => {
   it('leaves a save’s word out of a narrow tile only where it shows Adv or Dis', () => {
     const { abilities } = characterSheet()
     renderSheet({
-      abilities: abilities.with(0, { ...abilities[0], saveMode: 1 }),
+      abilities: abilities
+        .with(0, { ...abilities[0], saveMode: 1 })
+        .with(1, { ...abilities[1], saveMode: -1 }),
     })
 
     // Jsdom can't apply a container query: the e2e checks the tile's look.
     expect(saveWord(/^Strength saving throw/)).toHaveClass(
       '@max-[108px]:hidden',
     )
-    expect(saveWord(/^Dexterity saving throw/)).not.toHaveClass(
+    expect(saveWord(/^Dexterity saving throw/)).toHaveClass(
+      '@max-[108px]:hidden',
+    )
+    expect(saveWord(/^Constitution saving throw/)).not.toHaveClass(
       '@max-[108px]:hidden',
     )
   })
