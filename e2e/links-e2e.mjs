@@ -25,7 +25,8 @@
 // condition's rules show on a hover, and the context menu key opens the wand's damage menu. With
 // dnd5e's Honor and Sanity on (v0.52.0, items 64 and 65), his Oathbound Signet's Sanity save, its
 // Honor check, their choices with Wisdom and his Etiquette, a skill on Honor, are buttons named as
-// his sheet names them, a choice whole; SKEW=051 (module 0.51.0), that part alone. MIDI=1
+// his sheet names them, a choice whole; SKEW=051 (module 0.51.0), that part alone, its Sanity save
+// made by that module. MIDI=1
 // puts the stand-in Midi-QOL in the world (fvtt/midi-fake.mjs), with its settings for saves and
 // concentration, its dnd5e.preRollDamage hook, a Gamemaster's Midi damage roll left open on its
 // dnd5e.rollDamage hook, and its rules for a critical hit's damage, as fvtt/texts.mjs has them:
@@ -1625,6 +1626,14 @@ async function honorAndSanity() {
     const choice = await menuOf('DC 12 Wisdom or Honor check', 'DC 12 Wisdom check')
     check(same(choice, ['Ask the table', 'Roll my Wisdom check (+2)', 'Roll with advantage', 'Roll with disadvantage', 'Modify roll…']),
       `"DC 12 Wisdom or Honor check" is that module's link of Wisdom alone: ${JSON.stringify(choice)}`)
+    // The one roll this app newly offers that module, a save on Sanity from a description: it takes
+    // any ability among the link's (its linkedSave), so it makes it.
+    await signetText.getByRole('button', { name: 'DC 13 Sanity', exact: true }).click()
+    const saveMenu = page.getByRole('menu', { name: 'DC 13 Sanity saving throw' })
+    const { request: saved, made: savedMade, message: savedMessage } = await sent(() => saveMenu.getByRole('menuitem', { name: 'Roll my Sanity save (+1)' }).click(), 'the Sanity save')
+    check(saved.kind === 'save' && saved.payload.key === 'san' && savedMade.status === 'done' && savedMessage?.rolls[0]?.options.target === 13
+      && savedMessage.flags.dnd5e.roll.type === 'save' && savedMessage.flags.dnd5e.roll.ability === 'san',
+    `with module 0.51.0, "Roll my Sanity save" is made in the game as his Sanity save against DC 13 (${JSON.stringify(savedMade.result ?? savedMade.status)})`)
     return
   }
 
