@@ -944,8 +944,8 @@ export function htmlToText(html: string): string | undefined {
 
 /**
  * Whether an encounter is under way, the one rule for showing its turn and initiative order:
- * begun, round 1 or later, and the one its Gamemaster's tracker shows, as Foundry's Begin Combat
- * and its scene's chosen encounter have it.
+ * begun, round 1 or later, and the encounter chosen for its scene, as Foundry's Begin Combat and
+ * that scene's tracker have it. Encounters on two scenes may both be (item 36).
  */
 function isUnderWay(combat: CombatSnapshot): boolean {
   return combat.started && combat.active
@@ -965,6 +965,60 @@ export function pickCombat(
     if (!best || rank(combat) > rank(best)) best = combat
   }
   return best
+}
+
+/**
+ * The encounter seen from a creature (item 36): the first, as `pickCombat` ranks them, of those
+ * chosen for their scenes that it fights in; else the campaign's, as today.
+ * @param combats - Every held combat, most recently changed first.
+ * @param isIn - Whether a combatant is the creature.
+ */
+export function pickCombatFor(
+  combats: CombatSnapshot[],
+  isIn: (combatant: CombatantSummary) => boolean,
+): CombatSnapshot | undefined {
+  return (
+    pickCombat(
+      combats.filter(
+        combat =>
+          combat.active && combat.combatants.some(combatant => isIn(combatant)),
+      ),
+    ) ?? pickCombat(combats)
+  )
+}
+
+/**
+ * Where an encounter shown sits among them for the seat (item 36): 0 with the seat's own
+ * character in it, 1 with one of its companions, 2 with neither.
+ */
+function encounterRank({ combatants }: TableCombat): number {
+  if (combatants.some(({ side }) => side === 'me')) return 0
+  if (combatants.some(({ yours, companion }) => yours && companion)) return 1
+  return 2
+}
+
+/**
+ * The encounters the Combat tab shows (item 36), each under way, as the seat sees it: those its
+ * character or one of its companions is in, the character's first, then its companions', each by
+ * id; with none of theirs in any, every one under way, as a player not yet added sees the party's
+ * fight.
+ * @param combats - Every held combat.
+ */
+export function encountersShown(
+  combats: CombatSnapshot[],
+  viewer: Viewer,
+): TableCombat[] {
+  const ranked = combats
+    .filter(combat => isUnderWay(combat))
+    .map(combat => {
+      const shown = toTableCombat(combat, viewer)
+      return { shown, rank: encounterRank(shown) }
+    })
+  const own = ranked.some(({ rank }) => rank < 2)
+  return ranked
+    .filter(({ rank }) => !own || rank < 2)
+    .toSorted((a, b) => a.rank - b.rank || a.shown.id.localeCompare(b.shown.id))
+    .map(({ shown }) => shown)
 }
 
 export function toTableCombat(

@@ -587,6 +587,33 @@ describe('db/companions', () => {
       expect(view.gm).toEqual({ rolls: 'update' })
     })
 
+    it.each([
+      ['isn’t', false, { mode: 'after' }],
+      ['is', true, { mode: 'after', after: 'Thorin' }],
+    ])(
+      'reads its own encounter, chosen for its scene, not the one ranked first; its character %s in it (item 36)',
+      async (_, joined, initiative) => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held({ companionInitiative: 'after' })
+        const arena = fight()
+        arena.combatants = arena.combatants.filter(({ id }) => id !== 'c-wolf')
+        const den = fight({
+          id: 'den',
+          combatants: fight().combatants.filter(
+            ({ id }) => id === 'c-wolf' || (joined && id === 'c-thorin'),
+          ),
+        })
+        prismaMock.combat.findMany.mockResolvedValue([
+          { data: arena },
+          { data: den },
+        ] as any)
+
+        const view = await getCompanionView(seat)
+        expect(view.combat?.id).toBe('den')
+        expect(view.initiative).toEqual(initiative)
+      },
+    )
+
     describe('how it enters initiative', () => {
       it('rolls its own, as its campaign has it by default', async () => {
         const seat = await seatAt(thorin, 'wolfBrakka')

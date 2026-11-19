@@ -1,8 +1,10 @@
 import { askTitle } from './ask-words'
 import {
   damageKinds,
+  encountersShown,
   htmlToText,
   pickCombat,
+  pickCombatFor,
   toTableCombat,
   toTableMessage,
   toTableMessages,
@@ -20,6 +22,7 @@ import {
 } from '@/mocks/sending-stone'
 import type {
   CharacterSheet,
+  CombatSnapshot,
   CombatantSummary,
   RollSummary,
   SerializedMessage,
@@ -183,6 +186,20 @@ const flavored = (rolls: RollSummary[]) =>
     flavor: 'Fire Bolt - Damage Roll',
     rolls,
   })
+
+/** The encounters of item 36's cases: who's in each, and Thorin, Pip and Vex among them. */
+const goblin = combatant({ id: 'c-goblin' })
+const thorin = combatant({ id: 'c-thorin', character: 'actor-thorin' })
+const pip = combatant({ id: 'c-pip', companion: 'pip' })
+const vex = combatant({ id: 'c-vex', character: 'actor-vex' })
+const fight = (
+  id: string,
+  combatants: CombatantSummary[],
+  fields: Partial<CombatSnapshot> = {},
+) => combat({ id, combatantId: null, combatants, ...fields })
+const isThorin = ({ character }: CombatantSummary) =>
+  character === 'actor-thorin'
+const isPip = ({ companion }: CombatantSummary) => companion === 'pip'
 
 describe('utils/table-view', () => {
   describe('toTableMessage', () => {
@@ -1701,6 +1718,83 @@ describe('utils/table-view', () => {
       expect(pickCombat([setUp, elsewhere])?.id).toBe('b')
       expect(pickCombat([setUp])?.id).toBe('a')
       expect(pickCombat([])).toBeUndefined()
+    })
+  })
+
+  describe('the encounters a creature and the Combat tab see (item 36)', () => {
+    it.each([
+      [
+        'its own chosen one first, though another ranks higher',
+        [fight('theirs', [goblin]), fight('own', [thorin], { started: false })],
+        isThorin,
+        'own',
+      ],
+      [
+        'its own not chosen passed over, as pickCombat over all',
+        [fight('own', [thorin], { active: false }), fight('theirs', [goblin])],
+        isThorin,
+        'theirs',
+      ],
+      [
+        'none of its own, as pickCombat over all',
+        [fight('a', [goblin], { started: false }), fight('b', [goblin])],
+        isThorin,
+        'b',
+      ],
+      [
+        'a companion by its key',
+        [fight('arena', [thorin]), fight('den', [goblin, pip])],
+        isPip,
+        'den',
+      ],
+    ])('pickCombatFor: %s', (_, combats, isIn, id) => {
+      expect(pickCombatFor(combats, isIn)?.id).toBe(id)
+    })
+
+    const seat: Viewer = {
+      ...viewer,
+      companions: new Map([['pip', { of: ['actor-thorin'], name: 'Pip' }]]),
+    }
+    const ids = (combats: CombatSnapshot[]) =>
+      encountersShown(combats, seat).map(({ id }) => id)
+
+    it.each([
+      [
+        'under way only: not begun, or begun and not chosen, left out',
+        [
+          fight('a', [thorin], { started: false, round: 0 }),
+          fight('b', [thorin], { active: false }),
+          fight('c', [thorin]),
+        ],
+        ['c'],
+      ],
+      [
+        "the character's before its companion's, whatever their ids",
+        [fight('a-den', [pip]), fight('b-arena', [thorin])],
+        ['b-arena', 'a-den'],
+      ],
+      [
+        "another's left out where one of the seat's own is",
+        [fight('a', [vex, goblin]), fight('b', [pip])],
+        ['b'],
+      ],
+      [
+        'with none of its own, every one under way',
+        [fight('b', [vex]), fight('a', [goblin])],
+        ['a', 'b'],
+      ],
+      [
+        'ties by id',
+        [fight('z', [thorin]), fight('m', [thorin]), fight('q', [pip])],
+        ['m', 'z', 'q'],
+      ],
+    ])('encountersShown: %s', (_, combats, shown) => {
+      expect(ids(combats)).toEqual(shown)
+    })
+
+    it('encountersShown: sides each as toTableCombat does', () => {
+      const den = fight('den', [goblin, pip])
+      expect(encountersShown([den], seat)).toEqual([toTableCombat(den, seat)])
     })
   })
 

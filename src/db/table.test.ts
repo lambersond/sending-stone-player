@@ -308,6 +308,27 @@ describe('db/table', () => {
       })
     })
 
+    it("lists the encounters under way, and reads the character's own chosen one though another ranks higher (item 36)", async () => {
+      prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
+      prismaMock.chatMessage.findMany.mockResolvedValue([])
+      prismaMock.combat.findMany.mockResolvedValue([
+        {
+          data: combat({
+            id: 'theirs',
+            combatants: [combatant({ id: 'c-boss' })],
+          }),
+        },
+        { data: combat({ id: 'own', started: false, combatantId: null }) },
+      ] as any)
+
+      const view = await getTableView(character)
+
+      expect(view.combat).toMatchObject({ id: 'own', underWay: false })
+      expect(view.combats).toEqual([
+        expect.objectContaining({ id: 'theirs', underWay: true }),
+      ])
+    })
+
     it("shows a campaign character's portrait beside what they say", async () => {
       prismaMock.campaign.findUnique.mockResolvedValue({
         ...campaign,

@@ -211,14 +211,16 @@ export type TableCombat = {
   id: string
   name: string | null
   /**
-   * Whether it's under way: begun, round 1 or later, and the encounter its Gamemaster's tracker
-   * shows. Only then are its turn and initiative order shown; otherwise it's held for the sheet's
-   * initiative roll and the target picker.
+   * Whether it's under way: begun, round 1 or later, and the encounter chosen for its scene, the
+   * one Foundry's tracker shows while that scene is viewed; encounters on two scenes may both be
+   * (item 36). Only then are its turn and initiative order shown; otherwise it's held for the
+   * sheet's initiative roll and the target picker.
    */
   underWay: boolean
   /**
-   * Whether it's the encounter its Gamemaster's tracker shows, the only one the game takes an
-   * initiative rolled from the sheet into (v0.45).
+   * Whether it's the encounter chosen for its scene. The game takes an initiative rolled from the
+   * sheet into it before Begin Combat only where it's also the one the Gamemaster has up, and from
+   * module 0.51.0 into any begun one (v0.45, item 36).
    */
   active: boolean
   /** Its round: 0 before it begins, 1 or later once it has. */
@@ -331,7 +333,18 @@ export type TableView = {
   /** Is this character still one of its campaign's characters? */
   connected: boolean
   messages: TableMessage[]
+  /**
+   * The encounter seen from the creature, for its Initiative tile and target picker: the first, as
+   * `pickCombat` ranks them, of those chosen for their scenes that it's a combatant of; else the
+   * campaign's, as `pickCombat` ranks them all (item 36).
+   */
   combat?: TableCombat
+  /**
+   * Every encounter under way the Combat tab shows (item 36): those the seat's character or one of
+   * its companions is in, the character's first, then its companions', each by id; with none of
+   * them in any, every one under way. Unset with none.
+   */
+  combats?: TableCombat[]
   /**
    * Unset under a system other than dnd5e, or until the module sends it; and when the viewer
    * already has the sheet of this `sheetVersion`, which is left out to save sending it again.
@@ -514,6 +527,11 @@ export type CompanionView = {
   sheet?: TableSheet
   sheetVersion?: string
   sheetWithheld?: SheetWithheld
+  /**
+   * The encounter seen from the creature, for its Initiative tile and target picker: the first, as
+   * `pickCombat` ranks them, of those chosen for their scenes that it's a combatant of; else the
+   * campaign's, as `pickCombat` ranks them all (item 36).
+   */
   combat?: TableCombat
   rollsToTable?: RollKind[]
   rollFeatures?: RollFeature[]

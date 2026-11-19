@@ -21,7 +21,7 @@ import { toTablePrompts } from '@/utils/prompts'
 import { listedCompanion } from '@/utils/roster'
 import { sheetTextRefs } from '@/utils/sheet-texts'
 import { viewerOf, withheld } from '@/utils/table-seat'
-import { pickCombat, toTableCombat, toTableSheet } from '@/utils/table-view'
+import { pickCombatFor, toTableCombat, toTableSheet } from '@/utils/table-view'
 import type { RollSeat, CompanionStatus } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type {
@@ -240,8 +240,10 @@ export async function getCompanionView(
     ...viewerOf(seat, roster, listed, campaign.origin),
     of,
   }
-  const snapshot = pickCombat(
+  // The encounter it fights in, chosen for its scene, else the campaign's (item 36).
+  const snapshot = pickCombatFor(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
+    ({ companion }) => companion === key,
   )
   const sheetVersion = sheet?.updatedAt.toISOString()
   const character = roster.find(({ id }) => id === of)

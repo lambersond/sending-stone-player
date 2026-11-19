@@ -27,7 +27,8 @@ import {
   withheld,
 } from '@/utils/table-seat'
 import {
-  pickCombat,
+  encountersShown,
+  pickCombatFor,
   toTableCombat,
   toTableMessages,
   toTableSheet,
@@ -287,6 +288,27 @@ const TABLE_CAMPAIGN = {
 } as const
 
 /**
+ * The encounters a character's view reads (item 36): its own, chosen for its scene, else the
+ * campaign's, for its sheet; and every one under way the Combat tab shows, the seat's own first.
+ * @param combats - Every combat held for the campaign, most recently changed first.
+ */
+function encountersOf(
+  combats: { data: unknown }[],
+  viewer: Viewer,
+): Pick<TableView, 'combat' | 'combats'> {
+  const snapshots = combats.map(({ data }) => data as CombatSnapshot)
+  const combat = pickCombatFor(
+    snapshots,
+    ({ character }) => character === viewer.actorId,
+  )
+  const shown = encountersShown(snapshots, viewer)
+  return {
+    combat: combat ? toTableCombat(combat, viewer) : undefined,
+    ...(shown.length > 0 && { combats: shown }),
+  }
+}
+
+/**
  * A character's view of its campaign: the chat its player may read, the encounter under way, and
  * its own sheet. The Gamemaster at its sheet (#156) sees the same, as its player does, but never
  * their place in the chat. The caller must already have resolved the seat for the signed-in user.
@@ -327,9 +349,6 @@ export async function getTableView(
   const heals = await healingUses(made, seat)
   const waiting = companionAsks(asked, now, diceAsked)
 
-  const combat = pickCombat(
-    combats.map(({ data }) => data as unknown as CombatSnapshot),
-  )
   // The party sheets the seat may open, from module 0.30.0: never who else may.
   const listed = groupRoster(campaign.groups)
   const groups = tableGroups(seat, listed, campaign.origin)
@@ -352,7 +371,7 @@ export async function getTableView(
         messages.filter(({ byGm }) => byGm).map(({ messageId }) => messageId),
       ),
     ),
-    combat: combat ? toTableCombat(combat, viewer) : undefined,
+    ...encountersOf(combats, viewer),
     sheet:
       sheet && sheetVersion !== known.sheetVersion
         ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
