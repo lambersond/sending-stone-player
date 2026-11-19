@@ -99,6 +99,18 @@ describe('features/help/constants', () => {
     expect(labels.filter(label => !switches.includes(label))).toEqual([])
   })
 
+  it('says in Combat how two encounters at once show, and whose initiative goes where (item 36)', () => {
+    const combat = textOf('Combat')
+    const words = [
+      'two encounters at once',
+      'a tab for each, named for who of yours is in it',
+      'End turn ends the turn in the encounter shown.',
+      'Each rolls initiative into its own encounter, a companion from its tab, while your Gamemaster has it up; with a newer Sending Stone module, also once that encounter has begun.',
+      'An encounter shows while it’s under way',
+    ]
+    expect(words.filter(part => !combat.includes(part))).toEqual([])
+  })
+
   it.each([
     ['opening a menu', LONG_PRESS, 500, 'Hold for more', 'half a second'],
     ['ending a turn', END_TURN_HOLD, 1000, 'Combat', 'for a second'],
