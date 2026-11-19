@@ -307,6 +307,22 @@ describe('utils/table-seat', () => {
       ).not.toHaveProperty('moves')
     })
 
+    it('lets either seat hand its coins out to the parties too, from module 0.51.0, where its module says so', () => {
+      expect(
+        allows(thorin, { transferFeatures: ['handOut', 'handOutParties'] })
+          .moves?.handOut,
+      ).toEqual({ change: false, parties: true })
+      expect(
+        allows(gm, {
+          transferFeatures: ['handOut', 'change', 'handOutParties'],
+        }).moves?.handOut,
+      ).toEqual({ change: true, parties: true })
+      // Not without a hand-out at all.
+      expect(
+        allows(thorin, { transferFeatures: ['handOutParties'] }).moves,
+      ).not.toHaveProperty('handOut')
+    })
+
     it('allows nothing where the character is not in the roster, or the game is not fetching', () => {
       expect(allows(thorin, {}, false)).toEqual({})
       expect(allows({ ...thorin, actorId: null })).toEqual({})

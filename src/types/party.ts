@@ -88,7 +88,8 @@ export type TableMoves = {
   /**
    * From module 0.49.0, at a character's sheet: set where its coins may be given to any of those
    * characters at once, as its module hands coins out; `change` whether the game pays with its
-   * other coins where it's short of one.
+   * other coins where it's short of one. `parties`, from module 0.51.0: set where the campaign's
+   * parties may be among those given coins, as characters are.
    */
-  handOut?: { change: boolean }
+  handOut?: { change: boolean; parties?: true }
 }

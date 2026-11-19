@@ -21,7 +21,8 @@ import type { Prisma } from '@prisma/client'
 // a RollRequest of the kind `transfer`, for the seat's character, which the module fetches at most
 // once. It has its own switch, apart from the rolls, which gates the Gamemaster's moves too. From
 // module 0.32.0, a party's coin distributed among its characters is one too, as a move with
-// `among` in place of `to`.
+// `among` in place of `to`; and from module 0.49.0 a character's coins handed out to the campaign's
+// characters, with `each`, and from module 0.51.0 its parties too.
 
 /**
  * Take a move of items and coins for the Gamemaster's game to make, from a character's player or

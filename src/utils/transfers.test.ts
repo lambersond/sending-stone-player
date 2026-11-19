@@ -608,6 +608,48 @@ describe('utils/transfers, a character’s coins handed out, from module 0.49.0'
     })
   })
 
+  describe('checkEnds, to the parties too, from module 0.51.0', () => {
+    const PARTIES = ['handOut', 'handOutParties'] as const
+    const handing = (
+      seat: ReturnType<typeof player> | ReturnType<typeof gm>,
+      transfer: ReturnType<typeof handOut>,
+      features: readonly string[] = PARTIES,
+    ) => checkEnds(seat, transfer, roster, groups, features)
+
+    it('lets a player give to a party they own, alone or among characters', () => {
+      expect(handing(player(), handOut(THORIN, [COMPANY, VEX]))).toBeUndefined()
+      expect(handing(player(), handOut(THORIN, [COMPANY]))).toBeUndefined()
+    })
+
+    it('refuses a party the player only observes as needing Owner, and one they can’t see as unknown', () => {
+      expect(handing(player(VEX), handOut(VEX, [BALIN, COMPANY]))).toBe(
+        'not-owner',
+      )
+      expect(handing(player(), handOut(THORIN, [VEX, ORDER]))).toBe('unknown')
+    })
+
+    it('lets the Gamemaster give to every party listed, and no other', () => {
+      expect(
+        handing(gm(), handOut(THORIN, [ORDER, COMPANY, VEX])),
+      ).toBeUndefined()
+      expect(handing(gm(), handOut(THORIN, ['groupNone01']))).toBe('unknown')
+    })
+
+    it('still refuses a party’s own coins, for either seat', () => {
+      expect(handing(player(), handOut(COMPANY, [VEX]))).toBe('not-yours')
+      expect(handing(gm(), handOut(COMPANY, [VEX]))).toBe('not-yours')
+    })
+
+    it('refuses any party where the module says nothing of parties, as before it', () => {
+      expect(
+        handing(player(), handOut(THORIN, [VEX, COMPANY]), ['handOut']),
+      ).toBe('unknown')
+      expect(handing(gm(), handOut(THORIN, [ORDER]), ['handOut'])).toBe(
+        'unknown',
+      )
+    })
+  })
+
   describe('checkHoldings', () => {
     /** Thorin's purse: 3 gp and 2 pp, worth 23 gp. */
     const sheet = {

@@ -22,6 +22,7 @@ import {
   fullerSheet,
   handedOutResult,
   HANDING_OUT,
+  HANDING_TO_PARTIES,
   MAGIC_WEAPON_PROFILES,
   LOCK_CHECK,
   MAZE_CHECK,
@@ -6431,12 +6432,21 @@ describe('schemas/sending-stone, coins added, taken away and handed out, from mo
     })
   })
 
-  it('reads features.transfers’ hand-out and its change, and reads junk as false', () => {
+  it('reads features.transfers’ hand-out, its change and its parties, and reads junk as false', () => {
     expect(transfers(HANDING_OUT)).toEqual(HANDING_OUT)
-    expect(transfers({ ...HANDING_OUT, handOut: 1, change: 'on' })).toEqual({
-      ...HANDING_OUT,
+    expect(transfers(HANDING_TO_PARTIES)).toEqual(HANDING_TO_PARTIES)
+    expect(
+      transfers({
+        ...HANDING_TO_PARTIES,
+        handOut: 1,
+        change: 'on',
+        handOutParties: 'yes',
+      }),
+    ).toEqual({
+      ...HANDING_TO_PARTIES,
       handOut: false,
       change: false,
+      handOutParties: false,
     })
     // Module 0.47.0 says neither.
     expect(transfers(SENDING_TRANSFERS)).toEqual(SENDING_TRANSFERS)

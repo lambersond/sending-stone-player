@@ -109,6 +109,7 @@ describe('utils/hello-features', () => {
         distribute: true,
         handOut: true,
         change: true,
+        handOutParties: true,
       },
     })
     expect(data.rollKinds).toEqual(['skill', 'plainRoll'])
@@ -185,8 +186,19 @@ describe('utils/hello-features', () => {
   })
 
   // Module 0.49.0: a character's coins handed out, and whether its giver pays with other coins,
-  // after what module 0.32.0 said of moves, in the stored order.
+  // after what module 0.32.0 said of moves, in the stored order; and module 0.51.0's hand-out to
+  // parties too, after them.
   it.each([
+    [
+      {
+        handOutParties: true,
+        partySends: true,
+        distribute: true,
+        handOut: true,
+        change: true,
+      },
+      ['partySends', 'distribute', 'handOut', 'change', 'handOutParties'],
+    ],
     [
       { partySends: true, distribute: true, handOut: true, change: true },
       ['partySends', 'distribute', 'handOut', 'change'],

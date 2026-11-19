@@ -1570,6 +1570,8 @@ export type BridgeFeatures = {
      */
     handOut?: boolean
     change?: boolean
+    /** From module 0.51.0: whether a hand-out may give to the campaign's parties too. */
+    handOutParties?: boolean
   } | null
   /**
    * Whether the module removes characters' items for the app, `"remove"` among its kinds; or not,

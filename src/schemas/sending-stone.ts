@@ -1635,6 +1635,8 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         // characters picked; and whether a giver short of a coin pays with its other coins.
         handOut: z.boolean().optional().catch(false),
         change: z.boolean().optional().catch(false),
+        // From module 0.51.0: a hand-out may give to the campaign's parties too.
+        handOutParties: z.boolean().optional().catch(false),
       })
       .nullable()
       .optional()

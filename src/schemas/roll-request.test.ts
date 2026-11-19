@@ -3275,7 +3275,7 @@ describe('schemas/roll-request, a character’s coins handed out, from module 0.
     [
       'one character twice',
       { each: ['actorVex0001', 'actorVex0001'] },
-      ['transfer.each', 'Each character is handed coins once'],
+      ['transfer.each', 'Each one is handed coins once'],
     ],
     [
       'the giver among them',
