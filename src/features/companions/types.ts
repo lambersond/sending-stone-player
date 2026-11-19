@@ -17,6 +17,11 @@ export type SwitcherCreature = {
   /** No longer listed: kept until it has been shown and left (§8.3). */
   gone?: boolean
   /**
+   * On another scene than the active one, as the module last listed it, from module 0.51.0: never
+   * a gone one.
+   */
+  away?: true
+  /**
    * For the character, what it's transformed into, from module 0.40.0, as its accessible name
    * says it, chosen or not, before its news: ", in Wild Shape as a Wolf".
    */

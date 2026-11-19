@@ -63,6 +63,11 @@ export const HELP_SECTIONS: HelpSection[] = [
         lead: 'Companions and conditions.',
         text: ' A companion has its own tab above the sheet: roll for it there. Tap a condition to read its rules.',
       },
+      {
+        lead: 'Companions elsewhere.',
+        text: ' A companion on another scene in your Gamemaster’s game says so on its tab and its sheet. You can still roll for it, but an attack may need your Gamemaster to view its target.',
+        away: true,
+      },
     ],
   },
   {

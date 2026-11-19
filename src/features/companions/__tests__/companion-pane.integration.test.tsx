@@ -277,6 +277,38 @@ describe('CompanionPane', () => {
     ).toBeDisabled()
   })
 
+  // Module 0.51.0 (item 18): one on another scene says so under its tabs, and rolls as ever.
+  it('says it’s on another scene under its sheet’s tabs, its rolls still offered', async () => {
+    routes([brakkaView({ companion: { ...BRAKKA, away: true } })])
+    render(pane())
+    expect(
+      await screen.findByText(
+        'Brakka is on another scene in your Gamemaster’s game. You can still roll for it here, but an attack may be refused while your Gamemaster isn’t viewing its target.',
+      ),
+    ).toHaveAttribute('role', 'note')
+    expect(
+      screen.getByRole('button', { name: 'Strength check, +4' }),
+    ).toBeEnabled()
+  })
+
+  it('says only that it’s gone where it’s left while away, and offers nothing', async () => {
+    routes([
+      brakkaView({
+        connected: false,
+        rollsToTable: undefined,
+        companion: { ...BRAKKA, away: true },
+      }),
+    ])
+    render(pane())
+    expect(await screen.findByRole('note')).toHaveTextContent(
+      /^Brakka is no longer with Thorin/,
+    )
+    expect(screen.getAllByRole('note')).toHaveLength(1)
+    expect(
+      screen.getByRole('button', { name: 'Strength check, +4' }),
+    ).toBeDisabled()
+  })
+
   it('says it’s gone under its sheet’s tabs, above the sheet, as the prototype draws it', async () => {
     routes([brakkaView({ connected: false, rollsToTable: undefined })])
     render(pane())
@@ -555,6 +587,24 @@ describe('the Gamemaster’s seat', () => {
     )
     expect(
       await screen.findByText(/Brakka is no longer with Thorin in your game\./),
+    ).toBeInTheDocument()
+  })
+
+  it('says one on another scene is in their game, and that they aren’t viewing its target', async () => {
+    routes([brakkaView({ companion: { ...BRAKKA, away: true } })])
+    render(
+      pane({
+        seat: {
+          role: 'gm',
+          api: '/api/characters/char-1',
+          key: 'gm:c1:char-1',
+        },
+      }),
+    )
+    expect(
+      await screen.findByText(
+        'Brakka is on another scene in your game. You can still roll for it here, but an attack may be refused while you aren’t viewing its target.',
+      ),
     ).toBeInTheDocument()
   })
 })

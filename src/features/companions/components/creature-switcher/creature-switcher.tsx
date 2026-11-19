@@ -1,7 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
-import { CircleOff, PawPrint, Sparkles } from 'lucide-react'
+import { CircleOff, MapPinOff, PawPrint, Sparkles } from 'lucide-react'
 import { SWITCH_TAB, SWITCH_TAB_OFF, SWITCH_TAB_ON } from '@/constants/buttons'
 import { useSwitcherLayout } from '@/features/companions/hooks/use-switcher-layout'
 import { describe, shownName } from '@/features/companions/utils'
@@ -104,6 +104,8 @@ export function CreatureSwitcher({
             id: `creature-tab-${key}`,
             'data-key': key,
             'data-kind': kind && (gone ? 'gone' : kind),
+            // On another scene, from module 0.51.0.
+            'data-away': creature.away ? 'true' : undefined,
             'aria-selected': on,
             tabIndex: on ? 0 : -1,
             'aria-controls':
@@ -169,12 +171,15 @@ function KindIcon({
   return <Sparkles aria-hidden className={className} />
 }
 
-/** A tab's face: its picture, its name, its number where names repeat, its kind, and news. */
+/**
+ * A tab's face: its picture, its name, its number where names repeat, its kind, from module 0.51.0
+ * a pin where it's on another scene, and news.
+ */
 function TabFace({
   creature,
   dot,
 }: Readonly<{ creature: SwitcherCreature; dot: boolean }>) {
-  const { name, number, portrait, kind, gone } = creature
+  const { name, number, portrait, kind, gone, away } = creature
   return (
     <>
       <CreatureAvatar
@@ -195,17 +200,23 @@ function TabFace({
         </span>
       )}
       {kind && <KindIcon kind={kind} gone={gone} className='size-3.5' />}
+      {away && (
+        <MapPinOff aria-hidden className='size-3.5 text-text-secondary' />
+      )}
       {dot && <span aria-hidden className='size-2 rounded-full bg-primary' />}
     </>
   )
 }
 
-/** An avatar's face: its picture, with its number, its gone mark and its news at the corners. */
+/**
+ * An avatar's face: its picture, with its number, its gone mark, or from module 0.51.0 its pin on
+ * another scene, and its news at the corners.
+ */
 function AvatarFace({
   creature,
   dot,
 }: Readonly<{ creature: SwitcherCreature; dot: boolean }>) {
-  const { name, number, portrait, kind, gone } = creature
+  const { name, number, portrait, kind, gone, away } = creature
   return (
     <span className='relative' title={shownName(creature)}>
       <CreatureAvatar
@@ -229,6 +240,14 @@ function AvatarFace({
           className='absolute -bottom-1 -left-1 flex size-4 items-center justify-center rounded-full bg-card text-text-secondary ring-1 ring-border'
         >
           <CircleOff className='size-3' />
+        </span>
+      )}
+      {away && (
+        <span
+          aria-hidden
+          className='absolute -bottom-1 -left-1 flex size-4 items-center justify-center rounded-full bg-card text-text-secondary ring-1 ring-border'
+        >
+          <MapPinOff className='size-3' />
         </span>
       )}
       {dot && (

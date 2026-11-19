@@ -5,9 +5,18 @@ import type { TableView } from '@/types/table'
  * its own punctuation, such as " Tap an ability…" after "Checks and saves." or ": your checks…"
  * after "Players roll in the app". `later` marks "Dice an item rolls later", shown only where the
  * campaign's module is one that asks for those dice, whatever its switches (H6 B, round 3's
- * decision 3).
+ * decision 3); `away` marks "Companions elsewhere.", shown only where its module lists companions
+ * on every scene (module 0.51.0).
  */
-export type HelpPart = { lead?: string; text: string; later?: true }
+export type HelpPart = {
+  lead?: string
+  text: string
+  later?: true
+  away?: true
+}
+
+/** What decides which of Help's parts show, as the campaign's view says it. */
+export type HelpShown = { laterDice: boolean; companionsAway: boolean }
 
 /** One of Help's sections, with the id its chip goes to it by. */
 export type HelpSection = { id: string; title: string; parts: HelpPart[] }

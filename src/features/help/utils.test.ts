@@ -292,7 +292,7 @@ describe('features/help/utils', () => {
   describe('the dice an item rolls later (H6 B)', () => {
     it('describes them only where the game asks for them, every other part kept', () => {
       const typingOf = (laterDice: boolean) =>
-        helpSections(laterDice)
+        helpSections({ laterDice, companionsAway: true })
           .find(({ id }) => id === 'typing')
           ?.parts.map(({ lead }) => lead)
       expect(typingOf(true)).toContain('Dice an item rolls later.')
@@ -301,9 +301,35 @@ describe('features/help/utils', () => {
       )
       // Changed on purpose (item 58): Combat's part on other creatures' health, and its two
       // switches, from module 0.50.0; and (item 36) Combat's part on two encounters at once.
-      expect(helpSections(false).map(({ parts }) => parts.length)).toEqual([
-        8, 7, 1, 7, 3, 3, 10, 16,
-      ])
+      // Changed on purpose (item 18): and the rolls' part on companions elsewhere, from module
+      // 0.51.0.
+      expect(
+        helpSections({ laterDice: false, companionsAway: true }).map(
+          ({ parts }) => parts.length,
+        ),
+      ).toEqual([9, 7, 1, 7, 3, 3, 10, 16])
     })
+  })
+
+  // Module 0.51.0 (item 18): "Companions elsewhere." where the module lists companions on every
+  // scene, after "Companions and conditions.", whatever the dice an item rolls later.
+  describe('companions on another scene', () => {
+    it.each([true, false])(
+      'describes them only where the module lists them there, the dice an item rolls later %p',
+      laterDice => {
+        const leadsOf = (companionsAway: boolean) =>
+          helpSections({ laterDice, companionsAway }).flatMap(({ parts }) =>
+            parts.map(({ lead }) => lead),
+          )
+        const shown = leadsOf(true)
+        expect(shown[shown.indexOf('Companions and conditions.') + 1]).toBe(
+          'Companions elsewhere.',
+        )
+        expect(leadsOf(false)).toEqual(
+          shown.filter(lead => lead !== 'Companions elsewhere.'),
+        )
+        expect(shown.includes('Dice an item rolls later.')).toBe(laterDice)
+      },
+    )
   })
 })
