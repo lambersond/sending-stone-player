@@ -22,14 +22,15 @@
 // the party's sheet one spinner by "Currency" or by the item's name while it's on its way, its
 // buttons disabled with none of their own, the row or group busy; the character's own Give keeps
 // its spinner where it's the row's only button. DND5E6=1: dnd5e 6.0.5's fractional gold. SKEW=031
-// with MODULE=module-0.31.0: gives only. Since module 0.51.0 (item 91) a character's Give ticks
-// the parties as it does the characters, none ticked as it opens, and the party sheet's Give is a
+// with MODULE=module-0.31.0: gives only. Since module 0.51.0 (item 91) a character's Give ticks the
+// parties as it does the characters, none ticked as it opens, and the party sheet's Give is a
 // hand-out to the party, "held" beside each coin and no All; part 19 gives 2 gp each to the
 // Company, Vex and Bram in one hand-out, the Company's line for everyone and the characters
-// whispered, and Bob's crafted give to the Company he observes is refused. SKEW=050 with
-// MODULE=module-0.50.0: v0.50.0's dialog, the parties radios, and part 20, a give to the Company by
-// its radio, then done. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs
-// --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// whispered, then 1 gp to the Wardens, of whom Thorin is none, their sheet posted ahead of the
+// result and shown in the app; and Bob's crafted give to the Company he observes is refused.
+// SKEW=050 with MODULE=module-0.50.0: v0.50.0's dialog, the parties radios, and part 20, a give to
+// the Company by its radio, then done. Synthetic characters only. Run with --import
+// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BASE, BOB, DND5E6, SHOTS_033, SKEW031, W, actors, browse, call, changeMembers, character, check, coinsInFoundry, embedded, finish, foundryWorld,
   group, holdWrite, launch, newCampaign, note, npc, part, posted, postsOf, same, sameJson, settled, shoot, shootBoth, sideways, sql, startModule,
@@ -1003,6 +1004,32 @@ if (PARTIES) {
     `Thorin 6 gp fewer, the Company, Vex and Bram 2 more each (${JSON.stringify([before, { thorin: gp(thorin), company: held(company, 'gp'), vex: gp(vex), bram: gp(bram) }])})`)
   await alice.page.getByRole('region', { name: 'Your rolls' }).getByRole('status').getByText('Gave 2 gp each to The Iron Company, Vex, and Bram').waitFor({ timeout: 15_000 })
   check(true, 'Alice\'s tray: "Gave 2 gp each to The Iron Company, Vex, and Bram"')
+  // The Wardens, of whom Thorin is none: no character's sheet carries them, so their own is posted
+  // ahead of the result, and the app's sheet of them shows the gold.
+  const goldIn = sheet => sheet?.inventory?.currency?.find(c => c.id === 'gp')?.value
+  const wardensGold = async () => goldIn((await call(alice.page, `${ALICE_API}/party/wardens`)).json?.sheet)
+  const wardensBefore = { foundry: held(wardens, 'gp'), app: await wardensGold() }
+  const postedFrom = posted.length
+  await tabpanel(alice).getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
+  dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
+  await dialog.waitFor()
+  await dialog.getByRole('checkbox', { name: /^Wardens of the Vale/ }).locator('xpath=ancestor::label[1]').click()
+  await dialog.getByRole('textbox', { name: 'Gold' }).fill('1')
+  await dialog.getByRole('button', { name: 'Give coins' }).click()
+  const toWardens = () => moves().find(m => sameJson(m.payload?.transfer?.each, ['wardens']))
+  await until(() => ['done', 'failed'].includes(toWardens()?.status), '1 gp to the Wardens', 30_000)
+  made = toWardens()
+  await until(() => postsOf('command.result').some(p => p.data?.id === made.id), 'its result as posted', 10_000)
+  {
+    const resultAt = posted.indexOf(postsOf('command.result').find(p => p.data?.id === made.id))
+    const groupAt = posted.findIndex((p, i) => i >= postedFrom && i < resultAt && p.type === 'group.updated' && p.data.group.id === 'wardens'
+      && goldIn(p.data.group.sheet) === wardensBefore.foundry + 1)
+    if (groupAt < 0) note(JSON.stringify(posted.slice(postedFrom, resultAt + 1).map(p => [p.type, p.data?.group?.id ?? p.data?.character?.id ?? p.data?.id])))
+    check(made.status === 'done' && held(wardens, 'gp') === wardensBefore.foundry + 1 && groupAt >= 0,
+      `Alice gives the Wardens 1 gp, ${wardensBefore.foundry} then ${held(wardens, 'gp')} in Foundry, and their sheet is posted ahead of the result (${groupAt} before ${resultAt})`)
+  }
+  await until(async () => await wardensGold() === wardensBefore.app + 1, "the Wardens' gold in the app", 15_000)
+  check(true, `in the app, the Wardens' sheet shows ${wardensBefore.app + 1} gp, 1 more`)
   // Bob, who observes the Company and owns the Wardens: the Wardens alone, a checkbox.
   await bob.tab('Inventory')
   await tabpanel(bob).getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
