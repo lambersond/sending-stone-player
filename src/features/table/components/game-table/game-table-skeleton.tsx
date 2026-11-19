@@ -4,7 +4,6 @@ import { SkeletonStatus } from '@/components/skeleton/skeleton-status'
 import { SkeletonWords } from '@/components/skeleton/skeleton-words'
 import { HEADER_ICON_BOX, TABLE_HEADER_BOX } from '@/constants/buttons'
 import {
-  ABILITIES_GRID,
   ABILITIES_SECTION,
   ABILITY_CHECK,
   ABILITY_SAVE,
@@ -15,6 +14,7 @@ import {
   STAT_TILE,
   STAT_WIDE,
 } from '@/features/sheet/constants'
+import { abilitiesGrid } from '@/features/sheet/utils/abilities-grid'
 import { statsGrid } from '@/features/sheet/utils/stats-grid'
 import {
   ASIDE_BESIDE,
@@ -195,7 +195,9 @@ function LineSlot({
  * tiles as a character with one size of hit die has them, the hit points and the hit dice a pair,
  * then armor class, proficiency, initiative and speed; then its abilities. No conditions, as a
  * character has none most of the time: a sheet with some draws their chips between the two, and
- * they push the tiles and the abilities down by a row of chips as it comes.
+ * they push the tiles and the abilities down by a row of chips as it comes. Its abilities are
+ * dnd5e's six, however many the sheet will have, which isn't read yet: with more, the sheet's
+ * tiles narrow, or take a row more, as it comes.
  */
 function SheetSkeleton() {
   return (
@@ -221,7 +223,7 @@ function SheetSkeleton() {
         <LineSlot className='text-xs'>
           <Skeleton className='h-2.5 w-16 rounded-md' />
         </LineSlot>
-        <div className={ABILITIES_GRID}>
+        <div className={abilitiesGrid(6)}>
           <AbilitySkeleton />
           <AbilitySkeleton />
           <AbilitySkeleton />

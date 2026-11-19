@@ -6,6 +6,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { abilitiesGrid } from '../../utils/abilities-grid'
 import { classLine } from '../../utils/class-line'
 import { CharacterSheet } from './character-sheet'
 import {
@@ -89,6 +90,10 @@ const grid = () => {
     ),
   }
 }
+
+/** The word "Save" on a saving throw's button, by the button's name. */
+const saveWord = (name: RegExp) =>
+  within(screen.getByRole('button', { name })).getByText('Save')
 
 /** What a row of the Hit dice tile shows: its size and how many are left, such as "d10 4/7". */
 const shown = (row: HTMLElement) =>
@@ -753,6 +758,39 @@ describe('components/character-sheet/character-sheet', () => {
       'https://my-game.forge-vtt.com/worlds/erebor/thorin-2.webp',
     )
     expect(screen.queryByText('TO')).toBeNull()
+  })
+
+  it('lays the abilities in the grid their count gives, as with Honor and Sanity on', () => {
+    const { abilities } = characterSheet()
+    const cha = abilities[5]
+    renderSheet({
+      abilities: [
+        ...abilities,
+        { ...cha, id: 'hon', label: 'Honor', abbreviation: 'HON' },
+        { ...cha, id: 'san', label: 'Sanity', abbreviation: 'SAN' },
+      ],
+    })
+
+    const list = within(
+      screen.getByRole('region', { name: 'Abilities' }),
+    ).getByRole('list')
+    expect(within(list).getAllByRole('listitem')).toHaveLength(8)
+    expect(list).toHaveAttribute('class', abilitiesGrid(8))
+  })
+
+  it('leaves a save’s word out of a narrow tile only where it shows Adv or Dis', () => {
+    const { abilities } = characterSheet()
+    renderSheet({
+      abilities: abilities.with(0, { ...abilities[0], saveMode: 1 }),
+    })
+
+    // Jsdom can't apply a container query: the e2e checks the tile's look.
+    expect(saveWord(/^Strength saving throw/)).toHaveClass(
+      '@max-[108px]:hidden',
+    )
+    expect(saveWord(/^Dexterity saving throw/)).not.toHaveClass(
+      '@max-[108px]:hidden',
+    )
   })
 
   it('rolls an ability check or a saving throw', async () => {

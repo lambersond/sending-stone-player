@@ -26,7 +26,6 @@ import { otherSpeeds } from '@/features/companions/components/creature-header/ut
 import { useD20Rolls } from '@/features/rolling/components/d20-rolls/use-d20-rolls'
 import { RollButton } from '@/features/rolling/components/roll-button/roll-button'
 import {
-  ABILITIES_GRID,
   ABILITIES_SECTION,
   ABILITY_CHECK,
   ABILITY_SAVE,
@@ -36,6 +35,7 @@ import {
   SHEET_TAB_PAGE,
 } from '@/features/sheet/constants'
 import { useSheetId } from '@/features/sheet/hooks/use-sheet-ids'
+import { abilitiesGrid } from '@/features/sheet/utils/abilities-grid'
 import { classLine } from '@/features/sheet/utils/class-line'
 import { checkLabel, detailWords } from '@/features/sheet/utils/roll-labels'
 import { statsGrid } from '@/features/sheet/utils/stats-grid'
@@ -127,7 +127,7 @@ export function CharacterSheet({
               {legendWords(form.name, name)}
             </p>
           )}
-          <ul className={ABILITIES_GRID}>
+          <ul className={abilitiesGrid(sheet.abilities.length)}>
             {sheet.abilities.map(ability => (
               <AbilityTile
                 key={ability.id}
@@ -460,7 +460,14 @@ function AbilityTile({
             saveProficient ? 'text-primary' : 'text-text-secondary',
           )}
         />
-        <span className='text-text-secondary'>Save</span>
+        <span
+          className={clsx(
+            'text-text-secondary',
+            ability.saveMode !== 0 && '@max-[108px]:hidden',
+          )}
+        >
+          Save
+        </span>
         <span className='font-semibold tabular-nums'>
           {formatModifier(save)}
         </span>

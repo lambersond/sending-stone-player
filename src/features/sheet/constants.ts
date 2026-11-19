@@ -38,15 +38,19 @@ export const STAT_WIDE = {
 /** The abilities: their heading over their tiles. */
 export const ABILITIES_SECTION = 'flex flex-col gap-3'
 
-/** The six abilities' tiles: three to a row, all six from `@xl`. */
-export const ABILITIES_GRID = 'grid grid-cols-3 gap-2 @xl:grid-cols-6'
-
-/** An ability's tile: its check over its save. Its border's colour is its own. */
+/**
+ * An ability's tile: its check over its save, a container for its save's widths. Its border's
+ * colour is its own.
+ */
 export const ABILITY_TILE =
-  'flex flex-col overflow-hidden rounded-2xl border bg-card'
+  '@container flex flex-col overflow-hidden rounded-2xl border bg-card'
 
-/** An ability's check: its name, its modifier, then its score. */
-export const ABILITY_CHECK = 'flex flex-col items-center gap-1 px-2 pt-2.5 pb-2'
+/**
+ * An ability's check: its name, its modifier, then its score; narrower padding in a narrow tile,
+ * where a score and its Adv or Dis would not fit inside the wider (v0.52.0).
+ */
+export const ABILITY_CHECK =
+  'flex flex-col items-center gap-1 px-2 pt-2.5 pb-2 @max-[84px]:px-1'
 
 /** An ability's save, across its tile's foot. */
 export const ABILITY_SAVE =
