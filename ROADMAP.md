@@ -113,12 +113,13 @@ Midi-QOL v14.0.x:
   campaign's Coins box are kept as saved. Under dnd5e 6, a fraction of a coin the world shows stays
   as it was after a change.
 
-## v0.50 (release candidate)
+## v0.50 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc entry.
+Released on 2026-11-18: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0 entry. v0.50 is
+the release candidate for v1.0 after v0.49: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.50.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Other creatures' health:** in a fight on a scene with the creatures' tokens, a player's Combat
   tab says nothing of how hurt the monsters are until Allow Players to see other creatures' health
@@ -160,7 +161,7 @@ tweaks needed may change it as it goes. Next week aims at the first three.
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
-   and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+   and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66: any ability or skill the game has.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
@@ -364,7 +365,7 @@ And from the owner's answers on item 19, later work too:
 
 **Moved from v1.x on 2026-11-13**
 
-Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 59. **Summon activities** used from the app.
 60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
@@ -372,7 +373,7 @@ Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-
     where its player could use it in Foundry.
 
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
-[CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+[CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
     loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
@@ -409,7 +410,7 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 **Asked for on 2026-11-17**
 
 Item 89, Add or remove, one Give for a character's coins, and the Currency row's buttons below its
-coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 **Found in Batch 4's last checks**
 
