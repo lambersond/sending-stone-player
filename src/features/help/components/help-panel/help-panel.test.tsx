@@ -109,6 +109,19 @@ describe('features/help/components/help-panel', () => {
     },
   )
 
+  // Module 0.51.0 (item 18): the view's word reaches Help; which parts it shows is helpSections'.
+  it.each([
+    [true, true],
+    [undefined, false],
+  ] as const)(
+    'with the view’s companionsAway %p, describes companions on another scene: %p',
+    (companionsAway, shown) => {
+      renderPanel({ shown: view({ companionsAway }) })
+
+      expect(screen.queryByText('Companions elsewhere.') !== null).toBe(shown)
+    },
+  )
+
   it.each([
     [
       'player',

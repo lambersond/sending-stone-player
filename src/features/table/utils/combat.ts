@@ -28,6 +28,46 @@ export function isMyTurn(combat?: TableCombat): boolean {
   return isTurnOf(combat, combatant => seatTurn(combatant) !== undefined)
 }
 
+/**
+ * Whether it's the seat's turn, as `isMyTurn` has it, in any of these encounters (item 36): the
+ * Combat tab's dot, whichever encounter it shows.
+ */
+export function isMyTurnIn(
+  combats: readonly TableCombat[] | undefined,
+): boolean {
+  return (combats ?? []).some(combat => isMyTurn(combat))
+}
+
+/**
+ * Whether any of these encounters is under way with a current combatant that `is` picks, as
+ * `isTurnOf` has it for one (item 36): a creature's tab's news, wherever it fights.
+ */
+export function isTurnIn(
+  combats: readonly TableCombat[] | undefined,
+  is: (combatant: TableCombatant) => boolean,
+): boolean {
+  return (combats ?? []).some(combat => isTurnOf(combat, is))
+}
+
+/**
+ * The encounter the Combat tab shows of those listed (item 36): the one kept while it's listed,
+ * so that it never moves on its own; else the one preferred, the seat's own; else the first.
+ * @param kept - The encounter shown last, or the one chosen, by id.
+ * @param preferred - The seat's own encounter, by id.
+ */
+export function shownEncounter(
+  combats: readonly TableCombat[] | undefined,
+  kept?: string,
+  preferred?: string,
+): TableCombat | undefined {
+  const listed = combats ?? []
+  return (
+    listed.find(({ id }) => id === kept) ??
+    listed.find(({ id }) => id === preferred) ??
+    listed[0]
+  )
+}
+
 /** Whether the combat is under way and its current combatant is one that `is` picks. */
 export function isTurnOf(
   combat: TableCombat | undefined,
@@ -43,7 +83,7 @@ export function isTurnOf(
 
 /**
  * What the Combat tab says with no encounter under way, the one rule for it (v0.45, the owner's
- * decision 1). In an encounter begun that isn't the Gamemaster's tracker's, nothing beneath its
+ * decision 1). In an encounter begun that isn't its scene's chosen one, nothing beneath its
  * heading: the order won't appear "when an encounter starts", as it has, and the game takes no
  * initiative into it. In the tracker's encounter before Begin Combat, the line to roll it while
  * the seat may, as `waitsForInitiative` has it, for one of its own combatants, as `seatTurn` has

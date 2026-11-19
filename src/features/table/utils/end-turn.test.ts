@@ -13,6 +13,7 @@ import {
   END_TURN_TAP_WITHIN,
   END_TURN_TOAST_AT,
   endableTurn,
+  endingEncounter,
   endTurnWords,
   HOLD_HINT,
   holdDescription,
@@ -262,5 +263,36 @@ describe('utils/end-turn', () => {
     expect(imports.filter(from => from.includes('components'))).toEqual([])
     // And nothing from a hook but its types.
     expect(source).not.toMatch(/^import \{[^}]*\} from '@\/hooks\//m)
+  })
+})
+
+describe('endingEncounter (item 36)', () => {
+  const shownMine = mockTurnCombat({ id: 'a' })
+  const shownTheirs = mockTurnCombat({ id: 'a', currentId: 'c-goblin' })
+  const otherMine = mockTurnCombat({ id: 'b', currentId: 'c-brakka' })
+  const otherTheirs = mockTurnCombat({ id: 'b', currentId: 'c-vex' })
+
+  it.each([
+    [
+      'the one shown, where it’s the seat’s turn there',
+      [shownMine, otherMine],
+      shownMine,
+      shownMine,
+    ],
+    [
+      'else the first where it is',
+      [shownTheirs, otherMine],
+      shownTheirs,
+      otherMine,
+    ],
+    [
+      'else the one shown',
+      [shownTheirs, otherTheirs],
+      shownTheirs,
+      shownTheirs,
+    ],
+    ['none with none', undefined, undefined, undefined],
+  ])('%s', (_, combats, shown, ending) => {
+    expect(endingEncounter(combats, shown)).toBe(ending)
   })
 })

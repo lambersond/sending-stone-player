@@ -739,3 +739,82 @@ describe('components/transfers/move-dialog, a character’s Give of coins, from 
     expect(screen.queryByRole('checkbox')).toBeNull()
   })
 })
+
+describe('components/transfers/move-dialog, a character’s Give of coins to parties too, from module 0.51.0', () => {
+  const bram = { id: 'actorBram001', name: 'Bram' }
+  const renderGive = () => {
+    const onGive = jest.fn()
+    const rendered = renderDialog(
+      give({
+        what: { coins },
+        recipients: { parties: [party], characters: [vex, bram] },
+        handOut: { change: true, parties: true, name: 'Thorin', onGive },
+      }),
+    )
+    return { ...rendered, onGive, user: userEvent.setup() }
+  }
+
+  it('opens with no one ticked, every party and character a checkbox', () => {
+    renderGive()
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .map(box => [
+          box.closest('label')?.textContent,
+          (box as HTMLInputElement).checked,
+        ]),
+    ).toEqual([
+      ['The Iron Company Primary', false],
+      ['Select all', false],
+      ['Vex', false],
+      ['Bram', false],
+    ])
+    expect(said()).toHaveTextContent('Choose who gets it.')
+  })
+
+  it('gives to the party and two characters as one hand-out, never as a move', async () => {
+    const { user, onMove, onGive } = renderGive()
+    for (const name of ['The Iron Company Primary', 'Vex', 'Bram']) {
+      await user.click(screen.getByRole('checkbox', { name }))
+    }
+    expect(legend()).toBe('Each gets')
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '2')
+    expect(said()).toHaveTextContent(
+      'You give 2 gp each to The Iron Company, Vex, and Bram: 6 gp in all.',
+    )
+    expect(
+      told(
+        'Foundry’s chat will say what The Iron Company gets. Each character is whispered what they received, and your Gamemaster is told.',
+      ),
+    ).toBeVisible()
+    await user.click(submit('Give coins'))
+    expect(onGive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        each: ['groupIronCo01', 'actorVex0001', 'actorBram001'],
+        currency: { gp: 2 },
+      }),
+    )
+    expect(onMove).not.toHaveBeenCalled()
+  })
+
+  it('gives to a party alone as the game hands coins out: what’s held beside each, no All', async () => {
+    const { user, onMove, onGive } = renderGive()
+    await user.click(
+      screen.getByRole('checkbox', { name: 'The Iron Company Primary' }),
+    )
+    expect(screen.getByText('120 gp held')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /^All / })).toBeNull()
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '30')
+    expect(said()).toHaveTextContent('You give 30 gp to The Iron Company.')
+    expect(told('Foundry’s chat will say so.')).toBeVisible()
+    await user.click(submit('Give coins'))
+    expect(onGive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        each: ['groupIronCo01'],
+        currency: { gp: 30 },
+      }),
+    )
+    expect(onMove).not.toHaveBeenCalled()
+  })
+})

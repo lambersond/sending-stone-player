@@ -138,9 +138,12 @@ run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
 # to, Give since item 89; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
 # and its coin distributed; dnd5e 6.0.5's fractions; and module 0.31.0 (none of the party's new ones).
-run givetake 67 SHOTS=$O/shots-032
-run givetake 68 DND5E6=1 SHOTS=$O/shots-032
+# Module 0.51.0 (item 91): a character's Give ticks parties and characters together; and module 0.50.0,
+# the parties chosen one at a time.
+run givetake 76 SHOTS=$O/shots-032
+run givetake 77 DND5E6=1 SHOTS=$O/shots-032
 run givetake 19 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
+run givetake 10 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-032
 # Module 0.33.0: an item removed from a character (its menu, the confirmation, stacks, containers,
 # the Gamemaster's, races with moves), dnd5e 6.0.5, and module 0.32.0 (no Remove).
 run removals 81 SHOTS=$O/shots-033
@@ -164,11 +167,13 @@ run tidy 38 DND5E6=1 SHOTS=$O/shots-044
 run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 # Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
 # shown beside the character and acting from the app; damage on its own and recharges; and
-# module 0.35.0 (neither).
-run companions 138 SHOTS=$O/shots-036f
-run companions 139 MIDI=1 SHOTS=$O/shots-036f
-run companions 138 DND5E6=1 SHOTS=$O/shots-036f
+# module 0.35.0 (neither). Module 0.51.0 (item 18): a companion on another scene keeps its tab,
+# marked, with a note on its sheet; and module 0.50.0 (the summons there marked gone).
+run companions 146 SHOTS=$O/shots-036f
+run companions 147 MIDI=1 SHOTS=$O/shots-036f
+run companions 146 DND5E6=1 SHOTS=$O/shots-036f
 run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
+run companions 17 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-051
 # v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
 # "recharged", and the page reading the table as the game answers the recharge and again a moment
 # after that read.
@@ -277,6 +282,15 @@ run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
 run health 32 SHOTS=$O/shots-050
 run health 32 DND5E6=1 SHOTS=$O/shots-050
 run health 6 SKEW=049 MODULE=$O/module-0.49.0 SHOTS=$O/shots-050
+# Item 36 (module 0.51.0): two encounters at once, in world-030's world with scenes: the arena's
+# fight alone as before, then a sidekick's on the den beside it, both begun and chosen: a tab for
+# each, the dot and the live line for a turn in the other, the hold and Undo in the den from the
+# Character tab, Pip's tab and its keys, both turns the seat's, Pip's initiative into the den while
+# the Gamemaster has the arena up and its attack's targets, Bob's arena alone, the Gamemaster's
+# seat, the column at 1280 and the pane at 768, the den unchosen and ended; and module 0.50.0
+# (Pip's tab offering no initiative into the den, the arena heard of last, and nothing sent).
+run encounters 37 SHOTS=$O/shots-051
+run encounters 37 SKEW=050 MODULE=$O/module-0.50.0
 # Item 61 (module 0.50.0): quieter fetching while Foundry is open and nobody is in the app, in
 # world-030's world: full fetches every 10 seconds for two minutes after the hello, then quiet looks
 # every 20, the game counted as fetching throughout; someone arriving and rolling at once; a dish

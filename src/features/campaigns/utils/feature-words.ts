@@ -229,7 +229,9 @@ function before(
 /**
  * A character's companions as its card lists them (module 0.36.0): "Companions: Brakka, Bat 1
  * (summoned), Bat 2 (summoned)", in the module's order, a repeated name numbered as a fresh row of
- * tabs numbers it. None where it has none.
+ * tabs numbers it; from module 0.51.0 one on another scene marked so, "Wolf (on another scene)",
+ * "Bat 2 (summoned, on another scene)", for the Gamemaster to find what to tidy. None where it has
+ * none.
  */
 export function companionsLine(
   companions: OwnedCampaign['characters'][number]['companions'] = [],
@@ -239,9 +241,14 @@ export function companionsLine(
     companions.map(({ name }, index) => ({ key: String(index), name })),
     new Map(),
   )
-  const listed = companions.map(
-    ({ kind }, index) =>
-      `${names.get(String(index))}${kind === 'summoned' ? ' (summoned)' : ''}`,
-  )
+  const listed = companions.map(({ kind, away }, index) => {
+    const marks = [
+      kind === 'summoned' && 'summoned',
+      away && 'on another scene',
+    ]
+      .filter(Boolean)
+      .join(', ')
+    return `${names.get(String(index))}${marks ? ` (${marks})` : ''}`
+  })
   return `Companions: ${listed.join(', ')}`
 }

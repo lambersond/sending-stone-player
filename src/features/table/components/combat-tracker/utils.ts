@@ -1,4 +1,8 @@
-import { currentCombatant, seatTurn } from '@/features/table/utils/combat'
+import {
+  currentCombatant,
+  isMyTurn,
+  seatTurn,
+} from '@/features/table/utils/combat'
 import {
   TURN_OVER,
   turnFragment,
@@ -39,6 +43,21 @@ export function turnHeading(combat: TableCombat): string {
   if (current && seatTurn(current)?.companion) return `${current.name}’s turn`
   if (current) return `${current.name} is acting`
   return 'Waiting for the next turn'
+}
+
+/**
+ * The seat's turns in the encounters not shown (item 36), for the tracker's second live region:
+ * "Your turn, in another encounter." or "Pip’s turn, in another encounter.", one for each where
+ * it's the seat's turn; nothing where there's none.
+ */
+export function otherTurnsLine(
+  combats: readonly TableCombat[],
+  shown: TableCombat | undefined,
+): string {
+  return combats
+    .filter(other => other.id !== shown?.id && isMyTurn(other))
+    .map(other => `${turnHeading(other)}, in another encounter.`)
+    .join(' ')
 }
 
 /**

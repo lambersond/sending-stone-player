@@ -239,6 +239,8 @@ export async function listOwnedCampaigns(
                 name: entry.name,
                 kind: entry.kind,
                 ...(from && { from }),
+                // On another scene, from module 0.51.0, for the Gamemaster to find and tidy.
+                ...(entry.away === true && { away: true as const }),
               }
             }),
         }

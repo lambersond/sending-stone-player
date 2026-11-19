@@ -9,7 +9,7 @@ import { SearchField } from '@/components/search-field/search-field'
 import { MOST_AMONG } from '@/constants/sending-stone'
 import { matchesSearch, searchKey } from '@/utils/search'
 import type { Section } from './types'
-import type { MoveEnd } from '@/features/transfers/types'
+import type { MoveEnd, Several } from '@/features/transfers/types'
 
 /*
  * Who a move goes to (module 0.31.0): the parties first, then the campaign's characters, each with
@@ -18,7 +18,8 @@ import type { MoveEnd } from '@/features/transfers/types'
  * module 0.49.0, on a character's Give of its coins (`several`), the characters are the browser's
  * own checkboxes instead, any of them ticked, with Select all first among them where one give may
  * go to them all; a party is still chosen alone, its radio letting go of the characters, and a
- * character ticked letting go of the party.
+ * character ticked letting go of the party. From module 0.51.0 (`everyone`), the parties are
+ * checkboxes too, ticked with any of the characters; Select all stays with the characters.
  */
 
 /** How many there may be before they can be searched by name, as the picker's targets. */
@@ -27,24 +28,25 @@ const SEARCH_ABOVE = 5
 /**
  * The parties and characters to choose from, under their headings, a section with none left out;
  * searched by name once there are more than a few, those picked kept whatever's typed.
- * @param value - Those picked, by id: one, or with `several` any of the characters.
+ * @param value - Those picked, by id: one, or with `several` any of those it ticks.
  */
 export function RecipientList({
   parties = [],
   characters,
   value,
   onChange,
-  several = false,
+  several,
 }: Readonly<{
   parties?: MoveEnd[]
   characters: MoveEnd[]
   value: readonly string[]
   onChange: (ids: string[]) => void
   /**
-   * From module 0.49.0, on a character's Give of its coins: any of the characters may be ticked,
-   * or one party chosen alone.
+   * On a character's Give of its coins: from module 0.49.0 (`characters`), any of the characters
+   * may be ticked, or one party chosen alone; from module 0.51.0 (`everyone`), the parties are
+   * checkboxes too, ticked with any of the characters.
    */
-  several?: boolean
+  several?: Several
 }>) {
   const id = useId()
   const [query, setQuery] = useState('')
@@ -73,12 +75,17 @@ export function RecipientList({
       ends: section.ends.filter(end => value.includes(end.id) || matches(end)),
     }))
     .filter(({ ends }) => ends.length > 0)
-  // Ticks, for the characters of a give of coins: radios for the rest.
-  const ticks = (key: Section['key']) => several && key === 'characters'
+  // Ticks, for the characters of a give of coins, and from module 0.51.0 its parties too: radios
+  // for the rest.
+  const ticks = (key: Section['key']) =>
+    several === 'everyone' || (several === 'characters' && key === 'characters')
+  // Every one that may be ticked, in the list's order.
+  const order =
+    several === 'everyone' ? [...parties, ...characters] : characters
   const selectsAll =
-    several && characters.length > 1 && characters.length <= MOST_AMONG
+    !!several && characters.length > 1 && characters.length <= MOST_AMONG
   const pick = (key: Section['key'], end: string) =>
-    onChange(ticks(key) ? tickedAfter(value, end, characters) : [end])
+    onChange(ticks(key) ? tickedAfter(value, end, order) : [end])
   return (
     <div className='flex flex-col gap-3'>
       {searchable && (
@@ -102,12 +109,12 @@ export function RecipientList({
             aria-labelledby={`${id}-${key}`}
             className='flex flex-col gap-1.5'
           >
-            {ticks(key) && selectsAll && (
+            {key === 'characters' && ticks(key) && selectsAll && (
               <Option
                 kind='checkbox'
                 name={`${id}-all`}
                 checked={everyTicked(value, characters)}
-                onChange={() => onChange(allTicked(value, characters))}
+                onChange={() => onChange(allTicked(value, characters, order))}
               >
                 <span className='min-w-0 flex-1'>Select all</span>
               </Option>

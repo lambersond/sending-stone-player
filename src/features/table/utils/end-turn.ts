@@ -1,5 +1,9 @@
 import { NOT_MADE } from '@/constants/lifecycle'
-import { currentCombatant, seatTurn } from '@/features/table/utils/combat'
+import {
+  currentCombatant,
+  isMyTurn,
+  seatTurn,
+} from '@/features/table/utils/combat'
 import { reasons } from '@/utils/roll-reasons'
 import { seatWords } from '@/utils/seat-words'
 import type { Followed, Sent } from '@/features/table/types'
@@ -82,6 +86,21 @@ export function endableTurn(
     ...turn,
     companion: { key: own.companion, name: current.name },
   }
+}
+
+/**
+ * The encounter End Turn and the hold act in (item 36): the one shown where it's the seat's turn
+ * there, else the first where it is, so a hold from any tab always ends a real turn; else the one
+ * shown, where it's the seat's turn nowhere.
+ * @param combats - The encounters under way the Combat tab lists.
+ * @param shown - The one it shows.
+ */
+export function endingEncounter(
+  combats: readonly TableCombat[] | undefined,
+  shown: TableCombat | undefined,
+): TableCombat | undefined {
+  if (isMyTurn(shown)) return shown
+  return combats?.find(combat => isMyTurn(combat)) ?? shown
 }
 
 /**

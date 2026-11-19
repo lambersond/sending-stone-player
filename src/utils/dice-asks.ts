@@ -1,4 +1,5 @@
 import { DICE_ASK_WAIT } from '@/constants/sending-stone'
+import { atLeast } from '@/utils/module-version'
 import type { SheetSeat } from '@/types/character'
 import type { DiceAskData, HeldDiceAsk } from '@/types/dice-asks'
 import type { FoundrySnapshot } from '@/types/foundry-settings'
@@ -55,22 +56,6 @@ export function asksLaterDice(
     Number.parseInt(String(system.version), 10) === 5 &&
     atLeast(foundry?.module?.version, LATER_DICE_FROM)
   )
-}
-
-/** Is a version, such as "0.44.0", this one or a later one, by its numbers? One without is not. */
-function atLeast(
-  version: string | null | undefined,
-  from: readonly number[],
-): boolean {
-  const parts = String(version ?? '')
-    .split('.')
-    .map(part => Number.parseInt(part, 10))
-  for (const [index, least] of from.entries()) {
-    const part = parts[index] ?? 0
-    if (Number.isNaN(part)) return false
-    if (part !== least) return part > least
-  }
-  return true
 }
 
 /**

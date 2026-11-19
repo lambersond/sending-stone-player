@@ -17,10 +17,12 @@
 // Turn's screens (§8.11, §13.8) wait for the user's prototype and aren't here. MIDI=1: Brakka's
 // attack through Midi-QOL's workflow on its token, and the initiatives. DND5E6=1: dnd5e 6.0.5's
 // dice. SKEW=035 with MODULE=module-0.35.0: no companions in the hello, no tablist, every companion
-// route 404s, Thorin's sheet and rolls as before. Synthetic characters only. Run with
+// route 404s, Thorin's sheet and rolls as before. Module 0.51.0 (ROADMAP item 18): a companion on
+// another scene keeps its tab, marked, with a note on its sheet, and is still rolled for; SKEW=050
+// with MODULE=module-0.50.0: the summons on another scene marked gone, as before. Synthetic characters only. Run with
 // --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
-  BASE, BOB, DND5E6, MIDI, MODULE, SKEW035, W, activeScene, actors, browse, call, character, check, companion,
+  BASE, BOB, DND5E6, MIDI, MODULE, SKEW035, SKEW050, W, activeScene, actors, browse, call, character, check, companion,
   finish, foundryWorld, launch, startFetching, stopFetching, newCampaign, note, npc, part, place, posted, postsOf, same, sceneWorld, settings,
   settled, shoot, shootBoth, sideways, sql, startModule, summoned, until, wait,
 } from './world-030.mjs'
@@ -342,7 +344,14 @@ part('1. the hello and the answer')
   check(!!features && !features.kinds.includes('inspiration') && !features.kinds.includes('spend') && !features.kinds.includes('endTurn') && !features.kinds.includes('undoEndTurn') && features.initiative === 'own',
     `its features.companions: kinds without inspiration, spend, endTurn or undoEndTurn, initiative "own" (${JSON.stringify(features)})`)
   // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0 the app reads companions' saves too.
-  check(JSON.parse(hello().body ?? '{}').features?.companions === 2, `the app answers companions: 2 (${hello().body})`)
+  // Changed on purpose (module 0.51.0, ROADMAP item 18): and companions on every scene.
+  check(JSON.parse(hello().body ?? '{}').features?.companions === 3, `the app answers companions: 3 (${hello().body})`)
+  // Module 0.51.0 (ROADMAP item 18): the hello lists the companions on every scene too, each saying
+  // whether it's on another scene, and features.companions says so.
+  if (!SKEW050) {
+    check(features.away === true && same((data.companionsEverywhere ?? []).map(c => [c.key, c.away]), [['brakka', false]]),
+      `its features.companions.away, and its companionsEverywhere Brakka, not away (${JSON.stringify(data.companionsEverywhere)})`)
+  }
   const order = posted.map(p => `${p.type}:${p.data?.character?.id ?? p.data?.companion?.key ?? ''}`)
   const thorinAt = order.indexOf('character.updated:thorin')
   const brakkaAt = order.indexOf('companion.updated:brakka')
@@ -389,6 +398,34 @@ const DRAKE = 'arena-drake1'
 await until(async () => (await tabNames(alice)).length === 5, 'five tabs', 30_000)
 check(same(await tabNames(alice), ['Thorin', 'Brakka', 'Bat 1', 'Bat 2', 'Drake']) && same(listedKeys(), ['brakka', BAT1, BAT2, DRAKE]),
   `the tabs Thorin, Brakka, Bat 1, Bat 2, Drake (${JSON.stringify(await tabNames(alice))}; keys ${JSON.stringify(listedKeys())})`)
+
+if (SKEW050) {
+  // ===============================================================================================
+  // 18b. Module 0.50.0
+  // ===============================================================================================
+  part('18b. module 0.50.0')
+  check(!('companionsEverywhere' in hello().data) && !('away' in hello().data.features.companions),
+    `module 0.50.0's hello lists no companions on every scene (${JSON.stringify(Object.keys(hello().data))})`)
+  await T.activate(den)
+  await until(async () => {
+    for (const key of [BAT1, BAT2, DRAKE]) if ((await tabOf(alice, key).getAttribute('data-kind')) !== 'gone') return false
+    return true
+  }, 'the summons marked gone', 30_000)
+  const marked = await switcher(alice).getByRole('tab').evaluateAll(tabs => tabs.filter(tab => tab.dataset.away).length)
+  check(await tabOf(alice, 'brakka').getAttribute('data-kind') === 'owned' && marked === 0,
+    `the active scene switched to one without them → the summons' tabs marked gone, as before 0.51.0; Brakka's, linked, stays; none says it's on another scene (${marked})`)
+  await alice.page.getByRole('button', { name: 'Help', exact: true }).click()
+  const help = alice.page.getByRole('dialog', { name: 'Help' })
+  await help.getByText('Companions and conditions.', { exact: true }).waitFor({ timeout: 15_000 })
+  check(await help.getByText('Companions elsewhere.', { exact: true }).count() === 0, 'Help says nothing of companions on another scene')
+  await alice.page.keyboard.press('Escape')
+  await help.waitFor({ state: 'hidden' })
+  await alice.page.reload()
+  await switcher(alice).waitFor({ timeout: 20_000 })
+  await until(async () => (await tabNames(alice)).length === 2, 'the reload to clear them', 20_000)
+  check(same(await tabNames(alice), ['Thorin', 'Brakka']), 'a reload clears them')
+  await finish()
+}
 {
   const face = await tabOf(alice, BAT1).evaluate(tab => ({ name: tab.querySelector('.truncate')?.textContent ?? null, badge: [...tab.querySelectorAll('span[aria-hidden]')].map(s => s.textContent).find(t => /^\d+$/.test(t)) ?? null }))
   const shown = await tabOf(alice, BAT1).isVisible()
@@ -1111,16 +1148,99 @@ const GONE = 'No longer with Thorin in your Gamemaster’s game'
   const bat4 = await summoned(arena, bat, thorin, 'findFamiliar', { id: 'bat4', name: 'Bat', activity: 'ff-summon' })
   await tabOf(alice, 'arena-bat4').waitFor({ timeout: 30_000 })
   check(true, 'a token summoned anew → a new tab')
-  // The scene switched to one without them, and back.
+  // Changed on purpose (module 0.51.0, ROADMAP item 18): the active scene switched to one without
+  // them, and back. Their tabs stay, each marked on another scene, and they're still rolled for; a
+  // hello sent again before the app has answered keeps them; so does a reload; back on their scene,
+  // the marks go. (SKEW=050 checks the old way, the summons marked gone.)
+  const AWAY = [
+    ['brakka', 'owned', 'Thorin’s companion, on another scene'],
+    ['arena-bat4', 'summoned', 'Summoned by Thorin with Find Familiar, on another scene'],
+    [DRAKE, 'summoned', 'Summoned by Thorin with Summon Dragon, on another scene'],
+  ]
+  /** Whether every companion's tab says it's on another scene (or, `on` false, none does). */
+  const awayOn = async (who, on = true) => {
+    for (const [key] of AWAY) if (((await tabOf(who, key).getAttribute('data-away')) === 'true') !== on) return false
+    return true
+  }
+  const DRAKE_AWAY = 'Drake is on another scene in your Gamemaster’s game. You can still roll for it here, but an attack may be refused while your Gamemaster isn’t viewing its target.'
+  // The companions' tabs' names; the character's tab, not chosen, says its news in its own.
+  const companionNames = async who => (await tabNames(who)).slice(1)
+  const names = await companionNames(alice)
+  await choose(alice, DRAKE)
   await T.activate(den)
-  await until(async () => (await tabOf(alice, 'arena-bat4').getAttribute('data-kind')) === 'gone' && (await tabOf(alice, DRAKE).getAttribute('data-kind')) === 'gone', 'the summons marked gone', 30_000)
-  check(await tabOf(alice, 'brakka').getAttribute('data-kind') === 'owned', 'the active scene switched to one without them → their tabs stay marked gone; Brakka\'s, linked, stays')
+  await until(() => awayOn(alice), 'the companions marked on another scene', 30_000)
+  const looks = []
+  for (const [key] of AWAY) looks.push([key, await tabOf(alice, key).getAttribute('data-kind'), await describedAs(alice, key), await tabOf(alice, key).locator('svg.lucide-map-pin-off').count()])
+  check(same(looks, AWAY.map(([key, kind, words]) => [key, kind, words, 1])) && same(await companionNames(alice), names),
+    `the active scene switched to one without them → their tabs stay, as they were, each pinned and described "…, on another scene" (${JSON.stringify(looks)}; ${JSON.stringify(names)} → ${JSON.stringify(await companionNames(alice))})`)
+  const awayNote = panelOf(alice, DRAKE).getByRole('note').filter({ hasText: 'on another scene' })
+  await awayNote.waitFor({ timeout: 20_000 })
+  check((await awayNote.textContent()).trim() === DRAKE_AWAY, `the Drake's sheet says so: "${(await awayNote.textContent()).trim()}"`)
+  await choose(alice, 'arena-bat4')
+  await openSheetTab(alice, 'arena-bat4', 'character')
+  const batPerception = panelOf(alice, 'arena-bat4').getByRole('button', { name: /^Perception/ }).first()
+  await batPerception.waitFor({ timeout: 20_000 })
+  const awayRoll = await sent(() => batPerception.click(), 'the Bat\'s Perception on another scene')
+  check(awayRoll.request.actorId === 'arena-bat4' && awayRoll.made.status === 'done' && madeFor(awayRoll.request.id)?.speaker?.token === 'bat4',
+    `the Bat on another scene still rolled for: its Perception made on its token's actor (${awayRoll.made.status}, ${madeFor(awayRoll.request.id)?.speaker?.token})`)
+  // A Gamemaster's page load (C1): the bridge starts with no answer heard yet, so its hello is built
+  // for an app it doesn't know yet, its `companions` the active scene's. The app keeps
+  // `companionsEverywhere`, and the module, told 3, notes that list as the app's: no tab goes, the
+  // Drake's sheet stays, and no companions.listed follows. (The answer forgotten, then the hello, as
+  // the module's harness does: a reload of the game's page here would leave the first module's hooks
+  // on, and part 16 posts through it.)
+  await choose(alice, DRAKE)
+  const { announce } = await import(`${MODULE}/scripts/bridge.mjs`)
+  const { noteCompanionReader } = await import(`${MODULE}/scripts/creature-sync.mjs`)
+  await settled()
+  const hellos = postsOf('bridge.hello').length
+  const lists = postsOf('companions.listed').length
+  noteCompanionReader('camp-ash', null)
+  announce()
+  await until(() => postsOf('bridge.hello').length > hellos && Boolean(hello().body), 'the hello sent again, and answered', 20_000)
+  await settled()
+  const kinds = new Set()
+  for (const began = Date.now(); Date.now() - began < 5_000; await wait(250)) {
+    for (const kind of await switcher(alice).getByRole('tab').evaluateAll(tabs => tabs.map(tab => tab.dataset.kind))) kinds.add(kind)
+  }
+  const narrow = (hello().data.companions ?? []).map(c => `${c.key}:${c.away}`)
+  const everywhere = (hello().data.companionsEverywhere ?? []).map(c => `${c.key}:${c.away}`).sort()
+  const relisted = postsOf('companions.listed').length - lists
+  const drakeTable = await call(alice.page, `${companionApi(DRAKE)}/table`)
+  check(same(narrow, ['brakka:undefined']) && same(everywhere, ['arena-bat4:true', 'arena-drake1:true', 'brakka:true']) && relisted === 0
+    && !kinds.has('gone') && drakeTable.status === 200 && (await awayNote.textContent()).trim() === DRAKE_AWAY && await awayOn(alice),
+    `a hello built before the app's answer lists the active scene's in companions (${JSON.stringify(narrow)}), and every scene's, away, in companionsEverywhere (${JSON.stringify(everywhere)}); no companions.listed follows (${relisted}); for 5 s no tab goes (${JSON.stringify([...kinds])}) and the Drake's sheet stays (${drakeTable.status})`)
+  await alice.page.getByRole('button', { name: 'Help', exact: true }).click()
+  const help = alice.page.getByRole('dialog', { name: 'Help' })
+  const elsewhere = help.getByText('Companions elsewhere.', { exact: true })
+  await elsewhere.waitFor({ timeout: 15_000 })
+  const helpPart = (await elsewhere.evaluate(lead => lead.closest('p')?.textContent ?? '')).trim()
+  check(helpPart === 'Companions elsewhere. A companion on another scene in your Gamemaster’s game says so on its tab and its sheet. You can still roll for it, but an attack may need your Gamemaster to view its target.',
+    `Help says so: "${helpPart}"`)
+  await alice.page.keyboard.press('Escape')
+  await help.waitFor({ state: 'hidden' })
   await alice.page.reload()
   await switcher(alice).waitFor({ timeout: 20_000 })
-  await until(async () => (await tabNames(alice)).length === 2, 'the reload to clear them', 20_000)
-  check(same(await tabNames(alice), ['Thorin', 'Brakka']), 'a reload clears them')
+  await until(() => awayOn(alice), 'the marks after a reload', 20_000)
+  await choose(alice, DRAKE)
+  await awayNote.waitFor({ timeout: 20_000 })
+  check(same(await companionNames(alice), names) && (await awayNote.textContent()).trim() === DRAKE_AWAY, `a reload keeps their tabs, marked, and the Drake's note (${JSON.stringify(await companionNames(alice))})`)
+  for (const [width, height] of [[390, 844], [1280, 800]]) {
+    const shot = await browse({ device: { viewport: { width, height }, deviceScaleFactor: 2, isMobile: width < 1024, hasTouch: width < 1024 }, path: '/characters/sheet-thorin', toasts: false })
+    await switcher(shot).waitFor({ timeout: 20_000 })
+    await until(() => awayOn(shot), `the marks at ${width}`, 20_000)
+    await shootBoth(shot, 'companions-away', switcher(shot).locator('xpath=..'))
+    await choose(shot, DRAKE)
+    await panelOf(shot, DRAKE).getByRole('note').filter({ hasText: 'on another scene' }).waitFor({ timeout: 20_000 })
+    await shootBoth(shot, 'companions-away-note')
+    await shot.view.close()
+  }
   await T.activate(arena)
-  await until(async () => (await tabNames(alice)).length === 4, 'the summons back', 30_000)
+  await until(() => awayOn(alice, false), 'the marks to go', 30_000)
+  await until(async () => (await awayNote.count()) === 0, 'the Drake\'s note to go', 20_000)
+  check(same(await companionNames(alice), names) && await describedAs(alice, DRAKE) === 'Summoned by Thorin with Summon Dragon'
+    && await tabOf(alice, DRAKE).locator('svg.lucide-map-pin-off').count() === 0,
+    'back on their scene, their tabs are as they were, unpinned, and the Drake\'s note gone')
   void bat4
   // Brakka's Owner taken from Alice, and given back.
   await choose(alice, 'brakka')
@@ -1197,6 +1317,27 @@ part('13. the gamemaster')
   await choose(alice, 'brakka')
   await panelOf(alice, 'brakka').getByText(/GM/).first().waitFor({ timeout: 30_000 })
   check(true, 'and in Alice\'s Brakka pane (gmRolls)')
+  // Module 0.51.0 (ROADMAP item 18): on another scene, the Gamemaster's note in the Gamemaster's
+  // words, and the card's marks.
+  await T.activate(den)
+  const gmNote = panelOf(gm, 'brakka').getByRole('note').filter({ hasText: 'on another scene' })
+  await gmNote.waitFor({ timeout: 30_000 })
+  check((await gmNote.textContent()).trim() === 'Brakka is on another scene in your game. You can still roll for it here, but an attack may be refused while you aren’t viewing its target.',
+    `the Gamemaster's Brakka, on another scene: "${(await gmNote.textContent()).trim()}"`)
+  for (const [width, height] of [[1280, 800], [390, 844]]) {
+    const awayCards = await browse({ device: { viewport: { width, height }, deviceScaleFactor: 2, isMobile: width < 1024, hasTouch: width < 1024 }, path: width < 1024 ? `/campaigns?campaign=${A}` : '/campaigns' })
+    const awayCard = awayCards.page.getByRole('article', { name: TITLE })
+    const awayLine = awayCard.getByText(/^Companions: /).first()
+    await until(async () => /on another scene\)$/.test((await awayLine.textContent().catch(() => '')).trim()), `the card's marks at ${width}`, 30_000)
+    if (width === 1280) {
+      check(/^Companions: Brakka \(on another scene\)(, Bat \d \(summoned, on another scene\))*, Drake \(summoned, on another scene\)$/.test((await awayLine.textContent()).trim()),
+        `the campaign card marks them: "${(await awayLine.textContent()).trim()}"`)
+    }
+    await shootBoth(awayCards, 'companions-gm-card-away', awayCard)
+    await awayCards.view.close()
+  }
+  await T.activate(arena)
+  await until(async () => (await gmNote.count()) === 0, 'the Gamemaster\'s note to go', 30_000)
   const cards = await browse({ width: 1280, height: 800, path: '/campaigns' })
   const card = cards.page.getByRole('article', { name: TITLE })
   await card.waitFor()

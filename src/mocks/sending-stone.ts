@@ -4349,6 +4349,18 @@ export const HANDING_OUT = switchedOn('transfer', {
   change: true,
 })
 
+/**
+ * What a hello from module 0.51.0 says of moves, on, under dnd5e: a character's coins handed out to
+ * the campaign's parties too.
+ */
+export const HANDING_TO_PARTIES = switchedOn('transfer', {
+  partySends: true,
+  distribute: true,
+  handOut: true,
+  change: true,
+  handOutParties: true,
+})
+
 /** dnd5e's coins as a sheet lists them, the largest first, each with its rate. */
 const COINS = [
   { id: 'pp', label: 'Platinum', abbreviation: 'pp', conversion: 0.1 },
@@ -4406,4 +4418,13 @@ export function handedOutResult(
     },
     ...fields,
   }
+}
+
+/**
+ * A table view as the server builds it with one encounter held (item 36): the Combat tab's list
+ * is that one while it's under way, unless the view gives a list of its own.
+ */
+export function withCombats(view: TableView): TableView {
+  if (view.combats || !view.combat?.underWay) return view
+  return { ...view, combats: [view.combat] }
 }

@@ -211,16 +211,25 @@ export type TableCombat = {
   id: string
   name: string | null
   /**
-   * Whether it's under way: begun, round 1 or later, and the encounter its Gamemaster's tracker
-   * shows. Only then are its turn and initiative order shown; otherwise it's held for the sheet's
-   * initiative roll and the target picker.
+   * Whether it's under way: begun, round 1 or later, and the encounter chosen for its scene, the
+   * one Foundry's tracker shows while that scene is viewed; encounters on two scenes may both be
+   * (item 36). Only then are its turn and initiative order shown; otherwise it's held for the
+   * sheet's initiative roll and the target picker.
    */
   underWay: boolean
   /**
-   * Whether it's the encounter its Gamemaster's tracker shows, the only one the game takes an
-   * initiative rolled from the sheet into (v0.45).
+   * Whether it's the encounter chosen for its scene. The game takes an initiative rolled from the
+   * sheet into it before Begin Combat only where it's also the one the Gamemaster has up, and from
+   * module 0.51.0 into any begun one (v0.45, item 36).
    */
   active: boolean
+  /**
+   * False where the game takes no initiative from the app into it, so none is offered: with a
+   * module before 0.51.0, which takes one only into the encounter the Gamemaster has up, any but
+   * the one an app before item 36 offered it into, the campaign's as `pickCombat` ranks them all.
+   * Set only on a creature's own encounter, its view's `combat`.
+   */
+  takesInitiative?: false
   /** Its round: 0 before it begins, 1 or later once it has. */
   round: number
   /** Whose turn it is. Unset before the start, or while a hidden combatant acts. */
@@ -331,7 +340,18 @@ export type TableView = {
   /** Is this character still one of its campaign's characters? */
   connected: boolean
   messages: TableMessage[]
+  /**
+   * The encounter seen from the creature, for its Initiative tile and target picker: the first, as
+   * `pickCombat` ranks them, of those under way that it's a combatant of; else the campaign's, as
+   * `pickCombat` ranks them all (item 36).
+   */
   combat?: TableCombat
+  /**
+   * Every encounter under way the Combat tab shows (item 36): those the seat's character or one of
+   * its companions is in, the character's first, then its companions', each by id; with none of
+   * them in any, every one under way. Unset with none.
+   */
+  combats?: TableCombat[]
   /**
    * Unset under a system other than dnd5e, or until the module sends it; and when the viewer
    * already has the sheet of this `sheetVersion`, which is left out to save sending it again.
@@ -463,6 +483,12 @@ export type TableView = {
    * 0.50.0, as its hello said last: how hurt each is, or their hit points too. Unset for none.
    */
   health?: HealthShown
+  /**
+   * At either seat, for Help: whether the campaign's module lists companions on every scene, each
+   * saying whether it's away, from module 0.51.0, as its hello said last (the campaign's
+   * `companionsAway`). Unset where it doesn't.
+   */
+  companionsAway?: true
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
@@ -489,6 +515,11 @@ export type TableCompanion = {
   kind: 'owned' | 'summoned'
   /** For a summoned one, the item it was summoned with, such as "Find Familiar". */
   from?: string
+  /**
+   * On another scene than the active one, as the module last listed it; from module 0.51.0. Unset
+   * where it isn't, or the module doesn't say.
+   */
+  away?: true
 }
 
 /**
@@ -514,6 +545,11 @@ export type CompanionView = {
   sheet?: TableSheet
   sheetVersion?: string
   sheetWithheld?: SheetWithheld
+  /**
+   * The encounter seen from the creature, for its Initiative tile and target picker: the first, as
+   * `pickCombat` ranks them, of those under way that it's a combatant of; else the campaign's, as
+   * `pickCombat` ranks them all (item 36).
+   */
   combat?: TableCombat
   rollsToTable?: RollKind[]
   rollFeatures?: RollFeature[]

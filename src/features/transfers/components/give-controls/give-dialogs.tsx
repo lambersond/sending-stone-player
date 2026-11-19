@@ -3,7 +3,8 @@ import type { GiveDialogsProps } from './types'
 
 /**
  * The dialog a character's Give opens, for what it was last opened for, kept as it closes; from
- * module 0.49.0, coins given to characters are sent as the game hands them out, in its name.
+ * module 0.49.0, coins given to characters are sent as the game hands them out, in its name, and
+ * from module 0.51.0 to parties too.
  */
 export function GiveDialogs({
   giving,
@@ -35,6 +36,7 @@ export function GiveDialogs({
       handOut={
         giving.handOut && {
           change: giving.handOut.change,
+          ...(giving.handOut.parties && { parties: true }),
           name,
           onGive: ({ each, currency, words }) => {
             setActed(true)

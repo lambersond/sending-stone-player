@@ -413,6 +413,47 @@ describe('components/transfers/party-controls', () => {
       })
     })
 
+    it('with module 0.51.0, gives the character’s coins to the party as the game hands them out: what’s held, no All', async () => {
+      const user = userEvent.setup()
+      const view = viewWith()
+      render(
+        sheetOf({
+          ...view,
+          moves: {
+            ...view.moves,
+            give: {
+              currency: view.moves?.give?.currency ?? [],
+              handOut: { change: true },
+            },
+          },
+        }),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Give' }))
+      const dialog = screen.getByRole('dialog', { name: 'Give coins' })
+      expect(within(dialog).queryByRole('radio')).toBeNull()
+      expect(within(dialog).getByText('65 gp held')).toBeVisible()
+      expect(within(dialog).queryByRole('button', { name: /^All / })).toBeNull()
+      await user.type(
+        within(dialog).getByRole('textbox', { name: 'Gold' }),
+        '15',
+      )
+      expect(
+        within(dialog).getByText('You give 15 gp to The Iron Company.'),
+      ).toBeVisible()
+      expect(
+        within(dialog).getByText('Foundry’s chat will say so.'),
+      ).toBeVisible()
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Give coins' }),
+      )
+      expect(posts()[0].body.transfer).toEqual({
+        from: 'actorThorin1',
+        each: ['groupIronCo01'],
+        currency: { gp: 15 },
+      })
+    })
+
     it('distributes a coin among the party’s characters, labelled for the Gamemaster', async () => {
       const user = userEvent.setup()
       render(

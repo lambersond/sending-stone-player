@@ -22,11 +22,19 @@
 // the party's sheet one spinner by "Currency" or by the item's name while it's on its way, its
 // buttons disabled with none of their own, the row or group busy; the character's own Give keeps
 // its spinner where it's the row's only button. DND5E6=1: dnd5e 6.0.5's fractional gold. SKEW=031
-// with MODULE=module-0.31.0: gives only. Synthetic characters only. Run with --import
-// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// with MODULE=module-0.31.0: gives only. Since module 0.51.0 (item 91) a character's Give ticks the
+// parties as it does the characters, none ticked as it opens, and the party sheet's Give is a
+// hand-out to the party, "held" beside each coin and no All; part 19 gives 2 gp each to the
+// Company, Vex and Bram in one hand-out, the Company's line for everyone and the characters
+// whispered, then 1 gp to the Wardens, of whom Thorin is none, their sheet posted ahead of the
+// result and shown in the app; and Bob's crafted give to the Company he observes is refused.
+// SKEW=050 with MODULE=module-0.50.0: v0.50.0's dialog, the parties radios, and part 20, a give to
+// the Company by its radio, then the Company's own Give, "of" what's held with All, a give `to` it,
+// then done. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
+// ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BASE, BOB, DND5E6, SHOTS_033, SKEW031, W, actors, browse, call, changeMembers, character, check, coinsInFoundry, embedded, finish, foundryWorld,
-  group, holdWrite, launch, newCampaign, note, npc, part, posted, postsOf, same, settled, shoot, shootBoth, sideways, sql, startModule,
+  group, holdWrite, launch, newCampaign, note, npc, part, posted, postsOf, same, sameJson, settled, shoot, shootBoth, sideways, sql, startModule,
   theme, until, wait, writes,
 } from './world-030.mjs'
 
@@ -34,10 +42,15 @@ const GAME = 'https://iron-ford.forge-vtt.com'
 const SECRET = 'iron-ford-givetake-32'
 const TITLE = 'Iron Ford'
 const NEW = !SKEW031
+// Module 0.50.0 (item 91's skew): a character's Give chooses one party apart, by its radio.
+const SKEW050 = process.env.SKEW === '050'
+// Module 0.51.0: a character's Give ticks parties and characters together.
+const PARTIES = NEW && !SKEW050
 await launch(GAME)
 const { id: A, invite } = await newCampaign({ title: TITLE, address: 'iron-ford.forge-vtt.com', secret: SECRET })
 await foundryWorld({ more: true })
-game.modules.get('sending-stone').version = SKEW031 ? '0.31.0' : '0.32.0'
+const VERSIONS = { skew031: '0.31.0', skew050: '0.50.0', now: '0.32.0' }
+game.modules.get('sending-stone').version = VERSIONS[(SKEW031 && 'skew031') || (SKEW050 && 'skew050') || 'now']
 
 // ---- The world ----
 const POTION = 'Compendium.dnd5e.items.Item.phb-potion'
@@ -121,10 +134,13 @@ const holding = (actor, name) => [...actor.items].filter(it => it.name === name)
 
 if (NEW) {
   // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.49.0).
-  check(same(hello().data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true }),
-    `the hello says moves are made, a party's things may be sent by its Owner, its coin distributed, and a character's coins handed out (${JSON.stringify(hello().data.features.transfers)})`)
-  await until(() => features() === 'partySends,distribute,handOut,change', 'the app to keep them', 15_000)
-  check(features() === 'partySends,distribute,handOut,change', `and the app keeps them (${features()})`)
+  // Changed on purpose (item 91): with module 0.51.0, to the campaign's parties too; module 0.50.0 says nothing of it.
+  const transfers = { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true, ...(PARTIES && { handOutParties: true }) }
+  const KEPT = PARTIES ? 'partySends,distribute,handOut,change,handOutParties' : 'partySends,distribute,handOut,change'
+  check(same(hello().data.features.transfers, transfers),
+    `the hello says moves are made, a party's things may be sent by its Owner, its coin distributed, and a character's coins handed out${PARTIES ? ', to parties too' : ''} (${JSON.stringify(hello().data.features.transfers)})`)
+  await until(() => features() === KEPT, 'the app to keep them', 15_000)
+  check(features() === KEPT, `and the app keeps them (${features()})`)
 } else {
   check(same(hello().data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null }), `module 0.31.0's hello says moves are made, nothing more (${JSON.stringify(hello().data.features.transfers)})`)
   await wait(1000)
@@ -230,15 +246,57 @@ let dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
 {
   // Changed on purpose (item 89): with module 0.49.0 the characters are ticked, the parties still chosen.
+  // Changed on purpose (item 91): with module 0.51.0 the parties are ticked too, none as it opens.
   const radios = await radiosOf(dialog)
   const boxes = await dialog.getByRole('checkbox').evaluateAll(bs => bs.map(b => b.closest('label').textContent.trim()))
-  check(NEW
-    ? same(radios, ['The Iron Company Primary', 'Wardens of the Vale']) && same(boxes, ['Select all', 'Vex', 'Bram', 'Lia'])
-    : same(radios, ['The Iron Company Primary', 'Wardens of the Vale', 'Vex', 'Bram', 'Lia']) && boxes.length === 0,
-  `Give opens 0.31.0's "Give coins", its To without Thorin${NEW ? ', the characters ticked under Select all' : ''} (${JSON.stringify([radios, boxes])})`)
+  const ticked = await dialog.getByRole('checkbox').evaluateAll(bs => bs.filter(b => b.checked).length)
+  let looks = same(radios, ['The Iron Company Primary', 'Wardens of the Vale', 'Vex', 'Bram', 'Lia']) && boxes.length === 0
+  if (NEW) looks = same(radios, ['The Iron Company Primary', 'Wardens of the Vale']) && same(boxes, ['Select all', 'Vex', 'Bram', 'Lia'])
+  if (PARTIES) looks = radios.length === 0 && same(boxes, ['The Iron Company Primary', 'Wardens of the Vale', 'Select all', 'Vex', 'Bram', 'Lia']) && ticked === 0
+  let ways = ''
+  if (NEW) ways = ', the characters ticked under Select all'
+  if (PARTIES) ways = ', the parties and the characters ticked alike, none as it opens'
+  check(looks, `Give opens 0.31.0's "Give coins", its To without Thorin${ways} (${JSON.stringify([radios, boxes, ticked])})`)
 }
 await dialog.getByRole('button', { name: 'Cancel' }).click()
 await dialog.waitFor({ state: 'hidden' })
+
+// =================================================================================================
+// 20. Module 0.50.0: a party chosen alone (item 91's skew)
+// =================================================================================================
+if (SKEW050) {
+  part('20. module 0.50.0: a party chosen alone')
+  await sheetTab.getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
+  dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
+  await dialog.waitFor()
+  check(await dialog.getByRole('radio', { name: /^The Iron Company/ }).isChecked(), 'Give coins opens on the Company, chosen by its radio, as v0.50.0 did')
+  await dialog.getByRole('textbox', { name: 'Gold' }).fill('2')
+  await dialog.getByRole('button', { name: 'Give coins' }).click()
+  const given = await answeredNext('2 gp to the Company by its radio')
+  check(given.status === 'done' && sameJson(given.payload.transfer, { from: 'thorin', to: 'company', currency: { gp: 2 } }) && lastLine()?.text === 'Gives 2 gp to The Iron Company',
+    `it's sent as a give to the Company, "${lastLine()?.text}" (${JSON.stringify(given.payload.transfer)})`)
+  const refused = await crafted(alice, ALICE_API, { from: 'thorin', each: ['company'], currency: { gp: 1 } })
+  check(refused.status === 422 && refused.json?.reason === 'unknown', `crafted, a hand-out naming the Company is ${refused.status} ${refused.json?.reason}, as module 0.50.0 would refuse it`)
+  // The Company's own Give is v0.50.0's too: "of" what Thorin holds, with All, and a give `to` it.
+  const panel = await openParty(alice)
+  await panel.getByRole('button', { name: 'Give', exact: true }).click()
+  dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
+  await dialog.waitFor()
+  const coins = dialog.getByRole('group', { name: 'Coins' })
+  await until(async () => (await coins.textContent()).includes('38 gp'), "the Company's Give to show Thorin's 38 gp", 15_000)
+  const coinsText = await coins.textContent()
+  const all = await dialog.getByRole('button', { name: /^All / }).evaluateAll(bs => bs.map(b => b.getAttribute('aria-label')))
+  check(await dialog.getByRole('radio').count() === 0 && coinsText.includes('of 38 gp') && !coinsText.includes('held') && same(all, ['All Gold']),
+    `the Company's Give opens v0.50.0's "Give coins": no To, Thorin's "of 38 gp" with All (${JSON.stringify([coinsText, all])})`)
+  await dialog.getByRole('textbox', { name: 'Gold' }).fill('3')
+  await dialog.getByRole('button', { name: 'Give coins' }).click()
+  const into = await answeredNext("3 gp into the Company by its sheet's Give")
+  check(into.status === 'done' && sameJson(into.payload.transfer, { from: 'thorin', to: 'company', currency: { gp: 3 } }) && lastLine()?.text === 'Gives 3 gp to The Iron Company'
+    && gp(thorin) === 35 && held(company, 'gp') === 108,
+    `it's sent as a give to the Company, no hand-out, "${lastLine()?.text}": Thorin ${gp(thorin)}, the Company ${held(company, 'gp')} (${JSON.stringify(into.payload.transfer)})`)
+  await panel.getByRole('button', { name: 'Close' }).click()
+  await finish()
+}
 
 // =================================================================================================
 // 2. Coin spacing
@@ -588,13 +646,23 @@ part('10. give')
 await panel.getByRole('button', { name: 'Give', exact: true }).click()
 dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
-check(await dialog.getByRole('radio').count() === 0 && (await dialog.getByRole('group', { name: 'Coins' }).textContent()).includes('of 65 gp'), '"Give coins" has no To, and Thorin\'s coins: "of 65 gp"')
+{
+  // Changed on purpose (item 91): with module 0.51.0 the party's Give is a hand-out to the party,
+  // what's held beside each coin, no All.
+  const coinsText = await dialog.getByRole('group', { name: 'Coins' }).textContent()
+  const all = await dialog.getByRole('button', { name: /^All / }).count()
+  check(await dialog.getByRole('radio').count() === 0 && (PARTIES ? coinsText.includes('65 gp held') && all === 0 : coinsText.includes('of 65 gp')),
+    `"Give coins" has no To, and Thorin's coins: ${PARTIES ? '"65 gp held", no All' : '"of 65 gp"'} (${coinsText})`)
+}
 await dialog.getByRole('textbox', { name: 'Gold' }).fill('15')
 check(await summary(dialog) === 'You give 15 gp to The Iron Company.', `"${await summary(dialog)}"`)
 await dialog.getByRole('button', { name: 'Give coins' }).click()
 made = await answeredNext('the give into the party')
-check(made.status === 'done' && lastLine()?.text === 'Gives 15 gp to The Iron Company' && gp(thorin) === 50 && held(company, 'gp') === (DND5E6 ? 16.5 : 16),
-  `"${lastLine()?.text}": Thorin 50, the Company ${held(company, 'gp')}`)
+{
+  const sent = PARTIES ? { from: 'thorin', each: ['company'], currency: { gp: 15 } } : { from: 'thorin', to: 'company', currency: { gp: 15 } }
+  check(made.status === 'done' && sameJson(made.payload.transfer, sent) && lastLine()?.text === 'Gives 15 gp to The Iron Company' && gp(thorin) === 50 && held(company, 'gp') === (DND5E6 ? 16.5 : 16),
+    `"${lastLine()?.text}": Thorin 50, the Company ${held(company, 'gp')}, sent ${JSON.stringify(made.payload.transfer)}`)
+}
 
 // ---- 11. Into her own ----
 part('11. into her own')
@@ -915,6 +983,86 @@ for (const width of [360, 390, 768, 1280]) {
 await alice.page.setViewportSize({ width: 390, height: 844 })
 alice.width = 390
 await theme(alice, 'light')
+
+// =================================================================================================
+// 19. To a party and two characters (module 0.51.0, item 91)
+// =================================================================================================
+if (PARTIES) {
+  part('19. to a party and two characters')
+  /** Foundry's messages from the `since`th on: their text, whom they're whispered to, as whom and by whom. */
+  const said = since => [...W.messages.values()].slice(since).map(m => ({ text: (m.content ?? '').replace(/<[^>]+>/g, ''), whisper: [...(m.whisper ?? [])].toSorted(), actor: m.speaker?.actor, author: m.author?.id ?? m.author }))
+  const GMS = game.users.filter(user => user.isGM).map(user => user.id).toSorted()
+  await alice.tab('Inventory')
+  await tabpanel(alice).getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
+  dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
+  await dialog.waitFor()
+  const before = { thorin: gp(thorin), company: held(company, 'gp'), vex: gp(vex), bram: gp(bram) }
+  const since = W.messages.size
+  for (const name of [/^The Iron Company/, /^Vex/, /^Bram/]) await dialog.getByRole('checkbox', { name }).locator('xpath=ancestor::label[1]').click()
+  await dialog.getByRole('textbox', { name: 'Gold' }).fill('2')
+  const told = await dialog.locator('p[aria-live="polite"]').first().locator('xpath=following-sibling::p').first().textContent()
+  check(await summary(dialog) === 'You give 2 gp each to The Iron Company, Vex, and Bram: 6 gp in all.'
+    && told === 'Foundry’s chat will say what The Iron Company gets. Each character is whispered what they received, and your Gamemaster is told.',
+    `Alice ticks the Company, Vex and Bram, 2 gp each: "${await summary(dialog)}" "${told}"`)
+  await dialog.getByRole('button', { name: 'Give coins' }).click()
+  // The hand-out by what it sends: an earlier part's moves may still be unlooked at.
+  const handOut = () => moves().find(m => m.payload?.transfer?.each?.length === 3)
+  await until(() => ['done', 'failed'].includes(handOut()?.status), '2 gp each to the Company, Vex and Bram', 30_000)
+  made = handOut()
+  await until(() => postsOf('command.result').some(p => p.data?.id === made.id), 'its result as posted', 10_000)
+  check(made.status === 'done' && sameJson(made.payload.transfer, { from: 'thorin', each: ['company', 'vex', 'bram'], currency: { gp: 2 } }),
+    `one hand-out, the Company first: ${JSON.stringify(made.payload.transfer)}`)
+  await until(() => said(since).length >= 4, "the hand-out's four messages", 10_000).catch(() => {})
+  check(same(said(since), [
+    { text: 'Gives 2 gp to The Iron Company', whisper: [], actor: 'thorin', author: 'alice' },
+    { text: 'Vex received 2 gp from Thorin', whisper: ['bob'], actor: 'thorin', author: 'alice' },
+    { text: 'Bram received 2 gp from Thorin', whisper: ['carol'], actor: 'thorin', author: 'alice' },
+    { text: 'Thorin handed out 2 gp each to The Iron Company, Vex, and Bram: 6 gp in all', whisper: GMS, actor: 'thorin', author: 'alice' },
+  ]), `Foundry: the Company's line for everyone, Bob's and Carol's whispers, the Gamemasters' (${JSON.stringify(said(since))})`)
+  check(before.thorin >= 6 && gp(thorin) === before.thorin - 6 && held(company, 'gp') === before.company + 2 && gp(vex) === before.vex + 2 && gp(bram) === before.bram + 2,
+    `Thorin 6 gp fewer, the Company, Vex and Bram 2 more each (${JSON.stringify([before, { thorin: gp(thorin), company: held(company, 'gp'), vex: gp(vex), bram: gp(bram) }])})`)
+  await alice.page.getByRole('region', { name: 'Your rolls' }).getByRole('status').getByText('Gave 2 gp each to The Iron Company, Vex, and Bram').waitFor({ timeout: 15_000 })
+  check(true, 'Alice\'s tray: "Gave 2 gp each to The Iron Company, Vex, and Bram"')
+  // The Wardens, of whom Thorin is none: no character's sheet carries them, so their own is posted
+  // ahead of the result, and the app's sheet of them shows the gold.
+  const goldIn = sheet => sheet?.inventory?.currency?.find(c => c.id === 'gp')?.value
+  const wardensGold = async () => goldIn((await call(alice.page, `${ALICE_API}/party/wardens`)).json?.sheet)
+  const wardensBefore = { foundry: held(wardens, 'gp'), app: await wardensGold() }
+  const postedFrom = posted.length
+  await tabpanel(alice).getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
+  dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
+  await dialog.waitFor()
+  await dialog.getByRole('checkbox', { name: /^Wardens of the Vale/ }).locator('xpath=ancestor::label[1]').click()
+  await dialog.getByRole('textbox', { name: 'Gold' }).fill('1')
+  await dialog.getByRole('button', { name: 'Give coins' }).click()
+  const toWardens = () => moves().find(m => sameJson(m.payload?.transfer?.each, ['wardens']))
+  await until(() => ['done', 'failed'].includes(toWardens()?.status), '1 gp to the Wardens', 30_000)
+  made = toWardens()
+  await until(() => postsOf('command.result').some(p => p.data?.id === made.id), 'its result as posted', 10_000)
+  {
+    const resultAt = posted.indexOf(postsOf('command.result').find(p => p.data?.id === made.id))
+    const groupAt = posted.findIndex((p, i) => i >= postedFrom && i < resultAt && p.type === 'group.updated' && p.data.group.id === 'wardens'
+      && goldIn(p.data.group.sheet) === wardensBefore.foundry + 1)
+    if (groupAt < 0) note(JSON.stringify(posted.slice(postedFrom, resultAt + 1).map(p => [p.type, p.data?.group?.id ?? p.data?.character?.id ?? p.data?.id])))
+    check(made.status === 'done' && held(wardens, 'gp') === wardensBefore.foundry + 1 && groupAt >= 0,
+      `Alice gives the Wardens 1 gp, ${wardensBefore.foundry} then ${held(wardens, 'gp')} in Foundry, and their sheet is posted ahead of the result (${groupAt} before ${resultAt})`)
+  }
+  await until(async () => await wardensGold() === wardensBefore.app + 1, "the Wardens' gold in the app", 15_000)
+  check(true, `in the app, the Wardens' sheet shows ${wardensBefore.app + 1} gp, 1 more`)
+  // Bob, who observes the Company and owns the Wardens: the Wardens alone, a checkbox.
+  await bob.tab('Inventory')
+  await tabpanel(bob).getByRole('group', { name: 'Currency', exact: true }).getByRole('button', { name: 'Give', exact: true }).click()
+  const bobs = bob.page.getByRole('dialog', { name: 'Give coins' })
+  await bobs.waitFor()
+  const bobParties = await bobs.getByRole('group', { name: 'Parties' }).getByRole('checkbox').evaluateAll(bs => bs.map(b => b.closest('label').textContent.trim()))
+  check(same(bobParties, ['Wardens of the Vale']) && await bobs.getByRole('radio').count() === 0, `Bob's Give lists the Wardens alone under Parties, a checkbox (${JSON.stringify(bobParties)})`)
+  await bobs.getByRole('button', { name: 'Cancel' }).click()
+  const refused = [
+    await crafted(bob, BOB_API, { from: 'vex', each: ['company'], currency: { gp: 1 } }),
+    await crafted(alice, ALICE_API, { from: 'thorin', each: ['order'], currency: { gp: 1 } }),
+  ].map(r => [r.status, r.json?.reason])
+  check(same(refused, [[422, 'not-owner'], [422, 'unknown']]), `crafted, Bob's hand-out to the Company he observes and Alice's to the Order she can't see: ${JSON.stringify(refused)}`)
+}
 
 note(`lines: ${JSON.stringify(lines().map(l => l.text))}`)
 await finish()

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Package } from 'lucide-react'
 import { useCompanionView } from '@/features/companions/hooks/use-companion-view'
+import { awayWords } from '@/features/companions/utils'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { TableReadContext } from '@/hooks/use-table-read'
@@ -13,6 +14,10 @@ import type { TableSeat } from '@/types/character'
 import type { SheetWithheld } from '@/types/sending-stone'
 import type { CreatureFacts, RowCompanion } from '@/types/table'
 
+/** The box of a note under a companion's sheet's tabs: that it's gone, or on another scene. */
+const NOTE =
+  'shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-sm md:px-8'
+
 /**
  * A companion's pane beside its character's, as its tab's panel (module 0.36.0): its own sheet,
  * read through its own routes, rolling as itself, its tray and toasts its own, its dice thrown on
@@ -21,7 +26,8 @@ import type { CreatureFacts, RowCompanion } from '@/types/table'
  * handing it to its sheet's tabs once the sheet comes. Once the companion is no longer the
  * character's, its sheet stays as it was, a note under its tabs saying so, and nothing on it rolls.
  * From module 0.41.0, the saves the game asks of it are asked on its own banner, as a character's
- * are, with its own modifiers.
+ * are, with its own modifiers. From module 0.51.0, while it's on another scene, a note under its
+ * tabs says so, and it rolls as ever.
  * @param companion - As the row has it.
  * @param name - Its name as the row says it, numbered where repeated, such as "Bat 2".
  * @param character - The character's name.
@@ -87,7 +93,8 @@ export function CompanionPane({
   useEffect(() => {
     onReconnecting?.(reconnecting)
   }, [reconnecting, onReconnecting])
-  const { game } = seatWords(seat.role)
+  const words = seatWords(seat.role)
+  const { game } = words
   // Whose it is, for its header and the words its tray says.
   const { kind, from } = companion
   const creature = useMemo<CreatureFacts>(
@@ -112,6 +119,12 @@ export function CompanionPane({
       ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
       ?.focus()
   }, [ready])
+
+  // Under the sheet's tab row, as the prototype draws it: gone first, then away (module 0.51.0).
+  let note
+  if (left) note = <GoneNote name={name} character={character} game={game} />
+  else if (live?.companion?.away)
+    note = <AwayNote words={awayWords(name, words)} />
 
   let body
   if (view?.sheet) {
@@ -140,10 +153,7 @@ export function CompanionPane({
         follows={view.initiative.after}
         locked={left}
         idPrefix={`creature-${key}-`}
-        // Under the sheet's tab row, as the prototype draws it.
-        note={
-          left && <GoneNote name={name} character={character} game={game} />
-        }
+        note={note}
       />
     )
   } else if (left) {
@@ -198,13 +208,23 @@ function GoneNote({
   short?: boolean
 }>) {
   return (
-    <p
-      role='note'
-      className='shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-sm md:px-8'
-    >
+    <p role='note' className={NOTE}>
       {short
         ? `${name} is no longer with ${character} in ${game}.`
         : `${name} is no longer with ${character} in ${game}. Its sheet is as it was; nothing more can be rolled for it here.`}
+    </p>
+  )
+}
+
+/**
+ * Says a companion is on another scene than the active one, from module 0.51.0, as a note under the
+ * tabs of its sheet, which still rolls.
+ * @param words - Its sentence, as `awayWords` makes it.
+ */
+function AwayNote({ words }: Readonly<{ words: string }>) {
+  return (
+    <p role='note' className={NOTE}>
+      {words}
     </p>
   )
 }

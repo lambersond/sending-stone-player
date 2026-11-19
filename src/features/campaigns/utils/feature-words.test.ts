@@ -3,6 +3,7 @@
  */
 import {
   coinsText,
+  companionsLine,
   healthText,
   hitPointsText,
   movesText,
@@ -168,5 +169,22 @@ describe('features/campaigns/utils/feature-words, other creatures’ health (mod
     ],
   ])('says so with %s', (_name, fields, text) => {
     expect(healthText(campaign(fields))).toBe(text)
+  })
+})
+
+// Module 0.51.0 (item 18): the Gamemaster's card marks a companion on another scene, so that
+// tokens left on past maps can be found and tidied.
+describe('features/campaigns/utils/feature-words, companions on another scene (module 0.51.0)', () => {
+  it('marks one owned or summoned on another scene, numbering repeated names as before', () => {
+    expect(
+      companionsLine([
+        { name: 'Brakka', kind: 'owned' },
+        { name: 'Wolf', kind: 'owned', away: true },
+        { name: 'Bat', kind: 'summoned', from: 'Find Familiar' },
+        { name: 'Bat', kind: 'summoned', from: 'Find Familiar', away: true },
+      ]),
+    ).toBe(
+      'Companions: Brakka, Wolf (on another scene), Bat 1 (summoned), Bat 2 (summoned, on another scene)',
+    )
   })
 })

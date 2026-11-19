@@ -1,7 +1,8 @@
 /**
  * @jest-environment node
  */
-import { actingHealth } from './utils'
+import { actingHealth, otherTurnsLine } from './utils'
+import { mockTurnCombat } from '@/mocks/sending-stone'
 import type { TableCombatant } from '@/types/table'
 
 const fighter = (fields: Partial<TableCombatant> = {}): TableCombatant => ({
@@ -37,5 +38,33 @@ describe('combat-tracker/utils actingHealth', () => {
     ['no one', undefined, false],
   ])('on the turn of %s', (_name, current, shown) => {
     expect(actingHealth(current)).toBe(shown ? current : undefined)
+  })
+})
+
+/** An encounter under way, `currentId`'s turn (item 36). */
+const encounter = (id: string, currentId: string) =>
+  mockTurnCombat({ id, currentId })
+
+describe('otherTurnsLine (item 36)', () => {
+  const shown = encounter('a', 'c-thorin')
+
+  it.each([
+    [
+      'none where no other is the seat’s turn',
+      [shown, encounter('b', 'c-goblin')],
+      '',
+    ],
+    [
+      'the character’s in another',
+      [encounter('b', 'c-goblin'), encounter('c', 'c-thorin')],
+      'Your turn, in another encounter.',
+    ],
+    [
+      'each where it is, the shown one left out',
+      [shown, encounter('b', 'c-brakka'), encounter('c', 'c-thorin')],
+      'Brakka’s turn, in another encounter. Your turn, in another encounter.',
+    ],
+  ])('%s', (_, combats, line) => {
+    expect(otherTurnsLine(combats, shown)).toBe(line)
   })
 })

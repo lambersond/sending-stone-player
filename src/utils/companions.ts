@@ -31,8 +31,9 @@ export function companionRoster(companions: unknown): CompanionEntry[] {
 }
 
 /**
- * A companion as its character's tab shows it: its key, name and portrait, its kind, and for a
- * summoned one the item it was summoned with, where it's named.
+ * A companion as its character's tab shows it: its key, name and portrait, its kind, for a
+ * summoned one the item it was summoned with, where it's named, and from module 0.51.0 whether
+ * it's on another scene, where the module says it is.
  * @param origin - The game's address, which its portrait's path may be relative to.
  */
 export function tableCompanion(
@@ -47,6 +48,7 @@ export function tableCompanion(
     ...(portrait && { portrait }),
     kind: entry.kind,
     ...(from && { from }),
+    ...(entry.away === true && { away: true as const }),
   }
 }
 

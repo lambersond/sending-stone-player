@@ -1,4 +1,4 @@
-import { isTurnOf } from './combat'
+import { isTurnIn } from './combat'
 import { switcherWords } from '@/utils/wild-shape-words'
 import type { SwitcherCreature } from '@/features/companions/types'
 import type { PaneMarks } from '@/features/table/types'
@@ -44,13 +44,13 @@ export function switcherCreatures({
       ...(view.sheet?.form && { shape: switcherWords(view.sheet.form) }),
       news: [
         asking && asksForRoll,
-        isTurnOf(view.combat, ({ side }) => side === 'me') && ', your turn',
+        isTurnIn(view.combats, ({ side }) => side === 'me') && ', your turn',
       ]
         .filter(Boolean)
         .join(''),
     },
     ...row.map(
-      ({ key, name, portrait, kind, from, gone }): SwitcherCreature => ({
+      ({ key, name, portrait, kind, from, gone, away }): SwitcherCreature => ({
         key,
         name,
         number: numbers.get(key),
@@ -58,13 +58,17 @@ export function switcherCreatures({
         kind,
         from,
         gone,
+        // On another scene, from module 0.51.0: a gone one is never away.
+        ...(away && !gone && { away }),
         news: gone
           ? ''
           : [
               // What the game asks of it, from module 0.41.0, as the character's own tab says.
               waitingKeys.has(key) && asksForRoll,
-              isTurnOf(view.combat, combatant => combatant.companion === key) &&
-                ', its turn',
+              isTurnIn(
+                view.combats,
+                combatant => combatant.companion === key,
+              ) && ', its turn',
               paneMarks.get(key)?.pending && ', damage to roll',
             ]
               .filter(Boolean)

@@ -52,7 +52,9 @@ export function transfersAvailable(
  * is; and so is a group among those a distribution is shared among, for every seat. The Gamemaster
  * may move anything between the campaign's characters and groups, party to party too from module
  * 0.32.0. From module 0.49.0, a hand-out is to the campaign's characters alone, of the coins of the
- * character it's made as, the Gamemaster's too: never a party's, nor another character's.
+ * character it's made as, the Gamemaster's too: never a party's, nor another character's. From
+ * module 0.51.0, where the module says so (`handOutParties`), to the campaign's groups too, as the
+ * seat has them listed, a player's only those they own.
  * @param roster - The campaign's characters, from its hello.
  * @param groups - Its groups, as its roster keeps them.
  * @param features - The campaign's `transferFeatures`: without `partySends`, 0.31.0's rules.
@@ -78,13 +80,37 @@ export function checkEnds(
   // Those a distribution shares among are characters alone: a group among them says nothing of
   // whether it's one.
   if (among?.some(id => !character(id))) return 'unknown'
-  // Nor are those coins are handed out to (module 0.49.0).
-  if (each?.some(id => !character(id))) return 'unknown'
+  // Nor are those coins are handed out to (module 0.49.0), but from module 0.51.0, where the
+  // module says so, the groups listed for the seat too.
+  const toParties = features.includes('handOutParties')
+  if (each?.some(id => !character(id) && !(toParties && group(id)))) {
+    return 'unknown'
+  }
   const { actorId } = seat
   if (!actorId || !character(actorId)) return 'not-yours'
-  // A hand-out is of the character's own coins, made as it.
-  if (each) return from === actorId ? undefined : 'not-yours'
+  if (each) return checkHandOut(seat.role, actorId, from, each, group)
   return checkMover(seat.role, actorId, transfer, group, features)
+}
+
+/**
+ * Whether the seat's character may hand out its coins to those named, all known: its own coins,
+ * made as it, the Gamemaster's too (module 0.49.0); and for a player, from module 0.51.0, to a
+ * party only one they own.
+ */
+function checkHandOut(
+  role: 'player' | 'gm',
+  actorId: string,
+  from: string,
+  each: readonly string[],
+  group: (id: string) => GroupEntry | undefined,
+): TransferRefusal | undefined {
+  if (from !== actorId) return 'not-yours'
+  if (role === 'gm') return undefined
+  const unowned = each.some(id => {
+    const party = group(id)
+    return party !== undefined && accessOf(party, actorId) !== 'owner'
+  })
+  return unowned ? 'not-owner' : undefined
 }
 
 /**

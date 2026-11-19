@@ -179,8 +179,9 @@ export type TransferInput = {
    */
   among?: string[]
   /**
-   * From module 0.49.0, a hand-out: the characters each given `currency`, of the coins of the
-   * character it's made as, never with `to` or `among`, nor with items.
+   * From module 0.49.0, a hand-out: the characters, and from module 0.51.0 the parties, each given
+   * `currency`, of the coins of the character it's made as, never with `to` or `among`, nor with
+   * items.
    */
   each?: string[]
   items?: { id: string; quantity: number }[]

@@ -63,6 +63,11 @@ export const HELP_SECTIONS: HelpSection[] = [
         lead: 'Companions and conditions.',
         text: ' A companion has its own tab above the sheet: roll for it there. Tap a condition to read its rules.',
       },
+      {
+        lead: 'Companions elsewhere.',
+        text: ' A companion on another scene in your Gamemaster’s game says so on its tab and its sheet. You can still roll for it, but an attack may need your Gamemaster to view its target.',
+        away: true,
+      },
     ],
   },
   {
@@ -171,6 +176,9 @@ export const HELP_SECTIONS: HelpSection[] = [
         text: 'The Combat tab shows the initiative order and whose turn it is; on a wide screen it’s beside the sheet. Roll Initiative from the Character tab when the encounter starts. Where your Gamemaster’s game takes your rolls, the Combat tab has End turn on your turn, and Undo shows in a toast for 8 seconds after. Or press and hold the Combat tab for a second, from any tab: a toast says your turn is ending, and if you let go early, nothing happens. On a companion’s turn, the same ends its turn. A companion rolls its own initiative from its tab, unless your Gamemaster puts companions right after their character, when it isn’t rolled at all.',
       },
       {
+        text: 'When your character and a companion fight in two encounters at once, as on two scenes, the Combat tab has a tab for each, named for the encounter, or else for who of yours is in it, with a dot where it’s your turn or a companion’s. End turn ends the turn in the encounter shown. Pressing and holding the Combat tab ends yours, or a companion’s, in the encounter shown, or else in the other where it is. Each rolls initiative into its own encounter, a companion from its tab, while your Gamemaster has it up; with a newer Sending Stone module, also once that encounter has begun. An encounter shows while it’s under way: begun, and the one its scene’s tracker shows.',
+      },
+      {
         text: 'Where your Gamemaster allows it, each creature that isn’t one of the party shows how hurt it is: Unhurt, Hurt, Bloodied (at about half its hit points or less, by the game’s own rule) or Down (at 0). If they allow it, its hit points show instead, as the party’s do.',
       },
     ],
@@ -242,7 +250,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Players move items and coins',
-        text: ': Send to…, Take and Give (0.31.0), and Give to several characters at once (0.49.0).',
+        text: ': Send to…, Take and Give (0.31.0), Give to several characters at once (0.49.0), and to parties and characters together (0.51.0).',
       },
       {
         lead: 'Allow Players to add and take away coins from the app',
@@ -250,7 +258,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Pay with other coins when a character is short of one',
-        text: ': removing more of a coin than you hold, or giving characters more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).',
+        text: ': removing more of a coin than you hold, or giving more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0; giving to a party, 0.51.0).',
       },
       {
         lead: 'Allow Players to disable & remove their own active effects',

@@ -282,6 +282,28 @@ describe('CreatureSwitcher', () => {
     )
   })
 
+  // Module 0.51.0 (item 18): a companion on another scene is pinned so, tab or avatar.
+  it('pins one on another scene, as a tab and as an avatar, and marks it so', () => {
+    const away = { ...bat('b1'), away: true as const }
+    const { unmount } = renderSwitcher([thorin, brakka, away])
+    const [, wolf, imp] = tabs()
+    expect(imp).toHaveAttribute('data-away', 'true')
+    expect(imp.querySelector('.lucide-map-pin-off')).not.toBeNull()
+    expect(imp).toHaveAccessibleDescription(
+      'Summoned by Thorin with Find Familiar, on another scene',
+    )
+    expect(wolf).not.toHaveAttribute('data-away')
+    expect(wolf.querySelector('.lucide-map-pin-off')).toBeNull()
+    unmount()
+    boxWidth = 370
+    renderSwitcher([thorin, brakka, away], { chosen: 'brakka' })
+    expect(tablist()).toHaveAttribute('data-mode', 'avatars')
+    const avatar = tabs()[2]
+    expect(avatar).toHaveClass('min-w-11')
+    expect(avatar).toHaveAttribute('data-away', 'true')
+    expect(avatar.querySelector('.lucide-map-pin-off')).not.toBeNull()
+  })
+
   it('says "your game" for a gone one at the Gamemaster’s seat', () => {
     renderSwitcher([thorin, { ...brakka, gone: true }], { role: 'gm' })
     expect(tabs()[1]).toHaveAccessibleDescription(

@@ -11,6 +11,7 @@ import type {
   HelpBox,
   HelpFacts,
   HelpSection,
+  HelpShown,
   RowWords,
 } from './types'
 import type { TableView } from '@/types/table'
@@ -25,13 +26,20 @@ export function named(words: string, name: string): string {
  * asks a typing player for those dice, module 0.44.0 or later under dnd5e 5, as its hello said last
  * (`TableView['laterDice']`), at either seat, however its Gamemaster's switches stand and whether
  * or not the game polls now (H6 B; the owner's round 3 decision 3): Help never describes what its
- * game can't do, and its words never shift as the switches change.
+ * game can't do, and its words never shift as the switches change. And "Companions elsewhere." only
+ * where its module lists companions on every scene, module 0.51.0 or later, as its hello said last
+ * (`TableView['companionsAway']`).
  */
-export function helpSections(laterDice: boolean): HelpSection[] {
-  if (laterDice) return HELP_SECTIONS
+export function helpSections({
+  laterDice,
+  companionsAway,
+}: HelpShown): HelpSection[] {
+  if (laterDice && companionsAway) return HELP_SECTIONS
   return HELP_SECTIONS.map(section => ({
     ...section,
-    parts: section.parts.filter(part => !part.later),
+    parts: section.parts.filter(
+      part => (laterDice || !part.later) && (companionsAway || !part.away),
+    ),
   }))
 }
 

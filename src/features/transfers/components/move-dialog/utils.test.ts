@@ -2,8 +2,11 @@ import {
   coinsLegend,
   eachMove,
   eachSummary,
+  firstChosen,
   givesEach,
+  partiesOf,
   pickedOf,
+  severalOf,
   toldWords,
 } from './utils'
 import { coinSpeaker } from '@/features/transfers/utils'
@@ -211,5 +214,111 @@ describe('features/transfers/move-dialog/utils, a give of coins to characters, f
     expect(pickedOf([PARTY, VEX, BRAM], [BRAM.id, VEX.id])).toEqual([VEX, BRAM])
     expect(pickedOf(undefined, [], PARTY)).toEqual([PARTY])
     expect(pickedOf(undefined, [])).toEqual([])
+  })
+})
+
+describe('features/transfers/move-dialog/utils, parties given coins as characters are, from module 0.51.0', () => {
+  const ORDER = { id: 'groupOrder01', name: 'The Silent Order' }
+  const handOut = {
+    change: true,
+    parties: true as const,
+    name: 'Thorin',
+    onGive: jest.fn(),
+  }
+
+  it.each([
+    ['nobody, with no hand-out', undefined, HELD, undefined],
+    ['nobody, for an item', handOut, undefined, undefined],
+    [
+      'the characters (module 0.49.0)',
+      { ...handOut, parties: undefined },
+      HELD,
+      'characters',
+    ],
+    ['everyone (module 0.51.0)', handOut, HELD, 'everyone'],
+  ])('ticks %s', (_name, given, currency, several) => {
+    expect(severalOf(given, currency)).toBe(several)
+  })
+
+  it('finds the parties among the ends: the list’s, a give’s set receiver, none for a take', () => {
+    expect(
+      partiesOf({
+        mode: 'give',
+        recipients: { parties: [PARTY], characters: [VEX] },
+      }),
+    ).toEqual([PARTY])
+    expect(partiesOf({ mode: 'give', into: PARTY })).toEqual([PARTY])
+    expect(partiesOf({ mode: 'take', into: VEX })).toEqual([])
+  })
+
+  it('opens on no one where everyone may be ticked, and on the primary party before', () => {
+    const recipients = { parties: [PARTY], characters: [VEX] }
+    expect(
+      firstChosen({ mode: 'give', recipients, several: 'everyone' }),
+    ).toEqual([])
+    expect(
+      firstChosen({ mode: 'give', recipients, several: 'characters' }),
+    ).toEqual([PARTY.id])
+  })
+
+  it.each([[[]], [[PARTY.id]], [[PARTY.id, VEX.id]]])(
+    'gives as the game hands coins out with %j chosen',
+    chosen => {
+      expect(
+        givesEach({ handOut, currency: HELD, chosen, parties: [PARTY] }),
+      ).toBe(true)
+    },
+  )
+
+  it.each<[string, MoveEnd[], boolean, string]>([
+    ['a party alone', [PARTY], false, 'Foundry’s chat will say so.'],
+    ['two parties', [PARTY, ORDER], true, 'Foundry’s chat will say so.'],
+    [
+      'a party and a character',
+      [PARTY, VEX],
+      false,
+      'Foundry’s chat will say what The Iron Company gets. Vex is whispered what they received, and your Gamemaster is told.',
+    ],
+    [
+      'a party and two characters',
+      [PARTY, VEX, BRAM],
+      false,
+      'Foundry’s chat will say what The Iron Company gets. Each character is whispered what they received, and your Gamemaster is told.',
+    ],
+    [
+      'two parties and a character, at the Gamemaster’s page',
+      [PARTY, ORDER, VEX],
+      true,
+      'Foundry’s chat will say what each party gets. Vex is whispered what they received, and you are told.',
+    ],
+    [
+      'characters alone, as before',
+      [VEX, BRAM],
+      false,
+      'Each is whispered what they received in Foundry’s chat, and your Gamemaster is told.',
+    ],
+  ])('says who’s told of %s', (_name, to, gm, words) => {
+    expect(toldWords({ each: true, to, parties: [PARTY, ORDER], gm })).toBe(
+      words,
+    )
+  })
+
+  it('sends the party in its place in each, first as the list orders it, and the tray names it among them', () => {
+    expect(
+      eachMove([PARTY, VEX, BRAM], { gp: 2 }, HELD, {
+        name: 'Thorin',
+        gm: false,
+      }),
+    ).toEqual({
+      each: [PARTY.id, VEX.id, BRAM.id],
+      currency: { gp: 2 },
+      words: {
+        verb: 'handOut',
+        things: '2 gp',
+        other: 'Thorin',
+        among: 'The Iron Company, Vex, and Bram',
+        abbreviations: ABBREVIATIONS,
+      },
+    })
   })
 })

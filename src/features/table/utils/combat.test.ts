@@ -1,4 +1,12 @@
-import { hpBar, isMyTurn, noCombatLines, seatTurn } from './combat'
+import {
+  hpBar,
+  isMyTurn,
+  isMyTurnIn,
+  isTurnIn,
+  noCombatLines,
+  seatTurn,
+  shownEncounter,
+} from './combat'
 import { mockTurnCombat } from '@/mocks/sending-stone'
 import type { TableCombat, TableCombatant } from '@/types/table'
 
@@ -126,5 +134,43 @@ describe('features/table/utils/combat', () => {
     ])('draws %s', (_, hp, percent, bar) => {
       expect(hpBar(hp)).toEqual({ percent, bar })
     })
+  })
+})
+
+/** Brakka's combatant, by her key. */
+const isBrakka = ({ companion }: TableCombatant) => companion === 'wolfBrakka'
+
+describe('the encounters under way at once (item 36)', () => {
+  const mine = mockTurnCombat({ id: 'a' })
+  const theirs = mockTurnCombat({ id: 'b', currentId: 'c-goblin' })
+  const brakkas = mockTurnCombat({ id: 'c', currentId: 'c-brakka' })
+
+  it.each([
+    ['none', undefined, false],
+    ['another’s turn alone', [theirs], false],
+    ['the seat’s character’s, in the second', [theirs, mine], true],
+    ['a companion’s', [theirs, brakkas], true],
+  ])('isMyTurnIn: %s', (_, combats, mineToo) => {
+    expect(isMyTurnIn(combats)).toBe(mineToo)
+  })
+
+  it('isTurnIn: a creature’s turn in any of them, by the rule given', () => {
+    expect(isTurnIn([theirs, brakkas], isBrakka)).toBe(true)
+    expect(isTurnIn([theirs, mine], isBrakka)).toBe(false)
+    expect(isTurnIn(undefined, isBrakka)).toBe(false)
+  })
+
+  it.each([
+    ['the one kept, while listed', 'b', 'a', 'b'],
+    ['the one preferred, once the kept one is gone', 'z', 'c', 'c'],
+    ['the first, with the preferred one not listed', undefined, 'z', 'a'],
+  ])('shownEncounter: %s', (_, kept, preferred, id) => {
+    expect(shownEncounter([mine, theirs, brakkas], kept, preferred)?.id).toBe(
+      id,
+    )
+  })
+
+  it('shownEncounter: none with none listed', () => {
+    expect(shownEncounter(undefined, 'a', 'a')).toBeUndefined()
   })
 })

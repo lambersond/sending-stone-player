@@ -32,10 +32,12 @@ export function useTurnFocus({
   // The turn shown: the panel is drawn only for a combat under way (`CombatTracker`).
   const now = current ? `${combat.id}:${combat.round}:${current.id}` : ''
   // The End Turn that moved the turn on, by its id; or, where the app took it with no id to follow
-  // it by, by its way, which is that End Turn's own once done.
+  // it by, by its way, which is that End Turn's own once done. Only one for this encounter: another
+  // encounter's panel shown since moves no focus (item 36).
   const moved =
     via === 'button' &&
     sent?.way.status === 'done' &&
+    sent.turn.combatId === combat.id &&
     now !== turnKey(sent.turn)
       ? (sent.way.requestId ?? sent.way)
       : undefined

@@ -1,4 +1,4 @@
-import { waitsForInitiative } from './initiative'
+import { takesInitiativeAnywhere, waitsForInitiative } from './initiative'
 
 /** An encounter with the seat's combatant, its initiative as given, and another's waiting. */
 const encounter = (
@@ -27,10 +27,36 @@ describe('utils/initiative', () => {
       false,
     ],
     ['none', undefined, false],
+    [
+      "the tracker's, its view saying the game takes none from the app (item 36)",
+      { ...encounter(true, 2), takesInitiative: false as const },
+      false,
+    ],
   ])(
     'takes an initiative from the seat into an encounter: %s',
     (_, combat, takes) => {
       expect(waitsForInitiative(combat, seats)).toBe(takes)
     },
   )
+
+  it.each([
+    ['0.50.0', false],
+    ['0.50.9', false],
+    ['0.51.0', true],
+    ['0.51.2', true],
+    ['1.0.0', true],
+    [null, false],
+    ['next', false],
+  ])(
+    'says whether module %s takes initiative into any begun encounter (item 36): %s',
+    (version, anywhere) => {
+      expect(takesInitiativeAnywhere({ id: 'sending-stone', version })).toBe(
+        anywhere,
+      )
+    },
+  )
+
+  it('says no module takes it anywhere where the hello names none', () => {
+    expect(takesInitiativeAnywhere(undefined)).toBe(false)
+  })
 })

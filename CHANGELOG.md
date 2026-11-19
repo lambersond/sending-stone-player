@@ -19,7 +19,137 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
-## v0.50.0-rc
+## v0.51.0-rc
+
+### Features
+
+- **Companions on another scene.** A familiar or other summoned creature, a sidekick, or another
+  creature a player owns keeps its tab when its tokens are on another scene than the active one: a
+  pin on its tab, ", on another scene" in its description, and a note on its sheet, at the player's
+  seat and the Gamemaster's. It is still rolled for there; an attack at a target the Gamemaster
+  isn't viewing may be refused, as before. A summons stays, even on a map left behind, until its
+  tokens are deleted or hidden. The Gamemaster's campaign card marks each one "(on another scene)",
+  or "(summoned, on another scene)", and Help says so. Needs Sending Stone 0.51.0 in Foundry; with
+  an older one, companions show as before, a summons or an unlinked token's creature only while its
+  token is on the active scene. (app and module, item 18)
+- **Give coins to parties and characters together.** On a character's Inventory tab, Give's dialog
+  lists the parties as checkboxes too, like the characters: tick any of them together, up to 20, and
+  type what each gets; it says what that comes to in all ("You give 2 gp each to The Iron Company,
+  Vex, and Bram: 6 gp in all."). Nothing is ticked as it opens. A party is given coins as a
+  character is: other coins pay where you're short, unless your Gamemaster has turned that off, and
+  there is no All. So is the Give on a party's own sheet. A party's share is a line in Foundry's
+  chat for everyone, "Gives 2 gp to The Iron Company"; each character is whispered theirs, and where
+  a character is among them the Gamemasters are told all of it. Under dnd5e 6, a party given coins
+  keeps its fraction of a coin. Needs Sending Stone 0.51.0 in Foundry; with an older one a party is
+  still chosen alone and given only coins you hold, with All, on its own sheet too. (app and module,
+  item 91)
+
+### Enhancements
+
+- **Two encounters at once.** When the party fights on one scene and a companion on another, both
+  under way, the Combat tab has a tab for each, named for the encounter, or else for who of yours is
+  in it, with a dot where it's your turn or a companion's. You see the encounters your character or
+  its companions are in, or, with none of yours in any, every one under way; before, the Combat tab
+  showed one, whoever was in it. An encounter is under way once it has begun and is the one its
+  scene's tracker shows. Holding the Combat tab ends that turn wherever it is, and each creature's
+  tab rolls initiative and picks targets in its own encounter. With module 0.51.0, initiative from
+  the app goes into a begun encounter, its scene's chosen one, on another scene than the one the
+  Gamemaster is viewing; with an older module, the app offers initiative only where it did before.
+  (app and module, item 36)
+
+### Maintenance
+
+- **One look and one set of keys for a row of tabs.** The creature switcher's tabs and the Combat
+  tab's encounter tabs share one look (`SWITCH_TAB` in `src/constants/buttons.ts`) and one rule for
+  Left, Right, Home and End (`tabStep` in `src/utils/tab-keys.ts`). (app, item 36)
+- **Each app's companion format kept beside the companions' rule.** The format each campaign's app
+  reads companions in moves from `creature-sync.mjs` into `creatures.mjs`, a layer down, with the
+  one function that writes it, so the list can follow the format its app reads; the module's 82
+  scripts still stand in seven layers with no loop among their imports, as `npm test`'s guard
+  checks. (module, item 18)
+- **Two migrations.** `20261119090000_companions_away` keeps whether a campaign's module, 0.51.0 or
+  later, lists companions on every scene, each saying whether it's away, for Help, from the
+  campaign's next hello (item 18); `20261119100000_initiative_anywhere` keeps whether a campaign's
+  module, 0.51.0 or later, takes initiative from the app into a begun encounter its scene has
+  chosen, whichever scene the Gamemaster views, from the campaign's next hello; until then the app
+  offers initiative as with an older module (item 36). (app, items 18 and 36)
+- **End-to-end checks.** A new `encounters` suite, in `world-030.mjs`'s world with scenes, walks a
+  fight on one scene and a sidekick's on another, both under way: the tabs, the dot, the hold and
+  Undo in the other encounter, the keys, the companion's initiative and targets in its own
+  encounter, another player's page and the Gamemaster's, the column at 1280, and module 0.50.0
+  (`e2e/skew.conf`'s new 050) beside them, offered no initiative it would refuse (item 36).
+  `companions` finds a sidekick and summoned creatures on another scene kept and marked: their tabs,
+  the note on a sheet at the player's seat and the Gamemaster's, the Gamemaster's campaign card and
+  Help; a check rolled for one there and made; a reload keeping them; and a hello built as at a
+  Gamemaster's page load, before any answer, dropping none. A new run of it against module 0.50.0
+  finds the summons there marked gone and cleared by a reload, as before, and Help saying nothing of
+  them, and `companionsaves` takes the app's answer of `companions: 3` in (item 18). `givetake`
+  checks a character's Give with the parties as checkboxes, none ticked; one hand-out of 2 gp each
+  to the Company, Vex and Bram, the Company's line for everyone and the characters whispered; 1 gp
+  to the Wardens, of whom the giver is none, their sheet posted ahead of the result and shown in the
+  app; the party sheet's Give with what's held and no All; and, in a new run against module 0.50.0,
+  v0.50.0's dialog with the parties as radios, and the party sheet's Give as before, what's held
+  with All, given to the party alone. `coins` takes the hello's `handOutParties` and Help's new
+  words in, and `transfers` the hello's field and the Gamemaster's Give with every party a checkbox
+  (item 91). `e2e/README.md` counts 61 suites and 139 runs. (app, items 18, 36 and 91)
+- **Jest tests.** New tests pin the encounters each view lists, the one each creature's pane reads
+  and the initiative offered with an older module (`src/utils/table-view.ts` and
+  `src/utils/initiative.ts`); the tabs' names and news (`encounter-tabs/utils.ts`), the tab kept
+  (`use-encounter-choice.ts`), the encounter End turn and the hold act in (`end-turn.ts`) and the
+  tabs' keys (`src/utils/tab-keys.ts`); the Combat tab with two encounters and with one, and a page
+  with two at once in `game-table.encounters.integration.test.tsx`; the hello's module version kept
+  (`initiativeAnywhere`), Help's Combat words, and the words, routes and storage goldens (item 36).
+  Others pin a companion away on its tab, its sheet's note and the campaign card
+  (`src/features/companions/utils.ts` and `feature-words.ts`), a gone one never away, the hello's
+  `companionsEverywhere` kept with its sheets and `companionsAway` set, the schema's `away`, the
+  view's `companion.away`, the app's answer of `companions: 3`, and Help's "Companions elsewhere."
+  only where the module lists them (item 18); and whom Give may tick, parties too, and what it says
+  it'll do (`move-dialog/utils.ts` and `recipient-list/utils.ts`), a hand-out's parties checked
+  (`src/utils/transfers.ts`), the hello's `handOutParties`, the party sheet's Give as a hand-out,
+  and Give's dialog and controls with and without the module's hand-outs to parties (item 91). (app,
+  items 18, 36 and 91)
+- **The module harness.** `rolls.mjs` checks an initiative from the app rolled into a begun
+  encounter its scene has chosen on another scene than the one the Gamemaster has up, and refused in
+  one not chosen or not begun; `companions.mjs`, under dnd5e 5.3.3 and 6.0.5 and with Midi-QOL,
+  checks a companion's, whichever way the campaign's companions enter initiative (item 36).
+  `companions.mjs` also checks the lists on every scene, each saying whether it's away, for an app
+  that answers 3 and today's for one that answers 2; none away with no scene active; commands on a
+  companion on another scene; the hello built before any answer and again; heartbeats crossing 3;
+  the two cuts, those not away kept first; a scene made with its tokens (`token-core.mjs`'s new
+  `createScene`); 10,000 tokens never made into creatures; a fight on another scene with only such a
+  companion in it, told only to the app that reads companions there; and, under Midi-QOL, an away
+  creature's attack and use (item 18). The `handouts` harness checks a hand-out to parties under
+  both dnd5e releases: who may name one, the order of the writes, lines and sheets, a party none of
+  whose members gives or is given sent for itself, what a failure leaves, a fraction kept, and a
+  party's moves waiting for one another; and the harnesses that read the hello follow its new fields
+  (item 91). `test/README.md` counts 52 harnesses and 122 runs. (module, items 18, 36 and 91)
+- **Docs for v0.51.** README.md's supported-versions table gains v0.51.0, and its Tested line names
+  module 0.50.0; CHANGELOG.md's v0.45.0 entry for the Combat tab says an encounter is under way
+  while it's the one its scene's tracker shows. The module's `PROTOCOL.md` gains an initiative from
+  the app rolled into a begun encounter its scene has chosen, whichever scene the Gamemaster views
+  (a combat's `active`, the `initiative` roll and `"not-in-combat"`); companions on every scene,
+  each with `away`, to a listener that answers `"companions": 3` (the hello's
+  `features.companions.away` and `companionsEverywhere`, the rules of what a companion is, the two
+  cuts, and when `companions.listed` is sent); a hand-out to the campaign's parties too (the hello's
+  `features.transfers.handOutParties`, `each`, a party's line, the Gamemasters' message and the
+  result); and its three "Module 0.51.0" entries. Its `README.md` says each, in its Combat,
+  Companions, Initiative in another encounter and Handing out coins paragraphs and its Layout's rows
+  for `creatures.mjs`, `creature-sync.mjs` and `command-transfers.mjs`; its `test/README.md` names
+  `token-core.mjs`'s `createScene`. (app and module)
+- **ROADMAP kept current.** ROADMAP.md gains a v0.51 section, the release candidate, listing three
+  checks to make at the table before module v0.51.0 is tagged: companions on another scene, two
+  encounters at once, and Give to a party and characters together; its Released line names module
+  v0.50.0. Under "Before v1.0", batch 3 reads as done, its items taken out: items 18 and 36, with a
+  line saying so where they stood, and item 91, the owner's Give tweak of 2026-11-18, numbered and
+  done; the plan's opening says batches 1 to 4 are done. Items 92 to 94, under "Found while building
+  Batch 3", are what batch 3 found: Midi-QOL's checks in an encounter the Gamemaster doesn't have up
+  (92), a Gamemaster's message past the twentieth not marked as theirs (93), and the module
+  harness's check of a druid's slow copy, which failed once under load in the companions landing's
+  full harness (94). Item 84 says coins handed out write through `coinUpdate`, to parties too since
+  0.51.0, and the known limits say companions are found on every scene, no level read, and name
+  items 59 and 60 as planned before v1.0. (app)
+
+## v0.50.0 — 2026-11-18
 
 ### Features
 
@@ -629,7 +759,7 @@ so an item from it is named with its number when it was built, which may since b
   tap, as conditions in descriptions already did. One it has no rules for, such as Poison, stays
   plain text. (app)
 - **The Combat tab shows only a fight under way.** The Combat tab shows whose turn it is and the
-  initiative order only once an encounter has begun and is the one on the Gamemaster's tracker.
+  initiative order only once an encounter has begun and is the one its scene's tracker shows.
   Otherwise it says "No combat right now", and the header "No combat" where it said "Getting
   ready", with a line before Begin Combat to roll initiative from the sheet while the character or
   one of its companions has none. (app, item 19)

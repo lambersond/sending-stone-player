@@ -188,7 +188,8 @@ export async function getGroupView(
  * Where the seat may move a party's things, where it may: who the Gamemaster may take into, from
  * module 0.31.0, any of the campaign's characters, which only their view reads; from module
  * 0.32.0, who the party's things may be sent to, any of them too, and those its coin is shared
- * among; and a player's character's coins, which they may give the party.
+ * among; and a player's character's coins, which they may give the party, from module 0.51.0 given
+ * as the game hands coins out, paid with other coins where it says so.
  */
 async function partyMoves(
   seat: PartySeat,
@@ -234,6 +235,13 @@ async function partyMoves(
         },
       }),
     ...(among && { distribute: among }),
-    ...(coins && { give: { currency: coins } }),
+    ...(coins && {
+      give: {
+        currency: coins,
+        ...(campaign.transferFeatures.includes('handOutParties') && {
+          handOut: { change: campaign.transferFeatures.includes('change') },
+        }),
+      },
+    }),
   }
 }

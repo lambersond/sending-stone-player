@@ -67,9 +67,10 @@ export type PartyView = {
     distribute?: TableMoves['characters']
     /**
      * A player's seat, from module 0.32.0: their character's coins, as last sent, which Give
-     * gives.
+     * gives. `handOut`, from module 0.51.0: set where the coins are given as the game hands them
+     * out, `change` whether other coins pay where the character is short of one.
      */
-    give?: { currency: SheetCurrency[] }
+    give?: { currency: SheetCurrency[]; handOut?: { change: boolean } }
   }
 }
 
@@ -88,7 +89,8 @@ export type TableMoves = {
   /**
    * From module 0.49.0, at a character's sheet: set where its coins may be given to any of those
    * characters at once, as its module hands coins out; `change` whether the game pays with its
-   * other coins where it's short of one.
+   * other coins where it's short of one. `parties`, from module 0.51.0: set where the campaign's
+   * parties may be among those given coins, as characters are.
    */
-  handOut?: { change: boolean }
+  handOut?: { change: boolean; parties?: true }
 }

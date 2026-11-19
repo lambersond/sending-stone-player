@@ -10,12 +10,12 @@ import type { SeatRole } from '@/types/seats'
 import type { ReactNode } from 'react'
 
 /*
- * What a party's sheet does with its stash and coin: Take (module 0.31.0), and from module
- * 0.32.0's feedback, for a seat at a character whose Foundry user owns the party, or the
- * Gamemaster's at a character, Send to, which sends its things to anyone but the party; Give, by
- * which a player's character gives the party its coins; and Distribute, which shares one of its
- * coins among its characters. Each opens a dialog of its own, held by the sheet, which says what
- * it was opened with as it closes.
+ * What a party's sheet does with its stash and coin: Take (module 0.31.0), and from module 0.32.0's
+ * feedback, for a seat at a character whose Foundry user owns the party, or the Gamemaster's at a
+ * character, Send to, which sends its things to anyone but the party; Give, by which a player's
+ * character gives the party its coins, from module 0.51.0 as the game hands coins out, as to a
+ * character; and Distribute, which shares one of its coins among its characters. Each opens a
+ * dialog of its own, held by the sheet, which says what it was opened with as it closes.
  */
 
 /**
@@ -109,6 +109,15 @@ export function PartyMoveDialog({
               to,
               ...(currency && { currency }),
             })
+          }
+          handOut={
+            moving.handOut && {
+              change: moving.handOut.change,
+              parties: true,
+              name: own.name,
+              onGive: ({ each, currency, words }) =>
+                onSend(own.api, words, { from: own.actorId, each, currency }),
+            }
           }
         />
       )

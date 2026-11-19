@@ -887,7 +887,9 @@ exports[`golden C7: storage the campaign row a hello writes a full hello from mo
     "companions": [],
     "companionKinds": [],
     "companionInitiative": "own",
+    "companionsAway": false,
     "laterDice": false,
+    "initiativeAnywhere": false,
     "foundry": {
      "receivedAt": "2026-10-04T19:30:00.000Z",
      "module": {
@@ -1108,7 +1110,9 @@ exports[`golden C7: storage the campaign row a hello writes a hello from before 
     "companions": [],
     "companionKinds": [],
     "companionInitiative": "own",
+    "companionsAway": false,
     "laterDice": false,
+    "initiativeAnywhere": false,
     "foundry": {
      "receivedAt": "2026-10-04T19:30:00.000Z"
     }

@@ -232,6 +232,10 @@ model Campaign {
   // rolls its own, or "after", right after its character, where the game sets it. A module
   // before it says nothing, which sets it back to "own".
   companionInitiative String           @default("own")
+  // Whether its module lists companions on every scene, each saying whether it's away, from
+  // module 0.51.0's bridge.hello (`features.companions.away`), for Help at either seat. A module
+  // before it says nothing, which clears it.
+  companionsAway      Boolean          @default(false)
   // The module session whose bridge.hello was last applied. An event from another session means
   // this may be missing the campaign's state, such as when its hello was refused before the
   // campaign was set up here, so the module is asked to send it again.
@@ -253,6 +257,10 @@ model Campaign {
   // later, under dnd5e 5, whatever the switches (`asksLaterDice`), for Help at either seat. Kept
   // apart from `foundry`, which no view a player reads asks for.
   laterDice           Boolean          @default(false)
+  // Whether its module takes an initiative from the app into any begun encounter its scene has
+  // chosen, wherever the Gamemaster's Foundry is (item 36), from its latest bridge.hello's version:
+  // module 0.51.0 or later (`takesInitiativeAnywhere`). Kept apart from `foundry` as `laterDice` is.
+  initiativeAnywhere  Boolean          @default(false)
   // Whether the Gamemaster lets the campaign's players move items and coins from here, from module
   // 0.31.0's hello: apart from the rolls.
   transfersEnabled    Boolean          @default(false)

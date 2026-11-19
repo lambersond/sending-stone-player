@@ -1,22 +1,18 @@
 'use client'
 
 import clsx from 'clsx'
-import { CircleOff, PawPrint, Sparkles } from 'lucide-react'
+import { CircleOff, MapPinOff, PawPrint, Sparkles } from 'lucide-react'
+import { SWITCH_TAB, SWITCH_TAB_OFF, SWITCH_TAB_ON } from '@/constants/buttons'
 import { useSwitcherLayout } from '@/features/companions/hooks/use-switcher-layout'
 import { describe, shownName } from '@/features/companions/utils'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 import { tintOf } from '@/utils/companion-row'
 import { initials } from '@/utils/initials'
 import { seatWords } from '@/utils/seat-words'
+import { tabStep } from '@/utils/tab-keys'
 import type { SwitcherCreature } from '@/features/companions/types'
 import type { SeatRole } from '@/types/seats'
 import type { KeyboardEvent, ReactNode } from 'react'
-
-const TAB =
-  'flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm transition-colors'
-const TAB_ON = 'bg-primary/10 font-semibold text-primary-text'
-const TAB_OFF =
-  'font-medium text-text-secondary hover:bg-primary/5 hover:text-text-primary'
 
 /**
  * The creatures above the character's sheet, the character first (module 0.36.0): a tab each while
@@ -51,29 +47,8 @@ export function CreatureSwitcher({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const at = creatures.findIndex(({ key }) => key === chosen)
-    const count = creatures.length
-    let next: number
-    switch (event.key) {
-      case 'ArrowRight': {
-        next = (at + 1) % count
-        break
-      }
-      case 'ArrowLeft': {
-        next = (at - 1 + count) % count
-        break
-      }
-      case 'Home': {
-        next = 0
-        break
-      }
-      case 'End': {
-        next = count - 1
-        break
-      }
-      default: {
-        return
-      }
-    }
+    const next = tabStep(event.key, at, creatures.length)
+    if (next === undefined) return
     event.preventDefault()
     const { key } = creatures[next]
     // Focus moves first, to a tab already drawn, so that it never drops as a gone tab leaves.
@@ -95,7 +70,7 @@ export function CreatureSwitcher({
         className='pointer-events-none invisible absolute top-0 left-0 flex w-max gap-1.5 px-3 py-1.5 md:px-6'
       >
         {creatures.map((creature, index) => (
-          <span key={creature.key} className={clsx(TAB, TAB_ON)}>
+          <span key={creature.key} className={clsx(SWITCH_TAB, SWITCH_TAB_ON)}>
             <TabFace creature={creature} dot={index > 0} />
           </span>
         ))}
@@ -129,6 +104,8 @@ export function CreatureSwitcher({
             id: `creature-tab-${key}`,
             'data-key': key,
             'data-kind': kind && (gone ? 'gone' : kind),
+            // On another scene, from module 0.51.0.
+            'data-away': creature.away ? 'true' : undefined,
             'aria-selected': on,
             tabIndex: on ? 0 : -1,
             'aria-controls':
@@ -155,7 +132,7 @@ export function CreatureSwitcher({
             <button
               key={key}
               {...tab}
-              className={clsx(TAB, on ? TAB_ON : TAB_OFF)}
+              className={clsx(SWITCH_TAB, on ? SWITCH_TAB_ON : SWITCH_TAB_OFF)}
             >
               <TabFace creature={creature} dot={news !== ''} />
               {description}
@@ -194,12 +171,15 @@ function KindIcon({
   return <Sparkles aria-hidden className={className} />
 }
 
-/** A tab's face: its picture, its name, its number where names repeat, its kind, and news. */
+/**
+ * A tab's face: its picture, its name, its number where names repeat, its kind, from module 0.51.0
+ * a pin where it's on another scene, and news.
+ */
 function TabFace({
   creature,
   dot,
 }: Readonly<{ creature: SwitcherCreature; dot: boolean }>) {
-  const { name, number, portrait, kind, gone } = creature
+  const { name, number, portrait, kind, gone, away } = creature
   return (
     <>
       <CreatureAvatar
@@ -220,17 +200,23 @@ function TabFace({
         </span>
       )}
       {kind && <KindIcon kind={kind} gone={gone} className='size-3.5' />}
+      {away && (
+        <MapPinOff aria-hidden className='size-3.5 text-text-secondary' />
+      )}
       {dot && <span aria-hidden className='size-2 rounded-full bg-primary' />}
     </>
   )
 }
 
-/** An avatar's face: its picture, with its number, its gone mark and its news at the corners. */
+/**
+ * An avatar's face: its picture, with its number, its gone mark, or from module 0.51.0 its pin on
+ * another scene, and its news at the corners.
+ */
 function AvatarFace({
   creature,
   dot,
 }: Readonly<{ creature: SwitcherCreature; dot: boolean }>) {
-  const { name, number, portrait, kind, gone } = creature
+  const { name, number, portrait, kind, gone, away } = creature
   return (
     <span className='relative' title={shownName(creature)}>
       <CreatureAvatar
@@ -254,6 +240,14 @@ function AvatarFace({
           className='absolute -bottom-1 -left-1 flex size-4 items-center justify-center rounded-full bg-card text-text-secondary ring-1 ring-border'
         >
           <CircleOff className='size-3' />
+        </span>
+      )}
+      {away && (
+        <span
+          aria-hidden
+          className='absolute -bottom-1 -left-1 flex size-4 items-center justify-center rounded-full bg-card text-text-secondary ring-1 ring-border'
+        >
+          <MapPinOff className='size-3' />
         </span>
       )}
       {dot && (

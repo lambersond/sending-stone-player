@@ -24,7 +24,10 @@ export function HelpPanel({
   const [send] = useSendChoice(facts.gm)
   const note = facts.gm ? named(GM_NOTE, facts.name) : undefined
   const box = helpBox({ ...facts, send: send === 'on' })
-  const sections = helpSections(facts.view.laterDice === true)
+  const sections = helpSections({
+    laterDice: facts.view.laterDice === true,
+    companionsAway: facts.view.companionsAway === true,
+  })
   return (
     <SidePanel
       open={open}

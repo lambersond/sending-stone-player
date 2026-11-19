@@ -62,8 +62,27 @@ describe('utils/hello-features', () => {
         tidyVersion: null,
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): companions on every scene, from module 0.51.0.
+        companionsAway: false,
       }),
     )
+  })
+
+  // Module 0.51.0 (item 18): whether the module lists companions on every scene, for Help.
+  it.each([
+    [true, true],
+    [false, false],
+    ['yes', false],
+    [undefined, false],
+  ])('keeps companions listed on every scene for away %p as %p', (away, on) => {
+    const { companionsAway } = helloCompanionData({
+      companions: {
+        kinds: [],
+        initiative: 'own',
+        away: away as boolean | undefined,
+      },
+    })
+    expect(companionsAway).toBe(on)
   })
 
   it('takes no command kind as a roll, and no move feature while moves are off', () => {
@@ -90,6 +109,7 @@ describe('utils/hello-features', () => {
         distribute: true,
         handOut: true,
         change: true,
+        handOutParties: true,
       },
     })
     expect(data.rollKinds).toEqual(['skill', 'plainRoll'])
@@ -166,8 +186,19 @@ describe('utils/hello-features', () => {
   })
 
   // Module 0.49.0: a character's coins handed out, and whether its giver pays with other coins,
-  // after what module 0.32.0 said of moves, in the stored order.
+  // after what module 0.32.0 said of moves, in the stored order; and module 0.51.0's hand-out to
+  // parties too, after them.
   it.each([
+    [
+      {
+        handOutParties: true,
+        partySends: true,
+        distribute: true,
+        handOut: true,
+        change: true,
+      },
+      ['partySends', 'distribute', 'handOut', 'change', 'handOutParties'],
+    ],
     [
       { partySends: true, distribute: true, handOut: true, change: true },
       ['partySends', 'distribute', 'handOut', 'change'],

@@ -42,3 +42,41 @@ describe('features/transfers/recipient-list/utils, from module 0.49.0', () => {
     expect(everyTicked([], [])).toBe(false)
   })
 })
+
+describe('features/transfers/recipient-list/utils, everyone ticked together, from module 0.51.0', () => {
+  const ORDER: MoveEnd[] = [
+    { id: PARTY, name: 'The Iron Company' },
+    ...CHARACTERS,
+  ]
+
+  it.each<[string, string[], string, string[]]>([
+    ['a party ticked with a character', ['bram'], PARTY, [PARTY, 'bram']],
+    ['a character ticked, the party kept', [PARTY], 'lia', [PARTY, 'lia']],
+    ['the party unticked', [PARTY, 'vex'], PARTY, ['vex']],
+  ])('ticks or unticks one: %s', (_name, value, id, picked) => {
+    expect(tickedAfter(value, id, ORDER)).toEqual(picked)
+  })
+
+  it.each<[string, string[], readonly MoveEnd[], string[]]>([
+    [
+      'a party ticked, kept where the order holds it',
+      [PARTY],
+      ORDER,
+      [PARTY, 'vex', 'bram', 'lia'],
+    ],
+    [
+      'all ticked with the party: the party alone',
+      [PARTY, 'vex', 'bram', 'lia'],
+      ORDER,
+      [PARTY],
+    ],
+    [
+      'a party ticked, let go where the order is the characters alone',
+      [PARTY],
+      CHARACTERS,
+      ['vex', 'bram', 'lia'],
+    ],
+  ])('selects all: %s', (_name, value, order, picked) => {
+    expect(allTicked(value, CHARACTERS, order)).toEqual(picked)
+  })
+})

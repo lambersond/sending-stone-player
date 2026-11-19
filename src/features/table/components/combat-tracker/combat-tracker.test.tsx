@@ -100,6 +100,16 @@ const endingOf = (
   ...fields,
 })
 
+/**
+ * One encounter as the page hands it to the tracker: listed and shown while it's under way, and
+ * the seat's own either way.
+ */
+const single = (combat?: TableCombat) => ({
+  combats: combat?.underWay ? [combat] : [],
+  shown: combat?.underWay ? combat : undefined,
+  own: combat,
+})
+
 const HINT = 'Or press and hold the Combat tab, from any tab.'
 const ORDER_LINE =
   'The initiative order appears here when your Gamemaster starts an encounter.'
@@ -129,7 +139,7 @@ describe('components/game-table/combat-tracker', () => {
   })
 
   it('lists the turn order, marking whose turn it is', () => {
-    render(<CombatTracker combat={encounter({ name: 'Ambush' })} />)
+    render(<CombatTracker {...single(encounter({ name: 'Ambush' }))} />)
 
     const rows = screen.getAllByRole('listitem')
     expect(rows.map(row => row.textContent)).toEqual([
@@ -145,15 +155,17 @@ describe('components/game-table/combat-tracker', () => {
   it('colours each side, and those the game has disposed as allies or neutral, from module 0.29.0', () => {
     render(
       <CombatTracker
-        combat={encounter({
-          combatants: [
-            fighter({ id: 'thorin', name: 'Thorin', side: 'me' }),
-            fighter({ id: 'vex', name: 'Vex', side: 'party' }),
-            fighter({ id: 'mira', name: 'Mira', stance: 'ally' }),
-            fighter({ id: 'merchant', name: 'Merchant', stance: 'neutral' }),
-            fighter({ id: 'goblin', name: 'Goblin' }),
-          ],
-        })}
+        {...single(
+          encounter({
+            combatants: [
+              fighter({ id: 'thorin', name: 'Thorin', side: 'me' }),
+              fighter({ id: 'vex', name: 'Vex', side: 'party' }),
+              fighter({ id: 'mira', name: 'Mira', stance: 'ally' }),
+              fighter({ id: 'merchant', name: 'Merchant', stance: 'neutral' }),
+              fighter({ id: 'goblin', name: 'Goblin' }),
+            ],
+          }),
+        )}
       />,
     )
 
@@ -182,12 +194,14 @@ describe('components/game-table/combat-tracker', () => {
   it('fits a tiebreaker such as 18.14 in a box as wide as every other', () => {
     render(
       <CombatTracker
-        combat={encounter({
-          combatants: [
-            fighter({ id: 'boss', initiative: 18.14 }),
-            fighter({ id: 'imp', initiative: 7 }),
-          ],
-        })}
+        {...single(
+          encounter({
+            combatants: [
+              fighter({ id: 'boss', initiative: 18.14 }),
+              fighter({ id: 'imp', initiative: 7 }),
+            ],
+          }),
+        )}
       />,
     )
 
@@ -210,7 +224,7 @@ describe('components/game-table/combat-tracker', () => {
   })
 
   it("shows who is acting and who's next, skipping the defeated", () => {
-    render(<CombatTracker combat={encounter({ currentId: 'thorin' })} />)
+    render(<CombatTracker {...single(encounter({ currentId: 'thorin' }))} />)
 
     expect(turnPanel()).toHaveTextContent('Your turn')
     expect(screen.getByText('Next: Vex')).toHaveClass('truncate')
@@ -219,7 +233,7 @@ describe('components/game-table/combat-tracker', () => {
   })
 
   it("tells the player they're up next", () => {
-    render(<CombatTracker combat={encounter()} />)
+    render(<CombatTracker {...single(encounter())} />)
 
     expect(turnPanel()).toHaveTextContent('Goblin Boss is acting')
     expect(screen.getByText('Next: you')).toBeInTheDocument()
@@ -227,7 +241,7 @@ describe('components/game-table/combat-tracker', () => {
   })
 
   it("waits while a hidden combatant's turn plays out", () => {
-    render(<CombatTracker combat={encounter({ currentId: undefined })} />)
+    render(<CombatTracker {...single(encounter({ currentId: undefined }))} />)
 
     expect(turnPanel()).toHaveTextContent('Waiting for the next turn')
     expect(screen.queryByText(/^Next:/)).not.toBeInTheDocument()
@@ -269,7 +283,7 @@ describe('components/game-table/combat-tracker', () => {
     })
 
     it('reads how hurt a creature is on its row, in its tone, and another’s hit points as the party’s', () => {
-      render(<CombatTracker combat={health} />)
+      render(<CombatTracker {...single(health)} />)
 
       const [ogre, troll] = screen.getAllByRole('listitem')
       const word = within(ogre).getByText('Bloodied')
@@ -279,7 +293,7 @@ describe('components/game-table/combat-tracker', () => {
     })
 
     it('shows the acting creature’s word in the turn panel', () => {
-      render(<CombatTracker combat={health} />)
+      render(<CombatTracker {...single(health)} />)
 
       const panel = turnPanel().closest('section') as HTMLElement
       expect(within(panel).getByText('Bloodied')).toBeInTheDocument()
@@ -288,7 +302,7 @@ describe('components/game-table/combat-tracker', () => {
     // Whose turn shows it is actingHealth's rule, each case in utils.test.ts. Here, that the panel
     // asks it: a party member's turn, whose row has its hit points, shows none in the panel.
     it('asks whose health the panel may show: none on a party member’s turn', () => {
-      render(<CombatTracker combat={{ ...health, currentId: 'pet' }} />)
+      render(<CombatTracker {...single({ ...health, currentId: 'pet' })} />)
 
       const panel = turnPanel().closest('section') as HTMLElement
       expect(within(panel).queryByText(/Hit points|Bloodied/)).toBeNull()
@@ -320,7 +334,7 @@ describe('components/game-table/combat-tracker', () => {
         [],
       ],
     ])('%s, its turn and order unshown', (_, combat, lines) => {
-      render(<CombatTracker combat={combat} />)
+      render(<CombatTracker {...single(combat)} />)
 
       const heading = screen.getByRole('heading', {
         name: 'No combat right now',
@@ -341,12 +355,14 @@ describe('components/game-table/combat-tracker', () => {
 
       it('says the first turn as it comes under way, from a region kept through the change, then each after it, each cleared once said', () => {
         const { rerender, container } = render(
-          <CombatTracker combat={waiting({ id: 'thorin', side: 'me' })} />,
+          <CombatTracker {...single(waiting({ id: 'thorin', side: 'me' }))} />,
         )
         const live = container.querySelector('[aria-live="polite"]')
         expect(live).toBeEmptyDOMElement()
 
-        rerender(<CombatTracker combat={encounter({ currentId: 'thorin' })} />)
+        rerender(
+          <CombatTracker {...single(encounter({ currentId: 'thorin' }))} />,
+        )
 
         expect(container.querySelector('[aria-live="polite"]')).toBe(live)
         expect(live).toHaveTextContent('Your turn')
@@ -356,12 +372,12 @@ describe('components/game-table/combat-tracker', () => {
         expect(live).toBeEmptyDOMElement()
         expect(turnPanel()).toHaveTextContent('Your turn')
 
-        rerender(<CombatTracker combat={encounter()} />)
+        rerender(<CombatTracker {...single(encounter())} />)
         expect(live).toHaveTextContent('Goblin Boss is acting')
       })
 
       it('says nothing as Combat opens on a turn: its heading is there to read', () => {
-        const { container } = render(<CombatTracker combat={encounter()} />)
+        const { container } = render(<CombatTracker {...single(encounter())} />)
 
         expect(
           container.querySelector('[aria-live="polite"]'),
@@ -372,7 +388,7 @@ describe('components/game-table/combat-tracker', () => {
   })
 
   it('says when no one has joined', () => {
-    render(<CombatTracker combat={encounter({ combatants: [] })} />)
+    render(<CombatTracker {...single(encounter({ combatants: [] }))} />)
 
     expect(
       screen.getByText('No one has joined this encounter yet.'),
@@ -382,15 +398,17 @@ describe('components/game-table/combat-tracker', () => {
   it('shows hit points without a bar when the maximum is unknown', () => {
     render(
       <CombatTracker
-        combat={encounter({
-          combatants: [
-            fighter({
-              id: 'thorin',
-              side: 'me',
-              hp: { value: 9, max: null, temp: 0 },
-            }),
-          ],
-        })}
+        {...single(
+          encounter({
+            combatants: [
+              fighter({
+                id: 'thorin',
+                side: 'me',
+                hp: { value: 9, max: null, temp: 0 },
+              }),
+            ],
+          }),
+        )}
       />,
     )
 
@@ -401,7 +419,7 @@ describe('components/game-table/combat-tracker', () => {
 
   describe('companions (module 0.36.0)', () => {
     it('reads a companion of the player’s own as Yours, drawn as the party, with its hit points', () => {
-      render(<CombatTracker combat={fight({ currentId: 'goblin' })} />)
+      render(<CombatTracker {...single(fight({ currentId: 'goblin' }))} />)
       const [brakka, thorin, , vex] = screen.getAllByRole('listitem')
       expect(brakka).toHaveTextContent('Yours')
       expect(brakka).toHaveTextContent('Hit points 11')
@@ -415,7 +433,7 @@ describe('components/game-table/combat-tracker', () => {
       const onOpen = jest.fn()
       render(
         <CombatTracker
-          combat={fight()}
+          {...single(fight())}
           onOpen={onOpen}
           keys={new Set(['wolfBrakka'])}
         />,
@@ -435,13 +453,13 @@ describe('components/game-table/combat-tracker', () => {
     })
 
     it('words "its tab" plainly where its tab isn’t in the row', () => {
-      render(<CombatTracker combat={fight()} onOpen={jest.fn()} />)
+      render(<CombatTracker {...single(fight())} onOpen={jest.fn()} />)
       expect(screen.getByText('Roll for it on its tab.')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'its tab' })).toBeNull()
     })
 
     it('says nothing of up next while one of the player’s own creatures acts', () => {
-      render(<CombatTracker combat={fight()} />)
+      render(<CombatTracker {...single(fight())} />)
       expect(screen.getByText('Next: you')).toBeInTheDocument()
       expect(screen.queryByText('You are up next.')).toBeNull()
     })
@@ -449,13 +467,15 @@ describe('components/game-table/combat-tracker', () => {
     it('says another’s companion is acting, not whose turn it is', () => {
       render(
         <CombatTracker
-          combat={fight({
-            combatants: fight().combatants.map(combatant =>
-              combatant.id === 'brakka'
-                ? { ...combatant, yours: undefined, companion: undefined }
-                : combatant,
-            ),
-          })}
+          {...single(
+            fight({
+              combatants: fight().combatants.map(combatant =>
+                combatant.id === 'brakka'
+                  ? { ...combatant, yours: undefined, companion: undefined }
+                  : combatant,
+              ),
+            }),
+          )}
         />,
       )
       expect(turnPanel()).toHaveTextContent('Brakka is acting')
@@ -473,7 +493,7 @@ describe('components/game-table/combat-tracker', () => {
       const onEnd = jest.fn()
       render(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat)}
           onEnd={onEnd}
         />,
@@ -496,7 +516,7 @@ describe('components/game-table/combat-tracker', () => {
       const combat = fight()
       render(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat)}
           onOpen={jest.fn()}
           keys={new Set(['wolfBrakka'])}
@@ -523,7 +543,7 @@ describe('components/game-table/combat-tracker', () => {
         fight({ underWay: false, active: false, currentId: 'thorin' }),
       ],
     ])('offers nothing on %s turn', (_, combat) => {
-      render(<CombatTracker combat={combat} ending={endingOf(combat)} />)
+      render(<CombatTracker {...single(combat)} ending={endingOf(combat)} />)
       expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
       expect(screen.queryByText(HINT)).toBeNull()
     })
@@ -532,19 +552,19 @@ describe('components/game-table/combat-tracker', () => {
       const combat = thorinsTurn()
       const view = render(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={{ ...endingOf(combat), turn: undefined }}
         />,
       )
       expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
       expect(screen.queryByText(HINT)).toBeNull()
-      view.rerender(<CombatTracker combat={combat} />)
+      view.rerender(<CombatTracker {...single(combat)} />)
       expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
     })
 
     it('puts the button beside the heading, wrapping under it, and lets the heading take focus', () => {
       const combat = thorinsTurn()
-      render(<CombatTracker combat={combat} ending={endingOf(combat)} />)
+      render(<CombatTracker {...single(combat)} ending={endingOf(combat)} />)
       const row = turnPanel().parentElement
       expect(row).toHaveClass(
         'flex',
@@ -567,7 +587,7 @@ describe('components/game-table/combat-tracker', () => {
       const turn = endableTurn(combat, ['endTurn']) as EndableTurn
       const view = render(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat)}
           refused={{ turn, key: 'busy' }}
         />,
@@ -592,7 +612,7 @@ describe('components/game-table/combat-tracker', () => {
 
       view.rerender(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat, {
             offered: false,
             way: { status: 'refused', reason: 'moved' },
@@ -611,7 +631,7 @@ describe('components/game-table/combat-tracker', () => {
       render(
         <TableApiContext value={{ role: 'gm', api: '/api/x', key: 'x' }}>
           <CombatTracker
-            combat={combat}
+            {...single(combat)}
             ending={endingOf(combat)}
             refused={{ turn, key: 'expired' }}
           />
@@ -626,7 +646,7 @@ describe('components/game-table/combat-tracker', () => {
       const combat = fight()
       render(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat)}
           refused={{
             turn: { combatId: 'cmbt1', round: 2, combatantId: 'thorin' },
@@ -641,13 +661,13 @@ describe('components/game-table/combat-tracker', () => {
       const combat = thorinsTurn()
       const turn = endableTurn(combat, ['endTurn']) as EndableTurn
       const view = render(
-        <CombatTracker combat={combat} ending={endingOf(combat)} />,
+        <CombatTracker {...single(combat)} ending={endingOf(combat)} />,
       )
       const button = screen.getByRole('button', { name: 'End turn' })
       act(() => button.focus())
       view.rerender(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat, {
             offered: false,
             way: { status: 'refused', reason: 'moved' },
@@ -667,7 +687,7 @@ describe('components/game-table/combat-tracker', () => {
       const focusTurn = jest.fn()
       const view = render(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat)}
           focusTurn={focusTurn}
         />,
@@ -676,7 +696,7 @@ describe('components/game-table/combat-tracker', () => {
       const next = encounter({ currentId: 'vex' })
       view.rerender(
         <CombatTracker
-          combat={next}
+          {...single(next)}
           ending={endingOf(next)}
           focusTurn={focusTurn}
         />,
@@ -693,7 +713,7 @@ describe('components/game-table/combat-tracker', () => {
       const focusTurn = jest.fn()
       const view = render(
         <CombatTracker
-          combat={combat}
+          {...single(combat)}
           ending={endingOf(combat)}
           focusTurn={focusTurn}
         />,
@@ -723,13 +743,13 @@ describe('components/game-table/combat-tracker', () => {
         })
         const turn = endableTurn(combat, ['endTurn']) as EndableTurn
         const view = render(
-          <CombatTracker combat={combat} ending={endingOf(combat)} />,
+          <CombatTracker {...single(combat)} ending={endingOf(combat)} />,
         )
         const button = screen.getByRole('button', { name: 'End turn' })
         act(() => button.focus())
         view.rerender(
           <CombatTracker
-            combat={combat}
+            {...single(combat)}
             ending={endingOf(combat, {
               offered: false,
               way: { status: 'sending' },
@@ -742,7 +762,7 @@ describe('components/game-table/combat-tracker', () => {
         const next = { ...combat, currentId: 'brakka' }
         view.rerender(
           <CombatTracker
-            combat={next}
+            {...single(next)}
             ending={endingOf(next, {
               offered: false,
               sent: { turn, way },
@@ -762,14 +782,14 @@ describe('components/game-table/combat-tracker', () => {
       const turn = endableTurn(combat, ['endTurn']) as EndableTurn
       render(<button type='button'>Elsewhere</button>)
       const view = render(
-        <CombatTracker combat={combat} ending={endingOf(combat)} />,
+        <CombatTracker {...single(combat)} ending={endingOf(combat)} />,
       )
       const elsewhere = screen.getByRole('button', { name: 'Elsewhere' })
       act(() => elsewhere.focus())
       const next = encounter({ currentId: 'vex' })
       view.rerender(
         <CombatTracker
-          combat={next}
+          {...single(next)}
           ending={endingOf(next, {
             sent: { turn, way: { status: 'done', requestId: 'req-1' } },
           })}
@@ -777,6 +797,159 @@ describe('components/game-table/combat-tracker', () => {
         />,
       )
       expect(elsewhere).toHaveFocus()
+    })
+  })
+})
+
+/**
+ * The arena and the den, two encounters under way at once (item 36): the boss's turn unless said.
+ */
+const arena = (currentId = 'boss') =>
+  encounter({ id: 'a', round: 2, currentId })
+const den = (currentId = 'boss') => encounter({ id: 'b', round: 1, currentId })
+const regions = (container: HTMLElement) =>
+  [...container.querySelectorAll('[aria-live="polite"]')].map(
+    region => region.textContent,
+  )
+
+describe('components/game-table/combat-tracker, two encounters at once (item 36)', () => {
+  it('draws a tab for each above one panel, labelled by the shown tab, holding the turn and the order', () => {
+    render(
+      <CombatTracker
+        combats={[arena(), den()]}
+        shown={arena()}
+        own={arena()}
+      />,
+    )
+
+    expect(screen.getAllByRole('tab', { name: /^Thorin/ })).toHaveLength(2)
+    const panel = screen.getByRole('tabpanel')
+    expect(panel).toHaveAttribute('id', 'encounter-panel')
+    expect(panel).toHaveAttribute('aria-labelledby', 'encounter-tab-a')
+    expect(
+      within(panel).getByRole('heading', { name: 'Goblin Boss is acting' }),
+    ).toBeInTheDocument()
+    expect(within(panel).getByRole('list')).toBeInTheDocument()
+  })
+
+  it('draws neither tabs nor a tab panel with one', () => {
+    render(<CombatTracker {...single(arena())} />)
+
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.queryByRole('tabpanel')).toBeNull()
+  })
+
+  it('offers End Turn only in its own encounter’s panel, though the same combatant acts in both', () => {
+    const shown = arena('thorin')
+    const other = den('thorin')
+    render(
+      <CombatTracker
+        combats={[shown, other]}
+        shown={shown}
+        own={shown}
+        ending={endingOf(other)}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
+  })
+
+  it('moves no focus in the panel shown once the button’s End Turn in the other encounter is done', () => {
+    const shown = arena('thorin')
+    const other = den('thorin')
+    const sent = endableTurn(other, ['endTurn']) as EndableTurn
+    const view = render(
+      <CombatTracker
+        combats={[shown, other]}
+        shown={shown}
+        own={shown}
+        ending={endingOf(shown)}
+      />,
+    )
+    const button = screen.getByRole('button', { name: 'End turn' })
+    act(() => button.focus())
+    view.rerender(
+      <CombatTracker
+        combats={[shown, den('boss')]}
+        shown={shown}
+        own={shown}
+        ending={endingOf(shown, {
+          sent: { turn: sent, way: { status: 'done', requestId: 'req-1' } },
+        })}
+        via='button'
+      />,
+    )
+
+    expect(button).toHaveFocus()
+  })
+
+  // The seat's own encounter is one under way wherever one is (`pickCombatFor`), so one set up
+  // ahead elsewhere that waits for its initiative never puts the line over another's turn panel.
+  it.each([
+    ['two, with tabs', [arena(), den()]],
+    ['one, with none', [den()]],
+  ])(
+    'never says to roll initiative over the encounters’ panel: %s',
+    (_, combats) => {
+      render(
+        <CombatTracker
+          combats={combats}
+          shown={combats[0]}
+          own={waiting({ id: 'thorin', side: 'me' })}
+        />,
+      )
+
+      expect(turnPanel()).toHaveTextContent('Goblin Boss is acting')
+      expect(screen.queryByText(ROLL_LINE)).toBeNull()
+    },
+  )
+
+  describe('whose turn, said', () => {
+    beforeEach(() => jest.useFakeTimers())
+    afterEach(() => jest.useRealTimers())
+
+    it('says a turn in each encounter in its own region, never the other’s again, and nothing as the tab changes', () => {
+      const { container, rerender } = render(
+        <CombatTracker
+          combats={[arena(), den()]}
+          shown={arena()}
+          own={arena()}
+        />,
+      )
+      expect(regions(container)).toEqual(['', ''])
+
+      rerender(
+        <CombatTracker
+          combats={[arena(), den('thorin')]}
+          shown={arena()}
+          own={arena()}
+        />,
+      )
+      expect(regions(container)).toEqual([
+        '',
+        'Your turn, in another encounter.',
+      ])
+      act(() => jest.advanceTimersByTime(6000))
+
+      rerender(
+        <CombatTracker
+          combats={[arena('vex'), den('thorin')]}
+          shown={arena('vex')}
+          own={arena('vex')}
+        />,
+      )
+      expect(regions(container)).toEqual(['Vex is acting', ''])
+      act(() => jest.advanceTimersByTime(6000))
+
+      rerender(
+        <CombatTracker
+          combats={[arena('vex'), den('thorin')]}
+          shown={den('thorin')}
+          own={arena('vex')}
+        />,
+      )
+      expect(regions(container)).toEqual(['', ''])
+      expect(turnPanel()).toHaveTextContent('Your turn')
     })
   })
 })

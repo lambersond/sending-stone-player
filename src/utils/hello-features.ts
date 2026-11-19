@@ -40,15 +40,16 @@ export const HELLO_ROLL_FLAGS = [
 
 /**
  * What else the game does with moves, as a hello says it, in the order the campaign keeps them:
- * from module 0.32.0, a party's things sent elsewhere by its Owner, and its coin distributed; and
- * from module 0.49.0, a character's coins handed out, and its giver paying with other coins where
- * it's short of one.
+ * from module 0.32.0, a party's things sent elsewhere by its Owner, and its coin distributed; from
+ * module 0.49.0, a character's coins handed out, and its giver paying with other coins where it's
+ * short of one; and from module 0.51.0, a hand-out giving to the campaign's parties too.
  */
 const HELLO_TRANSFER_FLAGS = [
   'partySends',
   'distribute',
   'handOut',
   'change',
+  'handOutParties',
 ] as const
 
 /** Whether a hello says a feature of its own is on, and takes this kind of command. */
@@ -94,10 +95,10 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
       flag => features?.rolls?.[flag] === true,
     ),
     transfersEnabled: transfersOn,
-    // What else it does with moves, from module 0.32.0, and from module 0.49.0 whether a
-    // character's coins may be handed out ('handOut') and a giver short of a coin pays with its
-    // other coins ('change'); nothing while moves are off, and a module before each says nothing
-    // of it, which clears it.
+    // What else it does with moves, from module 0.32.0, from module 0.49.0 whether a character's
+    // coins may be handed out ('handOut') and a giver short of a coin pays with its other coins
+    // ('change'), and from module 0.51.0 whether it may give to parties too ('handOutParties');
+    // nothing while moves are off, and a module before each says nothing of it, which clears it.
     transferFeatures: transfersOn
       ? HELLO_TRANSFER_FLAGS.filter(
           flag => features?.transfers?.[flag] === true,
@@ -173,7 +174,8 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
  * of its own, as hit points set from module 0.44.0, which a companion takes wherever its own
  * feature does, or coins from module 0.49.0, which none takes; and how they enter initiative, each
  * its own roll unless the module says otherwise. A module before it says nothing of them, which
- * clears the first and sets the second back to its own roll.
+ * clears the first and sets the second back to its own roll. And from module 0.51.0, whether it
+ * lists companions on every scene, each saying whether it's away, for Help: only where it says so.
  */
 export function helloCompanionData(
   features: BridgeFeatures | null | undefined,
@@ -187,5 +189,6 @@ export function helloCompanionData(
     ),
     companionInitiative:
       features?.companions?.initiative === 'after' ? 'after' : 'own',
+    companionsAway: features?.companions?.away === true,
   }
 }

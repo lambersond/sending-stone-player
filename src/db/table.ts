@@ -27,8 +27,9 @@ import {
   withheld,
 } from '@/utils/table-seat'
 import {
-  pickCombat,
-  toTableCombat,
+  encountersShown,
+  pickCombatFor,
+  toCreatureCombat,
   toTableMessages,
   toTableSheet,
 } from '@/utils/table-view'
@@ -284,7 +285,36 @@ const TABLE_CAMPAIGN = {
   // What its seats are shown of creatures not of the party, from module 0.50.0.
   healthEnabled: true,
   healthFeatures: true,
+  // Whether its module takes initiative from the app into any begun encounter (item 36).
+  initiativeAnywhere: true,
+  // Whether its module lists companions on every scene, from module 0.51.0, for Help.
+  companionsAway: true,
 } as const
+
+/**
+ * The encounters a character's view reads (item 36): its own under way, else the campaign's, for
+ * its sheet; and every one under way the Combat tab shows, the seat's own first.
+ * @param combats - Every combat held for the campaign, most recently changed first.
+ * @param anywhere - Whether its module takes initiative into any begun encounter.
+ */
+function encountersOf(
+  combats: { data: unknown }[],
+  viewer: Viewer,
+  anywhere: boolean,
+): Pick<TableView, 'combat' | 'combats'> {
+  const snapshots = combats.map(({ data }) => data as CombatSnapshot)
+  const combat = pickCombatFor(
+    snapshots,
+    ({ character }) => character === viewer.actorId,
+  )
+  const shown = encountersShown(snapshots, viewer)
+  return {
+    combat: combat
+      ? toCreatureCombat(combat, snapshots, viewer, anywhere)
+      : undefined,
+    ...(shown.length > 0 && { combats: shown }),
+  }
+}
 
 /**
  * A character's view of its campaign: the chat its player may read, the encounter under way, and
@@ -327,9 +357,6 @@ export async function getTableView(
   const heals = await healingUses(made, seat)
   const waiting = companionAsks(asked, now, diceAsked)
 
-  const combat = pickCombat(
-    combats.map(({ data }) => data as unknown as CombatSnapshot),
-  )
   // The party sheets the seat may open, from module 0.30.0: never who else may.
   const listed = groupRoster(campaign.groups)
   const groups = tableGroups(seat, listed, campaign.origin)
@@ -352,7 +379,7 @@ export async function getTableView(
         messages.filter(({ byGm }) => byGm).map(({ messageId }) => messageId),
       ),
     ),
-    combat: combat ? toTableCombat(combat, viewer) : undefined,
+    ...encountersOf(combats, viewer, campaign.initiativeAnywhere),
     sheet:
       sheet && sheetVersion !== known.sheetVersion
         ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)
@@ -387,12 +414,25 @@ export async function getTableView(
         on: seat.manualDice === true,
       },
     }),
-    // Whether its module is one that asks a typing player for the dice an item rolls later, as its
-    // hello said last, at either seat, for Help: by its versions, never its switches, and stored,
-    // never whether it polled lately (the owner's round 3 decision 3).
-    ...(campaign.laterDice && { laterDice: true as const }),
+    ...helpModule(campaign),
     // What the campaign shows of creatures not of the party, from module 0.50.0, for Help.
     ...(viewer.health && { health: viewer.health }),
+  }
+}
+
+/**
+ * What Help reads of the campaign's module at either seat, as its hello said last, stored, never
+ * whether it polled lately: whether it asks a typing player for the dice an item rolls later, by
+ * its versions, never its switches (the owner's round 3 decision 3); and from module 0.51.0 whether
+ * it lists companions on every scene, each saying whether it's away.
+ */
+function helpModule(campaign: {
+  laterDice: boolean
+  companionsAway: boolean
+}): Pick<TableView, 'laterDice' | 'companionsAway'> {
+  return {
+    ...(campaign.laterDice && { laterDice: true as const }),
+    ...(campaign.companionsAway && { companionsAway: true as const }),
   }
 }
 

@@ -39,14 +39,16 @@ export function coinAbbreviations(
 }
 
 /**
- * What a dialog says where coins removed from a character, or given to characters, are more of a
- * coin than it holds (module 0.49.0), by the app's own count of what its coins are worth, which
- * the game's stands over: nothing where it holds them all, or the app can't tell and the game pays
- * with other coins; `note`, said after what it'll do, where its other coins pay; or `refused`,
- * said in its place, where they're worth too little, or the game doesn't pay with other coins.
- * @param pay - All that's taken, by coin: of a give to several characters, every share together.
+ * What a dialog says where coins removed from a character, or given to characters and, from module
+ * 0.51.0, parties, are more of a coin than it holds (module 0.49.0), by the app's own count of what
+ * its coins are worth, which the game's stands over: nothing where it holds them all, or the app
+ * can't tell and the game pays with other coins; `note`, said after what it'll do, where its other
+ * coins pay; or `refused`, said in its place, where they're worth too little, or the game doesn't
+ * pay with other coins.
+ * @param pay - All that's taken, by coin: of a give to several, characters or parties, every share
+ *   together.
  * @param options - `change`: whether the game pays with other coins. `inAll`: that `pay` is the
- *   shares of a give to several characters together, which its words then say.
+ *   shares of a give to several together, which its words then say.
  */
 export function shortCoinWords(
   speaker: CoinSpeaker,

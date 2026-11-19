@@ -162,8 +162,8 @@ function checkTool(
 }
 
 /**
- * Initiative: as `waitsForInitiative` has it, the tracker's encounter, with the seat's own
- * combatant in it without initiative yet. One that isn't the tracker's, as one begun and then
+ * Initiative: as `waitsForInitiative` has it, an encounter chosen for its scene, with the seat's
+ * own combatant in it without initiative yet. One no scene has chosen, as one begun and then
  * switched away from, the seat isn't in, as the game says; one in it with initiative has rolled.
  */
 function checkInitiative(

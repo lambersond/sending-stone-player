@@ -217,12 +217,12 @@ function shareRules(transfer: TransferInput, issue: Issue) {
 }
 
 /**
- * A hand-out, from module 0.49.0, gives coins alone, one to ten kinds, to each character once,
- * never to the one whose coins they are.
+ * A hand-out, from module 0.49.0, gives coins alone, one to ten kinds, to each character, and from
+ * module 0.51.0 each party, once, never to the one whose coins they are.
  */
 function handOutRules(transfer: TransferInput, each: string[], issue: Issue) {
   if (new Set(each).size < each.length) {
-    issue('each', 'Each character is handed coins once')
+    issue('each', 'Each one is handed coins once')
   }
   if (each.includes(transfer.from)) {
     issue('each', "A character doesn't hand out to itself")

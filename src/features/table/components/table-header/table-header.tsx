@@ -31,7 +31,7 @@ import {
 import type { ShowHelp } from '@/features/help/types'
 import type { Tab } from '@/features/table/types'
 import type { Character } from '@/types/character'
-import type { Connection, TableView } from '@/types/table'
+import type { Connection, TableCombat, TableView } from '@/types/table'
 import type { Ref } from 'react'
 
 /**
@@ -41,6 +41,7 @@ import type { Ref } from 'react'
  * @param ref - The header, which the sheet's roll toasts start below while its tabs aren't shown.
  * @param playing - Whether the character plays one of its campaign's characters.
  * @param onHelp - Opens Help, focus coming back to its button once it closes.
+ * @param encounter - The encounter the Combat tab shows (item 36), which its line reads there.
  */
 export function TableHeader({
   ref,
@@ -49,6 +50,7 @@ export function TableHeader({
   playing,
   view,
   tab,
+  encounter,
   connection,
   onHelp,
   deleteCharacter,
@@ -59,6 +61,7 @@ export function TableHeader({
   playing: boolean
   view: TableView
   tab: Tab
+  encounter?: TableCombat
   connection: Connection
   onHelp: ShowHelp
   deleteCharacter?: () => Promise<void>
@@ -111,7 +114,7 @@ export function TableHeader({
               playing && 'lg:hidden',
             )}
           >
-            {subtitle(tab, view, character)}
+            {subtitle(tab, view, character, encounter)}
           </p>
           {playing && (
             <p className='hidden truncate text-sm text-text-secondary lg:block'>

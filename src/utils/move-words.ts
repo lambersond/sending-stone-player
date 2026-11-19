@@ -5,7 +5,7 @@ import type { SeatRole } from '@/types/seats'
 // How a move of items and coins (module 0.31.0) is told, in English: what moved, as the game's
 // chat line says it, where it stands on its way to the game, and why it wasn't made. From module
 // 0.33.0, a removal of the character's item is told the same way; and from module 0.49.0 coins
-// added to the character, removed, or given to characters.
+// added to the character, removed, or given to characters, and from module 0.51.0 to parties too.
 
 /**
  * What a move moves, as the module's chat line says it in English: "2 Potion of Healing", or
@@ -91,8 +91,9 @@ export function moveLabel(move: LocalMove): string {
  * Gamemaster. Of too few to move, whose they are: the party's, for a take, a send or a
  * distribution; the player's own, or the character's, for the Gamemaster, for a give or, from
  * module 0.33.0, a removal, whose words say it's removed rather than moved. From module 0.49.0,
- * coins the game may pay with other coins (those removed, or given to characters, which carry the
- * sheet's `abbreviations`) are too few of them all: "you haven’t the coins for that".
+ * coins the game may pay with other coins (those removed, or given to characters, and from module
+ * 0.51.0 to parties, which carry the sheet's `abbreviations`) are too few of them all: "you haven’t
+ * the coins for that".
  */
 export function moveReasons(
   role: SeatRole,
@@ -106,8 +107,8 @@ export function moveReasons(
 const COIN_VERBS: ReadonlySet<LocalMove['verb']> = new Set(['receive', 'pay'])
 
 /**
- * Whose coins are too few for what's removed or given to characters, as the seat is told it: the
- * player's own, or for the Gamemaster the character's.
+ * Whose coins are too few for what's removed or given to characters, or from module 0.51.0 to
+ * parties, as the seat is told it: the player's own, or for the Gamemaster the character's.
  */
 function shortOfCoins(role: SeatRole): string {
   return role === 'gm'

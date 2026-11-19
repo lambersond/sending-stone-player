@@ -393,6 +393,27 @@ describe('db/campaigns', () => {
       )
     })
 
+    it('marks a companion on another scene, from module 0.51.0, only where its entry says it’s away', async () => {
+      const campaign = await listed({
+        characters: [{ id: 'thorin', name: 'Thorin' }],
+        companions: [
+          mockCompanionEntry({ away: true }),
+          mockSummonedEntry({ away: true }),
+          mockCompanionEntry({
+            key: 'muleBessie',
+            name: 'Bessie',
+            away: false,
+          }),
+        ],
+      })
+
+      expect(campaign.characters[0]?.companions).toEqual([
+        { name: 'Wolf', kind: 'owned', away: true },
+        { name: 'Imp', kind: 'summoned', from: 'Find Familiar', away: true },
+        { name: 'Bessie', kind: 'owned' },
+      ])
+    })
+
     it('says whether the campaign lets its players use Wild Shape, from module 0.40.0, as its hello said', async () => {
       await expect(listed({ wildShapeEnabled: true })).resolves.toMatchObject({
         wildShape: { enabled: true },

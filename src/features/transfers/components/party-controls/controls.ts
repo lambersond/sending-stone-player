@@ -22,6 +22,7 @@ export function partyControls({
   recipients,
   receivers,
   gives,
+  handOut,
   among,
   onOpen,
 }: Readonly<{
@@ -35,6 +36,11 @@ export function partyControls({
   receivers?: MoveEnd[]
   /** The seat's character's coins, which Give gives, where it may. */
   gives?: SheetCurrency[]
+  /**
+   * From module 0.51.0: Give gives them as the game hands coins out, paid with other coins where
+   * `change` says so.
+   */
+  handOut?: { change: boolean }
   /** Who Distribute shares a coin among; none where it may not. */
   among: MoveEnd[]
   onOpen: (moving: PartyMoving) => void
@@ -100,7 +106,12 @@ export function partyControls({
             {
               className: ROW_BUTTON,
               busy,
-              onOpen: () => onOpen({ mode: 'give', coins: gives }),
+              onOpen: () =>
+                onOpen({
+                  mode: 'give',
+                  coins: gives,
+                  ...(handOut && { handOut }),
+                }),
             },
             'Give',
           ),

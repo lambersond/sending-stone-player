@@ -16,9 +16,9 @@ import type { SheetContainer, SheetItem } from '@/types/sending-stone'
  * taken from a party, or given to a party or another of the campaign's characters; and from module
  * 0.32.0, a party's sent to anyone but itself, or coins given into the party whose sheet it's on;
  * and from module 0.49.0 a character's coins given to any of the campaign's characters ticked, so
- * many to each, as the game hands coins out. It says what moves, to whom, and how many, and who's
- * told; and it's sent at once, the dialog closing as it is, as where it stands is told where the
- * sheet tells it.
+ * many to each, as the game hands coins out, and from module 0.51.0 to any of its parties and
+ * characters ticked together. It says what moves, to whom, and how many, and who's told; and it's
+ * sent at once, the dialog closing as it is, as where it stands is told where the sheet tells it.
  */
 
 /**

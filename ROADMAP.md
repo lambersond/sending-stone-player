@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.49.0 and its app, with v0.48.0, v0.47.0, v0.46.0, v0.45.0 and v0.44.0
-before it.
+Released: module v0.50.0 and its app, with v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0 and
+v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -113,12 +113,13 @@ Midi-QOL v14.0.x:
   campaign's Coins box are kept as saved. Under dnd5e 6, a fraction of a coin the world shows stays
   as it was after a change.
 
-## v0.50 (release candidate)
+## v0.50 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc entry.
+Released on 2026-11-18: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0 entry. v0.50 is
+the release candidate for v1.0 after v0.49: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.50.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Other creatures' health:** in a fight on a scene with the creatures' tokens, a player's Combat
   tab says nothing of how hurt the monsters are until Allow Players to see other creatures' health
@@ -147,20 +148,46 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   Iron Company", spoken by the giver. Add or remove's dialog reads Add and Remove, and each change
   is still a line for everyone, "Thorin paid 5 gp".
 
+## v0.51 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc entry.
+
+**To check at the table before module v0.51.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Companions on another scene:** with a familiar summoned and an owned sidekick's unlinked token
+  on one scene, then another scene made active: each keeps its tab, pinned, with the note on its
+  sheet; a check rolled from its tab is made by its token's creature in Foundry; the campaign card
+  marks each "(on another scene)" or "(summoned, on another scene)"; reloading the Gamemaster's
+  Foundry drops neither; and deleting or hiding a token takes its companion away.
+- **Two encounters at once:** on two scenes, a fight with everyone on one and a companion's fight on
+  the other, both begun: the Combat tab shows a tab for each, named for the encounter, or else for
+  who of yours is in it, a dot on the companion's tab on its turn, and holding the Combat tab ends
+  that turn while you view the other scene; the companion's initiative from its tab, cleared in
+  Foundry, lands in its own encounter; and with module 0.50.0, the companion's tab offers no
+  initiative into its own fight while the party's was changed last.
+- **Give to a party and characters together:** on a character's Inventory tab, Give lists the
+  parties you own as checkboxes, none ticked; 2 gp each to the party, Vex and Bram is "Gives 2 gp to
+  The Iron Company" for everyone, Vex's and Bram's players are whispered theirs, and the Gamemasters
+  are told "Thorin handed out 2 gp each to The Iron Company, Vex, and Bram: 6 gp in all"; the
+  party's sheet shows 2 gp more within a few seconds, a party you aren't in too; the party's own
+  Give says "held", with no All.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Next week aims at the first three.
+tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
    back from Wild Shape, Move up and Move down for every favorite, the three e2e races under load,
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
-3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
+3. Items 18, 36 and 91, companions and sidekicks wherever they are, two encounters at once, and Give
+   to parties and characters alike: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
-   and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+   and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66: any ability or skill the game has.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
@@ -190,27 +217,8 @@ tweaks needed may change it as it goes. Next week aims at the first three.
 
 **Moved from the next slice**
 
-18. **Companions and sidekicks wherever they are:** a companion or sidekick has its own tab and can
-    be rolled with even when it isn't on its player's scene or level, with a warning that it isn't
-    there. Today the module lists a linked NPC wherever its tokens are, but an unlinked token and a
-    summoned creature only while they're visible on the active scene, and never looks at levels
-    (`scripts/creatures.mjs`). The owner's answers: on which scenes a companion is found, "Ideally
-    all of them, however if NPC sheets never get deleted it could pose an issue of too many.
-    Perhaps this is a more complex feature than originally thought."; where its character is, C,
-    the active scene only and no levels, "but this could conflict with the #3 answer's example"
-    (item 36).
-
-And from the owner's answers on item 19, later work too:
-
-36. **A sidekick fighting without its character, and two encounters at once:** a sidekick in an
-    encounter its character isn't in still brings that encounter to its campaign, as since
-    module 0.36.0 (0.45.0 keeps the rule). The Combat tab shows one encounter, the one `pickCombat`
-    ranks first, under way first. The owner: "Yes, a sidekick could get into an encounter w/out the
-    main character. This opens up other questions around how many active encounters should be able
-    to be shown in the app. Example, if there is an encounter on scene A with all the characters and
-    their sidekicks, and a second scene with one character's sidekick, which is in a different
-    encounter, how would you depict the two encounters? Foundry definately supports multiple
-    encounters."
+Items 18 and 36, companions and sidekicks wherever they are and two encounters at once, are done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
 
 **Found while building Batch 2**
 
@@ -315,14 +323,14 @@ And from the owner's answers on item 19, later work too:
     before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
     `OTHER_FIELDS`. Found building item 67. In no batch yet.
 84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
-    coin fractional digits, coins moved to or from a party (a character's Give to a party, and a
-    party's Take, Send to and Give), coins given to another character from an app before v0.50.0,
-    and a party's distributed are written as floating point makes them: 10.7 gp less 10 is stored as
-    0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes to
-    no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
-    write through `coinUpdate`, as coins added, removed and given to characters do since 0.49.0. A
-    default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it.
-    Module only, small. Found building items 67 and 68. In no batch yet.
+    coin fractional digits, coins moved to or from a party (a party's Take and Send to, and coins
+    given to a party by an app before v0.51.0), coins given to another character from an app before
+    v0.50.0, and a party's distributed are written as floating point makes them: 10.7 gp less 10 is
+    stored as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin
+    goes to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`)
+    could write through `coinUpdate`, as coins added, removed and handed out do since 0.49.0, to
+    parties too since 0.51.0. A default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole
+    coins: neither shows it. Module only, small. Found building items 67 and 68. In no batch yet.
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
     it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
@@ -364,7 +372,7 @@ And from the owner's answers on item 19, later work too:
 
 **Moved from v1.x on 2026-11-13**
 
-Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 59. **Summon activities** used from the app.
 60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
@@ -372,7 +380,7 @@ Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-
     where its player could use it in Foundry.
 
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
-[CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+[CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
     loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
@@ -409,7 +417,7 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 **Asked for on 2026-11-17**
 
 Item 89, Add or remove, one Give for a character's coins, and the Currency row's buttons below its
-coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 **Found in Batch 4's last checks**
 
@@ -424,6 +432,40 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
     drawing it) as well as the wait. Of a kind with item 86. The check could time the wait from the
     page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
     last checks. In no batch yet.
+
+**Asked for on 2026-11-18**
+
+Item 91, Give coins to parties and characters alike (on a character's Give of its coins the parties
+are checkboxes, as the characters are, and one give may go to any of them together, each given the
+same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+
+**Found while building Batch 3**
+
+92. **Midi-QOL's checks in an encounter the Gamemaster doesn't have up:** for a creature fighting
+    in an encounter on another scene than the one the Gamemaster views, Midi-QOL's reaction,
+    bonus-action and opportunity checks aren't made (Foundry's `Actor#inCombat` and the module's
+    check both read `game.combat`, the module's `scripts/command-uses.mjs:893-901`; Foundry's, to
+    check), and a use at Self finds no combatant (`selfTarget`, `:531-541`). It matters only with
+    Allow targets off your screen, since Midi-QOL otherwise needs the target drawn. The module
+    harness's `inCombat` stand-in reads every combat (`test/fvtt/activity5e.mjs:424-428`), so it
+    doesn't show this. Found building item 36. In no batch yet.
+93. **A Gamemaster's message past the twentieth isn't marked as theirs:** a Gamemaster's hand-out
+    to 20 characters who each have a player makes 21 messages, and the module lists only 20 in the
+    result's `messages` (`MOST_MESSAGES`, `scripts/commands.mjs:175`; the app's
+    `MAX_GM_ROLL_MESSAGES`, `src/schemas/sending-stone.ts:174`), so the last, the Gamemasters' own,
+    isn't marked as theirs in the app. Since before 0.51.0; parties add one message each, as
+    characters do. Found building item 91. In no batch yet.
+94. **The module harness's wait for a druid's copy made late, under load:**
+    `test/fvtt/wildshape.mjs` (line 1170), under `MIDI=1`, "her copy made too late: Rowan's
+    concentration gone, and nothing of it left on her", turns the wolf back into Elowen with the
+    copy of an effect Rowan concentrates on held back eight turns (`port.faults.slowEffects = 8`),
+    then waits a fixed 160 ms (`settle(160)`) for the bridge to sweep the copy off her. It found the
+    copy still on her once (`[false, 1]`, where it wants `[false, 0]`; 16 of 33), in the companions
+    landing's full harness, run beside that landing's e2e on three lanes, a load average near 6 on
+    four cores, and passed when the full harness ran again at once on the same head (122 of 122),
+    and alone three times (33 of 33 each). Neither the check nor the module's Wild Shape scripts
+    have changed since v0.50.0. Of a kind with item 90. The check could wait until the sweep has
+    run, or allow more than its 160 ms. Found landing item 18. In no batch yet.
 
 ## v1.0
 
@@ -487,7 +529,7 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   as two Hunter's Marks, have it rolled by Foundry for both, until each has rolled its bonus
   damage; a bonus only one of them awaits, such as Sneak Attack, is still asked.
 - Moving several items at once isn't planned unless it's asked for.
-- Summon activities are used in Foundry (planned for v1.x).
+- Summon activities are used in Foundry (planned before v1.0, item 59).
 - A companion shared by several characters is asked a save card's save only where every one of
   their players can read the card.
 - A Gamemaster's request for a save posted in chat asks the campaign's characters, not their
@@ -497,7 +539,9 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Whether a change to a message brings it back after a clear is told by Foundry's time for the
   message against the app's: where the Gamemaster's computer clock is well off, a message posted
   just before the clear can come back, or one posted just after it stay out.
-- Companions show while on the active scene; a linked NPC its player owns shows always.
+- Companions are found on every scene, but no level is read: one on another level of the active
+  scene counts as there. With a module before 0.51.0, companions show while on the active scene; a
+  linked NPC its player owns shows always.
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.
 - Damage on its own never spends the action itself, and with Spend off it counts nothing.
@@ -588,7 +632,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   app, which spends the use itself.
 - A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
   outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
-  Polymorphing and the source's permissions apply (from outside the compendiums: planned for v1.x).
+  Polymorphing and the source's permissions apply (from outside the compendiums: planned before
+  v1.0, item 60).
 - A session ended from outside the app, such as one deleted from the database or revoked through
   Better Auth's own endpoints, still reads the table, the party sheet and the journal, and still
   sends what the table sends the game (rolls, moves, hit points, coins and ending a turn among them)

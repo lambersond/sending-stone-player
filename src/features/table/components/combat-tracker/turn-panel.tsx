@@ -51,9 +51,12 @@ export function TurnPanel({
   // How hurt the creature acting is, where the seat is shown it (module 0.50.0).
   const acting = actingHealth(current)
 
-  // End Turn, on the seat's turn as the panel shows it (module 0.36.0).
+  // End Turn, on the seat's turn as the panel shows it (module 0.36.0), in this encounter: the same
+  // combatant may be the current one in another (item 36).
   const turn =
-    ending?.turn && ending.turn.combatantId === current?.id
+    ending?.turn &&
+    ending.turn.combatId === combat.id &&
+    ending.turn.combatantId === current?.id
       ? ending.turn
       : undefined
   const shown = turn && turnKey(turn)

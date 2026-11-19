@@ -66,7 +66,8 @@ export const BRIDGE_SWITCHES = [
  * coins added to a character and taken away, which the module fetches for only then; and from
  * module 0.50.0 how hurt other creatures are, and their hit points where their Gamemaster shows
  * them, which the module sends only then, and quiet fetches while nobody is in the app, which the
- * module makes only then.
+ * module makes only then; and from module 0.51.0 companions on every scene, each saying whether
+ * it's away (`companions` 3), which the module lists only then.
  */
 export const FEATURES = {
   commands: true,

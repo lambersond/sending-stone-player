@@ -368,6 +368,9 @@ describe('db/companions', () => {
           bridgePolledAt: true,
           transfersEnabled: true,
           removalsEnabled: true,
+          // Changed on purpose (item 36): whether its module takes initiative from the app into
+          // any begun encounter, by its version.
+          initiativeAnywhere: true,
         },
       })
     })
@@ -509,6 +512,27 @@ describe('db/companions', () => {
       })
     })
 
+    // Module 0.51.0 (item 18): whether it's on another scene, as the module lists it now, never as
+    // the seat found it; said only where true.
+    it.each([
+      [true, true],
+      [false, undefined],
+      [undefined, undefined],
+    ])(
+      'says it is away, listed now with away %p, as %p',
+      async (away, shown) => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held({
+          companions: [{ ...wolf, ...(away !== undefined && { away }) }, imp],
+        })
+
+        const view = await getCompanionView(seat)
+        expect(view.connected).toBe(true)
+        expect(view.companion?.away).toBe(shown)
+        expect(Object.hasOwn(view.companion ?? {}, 'away')).toBe(shown === true)
+      },
+    )
+
     it('offers nothing to roll once the module no longer lists it as the character’s', async () => {
       const seat = await seatAt(thorin, 'wolfBrakka')
       held({ companions: [imp] })
@@ -586,6 +610,35 @@ describe('db/companions', () => {
       // The game makes no Gamemaster's rolls as a character: theirs stay here until it's updated.
       expect(view.gm).toEqual({ rolls: 'update' })
     })
+
+    it.each([
+      ['isn’t', false, { mode: 'after' }],
+      ['is', true, { mode: 'after', after: 'Thorin' }],
+    ])(
+      'reads its own encounter under way, not the one ranked first; its character %s in it (item 36)',
+      async (_, joined, initiative) => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held({ companionInitiative: 'after' })
+        const arena = fight()
+        arena.combatants = arena.combatants.filter(({ id }) => id !== 'c-wolf')
+        const den = fight({
+          id: 'den',
+          combatants: fight().combatants.filter(
+            ({ id }) => id === 'c-wolf' || (joined && id === 'c-thorin'),
+          ),
+        })
+        prismaMock.combat.findMany.mockResolvedValue([
+          { data: arena },
+          { data: den },
+        ] as any)
+
+        const view = await getCompanionView(seat)
+        expect(view.combat?.id).toBe('den')
+        // Its module older than 0.51.0 (no `initiativeAnywhere`): the arena is the campaign's.
+        expect(view.combat?.takesInitiative).toBe(false)
+        expect(view.initiative).toEqual(initiative)
+      },
+    )
 
     describe('how it enters initiative', () => {
       it('rolls its own, as its campaign has it by default', async () => {
