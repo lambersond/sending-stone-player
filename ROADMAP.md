@@ -166,6 +166,12 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   companion's initiative from its tab, cleared in Foundry, lands in its own encounter; and with
   module 0.50.0, the companion's tab offers no initiative into its own fight while the party's was
   changed last.
+- **Give to a party and characters together:** on a character's Inventory tab, Give lists the
+  parties you own as checkboxes, none ticked; 2 gp each to the party, Vex and Bram is "Gives 2 gp to
+  The Iron Company" for everyone, Vex's and Bram's players are whispered theirs, and the Gamemasters
+  are told "Thorin handed out 2 gp each to The Iron Company, Vex, and Bram: 6 gp in all"; the
+  party's sheet shows 2 gp more within a few seconds, a party you aren't in too; the party's own
+  Give says "held", with no All.
 
 ## Before v1.0
 
@@ -178,7 +184,8 @@ tweaks needed may change it as it goes. Next week aims at the first three.
    back from Wild Shape, Move up and Move down for every favorite, the three e2e races under load,
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
-3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
+3. Items 18, 36 and 91, companions and sidekicks wherever they are, two encounters at once, and Give
+   to parties and characters alike: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66: any ability or skill the game has.
@@ -316,14 +323,14 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
     `OTHER_FIELDS`. Found building item 67. In no batch yet.
 84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
-    coin fractional digits, coins moved to or from a party (a character's Give to a party, and a
-    party's Take, Send to and Give), coins given to another character from an app before v0.50.0,
-    and a party's distributed are written as floating point makes them: 10.7 gp less 10 is stored as
-    0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes to
-    no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
-    write through `coinUpdate`, as coins added, removed and given to characters do since 0.49.0. A
-    default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it.
-    Module only, small. Found building items 67 and 68. In no batch yet.
+    coin fractional digits, coins moved to or from a party (a party's Take and Send to, and coins
+    given to a party by an app before v0.51.0), coins given to another character from an app before
+    v0.50.0, and a party's distributed are written as floating point makes them: 10.7 gp less 10 is
+    stored as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin
+    goes to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`)
+    could write through `coinUpdate`, as coins added, removed and given to characters do
+    since 0.49.0. A default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither
+    shows it. Module only, small. Found building items 67 and 68. In no batch yet.
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
     it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
@@ -426,6 +433,12 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
     page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
     last checks. In no batch yet.
 
+**Asked for on 2026-11-18**
+
+Item 91, Give coins to parties and characters alike (on a character's Give of its coins the parties
+are checkboxes, as the characters are, and one give may go to any of them together, each given the
+same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+
 **Found while building Batch 3**
 
 92. **Midi-QOL's checks in an encounter the Gamemaster doesn't have up:** for a creature fighting
@@ -436,6 +449,12 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
     Allow targets off your screen, since Midi-QOL otherwise needs the target drawn. The module
     harness's `inCombat` stand-in reads every combat (`test/fvtt/activity5e.mjs:424-428`), so it
     doesn't show this. Found building item 36. In no batch yet.
+93. **A Gamemaster's message past the twentieth isn't marked as theirs:** a Gamemaster's hand-out
+    to 20 characters who each have a player makes 21 messages, and the module lists only 20 in the
+    result's `messages` (`MOST_MESSAGES`, `scripts/commands.mjs:175`; the app's
+    `MAX_GM_ROLL_MESSAGES`, `src/schemas/sending-stone.ts:174`), so the last, the Gamemasters' own,
+    isn't marked as theirs in the app. Since before 0.51.0; parties add one message each, as
+    characters do. Found building item 91. In no batch yet.
 
 ## v1.0
 

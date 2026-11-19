@@ -32,6 +32,16 @@ so an item from it is named with its number when it was built, which may since b
   or "(summoned, on another scene)", and Help says so. Needs Sending Stone 0.51.0 in Foundry; with
   an older one, companions show as before, a summons or an unlinked token's creature only while its
   token is on the active scene. (app and module, item 18)
+- **Give coins to parties and characters together.** On a character's Inventory tab, Give's dialog
+  lists the parties as checkboxes too, like the characters: tick any of them together, up to 20, and
+  type what each gets; it says what that comes to in all ("You give 2 gp each to The Iron Company,
+  Vex, and Bram: 6 gp in all."). Nothing is ticked as it opens. A party is given coins as a
+  character is: other coins pay where you're short, unless your Gamemaster has turned that off, and
+  there is no All. So is the Give on a party's own sheet. A party's share is a line in Foundry's
+  chat for everyone, "Gives 2 gp to The Iron Company"; each character is whispered theirs, and where
+  a character is among them the Gamemasters are told all of it. Under dnd5e 6, a party given coins
+  keeps its fraction of a coin. Needs Sending Stone 0.51.0 in Foundry; with 0.49.0 or 0.50.0 a party
+  is still chosen alone. (app and module, item 91)
 
 ### Enhancements
 
@@ -60,6 +70,16 @@ so an item from it is named with its number when it was built, which may since b
   for one that answers 2, none away with no scene active, the hello built before any answer and
   again, the two cuts, a scene made with its tokens, and 10,000 tokens never made into creatures.
   (app and module, item 18)
+- **End-to-end checks of Give to parties.** `givetake` checks a character's Give with the parties as
+  checkboxes, none ticked; one hand-out of 2 gp each to the Company, Vex and Bram, the Company's
+  line for everyone and the characters whispered; 1 gp to the Wardens, of whom the giver is none,
+  their sheet posted ahead of the result and shown in the app; the party sheet's Give with what's
+  held and no All; and, against module 0.50.0 (a new skew run), v0.50.0's dialog with the parties as
+  radios, and the party sheet's Give as before, what's held with All, given to the party alone. The
+  module's `handouts` harness checks a hand-out to parties under both dnd5e releases: who may name
+  one, the order of the writes, lines and sheets, a party none of whose members gives or is given
+  sent for itself, what a failure leaves, a fraction kept, and a party's moves waiting for one
+  another. (app and module, item 91)
 - **Two migrations.** `20261119090000_companions_away` keeps whether a campaign's module, 0.51.0 or
   later, lists companions on every scene, each saying whether it's away, for Help, from the
   campaign's next hello (item 18); `20261119100000_initiative_anywhere` keeps whether a campaign's
