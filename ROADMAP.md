@@ -177,7 +177,7 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Next week aims at the first three.
+tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried

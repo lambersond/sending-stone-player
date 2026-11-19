@@ -49,12 +49,13 @@ so an item from it is named with its number when it was built, which may since b
 - **Two encounters at once.** When the party fights on one scene and a companion on another, both
   under way, the Combat tab has a tab for each, named for the encounter, or else for who of yours is
   in it, with a dot where it's your turn or a companion's. You see the encounters your character or
-  its companions are in, or, with none of yours in any, every one under way, as before; an encounter
-  is under way once it has begun and is the one its scene's tracker shows. Holding the Combat tab
-  ends that turn wherever it is, and each creature's tab rolls initiative and picks targets in its
-  own encounter. With module 0.51.0, initiative from the app goes into a begun encounter, its
-  scene's chosen one, on another scene than the one the Gamemaster is viewing; with an older module,
-  the app offers initiative only where it did before. (app and module, item 36)
+  its companions are in, or, with none of yours in any, every one under way; before, the Combat tab
+  showed one, whoever was in it. An encounter is under way once it has begun and is the one its
+  scene's tracker shows. Holding the Combat tab ends that turn wherever it is, and each creature's
+  tab rolls initiative and picks targets in its own encounter. With module 0.51.0, initiative from
+  the app goes into a begun encounter, its scene's chosen one, on another scene than the one the
+  Gamemaster is viewing; with an older module, the app offers initiative only where it did before.
+  (app and module, item 36)
 
 ### Maintenance
 
@@ -109,8 +110,8 @@ so an item from it is named with its number when it was built, which may since b
   items 18, 36 and 91)
 - **The module harness.** `rolls.mjs` checks an initiative from the app rolled into a begun
   encounter its scene has chosen on another scene than the one the Gamemaster has up, and refused in
-  one not chosen or not begun, and `companions.mjs` a companion's, whichever way the campaign's
-  companions enter initiative, under dnd5e 5.3.3 and 6.0.5 and with Midi-QOL (item 36).
+  one not chosen or not begun; `companions.mjs`, under dnd5e 5.3.3 and 6.0.5 and with Midi-QOL,
+  checks a companion's, whichever way the campaign's companions enter initiative (item 36).
   `companions.mjs` also checks the lists on every scene, each saying whether it's away, for an app
   that answers 3 and today's for one that answers 2; none away with no scene active; commands on a
   companion on another scene; the hello built before any answer and again; heartbeats crossing 3;
@@ -140,12 +141,13 @@ so an item from it is named with its number when it was built, which may since b
   encounters at once, and Give to a party and characters together; its Released line names module
   v0.50.0. Under "Before v1.0", batch 3 reads as done, its items taken out: items 18 and 36, with a
   line saying so where they stood, and item 91, the owner's Give tweak of 2026-11-18, numbered and
-  done. Items 92 to 94, under "Found while building Batch 3", are what batch 3 found: Midi-QOL's
-  checks in an encounter the Gamemaster doesn't have up (92), a Gamemaster's message past the
-  twentieth not marked as theirs (93), and the module harness's check of a druid's slow copy, which
-  failed once under load in the companions landing's full harness (94). Item 84 says coins handed
-  out write through `coinUpdate`, to parties too since 0.51.0, and the known limits say companions
-  are found on every scene, no level read, and name items 59 and 60 as planned before v1.0. (app)
+  done; the plan's opening says batches 1 to 4 are done. Items 92 to 94, under "Found while building
+  Batch 3", are what batch 3 found: Midi-QOL's checks in an encounter the Gamemaster doesn't have up
+  (92), a Gamemaster's message past the twentieth not marked as theirs (93), and the module
+  harness's check of a druid's slow copy, which failed once under load in the companions landing's
+  full harness (94). Item 84 says coins handed out write through `coinUpdate`, to parties too since
+  0.51.0, and the known limits say companions are found on every scene, no level read, and name
+  items 59 and 60 as planned before v1.0. (app)
 
 ## v0.50.0 — 2026-11-18
 
