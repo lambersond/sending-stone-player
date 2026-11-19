@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.49.0 and its app, with v0.48.0, v0.47.0, v0.46.0, v0.45.0 and v0.44.0
-before it.
+Released: module v0.50.0 and its app, with v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0 and
+v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -148,6 +148,20 @@ Midi-QOL v14.0.x:
   Iron Company", spoken by the giver. Add or remove's dialog reads Add and Remove, and each change
   is still a line for everyone, "Thorin paid 5 gp".
 
+## v0.51 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc entry.
+
+**To check at the table before module v0.51.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Two encounters at once:** on two scenes, a fight with everyone on one and a companion's fight
+  on the other, both begun: the Combat tab shows a tab for each, a dot on the companion's tab on
+  its turn, and holding the Combat tab ends that turn while you view the other scene; the
+  companion's initiative from its tab, cleared in Foundry, lands in its own encounter; and with
+  module 0.50.0, the companion's tab offers no initiative into its own fight while the party's was
+  changed last.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
@@ -203,15 +217,7 @@ tweaks needed may change it as it goes. Next week aims at the first three.
 
 And from the owner's answers on item 19, later work too:
 
-36. **A sidekick fighting without its character, and two encounters at once:** a sidekick in an
-    encounter its character isn't in still brings that encounter to its campaign, as since
-    module 0.36.0 (0.45.0 keeps the rule). The Combat tab shows one encounter, the one `pickCombat`
-    ranks first, under way first. The owner: "Yes, a sidekick could get into an encounter w/out the
-    main character. This opens up other questions around how many active encounters should be able
-    to be shown in the app. Example, if there is an encounter on scene A with all the characters and
-    their sidekicks, and a second scene with one character's sidekick, which is in a different
-    encounter, how would you depict the two encounters? Foundry definately supports multiple
-    encounters."
+Item 36, two encounters at once, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
 
 **Found while building Batch 2**
 
@@ -425,6 +431,17 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
     drawing it) as well as the wait. Of a kind with item 86. The check could time the wait from the
     page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
     last checks. In no batch yet.
+
+**Found while building Batch 3**
+
+92. **Midi-QOL's checks in an encounter the Gamemaster doesn't have up:** for a creature fighting
+    in an encounter on another scene than the one the Gamemaster views, Midi-QOL's reaction,
+    bonus-action and opportunity checks aren't made (Foundry's `Actor#inCombat` and the module's
+    check both read `game.combat`, the module's `scripts/command-uses.mjs:893-901`; Foundry's, to
+    check), and a use at Self finds no combatant (`selfTarget`, `:531-541`). It matters only with
+    Allow targets off your screen, since Midi-QOL otherwise needs the target drawn. The module
+    harness's `inCombat` stand-in reads every combat (`test/fvtt/activity5e.mjs:424-428`), so it
+    doesn't show this. Found building item 36. In no batch yet.
 
 ## v1.0
 

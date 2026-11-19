@@ -19,6 +19,30 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
+## v0.51.0-rc
+
+### Enhancements
+
+- **Two encounters at once.** When the party fights on one scene and a companion on another, both
+  under way, the Combat tab has a tab for each, named for who of yours is in it, with a dot where
+  it's your turn or a companion's. Holding the Combat tab ends that turn wherever it is, and each
+  creature's tab rolls initiative and picks targets in its own encounter. With module 0.51.0,
+  initiative from the app goes into a begun encounter, its scene's chosen one, on another scene
+  than the one the Gamemaster is viewing; with an older module, the app offers initiative only
+  where it did before. (app and module, item 36)
+
+### Maintenance
+
+- **Two encounters at once, end to end.** A new e2e suite, `encounters`, walks a fight on one scene
+  and a sidekick's on another, both under way: the tabs, the dot, the hold and Undo in the other
+  encounter, the keys, the companion's initiative and targets in its own encounter, another
+  player's page and the Gamemaster's, the column at 1280, and module 0.50.0 beside them, offered no
+  initiative it would refuse. (app, item 36)
+- **A migration.** `20261119100000_initiative_anywhere` keeps whether a campaign's module, 0.51.0
+  or later, takes initiative from the app into a begun encounter its scene has chosen, whichever
+  scene the Gamemaster views, from the campaign's next hello; until then the app offers initiative
+  as with an older module. (app, item 36)
+
 ## v0.50.0 — 2026-11-18
 
 ### Features
@@ -629,7 +653,7 @@ so an item from it is named with its number when it was built, which may since b
   tap, as conditions in descriptions already did. One it has no rules for, such as Poison, stays
   plain text. (app)
 - **The Combat tab shows only a fight under way.** The Combat tab shows whose turn it is and the
-  initiative order only once an encounter has begun and is the one on the Gamemaster's tracker.
+  initiative order only once an encounter has begun and is the one its scene's tracker shows.
   Otherwise it says "No combat right now", and the header "No combat" where it said "Getting
   ready", with a line before Begin Combat to roll initiative from the sheet while the character or
   one of its companions has none. (app, item 19)
