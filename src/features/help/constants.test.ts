@@ -103,7 +103,7 @@ describe('features/help/constants', () => {
     const combat = textOf('Combat')
     const words = [
       'two encounters at once',
-      'a tab for each, named for who of yours is in it',
+      'a tab for each, named for the encounter, or else for who of yours is in it',
       'End turn ends the turn in the encounter shown.',
       'Each rolls initiative into its own encounter, a companion from its tab, while your Gamemaster has it up; with a newer Sending Stone module, also once that encounter has begun.',
       'An encounter shows while it’s under way',

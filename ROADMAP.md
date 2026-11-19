@@ -160,12 +160,12 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   sheet; a check rolled from its tab is made by its token's creature in Foundry; the campaign card
   marks each "(on another scene)" or "(summoned, on another scene)"; reloading the Gamemaster's
   Foundry drops neither; and deleting or hiding a token takes its companion away.
-- **Two encounters at once:** on two scenes, a fight with everyone on one and a companion's fight
-  on the other, both begun: the Combat tab shows a tab for each, a dot on the companion's tab on
-  its turn, and holding the Combat tab ends that turn while you view the other scene; the
-  companion's initiative from its tab, cleared in Foundry, lands in its own encounter; and with
-  module 0.50.0, the companion's tab offers no initiative into its own fight while the party's was
-  changed last.
+- **Two encounters at once:** on two scenes, a fight with everyone on one and a companion's fight on
+  the other, both begun: the Combat tab shows a tab for each, named for the encounter, or else for
+  who of yours is in it, a dot on the companion's tab on its turn, and holding the Combat tab ends
+  that turn while you view the other scene; the companion's initiative from its tab, cleared in
+  Foundry, lands in its own encounter; and with module 0.50.0, the companion's tab offers no
+  initiative into its own fight while the party's was changed last.
 - **Give to a party and characters together:** on a character's Inventory tab, Give lists the
   parties you own as checkboxes, none ticked; 2 gp each to the party, Vex and Bram is "Gives 2 gp to
   The Iron Company" for everyone, Vex's and Bram's players are whispered theirs, and the Gamemasters
@@ -328,9 +328,9 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     v0.50.0, and a party's distributed are written as floating point makes them: 10.7 gp less 10 is
     stored as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin
     goes to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`)
-    could write through `coinUpdate`, as coins added, removed and given to characters do
-    since 0.49.0. A default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither
-    shows it. Module only, small. Found building items 67 and 68. In no batch yet.
+    could write through `coinUpdate`, as coins added, removed and handed out do since 0.49.0, to
+    parties too since 0.51.0. A default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole
+    coins: neither shows it. Module only, small. Found building items 67 and 68. In no batch yet.
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
     it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
@@ -455,6 +455,17 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
     `MAX_GM_ROLL_MESSAGES`, `src/schemas/sending-stone.ts:174`), so the last, the Gamemasters' own,
     isn't marked as theirs in the app. Since before 0.51.0; parties add one message each, as
     characters do. Found building item 91. In no batch yet.
+94. **The module harness's wait for a druid's copy made late, under load:**
+    `test/fvtt/wildshape.mjs` (line 1170), under `MIDI=1`, "her copy made too late: Rowan's
+    concentration gone, and nothing of it left on her", turns the wolf back into Elowen with the
+    copy of an effect Rowan concentrates on held back eight turns (`port.faults.slowEffects = 8`),
+    then waits a fixed 160 ms (`settle(160)`) for the bridge to sweep the copy off her. It found the
+    copy still on her once (`[false, 1]`, where it wants `[false, 0]`; 16 of 33), in the companions
+    landing's full harness, run beside that landing's e2e on three lanes, a load average near 6 on
+    four cores, and passed when the full harness ran again at once on the same head (122 of 122),
+    and alone three times (33 of 33 each). Neither the check nor the module's Wild Shape scripts
+    have changed since v0.50.0. Of a kind with item 90. The check could wait until the sweep has
+    run, or allow more than its 160 ms. Found landing item 18. In no batch yet.
 
 ## v1.0
 
@@ -518,7 +529,7 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   as two Hunter's Marks, have it rolled by Foundry for both, until each has rolled its bonus
   damage; a bonus only one of them awaits, such as Sneak Attack, is still asked.
 - Moving several items at once isn't planned unless it's asked for.
-- Summon activities are used in Foundry (planned for v1.x).
+- Summon activities are used in Foundry (planned before v1.0, item 59).
 - A companion shared by several characters is asked a save card's save only where every one of
   their players can read the card.
 - A Gamemaster's request for a save posted in chat asks the campaign's characters, not their
@@ -621,7 +632,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   app, which spends the use itself.
 - A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
   outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
-  Polymorphing and the source's permissions apply (from outside the compendiums: planned for v1.x).
+  Polymorphing and the source's permissions apply (from outside the compendiums: planned before
+  v1.0, item 60).
 - A session ended from outside the app, such as one deleted from the database or revoked through
   Better Auth's own endpoints, still reads the table, the party sheet and the journal, and still
   sends what the table sends the game (rolls, moves, hit points, coins and ending a turn among them)

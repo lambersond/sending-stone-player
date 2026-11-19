@@ -3,7 +3,8 @@
 // Ashlands, with Find Familiar and Summon Dragon; Brakka, a linked NPC she owns, is his companion;
 // two Bats summoned from one template with Find Familiar (arena-bat1, arena-bat2); and a Draconic
 // Spirit the Gamemaster summoned for Thorin with Summon Dragon, owned by no player. The hello says
-// companionPrompts and the app answers companions: 2; a save card at both Bats asks each, filed under
+// companionPrompts and the app answers companions: 3 (2 or more reads companions' saves; 3, every
+// scene's companions, since v0.51.0); a save card at both Bats asks each, filed under
 // its key, on its own pane, its tab marked, the phone's Character tab dotted, and Thorin's own banner
 // saying so, with Show, which switches to it and posts nothing; Bat 1 answers on its pane with its own
 // modifier, rolled in Foundry on its token's creature as Alice; the Gamemaster answers Bat 2 from her
