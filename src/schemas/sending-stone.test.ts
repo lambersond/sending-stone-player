@@ -2931,10 +2931,11 @@ describe('schemas/sending-stone', () => {
       expect(
         askOf({ type: 'save', abilities: ['wis', 'san'], dc: 13 }),
       ).toEqual({ type: 'save', abilities: ['wis', 'san'], dc: 13 })
-      const eight = ['str', 'dex', 'con', 'int', 'wis', 'cha', 'hon', 'luck']
-      expect(askOf({ type: 'save', abilities: eight })).toEqual({
+      // As many as a saving throw may offer: the six, Honor, Sanity and two of a world's own.
+      const ten = 'str dex con int wis cha hon san luck grit'.split(' ')
+      expect(askOf({ type: 'save', abilities: ten })).toEqual({
         type: 'save',
-        abilities: eight,
+        abilities: ten,
       })
     })
 

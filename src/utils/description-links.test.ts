@@ -251,6 +251,16 @@ describe('utils/description-links', () => {
         dc: 13,
         concentration: false,
       })
+      // As many as a saving throw may offer: the six, Honor, Sanity and two of a world's own.
+      const ten = 'str|dex|con|int|wis|cha|hon|san|luck|grit'
+      expect(
+        linkOf({ class: 'ss-save roll', 'data-n': '4', 'data-ability': ten }),
+      ).toEqual({
+        kind: 'save',
+        n: 4,
+        abilities: ten.split('|'),
+        concentration: false,
+      })
       expect(
         linkOf({
           class: 'ss-check roll',
