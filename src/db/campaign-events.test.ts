@@ -200,6 +200,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         // Changed on purpose (round 3, decision 3): whether its module asks for the dice an item
         // rolls later, by its versions; none from a hello that gives none.
         laterDice: false,
@@ -272,6 +275,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -341,6 +347,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -394,6 +403,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -522,6 +534,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -574,6 +589,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -634,6 +652,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -686,6 +707,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -751,6 +775,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -805,6 +832,9 @@ describe('db/campaign-events', () => {
           companions: [],
           companionKinds: [],
           companionInitiative: 'own',
+          // Changed on purpose (item 18): whether companions are listed on every scene, from
+          // module 0.51.0; none from a hello that says nothing of it.
+          companionsAway: false,
           laterDice: false,
           initiativeAnywhere: false,
           foundry: { receivedAt: SENT },
@@ -862,6 +892,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -1213,6 +1246,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -1272,6 +1308,9 @@ describe('db/campaign-events', () => {
         companions: [],
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): whether companions are listed on every scene, from
+        // module 0.51.0; none from a hello that says nothing of it.
+        companionsAway: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -1329,6 +1368,9 @@ describe('db/campaign-events', () => {
           companions: [],
           companionKinds: [],
           companionInitiative: 'own',
+          // Changed on purpose (item 18): whether companions are listed on every scene, from
+          // module 0.51.0; none from a hello that says nothing of it.
+          companionsAway: false,
           laterDice: false,
           initiativeAnywhere: false,
           foundry: { receivedAt: SENT },
@@ -3397,6 +3439,31 @@ describe('db/campaign-events, companions, from module 0.36.0', () => {
       })
     },
   )
+
+  // Module 0.51.0 (item 18, the critic's C1): the hello is built before the module knows this
+  // app, so beside `companions`, the active scene's, it lists those on every scene; this app keeps
+  // that list, and those companions' sheets, at every Gamemaster's page load. A hello without it
+  // keeps `companions`, as the tests above have it.
+  it('keeps the companions on every scene a hello from module 0.51.0 lists, with their sheets, and says so for Help', async () => {
+    const everywhere = [
+      { ...wolf, away: false },
+      { ...imp, away: true },
+    ]
+    await hello(
+      [wolf],
+      {
+        ...companionFeatures,
+        companions: { ...companionFeatures.companions, away: true },
+      },
+      { ...apart, companionsEverywhere: everywhere },
+    )
+
+    expect(storedHello().companions).toEqual(everywhere)
+    expect(storedHello().companionsAway).toBe(true)
+    expect(prismaMock.companionSheet.deleteMany).toHaveBeenCalledWith({
+      where: { campaignId: 'c1', key: { notIn: [wolf.key, imp.key] } },
+    })
+  })
 
   it.each([
     ['whose sheets follow it', { sheetsApart: true }],

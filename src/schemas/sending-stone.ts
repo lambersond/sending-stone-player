@@ -1385,6 +1385,9 @@ const companionEntrySchema: z.ZodType<CompanionEntry> = z.looseObject({
     }),
   ),
   sheetWithheld: sheetWithheldSchema,
+  // From module 0.51.0, to an app that reads companions on every scene: whether it's on another
+  // scene than the active one. Left out where it can't be read.
+  away: leftOut(z.boolean()),
 })
 
 /**
@@ -1687,6 +1690,8 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
       z.looseObject({
         kinds: z.array(z.string()).catch([]),
         initiative: z.enum(COMPANION_INITIATIVE).catch('own'),
+        // From module 0.51.0: whether it lists companions on every scene, each with `away`.
+        away: leftOut(z.boolean()),
       }),
     ),
     // From module 0.37.0: whether favorites may be added and removed here, under dnd5e, with no
@@ -2409,6 +2414,9 @@ const helloSchema = z.looseObject({
   groups: listOf(groupEntrySchema),
   // From module 0.36.0, as `groups` are: none from an older module, which clears them.
   companions: companionsSchema,
+  // From module 0.51.0: the companions on every scene, as an app that says `companions: 3` is
+  // listed them; none from an older module, whose `companions` stand.
+  companionsEverywhere: leftOut(companionsSchema),
   combats: z.array(combatSchema),
   // Sent from module 0.10.0.
   features: featuresSchema,

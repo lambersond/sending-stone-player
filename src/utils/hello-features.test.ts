@@ -62,8 +62,27 @@ describe('utils/hello-features', () => {
         tidyVersion: null,
         companionKinds: [],
         companionInitiative: 'own',
+        // Changed on purpose (item 18): companions on every scene, from module 0.51.0.
+        companionsAway: false,
       }),
     )
+  })
+
+  // Module 0.51.0 (item 18): whether the module lists companions on every scene, for Help.
+  it.each([
+    [true, true],
+    [false, false],
+    ['yes', false],
+    [undefined, false],
+  ])('keeps companions listed on every scene for away %p as %p', (away, on) => {
+    const { companionsAway } = helloCompanionData({
+      companions: {
+        kinds: [],
+        initiative: 'own',
+        away: away as boolean | undefined,
+      },
+    })
+    expect(companionsAway).toBe(on)
   })
 
   it('takes no command kind as a roll, and no move feature while moves are off', () => {

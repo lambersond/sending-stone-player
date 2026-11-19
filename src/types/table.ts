@@ -483,6 +483,12 @@ export type TableView = {
    * 0.50.0, as its hello said last: how hurt each is, or their hit points too. Unset for none.
    */
   health?: HealthShown
+  /**
+   * At either seat, for Help: whether the campaign's module lists companions on every scene, each
+   * saying whether it's away, from module 0.51.0, as its hello said last (the campaign's
+   * `companionsAway`). Unset where it doesn't.
+   */
+  companionsAway?: true
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
@@ -509,6 +515,11 @@ export type TableCompanion = {
   kind: 'owned' | 'summoned'
   /** For a summoned one, the item it was summoned with, such as "Find Familiar". */
   from?: string
+  /**
+   * On another scene than the active one, as the module last listed it; from module 0.51.0. Unset
+   * where it isn't, or the module doesn't say.
+   */
+  away?: true
 }
 
 /**

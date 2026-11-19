@@ -334,8 +334,13 @@ async function applyHello(
   // The dice asks open, from module 0.44.0; none from an older module, which closes any held.
   const { diceAsks = [] } = data
   // Its characters' companions, from module 0.36.0, whose sheets follow it; none from an
-  // older module, which clears them.
-  const { companions = [] } = data
+  // older module, which clears them. From module 0.51.0 the hello also lists them on every scene,
+  // `companionsEverywhere`, the list this app is listed, which it keeps: the hello is built before
+  // the module knows this app, so a list read from `companions` alone would drop every companion on
+  // another scene, with its sheet, at each Gamemaster's page load. An older module's `companions`
+  // stand.
+  const { companions = [], companionsEverywhere } = data
+  const listed = companionsEverywhere ?? companions
   const { module, foundry, system, settings } = data
   const switches = helloCampaignData(features)
   const before = await tx.campaign.findUnique({
@@ -351,7 +356,7 @@ async function applyHello(
       ...switches,
       // Its characters' companions, from module 0.36.0, each as listed, never its sheet; and how
       // they roll (`helloCompanionData`).
-      companions: companions.map(entry => toJson(entry)),
+      companions: listed.map(entry => toJson(entry)),
       ...helloCompanionData(features),
       // Whether its module is one that asks a typing player for the dice an item rolls later, by
       // its versions, whatever its switches, for Help at either seat: apart from what follows,
@@ -439,7 +444,7 @@ async function applyHello(
   })
   // A companion it no longer lists has gone, with its sheet, before the descriptions kept are
   // counted, so that only those listed keep theirs (module 0.36.0).
-  await dropUnlistedCompanions(tx, campaignId, companions)
+  await dropUnlistedCompanions(tx, campaignId, listed)
   if (data.sheetsApart === true) {
     return keepRosterSheets(tx, campaignId, characters)
   }

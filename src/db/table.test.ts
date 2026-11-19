@@ -280,6 +280,9 @@ describe('db/table', () => {
           // Changed on purpose (item 36): whether its module takes initiative from the app into
           // any begun encounter, by its version.
           initiativeAnywhere: true,
+          // Changed on purpose (item 18): whether its module lists companions on every scene,
+          // from module 0.51.0, for Help.
+          companionsAway: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -1760,6 +1763,30 @@ describe('db/table, the dice the game asks for, from module 0.44.0', () => {
       // Not one that does, whatever its flags say.
       givenCampaign({ ...asking, laterDice: false })
       expect(await getTableView(seat)).not.toHaveProperty('laterDice')
+    },
+  )
+})
+
+describe('db/table, companions on every scene, from module 0.51.0', () => {
+  const thorin = { ...character, actorId: roster[0].id }
+  const asking = taking(['manualDice', 'diceAsks'], ['damage', 'dice'])
+
+  // Item 18: for Help's "Companions elsewhere.", at either seat, as its hello said last.
+  it.each([
+    ['the player', thorin],
+    [
+      'the Gamemaster',
+      { ...thorin, role: 'gm' as const, userId: 'gm-1', characterId: null },
+    ],
+  ])(
+    'tells %s, for Help, whether its module lists companions on every scene, as it said last',
+    async (_, seat) => {
+      givenCampaign({ ...asking, companionsAway: true })
+      prismaMock.diceAsk.findMany.mockResolvedValue([])
+      const view = await getTableView(seat)
+      expect(view.companionsAway).toBe(true)
+      givenCampaign({ ...asking, companionsAway: false })
+      expect(await getTableView(seat)).not.toHaveProperty('companionsAway')
     },
   )
 })

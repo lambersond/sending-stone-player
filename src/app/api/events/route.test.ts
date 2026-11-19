@@ -60,8 +60,9 @@ const FEATURES = {
   // and 3 from module 0.44.0, as it reads a character's Tidy 5e Sheets journal.
   notes: 3,
   // Changed on purpose (round 0.36.0 §7.12): from module 0.36.0, the campaign's characters'
-  // companions; and (round 0.41.0 §8.3) 2 from module 0.41.0, the saves the game asks of them.
-  companions: 2,
+  // companions; and (round 0.41.0 §8.3) 2 from module 0.41.0, the saves the game asks of them;
+  // and (item 18) 3 from module 0.51.0, companions on every scene.
+  companions: 3,
   // Changed on purpose (round 0.37.0 §7.15): from module 0.37.0, favorites added and removed,
   // fetched for with everything else off.
   favorites: 1,
@@ -924,9 +925,10 @@ describe('app/api/events', () => {
           'aloneChoices',
         ])
         // The module reads each as a whole number: 1 or more for the plans of damage on its own
-        // at each level, mode and ammunition; 2 or more for companions' saves.
+        // at each level, mode and ammunition; 2 or more for companions' saves. Changed on purpose
+        // (item 18): 3, companions on every scene, from module 0.51.0, which asks their saves too.
         expect(features.aloneChoices).toBe(1)
-        expect(features.companions).toBe(2)
+        expect(features.companions).toBe(3)
         expect(Number.isInteger(features.aloneChoices)).toBe(true)
         expect(Number.isInteger(features.companions)).toBe(true)
       }

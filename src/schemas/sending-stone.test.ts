@@ -4813,6 +4813,45 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
     ).toEqual({ kinds: [], initiative: 'after' })
   })
 
+  // Module 0.51.0 (item 18): to this app, companions on every scene, each saying whether it's away,
+  // and the hello's list of them beside its `companions`, built before the module knows this app.
+  it('reads whether a companion is away, leaving out what isn’t a boolean', () => {
+    const [here, there, unsaid, junk] = hello([
+      { ...wolf, away: false },
+      { ...imp, away: true },
+      mockCompanionEntry({ key: 'wolfB', actorId: 'wolfB' }),
+      {
+        ...mockCompanionEntry({ key: 'wolfC', actorId: 'wolfC' }),
+        away: 'yes',
+      },
+    ]).companions
+    expect([here.away, there.away]).toEqual([false, true])
+    expect(unsaid).not.toHaveProperty('away')
+    expect(junk.away).toBeUndefined()
+    expect(junk.key).toBe('wolfC')
+    const features = (away: unknown) =>
+      hello([], { companions: { kinds: [], initiative: 'own', away } }).features
+        .companions.away
+    expect([features(true), features('yes'), features(undefined)]).toEqual([
+      true,
+      undefined,
+      undefined,
+    ])
+  })
+
+  it('reads the hello’s companions on every scene, from module 0.51.0, and none where unsaid', () => {
+    const everywhere = [wolf, { ...imp, away: true }]
+    const read = parseGameEvent('bridge.hello', {
+      characters: roster,
+      combats: [],
+      companions: [wolf],
+      companionsEverywhere: [...everywhere, { key: 'x' }],
+    })?.data as any
+    expect(read.companions).toEqual([wolf])
+    expect(read.companionsEverywhere).toEqual(everywhere)
+    expect(hello([wolf])).not.toHaveProperty('companionsEverywhere')
+  })
+
   it('reads companions.listed, dropping what it can’t read', () => {
     expect(
       parseGameEvent('companions.listed', {

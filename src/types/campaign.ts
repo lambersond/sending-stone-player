@@ -80,15 +80,21 @@ export type OwnedCampaign = {
   /**
    * Each with who plays it, and their character's id, once a player has chosen it; and from module
    * 0.36.0 its companions, as the module lists them, by name and kind, a summoned one with the
-   * item it was summoned with: none for none. The app always gives them; optional so that a card
-   * given none, as one from before module 0.36.0, still draws.
+   * item it was summoned with, and from module 0.51.0 whether it's on another scene: none for none.
+   * The app always gives them; optional so that a card given none, as one from before module
+   * 0.36.0, still draws.
    */
   characters: {
     id: string
     name: string
     player?: string
     characterId?: string
-    companions?: { name: string; kind: 'owned' | 'summoned'; from?: string }[]
+    companions?: {
+      name: string
+      kind: 'owned' | 'summoned'
+      from?: string
+      away?: true
+    }[]
     /** Whether its player's Magical Recipe Book is linked to it, from module 0.38.0. */
     cookbookLinked?: boolean
   }[]

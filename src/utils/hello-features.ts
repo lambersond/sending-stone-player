@@ -173,7 +173,8 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
  * of its own, as hit points set from module 0.44.0, which a companion takes wherever its own
  * feature does, or coins from module 0.49.0, which none takes; and how they enter initiative, each
  * its own roll unless the module says otherwise. A module before it says nothing of them, which
- * clears the first and sets the second back to its own roll.
+ * clears the first and sets the second back to its own roll. And from module 0.51.0, whether it
+ * lists companions on every scene, each saying whether it's away, for Help: only where it says so.
  */
 export function helloCompanionData(
   features: BridgeFeatures | null | undefined,
@@ -187,5 +188,6 @@ export function helloCompanionData(
     ),
     companionInitiative:
       features?.companions?.initiative === 'after' ? 'after' : 'own',
+    companionsAway: features?.companions?.away === true,
   }
 }

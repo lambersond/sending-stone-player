@@ -287,6 +287,8 @@ const TABLE_CAMPAIGN = {
   healthFeatures: true,
   // Whether its module takes initiative from the app into any begun encounter (item 36).
   initiativeAnywhere: true,
+  // Whether its module lists companions on every scene, from module 0.51.0, for Help.
+  companionsAway: true,
 } as const
 
 /**
@@ -412,12 +414,25 @@ export async function getTableView(
         on: seat.manualDice === true,
       },
     }),
-    // Whether its module is one that asks a typing player for the dice an item rolls later, as its
-    // hello said last, at either seat, for Help: by its versions, never its switches, and stored,
-    // never whether it polled lately (the owner's round 3 decision 3).
-    ...(campaign.laterDice && { laterDice: true as const }),
+    ...helpModule(campaign),
     // What the campaign shows of creatures not of the party, from module 0.50.0, for Help.
     ...(viewer.health && { health: viewer.health }),
+  }
+}
+
+/**
+ * What Help reads of the campaign's module at either seat, as its hello said last, stored, never
+ * whether it polled lately: whether it asks a typing player for the dice an item rolls later, by
+ * its versions, never its switches (the owner's round 3 decision 3); and from module 0.51.0 whether
+ * it lists companions on every scene, each saying whether it's away.
+ */
+function helpModule(campaign: {
+  laterDice: boolean
+  companionsAway: boolean
+}): Pick<TableView, 'laterDice' | 'companionsAway'> {
+  return {
+    ...(campaign.laterDice && { laterDice: true as const }),
+    ...(campaign.companionsAway && { companionsAway: true as const }),
   }
 }
 

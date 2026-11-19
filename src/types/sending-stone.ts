@@ -74,7 +74,8 @@ export type SheetWithheld = {
 
 /**
  * One of a campaign's characters' companions, as the module lists it (module 0.36.0): a creature
- * the character summoned in Foundry, on the active scene, or an NPC its player owns there.
+ * the character summoned in Foundry, on the active scene, or an NPC its player owns there; from
+ * module 0.51.0, to this app, on any scene, saying whether it's `away`.
  */
 export type CompanionEntry = {
   /** Its actor's id, or for a token's creature `<sceneId>-<tokenId>`. */
@@ -91,6 +92,11 @@ export type CompanionEntry = {
   /** For a summoned one: the item that summoned it, and its activity. */
   summon: { itemId: string; item: string; activityId: string | null } | null
   sheetWithheld?: SheetWithheld
+  /**
+   * From module 0.51.0, to an app that reads companions on every scene: none of its tokens is on
+   * the active scene, and one is on another. Unsaid by an older module.
+   */
+  away?: boolean
 }
 
 /** What an NPC's sheet says of it as a creature (module 0.36.0). */
@@ -1595,9 +1601,10 @@ export type BridgeFeatures = {
   } | null
   /**
    * The kinds a companion's rolls may be, as the campaign takes them now, and how its companions
-   * enter initiative, as its Gamemaster sets it. Module 0.36.0; absent before.
+   * enter initiative, as its Gamemaster sets it. Module 0.36.0; absent before. From module 0.51.0,
+   * `away`: it lists companions on every scene, each saying whether it's away, to this app.
    */
-  companions?: { kinds: string[]; initiative: 'own' | 'after' }
+  companions?: { kinds: string[]; initiative: 'own' | 'after'; away?: boolean }
   /**
    * Whether the module adds and removes characters' favorites for the app, `"favorite"` among its
    * kinds, under dnd5e with no switch; or not, and why, `"system"`. Module 0.37.0.
@@ -2147,6 +2154,11 @@ export type GameEvent =
          * 0.36.0.
          */
         companions?: CompanionEntry[]
+        /**
+         * From module 0.51.0: the companions on every scene, each saying whether it's away, as an
+         * app that says `companions: 3` is listed them. None from an older module.
+         */
+        companionsEverywhere?: CompanionEntry[]
         combats: CombatSnapshot[]
         features?: BridgeFeatures | null
         /** The saves the game is asking its players for. Module 0.13.0. */

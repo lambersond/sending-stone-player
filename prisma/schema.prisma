@@ -232,6 +232,10 @@ model Campaign {
   // rolls its own, or "after", right after its character, where the game sets it. A module
   // before it says nothing, which sets it back to "own".
   companionInitiative String           @default("own")
+  // Whether its module lists companions on every scene, each saying whether it's away, from
+  // module 0.51.0's bridge.hello (`features.companions.away`), for Help at either seat. A module
+  // before it says nothing, which clears it.
+  companionsAway      Boolean          @default(false)
   // The module session whose bridge.hello was last applied. An event from another session means
   // this may be missing the campaign's state, such as when its hello was refused before the
   // campaign was set up here, so the module is asked to send it again.

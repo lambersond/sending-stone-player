@@ -512,6 +512,27 @@ describe('db/companions', () => {
       })
     })
 
+    // Module 0.51.0 (item 18): whether it's on another scene, as the module lists it now, never as
+    // the seat found it; said only where true.
+    it.each([
+      [true, true],
+      [false, undefined],
+      [undefined, undefined],
+    ])(
+      'says it is away, listed now with away %p, as %p',
+      async (away, shown) => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held({
+          companions: [{ ...wolf, ...(away !== undefined && { away }) }, imp],
+        })
+
+        const view = await getCompanionView(seat)
+        expect(view.connected).toBe(true)
+        expect(view.companion?.away).toBe(shown)
+        expect(Object.hasOwn(view.companion ?? {}, 'away')).toBe(shown === true)
+      },
+    )
+
     it('offers nothing to roll once the module no longer lists it as the character’s', async () => {
       const seat = await seatAt(thorin, 'wolfBrakka')
       held({ companions: [imp] })
