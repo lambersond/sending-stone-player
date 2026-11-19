@@ -11,6 +11,7 @@ import {
   shapedSheet,
   wildShapeBlock,
   wolfForm,
+  withCombats,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
@@ -118,15 +119,16 @@ const combat = (fields: Partial<TableCombat> = {}): TableCombat => ({
   ...fields,
 })
 
-const view = (fields: Partial<TableView> = {}): TableView => ({
-  version: 3,
-  live: true,
-  campaign: { title: 'The Lonely Mountain', worldTitle: 'Return to Erebor' },
-  connected: true,
-  messages: [message('m1', '2026-10-04T19:00:00.000Z')],
-  combat: combat(),
-  ...fields,
-})
+const view = (fields: Partial<TableView> = {}): TableView =>
+  withCombats({
+    version: 3,
+    live: true,
+    campaign: { title: 'The Lonely Mountain', worldTitle: 'Return to Erebor' },
+    connected: true,
+    messages: [message('m1', '2026-10-04T19:00:00.000Z')],
+    combat: combat(),
+    ...fields,
+  })
 
 let current: { view: TableView; connection: Connection }
 const showing = (next: Partial<typeof current>) => {

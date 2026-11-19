@@ -8,18 +8,22 @@ import type { Tab } from '@/features/table/types'
 import type { Character } from '@/types/character'
 import type { Connection, GmRolls, TableCombat, TableView } from '@/types/table'
 
-/** The header's line under the character's name: what is happening in the tab shown. */
+/**
+ * The header's line under the character's name: what is happening in the tab shown; on Combat,
+ * in the encounter it shows (item 36).
+ */
 export function subtitle(
   tab: Tab,
   view: TableView,
   character: Character,
+  encounter?: TableCombat,
 ): string {
   if (!view.campaign) return campaignAndGame(view, character)
   if (tab === 'character') return sheetSummary(view)
   if (tab === 'chat') {
     return `${view.campaign.title} · ${messageCount(view.messages.length)}`
   }
-  return combatSummary(view.combat)
+  return combatSummary(encounter)
 }
 
 /** The campaign, as its Gamemaster now titles it, and the game it is played in. */

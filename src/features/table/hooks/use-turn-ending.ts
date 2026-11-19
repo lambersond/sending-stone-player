@@ -4,6 +4,7 @@ import { useHold } from './use-hold'
 import { useTurnUndo } from './use-turn-undo'
 import {
   END_TURN_QUIET_CLICKS,
+  endingEncounter,
   holdDescription,
   newlyNotMade,
   refusalKey,
@@ -11,7 +12,7 @@ import {
 } from '@/features/table/utils/end-turn'
 import type { EndTurnState, TabHold } from '@/features/table/types'
 import type { RollKind } from '@/types/roll'
-import type { EndableTurn, TableView } from '@/types/table'
+import type { EndableTurn, TableCombat, TableView } from '@/types/table'
 
 /** No rolls the game takes from here, the same each time. */
 const NO_KINDS: readonly RollKind[] = []
@@ -68,9 +69,12 @@ function useTurnHold(ending: EndTurnState, onEnd: (turn: EndableTurn) => void) {
  * @param gm - Whether the seat is the Gamemaster's.
  * @param sideBySide - Whether the sheet and the combat or chat column sit side by side.
  * @param combatShown - Whether the combat pane is shown.
+ * @param shown - The encounter the Combat tab shows (item 36). End Turn and the hold end the seat's
+ *   turn in it, or else in the first encounter where it's the seat's turn (`endingEncounter`).
  * @returns End Turn and Undo; how the last End Turn was sent, and why it wasn't made; `endTurn`;
  *   whether a hold is past half a second, and whether the tabs ignore clicks now; the Combat tab of
- *   each layout, and where focus on the turn goes; and `holdOf`, the hold as a Combat tab takes it.
+ *   each layout, and where focus on the turn goes; `holdOf`, the hold as a Combat tab takes it; and
+ *   the encounter the last End Turn was for, with whether its panel is shown, for the toast.
  */
 export function useTurnEnding({
   api,
@@ -78,19 +82,26 @@ export function useTurnEnding({
   view,
   sideBySide,
   combatShown,
+  shown,
 }: {
   api: string
   gm: boolean
   view: TableView
   sideBySide: boolean
   combatShown: boolean
+  shown?: TableCombat
 }) {
   const kinds = (view.connected && view.rollsToTable) || NO_KINDS
-  const ending = useEndTurn({ api, gm, combat: view.combat, kinds })
+  const combat = endingEncounter(view.combats, shown)
+  const ending = useEndTurn({ api, gm, combat, kinds })
+  // The encounter the last End Turn was for, which Undo and the toast follow, whichever is shown.
+  const sentCombat = view.combats?.find(
+    ({ id }) => id === ending.sent?.turn.combatId,
+  )
   const undoing = useTurnUndo({
     api,
     gm,
-    combat: view.combat,
+    combat: sentCombat,
     kinds,
     sent: ending.sent,
   })
@@ -143,5 +154,7 @@ export function useTurnEnding({
     columnCombat,
     focusTurn,
     holdOf,
+    sentCombat,
+    sentShown: combatShown && sentCombat?.id === shown?.id,
   }
 }

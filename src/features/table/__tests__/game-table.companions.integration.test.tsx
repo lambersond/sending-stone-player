@@ -13,6 +13,7 @@ import {
   mockCompanionView,
   sheetAction,
   wildShapeBlock,
+  withCombats,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Character } from '@/types/character'
@@ -146,17 +147,18 @@ const summoned = (key: string, name = 'Bat'): TableCompanion => ({
 })
 const BRAKKA = owned('wolfBrakka', 'Brakka')
 
-const view = (fields: Partial<TableView> = {}): TableView => ({
-  version: 3,
-  live: true,
-  campaign: { title: 'The Lonely Mountain' },
-  connected: true,
-  messages: [],
-  sheet: thorinSheet,
-  rollsToTable: ['ability', 'attack', 'damage'],
-  rollFeatures: [],
-  ...fields,
-})
+const view = (fields: Partial<TableView> = {}): TableView =>
+  withCombats({
+    version: 3,
+    live: true,
+    campaign: { title: 'The Lonely Mountain' },
+    connected: true,
+    messages: [],
+    sheet: thorinSheet,
+    rollsToTable: ['ability', 'attack', 'damage'],
+    rollFeatures: [],
+    ...fields,
+  })
 
 /** A companion's own view, as its route answers it, with its sheet. */
 const companionView = (

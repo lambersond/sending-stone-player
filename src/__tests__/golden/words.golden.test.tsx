@@ -46,6 +46,7 @@ import {
   mockNotesView,
   mockTableView,
   mockTurnCombat,
+  withCombats,
 } from '@/mocks/sending-stone'
 import { askTitle } from '@/utils/ask-words'
 import {
@@ -623,16 +624,18 @@ const thorin: Character = {
 }
 
 const tableView = (fields: Partial<TableView> = {}): TableView =>
-  mockTableView({
-    sheet: toTableSheet(characterSheet(), GAME),
-    sheetVersion: 'v1',
-    messages: [
-      message({ id: 'm1', sentAt: '2026-10-04T19:00:00.000Z' }),
-      message({ id: 'm2', sentAt: '2026-10-04T19:01:00.000Z' }),
-      message({ id: 'm3', sentAt: '2026-10-04T19:02:00.000Z' }),
-    ],
-    ...fields,
-  })
+  withCombats(
+    mockTableView({
+      sheet: toTableSheet(characterSheet(), GAME),
+      sheetVersion: 'v1',
+      messages: [
+        message({ id: 'm1', sentAt: '2026-10-04T19:00:00.000Z' }),
+        message({ id: 'm2', sentAt: '2026-10-04T19:01:00.000Z' }),
+        message({ id: 'm3', sentAt: '2026-10-04T19:02:00.000Z' }),
+      ],
+      ...fields,
+    }),
+  )
 
 const renderTable = (view: TableView, seat?: TableSeat) =>
   render(
@@ -784,6 +787,13 @@ describe('golden C4: words', () => {
       'a combat not started': {
         combat: mockTurnCombat({ underWay: false, round: 0 }),
       },
+      'two encounters at once, Brakka’s turn in the other (item 36)': {
+        combat: mockTurnCombat({ id: 'arena', currentId: 'c-goblin' }),
+        combats: [
+          mockTurnCombat({ id: 'arena', currentId: 'c-goblin' }),
+          mockTurnCombat({ id: 'den', currentId: 'c-brakka', name: 'The Den' }),
+        ],
+      },
       'no messages': { messages: [], combat: undefined },
       'not connected': { connected: false, combat: undefined },
       offline: { live: false, combat: undefined },
@@ -804,6 +814,19 @@ describe('golden C4: words', () => {
     it('at the Gamemaster’s seat', () => {
       renderTable(tableView({ combat: mockTurnCombat() }), GM_SEAT)
       expect(tableWords()).toMatchSnapshot('gm')
+    })
+
+    it('two encounters at once: the Encounters tabs, named for who of the seat’s is in each (item 36)', async () => {
+      const arena = mockTurnCombat({ id: 'arena', currentId: 'c-goblin' })
+      const den = mockTurnCombat({ id: 'den', currentId: 'c-brakka', round: 2 })
+      renderTable(tableView({ combat: arena, combats: [arena, den] }))
+      await user().click(screen.getByRole('button', { name: /^Combat/ }))
+      const tablist = screen.getByRole('tablist', { name: 'Encounters' })
+      expect(
+        within(tablist)
+          .getAllByRole('tab')
+          .map(tab => [tab.getAttribute('aria-label'), tab.textContent]),
+      ).toMatchSnapshot('encounters')
     })
   })
 
@@ -914,11 +937,12 @@ describe('golden C4: words', () => {
       await advance(1000)
       steps.push(['answered', turnWords()])
       if (after) {
-        server.next = {
+        server.next = withCombats({
           ...start,
           version: 8,
           combat: mockTurnCombat({ currentId: after }),
-        }
+          combats: undefined,
+        })
         await advance(3000)
         steps.push(['moved', turnWords()])
       }

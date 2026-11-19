@@ -4407,3 +4407,12 @@ export function handedOutResult(
     ...fields,
   }
 }
+
+/**
+ * A table view as the server builds it with one encounter held (item 36): the Combat tab's list
+ * is that one while it's under way, unless the view gives a list of its own.
+ */
+export function withCombats(view: TableView): TableView {
+  if (view.combats || !view.combat?.underWay) return view
+  return { ...view, combats: [view.combat] }
+}

@@ -16314,6 +16314,51 @@ exports[`golden C4: words the table’s heading, subtitle and tab names offline,
 }
 `;
 
+exports[`golden C4: words the table’s heading, subtitle and tab names two encounters at once, Brakka’s turn in the other (item 36), on each tab: two encounters at once, Brakka’s turn in the other (item 36) 1`] = `
+{
+  "Character": {
+    "heading": "Thorin",
+    "subtitle": "Fighter 5 · Champion",
+    "tabs": [
+      "button: Character",
+      "button: Combat , your turn",
+      "button: Chat",
+    ],
+  },
+  "Chat": {
+    "heading": "Thorin",
+    "subtitle": "The Frost Road · 3 messages",
+    "tabs": [
+      "button: Character",
+      "button: Combat , your turn",
+      "button: Chat",
+    ],
+  },
+  "Combat": {
+    "heading": "Thorin",
+    "subtitle": "Round 1 · Goblin’s turn",
+    "tabs": [
+      "button: Character",
+      "button: Combat",
+      "button: Chat",
+    ],
+  },
+}
+`;
+
+exports[`golden C4: words the table’s heading, subtitle and tab names two encounters at once: the Encounters tabs, named for who of the seat’s is in each (item 36): encounters 1`] = `
+[
+  [
+    "Thorin, round 1",
+    "ThorinRound 1",
+  ],
+  [
+    "Thorin (2), round 2, Brakka’s turn",
+    "Thorin (2)Round 2",
+  ],
+]
+`;
+
 exports[`golden C4: words the turn toast and the turn panel, per card and seat a companion’s turn ended: a companion’s turn ended 1`] = `
 [
   [

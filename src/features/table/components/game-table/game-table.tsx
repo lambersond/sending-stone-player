@@ -35,12 +35,13 @@ import {
 import { useChatRead } from '@/features/table/hooks/use-chat-read'
 import { useChatScroll } from '@/features/table/hooks/use-chat-scroll'
 import { useCompanionRow } from '@/features/table/hooks/use-companion-row'
+import { useEncounterChoice } from '@/features/table/hooks/use-encounter-choice'
 import { usePartyOpen } from '@/features/table/hooks/use-party-open'
 import { useTableTabs } from '@/features/table/hooks/use-table-tabs'
 import { useTableView } from '@/features/table/hooks/use-table-view'
 import { useTurnEnding } from '@/features/table/hooks/use-turn-ending'
 import { useTypedDice } from '@/features/table/hooks/use-typed-dice'
-import { isMyTurn } from '@/features/table/utils/combat'
+import { isMyTurnIn } from '@/features/table/utils/combat'
 import { pageConnection } from '@/features/table/utils/header'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { TableReadContext } from '@/hooks/use-table-read'
@@ -74,7 +75,7 @@ export function GameTable({
   const gm = seat.role === 'gm'
   const words = seatWords(seat.role)
   const { view, connection, readAgain } = useTableView(seat.api, initialView)
-  const tabs = useTableTabs(initialView.combat?.underWay === true)
+  const tabs = useTableTabs((initialView.combats?.length ?? 0) > 0)
   const { party, setPartyOpen } = usePartyOpen(view.groups)
   const unread = useChatRead({
     gm,
@@ -86,13 +87,17 @@ export function GameTable({
   const diceSwitch = useTypedDice(view, setManualDice)
   // Help (ROADMAP item 12), from the header's button and every cog's How to use Sending Stone.
   const help = useHelpPanel()
-  const myTurn = isMyTurn(view.combat)
+  // The encounter the Combat tab shows, of those under way (item 36): the seat's own at first, and
+  // whichever is chosen after; the dot marks the seat's turn in any of them.
+  const encounters = useEncounterChoice(view.combats, view.combat?.id)
+  const myTurn = isMyTurnIn(view.combats)
   const turn = useTurnEnding({
     api: seat.api,
     gm,
     view,
     sideBySide: tabs.sideBySide,
     combatShown: tabs.combatShown,
+    shown: encounters.shown,
   })
   // The saves the game asks of the character, and from module 0.44.0 the dice it asks its player
   // for, which its tab marks while they wait: an ask on the sheet's banner, out of sight behind
@@ -204,7 +209,7 @@ export function GameTable({
             focusable={!tabs.characterInView}
             myTurn={myTurn}
             unread={unread}
-            combat={view.combat}
+            combat={encounters.shown}
             messages={view.messages}
             chatClearedAt={view.chatClearedAt}
             quiet={turn.quiet}
@@ -213,7 +218,10 @@ export function GameTable({
             hold={turn.holdOf('combat-hold-pane', tabs.sideBySide)}
             tracker={
               <CombatTracker
-                combat={view.combat}
+                combats={view.combats}
+                shown={encounters.shown}
+                own={view.combat}
+                onChoose={encounters.choose}
                 onOpen={companions.openCompanion}
                 keys={new Set(companions.rowKeys)}
                 ending={turn.ending}
@@ -254,6 +262,7 @@ export function GameTable({
             playing={playing}
             view={view}
             tab={tabs.tab}
+            encounter={encounters.shown}
             connection={pageConnection(connection, companions.reconnecting)}
             onHelp={help.show}
             deleteCharacter={deleteCharacter}
@@ -305,9 +314,9 @@ export function GameTable({
           undoing={turn.undoing}
           via={turn.via}
           held={turn.held}
-          combatShown={tabs.combatShown}
+          combatShown={turn.sentShown}
           focusTurn={turn.focusTurn}
-          combat={view.combat}
+          combat={turn.sentCombat}
           header={header}
           beside={beside}
           onFoot={setToastFoot}

@@ -6,6 +6,7 @@ import {
   mockCompanionView,
   mockTurnCombat,
   shapedSheet,
+  withCombats,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import { advance } from '@/utils/test-utils'
@@ -83,17 +84,18 @@ const BRAKKA: TableCompanion = {
 }
 
 /** Thorin's turn, round 1: Brakka acts next, then the goblin. */
-const view = (fields: Partial<TableView> = {}): TableView => ({
-  version: 3,
-  live: true,
-  campaign: { title: 'The Lonely Mountain' },
-  connected: true,
-  messages: [],
-  combat: mockTurnCombat(),
-  rollsToTable: KINDS,
-  rollFeatures: [],
-  ...fields,
-})
+const view = (fields: Partial<TableView> = {}): TableView =>
+  withCombats({
+    version: 3,
+    live: true,
+    campaign: { title: 'The Lonely Mountain' },
+    connected: true,
+    messages: [],
+    combat: mockTurnCombat(),
+    rollsToTable: KINDS,
+    rollFeatures: [],
+    ...fields,
+  })
 
 /** The same combat as the page shows it a poll later, on another current combatant or round. */
 const turnOf = (currentId: string, fields: Partial<TableCombat> = {}) =>
