@@ -138,9 +138,12 @@ run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
 # to, Give since item 89; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
 # and its coin distributed; dnd5e 6.0.5's fractions; and module 0.31.0 (none of the party's new ones).
-run givetake 67 SHOTS=$O/shots-032
-run givetake 68 DND5E6=1 SHOTS=$O/shots-032
+# Module 0.51.0 (item 91): a character's Give ticks parties and characters together; and module 0.50.0,
+# the parties chosen one at a time.
+run givetake 74 SHOTS=$O/shots-032
+run givetake 75 DND5E6=1 SHOTS=$O/shots-032
 run givetake 19 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
+run givetake 8 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-032
 # Module 0.33.0: an item removed from a character (its menu, the confirmation, stacks, containers,
 # the Gamemaster's, races with moves), dnd5e 6.0.5, and module 0.32.0 (no Remove).
 run removals 81 SHOTS=$O/shots-033

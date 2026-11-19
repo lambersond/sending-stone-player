@@ -138,7 +138,8 @@ async function answered(count, what) {
 
 if (NEW) {
   // Changed on purpose (item 68): a character's coins handed out, and paid with other coins (module 0.49.0).
-  check(same(firstHello.data.features.transfers, { enabled: false, kinds: [], reason: 'off', partySends: false, distribute: false, handOut: false, change: false }),
+  // Changed on purpose (item 91): and a hand-out to parties (module 0.51.0).
+  check(same(firstHello.data.features.transfers, { enabled: false, kinds: [], reason: 'off', partySends: false, distribute: false, handOut: false, change: false, handOutParties: false }),
     `1. off by default: the hello says ${JSON.stringify(firstHello.data.features.transfers)}`)
 } else {
   check(!('transfers' in (firstHello.data.features ?? {})), `module 0.30.0's hello says nothing of moves (${JSON.stringify(Object.keys(firstHello.data.features ?? {}))})`)
@@ -284,7 +285,7 @@ const switchedAt = Date.now()
 const helloOn = () => postsOf('bridge.hello').slice(hellos).find(p => p.data.features?.transfers?.enabled === true)
 await until(() => helloOn(), 'a hello saying moves are made', 15_000).catch(() => {})
 const onHello = helloOn() ?? postsOf('bridge.hello').at(-1)
-check(same(onHello.data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true }) && onHello.data.features.rolls.enabled === false,
+check(same(onHello.data.features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true, handOutParties: true }) && onHello.data.features.rolls.enabled === false,
   `ticked and saved, the hello says moves are made, rolls still off: ${JSON.stringify(onHello.data.features.transfers)}`)
 await until(() => enabled(), 'the app to take moves', 15_000)
 await until(() => helloAnswers.some(t => t >= switchedAt), "the hello's answer", 15_000)
@@ -749,9 +750,10 @@ await gmThorin.currency(gmThorin.page.getByRole('tabpanel')).getByRole('button',
 dialog = gmThorin.page.getByRole('dialog', { name: 'Give coins' })
 await dialog.waitFor()
 {
+  // Changed on purpose (item 91): with module 0.51.0 every party is a checkbox too, none ticked.
   const radios = await dialog.getByRole('radio').evaluateAll(rs => rs.map(r => r.closest('label').textContent.trim()))
-  const boxes = await dialog.getByRole('checkbox').evaluateAll(rs => rs.map(r => r.closest('label').textContent.trim()))
-  check(same(radios, ['The Iron Company Primary', 'The Silent Order']) && same(boxes, ['Vex']), `on the Gamemaster's page of Thorin, Give coins lists every party and Vex to tick (${JSON.stringify([radios, boxes])})`)
+  const boxes = await dialog.getByRole('checkbox').evaluateAll(rs => rs.map(r => [r.closest('label').textContent.trim(), r.checked]))
+  check(radios.length === 0 && same(boxes, [['The Iron Company Primary', false], ['The Silent Order', false], ['Vex', false]]), `on the Gamemaster's page of Thorin, Give coins lists every party and Vex to tick, none ticked (${JSON.stringify([radios, boxes])})`)
 }
 await dialog.getByRole('checkbox', { name: /^Vex/ }).check({ force: true })
 await dialog.getByRole('textbox', { name: 'Gold' }).fill('5')

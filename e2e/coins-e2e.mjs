@@ -182,11 +182,12 @@ part('1. the hello, the answer and the sheet')
   // Changed on purpose (item 58): other creatures' health follows coins (module 0.50.0).
   check(same(features.coins, { enabled: true, kinds: ['coins'], reason: null, change: true }) && Object.keys(features).at(-2) === 'coins' && Object.keys(features).at(-1) === 'health',
     `the hello takes coins, on for a campaign saved without the switch, other coins paying, last among its features but other creatures' health (${JSON.stringify({ coins: features.coins, keys: Object.keys(features) })})`)
-  check(same(features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true }),
-    `and hands a character's coins out (${JSON.stringify(features.transfers)})`)
+  // Changed on purpose (item 91): a hand-out may give to parties too (module 0.51.0).
+  check(same(features.transfers, { enabled: true, kinds: ['transfer'], reason: null, partySends: true, distribute: true, handOut: true, change: true, handOutParties: true }),
+    `and hands a character's coins out, to parties too (${JSON.stringify(features.transfers)})`)
   check(JSON.parse(hello().body ?? '{}').features?.coins === 1, `the app answers coins: 1 (${hello().body})`)
   await until(() => kept('"coinsEnabled"') === 't', 'the app to keep coins on', 15_000)
-  check(kept('"coinsEnabled"') === 't' && kept('array_to_string("coinFeatures", \',\')') === 'change' && kept('array_to_string("transferFeatures", \',\')') === 'partySends,distribute,handOut,change' && kept('"rollsEnabled"') === 'f',
+  check(kept('"coinsEnabled"') === 't' && kept('array_to_string("coinFeatures", \',\')') === 'change' && kept('array_to_string("transferFeatures", \',\')') === 'partySends,distribute,handOut,change,handOutParties' && kept('"rollsEnabled"') === 'f',
     `the campaign row keeps coins on with change, moves with handOut and change, the rolls off (${kept('array_to_string("transferFeatures", \',\')')})`)
   await sheetHolds({ pp: 2, gp: 3 }, 'Thorin\'s sheet in the app')
   const rates = JSON.parse(sql(`select (data->'inventory'->'currency')::text from actor_sheet where "campaignId" = '${A}' and "actorId" = 'thorin'`)).map(coin => [coin.id, coin.conversion])
@@ -493,9 +494,9 @@ const section = article.locator('section').filter({ has: gm.page.getByRole('head
   const rows = await help.getByRole('region', { name: /^In this game, for / }).locator('dl > div').evaluateAll(all => all.map(row => `${row.querySelector('dt').textContent}: ${row.querySelector('dd').textContent}`))
   const text = await help.evaluate(el => el.innerText.replace(/\s+/g, ' '))
   check(rows.indexOf('Adding and removing coins: From here') === rows.indexOf('Moving items and coins: From here') + 1
-    && text.includes('Players move items and coins: Send to…, Take and Give (0.31.0), and Give to several characters at once (0.49.0).')
+    && text.includes('Players move items and coins: Send to…, Take and Give (0.31.0), Give to several characters at once (0.49.0), and to parties and characters together (0.51.0).')
     && text.includes('Allow Players to add and take away coins from the app: Add or remove, on the Inventory tab’s Currency row; on unless they turn it off (0.49.0).')
-    && text.includes('Pay with other coins when a character is short of one: removing more of a coin than you hold, or giving characters more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).'),
+    && text.includes('Pay with other coins when a character is short of one: removing more of a coin than you hold, or giving more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0; giving to a party, 0.51.0).'),
   `Help's box has coins from here, after moves, and its switches name the two and Give to several (${JSON.stringify(rows.filter(row => /coins/.test(row)))})`)
   await desk.page.keyboard.press('Escape')
   await help.waitFor({ state: 'hidden', timeout: 5_000 })
