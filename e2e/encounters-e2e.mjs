@@ -17,9 +17,9 @@
 // sees both tabs; at 1280 the tabs sit in the Combat column, its line following the tab chosen, and
 // at 768 in the pane beside the rail. The den unchosen, then chosen again (item 19's rule, read per
 // scene); then ended. Screenshots to SHOTS at 390, 768 and 1280, in both themes. SKEW=050: module
-// 0.50.0, the same, but Pip's initiative into the den is refused, "you aren't in the combat"; no
-// screenshots. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
-// ./fvtt/dnd5e-register.mjs.
+// 0.50.0, the same, but Pip's tab offers no initiative into the den, which that module takes only
+// where its Gamemaster has it up, and nothing is sent; no screenshots. Synthetic characters only.
+// Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
 import {
   BASE, BOB, activeScene, browse, character, check, companion, finish, foundryWorld, launch, newCampaign, note, npc,
   part, place, postsOf, same, sceneWorld, settled, shootBoth, sideways, sql, startModule, until, wait,
@@ -300,30 +300,55 @@ check((await toasted(phone))[0] === 'Ending your turn…', `the toast says "Endi
 part('6. pip’s initiative into the den')
 await denFight.setInitiative(denFight.combatants.get('cbPip'), null)
 await until(() => stored('denfight').initiatives.cbPip === null, 'the app to hear Pip’s initiative cleared', 15_000)
+// The Gamemaster, back on the arena, sets its Goblin's initiative again: the arena is the fight the
+// app heard of last, the one an app before item 36 showed, and offered initiative into.
+await fight.setInitiative(fight.combatants.get('cbGoblin'), 20)
+const heardLast = () => sql(`select "combatId" from combat where "campaignId" = '${A}' order by "updatedAt" desc limit 1`)
+await until(() => heardLast() === 'fight', 'the app to hear of the arena last', 15_000)
+const initiativeRows = () => Number(sql(`select count(*) from roll_request where "campaignId" = '${A}' and kind = 'initiative'`))
+const rolledFrom = initiativeRows()
+const arenaUntouched = () => same(['cbGoblin', 'cbThorin', 'cbVex', 'cbBrakka'].map(id => fight.combatants.get(id).initiative), [20, 15, 12, 10])
+/** The next answer to a seat's poll of Pip's pane; with `test`, the next whose view passes it. */
+const pipPolled = (seat, test) => seat.page.waitForResponse(async response => {
+  if (response.request().method() !== 'GET' || !new URL(response.url()).pathname.endsWith('/companions/pip/table')) return false
+  if (!test) return true
+  const view = await response.json().catch(() => undefined)
+  return Boolean(view && test(view))
+}, { timeout: 45_000 })
 await phone.character()
-await switcherTab(phone, /^Pip/).click()
 const tile = phone.page.getByRole('button', { name: /^Initiative, \+2/ }).filter({ visible: true }).first()
-await until(async () => (await tile.getAttribute('aria-label').catch(() => null))?.includes('to roll for the combat'), 'Pip’s Initiative tile to offer the roll', 20_000)
-  .catch(async e => { note(`tile: ${await tile.getAttribute('aria-label').catch(() => 'none')}`); throw e })
-check(true, `Pip's tab above the sheet offers its initiative for its own encounter: "${await tile.getAttribute('aria-label')}"`)
+if (OLD) {
+  // Module 0.50.0 takes initiative only into the encounter its Gamemaster has up, which the app can't
+  // see: so it's offered only into the fight heard of last, as v0.50.0 offered it, and Pip isn't in
+  // that one. Read once the pane has drawn a view with Pip's initiative cleared: the poll that brings
+  // it, then the next.
+  const cleared = pipPolled(phone, view => view.combat?.id === 'denfight' && view.combat.combatants.some(({ id, initiative }) => id === 'cbPip' && initiative === null))
+  await switcherTab(phone, /^Pip/).click()
+  await cleared
+  await pipPolled(phone)
+  const offered = await phone.page.getByRole('button', { name: /^Initiative, \+2, to roll for the combat/ }).filter({ visible: true }).count()
+  const plain = await phone.page.getByRole('button', { name: 'Initiative, +2', exact: true }).filter({ visible: true }).count()
+  check(offered === 0 && plain === 1,
+    `with module 0.50.0, Pip's tab above the sheet offers no initiative into the den, its own encounter: "Initiative, +2" alone (${JSON.stringify({ offered, plain })})`)
+} else {
+  await switcherTab(phone, /^Pip/).click()
+  await until(async () => (await tile.getAttribute('aria-label').catch(() => null))?.includes('to roll for the combat'), 'Pip’s Initiative tile to offer the roll', 20_000)
+    .catch(async e => { note(`tile: ${await tile.getAttribute('aria-label').catch(() => 'none')}`); throw e })
+  check(true, `Pip's tab above the sheet offers its initiative for its own encounter: "${await tile.getAttribute('aria-label')}"`)
+}
 for (const seat of [tablet, desk]) {
   if (seat.width < 1024) await seat.character()
   await switcherTab(seat, /^Pip/).click()
 }
 await shots('pip', seats)
-const initiativeRows = () => Number(sql(`select count(*) from roll_request where "campaignId" = '${A}' and kind = 'initiative'`))
-const rolledFrom = initiativeRows()
-await tile.click()
-await until(() => initiativeRows() > rolledFrom, 'Pip’s initiative sent', 15_000)
-const rolled = () => JSON.parse(sql(`select row_to_json(r)::text from (select id, status, "actorId", payload, result from roll_request where "campaignId" = '${A}' and kind = 'initiative' order by "createdAt" desc limit 1) r`))
-await until(() => ['done', 'failed'].includes(rolled().status), 'the game’s answer to Pip’s initiative', 30_000)
-const arenaUntouched = () => same(['cbGoblin', 'cbThorin', 'cbVex', 'cbBrakka'].map(id => fight.combatants.get(id).initiative), [20, 15, 12, 10])
 if (OLD) {
-  const refused = phone.page.getByText(/^Not made at the table: .*in the combat$/).filter({ visible: true }).first()
-  await refused.waitFor({ timeout: 15_000 })
-  check(rolled().status === 'failed' && rolled().result?.reason === 'not-in-combat' && denFight.combatants.get('cbPip').initiative === null && arenaUntouched(),
-    `module 0.50.0 refuses it, "not-in-combat": "${await refused.textContent()}"; nothing set in either fight (${rolled().status} ${rolled().result?.reason})`)
+  check(initiativeRows() === rolledFrom && denFight.combatants.get('cbPip').initiative === null && arenaUntouched(),
+    `nothing is sent to the game: no initiative asked of it, the den's Pip still unrolled, the arena's untouched (${initiativeRows() - rolledFrom} sent)`)
 } else {
+  await tile.click()
+  await until(() => initiativeRows() > rolledFrom, 'Pip’s initiative sent', 15_000)
+  const rolled = () => JSON.parse(sql(`select row_to_json(r)::text from (select id, status, "actorId", payload, result from roll_request where "campaignId" = '${A}' and kind = 'initiative' order by "createdAt" desc limit 1) r`))
+  await until(() => ['done', 'failed'].includes(rolled().status), 'the game’s answer to Pip’s initiative', 30_000)
   await until(() => stored('denfight').initiatives.cbPip !== null, 'the app to hear Pip’s initiative', 15_000)
   check(rolled().status === 'done' && rolled().payload?.combatId === 'denfight' && denFight.combatants.get('cbPip').initiative !== null && arenaUntouched(),
     `module 0.51.0 rolls it into the den, Pip ${denFight.combatants.get('cbPip').initiative}, the arena's untouched (${rolled().status}, for ${rolled().payload?.combatId})`)

@@ -5,6 +5,7 @@ import {
   htmlToText,
   pickCombat,
   pickCombatFor,
+  toCreatureCombat,
   toTableCombat,
   toTableMessage,
   toTableMessages,
@@ -1753,6 +1754,29 @@ describe('utils/table-view', () => {
     ])('pickCombatFor: %s', (_, combats, isIn, id) => {
       expect(pickCombatFor(combats, isIn)?.id).toBe(id)
     })
+
+    // Pip's den, under way beside the arena: the campaign's, as pickCombat ranks them all, is the
+    // one changed last.
+    const arena = fight('arena', [thorin])
+    const den = fight('den', [goblin, pip])
+    it.each<[string, boolean, CombatSnapshot[], boolean]>([
+      [
+        'its module takes one anywhere, another the campaign’s',
+        true,
+        [arena, den],
+        true,
+      ],
+      ['an older module, itself the campaign’s', false, [den, arena], true],
+      ['an older module, another the campaign’s', false, [arena, den], false],
+    ])(
+      'toCreatureCombat: takes initiative from the app, %s: %s',
+      (_, anywhere, combats, takes) => {
+        expect(toCreatureCombat(den, combats, viewer, anywhere)).toEqual({
+          ...toTableCombat(den, viewer),
+          ...(!takes && { takesInitiative: false }),
+        })
+      },
+    )
 
     const seat: Viewer = {
       ...viewer,

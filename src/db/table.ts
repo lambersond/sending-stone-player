@@ -29,7 +29,7 @@ import {
 import {
   encountersShown,
   pickCombatFor,
-  toTableCombat,
+  toCreatureCombat,
   toTableMessages,
   toTableSheet,
 } from '@/utils/table-view'
@@ -285,16 +285,20 @@ const TABLE_CAMPAIGN = {
   // What its seats are shown of creatures not of the party, from module 0.50.0.
   healthEnabled: true,
   healthFeatures: true,
+  // Whether its module takes initiative from the app into any begun encounter (item 36).
+  initiativeAnywhere: true,
 } as const
 
 /**
  * The encounters a character's view reads (item 36): its own under way, else the campaign's, for
  * its sheet; and every one under way the Combat tab shows, the seat's own first.
  * @param combats - Every combat held for the campaign, most recently changed first.
+ * @param anywhere - Whether its module takes initiative into any begun encounter.
  */
 function encountersOf(
   combats: { data: unknown }[],
   viewer: Viewer,
+  anywhere: boolean,
 ): Pick<TableView, 'combat' | 'combats'> {
   const snapshots = combats.map(({ data }) => data as CombatSnapshot)
   const combat = pickCombatFor(
@@ -303,7 +307,9 @@ function encountersOf(
   )
   const shown = encountersShown(snapshots, viewer)
   return {
-    combat: combat ? toTableCombat(combat, viewer) : undefined,
+    combat: combat
+      ? toCreatureCombat(combat, snapshots, viewer, anywhere)
+      : undefined,
     ...(shown.length > 0 && { combats: shown }),
   }
 }
@@ -371,7 +377,7 @@ export async function getTableView(
         messages.filter(({ byGm }) => byGm).map(({ messageId }) => messageId),
       ),
     ),
-    ...encountersOf(combats, viewer),
+    ...encountersOf(combats, viewer, campaign.initiativeAnywhere),
     sheet:
       sheet && sheetVersion !== known.sheetVersion
         ? toTableSheet(sheet.data as unknown as CharacterSheet, campaign.origin)

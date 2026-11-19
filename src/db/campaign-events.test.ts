@@ -203,6 +203,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (round 3, decision 3): whether its module asks for the dice an item
         // rolls later, by its versions; none from a hello that gives none.
         laterDice: false,
+        // Changed on purpose (item 36): whether its module takes initiative into any begun
+        // encounter, by its version; none from a hello that gives none.
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -270,6 +273,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -338,6 +342,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -390,6 +395,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -517,6 +523,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -568,6 +575,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -627,6 +635,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -678,6 +687,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -742,6 +752,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -795,6 +806,7 @@ describe('db/campaign-events', () => {
           companionKinds: [],
           companionInitiative: 'own',
           laterDice: false,
+          initiativeAnywhere: false,
           foundry: { receivedAt: SENT },
         },
       })
@@ -851,6 +863,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -1026,6 +1039,27 @@ describe('db/campaign-events', () => {
     }
   })
 
+  it.each([
+    ['0.51.0', true],
+    ['0.50.0', false],
+  ])(
+    'bridge.hello keeps whether module %s takes initiative into any begun encounter, by its version (item 36): %s',
+    async (version, anywhere) => {
+      await apply(
+        parseGameEvent('bridge.hello', {
+          characters: roster,
+          combats: [],
+          module: { id: 'sending-stone', version },
+        }) as GameEvent,
+      )
+      expect(prismaMock.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ initiativeAnywhere: anywhere }),
+        }),
+      )
+    },
+  )
+
   it("bridge.hello keeps a sheet's dice its effects add, from module 0.42.0", async () => {
     await apply(
       parseGameEvent('bridge.hello', {
@@ -1180,6 +1214,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -1238,6 +1273,7 @@ describe('db/campaign-events', () => {
         companionKinds: [],
         companionInitiative: 'own',
         laterDice: false,
+        initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
       },
     })
@@ -1294,6 +1330,7 @@ describe('db/campaign-events', () => {
           companionKinds: [],
           companionInitiative: 'own',
           laterDice: false,
+          initiativeAnywhere: false,
           foundry: { receivedAt: SENT },
         },
       })

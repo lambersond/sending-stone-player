@@ -990,6 +990,27 @@ export function pickCombatFor(
 }
 
 /**
+ * A creature's own encounter, as its view carries it (item 36): as `toTableCombat` has it. A
+ * module before 0.51.0 takes an initiative from the app only into the encounter the Gamemaster has
+ * up, which the app can't see; so with one, initiative is offered only into the one an app before
+ * item 36 offered it into, the campaign's as `pickCombat` ranks them all, and any other is marked
+ * as taking none.
+ * @param seen - The creature's own, as `pickCombatFor` finds it.
+ * @param combats - Every held combat, most recently changed first.
+ * @param anywhere - Whether its module takes one into any begun encounter (`initiativeAnywhere`).
+ */
+export function toCreatureCombat(
+  seen: CombatSnapshot,
+  combats: CombatSnapshot[],
+  viewer: Viewer,
+  anywhere: boolean,
+): TableCombat {
+  const combat = toTableCombat(seen, viewer)
+  const takes = anywhere || seen.id === pickCombat(combats)?.id
+  return takes ? combat : { ...combat, takesInitiative: false }
+}
+
+/**
  * Where an encounter shown sits among them for the seat (item 36): 0 with the seat's own
  * character in it, 1 with one of its companions, 2 with neither.
  */

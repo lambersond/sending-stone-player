@@ -223,6 +223,13 @@ export type TableCombat = {
    * module 0.51.0 into any begun one (v0.45, item 36).
    */
   active: boolean
+  /**
+   * False where the game takes no initiative from the app into it, so none is offered: with a
+   * module before 0.51.0, which takes one only into the encounter the Gamemaster has up, any but
+   * the one an app before item 36 offered it into, the campaign's as `pickCombat` ranks them all.
+   * Set only on a creature's own encounter, its view's `combat`.
+   */
+  takesInitiative?: false
   /** Its round: 0 before it begins, 1 or later once it has. */
   round: number
   /** Whose turn it is. Unset before the start, or while a hidden combatant acts. */

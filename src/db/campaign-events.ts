@@ -22,6 +22,7 @@ import { postedBeforeClear } from '@/utils/chat-clear'
 import { companionRoster } from '@/utils/companions'
 import { asksLaterDice } from '@/utils/dice-asks'
 import { helloCampaignData, helloCompanionData } from '@/utils/hello-features'
+import { takesInitiativeAnywhere } from '@/utils/initiative'
 import { groupRoster } from '@/utils/roster'
 import { sortTurnOrder } from '@/utils/turn-order'
 import type { JournalDrawings, Tx } from '@/db/types'
@@ -356,6 +357,9 @@ async function applyHello(
       // its versions, whatever its switches, for Help at either seat: apart from what follows,
       // which a player's view never reads.
       laterDice: asksLaterDice({ module, system }),
+      // Whether its module takes an initiative from the app into any begun encounter, by its
+      // version, for each seat's sheet and Combat tab (item 36).
+      initiativeAnywhere: takesInitiativeAnywhere(module),
       // What Foundry says of itself, for the Gamemaster's card: replaced on every hello, so a
       // module before 0.30.0, which reports no settings, clears those an earlier one sent.
       foundry: toJson({

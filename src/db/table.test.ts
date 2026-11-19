@@ -277,6 +277,9 @@ describe('db/table', () => {
           // module 0.50.0.
           healthEnabled: true,
           healthFeatures: true,
+          // Changed on purpose (item 36): whether its module takes initiative from the app into
+          // any begun encounter, by its version.
+          initiativeAnywhere: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -323,7 +326,13 @@ describe('db/table', () => {
 
       const view = await getTableView(character)
 
-      expect(view.combat).toMatchObject({ id: 'own', underWay: true })
+      // Its module older than 0.51.0 (no `initiativeAnywhere`): its own isn't the campaign's
+      // encounter, as pickCombat ranks them all, so the game takes no initiative into it.
+      expect(view.combat).toMatchObject({
+        id: 'own',
+        underWay: true,
+        takesInitiative: false,
+      })
       expect(view.combats).toEqual([
         expect.objectContaining({ id: 'own', underWay: true }),
       ])

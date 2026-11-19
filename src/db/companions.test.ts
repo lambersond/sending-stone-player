@@ -368,6 +368,9 @@ describe('db/companions', () => {
           bridgePolledAt: true,
           transfersEnabled: true,
           removalsEnabled: true,
+          // Changed on purpose (item 36): whether its module takes initiative from the app into
+          // any begun encounter, by its version.
+          initiativeAnywhere: true,
         },
       })
     })
@@ -610,6 +613,8 @@ describe('db/companions', () => {
 
         const view = await getCompanionView(seat)
         expect(view.combat?.id).toBe('den')
+        // Its module older than 0.51.0 (no `initiativeAnywhere`): the arena is the campaign's.
+        expect(view.combat?.takesInitiative).toBe(false)
         expect(view.initiative).toEqual(initiative)
       },
     )

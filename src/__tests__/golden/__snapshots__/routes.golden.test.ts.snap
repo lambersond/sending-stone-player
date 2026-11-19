@@ -449,7 +449,8 @@ exports[`the pages name their sheets, and say which are not open here, for the G
     "chatClearedAt": true,
     "laterDice": true,
     "healthEnabled": true,
-    "healthFeatures": true
+    "healthFeatures": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -880,7 +881,8 @@ exports[`the pages name their sheets, and say which are not open here, for the p
     "chatClearedAt": true,
     "laterDice": true,
     "healthEnabled": true,
-    "healthFeatures": true
+    "healthFeatures": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -5134,7 +5136,8 @@ exports[`the routes of a companion companion table GET, gm: companion table GET,
     "rollFeatures": true,
     "bridgePolledAt": true,
     "transfersEnabled": true,
-    "removalsEnabled": true
+    "removalsEnabled": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -5341,7 +5344,8 @@ exports[`the routes of a companion companion table GET, player, unchanged: compa
     "rollFeatures": true,
     "bridgePolledAt": true,
     "transfersEnabled": true,
-    "removalsEnabled": true
+    "removalsEnabled": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -5480,7 +5484,8 @@ exports[`the routes of a companion companion table GET, player: companion table 
     "rollFeatures": true,
     "bridgePolledAt": true,
     "transfersEnabled": true,
-    "removalsEnabled": true
+    "removalsEnabled": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -7441,7 +7446,8 @@ exports[`the routes of a sheet table GET, gm, unchanged: table GET, gm, unchange
     "chatClearedAt": true,
     "laterDice": true,
     "healthEnabled": true,
-    "healthFeatures": true
+    "healthFeatures": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -7606,7 +7612,8 @@ exports[`the routes of a sheet table GET, gm: table GET, gm 1`] = `
     "chatClearedAt": true,
     "laterDice": true,
     "healthEnabled": true,
-    "healthFeatures": true
+    "healthFeatures": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -7830,7 +7837,8 @@ exports[`the routes of a sheet table GET, player, its sheet known: table GET, pl
     "chatClearedAt": true,
     "laterDice": true,
     "healthEnabled": true,
-    "healthFeatures": true
+    "healthFeatures": true,
+    "initiativeAnywhere": true
    }
   }
  },
@@ -8124,7 +8132,8 @@ exports[`the routes of a sheet table GET, player: table GET, player 1`] = `
     "chatClearedAt": true,
     "laterDice": true,
     "healthEnabled": true,
-    "healthFeatures": true
+    "healthFeatures": true,
+    "initiativeAnywhere": true
    }
   }
  },

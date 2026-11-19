@@ -21,7 +21,11 @@ import { toTablePrompts } from '@/utils/prompts'
 import { listedCompanion } from '@/utils/roster'
 import { sheetTextRefs } from '@/utils/sheet-texts'
 import { viewerOf, withheld } from '@/utils/table-seat'
-import { pickCombatFor, toTableCombat, toTableSheet } from '@/utils/table-view'
+import {
+  pickCombatFor,
+  toCreatureCombat,
+  toTableSheet,
+} from '@/utils/table-view'
 import type { RollSeat, CompanionStatus } from '@/db/types'
 import type { SheetSeat } from '@/types/character'
 import type {
@@ -178,7 +182,8 @@ export async function getCompanionView(
     seat.campaignId && seat.companion
       ? await prisma.campaign.findUnique({
           where: { id: seat.campaignId },
-          select: companionSelect,
+          // And whether its module takes initiative into any begun encounter (item 36).
+          select: { ...companionSelect, initiativeAnywhere: true },
         })
       : undefined
   const of = seat.companion?.of
@@ -241,8 +246,9 @@ export async function getCompanionView(
     of,
   }
   // The encounter it fights in, under way, else the campaign's (item 36).
+  const snapshots = combats.map(({ data }) => data as unknown as CombatSnapshot)
   const snapshot = pickCombatFor(
-    combats.map(({ data }) => data as unknown as CombatSnapshot),
+    snapshots,
     ({ companion }) => companion === key,
   )
   const sheetVersion = sheet?.updatedAt.toISOString()
@@ -261,7 +267,14 @@ export async function getCompanionView(
       }),
     ...(sheetVersion && { sheetVersion }),
     ...(withheld(entry) && { sheetWithheld: withheld(entry) }),
-    ...(snapshot && { combat: toTableCombat(snapshot, viewer) }),
+    ...(snapshot && {
+      combat: toCreatureCombat(
+        snapshot,
+        snapshots,
+        viewer,
+        campaign.initiativeAnywhere,
+      ),
+    }),
     rollsToTable: rolls.rollsToTable,
     rollFeatures: rolls.rollFeatures,
     ...(prompted && { prompts: toTablePrompts(prompts, now) }),
