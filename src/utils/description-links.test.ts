@@ -6,6 +6,7 @@ import {
   linkOf,
   toolOrSkillName,
 } from './description-links'
+import { gameNames } from './game-names'
 
 describe('utils/description-links', () => {
   describe('linkOf', () => {
@@ -374,6 +375,27 @@ describe('utils/description-links', () => {
   })
 
   describe('a check’s words', () => {
+    it("names each way by the game's names, as the character's sheet has them, Honor's and a world's own skill", () => {
+      const names = gameNames({
+        abilities: [{ id: 'hon', label: 'Honor', abbreviation: 'hon' }],
+        skills: [{ id: 'eti', label: 'Etiquette' }],
+      })
+
+      expect(
+        checkName({ type: 'check', ability: 'hon' }, undefined, names),
+      ).toBe('Honor')
+      expect(
+        checkName(
+          { type: 'skill', ability: 'hon', key: 'eti' },
+          undefined,
+          names,
+        ),
+      ).toBe('Honor (Etiquette)')
+      expect(checkName({ type: 'skill', ability: 'hon', key: 'eti' })).toBe(
+        'hon (eti)',
+      )
+    })
+
     it('names each way, by the ability and the skill or tool: the name given, else dnd5e’s, else its key', () => {
       expect(checkName({ type: 'check', ability: 'str' })).toBe('Strength')
       expect(checkName({ type: 'skill', ability: 'str', key: 'ath' })).toBe(

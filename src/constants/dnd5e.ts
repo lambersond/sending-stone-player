@@ -1,5 +1,6 @@
 /** D&D Fifth Edition's ability, skill and tool ids, as the system records them on rolls. */
 
+/** dnd5e's English six, for where no sheet names them (`src/utils/game-names.ts`). */
 export const ABILITIES: Record<string, string> = {
   str: 'Strength',
   dex: 'Dexterity',
@@ -9,6 +10,7 @@ export const ABILITIES: Record<string, string> = {
   cha: 'Charisma',
 }
 
+/** dnd5e's English 18, for where no sheet names them (`src/utils/game-names.ts`). */
 export const SKILLS: Record<string, string> = {
   acr: 'Acrobatics',
   ani: 'Animal Handling',

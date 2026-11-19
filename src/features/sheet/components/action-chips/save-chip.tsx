@@ -1,12 +1,15 @@
 'use client'
 
 import clsx from 'clsx'
+import { useDescriptionActions } from '../description-actions/use-description-actions'
+import { abilityAbbreviation, gameNames } from '@/utils/game-names'
 import type { DamageModifiers } from '@/types/roll'
 import type { SheetAction } from '@/types/sending-stone'
 
 /**
- * The saving throw an action calls for, such as DEX 14: while the Gamemaster's game takes spells
- * and features, a button that uses it there, calling for it.
+ * The saving throw an action calls for, such as DEX 14, by the sheet's abbreviation of its ability,
+ * as its grid shows it, such as SAG in French; while the Gamemaster's game takes spells and
+ * features, a button that uses it there, calling for it.
  */
 export function SaveChip({
   name,
@@ -19,10 +22,14 @@ export function SaveChip({
 }>) {
   const chip =
     'shrink-0 rounded-lg border border-border px-2 py-1 text-xs font-semibold whitespace-nowrap tabular-nums'
-  const title = `${save.ability.toUpperCase()} saving throw`
+  const ability = abilityAbbreviation(
+    gameNames(useDescriptionActions()),
+    save.ability,
+  )
+  const title = `${ability.toUpperCase()} saving throw`
   const content = (
     <>
-      <span className='text-text-secondary uppercase'>{save.ability}</span>
+      <span className='text-text-secondary uppercase'>{ability}</span>
       {save.dc !== null && ` ${save.dc}`}
     </>
   )

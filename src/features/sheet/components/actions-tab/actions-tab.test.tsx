@@ -8,6 +8,8 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { castNote, verbOf } from '../action-entry/utils'
+import { DescriptionLinks } from '../description-actions/description-links'
+import { sheetTools } from '../description-actions/utils'
 import { FavoriteMarks } from '../favorite-mark/favorite-marks'
 import { Favoriting } from '../favoriting/favoriting'
 import { Preparing } from '../preparing/preparing'
@@ -33,6 +35,7 @@ import {
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { Layout } from '../actions-layout/types'
+import type { DescriptionActions } from '../description-actions/types'
 import type { SeatRole } from '@/types/seats'
 import type {
   CharacterSheet,
@@ -216,6 +219,53 @@ describe('components/character-sheet/actions-tab', () => {
       screen.getByRole('button', { name: 'Second Wind healing, 1d10 + 5' }),
     ).toHaveClass('text-primary-text')
     expect(screen.getByTitle('DEX saving throw')).toHaveTextContent('DEX 13')
+  })
+
+  it("names an action's saving throw by the sheet's abbreviation, as its grid does, in the game's language", async () => {
+    const user = userEvent.setup()
+    const sheet = withActions(
+      sheetAction({
+        id: 'command',
+        name: 'Command',
+        save: { ability: 'wis', dc: 14 },
+      }),
+    )
+    // A game in French: Wisdom is Sagesse, SAG on its grid.
+    sheet.abilities = sheet.abilities.map(ability =>
+      ability.id === 'wis'
+        ? { ...ability, label: 'Sagesse', abbreviation: 'SAG' }
+        : ability,
+    )
+    const actions: DescriptionActions = {
+      roll: jest.fn(),
+      rollDamage: jest.fn(),
+      rollFormula: jest.fn(),
+      takes: () => true,
+      ask: jest.fn(),
+      abilities: sheet.abilities,
+      skills: sheet.skills,
+      tools: sheetTools(sheet),
+      proficiency: sheet.proficiency,
+      conditions: [],
+      showConditions: jest.fn(),
+    }
+    render(
+      <DescriptionLinks actions={actions}>
+        <ActionsTab
+          characterId='char-1'
+          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+        />
+      </DescriptionLinks>,
+    )
+
+    expect(screen.getByTitle('SAG saving throw')).toHaveTextContent('SAG 14')
+    await user.click(toggle('Command'))
+    const terms = screen
+      .getAllByRole('term')
+      .map(term => `${term.textContent}: ${term.nextSibling?.textContent}`)
+    expect(terms).toContain('Saving throw: DC 14 SAG')
   })
 
   it('rolls an attack, or from its menu, with advantage and the like', async () => {

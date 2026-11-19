@@ -1,16 +1,23 @@
-import { ABILITIES, SKILLS, TOOLS } from '@/constants/dnd5e'
+import { TOOLS } from '@/constants/dnd5e'
 import {
   DAMAGE_TYPE,
   LINK_CLASSES,
   MOST_ABILITIES,
 } from '@/constants/sending-stone'
 import { formulaTerms } from '@/utils/formulas'
-import { isAbilityKey } from '@/utils/game-names'
+import {
+  DND5E_NAMES,
+  abilityName,
+  isAbilityKey,
+  skillName,
+} from '@/utils/game-names'
+import { ownName } from '@/utils/own-name'
 import type {
   LinkClass,
   DescriptionLink,
   DamageLink,
   CheckOption,
+  GameNames,
 } from '@/types/sending-stone'
 
 /*
@@ -265,22 +272,33 @@ function checkOptions(value: string): CheckOption[] {
 
 /**
  * What a check is called, as dnd5e's roll request card names it: such as "Strength", "Strength
- * (Athletics)" or "Dexterity (Thieves' Tools)".
+ * (Athletics)", "Dexterity (Thieves' Tools)" or "Honor (Etiquette)".
  * @param name - The skill's or tool's name, where it's known better than dnd5e's own, as from the
  *   character's sheet; else dnd5e's, or else its key.
+ * @param names - The game's names for its abilities and skills, as the character's sheet has them;
+ *   dnd5e's English where none are given.
  */
-export function checkName(option: CheckOption, name?: string): string {
-  const ability = Object.hasOwn(ABILITIES, option.ability)
-    ? ABILITIES[option.ability]
-    : option.ability
+export function checkName(
+  option: CheckOption,
+  name?: string,
+  names: GameNames = DND5E_NAMES,
+): string {
+  const ability = abilityName(names, option.ability)
   if (option.type === 'check' || option.key === undefined) return ability
-  return `${ability} (${name || toolOrSkillName(option.type, option.key)})`
+  return `${ability} (${name || toolOrSkillName(option.type, option.key, names)})`
 }
 
-/** A skill's or tool's name, as dnd5e has it, or else its key. */
-export function toolOrSkillName(type: 'skill' | 'tool', key: string): string {
-  const names = type === 'skill' ? SKILLS : TOOLS
-  return Object.hasOwn(names, key) ? names[key] : key
+/**
+ * A skill's name, as the game names it, or a tool's, as dnd5e has it; or else its key.
+ * @param names - The game's names for its skills, as the character's sheet has them; dnd5e's
+ *   English where none are given.
+ */
+export function toolOrSkillName(
+  type: 'skill' | 'tool',
+  key: string,
+  names: GameNames = DND5E_NAMES,
+): string {
+  return type === 'skill' ? skillName(names, key) : (ownName(TOOLS, key) ?? key)
 }
 
 /**

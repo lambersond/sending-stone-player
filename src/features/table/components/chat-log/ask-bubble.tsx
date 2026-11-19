@@ -1,13 +1,14 @@
 import clsx from 'clsx'
 import { BellRing } from 'lucide-react'
 import { article, bubble } from './utils'
-import { ASK_CHIPS, askTitle } from '@/utils/ask-words'
-import type { TableAsk } from '@/types/table'
+import { ASK_CHIPS } from '@/utils/ask-words'
+import type { TitledAsk } from '@/types/table'
 
 /**
  * A roll request card: who asks the table for which saving throw or check, with its DC where
- * players may see it, and what asks for it, such as the asker's item. It's for the Gamemaster, who
- * rolls it for the creatures it names.
+ * players may see it, and what asks for it, such as the asker's item, in the words the server
+ * made with the seat's sheet's names. It's for the Gamemaster, who rolls it for the creatures it
+ * names.
  */
 export function AskBubble({
   ask,
@@ -15,12 +16,12 @@ export function AskBubble({
   whisper,
   mine,
 }: Readonly<{
-  ask: TableAsk
+  ask: TitledAsk
   speaker: string
   whisper: boolean
   mine: boolean
 }>) {
-  const title = askTitle(ask)
+  const { title } = ask
   return (
     <div
       className={clsx(

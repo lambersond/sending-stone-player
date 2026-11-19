@@ -1,7 +1,8 @@
-import { ABILITIES, SKILLS } from '@/constants/dnd5e'
+import { DND5E_NAMES, abilityName } from '@/utils/game-names'
 import { ownName } from '@/utils/own-name'
 import type { DiceAskData } from '@/types/dice-asks'
 import type { PromptData } from '@/types/prompts'
+import type { GameNames } from '@/types/sending-stone'
 import type { CompanionAsked } from '@/types/table'
 
 // What the game asks of a character's companions (module 0.41.0), as its character's view marks
@@ -16,18 +17,21 @@ import type { CompanionAsked } from '@/types/table'
  * isn't asked.
  * @param held - Its companions' prompts still open, oldest first.
  * @param diceAsks - Its companions' dice asks still open, oldest first.
+ * @param names - The game's names for its abilities and skills, as the character's sheet has them,
+ *   such as "Sanity"; dnd5e's English where none are given.
  */
 export function companionAsks(
   held: { actorId: string; data: unknown; expiresAt: Date }[],
   now = Date.now(),
   diceAsks: { actorId: string; data: unknown; expiresAt: Date }[] = [],
+  names: GameNames = DND5E_NAMES,
 ): CompanionAsked[] {
   const asked = new Map<string, CompanionAsked>()
   const all = [
     ...held.map(({ actorId, data, expiresAt }) => ({
       actorId,
       expiresAt,
-      label: askedFor(data as PromptData),
+      label: askedFor(data as PromptData, names),
     })),
     ...diceAsks.map(({ actorId, data, expiresAt }) => ({
       actorId,
@@ -60,26 +64,27 @@ function either(keys: string[] = [], names: Record<string, string>): string {
 }
 
 /**
- * What a save the game asks for asks, in words: such as "Dexterity saving throw", "Strength or
- * Dexterity saving throw", "Concentration check", naming its ability where it isn't Constitution,
- * or for Midi-QOL's checks "Athletics or Acrobatics check".
+ * What a save the game asks for asks, in words, its abilities and skills as the game names them:
+ * such as "Dexterity saving throw", "Strength or Dexterity saving throw", "Sanity saving throw",
+ * "Concentration check", naming its ability where it isn't Constitution, or for Midi-QOL's checks
+ * "Athletics or Acrobatics check".
  */
-function askedFor(data: PromptData): string {
+function askedFor(data: PromptData, names: GameNames): string {
   const [ability] = data.abilities ?? []
   switch (data.type) {
     case 'concentration': {
       return ability && ability !== 'con'
-        ? `Concentration check (${ownName(ABILITIES, ability) ?? ability})`
+        ? `Concentration check (${abilityName(names, ability)})`
         : 'Concentration check'
     }
     case 'check': {
-      return `${either(data.abilities, ABILITIES)} check`.trim()
+      return `${either(data.abilities, names.abilities)} check`.trim()
     }
     case 'skill': {
-      return `${either(data.skills, SKILLS)} check`.trim()
+      return `${either(data.skills, names.skills)} check`.trim()
     }
     default: {
-      return `${either(data.abilities, ABILITIES)} saving throw`.trim()
+      return `${either(data.abilities, names.abilities)} saving throw`.trim()
     }
   }
 }

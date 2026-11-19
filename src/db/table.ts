@@ -11,6 +11,7 @@ import { companionAsks } from '@/utils/companion-asks'
 import { companionRoster, tableCompanion } from '@/utils/companions'
 import { effectsAvailable } from '@/utils/effect-commands'
 import { favoritesAvailable } from '@/utils/favorite-commands'
+import { gameNames } from '@/utils/game-names'
 import { gmRollParts, gmRollsKey } from '@/utils/gm-rolls'
 import { hitPointsAvailable } from '@/utils/hit-points'
 import { isLive } from '@/utils/live'
@@ -355,7 +356,9 @@ export async function getTableView(
     await readTable(seat, campaign.id, viewer, own, rolls, now)
   const sheetVersion = sheet?.updatedAt.toISOString()
   const heals = await healingUses(made, seat)
-  const waiting = companionAsks(asked, now, diceAsked)
+  // The game's names for its abilities and skills, as the seat's sheet, read already, has them.
+  const names = gameNames(sheet?.data as unknown as CharacterSheet | undefined)
+  const waiting = companionAsks(asked, now, diceAsked, names)
 
   // The party sheets the seat may open, from module 0.30.0: never who else may.
   const listed = groupRoster(campaign.groups)
@@ -374,7 +377,7 @@ export async function getTableView(
       messages
         .toReversed()
         .map(({ data }) => data as unknown as SerializedMessage),
-      viewer,
+      { ...viewer, names },
       new Set(
         messages.filter(({ byGm }) => byGm).map(({ messageId }) => messageId),
       ),
