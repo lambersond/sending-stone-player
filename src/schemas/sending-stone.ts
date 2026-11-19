@@ -45,7 +45,7 @@ import {
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import { foundrySettingsSchema } from '@/schemas/foundry-settings'
-import { leftOut, listOf, orNull } from '@/schemas/utils'
+import { leftOut, listOf, orNull, requiredListOf } from '@/schemas/utils'
 import { MAX_CHECKS } from '@/utils/description-links'
 import { isAbilityKey } from '@/utils/game-names'
 import { NOTE_ID } from '@/utils/note-id'
@@ -1074,31 +1074,31 @@ const effectDiceSchema: z.ZodType<SheetEffectDie[] | undefined> = leftOut(
     }),
 )
 
-// A sheet that can't be read is dropped rather than failing the event that carries it.
+// A sheet that can't be read is dropped rather than failing the event that carries it. Its
+// abilities and skills are read row by row, a row it can't read left out, but a sheet with no list
+// of either is none; its classes likewise, no list read as none (v0.52.0).
 const sheetSchema: z.ZodType<CharacterSheet | null | undefined> = z
   .looseObject({
     img: nullableString,
     level: nullableNumber,
-    classes: z
-      .array(
-        z.looseObject({
-          id: nullableString.optional(),
-          identifier: nullableString.optional(),
-          name: z.string(),
-          levels: nullableNumber,
-          subclass: nullableString,
-          hitDice: z
-            .object({
-              die: z.string(),
-              value: nullableNumber,
-              max: nullableNumber,
-            })
-            .nullable()
-            .optional()
-            .catch(null),
-        }),
-      )
-      .catch([]),
+    classes: listOf(
+      z.looseObject({
+        id: nullableString.optional(),
+        identifier: nullableString.optional(),
+        name: z.string(),
+        levels: nullableNumber,
+        subclass: nullableString,
+        hitDice: z
+          .object({
+            die: z.string(),
+            value: nullableNumber,
+            max: nullableNumber,
+          })
+          .nullable()
+          .optional()
+          .catch(null),
+      }),
+    ),
     species: nullableString,
     background: nullableString,
     hp: z
@@ -1115,7 +1115,7 @@ const sheetSchema: z.ZodType<CharacterSheet | null | undefined> = z
     initiative: nullableNumber,
     speed: orNull(z.looseObject({ value: z.number(), units: nullableString })),
     inspiration: z.boolean().catch(false),
-    abilities: z.array(
+    abilities: requiredListOf(
       z.looseObject({
         id: z.string(),
         label: z.string().catch(''),
@@ -1129,7 +1129,7 @@ const sheetSchema: z.ZodType<CharacterSheet | null | undefined> = z
         saveMode: rollMode,
       }),
     ),
-    skills: z.array(
+    skills: requiredListOf(
       z.looseObject({
         id: z.string(),
         label: z.string().catch(''),

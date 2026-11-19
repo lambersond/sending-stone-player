@@ -125,11 +125,13 @@ describe('components/character-sheet/character-sheet', () => {
       speed: null,
       species: null,
       background: null,
+      abilities: [],
       skills: [],
     })
 
     expect(screen.queryByText('Armor class')).toBeNull()
     expect(screen.queryByText('Speed')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Abilities' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Skills' })).toBeNull()
   })
 

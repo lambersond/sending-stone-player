@@ -115,34 +115,36 @@ export function CharacterSheet({
         />
       )}
 
-      <section aria-labelledby={abilitiesId} className={ABILITIES_SECTION}>
-        <SheetHeading id={abilitiesId}>Abilities</SheetHeading>
-        {form && marked && (
-          <p className='-mt-1 flex items-center gap-1.5 px-1 text-xs text-text-secondary'>
-            <span
-              aria-hidden
-              className='size-3 shrink-0 rounded-[3px] border border-wild/45 bg-wild-bg'
-            />
-            {legendWords(form.name, name)}
-          </p>
-        )}
-        <ul className={ABILITIES_GRID}>
-          {sheet.abilities.map(ability => (
-            <AbilityTile
-              key={ability.id}
-              ability={ability}
-              {...actions}
-              {...(form && {
-                beast: {
-                  form: form.name,
-                  check: !!beast?.abilities.includes(ability.id),
-                  save: !!beast?.saves.includes(ability.id),
-                },
-              })}
-            />
-          ))}
-        </ul>
-      </section>
+      {sheet.abilities.length > 0 && (
+        <section aria-labelledby={abilitiesId} className={ABILITIES_SECTION}>
+          <SheetHeading id={abilitiesId}>Abilities</SheetHeading>
+          {form && marked && (
+            <p className='-mt-1 flex items-center gap-1.5 px-1 text-xs text-text-secondary'>
+              <span
+                aria-hidden
+                className='size-3 shrink-0 rounded-[3px] border border-wild/45 bg-wild-bg'
+              />
+              {legendWords(form.name, name)}
+            </p>
+          )}
+          <ul className={ABILITIES_GRID}>
+            {sheet.abilities.map(ability => (
+              <AbilityTile
+                key={ability.id}
+                ability={ability}
+                {...actions}
+                {...(form && {
+                  beast: {
+                    form: form.name,
+                    check: !!beast?.abilities.includes(ability.id),
+                    save: !!beast?.saves.includes(ability.id),
+                  },
+                })}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
 
       {sheet.skills.length > 0 && (
         <section aria-labelledby={skillsId} className='flex flex-col gap-2'>

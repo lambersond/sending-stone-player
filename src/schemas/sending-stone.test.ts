@@ -1411,6 +1411,37 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  const whole = characterSheet()
+  it.each<{
+    field: 'abilities' | 'skills' | 'classes'
+    rows: unknown[]
+    read: object[]
+  }>([
+    {
+      field: 'abilities',
+      rows: whole.abilities.with(1, {
+        ...whole.abilities[1],
+        mod: 'x' as never,
+      }),
+      read: whole.abilities.toSpliced(1, 1),
+    },
+    {
+      field: 'skills',
+      rows: whole.skills.with(1, { ...whole.skills[1], total: 'x' as never }),
+      read: whole.skills.toSpliced(1, 1),
+    },
+    {
+      field: 'classes',
+      rows: [{ name: 5, levels: 1, subclass: null }, ...whole.classes],
+      read: [{ name: 'Fighter' }],
+    },
+  ])(
+    "reads a sheet's $field row by row, one it can't read left out and the rest kept",
+    ({ field, rows, read }) => {
+      expect(readSheet({ ...whole, [field]: rows })[field]).toMatchObject(read)
+    },
+  )
+
   it("reads the world's rules, from module 0.16.0, as unknown when it can't", () => {
     expect(rulesOf('modern')).toBe('modern')
     expect(rulesOf('legacy')).toBe('legacy')
@@ -2752,13 +2783,19 @@ describe('schemas/sending-stone', () => {
     expect(() => parseGameEvent('character.texts', {})).toThrow()
   })
 
-  it("drops a sheet it can't read, keeping the character", () => {
-    const event = parseGameEvent('character.updated', {
-      character: { ...roster[0], sheet: { abilities: 'many' } },
-    }) as any
+  it.each([['abilities'], ['skills']])(
+    'drops a sheet with no list of %s, keeping the character',
+    field => {
+      const event = parseGameEvent('character.updated', {
+        character: {
+          ...roster[0],
+          sheet: { ...characterSheet(), [field]: 'many' },
+        },
+      }) as any
 
-    expect(event.data.character).toEqual({ ...roster[0], sheet: null })
-  })
+      expect(event.data.character).toEqual({ ...roster[0], sheet: null })
+    },
+  )
 
   it('refuses character.updated without its character', () => {
     expect(() => parseGameEvent('character.updated', {})).toThrow()
