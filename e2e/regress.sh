@@ -61,8 +61,11 @@ run prompts 23 SHOTS=$O/shots-prompts
 run prompts 25 MIDI=1 SHOTS=$O/shots-prompts
 run midi 65 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-027
 run midi 10 SKEW=026 MODULE=$O/module-0.26.0 SHOTS=$O/shots-027
-run links 119 SHOTS=$O/shots-links
+# v0.52.0 (items 64 and 65): part 13, Honor and Sanity, in the plain run; and with module 0.51.0,
+# which sends saves on any ability but checks on the six alone, that part alone.
+run links 126 SHOTS=$O/shots-links
 run links 143 MIDI=1 SHOTS=$O/shots-links
+run links 10 SKEW=051 MODULE=$O/module-0.51.0 SHOTS=$O/shots-links
 run activities 100 SHOTS=$O/shots-activities
 run activities 105 MIDI=1 SHOTS=$O/shots-activities
 run phone 97 SHOTS=$O/shots-phone

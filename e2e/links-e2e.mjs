@@ -22,7 +22,10 @@
 // critical damage's die, the app refuses. A Blighted Rod's damage takes a d4 away: the phone offers
 // it as a critical hit's or changed, never at its highest, and a die more is of its d6, never the
 // d4, as the game makes it; one made up with a d4 more, the app refuses. On a desktop, a
-// condition's rules show on a hover, and the context menu key opens the wand's damage menu. MIDI=1
+// condition's rules show on a hover, and the context menu key opens the wand's damage menu. With
+// dnd5e's Honor and Sanity on (v0.52.0, items 64 and 65), his Oathbound Signet's Sanity save, its
+// Honor check, their choices with Wisdom and his Etiquette, a skill on Honor, are buttons named as
+// his sheet names them, a choice whole; SKEW=051 (module 0.51.0), that part alone. MIDI=1
 // puts the stand-in Midi-QOL in the world (fvtt/midi-fake.mjs), with its settings for saves and
 // concentration, its dnd5e.preRollDamage hook, a Gamemaster's Midi damage roll left open on its
 // dnd5e.rollDamage hook, and its rules for a critical hit's damage, as fvtt/texts.mjs has them:
@@ -45,6 +48,8 @@ const GAME = 'https://lonely-mountain.forge-vtt.com'
 const SECRET = 'ashlands-secret-123'
 const SHOTS = process.env.SHOTS
 const MIDI = Boolean(process.env.MIDI)
+// An older module (SKEW=051, module 0.51.0): part 13 alone, as that module sends it.
+const SKEW = process.env.SKEW
 const cookie = await cookieFor('e2e-token')
 const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -662,6 +667,12 @@ async function wandText(name = 'Wand of Frost') {
   return text
 }
 
+// With an older module, Honor and Sanity alone (part 13), as it sends them, then the ending.
+if (SKEW) {
+  await honorAndSanity()
+  await finish()
+}
+
 // ---- 1. The wand's description: what acts, and what is only text ----
 let wand = await wandText()
 await wand.getByRole('button').first().waitFor()
@@ -680,7 +691,9 @@ check(!/Request Roll|Apply Status|16/.test(wandWords) && !kept(wandHash).include
 await shoot(page, 'phone-wand-description')
 
 // ---- 2. A save's menu ----
-const nothingPrompted = () => posted.filter(p => p.type === 'roll.prompt.opened').length === 0 && sql('select count(*) from roll_prompt') === '0'
+function nothingPrompted() {
+  return posted.filter(p => p.type === 'roll.prompt.opened').length === 0 && sql('select count(*) from roll_prompt') === '0'
+}
 await wand.getByRole('button', { name: 'DC 14 Dexterity', exact: true }).click()
 let menu = page.getByRole('menu', { name: 'DC 14 Dexterity saving throw' })
 await menu.waitFor()
@@ -1549,10 +1562,123 @@ check(same(wideItems, ['Roll critical damage', 'Roll maximum damage', 'Modify da
   `on a desktop, the context menu key opens the wand's damage menu, ${JSON.stringify(wideItems)}, and Escape gives the link back its focus`)
 await desktop.close()
 
-// Nothing in all of it prompted anyone.
-check(nothingPrompted(), 'nothing in all of it prompted anyone')
+if (!MIDI) await honorAndSanity()
+await finish()
 
-console.log('problems:', problems)
-check(problems.filter(p => !p.includes('Failed to load resource')).length === 0, 'no page errors, and the app took everything the module sent')
-await browser.close()
-process.exit(0)
+/** The ending: nothing in all of it prompted anyone, and no page errors. */
+async function finish() {
+  check(nothingPrompted(), 'nothing in all of it prompted anyone')
+  console.log('problems:', problems)
+  check(problems.filter(p => !p.includes('Failed to load resource')).length === 0, 'no page errors, and the app took everything the module sent')
+  await browser.close()
+  process.exit(0)
+}
+
+// ---- 13. Honor and Sanity (v0.52.0, items 64 and 65) ----
+// dnd5e's Honor and Sanity, as its settings turn them on (D5 config.mjs DND5E.abilities, both
+// mental), a world's own skill on Honor, and Thorin's Oathbound Signet: [[/save san 13]], "a Wisdom
+// or Sanity saving throw", [[/check honor 12]], "a DC 12 Wisdom or Honor check" and [[/skill eti]],
+// in dnd5e 5.3.3's markup (enrichers.mjs:488-492 writes [[/check honor]]'s ability as its key). With
+// module 0.52.0, every one a button, named as Thorin's sheet names it; with an older module (SKEW),
+// its saves alone, and its choice of Wisdom or Honor a Wisdom check.
+async function honorAndSanity() {
+  CONFIG.DND5E.abilities.hon = { label: 'Honor', abbreviation: 'Hon', type: 'mental', fullKey: 'honor' }
+  CONFIG.DND5E.abilities.san = { label: 'Sanity', abbreviation: 'San', type: 'mental', fullKey: 'sanity' }
+  CONFIG.DND5E.skills.eti = { label: 'Etiquette', ability: 'hon' }
+  // Thorin's Honor +3 and Sanity +1, his save +1, as dnd5e prepares them; his Etiquette +5.
+  const wisdom = thorin.system.abilities.wis
+  thorin.system.abilities.hon = { ...structuredClone(wisdom), mod: 3, value: 16, save: { roll: { mode: 0 }, value: 3 } }
+  thorin.system.abilities.san = { ...structuredClone(wisdom), mod: 1, value: 12, save: { roll: { mode: 0 }, value: 1 } }
+  thorin.system.skills.eti = { ...structuredClone(thorin.system.skills.prc), ability: 'hon', total: 5, passive: 15 }
+  const SIGNET = `<p>Its oath calls for a ${wrap(SAVE_LINK('san', 13, 'DC 13 Sanity'))} saving throw, or a Wisdom or Sanity saving throw.</p>
+<p>Its court tests a ${wrap(CHECK_LINK('hon', 12, 'DC 12 Honor'))} check, a DC 12 Wisdom or Honor check, and a ${wrap(SKILL_LINK('data-type="skill" data-ability="hon" data-skill="eti"', 'Honor (Etiquette)'))} check.</p>`
+  const signet = new Item5e(thorin, { id: 'signet', name: 'Oathbound Signet', type: 'equipment', system: { quantity: 1, equipped: false, description: { value: SIGNET } } })
+  thorin.items.set('signet', signet)
+  await Hooks.callAll('createItem', signet, {}, 'gm')
+  await nav.getByRole('button', { name: /^Character/ }).click().catch(() => {})
+  await page.getByRole('tab', { name: 'Inventory' }).click()
+  await panel.locator('summary', { hasText: 'Oathbound Signet' }).waitFor({ timeout: 30_000 })
+  const signetText = await wandText('Oathbound Signet')
+  await signetText.getByRole('button').first().waitFor()
+  const named = await signetText.getByRole('button').evaluateAll(buttons => buttons.map(b => b.getAttribute('aria-label') ?? b.textContent))
+  await shoot(page, `phone-honor-description${SKEW ? '-skew' : ''}`)
+  /** A link's menu: its title's items, closed again. */
+  const menuOf = async (button, title) => {
+    await signetText.getByRole('button', { name: button, exact: true }).click()
+    const opened = page.getByRole('menu', { name: title })
+    await opened.waitFor({ timeout: 10_000 })
+    const listed = await opened.getByRole('menuitem').allTextContents()
+    await page.keyboard.press('Escape')
+    await opened.waitFor({ state: 'hidden', timeout: 5000 })
+    return listed
+  }
+  const sanity = await menuOf('DC 13 Sanity', 'DC 13 Sanity saving throw')
+  const wisdomOrSanity = await menuOf('Wisdom or Sanity saving throw', 'Wisdom or Sanity saving throw')
+
+  if (SKEW) {
+    check(same(sanity, ['Ask the table', 'Roll my Sanity save (+1)', 'Roll with advantage', 'Roll with disadvantage', 'Modify roll…'])
+      && same(wisdomOrSanity, ['Ask the table', 'Roll my Wisdom save (+2)', 'Roll my Sanity save (+1)']),
+    `with module 0.51.0, the signet's Sanity save and "Wisdom or Sanity" are buttons with their Sanity rows: ${JSON.stringify([sanity, wisdomOrSanity])}`)
+    const words = await signetText.textContent()
+    check(!named.includes('DC 12 Honor') && !named.includes('Honor (Etiquette)') && words.includes('DC 12 Honor check') && words.includes('Honor (Etiquette) check'),
+      `[[/check honor 12]] and [[/skill eti]] are text, as that module sends no check on Honor: ${JSON.stringify(named)}`)
+    const choice = await menuOf('DC 12 Wisdom or Honor check', 'DC 12 Wisdom check')
+    check(same(choice, ['Ask the table', 'Roll my Wisdom check (+2)', 'Roll with advantage', 'Roll with disadvantage', 'Modify roll…']),
+      `"DC 12 Wisdom or Honor check" is that module's link of Wisdom alone: ${JSON.stringify(choice)}`)
+    return
+  }
+
+  check(same(named, ['DC 13 Sanity', 'Wisdom or Sanity saving throw', 'DC 12 Honor', 'DC 12 Wisdom or Honor check', 'Honor (Etiquette)']),
+    `the signet's description has its five links as buttons, in order: ${JSON.stringify(named)}`)
+  check(same(sanity, ['Ask the table', 'Roll my Sanity save (+1)', 'Roll with advantage', 'Roll with disadvantage', 'Modify roll…']),
+    `the Sanity save's menu, "DC 13 Sanity saving throw", offers his Sanity save as his sheet names it: ${JSON.stringify(sanity)}`)
+  check(same(wisdomOrSanity, ['Ask the table', 'Roll my Wisdom save (+2)', 'Roll my Sanity save (+1)']),
+    `"Wisdom or Sanity" offers both: ${JSON.stringify(wisdomOrSanity)}`)
+  // His own Sanity save, made in the game against DC 13, and named in chat as his sheet names it.
+  await signetText.getByRole('button', { name: 'DC 13 Sanity', exact: true }).click()
+  const saveMenu = page.getByRole('menu', { name: 'DC 13 Sanity saving throw' })
+  const { request: saved, made: savedMade, message: savedMessage } = await sent(() => saveMenu.getByRole('menuitem', { name: 'Roll my Sanity save (+1)' }).click(), 'the Sanity save')
+  await nav.getByRole('button', { name: 'Chat' }).click()
+  const log = page.getByRole('list', { name: 'Chat log' })
+  const rolled = log.getByRole('listitem').filter({ hasText: 'Sanity save' })
+  await rolled.last().waitFor({ timeout: 15_000 }).catch(() => {})
+  check(saved.kind === 'save' && saved.payload.key === 'san' && savedMade.status === 'done' && savedMessage?.rolls[0]?.options.target === 13
+    && savedMessage.flags.dnd5e.roll.type === 'save' && savedMessage.flags.dnd5e.roll.ability === 'san' && await rolled.count() >= 1,
+    `"Roll my Sanity save" is made in the game as his Sanity save against DC 13, and the chat names it "Sanity save" (${JSON.stringify(saved.payload)}, ${savedMessage?.rolls[0]?.total})`)
+  await rolled.last().scrollIntoViewIfNeeded().catch(() => {})
+  await shoot(page, 'phone-chat-sanity-save')
+  const back = await wandText('Oathbound Signet')
+  const honor = await (async () => {
+    await back.getByRole('button', { name: 'DC 12 Honor', exact: true }).click()
+    const opened = page.getByRole('menu', { name: 'DC 12 Honor check' })
+    await opened.waitFor({ timeout: 10_000 })
+    const listed = await opened.getByRole('menuitem').allTextContents()
+    await page.keyboard.press('Escape')
+    await opened.waitFor({ state: 'hidden', timeout: 5000 })
+    return listed
+  })()
+  check(same(honor, ['Ask the table', 'Roll my Honor check (+3)', 'Roll with advantage', 'Roll with disadvantage', 'Modify roll…']),
+    `the Honor check's menu, "DC 12 Honor check", offers his Honor check: ${JSON.stringify(honor)}`)
+  await back.getByRole('button', { name: 'DC 12 Wisdom or Honor check', exact: true }).click()
+  const choiceMenu = page.getByRole('menu', { name: 'DC 12 Wisdom or Honor check' })
+  await choiceMenu.waitFor({ timeout: 10_000 })
+  const choice = await choiceMenu.getByRole('menuitem').allTextContents()
+  await shoot(page, 'phone-honor-choice-menu')
+  await page.keyboard.press('Escape')
+  await choiceMenu.waitFor({ state: 'hidden', timeout: 5000 })
+  check(same(choice, ['Ask the table', 'Roll my Wisdom check (+2)', 'Roll my Honor check (+3)']), `"DC 12 Wisdom or Honor check" offers both, whole: ${JSON.stringify(choice)}`)
+  // Etiquette, asked of the table: dnd5e's card, which the chat words as his sheet names it.
+  const lastAsk = () => Number(sql(`select coalesce(extract(epoch from max("createdAt")) * 1000, 0)::bigint from roll_request where kind = 'ask'`))
+  await until(() => Date.now() - lastAsk() > 11_000, 'the game to let Thorin ask again', 15_000)
+  await back.getByRole('button', { name: 'Honor (Etiquette)', exact: true }).click()
+  const etiquette = page.getByRole('menu', { name: 'Honor (Etiquette) check' })
+  await etiquette.waitFor({ timeout: 10_000 })
+  const { made: asked, message: card } = await sent(() => etiquette.getByRole('menuitem', { name: 'Ask the table' }).click(), 'the Etiquette ask')
+  await nav.getByRole('button', { name: 'Chat' }).click()
+  const bubble = log.getByRole('listitem').filter({ hasText: 'Thorin asks for an Honor (Etiquette) check' })
+  await bubble.waitFor({ timeout: 15_000 }).catch(() => {})
+  check(asked.status === 'done' && /data-type="skill" data-ability="hon" data-skill="eti"/.test(card?.content ?? '') && await bubble.count() === 1,
+    `Etiquette's Ask the table posts dnd5e's card, its button Honor (Etiquette), and the chat reads "Thorin asks for an Honor (Etiquette) check" (${await bubble.count()})`)
+  await bubble.scrollIntoViewIfNeeded().catch(() => {})
+  await shoot(page, 'phone-chat-honor-ask')
+}
