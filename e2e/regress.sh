@@ -277,6 +277,15 @@ run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
 run health 32 SHOTS=$O/shots-050
 run health 32 DND5E6=1 SHOTS=$O/shots-050
 run health 6 SKEW=049 MODULE=$O/module-0.49.0 SHOTS=$O/shots-050
+# Item 36 (module 0.51.0): two encounters at once, in world-030's world with scenes: the arena's
+# fight alone as before, then a sidekick's on the den beside it, both begun and chosen: a tab for
+# each, the dot and the live line for a turn in the other, the hold and Undo in the den from the
+# Character tab, Pip's tab and its keys, both turns the seat's, Pip's initiative into the den while
+# the Gamemaster has the arena up and its attack's targets, Bob's arena alone, the Gamemaster's
+# seat, the column at 1280 and the pane at 768, the den unchosen and ended; and module 0.50.0
+# (Pip's initiative into the den refused, "you aren't in the combat").
+run encounters 37 SHOTS=$O/shots-051
+run encounters 37 SKEW=050 MODULE=$O/module-0.50.0
 # Item 61 (module 0.50.0): quieter fetching while Foundry is open and nobody is in the app, in
 # world-030's world: full fetches every 10 seconds for two minutes after the hello, then quiet looks
 # every 20, the game counted as fetching throughout; someone arriving and rolling at once; a dish
