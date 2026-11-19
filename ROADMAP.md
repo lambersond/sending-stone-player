@@ -467,6 +467,18 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
     have changed since v0.50.0. Of a kind with item 90. The check could wait until the sweep has
     run, or allow more than its 160 ms. Found landing item 18. In no batch yet.
 
+**Found in Batch 3's last checks**
+
+95. **The companions e2e near its time limit, under load:** `e2e/companions-e2e.mjs`'s three long
+    runs (plain, `MIDI=1` and `DND5E6=1`) are given `e2e/regress.sh`'s usual 400 s. Passing on a
+    lane beside two others, they took 333 to 345 s in batch 3, against 293 to 303 s in batch 4's
+    full e2e pass: item 18's parts for companions on another scene added 8 checks and about 40 s to
+    each. In batch 3's full e2e pass, three lanes up on four cores, the `DND5E6=1` run was stopped
+    at 400 s in part 15, at 132 of its 146 checks with none failed, and passed when rerun alone on
+    its lane at once (146 of 146 in 323 s). Of a kind with items 90 and 94. The runs could be given
+    `TIMEOUT=600`, as `typed`'s and `notesoffline`'s are, or the suite split in two. Found in batch
+    3's last checks. In no batch yet.
+
 ## v1.0
 
 The major release of the app and the module, once the work planned before it is done and the
