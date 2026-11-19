@@ -219,8 +219,46 @@ const den = (currentId = 'c-brakka') =>
 /** Both under way, Thorin's own the arena. */
 const both = (fields: Partial<TableView> = {}) =>
   view({ combat: arena(), combats: [arena(), den()], ...fields })
+/** Thorin's second fight of his own, his turn: a cave on another scene, a bat against him. */
+const cave = () =>
+  mockTurnCombat({
+    id: 'cave',
+    currentId: 'c-thorin',
+    combatants: [
+      THORIN,
+      {
+        id: 'c-bat',
+        name: 'Bat',
+        initiative: 3,
+        defeated: false,
+        side: 'other',
+      },
+    ],
+  })
 const encounterTab = (name: RegExp) => screen.getByRole('tab', { name })
 const header = () => screen.getByRole('banner')
+/** The tabs above the sheet. */
+const creatureTab = (name: RegExp) =>
+  within(
+    screen.getByRole('tablist', { name: 'Character and companions' }),
+  ).getByRole('tab', { name })
+
+/** A wide screen, where combat or the chat sits in a column beside the sheet. */
+const wideScreen = () =>
+  jest.spyOn(globalThis, 'matchMedia').mockImplementation(
+    query =>
+      ({
+        matches: query === '(min-width: 64rem)',
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as unknown as MediaQueryList,
+  )
+/** The column's tabs, on a wide screen, and the line beside them that says what's happening. */
+const columnTabs = () => screen.getByRole('tablist', { name: 'Combat or chat' })
+const columnTab = (name: RegExp) =>
+  within(columnTabs()).getByRole('tab', { name })
+const columnLine = () => columnTabs().nextElementSibling
 
 describe('components/game-table/game-table, two encounters at once (item 36)', () => {
   beforeEach(() => {
@@ -245,14 +283,19 @@ describe('components/game-table/game-table, two encounters at once (item 36)', (
     renderTable(both())
     fireEvent.click(combatTab())
 
+    // The tabs' names are the tab row's own (its tests): here only which is which, and which shown.
     const tabs = within(
       screen.getByRole('tablist', { name: 'Encounters' }),
     ).getAllByRole('tab')
-    expect(tabs.map(tab => tab.getAttribute('aria-label'))).toEqual([
-      'Thorin, round 1',
-      'Brakka, round 1, Brakka’s turn',
+    expect(tabs.map(({ id }) => id)).toEqual([
+      'encounter-tab-arena',
+      'encounter-tab-den',
     ])
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute(
+      'aria-labelledby',
+      'encounter-tab-arena',
+    )
     expect(turnHeading()).toHaveTextContent('Goblin is acting')
     expect(header()).toHaveTextContent('Round 1 · Goblin’s turn')
 
@@ -265,13 +308,46 @@ describe('components/game-table/game-table, two encounters at once (item 36)', (
     )
   })
 
-  it('marks the Combat tab for Brakka’s turn in the den while the arena is shown, and the hold ends hers there', async () => {
-    renderTable(both())
+  it('marks the Combat tab for Brakka’s turn in the den while the arena is shown, and the hold ends hers there, Undo taking it back there', async () => {
+    const { poll } = renderTable(both())
     await advance(600)
     expect(combatTab()).toHaveAccessibleName(/, your turn/)
     expect(combatTab()).toHaveAccessibleDescription(
       'Press and hold to end Brakka’s turn',
     )
+
+    pointer(combatTab(), 'pointerdown')
+    await advance(500)
+    expect(toasted()?.[0]).toBe('Ending Brakka’s turn…')
+    await advance(500)
+    expect(endTurns().map(({ turn }) => turn)).toEqual([
+      { combatId: 'den', round: 1, combatantId: 'c-brakka' },
+    ])
+    pointer(combatTab(), 'pointerup')
+
+    // The game ends it and the den moves on to its wolf, the arena still the goblin's: the toast
+    // and Undo follow the den, the encounter the End Turn was for, not the arena shown.
+    answers['req-1'] = { status: 'done' }
+    await advance(1000)
+    poll({ combat: arena(), combats: [arena(), den('c-den-wolf')] })
+    expect(toasted()).toEqual(['Brakka’s turn has ended.', 'Wolf is acting.'])
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(posted.at(-1)?.body).toEqual(
+      expect.objectContaining({
+        kind: 'undoEndTurn',
+        undo: 'req-1',
+        turn: { combatId: 'den', round: 1, combatantId: 'c-den-wolf' },
+      }),
+    )
+  })
+
+  it('holds to end the turn in the encounter shown, the den’s once its tab is chosen, though Thorin’s turn is the arena’s too', async () => {
+    renderTable(
+      both({ combat: arena('c-thorin'), combats: [arena('c-thorin'), den()] }),
+    )
+    fireEvent.click(combatTab())
+    fireEvent.click(encounterTab(/^Brakka/))
+    await advance(600)
 
     pointer(combatTab(), 'pointerdown')
     await advance(500)
@@ -310,6 +386,57 @@ describe('components/game-table/game-table, two encounters at once (item 36)', (
     await advance(1000)
 
     expect(toasted()?.[0]).toMatch(/^Brakka’s turn wasn’t ended/)
+  })
+
+  it('names each creature’s turn on its tab above the sheet wherever it is: Brakka’s in the den while the arena is shown, Thorin’s in a second fight of his own', () => {
+    const { poll } = renderTable(both({ companions: [BRAKKA] }))
+    expect(creatureTab(/^Brakka/)).toHaveAccessibleName('Brakka, its turn')
+
+    // Thorin's tab says its news while Brakka's is the one shown.
+    fireEvent.click(creatureTab(/^Brakka/))
+    poll({ companions: [BRAKKA], combat: arena(), combats: [arena(), cave()] })
+    expect(creatureTab(/^Thorin/)).toHaveAccessibleName('Thorin, your turn')
+  })
+
+  it('opens the arena’s tab where the view names it the seat’s own, though another of Thorin’s sorts first', () => {
+    renderTable(view({ combat: arena(), combats: [cave(), arena()] }))
+    fireEvent.click(combatTab())
+
+    expect(screen.getByRole('tabpanel')).toHaveAttribute(
+      'aria-labelledby',
+      'encounter-tab-arena',
+    )
+    expect(turnHeading()).toHaveTextContent('Goblin is acting')
+  })
+
+  describe('on a wide screen', () => {
+    beforeEach(wideScreen)
+
+    it('puts the column’s line with the encounter shown, the den’s once its tab is chosen', () => {
+      renderTable(both())
+      expect(columnLine()).toHaveTextContent('Round 1 · Goblin’s turn')
+
+      fireEvent.click(encounterTab(/^Brakka/))
+      expect(columnLine()).toHaveTextContent('Round 1 · Brakka’s turn')
+    })
+
+    it('opens the column on Combat for Brakka’s fight in the den, Thorin’s own not under way', () => {
+      renderTable(
+        view({
+          // The arena set up and not yet begun: Thorin's own, as the view names it.
+          combat: {
+            ...arena(),
+            underWay: false,
+            round: 0,
+            currentId: undefined,
+          },
+          combats: [den()],
+        }),
+      )
+
+      expect(columnTab(/^Combat/)).toHaveAttribute('aria-selected', 'true')
+      expect(turnHeading()).toHaveTextContent('Brakka’s turn')
+    })
   })
 
   it('shows the arena alone once the den goes from the view, as with one encounter', () => {

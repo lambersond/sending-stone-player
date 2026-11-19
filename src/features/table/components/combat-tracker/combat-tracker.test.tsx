@@ -854,6 +854,35 @@ describe('components/game-table/combat-tracker, two encounters at once (item 36)
     expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
   })
 
+  it('moves no focus in the panel shown once the button’s End Turn in the other encounter is done', () => {
+    const shown = arena('thorin')
+    const other = den('thorin')
+    const sent = endableTurn(other, ['endTurn']) as EndableTurn
+    const view = render(
+      <CombatTracker
+        combats={[shown, other]}
+        shown={shown}
+        own={shown}
+        ending={endingOf(shown)}
+      />,
+    )
+    const button = screen.getByRole('button', { name: 'End turn' })
+    act(() => button.focus())
+    view.rerender(
+      <CombatTracker
+        combats={[shown, den('boss')]}
+        shown={shown}
+        own={shown}
+        ending={endingOf(shown, {
+          sent: { turn: sent, way: { status: 'done', requestId: 'req-1' } },
+        })}
+        via='button'
+      />,
+    )
+
+    expect(button).toHaveFocus()
+  })
+
   it('says to roll initiative above the tabs while the seat’s own encounter waits for it', () => {
     const own = waiting({ id: 'thorin', side: 'me' })
     render(
