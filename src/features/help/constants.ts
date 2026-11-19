@@ -250,7 +250,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Players move items and coins',
-        text: ': Send to…, Take and Give (0.31.0), and Give to several characters at once (0.49.0).',
+        text: ': Send to…, Take and Give (0.31.0), Give to several characters at once (0.49.0), and to parties and characters together (0.51.0).',
       },
       {
         lead: 'Allow Players to add and take away coins from the app',
@@ -258,7 +258,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Pay with other coins when a character is short of one',
-        text: ': removing more of a coin than you hold, or giving characters more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).',
+        text: ': removing more of a coin than you hold, or giving more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0; giving to a party, 0.51.0).',
       },
       {
         lead: 'Allow Players to disable & remove their own active effects',
