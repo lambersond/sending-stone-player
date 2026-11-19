@@ -224,7 +224,7 @@ run wildshape 33 DND5E6=1 SHOTS=$O/shots-040
 run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040
 # Module 0.41.0: the saves the game asks of companions, on their own panes; Midi-QOL's; dnd5e 6.0.5;
 # and module 0.40.0 (none).
-run companionsaves 44 SHOTS=$O/shots-041
+run companionsaves 45 SHOTS=$O/shots-041
 run companionsaves 46 MIDI=1 SHOTS=$O/shots-041
 run companionsaves 38 DND5E6=1 SHOTS=$O/shots-041
 run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041
