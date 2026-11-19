@@ -25,6 +25,7 @@ import {
   EFFECT_TOKEN,
   EVENTS,
   FORM_UUID,
+  HEALTH_STATES,
   HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
@@ -1759,6 +1760,17 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
       .nullable()
       .optional()
       .catch(null),
+    // From module 0.50.0: whether the campaign's players see how hurt other creatures in a fight
+    // are, by its own switch, off by default, under dnd5e; and whether their hit points show too.
+    health: z
+      .looseObject({
+        enabled: z.boolean().catch(false),
+        reason: nullableString.optional().transform(reason => reason ?? null),
+        hitPoints: z.boolean().optional().catch(false),
+      })
+      .nullable()
+      .optional()
+      .catch(null),
   })
   .nullable()
   .optional()
@@ -2259,6 +2271,9 @@ export const combatantSchema: z.ZodType<CombatantSummary> = z.looseObject({
   disposition: leftOut(z.enum(['friendly', 'neutral', 'hostile']).nullable()),
   // From module 0.36.0, to an app that reads companions: the listed companion it is.
   companion: z.string().regex(COMPANION_KEY).nullable().optional().catch(null),
+  // Module 0.50.0. Anything else is dropped: the combatant then counts as one the module doesn't
+  // show.
+  health: leftOut(z.enum(HEALTH_STATES).nullable()),
 })
 
 const combatSchema: z.ZodType<CombatSnapshot> = z.looseObject({

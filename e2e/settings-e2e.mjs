@@ -109,11 +109,14 @@ if (SKEW) {
   // for a campaign saved without the switch.
   // Changed on purpose (items 67 and 68, module 0.49.0): the Coins box's two, after hit points, on
   // for a campaign saved without them.
+  // Changed on purpose (item 58, module 0.50.0): the Other creatures' health box's two, after the
+  // companions' initiative, off for a campaign saved without them.
   check(same(campaignRows, ['Players roll in the app: On', 'Attacks, spells and features: Off', 'Save and concentration prompts: Off',
     'Allow Players to enter dice results manually: Off', 'Players move items and coins: Off', 'Dishes from the Magical Recipe Book: Off',
     'Allow Players to disable & remove their own active effects: Off', 'Allow Players to use Wild Shape from the app: Off',
     'Allow Players to change their hit points from the app: On', 'Allow Players to add and take away coins from the app: On',
-    'Pay with other coins when a character is short of one: On', "Companions' initiative: Its own roll", 'Party sheets: The Iron Company']),
+    'Pay with other coins when a character is short of one: On', "Companions' initiative: Its own roll",
+    "Allow Players to see other creatures' health in the app: Off", 'Show their hit points too: Off', 'Party sheets: The Iron Company']),
     `the campaign's own switches by their labels in Manage Campaigns, and its party sheets: ${JSON.stringify(campaignRows)}`)
   const world = await read('Sending Stone, for every campaign')
   check(same(world, ['Chat messages: On', 'Which messages: All its players can read', "Hit/miss and save results in the app: Follow Foundry's visibility settings",

@@ -2,6 +2,7 @@
 
 import clsx from 'clsx'
 import { AmountField } from '../amount-field/amount-field'
+import { CoinAmounts } from '../coin-amounts/coin-amounts'
 import { CoinFields } from '../coin-fields/coin-fields'
 import { RecipientList } from '../recipient-list/recipient-list'
 import { useMoveForm } from './use-move-form'
@@ -13,9 +14,11 @@ import type { SheetContainer, SheetItem } from '@/types/sending-stone'
 /*
  * One move of items or coins (module 0.31.0), asked in a dialog of its own: an item, or coins,
  * taken from a party, or given to a party or another of the campaign's characters; and from module
- * 0.32.0, a party's sent to anyone but itself, or coins given into the party whose sheet it's on.
- * It says what moves, to whom, and how many, and that the game's chat will say so; and it's sent
- * at once, the dialog closing as it is, as where it stands is told where the sheet tells it.
+ * 0.32.0, a party's sent to anyone but itself, or coins given into the party whose sheet it's on;
+ * and from module 0.49.0 a character's coins given to any of the campaign's characters ticked, so
+ * many to each, as the game hands coins out. It says what moves, to whom, and how many, and who's
+ * told; and it's sent at once, the dialog closing as it is, as where it stands is told where the
+ * sheet tells it.
  */
 
 /**
@@ -48,6 +51,10 @@ function MoveForm(props: Readonly<MoveDialogProps>) {
     take,
     chosen,
     setChosen,
+    several,
+    each,
+    legend,
+    told,
     counted,
     max,
     count,
@@ -57,10 +64,10 @@ function MoveForm(props: Readonly<MoveDialogProps>) {
     setCoins,
     item,
     summary,
-    ready,
     label,
     submit,
   } = useMoveForm(props)
+  const { text, note, ready } = summary
 
   return (
     <form onSubmit={submit} noValidate className='grid gap-5'>
@@ -72,23 +79,29 @@ function MoveForm(props: Readonly<MoveDialogProps>) {
             characters={take ? choices : (recipients?.characters ?? [])}
             value={chosen}
             onChange={setChosen}
+            several={several}
           />
         </fieldset>
       )}
       {counted && <AmountField max={max} value={count} onChange={setCount} />}
-      {currency && (
+      {currency && each && (
+        <CoinAmounts
+          legend={legend}
+          currency={currency}
+          value={coins}
+          onChange={setCoins}
+        />
+      )}
+      {currency && !each && (
         <CoinFields currency={currency} value={coins} onChange={setCoins} />
       )}
       {item && <Notes item={item} />}
       <div className='grid gap-1'>
         <p aria-live='polite' className='text-sm font-medium'>
-          {summary}
+          {text}
+          {note && ` ${note}`}
         </p>
-        {ready && (
-          <p className='text-sm text-text-secondary'>
-            Foundry’s chat will say so.
-          </p>
-        )}
+        {ready && <p className='text-sm text-text-secondary'>{told}</p>}
       </div>
       <div className='flex flex-wrap justify-end gap-2'>
         <button

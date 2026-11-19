@@ -92,6 +92,9 @@ describe('features/help/constants', () => {
       'Allow Players to change their hit points from the app',
       'Dishes from the Magical Recipe Book',
       'Companions’ initiative',
+      // Changed on purpose (item 58): from module 0.50.0, the Other creatures' health box's two.
+      'Allow Players to see other creatures’ health in the app',
+      'Show their hit points too',
     ]
     expect(labels.filter(label => !switches.includes(label))).toEqual([])
   })

@@ -16,15 +16,7 @@ export type CoinsDialogProps = {
   onChange: (changed: { coins: CoinsInput; words: LocalMove }) => void
 }
 
-/** What the dialog says it'll do, or still needs, and whether it may be sent. */
-export type CoinsSummary = {
-  text: string
-  /** Said after it where other coins pay for the rest. */
-  note?: string
-  ready: boolean
-}
-
-/** What's chosen in the dialog: whether to add or take away, if either yet, and how many. */
+/** What's chosen in the dialog: whether to add or remove, if either yet, and how many. */
 export type CoinsChosen = {
   op?: CoinOp
   amounts?: Record<string, number>

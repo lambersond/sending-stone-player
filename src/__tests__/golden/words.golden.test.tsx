@@ -32,7 +32,7 @@ import {
 } from '@/features/notes/utils/order-words'
 import { RollToasts } from '@/features/rolling/components/roll-toasts/roll-toasts'
 import { RollTray } from '@/features/rolling/components/roll-tray/roll-tray'
-import { briefOf } from '@/features/rolling/utils/brief'
+import { breakdown, briefOf } from '@/features/rolling/utils/brief'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { slotName, slotWords } from '@/features/sheet/utils/slot-words'
 import { ChatLog } from '@/features/table/components/chat-log/chat-log'
@@ -963,6 +963,8 @@ describe('golden C4: words', () => {
       expect(lines).toMatchSnapshot('turnRefusedLine')
     })
 
+    /** dnd5e's coins' abbreviations, as a sheet lists them. */
+    const ABBREVIATIONS = { pp: 'pp', gp: 'gp', ep: 'ep', sp: 'sp', cp: 'cp' }
     const MOVES: LocalMove[] = [
       { verb: 'give', things: '2 Potion of Healing', other: 'Vex' },
       { verb: 'take', things: '1 Rope and 50 gp', other: 'The Iron Company' },
@@ -981,7 +983,9 @@ describe('golden C4: words', () => {
         each: '1 pp',
       },
       { verb: 'remove', things: '1 Rope', other: '' },
-      // Coins added and taken away, from module 0.49.0.
+      // Coins added and taken away, from module 0.49.0. Changed on purpose (item 89): coins
+      // taken away are told as removed, and coins given to several characters as a Give, with the
+      // sheet's abbreviations a hand-out always carries.
       { verb: 'receive', things: '5 gp', other: 'Thorin' },
       { verb: 'pay', things: '5 gp', other: 'Thorin', mover: 'Thorin' },
       {
@@ -989,6 +993,15 @@ describe('golden C4: words', () => {
         things: '200 pp and 50 gp',
         other: 'Thorin',
         among: 'Vex, Bram, and Lia',
+        abbreviations: ABBREVIATIONS,
+      },
+      // Changed on purpose (item 89): coins given to one character, as a give with the sheet's
+      // abbreviations, last, so that those before it keep their keys.
+      {
+        verb: 'give',
+        things: '5 gp',
+        other: 'Vex',
+        abbreviations: ABBREVIATIONS,
       },
     ]
 
@@ -1024,8 +1037,18 @@ describe('golden C4: words', () => {
       (verb, move) => {
         const words = {
           label: moveLabel(move),
+          // Changed on purpose (item 89): the move's word among the earlier rolls, which a give
+          // to several characters says as "given".
+          brief: breakdown({
+            kind: 'use',
+            id: 'move',
+            label: moveLabel(move),
+            spell: false,
+            move,
+            at: 0,
+          }),
           reasons: Object.fromEntries(
-            ROLES.map(role => [role, moveReasons(role, verb)]),
+            ROLES.map(role => [role, moveReasons(role, move)]),
           ),
           lines: Object.fromEntries(
             ROLES.flatMap(role =>

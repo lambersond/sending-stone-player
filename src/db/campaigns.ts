@@ -122,6 +122,8 @@ export async function listOwnedCampaigns(
       hitPointsEnabled: true,
       coinsEnabled: true,
       coinFeatures: true,
+      healthEnabled: true,
+      healthFeatures: true,
       chatClearedAt: true,
       refusedAt: true,
       refusalReason: true,
@@ -201,6 +203,12 @@ export async function listOwnedCampaigns(
       coins: {
         enabled: campaign.coinsEnabled,
         change: campaign.coinFeatures.includes('change'),
+      },
+      // Whether the campaign lets its players see how hurt other creatures in a fight are, from
+      // module 0.50.0, and whether their hit points too, as its last hello said.
+      health: {
+        enabled: campaign.healthEnabled,
+        hitPoints: campaign.healthFeatures.includes('hitPoints'),
       },
       // Its players' chat here, and when it was last cleared (v0.44).
       chat: {

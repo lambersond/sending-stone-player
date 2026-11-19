@@ -17,9 +17,9 @@ const COINS_WAITING: ReadonlySet<string> = new Set([PENDING_COINS])
  * Give and Remove…, on the Inventory tab: Send to…, from module 0.31.0, its dialog held here, so
  * that it outlives the row it was opened from, and the controls going, as when the game stops
  * taking moves; and Remove…, from module 0.33.0, beside it, with moves off too. From module
- * 0.49.0, the Currency row's Add or take away, before its Send to, with moves off too, and Hand
- * out, after it; and where the row has either, what's on its way is said once, by its label, as on
- * a party's sheet. None while the character is transformed (`shaped`), whose gear isn't on.
+ * 0.49.0, the Currency row's Add or remove, before its Give, with moves off too; and where the row
+ * has both, what's on its way is said once, by its label, as on a party's sheet. None while the
+ * character is transformed (`shaped`), whose gear isn't on.
  */
 export function useGiveRemove({
   moves,
@@ -48,22 +48,21 @@ export function useGiveRemove({
 }>) {
   const coinage = useCoinControls({
     coins: shaped ? undefined : coins,
-    moves: shaped ? undefined : moves,
     table,
     role,
     name,
-    actorId,
     logMove,
     setActed,
   })
-  const { change, handOut, waiting } = coinage
+  const { change, waiting } = coinage
   const giving = useGiveControls({
     moves: shaped ? undefined : moves,
     table,
     role,
     name,
     actorId,
-    labelWaits: !!(change || handOut),
+    // Give alone, with coins off or an older module, keeps its own spinner, as Send to did.
+    labelWaits: !!change,
     logMove,
     setActed,
   })
@@ -80,14 +79,10 @@ export function useGiveRemove({
     const send = giving.controls.coins
     return {
       ...giving.controls,
-      // The Currency row's buttons, in the order they read: Add or take away, Send to, Hand out.
-      ...((change || handOut) && {
+      // The Currency row's buttons, in the order they read: Add or remove, then Give.
+      ...(change && {
         coins: currency => {
-          const buttons = [
-            change?.(currency),
-            send?.(currency),
-            handOut?.(currency),
-          ]
+          const buttons = [change(currency), send?.(currency)]
           // Nothing at all, rather than an empty group, where none is shown.
           if (!buttons.some(Boolean)) return
           return createElement(Fragment, undefined, ...buttons)
@@ -96,6 +91,6 @@ export function useGiveRemove({
       }),
       ...(removing.remove && { remove: removing.remove }),
     }
-  }, [giving.controls, removing.remove, change, handOut, waiting])
+  }, [giving.controls, removing.remove, change, waiting])
   return { giving, removing, coinage, transfers }
 }

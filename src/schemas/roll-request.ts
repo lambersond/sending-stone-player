@@ -37,6 +37,7 @@ import {
   SPELL_SLOT_OPS,
 } from '@/constants/sending-stone'
 import { TEXT_HASH } from '@/schemas/sending-stone'
+import { leftOut } from '@/schemas/utils'
 import { MOST_DICE } from '@/utils/damage-modifiers'
 import { MAX_LINKS } from '@/utils/description-links'
 import { isDieSides } from '@/utils/dice'
@@ -1238,4 +1239,7 @@ export const commandsPollSchema = z.looseObject({
     id: z.string().min(1),
     title: z.string().trim().min(1),
   }),
+  // From module 0.50.0: `false` for a full fetch, `true` for a quiet look; anything else, or none,
+  // reads as from a module before it.
+  quiet: leftOut(z.boolean()),
 })

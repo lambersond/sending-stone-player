@@ -4,8 +4,8 @@ import { LoaderCircle } from 'lucide-react'
 
 /**
  * A fact on the sheet in a card of its own, such as the character's coin or spell save DC; with
- * what's done with it on its label's row, pushed right, as a group named by the label, such as Send
- * to for a character's coin.
+ * what's done with it below the fact, at its left, as a group named by the label, such as Give for
+ * a character's coins.
  */
 export function SheetFact({
   label,
@@ -16,7 +16,7 @@ export function SheetFact({
 }: Readonly<{
   label: string
   className?: string
-  /** On its label's row, so that it's no part of the fact's name, in a group the label names. */
+  /** Below the fact, in a group the label names. */
   action?: ReactNode
   /**
    * From module 0.33.0's feedback: while what's done with it waits on a move on its way, one
@@ -27,12 +27,12 @@ export function SheetFact({
 }>) {
   const labelId = useId()
   if (action) {
-    // The label at the left and what's done with it at the right, which wraps under the label,
-    // still at the right, on a narrow card; the fact has a row of its own.
+    // The label, the fact, then what's done with it, at the card's left, wrapping to a second line
+    // only where the card is too narrow (the owner's words, item 89): the spinner by the label.
     return (
       <div
         className={clsx(
-          'flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-2xl border border-border bg-card px-4 py-3',
+          'flex min-w-0 flex-col gap-1 rounded-2xl border border-border bg-card px-4 py-3',
           className,
         )}
       >
@@ -48,17 +48,17 @@ export function SheetFact({
             />
           )}
         </dt>
-        <dd className='ml-auto'>
+        <dd className='min-w-0'>{children}</dd>
+        <dd className='pt-1'>
           <div
             role='group'
             aria-labelledby={labelId}
             aria-busy={busy || undefined}
-            className='flex flex-wrap items-center justify-end gap-1.5'
+            className='flex flex-wrap items-center gap-1.5'
           >
             {action}
           </div>
         </dd>
-        <dd className='min-w-0 basis-full'>{children}</dd>
       </div>
     )
   }

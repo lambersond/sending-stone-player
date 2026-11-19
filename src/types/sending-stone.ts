@@ -5,6 +5,7 @@ import type {
   DICE_ASK_PURPOSES,
   COIN_OPS,
   EFFECT_OPS,
+  HEALTH_STATES,
   PREPARE_OPS,
   WILD_SHAPE_OPS,
   SPELL_SLOT_OPS,
@@ -1442,7 +1443,15 @@ export type CombatantSummary = {
   disposition?: 'friendly' | 'neutral' | 'hostile' | null
   /** The listed companion it is, by key. Module 0.36.0, to an app that reads companions. */
   companion?: string | null
+  /**
+   * From module 0.50.0, to an app that reads health, where its Gamemaster shows it: how hurt a
+   * creature not of the party is. Null where its actor has no hit points as dnd5e models them.
+   */
+  health?: Health | null
 }
+
+/** How hurt a creature not of the party is, from module 0.50.0, by dnd5e's own Bloodied rule. */
+export type Health = (typeof HEALTH_STATES)[number]
 
 export type CombatSnapshot = {
   id: string
@@ -1652,6 +1661,16 @@ export type BridgeFeatures = {
     kinds: string[]
     reason: string | null
     change?: boolean
+  } | null
+  /**
+   * Whether the campaign's players see how hurt other creatures in a fight are, by its own switch
+   * under dnd5e, off by default; or not, and why (`"off"`, `"system"`); and whether their hit
+   * points show too (`hitPoints`). It isn't a command: nothing is fetched for it. Module 0.50.0.
+   */
+  health?: {
+    enabled: boolean
+    reason: string | null
+    hitPoints?: boolean
   } | null
 }
 

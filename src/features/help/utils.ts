@@ -13,6 +13,7 @@ import type {
   HelpSection,
   RowWords,
 } from './types'
+import type { TableView } from '@/types/table'
 
 /** Help's words with the character's name in place of `{name}`. */
 export function named(words: string, name: string): string {
@@ -76,7 +77,7 @@ function sentRow(words: RowWords, on: boolean, send: boolean): BoxRow {
  * only while it's on, and the dice their effects add and an item rolls later, asked only of a roll
  * sent. Those dice only while they type theirs in, the later ones only where the campaign's
  * module is one that asks for them, as the paragraph on them shows (H6 B); Wild Shape only for a
- * sheet that has it.
+ * sheet that has it; and last, from module 0.50.0, other creatures' health (`healthRow`).
  */
 function playerRows({ view, typing, send }: HelpFacts): BoxRow[] {
   const kinds = view.connected ? (view.rollsToTable ?? []) : []
@@ -106,7 +107,19 @@ function playerRows({ view, typing, send }: HelpFacts): BoxRow[] {
   if (view.sheet?.wildShape || view.sheet?.form) {
     rows.push(row(PLAYER_ROWS.wildShape, view.wildShape === true))
   }
+  rows.push(healthRow(view.health))
   return rows
+}
+
+/**
+ * Other creatures' health, from module 0.50.0, at either seat, as the page shows it: how hurt the
+ * creatures not of the party are, or their hit points, as the Gamemaster allows
+ * (`TableView['health']`); else not shown.
+ */
+function healthRow(health: TableView['health']): BoxRow {
+  const { label, on, hitPoints, off } = PLAYER_ROWS.health
+  if (!health) return { label, says: off, on: false }
+  return { label, says: health === 'hitPoints' ? hitPoints : on, on: true }
 }
 
 /** Typing in their dice: on, allowed but off, which their Settings turn on, or not in this game. */
@@ -119,7 +132,8 @@ function typingRow(typing: HelpFacts['typing']): BoxRow {
 /**
  * The Gamemaster's rows: where their rolls here go, made in the game only while their own Send to
  * the table is on here, and what they may move and remove, and from module 0.49.0 whether they may
- * add and take away the character's coins.
+ * add and remove the character's coins; and from module 0.50.0 other creatures' health, as
+ * their player sees it.
  */
 function gmRows({ view, name, send }: HelpFacts): BoxRow[] {
   const rolls = view.gm?.rolls ?? 'off'
@@ -133,5 +147,6 @@ function gmRows({ view, name, send }: HelpFacts): BoxRow[] {
     row(PLAYER_ROWS.moves, view.moves !== undefined),
     row(PLAYER_ROWS.coins, view.coins !== undefined),
     row(PLAYER_ROWS.removes, view.removes === true),
+    healthRow(view.health),
   ]
 }

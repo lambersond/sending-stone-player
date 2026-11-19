@@ -1,7 +1,12 @@
 /**
  * @jest-environment node
  */
-import { coinsText, hitPointsText, movesText } from './feature-words'
+import {
+  coinsText,
+  healthText,
+  hitPointsText,
+  movesText,
+} from './feature-words'
 import type { OwnedCampaign } from '@/types/campaign'
 
 /** A campaign as its card is drawn, with what's given. */
@@ -70,12 +75,12 @@ describe('features/campaigns/utils/feature-words, coins from the app (module 0.4
     [
       'on in Foundry, other coins paying',
       { coins: { enabled: true, change: true }, foundry: foundry('0.49.0') },
-      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
+      'On in Foundry. Your players add coins to their characters and remove them from here, and each change posts a line in your game’s chat. A character short of a coin pays with their other coins.',
     ],
     [
       'on in Foundry, no other coin paying',
       { coins: { enabled: true, change: false }, foundry: foundry('0.49.0') },
-      'On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. A character short of a coin is refused.',
+      'On in Foundry. Your players add coins to their characters and remove them from here, and each change posts a line in your game’s chat. A character short of a coin is refused.',
     ],
     [
       'a module before 0.49.0',
@@ -106,9 +111,10 @@ describe('features/campaigns/utils/feature-words, coins from the app (module 0.4
 
   it.each([
     [
+      // Changed on purpose (item 89): coins given to characters are whispered.
       'a module that hands coins out',
       true,
-      'Your players take from and give to the parties they own in Foundry, and give to each other, and hand out coins to several characters at once, from here. Each move is made in your game at once and posts a line in its chat.',
+      'Your players take from and give to the parties they own in Foundry, and give to each other, from here; coins can go to several characters at once. Each move is made in your game at once and posts a line in its chat, but coins given to characters are whispered to each, and you are told.',
     ],
     [
       'a module before it',
@@ -118,5 +124,49 @@ describe('features/campaigns/utils/feature-words, coins from the app (module 0.4
   ])('says what moves reach the game with %s', (_name, handOut, text) => {
     const transfers = { enabled: true, reaching: true, handOut }
     expect(movesText(campaign({ transfers }))).toBe(text)
+  })
+})
+
+describe('features/campaigns/utils/feature-words, other creatures’ health (module 0.50.0)', () => {
+  it.each([
+    [
+      'on in Foundry, with their hit points',
+      {
+        health: { enabled: true, hitPoints: true },
+        foundry: foundry('0.50.0'),
+      },
+      'On in Foundry. Your players see how hurt other creatures in a fight are, and their hit points.',
+    ],
+    [
+      'on in Foundry, without their hit points',
+      {
+        health: { enabled: true, hitPoints: false },
+        foundry: foundry('0.50.0'),
+      },
+      'On in Foundry. Your players see how hurt other creatures in a fight are, but not their hit points.',
+    ],
+    [
+      'module 0.49.0, which has no switch for it',
+      { foundry: foundry('0.49.0') },
+      'Your Sending Stone module doesn’t show players other creatures’ health yet. Version 0.50.0 or later does.',
+    ],
+    [
+      'another system',
+      {
+        health: { enabled: false, hitPoints: false },
+        foundry: foundry('0.50.0', 'pf2e'),
+      },
+      'Off. Other creatures’ health needs D&D Fifth Edition in Foundry.',
+    ],
+    [
+      'its switch off',
+      {
+        health: { enabled: false, hitPoints: false },
+        foundry: foundry('0.50.0'),
+      },
+      'Off. To let them, tick Allow Players to see other creatures’ health in the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.',
+    ],
+  ])('says so with %s', (_name, fields, text) => {
+    expect(healthText(campaign(fields))).toBe(text)
   })
 })

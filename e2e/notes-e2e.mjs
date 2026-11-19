@@ -220,7 +220,8 @@ part('1. where it is')
   // Changed on purpose (round 0.40.0 §10.4): and Wild Shape, after effects.
   // Changed on purpose (v0.44): and hit points set from the app, after Wild Shape (module 0.44.0).
   // Changed on purpose (items 67 and 68): and coins added and taken away follow hit points (module 0.49.0).
-  check(same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins'])
+  // Changed on purpose (item 58): and other creatures' health follows coins (module 0.50.0).
+  check(same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins', 'health'])
     && same(features.notes, { enabled: true, kinds: ['personal', 'party'], reason: null, journals: [], orders: true, changes: true }),
     `the hello says notes are kept here, with no journal yet, and that it takes orders and says who changed a journal (${JSON.stringify(features.notes)})`)
   await until(() => notesEnabled() === 't', 'the app to keep notes on', 15_000)

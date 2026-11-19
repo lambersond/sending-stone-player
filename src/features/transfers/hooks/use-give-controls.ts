@@ -19,9 +19,10 @@ import type { SeatRole } from '@/types/seats'
  * Give, on a character's Inventory tab (module 0.31.0): in each item once it's opened, and on its
  * Currency row, while the game takes moves, to a party its player owns in Foundry or another of
  * the campaign's characters; for the Gamemaster, to any of the campaign's parties or characters.
- * From module 0.32.0's feedback, the Currency row's reads "Send to", and "Send to…" in an item's
- * own menu gives it too. Each opens the move's dialog, and what's given is followed in the tray
- * and the toasts, as a use is.
+ * From module 0.32.0's feedback, "Send to…" in an item's own menu gives it too, and the Currency
+ * row's read "Send to" until it was named Give again; from module 0.49.0, its coins may go to any
+ * of the campaign's characters at once, as the game hands coins out. Each opens the move's dialog,
+ * and what's given is followed in the tray and the toasts, as a use is.
  */
 
 /**
@@ -49,8 +50,8 @@ export function useGiveControls({
   name: string
   actorId?: string
   /**
-   * Whether the Currency row's label says its coins are on their way, as where the row has other
-   * buttons (module 0.49.0): its Send to then waits with no spinner of its own.
+   * Whether the Currency row's label says its coins are on their way, as where the row has Add or
+   * remove too (module 0.49.0): its Give then waits with no spinner of its own.
    */
   labelWaits?: boolean
   logMove: (move: LocalMove) => LocalUse
@@ -72,10 +73,16 @@ export function useGiveControls({
   }, [table.states])
   const controls = useMemo<TransferControls>(() => {
     if (!actorId || !moves) return NO_TRANSFERS
-    const { parties, characters } = moves
+    const { parties, characters, handOut } = moves
     if (parties.length === 0 && characters.length === 0) return NO_TRANSFERS
     const give = (what: Giving['what']) => {
-      setGiving({ what, from: actorId, recipients: { parties, characters } })
+      setGiving({
+        what,
+        from: actorId,
+        recipients: { parties, characters },
+        // Coins go to any of the characters at once, where the module hands them out.
+        ...('coins' in what && handOut && { handOut }),
+      })
       setOpen(true)
     }
     return {
@@ -103,7 +110,7 @@ export function useGiveControls({
             quiet: labelWaits,
             onGive: () => give({ coins: currency }),
           },
-          'Send to',
+          'Give',
         ),
       // What "Send to…" in an item's own menu opens: the dialog its Give… opens.
       send: item => (item.quantity >= 1 ? () => give({ item }) : undefined),

@@ -18,8 +18,8 @@ import type { Coin } from './types'
 import type { SheetInventory } from '@/types/sending-stone'
 
 /**
- * Coin, how much the character carries, and how many items they are attuned to; on the coin's
- * label's row, how it's moved, where the sheet gives it a way (module 0.31.0).
+ * Coin, how much the character carries, and how many items they are attuned to; below the coins,
+ * how they're moved, where the sheet gives them a way (module 0.31.0).
  */
 export function Holdings({
   inventory,
@@ -27,7 +27,7 @@ export function Holdings({
   const { currency, encumbrance, attunement } = inventory
   const moves = useTransferring().coins?.(currency)
   // On a party's sheet, from module 0.33.0's feedback, and on a character's whose row has more
-  // buttons than Send to (module 0.49.0): one spinner by the label while its coins are on their
+  // buttons than Give (module 0.49.0): one spinner by the label while its coins are on their
   // way, its buttons disabled without their own.
   const waiting = useTransferring().waiting?.has('coins') === true
   return (

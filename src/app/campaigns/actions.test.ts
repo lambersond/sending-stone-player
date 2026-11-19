@@ -17,7 +17,7 @@ import {
 } from '@/db/campaigns'
 import { clearCampaignChat } from '@/db/chat'
 import { revokeCampaignCookbookLink } from '@/db/cookbook'
-import { requireUser } from '@/lib/session'
+import { requireCheckedUser } from '@/lib/session'
 
 jest.mock('next/cache', () => ({ refresh: jest.fn() }))
 jest.mock('@/db/campaigns', () => ({
@@ -29,7 +29,7 @@ jest.mock('@/db/campaigns', () => ({
 }))
 jest.mock('@/db/chat', () => ({ clearCampaignChat: jest.fn() }))
 jest.mock('@/db/cookbook', () => ({ revokeCampaignCookbookLink: jest.fn() }))
-jest.mock('@/lib/session', () => ({ requireUser: jest.fn() }))
+jest.mock('@/lib/session', () => ({ requireCheckedUser: jest.fn() }))
 
 const formData = (values: Record<string, string>) => {
   const data = new FormData()
@@ -45,7 +45,7 @@ const values = {
 
 describe('app/campaigns/actions', () => {
   beforeEach(() => {
-    jest.mocked(requireUser).mockResolvedValue({ id: 'gm-1' } as any)
+    jest.mocked(requireCheckedUser).mockResolvedValue({ id: 'gm-1' } as any)
   })
 
   describe('setUpCampaignAction', () => {
@@ -60,7 +60,7 @@ describe('app/campaigns/actions', () => {
           secret: 'hunter2-hunter2',
         },
       })
-      expect(requireUser).toHaveBeenCalledWith('/campaigns')
+      expect(requireCheckedUser).toHaveBeenCalledWith('/campaigns')
       expect(setUpCampaign).toHaveBeenCalledWith('gm-1', {
         title: 'The Lonely Mountain',
         gameUrl: 'https://my-game.forge-vtt.com',
@@ -146,7 +146,7 @@ describe('app/campaigns/actions', () => {
   ])('%s for the Gamemaster', async (_, action, change) => {
     await action('c1')
 
-    expect(requireUser).toHaveBeenCalledWith('/campaigns')
+    expect(requireCheckedUser).toHaveBeenCalledWith('/campaigns')
     expect(change).toHaveBeenCalledWith('gm-1', 'c1')
     expect(refresh).toHaveBeenCalled()
   })
@@ -161,7 +161,7 @@ describe('app/campaigns/actions', () => {
   it("revokes a player's Magical Recipe Book link to the Gamemaster's campaign, from module 0.38.0", async () => {
     await revokeCookbookLinkAction('c1', 'char-1')
 
-    expect(requireUser).toHaveBeenCalledWith('/campaigns')
+    expect(requireCheckedUser).toHaveBeenCalledWith('/campaigns')
     expect(revokeCampaignCookbookLink).toHaveBeenCalledWith(
       'gm-1',
       'c1',

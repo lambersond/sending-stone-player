@@ -3,7 +3,7 @@
  */
 import { OPTIONS, POST } from './route'
 import { findEventCampaign } from '@/db/campaigns'
-import { claimDishes } from '@/db/cookbook'
+import { anyDishDue, claimDishes } from '@/db/cookbook'
 import { claimNoteWrites } from '@/db/note-sync'
 import {
   claimRollRequests,
@@ -21,7 +21,10 @@ import type { RollCommand } from '@/utils/requests/types'
 guardNoDb()
 
 jest.mock('@/db/campaigns', () => ({ findEventCampaign: jest.fn() }))
-jest.mock('@/db/cookbook', () => ({ claimDishes: jest.fn() }))
+jest.mock('@/db/cookbook', () => ({
+  anyDishDue: jest.fn(),
+  claimDishes: jest.fn(),
+}))
 jest.mock('@/db/note-sync', () => ({ claimNoteWrites: jest.fn() }))
 jest.mock('@/db/roll-requests', () => ({
   claimRollRequests: jest.fn(),
@@ -122,6 +125,10 @@ const given = (
     playersPresent,
   })
 
+/** Rolls and dishes taken, from module 0.50.0's quiet looks; nobody in the app unless said. */
+const dishesOn = (present = false) =>
+  given(true, present, false, false, false, false, true)
+
 describe('app/api/bridge/commands', () => {
   beforeEach(() => {
     jest
@@ -132,6 +139,7 @@ describe('app/api/bridge/commands', () => {
     jest.mocked(claimRollRequests).mockResolvedValue([])
     jest.mocked(claimNoteWrites).mockResolvedValue([])
     jest.mocked(claimDishes).mockResolvedValue([])
+    jest.mocked(anyDishDue).mockResolvedValue(false)
     // Thorin's player has his sheet open.
     jest.mocked(openActorIds).mockResolvedValue(['thorin'])
   })
@@ -880,6 +888,126 @@ describe('app/api/bridge/commands', () => {
     await expectRefusal(response, 500, UNAVAILABLE)
     expect(consoleError).toHaveBeenCalled()
     consoleError.mockRestore()
+  })
+
+  describe('quiet fetches while nobody is in the app, from module 0.50.0', () => {
+    const look = { ...poll, quiet: true }
+    const full = { ...poll, quiet: false }
+    const dish: DishCommand = {
+      id: 'dish-row-1',
+      actorId: 'actor-thorin',
+      kind: 'dish',
+      dish: { queuedAt: 1_761_319_200_000, body: fireberryBoon },
+      mode: 0,
+      explicit: false,
+      extras: [],
+      dice: [],
+    }
+    const QUIET = { commands: [], wait: 10_000, quiet: 20_000, open: [] }
+
+    it('answers a look at once, after the campaign’s lookup alone, while dishes are off', async () => {
+      const response = await post(look)
+
+      await expect(response.json()).resolves.toEqual(QUIET)
+      expect(findEventCampaign).toHaveBeenCalledTimes(1)
+      expect(markBridgePolled).toHaveBeenCalledTimes(1)
+      for (const read of [
+        anyDishDue,
+        openActorIds,
+        findClaimCampaign,
+        claimRollRequests,
+        claimNoteWrites,
+        claimDishes,
+      ]) {
+        expect(read).not.toHaveBeenCalled()
+      }
+    })
+
+    it('reads whether a dish waits, where the game takes dishes, and nothing else, while none does', async () => {
+      dishesOn()
+
+      const response = await post(look)
+
+      await expect(response.json()).resolves.toEqual(QUIET)
+      expect(anyDishDue).toHaveBeenCalledTimes(1)
+      expect(anyDishDue).toHaveBeenCalledWith('c1')
+      expect(openActorIds).not.toHaveBeenCalled()
+      expect(findClaimCampaign).not.toHaveBeenCalled()
+    })
+
+    it('answers a look as a full fetch where a dish waits, handing it over with no quiet', async () => {
+      dishesOn()
+      jest.mocked(anyDishDue).mockResolvedValue(true)
+      jest.mocked(claimDishes).mockResolvedValue([dish])
+
+      const response = await post(look)
+
+      await expect(response.json()).resolves.toEqual({
+        commands: [dish],
+        wait: 10_000,
+        open: ['thorin'],
+      })
+      expect(claimDishes).toHaveBeenCalledWith('c1', 's1', read)
+    })
+
+    it('asks for a retry, handing over nothing, when it cannot read whether a dish waits', async () => {
+      const consoleError = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      dishesOn()
+      jest.mocked(anyDishDue).mockRejectedValue(new Error('db down'))
+
+      await expectRefusal(await post(look), 500, UNAVAILABLE)
+      expect(claimRollRequests).not.toHaveBeenCalled()
+      consoleError.mockRestore()
+    })
+
+    it('holds a look as today while someone is in the app, with no quiet', async () => {
+      dishesOn(true)
+      jest.mocked(claimRollRequests).mockResolvedValue([command])
+
+      const response = await post(look)
+
+      await expect(response.json()).resolves.toEqual({
+        commands: [command],
+        open: ['thorin'],
+      })
+      expect(anyDishDue).not.toHaveBeenCalled()
+    })
+
+    it('says quiet to a full fetch that hands over nothing while nobody is in the app', async () => {
+      const response = await post(full)
+
+      await expect(response.json()).resolves.toEqual({
+        ...QUIET,
+        open: ['thorin'],
+      })
+      expect(claimRollRequests).toHaveBeenCalledWith('c1', 's1', read)
+    })
+
+    it('never says quiet to a fetch that hands anything over', async () => {
+      jest.mocked(claimRollRequests).mockResolvedValue([command])
+
+      const response = await post(full)
+
+      await expect(response.json()).resolves.toEqual({
+        commands: [command],
+        wait: 10_000,
+        open: ['thorin'],
+      })
+    })
+
+    it('answers a look with the minute’s wait and no quiet while the game takes nothing', async () => {
+      given(false, false)
+
+      const response = await post(look)
+
+      await expect(response.json()).resolves.toEqual({
+        commands: [],
+        wait: 60_000,
+        open: ['thorin'],
+      })
+    })
   })
 
   it('asks for a retry when rolls cannot be handed over to a held fetch', async () => {

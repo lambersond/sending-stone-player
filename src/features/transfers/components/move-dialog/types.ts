@@ -27,4 +27,22 @@ export type MoveDialogProps = {
     currency?: Record<string, number>
     words: LocalMove
   }) => void
+  /**
+   * From module 0.49.0, a character's coins given from its Currency row: they may go to any of the
+   * campaign's characters ticked, so many to each, as the game hands coins out, paid with the
+   * character's other coins where `change` says the game does; `onGive` sends that.
+   */
+  handOut?: {
+    change: boolean
+    /** The character whose coins they are, as the Gamemaster's words and the tray name it. */
+    name: string
+    onGive: (give: EachGive) => void
+  }
+}
+
+/** Coins given to characters, as it's sent: to whom, so many to each, and the tray's words. */
+export type EachGive = {
+  each: string[]
+  currency: Record<string, number>
+  words: LocalMove
 }

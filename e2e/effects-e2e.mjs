@@ -264,8 +264,9 @@ part('1. the hello and the answer')
   // Changed on purpose (round 0.40.0 §10.4): Wild Shape follows effects.
   // Changed on purpose (v0.44): and hit points set from the app follow Wild Shape (module 0.44.0).
   // Changed on purpose (items 67 and 68): and coins added and taken away follow hit points (module 0.49.0).
+  // Changed on purpose (item 58): and other creatures' health follows coins (module 0.50.0).
   check(same(features.effects, { enabled: true, kinds: ['effect'], reason: null })
-    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins']),
+    && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins', 'health']),
   `the hello takes effects, by the campaign's switch, after dishes, before Wild Shape (${JSON.stringify({ effects: features.effects, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.effects === 1, `the app answers effects: 1 (${hello().body})`)
   await until(() => effectsEnabled() === 't', 'the app to keep effects on', 15_000)

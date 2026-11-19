@@ -20,7 +20,7 @@ export const GO_TO = { label: 'Go to a section', caption: 'Go to' } as const
 
 /** At the Gamemaster's seat only, above the box (H3 B). */
 export const GM_NOTE =
-  'At your player’s sheet. This is the help your player sees. Here, you roll as {name}, and your rolls are marked GM; the box below says where they go. You can send and remove their items, and add, take away and hand out their coins too. Ending their turn, favorites, Prepare, effects, Wild Shape, hit points and typing in dice are your player’s alone, from their own page.'
+  'At your player’s sheet. This is the help your player sees. Here, you roll as {name}, and your rolls are marked GM; the box below says where they go. You can send and remove their items, and add, remove and give their coins too. Ending their turn, favorites, Prepare, effects, Wild Shape, hit points and typing in dice are your player’s alone, from their own page.'
 
 /**
  * The eight sections (H4 B), each part a bold lead and what follows it, which carries its own
@@ -170,6 +170,9 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         text: 'The Combat tab shows the initiative order and whose turn it is; on a wide screen it’s beside the sheet. Roll Initiative from the Character tab when the encounter starts. Where your Gamemaster’s game takes your rolls, the Combat tab has End turn on your turn, and Undo shows in a toast for 8 seconds after. Or press and hold the Combat tab for a second, from any tab: a toast says your turn is ending, and if you let go early, nothing happens. On a companion’s turn, the same ends its turn. A companion rolls its own initiative from its tab, unless your Gamemaster puts companions right after their character, when it isn’t rolled at all.',
       },
+      {
+        text: 'Where your Gamemaster allows it, each creature that isn’t one of the party shows how hurt it is: Unhurt, Hurt, Bloodied (at about half its hit points or less, by the game’s own rule) or Down (at 0). If they allow it, its hit points show instead, as the party’s do.',
+      },
     ],
   },
   {
@@ -239,15 +242,15 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Players move items and coins',
-        text: ': Send to…, Take and Give (0.31.0), and Hand out (0.49.0).',
+        text: ': Send to…, Take and Give (0.31.0), and Give to several characters at once (0.49.0).',
       },
       {
         lead: 'Allow Players to add and take away coins from the app',
-        text: ': Add or take away, on the Inventory tab’s Currency row; on unless they turn it off (0.49.0).',
+        text: ': Add or remove, on the Inventory tab’s Currency row; on unless they turn it off (0.49.0).',
       },
       {
         lead: 'Pay with other coins when a character is short of one',
-        text: ': taking away or handing out more of a coin than you hold breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).',
+        text: ': removing more of a coin than you hold, or giving characters more of it, breaks a larger coin, then uses smaller ones; on unless they turn it off (0.49.0).',
       },
       {
         lead: 'Allow Players to disable & remove their own active effects',
@@ -268,6 +271,14 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         lead: 'Companions’ initiative',
         text: ': whether your companions roll their own, or go right after you.',
+      },
+      {
+        lead: 'Allow Players to see other creatures’ health in the app',
+        text: ': Unhurt, Hurt, Bloodied or Down beside each creature on the Combat tab that isn’t the party’s (0.50.0).',
+      },
+      {
+        lead: 'Show their hit points too',
+        text: ': their hit points there instead (0.50.0).',
       },
       {
         lead: 'No switch, but a recent module',
@@ -340,11 +351,19 @@ export const PLAYER_ROWS = {
     off: 'Not from here',
   },
   moves: { label: 'Moving items and coins', ...FROM_HERE },
-  coins: { label: 'Adding and taking away coins', ...FROM_HERE },
+  coins: { label: 'Adding and removing coins', ...FROM_HERE },
   removes: { label: 'Removing items', ...FROM_HERE },
   favorites: { label: 'Favorites', ...FROM_HERE },
   effects: { label: 'Your own effects', ...FROM_HERE },
   wildShape: { label: 'Wild Shape', ...FROM_HERE },
+  // From module 0.50.0, at either seat: how hurt the creatures not of the party are, or their hit
+  // points, as the Gamemaster shows them.
+  health: {
+    label: 'Other creatures’ health',
+    on: 'How hurt they are',
+    hitPoints: 'Their hit points',
+    off: 'Not shown',
+  },
 } as const
 
 /**

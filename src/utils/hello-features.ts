@@ -74,6 +74,9 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
   // Whether its players may add coins to their characters and take them away from here, from
   // module 0.49.0, by its own switch under dnd5e.
   const coinsOn = kindOn(features?.coins, 'coins')
+  // Whether the campaign's players see how hurt other creatures are, from module 0.50.0, by its
+  // own switch under dnd5e. It isn't a command, so it has no kinds.
+  const healthOn = features?.health?.enabled === true
   return {
     // Whether its players may roll in the game from here. A module before 0.10.0 can't make their
     // rolls, and says nothing of them.
@@ -141,6 +144,12 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
     // What else it does with them: 'change' where a character short of a coin pays with its other
     // coins; nothing while they're off.
     coinFeatures: coinsOn && features?.coins?.change === true ? ['change'] : [],
+    // Whether the campaign's players see how hurt other creatures are, from module 0.50.0, by its
+    // own switch under dnd5e, and whether their hit points too: a module before it says nothing,
+    // which clears both.
+    healthEnabled: healthOn,
+    healthFeatures:
+      healthOn && features?.health?.hitPoints === true ? ['hitPoints'] : [],
     // Whether the module keeps journal notes for the app, from module 0.34.0, with no switch: a
     // module before it says nothing of them, which clears it.
     notesEnabled: kindOn(features?.notes, 'personal'),

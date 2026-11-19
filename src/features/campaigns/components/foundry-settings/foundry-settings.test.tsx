@@ -281,7 +281,15 @@ describe('components/campaigns/foundry-settings', () => {
     expect(hitPoints.parentElement?.previousElementSibling).toBe(
       wildShape.parentElement,
     )
-    expect(details?.previousElementSibling).toBe(hitPoints.parentElement)
+    // Changed on purpose (item 58): from module 0.50.0 other creatures' health comes between the
+    // players' hit points and the Foundry settings.
+    const health = screen.getByRole('heading', {
+      name: "Other creatures' health",
+    })
+    expect(health.parentElement?.previousElementSibling).toBe(
+      hitPoints.parentElement,
+    )
+    expect(details?.previousElementSibling).toBe(health.parentElement)
     expect(details?.nextElementSibling).toBeNull()
     const column = details?.parentElement as HTMLElement
     expect(column.firstElementChild).toHaveTextContent(/^Invite link/)

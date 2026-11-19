@@ -86,6 +86,9 @@ const listed = async (fields: object) => {
       transferFeatures: [],
       coinsEnabled: false,
       coinFeatures: [],
+      // Changed on purpose (item 58): from module 0.50.0.
+      healthEnabled: false,
+      healthFeatures: [],
       players: [],
       ...fields,
     },
@@ -166,6 +169,9 @@ describe('db/campaigns', () => {
           transferFeatures: ['partySends', 'distribute', 'handOut', 'change'],
           coinsEnabled: true,
           coinFeatures: ['change'],
+          // Changed on purpose (item 58): from module 0.50.0.
+          healthEnabled: true,
+          healthFeatures: ['hitPoints'],
           players: [
             { id: 'char-1', actorId: 'actor-thorin', user: { name: 'Alice' } },
             { id: 'char-2', actorId: null, user: { name: 'Bob' } },
@@ -193,6 +199,8 @@ describe('db/campaigns', () => {
           transferFeatures: [],
           coinsEnabled: false,
           coinFeatures: [],
+          healthEnabled: false,
+          healthFeatures: [],
           players: [],
         },
       ] as any)
@@ -229,6 +237,9 @@ describe('db/campaigns', () => {
           // Changed on purpose (item 67): its players may add and take away coins, another coin
           // paying where a character is short of one.
           coins: { enabled: true, change: true },
+          // Changed on purpose (item 58): its players see how hurt other creatures are, and their
+          // hit points.
+          health: { enabled: true, hitPoints: true },
           // Changed on purpose (v0.44 item 8): its players' chat, never cleared.
           chat: { messages: 42 },
           characters: [
@@ -277,6 +288,7 @@ describe('db/campaigns', () => {
           wildShape: { enabled: false },
           hitPoints: { enabled: false },
           coins: { enabled: false, change: false },
+          health: { enabled: false, hitPoints: false },
           chat: { messages: 0 },
           characters: [],
           groups: [],
@@ -412,6 +424,17 @@ describe('db/campaigns', () => {
         coinsEnabled: true,
         coinFeatures: true,
         transferFeatures: true,
+      })
+    })
+
+    it('says whether the campaign lets its players see how hurt other creatures are, from module 0.50.0, with whether their hit points too, as its hello said', async () => {
+      await expect(listed({ healthEnabled: true })).resolves.toMatchObject({
+        health: { enabled: true, hitPoints: false },
+      })
+      const { select } = prismaMock.campaign.findMany.mock.calls[0][0] as any
+      expect(select).toMatchObject({
+        healthEnabled: true,
+        healthFeatures: true,
       })
     })
 

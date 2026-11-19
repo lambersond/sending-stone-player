@@ -86,6 +86,11 @@ const FEATURES = {
   // Changed on purpose (item 67): from module 0.49.0, coins added to a character and taken away,
   // fetched for with everything else off.
   coins: 1,
+  // Changed on purpose (item 58): from module 0.50.0, how hurt other creatures are, and their hit
+  // points where their Gamemaster shows them.
+  health: 1,
+  // Changed on purpose (item 61): from module 0.50.0, quiet fetches while nobody is in the app.
+  quiet: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -832,7 +837,9 @@ describe('app/api/events', () => {
         // Wild Shape follows those; (round 0.41.0 §8.3) damage on its own's choices follow it;
         // (v0.44) hit points follow those; (item 11) dice asks follow them; and (item 67) coins
         // follow those.
-        expect(Object.keys(features).slice(-8)).toEqual([
+        // Changed on purpose (item 58): health follows coins, last.
+        // Changed on purpose (item 61): quiet fetches follow health, last.
+        expect(Object.keys(features).slice(-10, -2)).toEqual([
           'favorites',
           'dishes',
           'effects',
@@ -857,7 +864,9 @@ describe('app/api/events', () => {
 
       const { features } = await response.json()
       // Changed on purpose (item 11): dice asks follow hit points; (item 67) and coins, last.
-      expect(Object.keys(features).slice(0, -5)).toEqual([
+      // Changed on purpose (item 58): health follows coins, last.
+      // Changed on purpose (item 61): quiet fetches follow health, last.
+      expect(Object.keys(features).slice(0, -7)).toEqual([
         'commands',
         'slimSheets',
         'maxBytes',
@@ -886,7 +895,9 @@ describe('app/api/events', () => {
         )
         const { features } = await response.json()
         // Changed on purpose (item 11): dice asks follow hit points; (item 67) and coins, last.
-        expect(Object.keys(features).slice(-6, -4)).toEqual([
+        // Changed on purpose (item 58): health follows coins, last.
+        // Changed on purpose (item 61): quiet fetches follow health, last.
+        expect(Object.keys(features).slice(-8, -6)).toEqual([
           'effects',
           'wildShape',
         ])
@@ -906,7 +917,9 @@ describe('app/api/events', () => {
         )
         const { features } = await response.json()
         // Changed on purpose (item 11): dice asks follow hit points; (item 67) and coins, last.
-        expect(Object.keys(features).slice(-5, -3)).toEqual([
+        // Changed on purpose (item 58): health follows coins, last.
+        // Changed on purpose (item 61): quiet fetches follow health, last.
+        expect(Object.keys(features).slice(-7, -5)).toEqual([
           'wildShape',
           'aloneChoices',
         ])
@@ -929,7 +942,9 @@ describe('app/api/events', () => {
         )
         const { features } = await response.json()
         // Changed on purpose (item 67): coins follow the dice asks, last.
-        expect(Object.keys(features).slice(-4, -2)).toEqual([
+        // Changed on purpose (item 58): health follows coins, last.
+        // Changed on purpose (item 61): quiet fetches follow health, last.
+        expect(Object.keys(features).slice(-6, -4)).toEqual([
           'aloneChoices',
           'hitPoints',
         ])
@@ -947,7 +962,9 @@ describe('app/api/events', () => {
           envelope(type, { characters: [], combats: [] }),
         )
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-3, -1)).toEqual([
+        // Changed on purpose (item 58): health follows coins, last.
+        // Changed on purpose (item 61): quiet fetches follow health, last.
+        expect(Object.keys(features).slice(-5, -3)).toEqual([
           'hitPoints',
           'diceAsks',
         ])
@@ -956,7 +973,9 @@ describe('app/api/events', () => {
       }
     })
 
-    it('says it takes coins added and taken away, from module 0.49.0, after the dice asks, last, as a whole number', async () => {
+    // Changed on purpose (item 58): health follows them, last.
+    // Changed on purpose (item 61): quiet fetches follow health, last.
+    it('says it takes coins added and taken away, from module 0.49.0, after the dice asks, as a whole number', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       for (const type of ['bridge.hello', 'bridge.heartbeat']) {
@@ -964,10 +983,44 @@ describe('app/api/events', () => {
           envelope(type, { characters: [], combats: [] }),
         )
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-2)).toEqual(['diceAsks', 'coins'])
+        expect(Object.keys(features).slice(-4, -2)).toEqual([
+          'diceAsks',
+          'coins',
+        ])
         // The module fetches for coins only from a listener whose answer says `"coins": 1`, a
         // whole number of 1 or more: never `true`, nor "1".
         expect(features.coins).toBe(1)
+      }
+    })
+
+    // Changed on purpose (item 61): quiet fetches follow it, last.
+    it('says it reads other creatures’ health, from module 0.50.0, after coins, as a whole number', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      for (const type of ['bridge.hello', 'bridge.heartbeat']) {
+        const response = await post(
+          envelope(type, { characters: [], combats: [] }),
+        )
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-3, -1)).toEqual(['coins', 'health'])
+        // The module describes another creature's health only to a listener whose answer says
+        // `"health": 1`, a whole number of 1 or more.
+        expect(features.health).toBe(1)
+      }
+    })
+
+    it('says it answers fetches quietly while nobody is in it, from module 0.50.0, after other creatures’ health, last, as a whole number', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      for (const type of ['bridge.hello', 'bridge.heartbeat']) {
+        const response = await post(
+          envelope(type, { characters: [], combats: [] }),
+        )
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-2)).toEqual(['health', 'quiet'])
+        // The module sends and takes `quiet` only for a listener whose answer says `"quiet": 1`, a
+        // whole number of 1 or more.
+        expect(features.quiet).toBe(1)
       }
     })
 

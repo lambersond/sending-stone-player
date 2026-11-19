@@ -21,7 +21,7 @@ import type {
   GroupEntry,
   SheetWithheld,
 } from '@/types/sending-stone'
-import type { GmRolls, Viewer } from '@/types/table'
+import type { GmRolls, HealthShown, Viewer } from '@/types/table'
 
 // What a seat at a character's table is shown, and may do, of its campaign (src/db/table.ts, and
 // a companion's pane, src/db/companions.ts).
@@ -71,14 +71,28 @@ export function withheld(
 }
 
 /**
+ * What a campaign's seats are shown of creatures not of the party, from module 0.50.0, as its hello
+ * said last: nothing while its switch is off, else how hurt each is, or their hit points too.
+ */
+export function othersHealth(campaign: {
+  healthEnabled: boolean
+  healthFeatures: string[]
+}): HealthShown | undefined {
+  if (!campaign.healthEnabled) return
+  return campaign.healthFeatures.includes('hitPoints') ? 'hitPoints' : 'health'
+}
+
+/**
  * Who sees a table, as its messages and combat are worded for them: the seat's actor, the
- * campaign's characters, their portraits, and its characters' companions.
+ * campaign's characters, their portraits, and its characters' companions; and from module 0.50.0
+ * what it's shown of creatures not of the party.
  */
 export function viewerOf(
   seat: SheetSeat,
   roster: ConnectedCharacter[],
   companions: CompanionEntry[],
   origin: string,
+  health?: HealthShown,
 ): Viewer {
   return {
     actorId: seat.actorId ?? undefined,
@@ -90,6 +104,7 @@ export function viewerOf(
       }),
     ),
     companions: companionsByKey(companions, origin),
+    ...(health && { health }),
   }
 }
 

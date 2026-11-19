@@ -68,6 +68,11 @@ export type OwnedCampaign = {
    */
   coins?: { enabled: boolean; change: boolean }
   /**
+   * Whether the campaign lets its players see how hurt other creatures in a fight are, from module
+   * 0.50.0, and whether their hit points too, as its last hello said. None reads as off.
+   */
+  health?: { enabled: boolean; hitPoints: boolean }
+  /**
    * Its players' chat here (v0.44): how many messages it holds, and when it was last cleared, by
    * its Gamemaster here or by Foundry's Clear Chat Log, as an ISO date; unset if it never was.
    */

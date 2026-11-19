@@ -417,6 +417,26 @@ export default [
       ),
     },
   },
+  // Server Actions change who plays what and a campaign's keys: each reads the session from the
+  // database (requireCheckedUser), never from its cookie (ROADMAP item 62).
+  {
+    files: ['src/app/**/actions.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/session',
+              importNames: ['getCurrentUser', 'requireUser'],
+              message:
+                'A Server Action reads the session from the database: requireCheckedUser.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // The note scanner's test checks it against showdown with the server's own options for Foundry.
   {
     files: ['src/utils/note-headings.test.ts'],

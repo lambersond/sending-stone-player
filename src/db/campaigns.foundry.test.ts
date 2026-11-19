@@ -50,6 +50,8 @@ const listed = async (fields: object) => {
       // Changed on purpose (items 67 and 68): what else its module does with moves and coins.
       transferFeatures: [],
       coinFeatures: [],
+      // Changed on purpose (item 58): whether its players see other creatures' hit points too.
+      healthFeatures: [],
       refusedAt: null,
       refusalReason: null,
       refusalStatus: null,

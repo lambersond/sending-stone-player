@@ -64,6 +64,21 @@ const give = (props: Partial<MoveDialogProps> = {}) => ({
   ...props,
 })
 
+/** The coins' legend, as a give of coins to characters shows it. */
+const legend = () =>
+  screen
+    .getAllByRole('group')
+    .find(group =>
+      /^(Coins|Each gets)$/.test(
+        group.querySelector('legend')?.textContent ?? '',
+      ),
+    )
+    ?.querySelector('legend')?.textContent
+
+/** What the dialog says it'll do, read aloud as it changes. */
+const said = () =>
+  screen.getByRole('dialog').querySelector('p[aria-live="polite"]')
+const told = (text: string) => screen.queryByText(text, { selector: 'p' })
 const submit = (name: string | RegExp) => screen.getByRole('button', { name })
 const summary = () =>
   screen.getByText(/^(You|Thorin|Vex) |^Choose /, { selector: 'p' })
@@ -580,5 +595,147 @@ describe('components/transfers/move-dialog, a party’s send and a give into it,
       currency: { gp: 15 },
       words: { verb: 'give', things: '15 gp', other: 'The Iron Company' },
     })
+  })
+})
+
+// Changed on purpose (item 89): Send to and Hand out are one Give. Its rules are utils.test.ts's;
+// these check that the dialog shows and sends them.
+describe('components/transfers/move-dialog, a character’s Give of coins, from module 0.49.0', () => {
+  const bram = { id: 'actorBram001', name: 'Bram' }
+  const renderGive = (role: 'player' | 'gm' = 'player') => {
+    const onGive = jest.fn()
+    const rendered = renderDialog(
+      give({
+        mover: role === 'gm' ? 'Thorin' : 'You',
+        what: { coins },
+        recipients: { parties: [party], characters: [vex, bram] },
+        handOut: { change: true, name: 'Thorin', onGive },
+      }),
+      role,
+    )
+    return { ...rendered, onGive, user: userEvent.setup() }
+  }
+  it('opens on the primary party, given coins held, as any give: Foundry’s chat says so', async () => {
+    const { user, onMove, onGive } = renderGive()
+    expect(
+      within(screen.getByRole('group', { name: 'Parties' })).getByRole(
+        'radio',
+        {
+          name: 'The Iron Company Primary',
+        },
+      ),
+    ).toBeChecked()
+    expect(
+      within(screen.getByRole('group', { name: 'Characters' }))
+        .getAllByRole('checkbox')
+        .map(box => box.closest('label')?.textContent),
+    ).toEqual(['Select all', 'Vex', 'Bram'])
+    expect(screen.getByText(/of 120 gp/)).toBeVisible()
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '30')
+    expect(said()).toHaveTextContent('You give 30 gp to The Iron Company.')
+    expect(told('Foundry’s chat will say so.')).toBeVisible()
+    await user.click(submit('Give coins'))
+    expect(onMove).toHaveBeenCalledWith({
+      to: 'groupIronCo01',
+      currency: { gp: 30 },
+      words: { verb: 'give', things: '30 gp', other: 'The Iron Company' },
+    })
+    expect(onGive).not.toHaveBeenCalled()
+  })
+
+  it('gives one character ticked coins as the game hands them out, whispered', async () => {
+    const { user, onMove, onGive, onClose } = renderGive()
+    await user.click(screen.getByRole('checkbox', { name: 'Vex' }))
+    expect(
+      screen.getByRole('radio', { name: 'The Iron Company Primary' }),
+    ).not.toBeChecked()
+    expect(legend()).toBe('Coins')
+    expect(screen.getByText('120 gp held')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'All Gold' })).toBeNull()
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '5')
+    expect(said()).toHaveTextContent('You give 5 gp to Vex.')
+    expect(
+      told(
+        'Vex is whispered what they received in Foundry’s chat, and your Gamemaster is told.',
+      ),
+    ).toBeVisible()
+    await user.click(submit('Give coins'))
+    expect(onGive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        each: ['actorVex0001'],
+        currency: { gp: 5 },
+        words: expect.objectContaining({ verb: 'give', other: 'Vex' }),
+      }),
+    )
+    expect(onMove).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('says what each of several gets and what that is in all, and back for one, keeping what’s typed', async () => {
+    const { user } = renderGive()
+    await user.click(screen.getByRole('checkbox', { name: 'Vex' }))
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '2')
+    await user.click(screen.getByRole('checkbox', { name: 'Bram' }))
+    expect(legend()).toBe('Each gets')
+    expect(said()).toHaveTextContent(
+      'You give 2 gp each to Vex and Bram: 4 gp in all.',
+    )
+    expect(
+      told(
+        'Each is whispered what they received in Foundry’s chat, and your Gamemaster is told.',
+      ),
+    ).toBeVisible()
+    await user.click(screen.getByRole('checkbox', { name: 'Bram' }))
+    expect(legend()).toBe('Coins')
+    expect(said()).toHaveTextContent('You give 2 gp to Vex.')
+    expect(screen.getByRole('textbox', { name: 'Gold' })).toHaveValue('2')
+  })
+
+  it('says the Gamemaster’s in the character’s name, and that they are told', async () => {
+    const { user, onGive } = renderGive('gm')
+    await user.click(screen.getByRole('checkbox', { name: 'Select all' }))
+    await user.type(screen.getByRole('textbox', { name: 'Gold' }), '2')
+    expect(said()).toHaveTextContent(
+      'Thorin gives 2 gp each to Vex and Bram: 4 gp in all.',
+    )
+    expect(
+      told(
+        'Each is whispered what they received in Foundry’s chat, and you are told.',
+      ),
+    ).toBeVisible()
+    await user.click(submit('Give coins'))
+    expect(onGive.mock.calls[0][0].words).toMatchObject({
+      verb: 'handOut',
+      mover: 'Thorin',
+    })
+  })
+
+  it('lists every one as a radio, with no Select all, where the module hands no coins out, and for a party’s Send coins', () => {
+    const chosenFrom = () =>
+      screen.getAllByRole('radio').map(radio => radio.getAttribute('value'))
+    // Before module 0.49.0: no `handOut`, so one party or character, as Send to was.
+    const { unmount } = renderDialog(
+      give({
+        what: { coins },
+        recipients: { parties: [party], characters: [vex, bram] },
+      }),
+    )
+    expect(chosenFrom()).toEqual([
+      'groupIronCo01',
+      'actorVex0001',
+      'actorBram001',
+    ])
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    unmount()
+
+    renderDialog({
+      mode: 'send',
+      from: party,
+      into: undefined,
+      what: { coins },
+      recipients: { parties: [], characters: [vex, bram] },
+    })
+    expect(chosenFrom()).toEqual(['actorVex0001', 'actorBram001'])
+    expect(screen.queryByRole('checkbox')).toBeNull()
   })
 })

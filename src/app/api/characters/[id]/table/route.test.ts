@@ -450,7 +450,7 @@ describe('app/api/characters/[id]/table', () => {
       .mockResolvedValue({ ...status, coins: false })
     answers.push(
       await get('?version=7&live=1'),
-      // Its module stopped fetching: the page would go on offering Add or take away.
+      // Its module stopped fetching: the page would go on offering Add or remove.
       await get('?version=7&live=1&coins=1'),
     )
 

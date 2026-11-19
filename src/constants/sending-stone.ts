@@ -364,10 +364,29 @@ export const DICE_ASKS = 1
 export const COINS = 1
 
 /**
+ * The format of other creatures' health this app reads, as it tells the module (`health`): from
+ * module 0.50.0, a combatant's `health`, its `hp` where its Gamemaster shows it, and the hello's
+ * `features.health`, which the module sends only then.
+ */
+export const HEALTH = 1
+
+/**
+ * How hurt a creature not of the party is, from module 0.50.0, as the module counts it by dnd5e's
+ * own Bloodied rule, least hurt first.
+ */
+export const HEALTH_STATES = ['unhurt', 'hurt', 'bloodied', 'down'] as const
+
+/**
  * What a player may do to their character's coins from here, from module 0.49.0's `coins` command:
  * add some, or take some away.
  */
 export const COIN_OPS = ['add', 'remove'] as const
+
+/**
+ * The format of quiet fetches this app answers, as it tells the module (`quiet`): from module
+ * 0.50.0, a fetch's `quiet` and the answer's, which the module sends and takes only then.
+ */
+export const QUIET_FETCHES = 1
 
 /** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
 export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/
@@ -609,6 +628,12 @@ export const COMMANDS_CHECK_EVERY = 1000
 export const COMMANDS_COLD_WAIT = 10_000
 /** When rolls are turned off for the campaign, how long before the module asks again. */
 export const COMMANDS_OFF_WAIT = 60_000
+/**
+ * While nobody is in the app, how long a module from 0.50.0 may wait before its next fetch, a
+ * quiet look, in place of COMMANDS_COLD_WAIT: well inside BRIDGE_POLLED_WITHIN, so its game still
+ * counts as fetching, and ROLL_PENDING_FOR, so a roll sent as someone arrives still reaches it.
+ */
+export const COMMANDS_QUIET_WAIT = 20_000
 
 /** How recently a player must have had their table open for a roll to be awaited. */
 export const PLAYERS_PRESENT_FOR = 120_000

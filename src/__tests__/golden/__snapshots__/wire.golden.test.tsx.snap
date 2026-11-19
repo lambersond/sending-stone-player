@@ -1498,7 +1498,7 @@ exports[`what useTableRolls sends each command at the gm seat: commands gm 1`] =
     "url": "/api/campaigns/c1/characters/thorin/rolls",
   },
   {
-    "body": "{"kind":"coins","coins":{"op":"remove","currency":{"gp":5}},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Take away 5 gp"}",
+    "body": "{"kind":"coins","coins":{"op":"remove","currency":{"gp":5}},"mode":0,"explicit":false,"extras":[],"dice":[],"label":"Remove 5 gp"}",
     "headers": {
       "Content-Type": "application/json",
     },

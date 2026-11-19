@@ -443,7 +443,8 @@ part('1. the hello and the answer')
   // Changed on purpose (v0.44): and hit points set from the app follow Wild Shape (module 0.44.0).
   // Changed on purpose (module 0.47.0): favorites say they're put in order, `orders: true`.
   // Changed on purpose (items 67 and 68): and coins follow hit points (module 0.49.0).
-  check(same(features.favorites, { enabled: true, kinds: ['favorite'], reason: null, orders: true }) && same(Object.keys(features).slice(-7), ['companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins'])
+  // Changed on purpose (item 58): and other creatures' health follows coins (module 0.50.0).
+  check(same(features.favorites, { enabled: true, kinds: ['favorite'], reason: null, orders: true }) && same(Object.keys(features).slice(-8), ['companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins', 'health'])
     && !(features.rolls?.kinds ?? []).includes('favorite') && !(features.companions?.kinds ?? []).includes('favorite'),
   `the hello offers favorites, after companions, before dishes, effects and Wild Shape, never among the rolls' nor a companion's kinds (${JSON.stringify({ favorites: features.favorites, keys: Object.keys(features) })})`)
   check(JSON.parse(hello().body ?? '{}').features?.favorites === 1, `the app answers favorites: 1 (${hello().body})`)

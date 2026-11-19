@@ -132,11 +132,11 @@ run results 12 DND5E6=1 SHOTS=$O/shots-030
 run results 17 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
 # Module 0.31.0: moving items and coins (party ↔ character, character → character), dnd5e 6.0.5's
 # fractional coins, and module 0.30.0 (no moves); and Hit/miss and save results in the app.
-run transfers 76 SHOTS=$O/shots-031
-run transfers 80 DND5E6=1 SHOTS=$O/shots-031
+run transfers 77 SHOTS=$O/shots-031
+run transfers 81 DND5E6=1 SHOTS=$O/shots-031
 run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
-# to; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
+# to, Give since item 89; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
 # and its coin distributed; dnd5e 6.0.5's fractions; and module 0.31.0 (none of the party's new ones).
 run givetake 67 SHOTS=$O/shots-032
 run givetake 68 DND5E6=1 SHOTS=$O/shots-032
@@ -248,12 +248,40 @@ run help 4 DND5E6=1 SHOTS=$O/shots-help
 # that doesn't come in 15 seconds; reduced motion; a light device and a dark one; an older worker
 # replaced, the retiring worker, an iPhone's Home Screen app.
 run launch 28 SHOTS=$O/shots-launch
+# Item 62, with no Foundry: who is signed in is taken from Better Auth's sealed cookie for a minute.
+# The cookie as the page's first read sets it; signed out in another tab; a session deleted from the
+# database read while its cookie lasts but refused deleting Thorin; its cookie gone, to Sign in; Vex
+# removed, not found at once; and a Server Action that writes no cookie.
+run signin 9
 # Module 0.49.0 (items 67 and 68): coins added to a character, taken away and handed out from the
-# app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's three
-# buttons, a larger coin broken and smaller ones paying, more than the coins are worth held back,
-# other coins off in Foundry, the Gamemaster's at the character's page, a hand-out's whispers to each
-# and to the Gamemasters, both switches off, both dialogs on phones, a tablet and the desk, Help and
-# the campaign card; dnd5e 6.0.5; and module 0.47.0 (no button but Send to, crafted requests refused).
-run coins 44 SHOTS=$O/shots-049
-run coins 44 DND5E6=1 SHOTS=$O/shots-049
+# app, in world-030's world with dnd5e's rates: the hello and the answer, the Currency row's Add or
+# remove and Give (item 89), a larger coin broken and smaller ones paying, more than the coins are
+# worth held back, other coins off in Foundry, the Gamemaster's at the character's page, Give's
+# whispers to each of two and to one, and to the Gamemasters, both switches off, both dialogs on
+# phones, a tablet and the desk, the buttons below the coins and the coins below the label from 320
+# to 1280, 560 among them, where the card is widest; Help and the campaign card; dnd5e 6.0.5; and
+# module 0.47.0 (no button but Give, crafted requests refused).
+run coins 55 SHOTS=$O/shots-049
+run coins 55 DND5E6=1 SHOTS=$O/shots-049
 run coins 6 SKEW=047 MODULE=$O/module-0.47.0 SHOTS=$O/shots-049
+# Module 0.50.0 (item 58): other creatures' health on the Combat tab, in world-030's world with
+# tokens: the hello and the answer, both switches off, and nothing of it in what the pages receive;
+# Unhurt for the Hostile, Neutral and Friendly creatures and nothing for a Secret one, a hidden token
+# or a hidden combatant; a creature's fall within seconds with no turn, then Defeated; one post for a
+# new band, none in the same one; their hit points with the second switch; a token hidden mid-fight,
+# its health and hit points gone from what the page receives; Gamemaster-only details, and never
+# more in what the pages' own requests receive; the turn panel; the Gamemaster's seat; the party's
+# own hit points between turns; Help and the campaign card; the switch off mid-fight, with
+# Gamemaster-only details on, and nothing of it in what the page receives; dnd5e 6.0.5's own
+# Bloodied percent; and module 0.49.0 (nothing).
+run health 32 SHOTS=$O/shots-050
+run health 32 DND5E6=1 SHOTS=$O/shots-050
+run health 6 SKEW=049 MODULE=$O/module-0.49.0 SHOTS=$O/shots-050
+# Item 61 (module 0.50.0): quieter fetching while Foundry is open and nobody is in the app, in
+# world-030's world: full fetches every 10 seconds for two minutes after the hello, then quiet looks
+# every 20, the game counted as fetching throughout; someone arriving and rolling at once; a dish
+# from the Magical Recipe Book found by a look; notes written while Foundry was closed handed over
+# as it reconnects, nobody in the app; and module 0.49.0, which fetches as before. About 6 and 3
+# minutes, on its own timings: run alone after the lanes (lanes.conf's solo).
+run quiet 26 TIMEOUT=600
+run quiet 12 TIMEOUT=600 SKEW=049 MODULE=$O/module-0.49.0

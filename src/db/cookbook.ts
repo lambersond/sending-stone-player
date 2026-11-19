@@ -209,6 +209,39 @@ export async function revokeCampaignCookbookLink(
 const pruned = new Map<string, number>()
 
 /**
+ * A campaign's dishes due to be handed over: waiting, or handed over and their answer overdue.
+ * @param now - The time it's read at, in milliseconds.
+ */
+function dishesDue(
+  campaignId: string,
+  now: number,
+): Prisma.CookbookDishWhereInput {
+  return {
+    campaignId,
+    OR: [
+      { status: 'queued' },
+      {
+        status: 'claimed',
+        claimedAt: { lt: new Date(now - ROLL_ANSWER_WITHIN) },
+      },
+    ],
+  }
+}
+
+/**
+ * Whether a dish waits to be handed over, queued or overdue, by one read on the campaign's
+ * dishes' index. From module 0.50.0, read by a quiet look: a dish from the Magical Recipe Book is
+ * the one command no page of the app sends, so nobody in the app doesn't mean none waits.
+ */
+export async function anyDishDue(campaignId: string): Promise<boolean> {
+  const found = await prisma.cookbookDish.findFirst({
+    where: dishesDue(campaignId, Date.now()),
+    select: { id: true },
+  })
+  return found !== null
+}
+
+/**
  * Hand a campaign's dishes to the module, at most a few at a time, oldest first: those waiting,
  * and those handed over whose answer is overdue, of a version its hello reads. Only to the
  * session whose hello is held, as notes are, and only while the campaign takes dishes, both as
@@ -241,13 +274,7 @@ export async function claimDishes(
   const due: Prisma.CookbookDishWhereInput = {
     campaignId,
     version: { in: campaign.dishVersions },
-    OR: [
-      { status: 'queued' },
-      {
-        status: 'claimed',
-        claimedAt: { lt: new Date(now - ROLL_ANSWER_WITHIN) },
-      },
-    ],
+    ...dishesDue(campaignId, now),
   }
   const found = await prisma.cookbookDish.findMany({
     where: due,

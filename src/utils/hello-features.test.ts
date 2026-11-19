@@ -53,6 +53,9 @@ describe('utils/hello-features', () => {
         hitPointsEnabled: false,
         coinsEnabled: false,
         coinFeatures: [],
+        // Changed on purpose (item 58): and other creatures' health, from module 0.50.0.
+        healthEnabled: false,
+        healthFeatures: [],
         notesEnabled: false,
         noteFeatures: [],
         tidyActive: null,
@@ -144,6 +147,21 @@ describe('utils/hello-features', () => {
     expect(helloCampaignData({ coins })).toMatchObject({
       coinsEnabled: on,
       coinFeatures: features,
+    })
+  })
+
+  // Module 0.50.0: other creatures' health, by a switch of its own, and whether their hit points
+  // show too, never while it's off.
+  it.each([
+    [undefined, false, []],
+    [{ enabled: false, reason: 'off', hitPoints: false }, false, []],
+    [{ enabled: true, reason: null, hitPoints: false }, true, []],
+    [{ enabled: true, reason: null, hitPoints: true }, true, ['hitPoints']],
+    [{ enabled: false, reason: 'system', hitPoints: true }, false, []],
+  ])('keeps health from features.health %j: %s, %j', (health, on, kept) => {
+    expect(helloCampaignData({ health })).toMatchObject({
+      healthEnabled: on,
+      healthFeatures: kept,
     })
   })
 

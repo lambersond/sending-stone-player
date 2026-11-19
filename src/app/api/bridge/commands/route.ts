@@ -1,13 +1,15 @@
+import { isQuietLook, quietWaitFor } from './utils'
 import { BRIDGE_SWITCHES } from '@/constants/features'
 import {
   COMMANDS_CHECK_EVERY,
   COMMANDS_COLD_WAIT,
   COMMANDS_HOLD,
   COMMANDS_OFF_WAIT,
+  COMMANDS_QUIET_WAIT,
   REFUSAL,
 } from '@/constants/sending-stone'
 import { findEventCampaign } from '@/db/campaigns'
-import { claimDishes } from '@/db/cookbook'
+import { anyDishDue, claimDishes } from '@/db/cookbook'
 import { claimNoteWrites } from '@/db/note-sync'
 import {
   claimRollRequests,
@@ -39,6 +41,11 @@ import type { RollCommand } from '@/utils/requests/types'
 // players' answers to what Midi-QOL asks of them, and for no one else's. A held fetch is answered
 // early, with no rolls, once that changes, so the module stops waiting for a page closed soon
 // after.
+//
+// From module 0.50.0, while nobody is in the app, a fetch that hands over nothing says so
+// (`quiet`, how long the module may wait instead), and the module's next is a quiet look, answered
+// after the campaign's lookup alone, unless a dish from the Magical Recipe Book waits, which no
+// page sends.
 //
 // A fetch is refused as an event is, its status kept and why said in JSON.
 
@@ -96,7 +103,7 @@ export async function POST(request: Request) {
       headers,
     )
   }
-  const { campaign, session } = parsed.data
+  const { campaign, session, quiet } = parsed.data
 
   const found = await attempt(
     () => findEventCampaign(origin, campaign, secret),
@@ -125,7 +132,7 @@ export async function POST(request: Request) {
       headers,
     )
   }
-  return commandsFor(request, headers, found.id, session)
+  return commandsFor(request, headers, found.id, session, quiet)
 }
 
 const unavailable = (request: Request, headers: Headers) =>
@@ -153,32 +160,55 @@ const tooLarge = (request: Request, headers: Headers) =>
 
 /**
  * The commands fetched, the characters open in the app, and how long to wait before fetching
- * again; none for at once.
+ * again, none for at once; and from module 0.50.0, while nobody is in the app, how long the module
+ * may wait instead, before a quiet look, `quiet`.
  */
 const answer = (
   headers: Headers,
   commands: (RollCommand | NoteCommand | DishCommand)[],
   open: string[],
   wait?: number,
+  quiet?: number,
 ) =>
   Response.json(
-    wait === undefined ? { commands, open } : { commands, wait, open },
+    {
+      commands,
+      ...(wait === undefined ? {} : { wait }),
+      ...(quiet === undefined ? {} : { quiet }),
+      open,
+    },
     { headers },
   )
 
 /**
  * What a fetch for a campaign found is answered: no commands while it takes none, saying when to
  * ask again; else its commands, at once where none of its players has their table open, and held
- * until some come where one has.
+ * until some come where one has. From module 0.50.0, a quiet look while nobody is in the app is
+ * answered at once with nothing, unless a dish waits, which it is then as a full fetch.
+ * @param quiet - The fetch's `quiet`, none from a module before 0.50.0.
  */
 async function commandsFor(
   request: Request,
   headers: Headers,
   campaignId: string,
   session: string,
+  quiet: boolean | undefined,
 ): Promise<Response> {
   const polled = await attempt(() => markBridgePolled(campaignId), CHECK_FAILED)
   if (!polled) return unavailable(request, headers)
+  const takes = BRIDGE_SWITCHES.some(field => polled[field])
+  if (takes && isQuietLook(quiet, polled.playersPresent)) {
+    const dishWaits = polled.dishesEnabled
+      ? await attempt(
+          () => anyDishDue(campaignId),
+          'Failed to read whether a dish waits',
+        )
+      : false
+    if (dishWaits === undefined) return unavailable(request, headers)
+    if (!dishWaits) {
+      return answer(headers, [], [], COMMANDS_COLD_WAIT, COMMANDS_QUIET_WAIT)
+    }
+  }
   // Read before any rolls are handed over, which a failure after would lose.
   const readOpen = () =>
     attempt(
@@ -191,15 +221,19 @@ async function commandsFor(
   // 0.33.0, journal notes, from module 0.34.0, favorites, from module 0.37.0, dishes from the
   // Magical Recipe Book, from module 0.38.0, effects, from module 0.39.0, and Wild Shape, from
   // module 0.40.0, are fetched with rolls off too.
-  if (!BRIDGE_SWITCHES.some(field => polled[field])) {
-    return answer(headers, [], began, COMMANDS_OFF_WAIT)
-  }
+  if (!takes) return answer(headers, [], began, COMMANDS_OFF_WAIT)
 
   const claim = () => claimAll(campaignId, session, polled.dishesEnabled)
   if (!polled.playersPresent) {
     const commands = await claim()
     return commands
-      ? answer(headers, commands, began, COMMANDS_COLD_WAIT)
+      ? answer(
+          headers,
+          commands,
+          began,
+          COMMANDS_COLD_WAIT,
+          quietWaitFor(quiet, commands.length),
+        )
       : unavailable(request, headers)
   }
   return holdForCommands(request, headers, claim, readOpen, began)

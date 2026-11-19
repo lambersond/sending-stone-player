@@ -12,6 +12,7 @@ import type {
   Dnd5eCheck,
   Dnd5eSave,
   Dnd5eTarget,
+  HitPointsNow,
   MessageAsk,
   RollSummary,
   SerializedMessage,
@@ -1006,10 +1007,36 @@ function toTableCombatant(
     defeated: combatant.defeated,
     side,
     ...(stance && { stance }),
-    hp: side === 'other' ? undefined : (combatant.hp ?? undefined),
+    ...shownHealth(combatant, side, viewer.health),
     ...(yours && { yours }),
     ...(companion && { companion }),
   }
+}
+
+/**
+ * What a seat is shown of a combatant's hit points and health. The party's hit points, as before,
+ * never a word. From module 0.50.0, for one not of the party, only where the module said how hurt
+ * it is (its `health` key, null included), which it says only of a creature its Gamemaster shows:
+ * its hit points where they show them too, else its word, never beside Defeated. So never the hit
+ * points Gamemaster-only information sends of every combatant, a Secret or hidden one's among
+ * them, nor anything while the campaign's switch is off.
+ */
+function shownHealth(
+  combatant: CombatantSummary,
+  side: Side,
+  shown: Viewer['health'],
+): Pick<TableCombatant, 'hp' | 'health'> {
+  if (side !== 'other') return { hp: combatant.hp ?? undefined }
+  if (!shown || combatant.health === undefined) return {}
+  if (shown === 'hitPoints') return hpOf(combatant.hp)
+  return combatant.health && !combatant.defeated
+    ? { health: combatant.health }
+    : {}
+}
+
+/** Hit points to show, where there are any. */
+function hpOf(hp: HitPointsNow | null | undefined): Pick<TableCombatant, 'hp'> {
+  return hp ? { hp } : {}
 }
 
 /**

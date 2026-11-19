@@ -126,10 +126,10 @@ export const ROLL_KIND_INFO = {
     gm: false,
     own: 'hitPointsEnabled',
   },
-  // From module 0.49.0, by a switch of its own: coins added to the character or taken away, by
-  // its player or the Gamemaster at its page, each a line in the game's chat; never a companion's.
+  // From module 0.49.0, by a switch of its own: coins added to the character or removed, by its
+  // player or the Gamemaster at its page, each a line in the game's chat; never a companion's.
   coins: {
-    gmLabel: 'Coins added or taken away',
+    gmLabel: 'Coins added or removed',
     dice: 'none',
     companion: false,
     own: 'coinsEnabled',

@@ -1,7 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
-import { HitPoints } from './hit-points'
+import { CombatantHealth } from './combatant-health'
 import { formatInitiative } from './utils'
 import type { Side, TableCombatant } from '@/types/table'
 
@@ -34,13 +34,14 @@ const STANCES: Record<
 
 /**
  * One combatant in the initiative order: its initiative, name and role, its hit points where
- * players may see them, and whether it acts now or is defeated.
+ * players may see them, or from module 0.50.0 how hurt another creature is, and whether it acts
+ * now or is defeated.
  */
 export function CombatantRow({
   combatant,
   current,
 }: Readonly<{ combatant: TableCombatant; current: boolean }>) {
-  const { name, initiative, defeated, side, hp } = combatant
+  const { name, initiative, defeated, side } = combatant
   const stance = combatant.stance && STANCES[combatant.stance]
   // One of the player's own creatures, as a companion of their character's (module 0.36.0).
   let role = ROLE[side]
@@ -85,7 +86,7 @@ export function CombatantRow({
         {role && <span className='text-xs text-text-secondary'>{role}</span>}
       </div>
       <div className='flex shrink-0 flex-col items-end gap-1.5'>
-        {hp && <HitPoints hp={hp} />}
+        <CombatantHealth combatant={combatant} />
         {defeated && (
           <span className='text-xs font-semibold text-text-secondary'>
             Defeated

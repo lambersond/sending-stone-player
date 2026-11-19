@@ -21,7 +21,7 @@ export type TransferControls = {
   item?: (
     item: SheetItem | SheetContainer,
   ) => { aside?: ReactNode; body?: ReactNode } | undefined
-  /** Beside the Currency fact's coins. */
+  /** Under the Currency fact's coins. */
   coins?: (currency: SheetCurrency[]) => ReactNode
   /**
    * From module 0.32.0's feedback: what "Send to…" in an item's own menu opens for it, on a
@@ -40,7 +40,7 @@ export type TransferControls = {
    * From module 0.33.0's feedback, on a party's sheet: what's on its way, by item id and `coins`,
    * said by one spinner beside the Currency label or the item's name, its buttons disabled with
    * none of their own. On a character's sheet, whose buttons say it themselves, only its coins,
-   * and only where its Currency row has more buttons than Send to (module 0.49.0).
+   * and only where its Currency row has Add or remove beside its Give (module 0.49.0).
    */
   waiting?: ReadonlySet<string>
 }
@@ -72,22 +72,13 @@ export type Taking = {
 }
 
 /**
- * What a character's coins' dialog was opened with (module 0.49.0), as it stood then, kept as it
- * closes: its coins, and whether the game pays with other coins where it's short of one; for a
- * hand-out, the character they're handed out from and the campaign's other characters.
+ * What a character's Add or remove dialog was opened with (module 0.49.0), as it stood then, kept
+ * as it closes: its coins, and whether the game pays with other coins where it's short of one.
  */
-export type CoinChanging =
-  | { mode: 'change'; currency: SheetCurrency[]; change: boolean }
-  | {
-      mode: 'handOut'
-      currency: SheetCurrency[]
-      change: boolean
-      from: string
-      characters: MoveEnd[]
-    }
+export type CoinChanging = { currency: SheetCurrency[]; change: boolean }
 
 /**
- * Whose coins a dialog adds to, takes away or hands out, as its words say them: "You" and "your"
+ * Whose coins a dialog adds to, removes or gives, as its words say them: "You" and "your"
  * for a player, with "your Gamemaster’s game"; for the Gamemaster, the character's name, "their"
  * and "your game".
  */
@@ -100,10 +91,23 @@ export type CoinSpeaker = {
   game: string
 }
 
+/** What a coins dialog says it'll do, or still needs, and whether it may be sent. */
+export type FormSummary = {
+  text: string
+  /** Said after it where other coins pay for the rest. */
+  note?: string
+  ready: boolean
+}
+
 /** What's being given, while its dialog is open, as it was when it opened. */
 export type Giving = {
   what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }
   /** The character it's given from. */
   from: string
   recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
+  /**
+   * From module 0.49.0, on a give of coins: they may go to any of `recipients.characters` at once,
+   * as the game hands coins out, paid with other coins where `change` says so.
+   */
+  handOut?: { change: boolean }
 }

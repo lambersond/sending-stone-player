@@ -106,11 +106,46 @@ Midi-QOL v14.0.x:
   is sharp; and in airplane mode, from the third opening, the stone with its two sentences. Safari's
   own "not connected" page there instead means an iPhone didn't finish installing the worker, which
   has a known remedy.
-- **Coins added, taken away and handed out:** Add or take away and Hand out change the coins on the
-  character's sheet in Foundry as the app says, the change coming back as the tray says; "Thorin
-  paid 5 gp" is in everyone's chat, a hand-out's whispers only in each receiver's player's, the
-  Gamemasters' and the giver's player's; both switches in the campaign's Coins box are kept as
-  saved. Under dnd5e 6, a fraction of a coin the world shows stays as it was after a change.
+- **Coins added, taken away and handed out:** Add or remove and Give (v0.49's Add or take away and
+  Hand out) change the coins on the character's sheet in Foundry as the app says, the change coming
+  back as the tray says; "Thorin paid 5 gp" is in everyone's chat, a hand-out's whispers only in
+  each receiver's player's, the Gamemasters' and the giver's player's; both switches in the
+  campaign's Coins box are kept as saved. Under dnd5e 6, a fraction of a coin the world shows stays
+  as it was after a change.
+
+## v0.50 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc entry.
+
+**To check at the table before module v0.50.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Other creatures' health:** in a fight on a scene with the creatures' tokens, a player's Combat
+  tab says nothing of how hurt the monsters are until Allow Players to see other creatures' health
+  in the app is ticked on the campaign's Player actions tab; then each creature that isn't the
+  party's, a Friendly one too, reads Unhurt, then Hurt, Bloodied at half its hit points or less and
+  Down at 0 as you damage it in Foundry, on its row and in the turn panel on its turn, within a few
+  seconds and with no turn passed; with Show their hit points too ticked, its hit points show
+  instead. A hidden combatant, a token hidden from players and a Secret one show nothing, and one
+  hidden mid-fight loses what it showed; the party's own hit points follow damage and healing
+  between turns.
+- **Quieter while nobody is in the app:** with Foundry open and no character or party open in the
+  app for a few minutes, the campaign's line in Sending Stone's settings window says the app is
+  asked every 20 seconds; a player who then opens their character is noticed within about 20
+  seconds, their first roll reaching the game then and the next at once, and the line goes back to
+  its usual words; a dish from the Magical Recipe Book reaches you within about 20 seconds. The same
+  with Foundry's tab in the background, where a browser slows a page's timers.
+- **Sign-in on the deployed app:** on the production address, signed in on a phone and on a
+  computer, a table left open for several minutes keeps reading the game and its rolls go through;
+  signing out in one tab sends the table open in another tab of that browser to Sign in at its next
+  read, and the other device stays signed in.
+- **Give and Add or remove:** on a character's Inventory tab, on a phone and on the desk, Add or
+  remove and Give sit under the coins, and a party's buttons under its coins too. 5 gp given to one
+  character is whispered to their player, "Vex received 5 gp from Thorin", and the Gamemasters are
+  told "Thorin handed out 5 gp each to Vex: 5 gp in all"; 2 gp each to two, "Thorin handed out 2 gp
+  each to Vex and Bram: 4 gp in all"; 30 gp to the party is a line for everyone, "Gives 30 gp to The
+  Iron Company", spoken by the giver. Add or remove's dialog reads Add and Remove, and each change
+  is still a line for everyone, "Thorin paid 5 gp".
 
 ## Before v1.0
 
@@ -124,7 +159,8 @@ tweaks needed may change it as it goes. Next week aims at the first three.
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
 3. Items 18 and 36: companions and sidekicks wherever they are, and two encounters at once.
-4. Items 61, 62 and 58: quieter polling, fewer sign-in reads, and non-allies' health.
+4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
+   and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
 5. Items 64, 65 and 66: any ability or skill the game has.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
@@ -279,20 +315,21 @@ And from the owner's answers on item 19, later work too:
     before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
     `OTHER_FIELDS`. Found building item 67. In no batch yet.
 84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
-    coin fractional digits, a character's coins moved (Send to, Take, Give) and a party's
-    distributed are written as floating point makes them: 10.7 gp less 10 is stored
-    as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes
-    to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
-    write through `coinUpdate`, as coins added, taken away and handed out do since 0.49.0. A default
-    dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it. Module only,
-    small. Found building items 67 and 68. In no batch yet.
+    coin fractional digits, coins moved to or from a party (a character's Give to a party, and a
+    party's Take, Send to and Give), coins given to another character from an app before v0.50.0,
+    and a party's distributed are written as floating point makes them: 10.7 gp less 10 is stored as
+    0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin goes to
+    no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`) could
+    write through `coinUpdate`, as coins added, removed and given to characters do since 0.49.0. A
+    default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole coins: neither shows it.
+    Module only, small. Found building items 67 and 68. In no batch yet.
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
-    it, which waits disabled until the move is made. Seen for the Currency row's Add or take away
-    and Hand out (v0.49); by the same code it is so for the row's Send to and an item's Give…, from
-    v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which has no
-    tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet, where
-    focus should go (the tray's line, or the row's label, which says what's on its way) is one
+    it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
+    Give (v0.49's Add or take away and Hand out); by the same code it is so for an item's Give…,
+    from v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which
+    has no tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet,
+    where focus should go (the tray's line, or the row's label, which says what's on its way) is one
     decision for all of its moves. Found reviewing items 67 and 68. In no batch yet.
 86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
     the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
@@ -307,23 +344,36 @@ And from the owner's answers on item 19, later work too:
     could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow
     for the round trips. Found landing items 70 and 71. In no batch yet.
 
+**Found while building Batch 4**
+
+87. **default.env's session lifetime:** its note says a session lasts 7 days unless `AUTH_MAX_AGE`
+    says otherwise, with 604800 as its example; `src/auth.ts` has made it 30 days since 81a8278
+    (now `src/auth-session.ts`). The note could say 30 days, with 2592000. Found planning item 62.
+    In no batch yet.
+88. **A session in daily use is likely to end 30 days after its cookie was last set:** Better Auth
+    pushes a session's end back once a day, on whichever read of it comes first. After a day away
+    that is usually a page opened afresh, a Server Component, which can't set a cookie (Next allows
+    that only in a Server Action or Route Handler; Better Auth's `nextCookies` skips the push-back
+    only for a client navigation's RSC request, and swallows the error). So the new end is written
+    to the database, the browser keeps the old cookie and its Max-Age, and the table's polls,
+    finding the session fresh, never set it again. Read from Better Auth 1.7.7's
+    `api/routes/session.mjs:198-214` and `integrations/next-js.mjs:67-69, 91-95`, not tried. It was
+    so before item 62; since it, a Server Action no longer pushes the end back either (its read
+    passes `disableRefresh`), and the table's polls still do. Found planning item 62. In no batch
+    yet.
+
 **Moved from v1.x on 2026-11-13**
 
-58. **Non-allies' health:** permission to show it in the app, with an optional setting to show the
-    actual hit points (off by default, as it gives information away).
+Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+
 59. **Summon activities** used from the app.
 60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
     campaign's compendiums, such as another compendium or a world actor, used from the app too,
     where its player could use it in Foundry.
-61. **Quieter polling:** if the Gamemaster isn't in Foundry and nobody is in the app, there's no
-    need to poll constantly. Nothing polls while Foundry is closed, since Foundry does the asking,
-    so the case to handle is Foundry open with nobody in the app; Foundry must still pick up notes
-    made offline as it connects.
-62. **Fewer sign-in reads:** every table and party sheet poll, once each 3 seconds, reads the
-    player's session and user from the database: 2 of its 5 or 6 queries, about 13% of a session's
-    (v0.44's measurement). Better Auth's session cookie cache would answer most polls from the
-    signed cookie instead. The trade-off: a signed-out device or a revoked session keeps working
-    until the cache expires, so its lifetime is chosen with that in mind.
+
+Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+
 63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
     loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
     on the device and readable offline, with what's out of date marked; notes written offline sent
@@ -355,6 +405,25 @@ And from the owner's answers on item 19, later work too:
     count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
     nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
     read row by row, so one bad row can't blank a whole sheet. App and module, small.
+
+**Asked for on 2026-11-17**
+
+Item 89, Add or remove, one Give for a character's coins, and the Currency row's buttons below its
+coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0-rc.
+
+**Found in Batch 4's last checks**
+
+90. **e2e's next read of the table after a recharge, under load:** part 15 of `e2e/alone-e2e.mjs`
+    (line 1114), at 1280, "the page read the table as the game answered the recharge …, and again
+    … ms after that read", wants the page's next read to begin within 850 ms of the end of the read
+    on its way as the game answered. The page waits 500 ms (`READ_AGAIN_AFTER`, since v0.46.0), and
+    waited 1 s before, measured at 986 ms and more. It took 875 ms once, under `MIDI=1`, in batch
+    4's full e2e pass, three lanes up on four cores, and passed when rerun alone on its lane at once
+    (131 of 131). The other seven in the logs still on disk took 533 to 734 ms. The gap is timed
+    from the stand-in's side, so it counts the page's own work after a read (reading the answer,
+    drawing it) as well as the wait. Of a kind with item 86. The check could time the wait from the
+    page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
+    last checks. In no batch yet.
 
 ## v1.0
 
@@ -520,3 +589,8 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
   outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
   Polymorphing and the source's permissions apply (from outside the compendiums: planned for v1.x).
+- A session ended from outside the app, such as one deleted from the database or revoked through
+  Better Auth's own endpoints, still reads the table, the party sheet and the journal, and still
+  sends what the table sends the game (rolls, moves, hit points, coins and ending a turn among them)
+  and notes, for up to a minute (`AUTH_CACHE_MAX_AGE`); joining, choosing, leaving or deleting a
+  character and every change on the campaign page ask the database and are refused at once.

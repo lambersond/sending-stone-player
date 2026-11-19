@@ -177,7 +177,7 @@ describe('db/coins, createCoinsRequest, from module 0.49.0', () => {
   it('is what createRollRequest does with coins, the Gamemaster’s at its page too, kept as theirs', async () => {
     given()
     await expect(
-      createRollRequest(gm, changing(FIVE, { label: 'Take away 5 gp' })),
+      createRollRequest(gm, changing(FIVE, { label: 'Remove 5 gp' })),
     ).resolves.toEqual({ id: 'req-coins' })
     expect(created()).toMatchObject({
       kind: 'coins',
@@ -186,7 +186,7 @@ describe('db/coins, createCoinsRequest, from module 0.49.0', () => {
       characterId: null,
       actorId: THORIN,
       // What their page calls it, for the character's player to be shown it by.
-      label: 'Take away 5 gp',
+      label: 'Remove 5 gp',
       payload: changing(),
     })
   })

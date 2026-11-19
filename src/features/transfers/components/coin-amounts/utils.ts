@@ -3,7 +3,7 @@ import { typedCount } from '@/features/transfers/components/amount-field/utils'
 import type { SheetCurrency } from '@/types/sending-stone'
 
 /**
- * Whether what's typed for a coin may be added, taken away or handed out: nothing, as none, or a
+ * Whether what's typed for a coin may be added, removed or given: nothing, as none, or a
  * whole number up to the most the game takes of a coin at once, whatever the character holds.
  */
 export function amountFits(text: string): boolean {

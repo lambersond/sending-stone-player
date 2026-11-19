@@ -1,10 +1,19 @@
-import { MOST_MOVED } from '@/constants/sending-stone'
+import { MOST_AMONG, MOST_MOVED } from '@/constants/sending-stone'
 import { amountOf } from '@/features/transfers/components/amount-field/utils'
 import { movableCoins } from '@/features/transfers/components/coin-fields/utils'
-import { mayHold } from '@/features/transfers/utils'
-import { thingsWords } from '@/utils/move-words'
-import type { MoveDialogProps } from './types'
-import type { MoveEnd } from '@/features/transfers/types'
+import {
+  coinAbbreviations,
+  mayHold,
+  shortCoinWords,
+} from '@/features/transfers/utils'
+import { coinTotals } from '@/utils/coins'
+import { coinsWords, namesWords, thingsWords } from '@/utils/move-words'
+import type { EachGive, MoveDialogProps } from './types'
+import type {
+  CoinSpeaker,
+  FormSummary,
+  MoveEnd,
+} from '@/features/transfers/types'
 import type { LocalMove } from '@/types/roll'
 import type {
   SheetContainer,
@@ -56,14 +65,150 @@ export function choicesOf({
     : recipients && [...recipients.parties, ...recipients.characters]
 }
 
-/** Who a move goes to as its dialog opens: a give, the primary party; a send, none until chosen. */
+/**
+ * Who a move goes to as its dialog opens, by id: a give, the primary party, where it may go there;
+ * a send, none until chosen.
+ */
 export function firstChosen({
   mode,
   recipients,
-}: Pick<MoveDialogProps, 'mode' | 'recipients'>): string | undefined {
-  return mode === 'give'
-    ? recipients?.parties.find(({ primary }) => primary)?.id
-    : undefined
+}: Pick<MoveDialogProps, 'mode' | 'recipients'>): string[] {
+  const primary =
+    mode === 'give'
+      ? recipients?.parties.find(({ primary }) => primary)
+      : undefined
+  return primary ? [primary.id] : []
+}
+
+/**
+ * Who's picked to get it, in the list's order; where there's no list, the set receiver it goes
+ * into, if any.
+ * @param chosen - Those picked, by id.
+ */
+export function pickedOf(
+  choices: readonly MoveEnd[] | undefined,
+  chosen: readonly string[],
+  into?: MoveEnd,
+): MoveEnd[] {
+  if (choices) return choices.filter(({ id }) => chosen.includes(id))
+  return into ? [into] : []
+}
+
+/**
+ * Whether a give is sent as the game hands coins out (module 0.49.0): a character's coins, given
+ * where its module hands them out, to no party. So no one picked yet, one character, or several,
+ * are all given coins the same way, paid with other coins where the game does.
+ */
+export function givesEach({
+  handOut,
+  currency,
+  chosen,
+  parties,
+}: {
+  handOut?: MoveDialogProps['handOut']
+  currency?: readonly SheetCurrency[]
+  chosen: readonly string[]
+  parties: readonly MoveEnd[]
+}): boolean {
+  return (
+    !!handOut && !!currency && !parties.some(({ id }) => chosen.includes(id))
+  )
+}
+
+/** What a give of coins to characters calls what each gets: "Each gets" for several. */
+export function coinsLegend(count: number): 'Coins' | 'Each gets' {
+  return count > 1 ? 'Each gets' : 'Coins'
+}
+
+/**
+ * What a give of a character's coins to characters says it'll do, or what it still needs (module
+ * 0.49.0): who gets it, no more than one give goes to, then how many; what one gets, or what each
+ * of several gets and what that comes to in all; and where that's more of a coin than the
+ * character holds, that other coins pay for the rest, or why it can't be sent.
+ * @param to - Those ticked, in the list's order.
+ * @param each - What each gets, by coin; unset until it's typed.
+ * @param currency - The character's coins, as the sheet had them when the dialog opened.
+ * @param change - Whether the game pays with other coins where the character is short of one.
+ */
+export function eachSummary(
+  to: readonly MoveEnd[],
+  each: Readonly<Record<string, number>> | undefined,
+  currency: readonly SheetCurrency[],
+  change: boolean,
+  speaker: CoinSpeaker,
+): FormSummary {
+  const several = to.length > 1
+  if (to.length === 0) return { text: 'Choose who gets it.', ready: false }
+  if (to.length > MOST_AMONG) {
+    return { text: `Choose up to ${MOST_AMONG} at a time.`, ready: false }
+  }
+  if (!each) {
+    const text = several ? 'Choose how many each gets.' : 'Choose how many.'
+    return { text, ready: false }
+  }
+  const totals = coinTotals(each, to.length)
+  const { note, refused } = shortCoinWords(speaker, currency, totals, {
+    change,
+    inAll: several,
+  })
+  if (refused) return { text: refused, ready: false }
+  const verb = speaker.who === 'You' ? 'give' : 'gives'
+  const things = coinsWords(currency, each)
+  const names = namesWords(to.map(({ name }) => name))
+  const text = several
+    ? `${speaker.who} ${verb} ${things} each to ${names}: ${coinsWords(currency, totals)} in all.`
+    : `${speaker.who} ${verb} ${things} to ${names}.`
+  return { text, ...(note && { note }), ready: true }
+}
+
+/**
+ * A give of a character's coins to characters, as it's sent (module 0.49.0), with the words the
+ * tray keeps of it: to one, a give to them; to several, what each gets, among whom; either with
+ * the sheet's abbreviations for what else the game used.
+ * @param name - The character's name; `mover` too, at the Gamemaster's page.
+ */
+export function eachMove(
+  to: readonly MoveEnd[],
+  each: Record<string, number>,
+  currency: readonly SheetCurrency[],
+  { name, gm }: { name: string; gm: boolean },
+): EachGive {
+  const things = coinsWords(currency, each)
+  const names = namesWords(to.map(end => end.name))
+  const words: LocalMove =
+    to.length > 1
+      ? { verb: 'handOut', things, other: name, among: names }
+      : { verb: 'give', things, other: names }
+  return {
+    each: to.map(({ id }) => id),
+    currency: each,
+    words: {
+      ...words,
+      ...(gm && { mover: name }),
+      abbreviations: coinAbbreviations(currency),
+    },
+  }
+}
+
+/**
+ * Who's told of a give once it may be sent: Foundry's chat, for all, of a give to one end; or of
+ * coins given to characters (module 0.49.0), a whisper to each, and the Gamemasters.
+ * @param each - Whether it's given as the game hands coins out.
+ * @param to - Those it goes to.
+ */
+export function toldWords({
+  each,
+  to,
+  gm,
+}: {
+  each: boolean
+  to: readonly MoveEnd[]
+  gm: boolean
+}): string {
+  if (!each) return 'Foundry’s chat will say so.'
+  const who = to.length === 1 ? to[0].name : 'Each'
+  const told = gm ? 'you are told.' : 'your Gamemaster is told.'
+  return `${who} is whispered what they received in Foundry’s chat, and ${told}`
 }
 
 /**

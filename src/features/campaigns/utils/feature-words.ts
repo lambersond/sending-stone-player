@@ -36,11 +36,11 @@ function madeText({ rolls }: OwnedCampaign): string {
  */
 export function movesText({ transfers, foundry }: OwnedCampaign): string {
   if (transfers.enabled && transfers.reaching) {
-    // From module 0.49.0, a character's coins handed out too.
-    const others = transfers.handOut
-      ? 'give to each other, and hand out coins to several characters at once'
-      : 'give to each other'
-    return `Your players take from and give to the parties they own in Foundry, and ${others}, from here. Each move is made in your game at once and posts a line in its chat.`
+    // From module 0.49.0, a character's coins given to several characters at once, whispered.
+    if (transfers.handOut) {
+      return 'Your players take from and give to the parties they own in Foundry, and give to each other, from here; coins can go to several characters at once. Each move is made in your game at once and posts a line in its chat, but coins given to characters are whispered to each, and you are told.'
+    }
+    return 'Your players take from and give to the parties they own in Foundry, and give to each other, from here. Each move is made in your game at once and posts a line in its chat.'
   }
   if (transfers.enabled) {
     return 'Turned on in Foundry. Moves reach your game while it’s open.'
@@ -162,8 +162,8 @@ export function hitPointsText({ hitPoints, foundry }: OwnedCampaign): string {
 const HIT_POINTS_FROM = [0, 43, 0] as const
 
 /**
- * Whether the campaign lets its players add coins to their characters and take them away from
- * here, from module 0.49.0, and whether a character short of a coin then pays with their other
+ * Whether the campaign lets its players add coins to their characters and remove them from here,
+ * from module 0.49.0, and whether a character short of a coin then pays with their other
  * coins; and if not, why: a module before that has no such switch; under another system than D&D
  * Fifth Edition the switch does nothing, which the hello's own system says.
  */
@@ -172,7 +172,7 @@ export function coinsText({ coins, foundry }: OwnedCampaign): string {
     const short = coins.change
       ? 'A character short of a coin pays with their other coins.'
       : 'A character short of a coin is refused.'
-    return `On in Foundry. Your players add coins to their characters and take them away from here, and each change posts a line in your game’s chat. ${short}`
+    return `On in Foundry. Your players add coins to their characters and remove them from here, and each change posts a line in your game’s chat. ${short}`
   }
   if (before(foundry?.module?.version, COINS_FROM)) {
     return 'Your Sending Stone module doesn’t let players change coins yet. Version 0.49.0 or later does.'
@@ -183,8 +183,33 @@ export function coinsText({ coins, foundry }: OwnedCampaign): string {
   return 'Off. To let them, tick Allow Players to add and take away coins from the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
 }
 
-/** The first Sending Stone in Foundry that lets players add and take away coins from here. */
+/** The first Sending Stone in Foundry that lets players add and remove coins from here. */
 const COINS_FROM = [0, 49, 0] as const
+
+/**
+ * Whether the campaign lets its players see how hurt other creatures in a fight are, from module
+ * 0.50.0, and whether their hit points too; and if not, why: a module before that has no such
+ * switch; under another system than D&D Fifth Edition the switch does nothing, which the hello's
+ * own system says.
+ */
+export function healthText({ health, foundry }: OwnedCampaign): string {
+  if (health?.enabled) {
+    const numbers = health.hitPoints
+      ? 'and their hit points'
+      : 'but not their hit points'
+    return `On in Foundry. Your players see how hurt other creatures in a fight are, ${numbers}.`
+  }
+  if (before(foundry?.module?.version, HEALTH_FROM)) {
+    return 'Your Sending Stone module doesn’t show players other creatures’ health yet. Version 0.50.0 or later does.'
+  }
+  if (foundry?.system && foundry.system.id !== 'dnd5e') {
+    return 'Off. Other creatures’ health needs D&D Fifth Edition in Foundry.'
+  }
+  return 'Off. To let them, tick Allow Players to see other creatures’ health in the app on the campaign’s Player actions tab in Sending Stone’s settings in Foundry.'
+}
+
+/** The first Sending Stone in Foundry that shows players how hurt other creatures are. */
+const HEALTH_FROM = [0, 50, 0] as const
 
 /**
  * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,

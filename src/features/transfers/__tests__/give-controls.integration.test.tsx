@@ -6,7 +6,12 @@ import { CharacterPane } from '@/features/sheet/components/character-pane/charac
 import { GameTable } from '@/features/table/components/game-table/game-table'
 import { useTableView } from '@/features/table/hooks/use-table-view'
 import { TableApiContext } from '@/hooks/use-table-api'
-import { fullerSheet, sheetItem, tableMoves } from '@/mocks/sending-stone'
+import {
+  fullerSheet,
+  purse,
+  sheetItem,
+  tableMoves,
+} from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import { advance, respond } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
@@ -112,12 +117,15 @@ const renderGive = async ({
   }
 }
 
-/** The Currency row's Send to, from module 0.32.0's feedback: the button that gives coins. */
+/**
+ * The Currency row's Give, the button that gives coins: Send to from module 0.32.0's feedback, and
+ * Give again since Send to and Hand out are one (item 89).
+ */
 const coinsButton = () =>
   within(screen.getByRole('group', { name: 'Currency' })).getByRole('button', {
-    name: 'Send to',
+    name: 'Give',
   })
-const queryCoinsButton = () => screen.queryByRole('button', { name: 'Send to' })
+const queryCoinsButton = () => screen.queryByRole('group', { name: 'Currency' })
 
 /** What was posted, and where, of moves: never a description an opened row loads. */
 const posts = () =>
@@ -127,6 +135,15 @@ const posts = () =>
     .map(([url, init]) => ({ url, body: JSON.parse(String(init?.body)) }))
 const posted = () => posts()[0]
 
+/** A move's body, as a page posts it: the transfer, and no dice. */
+const body = (transfer: object) => ({
+  kind: 'transfer',
+  transfer,
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+})
 const giveButton = (name: string) =>
   screen.getByRole('button', { name: `Give ${name}` })
 
@@ -204,10 +221,11 @@ describe('components/transfers/give-controls', () => {
     expect(screen.queryByRole('button', { name: 'Give Torch' })).toBeNull()
   })
 
-  it('gives coins from beside them, while there’s a whole one to give', async () => {
+  // Changed on purpose (item 89): below them, where they were beside them.
+  it('gives coins from below them, while there’s a whole one to give', async () => {
     const { unmount } = await renderGive()
     const coins = coinsButton()
-    expect(coins).toHaveTextContent(/^Send to$/)
+    expect(coins).toHaveTextContent(/^Give$/)
     expect(coins.closest('dd')).not.toBeNull()
     expect(screen.getByText('Currency')).toHaveTextContent(/^Currency$/)
     unmount()
@@ -313,7 +331,7 @@ describe('components/transfers/give-controls', () => {
     })
   })
 
-  it('keeps the spinner on its own buttons, none by the Currency label, unlike a party’s sheet (module 0.33.0)', async () => {
+  it('keeps the spinner on Give where it’s the row’s only button, none by the Currency label, unlike a party’s sheet (module 0.33.0)', async () => {
     const { user } = await renderGive()
 
     await user.click(coinsButton())
@@ -332,6 +350,174 @@ describe('components/transfers/give-controls', () => {
     for (const row of screen.getAllByRole('listitem')) {
       expect(row).not.toHaveAttribute('aria-busy')
     }
+  })
+
+  // Moved from coin-controls (item 89): Hand out's coins are Give's, to one or several.
+  it('with module 0.49.0, gives coins to the characters ticked as a hand-out through the seat’s API, to one and then to two, the tray saying what each got and what else the game used', async () => {
+    const done = (id: string, each: string[], gp: number) =>
+      respond(200, {
+        id,
+        status: 'done',
+        visible: true,
+        rolls: [],
+        transfer: {
+          from: 'actorThorin1',
+          to: null,
+          items: [],
+          currency: { gp },
+          each,
+          used: { pp: 1 },
+        },
+      })
+    const VEX = 'actorVex0001'
+    const BRAM = 'actorBram001'
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      .mockResolvedValue(done('req-1', [VEX], 5))
+    const { user } = await renderGive({
+      moves: tableMoves({
+        handOut: { change: true },
+        characters: [
+          { id: VEX, name: 'Vex' },
+          { id: BRAM, name: 'Bram' },
+        ],
+      }),
+      sheet: movingSheet(purse({ pp: 2, gp: 3 })),
+    })
+
+    await user.click(coinsButton())
+    let dialog = within(screen.getByRole('dialog', { name: 'Give coins' }))
+    await user.click(dialog.getByRole('checkbox', { name: 'Vex' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
+    expect(
+      dialog.getByText(
+        'You give 5 gp to Vex. You hold only 3 gp, so other coins pay for the rest.',
+      ),
+    ).toBeVisible()
+    await user.click(dialog.getByRole('button', { name: 'Give coins' }))
+    expect(posts()).toEqual([
+      {
+        url: '/api/characters/char-1/rolls',
+        body: body({ from: 'actorThorin1', each: [VEX], currency: { gp: 5 } }),
+      },
+    ])
+    expect(
+      await screen.findByText(
+        'Gave 5 gp to Vex, using 1 pp',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeInTheDocument()
+
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-2' }))
+      .mockResolvedValue(done('req-2', [VEX, BRAM], 2))
+    await user.click(coinsButton())
+    dialog = within(screen.getByRole('dialog', { name: 'Give coins' }))
+    await user.click(dialog.getByRole('checkbox', { name: 'Select all' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '2')
+    expect(
+      dialog.getByText(
+        'You give 2 gp each to Vex and Bram: 4 gp in all. You hold only 3 gp, so other coins pay for the rest.',
+      ),
+    ).toBeVisible()
+    await user.click(dialog.getByRole('button', { name: 'Give coins' }))
+    expect(posts()[1]).toEqual({
+      url: '/api/characters/char-1/rolls',
+      body: body({
+        from: 'actorThorin1',
+        each: [VEX, BRAM],
+        currency: { gp: 2 },
+      }),
+    })
+    expect(
+      await screen.findByText(
+        'Gave 2 gp each to Vex and Bram, using 1 pp',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeInTheDocument()
+  })
+
+  // Review round 1 (item 89): a give rolls nothing, so the give itself shows the tray on a tab
+  // that shows it only once something's been done there, as Effects: sent to characters as the
+  // game hands coins out (`onGive`), or to the party (`onMove`). This sheet writes its gold GP.
+  it.each([
+    [
+      'coins to a character, as the game hands them out',
+      'Vex',
+      { to: null, each: ['actorVex0001'] },
+      'Gave 5 GP to Vex',
+    ],
+    [
+      'coins to the party',
+      undefined,
+      { to: 'groupIronCo01' },
+      'Gave 5 GP to The Iron Company',
+    ],
+  ])(
+    'with module 0.49.0, shows the tray on Effects once it has given %s, as giving rolls nothing',
+    async (_what, tick, ends, line) => {
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+        .mockResolvedValue(
+          respond(200, {
+            id: 'req-1',
+            status: 'done',
+            visible: true,
+            rolls: [],
+            transfer: {
+              from: 'actorThorin1',
+              items: [],
+              currency: { gp: 5 },
+              ...ends,
+            },
+          }),
+        )
+      const { user } = await renderGive({
+        moves: tableMoves({ handOut: { change: true } }),
+      })
+      const show = (tab: RegExp) =>
+        user.click(screen.getByRole('tab', { name: tab }))
+      await show(/^Effects/)
+      expect(screen.queryByRole('region', { name: 'Your rolls' })).toBeNull()
+
+      await show(/^Inventory/)
+      await user.click(coinsButton())
+      const dialog = within(screen.getByRole('dialog', { name: 'Give coins' }))
+      if (tick) await user.click(dialog.getByRole('checkbox', { name: tick }))
+      await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
+      await user.click(dialog.getByRole('button', { name: 'Give coins' }))
+      await show(/^Effects/)
+      const tray = screen.getByRole('region', { name: 'Your rolls' })
+      expect(
+        await within(tray).findByText(line, {}, { timeout: 3000 }),
+      ).toBeVisible()
+    },
+  )
+
+  // Moved from coin-controls (item 89).
+  it('gives to characters by what the game says of moves paying with other coins, whatever the coins’ own switch is', async () => {
+    // No coins' switch, so the page has no word of its own on other coins: the moves' says none.
+    const { user } = await renderGive({
+      moves: tableMoves({ handOut: { change: false } }),
+      sheet: movingSheet(purse({ pp: 2, gp: 3 })),
+    })
+    await user.click(coinsButton())
+    const dialog = within(screen.getByRole('dialog', { name: 'Give coins' }))
+    await user.click(dialog.getByRole('checkbox', { name: 'Vex' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '5')
+
+    expect(
+      dialog.getByText(
+        'You hold only 3 gp, and your Gamemaster’s game doesn’t pay with other coins.',
+      ),
+    ).toBeVisible()
+    await user.click(dialog.getByRole('button', { name: 'Give coins' }))
+    expect(posts()).toEqual([])
   })
 
   it('waits while the game is giving it, until it’s given', async () => {

@@ -879,11 +879,11 @@ describe('what useTableRolls sends', () => {
         ),
       () => void result.current.readWildShapeForms(),
       // Changed on purpose (item 67): coins taken away, from module 0.49.0, last, so that those
-      // before it keep their ids.
+      // before it keep their ids; and (item 89) labelled Remove, as Add or remove names them.
       () =>
         result.current.sendCoins(
           logged({
-            label: 'Take away',
+            label: 'Remove',
             move: {
               verb: 'pay',
               things: '5 gp',
