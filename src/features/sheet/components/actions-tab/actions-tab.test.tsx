@@ -64,6 +64,36 @@ const renderTab = (sheet: CharacterSheet = fullerSheet(), layout?: Layout) => {
   return { onRoll, onRollDamage }
 }
 
+/**
+ * The tab inside a sheet's description providers, which give the sheet's names for its abilities,
+ * as its seat does.
+ */
+const renderNamed = (sheet: CharacterSheet) => {
+  const actions: DescriptionActions = {
+    roll: jest.fn(),
+    rollDamage: jest.fn(),
+    rollFormula: jest.fn(),
+    takes: () => true,
+    ask: jest.fn(),
+    abilities: sheet.abilities,
+    skills: sheet.skills,
+    tools: sheetTools(sheet),
+    proficiency: sheet.proficiency,
+    conditions: [],
+    showConditions: jest.fn(),
+  }
+  render(
+    <DescriptionLinks actions={actions}>
+      <ActionsTab
+        characterId='char-1'
+        sheet={toTableSheet(sheet, GAME)}
+        onRoll={jest.fn()}
+        onRollDamage={jest.fn()}
+      />
+    </DescriptionLinks>,
+  )
+}
+
 /** A sheet whose only actions are these, under Actions. */
 const withActions = (...actions: SheetAction[]) =>
   characterSheet({ actions: [{ id: 'action', label: 'Actions', actions }] })
@@ -236,29 +266,7 @@ describe('components/character-sheet/actions-tab', () => {
         ? { ...ability, label: 'Sagesse', abbreviation: 'SAG' }
         : ability,
     )
-    const actions: DescriptionActions = {
-      roll: jest.fn(),
-      rollDamage: jest.fn(),
-      rollFormula: jest.fn(),
-      takes: () => true,
-      ask: jest.fn(),
-      abilities: sheet.abilities,
-      skills: sheet.skills,
-      tools: sheetTools(sheet),
-      proficiency: sheet.proficiency,
-      conditions: [],
-      showConditions: jest.fn(),
-    }
-    render(
-      <DescriptionLinks actions={actions}>
-        <ActionsTab
-          characterId='char-1'
-          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
-          onRoll={jest.fn()}
-          onRollDamage={jest.fn()}
-        />
-      </DescriptionLinks>,
-    )
+    renderNamed(sheet)
 
     expect(screen.getByTitle('SAG saving throw')).toHaveTextContent('SAG 14')
     await user.click(toggle('Command'))
@@ -266,6 +274,36 @@ describe('components/character-sheet/actions-tab', () => {
       .getAllByRole('term')
       .map(term => `${term.textContent}: ${term.nextSibling?.textContent}`)
     expect(terms).toContain('Saving throw: DC 14 SAG')
+  })
+
+  it("names a check activity's one ability as the sheet names it, Sanity too, on its chip and in its menu's rolls", async () => {
+    const user = userEvent.setup()
+    const sheet = withActions(
+      sheetAction({
+        id: 'wits',
+        name: 'Keen Wits',
+        check: {
+          checks: [{ type: 'check', ability: 'san' }],
+          dc: 12,
+          own: true,
+        },
+      }),
+    )
+    const wisdom = sheet.abilities.find(({ id }) => id === 'wis')!
+    sheet.abilities = [
+      ...sheet.abilities,
+      { ...wisdom, id: 'san', label: 'Sanity', abbreviation: 'SAN', check: 1 },
+    ]
+    renderNamed(sheet)
+
+    const chip = screen.getByRole('button', {
+      name: 'Keen Wits, DC 12 Sanity check',
+    })
+    expect(chip).toHaveTextContent(/^SanityDC 12$/)
+    await user.click(chip)
+    expect(
+      screen.getByRole('menuitem', { name: 'Roll my Sanity check (+1)' }),
+    ).toBeInTheDocument()
   })
 
   it('rolls an attack, or from its menu, with advantage and the like', async () => {

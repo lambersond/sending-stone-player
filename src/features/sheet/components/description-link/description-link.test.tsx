@@ -353,6 +353,32 @@ describe('components/character-sheet/description-link', () => {
       ])
     })
 
+    it("titles a concentration check made with any ability the sheet has as the sheet names it, Sanity's", async () => {
+      const user = userEvent.setup()
+      const wisdom = characterSheet().abilities.find(({ id }) => id === 'wis')!
+      await renderText(
+        save(
+          'data-ability="san" data-dc="10" data-type="concentration"',
+          'DC 10 Concentration (Sanity)',
+        ),
+        actionsFor({
+          abilities: [
+            ...characterSheet().abilities,
+            { ...wisdom, id: 'san', label: 'Sanity', abbreviation: 'san' },
+          ],
+        }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 10 Concentration (Sanity)' }),
+      )
+      expect(
+        screen.getByRole('menu', {
+          name: 'DC 10 Concentration check (Sanity)',
+        }),
+      ).toBeInTheDocument()
+    })
+
     it('rolls a concentration check as one, with Constitution', async () => {
       const user = userEvent.setup()
       const { actions } = await renderText(

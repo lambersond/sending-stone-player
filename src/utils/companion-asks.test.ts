@@ -129,6 +129,9 @@ describe('utils/companion-asks', () => {
       )
       expect(named({ type: 'check', abilities: ['hon'] })).toBe('Honor check')
       expect(named({ type: 'skill', skills: ['eti'] })).toBe('Etiquette check')
+      expect(named({ type: 'concentration', abilities: ['san'] })).toBe(
+        'Concentration check (Sanity)',
+      )
     })
 
     // A prompt's keys may name what every object answers to: never found as a name, nor thrown on.

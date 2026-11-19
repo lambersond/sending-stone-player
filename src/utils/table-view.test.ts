@@ -1439,6 +1439,12 @@ describe('utils/table-view', () => {
       expect(JSON.stringify(message)).not.toContain('15')
     })
 
+    it("reads an older module's Gamemaster card for a save on any ability the game has, Sanity's, from its buttons", () => {
+      expect(
+        toTableMessage(gmCard(card(button('wis'), button('san'))), viewer).ask,
+      ).toMatchObject({ type: 'save', abilities: ['wis', 'san'] })
+    })
+
     it("reads a concentration card's buttons, and only those of its first kind", () => {
       expect(
         toTableMessage(
