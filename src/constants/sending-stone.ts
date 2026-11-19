@@ -394,6 +394,13 @@ export const COIN_OPS = ['add', 'remove'] as const
  */
 export const QUIET_FETCHES = 1
 
+/**
+ * The format of checks this app reads, as it tells the module (`anyAbility`): from module 0.52.0,
+ * checks on any ability the game has, in descriptions, items' check activities and roll request
+ * cards, which the module sends only then.
+ */
+export const ANY_ABILITY = 1
+
 /** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
 export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/
 

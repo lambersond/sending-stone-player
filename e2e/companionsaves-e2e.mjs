@@ -212,9 +212,10 @@ part('1. the hello and the answer')
   const keys = Object.keys(rolls)
   // Changed on purpose (round 0.42.0 §8.5): module 0.42.0's effectDice and keptRerolls come after
   // it, the last of v0.41's flags; and since module 0.44.0 (item 11), its diceAsks and
-  // diceAsksReason after them, under dnd5e 6 too, there diceAsks false.
-  check(rolls.companionPrompts === true && rolls.prompts === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason']),
-    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls and 0.44.0's diceAsks and diceAsksReason after it (${JSON.stringify(keys)})`)
+  // diceAsksReason after them, under dnd5e 6 too, there diceAsks false; and since module 0.52.0
+  // (item 65), its anyAbility, last, true whatever the rolls.
+  check(rolls.companionPrompts === true && rolls.prompts === true && rolls.anyAbility === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility']),
+    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls, 0.44.0's diceAsks and diceAsksReason and 0.52.0's anyAbility after it (${JSON.stringify(keys)})`)
   // Changed on purpose (module 0.51.0, ROADMAP item 18): the app reads companions on every scene too.
   check(JSON.parse(hello().body ?? '{}').features?.companions === 3, `the app answers companions: 3 (${hello().body})`)
   await until(() => features().includes('companionPrompts'), 'the app to keep companionPrompts', 15_000).catch(() => {})
