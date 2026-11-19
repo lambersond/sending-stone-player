@@ -277,15 +277,14 @@ describe('CompanionPane', () => {
     ).toBeDisabled()
   })
 
-  // Module 0.51.0 (item 18): one on another scene says so under its tabs, and rolls as ever.
+  // Module 0.51.0 (item 18): one on another scene says so under its tabs, and rolls as ever. The
+  // note's words are awayWords' own test; this is the wiring.
   it('says it’s on another scene under its sheet’s tabs, its rolls still offered', async () => {
     routes([brakkaView({ companion: { ...BRAKKA, away: true } })])
     render(pane())
-    expect(
-      await screen.findByText(
-        'Brakka is on another scene in your Gamemaster’s game. You can still roll for it here, but an attack may be refused while your Gamemaster isn’t viewing its target.',
-      ),
-    ).toHaveAttribute('role', 'note')
+    expect(await screen.findByRole('note')).toHaveTextContent(
+      /^Brakka is on another scene/,
+    )
     expect(
       screen.getByRole('button', { name: 'Strength check, +4' }),
     ).toBeEnabled()
@@ -590,6 +589,7 @@ describe('the Gamemaster’s seat', () => {
     ).toBeInTheDocument()
   })
 
+  // The seat's own words reach the note; the sentence is awayWords' own test.
   it('says one on another scene is in their game, and that they aren’t viewing its target', async () => {
     routes([brakkaView({ companion: { ...BRAKKA, away: true } })])
     render(
@@ -601,11 +601,9 @@ describe('the Gamemaster’s seat', () => {
         },
       }),
     )
-    expect(
-      await screen.findByText(
-        'Brakka is on another scene in your game. You can still roll for it here, but an attack may be refused while you aren’t viewing its target.',
-      ),
-    ).toBeInTheDocument()
+    const note = await screen.findByRole('note')
+    expect(note).toHaveTextContent(/on another scene in your game\./)
+    expect(note).toHaveTextContent(/while you aren’t viewing/)
   })
 })
 
