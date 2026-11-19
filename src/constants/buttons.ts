@@ -54,3 +54,16 @@ export const GO_TO_CHIP_PLAIN =
  */
 export const STEP_BUTTON =
   'flex size-10 shrink-0 items-center justify-center rounded-xl border border-border transition-colors hover:border-primary/50 hover:bg-primary/5 sm:size-11 disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-transparent aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:border-border aria-disabled:hover:bg-transparent'
+
+/**
+ * A tab in a row of switch tabs, such as the creatures above the sheet and the Combat tab's
+ * encounters (item 36): its shape, at least 44 px tall. `SWITCH_TAB_ON` marks the one chosen,
+ * `SWITCH_TAB_OFF` the rest.
+ */
+export const SWITCH_TAB =
+  'flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm transition-colors'
+
+export const SWITCH_TAB_ON = 'bg-primary/10 font-semibold text-primary-text'
+
+export const SWITCH_TAB_OFF =
+  'font-medium text-text-secondary hover:bg-primary/5 hover:text-text-primary'
