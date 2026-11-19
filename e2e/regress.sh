@@ -283,7 +283,7 @@ run health 6 SKEW=049 MODULE=$O/module-0.49.0 SHOTS=$O/shots-050
 # Character tab, Pip's tab and its keys, both turns the seat's, Pip's initiative into the den while
 # the Gamemaster has the arena up and its attack's targets, Bob's arena alone, the Gamemaster's
 # seat, the column at 1280 and the pane at 768, the den unchosen and ended; and module 0.50.0
-# (Pip's initiative into the den refused, "you aren't in the combat").
+# (Pip's tab offering no initiative into the den, the arena heard of last, and nothing sent).
 run encounters 37 SHOTS=$O/shots-051
 run encounters 37 SKEW=050 MODULE=$O/module-0.50.0
 # Item 61 (module 0.50.0): quieter fetching while Foundry is open and nobody is in the app, in
