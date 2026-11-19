@@ -407,7 +407,7 @@ check(await sheetWide.getByRole('button', { name: /^Honor check/ }).isVisible() 
 /**
  * The ability tiles as laid out: the sheet's own width (its scroller's, less any scrollbar), the
  * tiles in each row, top to bottom, and any part of a tile drawn outside it, or an icon squeezed
- * narrower than it is tall.
+ * narrower than it is tall, each named by the button it is in.
  */
 const tilesLaidOut = () => wide.evaluate(() => {
   const sheet = document.querySelector('#character-pane .overflow-y-auto').clientWidth
@@ -425,7 +425,7 @@ const tilesLaidOut = () => wide.evaluate(() => {
       const r = part.getBoundingClientRect()
       if (part.tagName.toLowerCase() === 'svg' && r.height > 0 && r.width < r.height - 0.5) return true
       return r.width > 0 && (r.left < box.left - 0.5 || r.right > box.right + 0.5)
-    }).map(part => `${tile.querySelector('button')?.getAttribute('aria-label')?.split(',')[0]}: ${part.tagName.toLowerCase()} "${part.textContent}"`)
+    }).map(part => `${part.closest('button')?.getAttribute('aria-label')?.split(',')[0]}: ${part.tagName.toLowerCase()} "${part.textContent}"`)
   })
   return { sheet, rows: rows.map(row => row.count), tile: Math.round(tiles[0].getBoundingClientRect().width * 10) / 10, cut }
 })
