@@ -1183,11 +1183,19 @@ const GONE = 'No longer with Thorin in your Gamemaster’s game'
   const awayRoll = await sent(() => batPerception.click(), 'the Bat\'s Perception on another scene')
   check(awayRoll.request.actorId === 'arena-bat4' && awayRoll.made.status === 'done' && madeFor(awayRoll.request.id)?.speaker?.token === 'bat4',
     `the Bat on another scene still rolled for: its Perception made on its token's actor (${awayRoll.made.status}, ${madeFor(awayRoll.request.id)?.speaker?.token})`)
-  // The hello sent again before the app has answered it, as each time the bridge starts (C1): the
-  // app keeps `companionsEverywhere`, so no tab goes and the Drake's sheet stays.
+  // A Gamemaster's page load (C1): the bridge starts with no answer heard yet, so its hello is built
+  // for an app it doesn't know yet, its `companions` the active scene's. The app keeps
+  // `companionsEverywhere`, and the module, told 3, notes that list as the app's: no tab goes, the
+  // Drake's sheet stays, and no companions.listed follows. (The answer forgotten, then the hello, as
+  // the module's harness does: a reload of the game's page here would leave the first module's hooks
+  // on, and part 16 posts through it.)
   await choose(alice, DRAKE)
   const { announce } = await import(`${MODULE}/scripts/bridge.mjs`)
+  const { noteCompanionReader } = await import(`${MODULE}/scripts/creature-sync.mjs`)
+  await settled()
   const hellos = postsOf('bridge.hello').length
+  const lists = postsOf('companions.listed').length
+  noteCompanionReader('camp-ash', null)
   announce()
   await until(() => postsOf('bridge.hello').length > hellos && Boolean(hello().body), 'the hello sent again, and answered', 20_000)
   await settled()
@@ -1195,11 +1203,13 @@ const GONE = 'No longer with Thorin in your Gamemaster’s game'
   for (const began = Date.now(); Date.now() - began < 5_000; await wait(250)) {
     for (const kind of await switcher(alice).getByRole('tab').evaluateAll(tabs => tabs.map(tab => tab.dataset.kind))) kinds.add(kind)
   }
+  const narrow = (hello().data.companions ?? []).map(c => `${c.key}:${c.away}`)
   const everywhere = (hello().data.companionsEverywhere ?? []).map(c => `${c.key}:${c.away}`).sort()
+  const relisted = postsOf('companions.listed').length - lists
   const drakeTable = await call(alice.page, `${companionApi(DRAKE)}/table`)
-  check(same(everywhere, ['arena-bat4:true', 'arena-drake1:true', 'brakka:true']) && !kinds.has('gone') && drakeTable.status === 200
-    && (await awayNote.textContent()).trim() === DRAKE_AWAY && await awayOn(alice),
-    `a hello sent again lists them on every scene, away (${JSON.stringify(everywhere)}); for 5 s no tab goes (${JSON.stringify([...kinds])}) and the Drake's sheet stays (${drakeTable.status})`)
+  check(same(narrow, ['brakka:undefined']) && same(everywhere, ['arena-bat4:true', 'arena-drake1:true', 'brakka:true']) && relisted === 0
+    && !kinds.has('gone') && drakeTable.status === 200 && (await awayNote.textContent()).trim() === DRAKE_AWAY && await awayOn(alice),
+    `a hello built before the app's answer lists the active scene's in companions (${JSON.stringify(narrow)}), and every scene's, away, in companionsEverywhere (${JSON.stringify(everywhere)}); no companions.listed follows (${relisted}); for 5 s no tab goes (${JSON.stringify([...kinds])}) and the Drake's sheet stays (${drakeTable.status})`)
   await alice.page.getByRole('button', { name: 'Help', exact: true }).click()
   const help = alice.page.getByRole('dialog', { name: 'Help' })
   const elsewhere = help.getByText('Companions elsewhere.', { exact: true })
