@@ -9,8 +9,9 @@ import type { TableCombat } from '@/types/table'
 
 /**
  * The encounters under way, a tab each, above the Combat tab's turn panel (item 36), as the
- * creature switcher's are above the sheet: each named for who of the seat's is in it, with its
- * round, and on one not shown, a dot where it's the seat's turn there, which its name says too.
+ * creature switcher's are above the sheet: each named for the encounter, or else for who of the
+ * seat's is in it, with its round, and on one not shown, a dot where it's the seat's turn there,
+ * which its name says too.
  * Left and Right move between them, wrapping, and Home and End go to the first and last: focus
  * moves first, then the encounter is shown. Past what fits, the row scrolls.
  * @param shown - The encounter shown, by id.
