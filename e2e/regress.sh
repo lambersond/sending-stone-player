@@ -143,7 +143,7 @@ run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 run givetake 76 SHOTS=$O/shots-032
 run givetake 77 DND5E6=1 SHOTS=$O/shots-032
 run givetake 19 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
-run givetake 8 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-032
+run givetake 10 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-032
 # Module 0.33.0: an item removed from a character (its menu, the confirmation, stacks, containers,
 # the Gamemaster's, races with moves), dnd5e 6.0.5, and module 0.32.0 (no Remove).
 run removals 81 SHOTS=$O/shots-033

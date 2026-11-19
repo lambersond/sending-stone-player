@@ -29,8 +29,9 @@
 // whispered, then 1 gp to the Wardens, of whom Thorin is none, their sheet posted ahead of the
 // result and shown in the app; and Bob's crafted give to the Company he observes is refused.
 // SKEW=050 with MODULE=module-0.50.0: v0.50.0's dialog, the parties radios, and part 20, a give to
-// the Company by its radio, then done. Synthetic characters only. Run with --import
-// ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
+// the Company by its radio, then the Company's own Give, "of" what's held with All, a give `to` it,
+// then done. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
+// ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BASE, BOB, DND5E6, SHOTS_033, SKEW031, W, actors, browse, call, changeMembers, character, check, coinsInFoundry, embedded, finish, foundryWorld,
   group, holdWrite, launch, newCampaign, note, npc, part, posted, postsOf, same, sameJson, settled, shoot, shootBoth, sideways, sql, startModule,
@@ -276,6 +277,24 @@ if (SKEW050) {
     `it's sent as a give to the Company, "${lastLine()?.text}" (${JSON.stringify(given.payload.transfer)})`)
   const refused = await crafted(alice, ALICE_API, { from: 'thorin', each: ['company'], currency: { gp: 1 } })
   check(refused.status === 422 && refused.json?.reason === 'unknown', `crafted, a hand-out naming the Company is ${refused.status} ${refused.json?.reason}, as module 0.50.0 would refuse it`)
+  // The Company's own Give is v0.50.0's too: "of" what Thorin holds, with All, and a give `to` it.
+  const panel = await openParty(alice)
+  await panel.getByRole('button', { name: 'Give', exact: true }).click()
+  dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
+  await dialog.waitFor()
+  const coins = dialog.getByRole('group', { name: 'Coins' })
+  await until(async () => (await coins.textContent()).includes('38 gp'), "the Company's Give to show Thorin's 38 gp", 15_000)
+  const coinsText = await coins.textContent()
+  const all = await dialog.getByRole('button', { name: /^All / }).evaluateAll(bs => bs.map(b => b.getAttribute('aria-label')))
+  check(await dialog.getByRole('radio').count() === 0 && coinsText.includes('of 38 gp') && !coinsText.includes('held') && same(all, ['All Gold']),
+    `the Company's Give opens v0.50.0's "Give coins": no To, Thorin's "of 38 gp" with All (${JSON.stringify([coinsText, all])})`)
+  await dialog.getByRole('textbox', { name: 'Gold' }).fill('3')
+  await dialog.getByRole('button', { name: 'Give coins' }).click()
+  const into = await answeredNext("3 gp into the Company by its sheet's Give")
+  check(into.status === 'done' && sameJson(into.payload.transfer, { from: 'thorin', to: 'company', currency: { gp: 3 } }) && lastLine()?.text === 'Gives 3 gp to The Iron Company'
+    && gp(thorin) === 35 && held(company, 'gp') === 108,
+    `it's sent as a give to the Company, no hand-out, "${lastLine()?.text}": Thorin ${gp(thorin)}, the Company ${held(company, 'gp')} (${JSON.stringify(into.payload.transfer)})`)
+  await panel.getByRole('button', { name: 'Close' }).click()
   await finish()
 }
 
