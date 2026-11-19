@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RecipientList } from './recipient-list'
-import type { MoveEnd } from '@/features/transfers/types'
+import type { MoveEnd, Several } from '@/features/transfers/types'
 
 const iron: MoveEnd = {
   id: 'groupIronCo01',
@@ -31,7 +31,7 @@ function Held({
   parties?: MoveEnd[]
   characters: MoveEnd[]
   start?: string[]
-  several?: boolean
+  several?: Several
   onPicked?: (ids: string[]) => void
 }>) {
   const [value, setValue] = useState(start)
@@ -186,7 +186,7 @@ describe('components/transfers/recipient-list, several characters (module 0.49.0
         parties={[iron, order]}
         characters={[vex, ...more.slice(0, 2)]}
         start={['groupIronCo01']}
-        several
+        several='characters'
         onPicked={onPicked}
       />,
     )
@@ -217,7 +217,13 @@ describe('components/transfers/recipient-list, several characters (module 0.49.0
   it('ticks them all with Select all, ticked itself once they all are, and none with it again', async () => {
     const user = userEvent.setup()
     const onPicked = jest.fn()
-    render(<Held characters={numbered(20)} several onPicked={onPicked} />)
+    render(
+      <Held
+        characters={numbered(20)}
+        several='characters'
+        onPicked={onPicked}
+      />,
+    )
     const all = screen.getByRole('checkbox', { name: 'Select all' })
 
     await user.click(all)
@@ -234,14 +240,20 @@ describe('components/transfers/recipient-list, several characters (module 0.49.0
     ['more than one give goes to', 21],
     ['only one to tick', 1],
   ])('has no Select all where there are %s', (_name, count) => {
-    render(<Held characters={numbered(count)} several />)
+    render(<Held characters={numbered(count)} several='characters' />)
     expect(screen.queryByRole('checkbox', { name: 'Select all' })).toBeNull()
     expect(screen.getAllByRole('checkbox')).toHaveLength(count)
   })
 
   it('keeps those ticked while searching, and ticks those hidden too with Select all', async () => {
     const user = userEvent.setup()
-    render(<Held parties={[iron]} characters={[vex, ...more]} several />)
+    render(
+      <Held
+        parties={[iron]}
+        characters={[vex, ...more]}
+        several='characters'
+      />,
+    )
     await user.click(screen.getByRole('checkbox', { name: 'Durin' }))
     await user.type(screen.getByRole('searchbox'), 'vex')
     expect(
@@ -258,5 +270,76 @@ describe('components/transfers/recipient-list, several characters (module 0.49.0
         .filter(box => (box as HTMLInputElement).checked)
         .map(box => box.closest('label')?.textContent),
     ).toEqual(['Select all', 'Vex', 'Arwen', 'Bilbo', 'Celeborn', 'Durin'])
+  })
+})
+
+describe('components/transfers/recipient-list, every party and character (module 0.51.0)', () => {
+  it('ticks the parties and the characters alike, as native checkboxes, none of them a radio', async () => {
+    const user = userEvent.setup()
+    const onPicked = jest.fn()
+    render(
+      <Held
+        parties={[iron, order]}
+        characters={[vex, ...more.slice(0, 2)]}
+        several='everyone'
+        onPicked={onPicked}
+      />,
+    )
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
+    expect(
+      within(screen.getByRole('group', { name: 'Parties' }))
+        .getAllByRole('checkbox')
+        .map(box => box.closest('label')?.textContent),
+    ).toEqual(['The Iron Company Primary', 'The Silent Order'])
+    expect(
+      within(screen.getByRole('group', { name: 'Characters' }))
+        .getAllByRole('checkbox')
+        .map(box => box.closest('label')?.textContent),
+    ).toEqual(['Select all', 'Vex', 'Arwen', 'Bilbo'])
+
+    // Ticked together, in the list's order, a tick never letting go of another.
+    await user.click(screen.getByRole('checkbox', { name: 'Bilbo' }))
+    await user.click(
+      screen.getByRole('checkbox', { name: 'The Iron Company Primary' }),
+    )
+    await user.click(screen.getByRole('checkbox', { name: 'Vex' }))
+    expect(onPicked).toHaveBeenLastCalledWith([
+      'groupIronCo01',
+      'actorVex0001',
+      'actorBilbo',
+    ])
+    await user.click(
+      screen.getByRole('checkbox', { name: 'The Iron Company Primary' }),
+    )
+    expect(onPicked).toHaveBeenLastCalledWith(['actorVex0001', 'actorBilbo'])
+  })
+
+  it('ticks every character with Select all, leaving a party ticked, and unticks only them again', async () => {
+    const user = userEvent.setup()
+    const onPicked = jest.fn()
+    render(
+      <Held
+        parties={[iron]}
+        characters={[vex, ...more.slice(0, 2)]}
+        start={['groupIronCo01']}
+        several='everyone'
+        onPicked={onPicked}
+      />,
+    )
+    const all = screen.getByRole('checkbox', { name: 'Select all' })
+    await user.click(all)
+    expect(onPicked).toHaveBeenLastCalledWith([
+      'groupIronCo01',
+      'actorVex0001',
+      'actorArwen',
+      'actorBilbo',
+    ])
+    expect(all).toBeChecked()
+    await user.click(all)
+    expect(onPicked).toHaveBeenLastCalledWith(['groupIronCo01'])
+    // Select all is the characters' alone: the parties have none.
+    expect(
+      screen.getAllByRole('checkbox', { name: 'Select all' }),
+    ).toHaveLength(1)
   })
 })

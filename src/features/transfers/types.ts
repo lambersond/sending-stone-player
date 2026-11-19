@@ -99,6 +99,12 @@ export type FormSummary = {
   ready: boolean
 }
 
+/**
+ * Who may be ticked in a give's list: from module 0.49.0 the characters, a party chosen alone; from
+ * module 0.51.0 everyone, parties and characters alike.
+ */
+export type Several = 'characters' | 'everyone'
+
 /** What's being given, while its dialog is open, as it was when it opened. */
 export type Giving = {
   what: { item: SheetItem | SheetContainer } | { coins: SheetCurrency[] }

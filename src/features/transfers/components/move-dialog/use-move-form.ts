@@ -110,7 +110,7 @@ export function useMoveForm({
     chosen,
     setChosen,
     // Any of the characters may be ticked: a character's coins, where its module hands them out.
-    several: !!handOut && !!currency,
+    several: handOut && currency ? ('characters' as const) : undefined,
     each: !!giving,
     legend: coinsLegend(picked.length),
     told: summary.ready ? toldWords({ each: !!giving, to: picked, gm }) : '',

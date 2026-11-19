@@ -13,33 +13,43 @@ export function everyTicked(
 }
 
 /**
- * Those picked once a character is ticked or unticked (module 0.49.0): any party chosen is let go,
- * as a party is given to alone, and the characters are kept in the list's order, whatever order
- * they're ticked in.
- * @param value - Those picked, by id: a party, or characters.
- * @param id - The character ticked or unticked.
- * @param characters - Every character in the list, in its order.
+ * Those picked once one is ticked or unticked (module 0.49.0), kept in the list's order, whatever
+ * order they're ticked in, and only those `order` holds: with the characters alone, any party
+ * chosen is let go, as a party is then given to alone; from module 0.51.0, with the parties and
+ * the characters, a party is kept ticked with them.
+ * @param value - Those picked, by id.
+ * @param id - The one ticked or unticked.
+ * @param order - Every one that may be ticked, in the list's order.
  */
 export function tickedAfter(
   value: readonly string[],
   id: string,
-  characters: readonly MoveEnd[],
+  order: readonly MoveEnd[],
 ): string[] {
   const picked = new Set(value)
-  return characters
+  return order
     .map(end => end.id)
     .filter(each => (each === id ? !picked.has(each) : picked.has(each)))
 }
 
 /**
- * Those picked once Select all is pressed (module 0.49.0): every character, in the list's order,
- * or none once they all are; any party chosen is let go.
- * @param value - Those picked, by id: a party, or characters.
- * @param characters - Every character in the list, whatever a search shows of them.
+ * Those picked once Select all is pressed (module 0.49.0): every one of `section`, or none of them
+ * once they all are; those of `order` outside it kept as they are, and the rest let go, all in the
+ * list's order. With the characters alone a party chosen is let go; from module 0.51.0 a party
+ * ticked among them stays ticked.
+ * @param value - Those picked, by id.
+ * @param section - Those Select all ticks, whatever a search shows of them: the characters.
+ * @param order - Every one that may be ticked, in the list's order.
  */
 export function allTicked(
   value: readonly string[],
-  characters: readonly MoveEnd[],
+  section: readonly MoveEnd[],
+  order: readonly MoveEnd[] = section,
 ): string[] {
-  return everyTicked(value, characters) ? [] : characters.map(end => end.id)
+  const all = everyTicked(value, section)
+  const ids = new Set(section.map(end => end.id))
+  const picked = new Set(value)
+  return order
+    .map(end => end.id)
+    .filter(id => (ids.has(id) ? !all : picked.has(id)))
 }
