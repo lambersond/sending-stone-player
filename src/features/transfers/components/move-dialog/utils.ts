@@ -146,16 +146,19 @@ export function givesEach({
   return !!handOut.parties || !parties.some(({ id }) => chosen.includes(id))
 }
 
-/** What a give of coins to characters calls what each gets: "Each gets" for several. */
+/**
+ * What a give of coins to characters, and from module 0.51.0 parties, calls what each gets:
+ * "Each gets" for several.
+ */
 export function coinsLegend(count: number): 'Coins' | 'Each gets' {
   return count > 1 ? 'Each gets' : 'Coins'
 }
 
 /**
- * What a give of a character's coins to characters says it'll do, or what it still needs (module
- * 0.49.0): who gets it, no more than one give goes to, then how many; what one gets, or what each
- * of several gets and what that comes to in all; and where that's more of a coin than the
- * character holds, that other coins pay for the rest, or why it can't be sent.
+ * What a give of a character's coins to characters (module 0.49.0), and from module 0.51.0 parties,
+ * says it'll do, or what it still needs: who gets it, no more than one give goes to, then how many;
+ * what one gets, or what each of several gets and what that comes to in all; and where that's more
+ * of a coin than the character holds, that other coins pay for the rest, or why it can't be sent.
  * @param to - Those ticked, in the list's order.
  * @param each - What each gets, by coin; unset until it's typed.
  * @param currency - The character's coins, as the sheet had them when the dialog opened.
@@ -193,9 +196,9 @@ export function eachSummary(
 }
 
 /**
- * A give of a character's coins to characters, as it's sent (module 0.49.0), with the words the
- * tray keeps of it: to one, a give to them; to several, what each gets, among whom; either with
- * the sheet's abbreviations for what else the game used.
+ * A give of a character's coins to characters (module 0.49.0), and from module 0.51.0 parties, as
+ * it's sent, with the words the tray keeps of it: to one, a give to them; to several, what each
+ * gets, among whom; either with the sheet's abbreviations for what else the game used.
  * @param name - The character's name; `mover` too, at the Gamemaster's page.
  */
 export function eachMove(
