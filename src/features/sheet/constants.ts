@@ -45,12 +45,8 @@ export const ABILITIES_SECTION = 'flex flex-col gap-3'
 export const ABILITY_TILE =
   '@container flex flex-col overflow-hidden rounded-2xl border bg-card'
 
-/**
- * An ability's check: its name, its modifier, then its score; narrower padding in a narrow tile,
- * where a score and its Adv or Dis would not fit inside the wider (v0.52.0).
- */
-export const ABILITY_CHECK =
-  'flex flex-col items-center gap-1 px-2 pt-2.5 pb-2 @max-[84px]:px-1'
+/** An ability's check: its name, its modifier, then its score. */
+export const ABILITY_CHECK = 'flex flex-col items-center gap-1 px-2 pt-2.5 pb-2'
 
 /** An ability's save, across its tile's foot. */
 export const ABILITY_SAVE =
