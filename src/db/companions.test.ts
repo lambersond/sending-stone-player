@@ -591,7 +591,7 @@ describe('db/companions', () => {
       ['isn’t', false, { mode: 'after' }],
       ['is', true, { mode: 'after', after: 'Thorin' }],
     ])(
-      'reads its own encounter, chosen for its scene, not the one ranked first; its character %s in it (item 36)',
+      'reads its own encounter under way, not the one ranked first; its character %s in it (item 36)',
       async (_, joined, initiative) => {
         const seat = await seatAt(thorin, 'wolfBrakka')
         held({ companionInitiative: 'after' })

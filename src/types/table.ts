@@ -335,8 +335,8 @@ export type TableView = {
   messages: TableMessage[]
   /**
    * The encounter seen from the creature, for its Initiative tile and target picker: the first, as
-   * `pickCombat` ranks them, of those chosen for their scenes that it's a combatant of; else the
-   * campaign's, as `pickCombat` ranks them all (item 36).
+   * `pickCombat` ranks them, of those under way that it's a combatant of; else the campaign's, as
+   * `pickCombat` ranks them all (item 36).
    */
   combat?: TableCombat
   /**
@@ -529,8 +529,8 @@ export type CompanionView = {
   sheetWithheld?: SheetWithheld
   /**
    * The encounter seen from the creature, for its Initiative tile and target picker: the first, as
-   * `pickCombat` ranks them, of those chosen for their scenes that it's a combatant of; else the
-   * campaign's, as `pickCombat` ranks them all (item 36).
+   * `pickCombat` ranks them, of those under way that it's a combatant of; else the campaign's, as
+   * `pickCombat` ranks them all (item 36).
    */
   combat?: TableCombat
   rollsToTable?: RollKind[]

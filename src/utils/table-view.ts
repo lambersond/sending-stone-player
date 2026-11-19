@@ -969,7 +969,8 @@ export function pickCombat(
 
 /**
  * The encounter seen from a creature (item 36): the first, as `pickCombat` ranks them, of those
- * chosen for their scenes that it fights in; else the campaign's, as today.
+ * under way that it fights in; else the campaign's, as `pickCombat` ranks them all, as v0.50.0
+ * chose. So one set up ahead on another scene is seen exactly where it was before.
  * @param combats - Every held combat, most recently changed first.
  * @param isIn - Whether a combatant is the creature.
  */
@@ -981,7 +982,8 @@ export function pickCombatFor(
     pickCombat(
       combats.filter(
         combat =>
-          combat.active && combat.combatants.some(combatant => isIn(combatant)),
+          isUnderWay(combat) &&
+          combat.combatants.some(combatant => isIn(combatant)),
       ),
     ) ?? pickCombat(combats)
   )

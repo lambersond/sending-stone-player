@@ -308,7 +308,7 @@ describe('db/table', () => {
       })
     })
 
-    it("lists the encounters under way, and reads the character's own chosen one though another ranks higher (item 36)", async () => {
+    it("lists the encounters under way, and reads the character's own though another changed since (item 36)", async () => {
       prismaMock.campaign.findUnique.mockResolvedValue(campaign as any)
       prismaMock.chatMessage.findMany.mockResolvedValue([])
       prismaMock.combat.findMany.mockResolvedValue([
@@ -318,14 +318,14 @@ describe('db/table', () => {
             combatants: [combatant({ id: 'c-boss' })],
           }),
         },
-        { data: combat({ id: 'own', started: false, combatantId: null }) },
+        { data: combat({ id: 'own', combatantId: null }) },
       ] as any)
 
       const view = await getTableView(character)
 
-      expect(view.combat).toMatchObject({ id: 'own', underWay: false })
+      expect(view.combat).toMatchObject({ id: 'own', underWay: true })
       expect(view.combats).toEqual([
-        expect.objectContaining({ id: 'theirs', underWay: true }),
+        expect.objectContaining({ id: 'own', underWay: true }),
       ])
     })
 

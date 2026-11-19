@@ -1724,10 +1724,13 @@ describe('utils/table-view', () => {
   describe('the encounters a creature and the Combat tab see (item 36)', () => {
     it.each([
       [
-        'its own chosen one first, though another ranks higher',
-        [fight('theirs', [goblin]), fight('own', [thorin], { started: false })],
+        'its own set up ahead, chosen but not begun, passed over for another under way, as pickCombat over all',
+        [
+          fight('den', [goblin, pip]),
+          fight('camp', [thorin], { started: false, round: 0 }),
+        ],
         isThorin,
-        'own',
+        'den',
       ],
       [
         'its own not chosen passed over, as pickCombat over all',

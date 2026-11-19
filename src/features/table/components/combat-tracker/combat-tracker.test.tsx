@@ -883,17 +883,26 @@ describe('components/game-table/combat-tracker, two encounters at once (item 36)
     expect(button).toHaveFocus()
   })
 
-  it('says to roll initiative above the tabs while the seat’s own encounter waits for it', () => {
-    const own = waiting({ id: 'thorin', side: 'me' })
-    render(
-      <CombatTracker combats={[arena(), den()]} shown={arena()} own={own} />,
-    )
+  // The seat's own encounter is one under way wherever one is (`pickCombatFor`), so one set up
+  // ahead elsewhere that waits for its initiative never puts the line over another's turn panel.
+  it.each([
+    ['two, with tabs', [arena(), den()]],
+    ['one, with none', [den()]],
+  ])(
+    'never says to roll initiative over the encounters’ panel: %s',
+    (_, combats) => {
+      render(
+        <CombatTracker
+          combats={combats}
+          shown={combats[0]}
+          own={waiting({ id: 'thorin', side: 'me' })}
+        />,
+      )
 
-    const line = screen.getByText(ROLL_LINE)
-    expect(line.compareDocumentPosition(screen.getByRole('tablist'))).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    )
-  })
+      expect(turnPanel()).toHaveTextContent('Goblin Boss is acting')
+      expect(screen.queryByText(ROLL_LINE)).toBeNull()
+    },
+  )
 
   describe('whose turn, said', () => {
     beforeEach(() => jest.useFakeTimers())

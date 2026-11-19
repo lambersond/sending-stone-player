@@ -288,8 +288,8 @@ const TABLE_CAMPAIGN = {
 } as const
 
 /**
- * The encounters a character's view reads (item 36): its own, chosen for its scene, else the
- * campaign's, for its sheet; and every one under way the Combat tab shows, the seat's own first.
+ * The encounters a character's view reads (item 36): its own under way, else the campaign's, for
+ * its sheet; and every one under way the Combat tab shows, the seat's own first.
  * @param combats - Every combat held for the campaign, most recently changed first.
  */
 function encountersOf(

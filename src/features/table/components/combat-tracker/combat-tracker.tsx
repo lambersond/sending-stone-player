@@ -92,11 +92,6 @@ export function CombatTracker({
     <>
       {said}
       <div className='mx-auto flex w-full max-w-3xl flex-col'>
-        {lines === 'roll' && (
-          <p className='px-4 pt-4 text-sm font-medium text-text-primary @xl:px-8 @xl:pt-6'>
-            {rollInitiative}
-          </p>
-        )}
         {tabbed && (
           <div className='px-4 pt-4 @xl:px-8 @xl:pt-6'>
             <EncounterTabs

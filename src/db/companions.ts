@@ -240,7 +240,7 @@ export async function getCompanionView(
     ...viewerOf(seat, roster, listed, campaign.origin),
     of,
   }
-  // The encounter it fights in, chosen for its scene, else the campaign's (item 36).
+  // The encounter it fights in, under way, else the campaign's (item 36).
   const snapshot = pickCombatFor(
     combats.map(({ data }) => data as unknown as CombatSnapshot),
     ({ companion }) => companion === key,
