@@ -1,7 +1,8 @@
-import { askTitle, isAbility } from './ask-words'
+import { askTitle } from './ask-words'
 import { withoutTags } from './beyond-tags'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
 import { MAX_CHECKS, toolOrSkillName } from '@/utils/description-links'
+import { isAbilityKey } from '@/utils/game-names'
 import { ownName } from '@/utils/own-name'
 import type { TableRoll } from '@/types/roll'
 import type {
@@ -216,9 +217,9 @@ function askOf(message: SerializedMessage): TableAsk | undefined {
 
 /**
  * The module's ask, as stored. Checked when it was received, but checked again here, as one stored
- * before then may not have been: its abilities only dnd5e's own, its skills and tools only keys,
- * its DC a number, and what asks a name. A check any of whose ways doesn't hold up isn't read at
- * all, rather than read as asking for less than it does.
+ * before then may not have been: its abilities and its skills and tools only keys, its DC a number,
+ * and what asks a name. A saving throw any of whose abilities, or a check any of whose ways,
+ * doesn't hold up isn't read at all, rather than read as asking for less than it does.
  */
 function tableAsk(ask: MessageAsk | null): TableAsk | undefined {
   if (!ask) return
@@ -240,9 +241,8 @@ function tableAsk(ask: MessageAsk | null): TableAsk | undefined {
     return whole ? { type: 'check', checks, ...told } : undefined
   }
   if (ask.type !== 'save' && ask.type !== 'concentration') return
-  const abilities = Array.isArray(ask.abilities)
-    ? ask.abilities.filter(id => isAbility(id))
-    : []
+  const abilities = Array.isArray(ask.abilities) ? ask.abilities : []
+  if (!abilities.every(id => isAbilityKey(id))) return
   if (ask.type === 'save' && abilities.length === 0) return
   return { type: ask.type, abilities, ...told }
 }
@@ -255,14 +255,14 @@ const CHECK_KEY = /^[A-Za-z][\w-]{0,31}$/
 
 /**
  * One way a check may be made, as an ask or a card's button has it, if it holds up: an ability
- * check by one of dnd5e's abilities, a skill check by its skill's key, a tool check by its tool's,
- * with the tool's name where it says one.
+ * check by an ability's key, a skill check by its skill's key, a tool check by its tool's, with the
+ * tool's name where it says one.
  */
 function askedCheck(
   check: Partial<Record<keyof AskedCheck, unknown>>,
 ): AskedCheck | undefined {
   const { type, ability, skill, tool, name } = check
-  if (!CHECK_TYPES.has(type) || !isAbility(ability)) return
+  if (!CHECK_TYPES.has(type) || !isAbilityKey(ability)) return
   const key = type === 'skill' ? skill : tool
   if (type !== 'check' && (typeof key !== 'string' || !CHECK_KEY.test(key))) {
     return
@@ -300,9 +300,7 @@ function requestCardAsk(message: SerializedMessage): TableAsk | undefined {
   const type = buttons[0].get('type') as 'save' | 'concentration'
   const abilities = buttons.flatMap(data => {
     const ability = data.get('ability')
-    return data.get('type') === type && ability && isAbility(ability)
-      ? [ability]
-      : []
+    return data.get('type') === type && isAbilityKey(ability) ? [ability] : []
   })
   if (type === 'save' && abilities.length === 0) return
   return { type, abilities: [...new Set(abilities)] }

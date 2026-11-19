@@ -1,6 +1,11 @@
 import { ABILITIES, SKILLS, TOOLS } from '@/constants/dnd5e'
-import { DAMAGE_TYPE, LINK_CLASSES } from '@/constants/sending-stone'
+import {
+  DAMAGE_TYPE,
+  LINK_CLASSES,
+  MOST_ABILITIES,
+} from '@/constants/sending-stone'
 import { formulaTerms } from '@/utils/formulas'
+import { isAbilityKey } from '@/utils/game-names'
 import type {
   LinkClass,
   DescriptionLink,
@@ -38,11 +43,11 @@ export const MAX_LINKS = 200
 /** A part's damage types: one, or several joined by | for a choice. */
 const TYPES = String.raw`(?:[A-Za-z][\w-]{0,31}(?:\|[A-Za-z][\w-]{0,31}){0,9})`
 
-/** One of dnd5e's abilities. */
-const ABILITY = '(?:str|dex|con|int|wis|cha)'
-
 /** A skill's or tool's key, as dnd5e's are. */
 const KEY = String.raw`[A-Za-z][\w-]{0,31}`
+
+/** An ability's key, any the game has, as dnd5e's and a world's own are. */
+const ABILITY = KEY
 
 /**
  * One way a check may be made: `check:<ability>`, `skill:<ability>:<skill>` or
@@ -64,8 +69,10 @@ const FORMULA = String.raw`[\da-z\s+\-−*/().<>=]{1,100}`
 export const LINK_ATTRIBUTES: Record<LinkClass, Record<string, RegExp>> = {
   'ss-save': {
     'data-n': /^(?:0|[1-9]\d?|1\d\d)$/,
-    'data-ability':
-      /^(?:str|dex|con|int|wis|cha)(?:\|(?:str|dex|con|int|wis|cha)){0,5}$/,
+    // Its abilities joined by |, any the game has, as many as a saving throw may offer.
+    'data-ability': new RegExp(
+      String.raw`^${ABILITY}(?:\|${ABILITY}){0,${MOST_ABILITIES - 1}}$`,
+    ),
     'data-dc': /^[1-9]\d?$/,
     'data-type': /^concentration$/,
   },
@@ -161,7 +168,7 @@ export function linkOf(
       const abilities = kept['data-ability']
         ? [...new Set(kept['data-ability'].split('|'))]
         : [CONCENTRATION_ABILITY]
-      if (!abilities.every(id => Object.hasOwn(ABILITIES, id))) return
+      if (!abilities.every(id => isAbilityKey(id))) return
       return {
         kind: 'save',
         n,
@@ -171,10 +178,14 @@ export function linkOf(
       }
     }
     case 'ss-check': {
+      // Whole or not at all: a check any of whose ways is by a name every object answers to, such
+      // as `constructor`, is only text, never a check of the rest.
+      const checks = checkOptions(kept['data-checks'])
+      if (!checks.every(option => isAbilityKey(option.ability))) return
       return {
         kind: 'check',
         n,
-        checks: checkOptions(kept['data-checks']),
+        checks,
         ...(kept['data-dc'] && { dc: Number(kept['data-dc']) }),
         ...(kept['data-using-tool'] && {
           usingTool: kept['data-using-tool'],

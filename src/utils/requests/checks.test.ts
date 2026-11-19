@@ -536,6 +536,24 @@ describe('utils/roll-requests', () => {
       ).toBeUndefined()
     })
 
+    it("lets the character roll a check or save on any ability its sheet has, as dnd5e's Honor, and no other", () => {
+      const honored = {
+        ...sheet,
+        abilities: [
+          ...sheet.abilities,
+          { ...sheet.abilities[4], id: 'hon', label: 'Honor' },
+        ],
+      }
+      for (const kind of ['ability', 'save'] as const) {
+        expect(
+          checkRoll(request({ kind, key: 'hon' }), honored, [], 'actor-thorin'),
+        ).toBeUndefined()
+        expect(
+          checkRoll(request({ kind, key: 'hon' }), sheet, [], 'actor-thorin'),
+        ).toBe('unknown')
+      }
+    })
+
     it('refuses what the sheet lacks, or a roll without a sheet', () => {
       expect(
         checkRoll(request({ key: 'xyz' }), sheet, [], 'actor-thorin'),
@@ -2436,6 +2454,38 @@ describe('utils/roll-requests', () => {
       ['a save of a check', { kind: 'save', key: 'int', link: 10 }],
     ] as const)("refuses the player's own check of %s", (_name, fields) => {
       expect(check(linked({ link: 10, ...fields }))).toBe('link')
+    })
+
+    it("lets the player roll their own check on an ability the description's check names, Honor's too, and no other", () => {
+      const honored = fullerSheet()
+      honored.abilities = [
+        ...honored.abilities,
+        { ...honored.abilities[4], id: 'hon', label: 'Honor' },
+      ]
+      const held = new Map([
+        ...links,
+        [
+          15,
+          {
+            link: {
+              kind: 'check',
+              n: 15,
+              checks: [{ type: 'check', ability: 'hon' }],
+              dc: 12,
+            },
+            secret: false,
+          } satisfies FoundLink,
+        ],
+      ])
+      const roll = (key: string) =>
+        check(
+          linked({ kind: 'ability', key, link: 15, dice: [] }),
+          held,
+          honored,
+        )
+
+      expect(roll('hon')).toBeUndefined()
+      expect(roll('wis')).toBe('link')
     })
 
     it('still refuses a check with a skill or ability the sheet has not, first', () => {

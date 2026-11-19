@@ -1322,7 +1322,7 @@ describe('utils/table-view', () => {
     })
 
     it("never reads the buttons of a Gamemaster's card whose ask the app couldn't read", () => {
-      // Its ask names dnd5e's Honor, an ability the app doesn't have, so it was stored as null.
+      // Its ask names dnd5e's Honor, so it was stored as null, as an app before v0.52.0 stored it.
       const message = toTableMessage(
         gmCard(card(button('dex'), button('hon')), {
           text: 'DC 15 Dexterity or Honor saving throw',
@@ -1336,10 +1336,9 @@ describe('utils/table-view', () => {
     })
 
     it("checks the module's ask again, as one stored before it was checked may not be", () => {
-      expect(askWith({ abilities: ['constructor', 'dex'] })).toEqual({
-        type: 'save',
-        abilities: ['dex'],
-      })
+      // Changed on purpose (v0.52.0, item 64): a saving throw is read whole or not at all, as a
+      // check is, never as asking for less than it does.
+      expect(askWith({ abilities: ['constructor', 'dex'] })).toBeUndefined()
       expect(askWith({ abilities: ['constructor'] })).toBeUndefined()
       expect(askWith({ abilities: 'dex' })).toBeUndefined()
       expect(askWith({ type: 'check' })).toBeUndefined()
@@ -1404,13 +1403,13 @@ describe('utils/table-view', () => {
         gmCard(card(button('dex', 'save', 'rollSave'))),
       ],
       [
-        'asking for a check with an ability dnd5e lacks',
+        'asking for a skill check that names no skill',
         gmCard(card(button('ath', 'skill'))),
       ],
       [
-        'asking with abilities dnd5e lacks',
+        'asking with no ability by its key',
         gmCard(
-          card(button('constructor'), button('__proto__'), button('luck')),
+          card(button('constructor'), button('__proto__'), button('my.luck')),
         ),
       ],
       ['with no button', gmCard('<p>rollRequest</p>')],
@@ -1508,7 +1507,7 @@ describe('utils/table-view', () => {
             checkButton(
               'data-type="tool" data-ability="dex" data-tool="thief"',
             ),
-            checkButton('data-type="check" data-ability="luck"'),
+            checkButton('data-type="check" data-ability="my.luck"'),
           ),
           { text: 'DC 15 check check' },
         ),

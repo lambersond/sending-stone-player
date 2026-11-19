@@ -235,6 +235,52 @@ describe('utils/description-links', () => {
       })
     })
 
+    it("reads a saving throw or check on any ability the game has, Honor's, Sanity's or a world's own, whole", () => {
+      expect(
+        linkOf({
+          class: 'ss-save roll',
+          'data-n': '1',
+          'data-ability': 'wis|san',
+          'data-dc': '13',
+        }),
+      ).toEqual({
+        kind: 'save',
+        n: 1,
+        abilities: ['wis', 'san'],
+        dc: 13,
+        concentration: false,
+      })
+      expect(
+        linkOf({
+          class: 'ss-check roll',
+          'data-n': '2',
+          'data-checks': 'check:wis|check:hon|skill:hon:eti|check:luck',
+          'data-dc': '12',
+        }),
+      ).toEqual({
+        kind: 'check',
+        n: 2,
+        checks: [
+          { type: 'check', ability: 'wis' },
+          { type: 'check', ability: 'hon' },
+          { type: 'skill', ability: 'hon', key: 'eti' },
+          { type: 'check', ability: 'luck' },
+        ],
+        dc: 12,
+      })
+      expect(
+        linkOf({
+          class: 'ss-check roll',
+          'data-n': '3',
+          'data-checks': 'check:san',
+        }),
+      ).toEqual({
+        kind: 'check',
+        n: 3,
+        checks: [{ type: 'check', ability: 'san' }],
+      })
+    })
+
     it('reads a roll of its own and a condition', () => {
       expect(
         linkOf({ class: 'ss-roll roll', 'data-n': '5', 'data-formula': '1d6' }),
@@ -295,10 +341,28 @@ describe('utils/description-links', () => {
         'an ability any object has',
         { class: 'ss-save', 'data-n': '0', 'data-ability': 'constructor' },
       ],
+      [
+        'a saving throw of eleven abilities, more than one may offer',
+        {
+          class: 'ss-save',
+          'data-n': '0',
+          'data-ability': Array.from({ length: 11 }, (_, n) => `a${n}`).join(
+            '|',
+          ),
+        },
+      ],
+      [
+        'a saving throw with an ability any object has among others',
+        { class: 'ss-save', 'data-n': '0', 'data-ability': 'wis|constructor' },
+      ],
       ['a check of no way', { class: 'ss-check', 'data-n': '0' }],
       [
-        'a check by an ability dnd5e hasn’t',
-        { class: 'ss-check', 'data-n': '0', 'data-checks': 'check:san' },
+        'a check with an ability any object has among others',
+        {
+          class: 'ss-check',
+          'data-n': '0',
+          'data-checks': 'check:wis|check:constructor',
+        },
       ],
       [
         'a check of no number',

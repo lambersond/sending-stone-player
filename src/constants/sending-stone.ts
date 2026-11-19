@@ -175,6 +175,12 @@ export const MOST_MOVED_ITEMS = 10
 export const MOST_AMONG = 20
 
 /**
+ * The most abilities one saving throw may offer, a card's buttons or a description's
+ * `data-ability`, as a prompt's may.
+ */
+export const MOST_ABILITIES = 10
+
+/**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
  * player changed, with more dice, another die or every die at its highest, and from module 0.19.0
  * a description's damage changed so too, whose sheets then say how the world rolls a critical
