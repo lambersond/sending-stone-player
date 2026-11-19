@@ -9,7 +9,9 @@ import {
   itemAmounts,
   labelOf,
   moveOf,
+  partiesOf,
   pickedOf,
+  severalOf,
   summaryOf,
   thingsOf,
   toldWords,
@@ -26,7 +28,8 @@ import type { FormSummary } from '@/features/transfers/types'
  * which coins, what it says it'll do and who's told, and its button's words; and Submit, which
  * sends it once all that's needed is chosen, and closes the dialog. From module 0.49.0, a
  * character's coins given to characters, one or several, are given as the game hands coins out
- * (`each`), with the rules of `eachSummary` and `eachMove`; to a party, as any give.
+ * (`each`), with the rules of `eachSummary` and `eachMove`; to a party, as any give. From module
+ * 0.51.0, to characters and parties alike, as the game hands coins out.
  */
 export function useMoveForm({
   onClose,
@@ -45,16 +48,19 @@ export function useMoveForm({
   const currency = 'coins' in what ? what.coins : undefined
   const take = mode === 'take'
   const choices = choicesOf({ mode, receivers, recipients })
+  // Who may be ticked: a character's coins, where its module hands them out.
+  const several = severalOf(handOut, currency)
   const [chosen, setChosen] = useState<string[]>(() =>
-    firstChosen({ mode, recipients }),
+    firstChosen({ mode, recipients, several }),
   )
   const [count, setCount] = useState('1')
   // What's typed, by coin, kept whichever fields show it.
   const [coins, setCoins] = useState<Record<string, string>>({})
 
   const picked = pickedOf(choices, chosen, into)
-  const parties = recipients?.parties ?? []
-  // A character's coins given to characters: so many to each, paid as the game hands them out.
+  const parties = partiesOf({ mode, recipients, into })
+  // A character's coins given to characters, and from module 0.51.0 parties: so many to each, paid
+  // as the game hands them out.
   const giving =
     handOut && currency && givesEach({ handOut, currency, chosen, parties })
       ? { ...handOut, currency, amounts: amountsTyped(currency, coins) }
@@ -109,11 +115,12 @@ export function useMoveForm({
     take,
     chosen,
     setChosen,
-    // Any of the characters may be ticked: a character's coins, where its module hands them out.
-    several: handOut && currency ? ('characters' as const) : undefined,
+    several,
     each: !!giving,
     legend: coinsLegend(picked.length),
-    told: summary.ready ? toldWords({ each: !!giving, to: picked, gm }) : '',
+    told: summary.ready
+      ? toldWords({ each: !!giving, to: picked, parties, gm })
+      : '',
     counted,
     max,
     count,

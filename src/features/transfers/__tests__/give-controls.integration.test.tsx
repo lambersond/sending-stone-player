@@ -500,6 +500,60 @@ describe('components/transfers/give-controls', () => {
   )
 
   // Moved from coin-controls (item 89).
+  it('with module 0.51.0, gives coins to a party and a character ticked together, one hand-out through the seat’s API, the tray naming both', async () => {
+    const PARTY = 'groupIronCo01'
+    const VEX = 'actorVex0001'
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(respond(202, { id: 'req-1' }))
+      .mockResolvedValue(
+        respond(200, {
+          id: 'req-1',
+          status: 'done',
+          visible: true,
+          rolls: [],
+          transfer: {
+            from: 'actorThorin1',
+            to: null,
+            items: [],
+            currency: { gp: 2 },
+            each: [PARTY, VEX],
+            used: null,
+          },
+        }),
+      )
+    const { user } = await renderGive({
+      moves: tableMoves({ handOut: { change: true, parties: true } }),
+      sheet: movingSheet(purse({ gp: 30 })),
+    })
+
+    await user.click(coinsButton())
+    const dialog = within(screen.getByRole('dialog', { name: 'Give coins' }))
+    await user.click(
+      dialog.getByRole('checkbox', { name: 'The Iron Company Primary' }),
+    )
+    await user.click(dialog.getByRole('checkbox', { name: 'Vex' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Gold' }), '2')
+    await user.click(dialog.getByRole('button', { name: 'Give coins' }))
+    expect(posts()).toEqual([
+      {
+        url: '/api/characters/char-1/rolls',
+        body: body({
+          from: 'actorThorin1',
+          each: [PARTY, VEX],
+          currency: { gp: 2 },
+        }),
+      },
+    ])
+    expect(
+      await screen.findByText(
+        'Gave 2 gp each to The Iron Company and Vex',
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('gives to characters by what the game says of moves paying with other coins, whatever the coins’ own switch is', async () => {
     // No coins' switch, so the page has no word of its own on other coins: the moves' says none.
     const { user } = await renderGive({

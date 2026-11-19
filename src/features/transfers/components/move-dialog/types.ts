@@ -34,13 +34,21 @@ export type MoveDialogProps = {
    */
   handOut?: {
     change: boolean
+    /**
+     * From module 0.51.0: the parties are given coins as characters are, ticked among them; and
+     * so is the party a give goes into.
+     */
+    parties?: true
     /** The character whose coins they are, as the Gamemaster's words and the tray name it. */
     name: string
     onGive: (give: EachGive) => void
   }
 }
 
-/** Coins given to characters, as it's sent: to whom, so many to each, and the tray's words. */
+/**
+ * Coins given to characters, and from module 0.51.0 parties, as it's sent: to whom, so many to
+ * each, and the tray's words.
+ */
 export type EachGive = {
   each: string[]
   currency: Record<string, number>

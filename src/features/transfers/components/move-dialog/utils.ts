@@ -13,6 +13,7 @@ import type {
   CoinSpeaker,
   FormSummary,
   MoveEnd,
+  Several,
 } from '@/features/transfers/types'
 import type { LocalMove } from '@/types/roll'
 import type {
@@ -66,15 +67,45 @@ export function choicesOf({
 }
 
 /**
+ * Who may be ticked in a give's list, if any may: a character's coins, where its module hands them
+ * out, to its characters (module 0.49.0), or where it hands them to parties too, to everyone
+ * (module 0.51.0).
+ */
+export function severalOf(
+  handOut: MoveDialogProps['handOut'],
+  currency: readonly SheetCurrency[] | undefined,
+): Several | undefined {
+  if (!handOut || !currency) return undefined
+  return handOut.parties ? 'everyone' : 'characters'
+}
+
+/**
+ * The parties among a move's ends: its list's, or for a give into a set receiver, that receiver,
+ * as a give goes into a party alone; none for a take, which goes into a character.
+ */
+export function partiesOf({
+  mode,
+  recipients,
+  into,
+}: Pick<MoveDialogProps, 'mode' | 'recipients' | 'into'>): MoveEnd[] {
+  if (recipients) return recipients.parties
+  return mode === 'give' && into ? [into] : []
+}
+
+/**
  * Who a move goes to as its dialog opens, by id: a give, the primary party, where it may go there;
- * a send, none until chosen.
+ * a send, none until chosen. From module 0.51.0, where everyone may be ticked, none: a party ticked
+ * from the start would go with every give until unticked.
  */
 export function firstChosen({
   mode,
   recipients,
-}: Pick<MoveDialogProps, 'mode' | 'recipients'>): string[] {
+  several,
+}: Pick<MoveDialogProps, 'mode' | 'recipients'> & {
+  several?: Several
+}): string[] {
   const primary =
-    mode === 'give'
+    mode === 'give' && several !== 'everyone'
       ? recipients?.parties.find(({ primary }) => primary)
       : undefined
   return primary ? [primary.id] : []
@@ -96,8 +127,9 @@ export function pickedOf(
 
 /**
  * Whether a give is sent as the game hands coins out (module 0.49.0): a character's coins, given
- * where its module hands them out, to no party. So no one picked yet, one character, or several,
- * are all given coins the same way, paid with other coins where the game does.
+ * where its module hands them out, to no party; from module 0.51.0, where it hands them to parties
+ * too, to anyone, a party alone too. So no one picked yet, one, or several, are all given coins the
+ * same way, paid with other coins where the game does.
  */
 export function givesEach({
   handOut,
@@ -110,9 +142,8 @@ export function givesEach({
   chosen: readonly string[]
   parties: readonly MoveEnd[]
 }): boolean {
-  return (
-    !!handOut && !!currency && !parties.some(({ id }) => chosen.includes(id))
-  )
+  if (!handOut || !currency) return false
+  return !!handOut.parties || !parties.some(({ id }) => chosen.includes(id))
 }
 
 /** What a give of coins to characters calls what each gets: "Each gets" for several. */
@@ -192,23 +223,37 @@ export function eachMove(
 
 /**
  * Who's told of a give once it may be sent: Foundry's chat, for all, of a give to one end; or of
- * coins given to characters (module 0.49.0), a whisper to each, and the Gamemasters.
+ * coins given to characters (module 0.49.0), a whisper to each, and the Gamemasters. From module
+ * 0.51.0, of coins given to parties as characters are: Foundry's chat, for all, of each party's,
+ * and the whispers only where a character is among them.
  * @param each - Whether it's given as the game hands coins out.
  * @param to - Those it goes to.
+ * @param parties - The parties among a move's ends (`partiesOf`), to tell them from characters.
  */
 export function toldWords({
   each,
   to,
+  parties = [],
   gm,
 }: {
   each: boolean
   to: readonly MoveEnd[]
+  parties?: readonly MoveEnd[]
   gm: boolean
 }): string {
   if (!each) return 'Foundry’s chat will say so.'
-  const who = to.length === 1 ? to[0].name : 'Each'
+  const party = new Set(parties.map(({ id }) => id))
+  const given = to.filter(({ id }) => party.has(id))
+  const characters = to.filter(({ id }) => !party.has(id))
+  if (characters.length === 0) return 'Foundry’s chat will say so.'
   const told = gm ? 'you are told.' : 'your Gamemaster is told.'
-  return `${who} is whispered what they received in Foundry’s chat, and ${told}`
+  if (given.length === 0) {
+    const who = characters.length === 1 ? characters[0].name : 'Each'
+    return `${who} is whispered what they received in Foundry’s chat, and ${told}`
+  }
+  const what = given.length === 1 ? given[0].name : 'each party'
+  const who = characters.length === 1 ? characters[0].name : 'Each character'
+  return `Foundry’s chat will say what ${what} gets. ${who} is whispered what they received, and ${told}`
 }
 
 /**

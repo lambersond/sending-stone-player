@@ -21,7 +21,8 @@ import type { SeatRole } from '@/types/seats'
  * the campaign's characters; for the Gamemaster, to any of the campaign's parties or characters.
  * From module 0.32.0's feedback, "Send to…" in an item's own menu gives it too, and the Currency
  * row's read "Send to" until it was named Give again; from module 0.49.0, its coins may go to any
- * of the campaign's characters at once, as the game hands coins out. Each opens the move's dialog,
+ * of the campaign's characters at once, as the game hands coins out, and from module 0.51.0 to any
+ * of its parties and characters together. Each opens the move's dialog,
  * and what's given is followed in the tray and the toasts, as a use is.
  */
 

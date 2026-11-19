@@ -113,7 +113,8 @@ export type Giving = {
   recipients: { parties: MoveEnd[]; characters: MoveEnd[] }
   /**
    * From module 0.49.0, on a give of coins: they may go to any of `recipients.characters` at once,
-   * as the game hands coins out, paid with other coins where `change` says so.
+   * as the game hands coins out, paid with other coins where `change` says so; from module 0.51.0,
+   * where `parties` says so, to any of `recipients.parties` with them.
    */
-  handOut?: { change: boolean }
+  handOut?: { change: boolean; parties?: true }
 }
