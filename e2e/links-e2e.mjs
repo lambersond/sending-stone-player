@@ -1591,7 +1591,7 @@ async function honorAndSanity() {
   thorin.system.abilities.san = { ...structuredClone(wisdom), mod: 1, value: 12, save: { roll: { mode: 0 }, value: 1 } }
   thorin.system.skills.eti = { ...structuredClone(thorin.system.skills.prc), ability: 'hon', total: 5, passive: 15 }
   const SIGNET = `<p>Its oath calls for a ${wrap(SAVE_LINK('san', 13, 'DC 13 Sanity'))} saving throw, or a Wisdom or Sanity saving throw.</p>
-<p>Its court tests a ${wrap(CHECK_LINK('hon', 12, 'DC 12 Honor'))} check, a DC 12 Wisdom or Honor check, and a ${wrap(SKILL_LINK('data-type="skill" data-ability="hon" data-skill="eti"', 'Honor (Etiquette)'))} check.</p>`
+<p>Its court tests a ${wrap(CHECK_LINK('hon', 12, 'DC 12 Honor'))} check, a DC 12 Wisdom or Honor check, and an ${wrap(SKILL_LINK('data-type="skill" data-ability="hon" data-skill="eti"', 'Honor (Etiquette)'))} check.</p>`
   const signet = new Item5e(thorin, { id: 'signet', name: 'Oathbound Signet', type: 'equipment', system: { quantity: 1, equipped: false, description: { value: SIGNET } } })
   thorin.items.set('signet', signet)
   await Hooks.callAll('createItem', signet, {}, 'gm')
