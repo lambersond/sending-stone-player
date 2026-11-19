@@ -164,11 +164,13 @@ run tidy 38 DND5E6=1 SHOTS=$O/shots-044
 run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 # Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
 # shown beside the character and acting from the app; damage on its own and recharges; and
-# module 0.35.0 (neither).
-run companions 138 SHOTS=$O/shots-036f
-run companions 139 MIDI=1 SHOTS=$O/shots-036f
-run companions 138 DND5E6=1 SHOTS=$O/shots-036f
+# module 0.35.0 (neither). Module 0.51.0 (item 18): a companion on another scene keeps its tab,
+# marked, with a note on its sheet; and module 0.50.0 (the summons there marked gone).
+run companions 146 SHOTS=$O/shots-036f
+run companions 147 MIDI=1 SHOTS=$O/shots-036f
+run companions 146 DND5E6=1 SHOTS=$O/shots-036f
 run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
+run companions 17 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-051
 # v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
 # "recharged", and the page reading the table as the game answers the recharge and again a moment
 # after that read.
