@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CHECK_EVERY } from '@/constants/lifecycle'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
@@ -323,6 +323,23 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
         { timeout: 3000 },
       ),
     ).toBeInTheDocument()
+  })
+
+  it('hands focus on Give to Add or remove as the last coins go (item 85)', async () => {
+    const given: Given = {
+      coins: { change: true },
+      moves: tableMoves(),
+      sheet: holding({ gp: 1 }),
+    }
+    const { rerenderWith } = await renderCoins(given)
+    const row = screen.getByRole('group', { name: 'Currency' })
+    within(row).getByRole('button', { name: 'Give' }).focus()
+
+    rerenderWith({ ...given, sheet: holding({}) })
+    await act(async () => {})
+
+    expect(within(row).queryByRole('button', { name: 'Give' })).toBeNull()
+    expect(changeButton()).toHaveFocus()
   })
 
   it('leaves the row’s buttons be while an item, not coins, is on its way', async () => {

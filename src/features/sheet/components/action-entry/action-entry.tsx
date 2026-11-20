@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId, useState, type Ref } from 'react'
 import clsx from 'clsx'
 import { Sparkles } from 'lucide-react'
 import { ActionChips } from '../action-chips/action-chips'
@@ -47,7 +47,7 @@ export function ActionEntry({
   action,
   rows,
   note,
-  look = {},
+  look: { rowRef, ...look } = {},
   section,
   favorite: target = { type: 'item', id: action.id },
 }: Readonly<{
@@ -92,6 +92,7 @@ export function ActionEntry({
           name short, as on a narrow phone. */}
       <div className='flex flex-wrap items-center gap-x-2 gap-y-0 rounded-xl py-1.5 pr-1.5 pl-1'>
         <button
+          ref={rowRef as Ref<HTMLButtonElement>}
           type='button'
           aria-expanded={open}
           aria-controls={open ? body : undefined}

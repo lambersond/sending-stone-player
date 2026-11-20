@@ -22,7 +22,8 @@
 // 0.33.0's feedback, a party row waiting has one spinner, beside its name, its Take without one.
 // Since item 43 (v0.47), Thorin's sheet shows what he took within about a second of the panel's
 // "Took"; since item 46, of the game's answer, at 390, with the panel closed before it. DND5E6=1:
-// dnd5e 6.0.5, whose coin may be fractional. SKEW=030 with MODULE=module 0.30.0: no moves at all.
+// dnd5e 6.0.5, whose coin may be fractional. Since item 85, the Longsword given whole by Enter
+// hands focus to the Inventory tab as its row goes. SKEW=030 with MODULE=module 0.30.0: no moves at all.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { readFileSync } from 'node:fs'
@@ -541,7 +542,9 @@ await panel.getByRole('button', { name: 'Close' }).click()
 part('6. give to the party')
 await alice.tab('Inventory')
 let sheet = await openRow(alice, 'Longsword')
-await sheet.getByRole('button', { name: 'Give Longsword' }).click()
+// By the keyboard (item 85): Enter on Give Longsword, then on Give.
+await sheet.getByRole('button', { name: 'Give Longsword' }).focus()
+await alice.page.keyboard.press('Enter')
 dialog = alice.page.getByRole('dialog', { name: 'Give Longsword' })
 await dialog.waitFor()
 {
@@ -551,7 +554,8 @@ await dialog.waitFor()
     `"To" has The Iron Company (Primary) chosen, then Vex; "It arrives unequipped and unattuned." (${JSON.stringify(radios)})`)
 }
 await shootBoth(alice, 'give-dialog', dialog)
-await dialog.getByRole('button', { name: 'Give', exact: true }).click()
+await dialog.getByRole('button', { name: 'Give', exact: true }).focus()
+await alice.page.keyboard.press('Enter')
 made = await answered(4, 'the give of the Longsword')
 {
   const sword = holding(company, 'Longsword')[0]
@@ -564,6 +568,18 @@ await tray(alice).getByText('Gave 1 Longsword to The Iron Company').waitFor({ ti
 check(!(await alice.page.getByRole('region', { name: 'Your rolls' }).textContent()).includes('Only you see these rolls'),
   'her tray: "Gave 1 Longsword to The Iron Company", with nothing beneath it saying it wasn\'t sent to the game')
 await shootBoth(alice, 'give-tray', alice.page.getByRole('region', { name: 'Your rolls' }))
+{
+  // Given whole, its row goes from his sheet, Give Longsword with it: focus on it goes to the row
+  // beside it, else the tab's panel, as a deleted effect's does, never to the page (item 85). The
+  // Longsword is his Weapons list's only row, so the list goes with it.
+  await alice.page.getByRole('tabpanel').getByRole('button', { name: /^Longsword/ }).waitFor({ state: 'detached', timeout: 15_000 })
+  const focused = await alice.page.evaluate(() => {
+    const el = document.activeElement
+    return { tag: el?.tagName.toLowerCase(), role: el?.getAttribute('role'), name: el?.getAttribute('aria-label') ?? el?.getAttribute('aria-labelledby') ?? el?.textContent?.trim().slice(0, 30) }
+  })
+  check(focused.role === 'tabpanel' && focused.tag !== 'body' && await alice.page.getByRole('tabpanel').evaluate(panel => panel === document.activeElement),
+    `given whole by Enter, the Longsword's row goes, and focus with it to the Inventory tab, not the page (${JSON.stringify(focused)})`)
+}
 {
   const view = await call(alice.page, `${ALICE_API}/party/company`)
   const sword = listed(view.json?.sheet?.inventory).find(it => it.name === 'Longsword')

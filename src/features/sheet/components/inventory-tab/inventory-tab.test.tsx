@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -15,6 +16,7 @@ import { InventoryTab } from './inventory-tab'
 import { ItemEntry } from './item-entry'
 import { Modal } from '@/components/modal/modal'
 import { Transferring } from '@/features/transfers/components/transferring/transferring'
+import { NO_TRANSFERS } from '@/features/transfers/constants'
 import {
   castingSheet,
   characterSheet,
@@ -711,6 +713,29 @@ const movingSheet = () => {
   })
 }
 
+/** The same, its Plain Ring gone, as once given whole. */
+const withoutRing = (): CharacterSheet => {
+  const sheet = movingSheet()
+  const [weapons, equipment] = sheet.inventory.sections
+  return {
+    ...sheet,
+    inventory: {
+      ...sheet.inventory,
+      sections: [
+        weapons,
+        {
+          ...equipment,
+          items: equipment.items.filter(({ id }) => id !== 'ring'),
+        },
+      ],
+    },
+  }
+}
+
+/** An item's row, by its summary. */
+const summaryOf = (name: string) =>
+  screen.getByText(name).closest('summary') as HTMLElement
+
 describe('moving items and coins, from module 0.31.0', () => {
   /** Controls that say which item and coin they're for, where they're shown. */
   const controls: TransferControls = {
@@ -849,6 +874,34 @@ describe('moving items and coins, from module 0.31.0', () => {
     expect(
       screen.getByRole('button', { name: 'Aside Plain Ring' }),
     ).toBeInTheDocument()
+  })
+
+  it('hands focus to the row beside as a row with a move goes from under it, and not where it has none (item 85)', async () => {
+    const sending: TransferControls = { send: () => jest.fn() }
+    const tab = (transfers: TransferControls, sheet: CharacterSheet) => (
+      <div role='tabpanel' tabIndex={-1}>
+        <InventoryTab
+          characterId='char-1'
+          onRoll={jest.fn()}
+          onRollDamage={jest.fn()}
+          sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+          transfers={transfers}
+        />
+      </div>
+    )
+    for (const [transfers, focused] of [
+      [sending, () => summaryOf('Cloak of Protection')],
+      [NO_TRANSFERS, () => document.body],
+    ] as const) {
+      const { rerender, unmount } = render(tab(transfers, movingSheet()))
+      summaryOf('Plain Ring').focus()
+
+      rerender(tab(transfers, withoutRing()))
+      await act(async () => {})
+
+      expect(document.activeElement).toBe(focused())
+      unmount()
+    }
   })
 })
 

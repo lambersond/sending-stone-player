@@ -637,7 +637,7 @@ describe('components/transfers/give-controls', () => {
     }
   })
 
-  it('keeps focus on an item’s Give… as it is sent by Enter, waiting there till it’s given (item 85)', async () => {
+  it('keeps focus on an item’s Give… as it is sent by Enter, waiting there till it’s given, and hands it to the row beside once it’s gone (item 85)', async () => {
     const restore = focusingDialogs()
     jest.useFakeTimers()
     try {
@@ -669,7 +669,7 @@ describe('components/transfers/give-controls', () => {
         // An opened row's description, which never comes.
         return new Promise<Response>(() => {})
       })
-      const { user } = await renderGive({
+      const { user, rerender } = await renderGive({
         user: userEvent.setup({ advanceTimers: jest.advanceTimersByTime }),
       })
       await user.click(screen.getByText('Plain Ring'))
@@ -697,6 +697,30 @@ describe('components/transfers/give-controls', () => {
       ).toBeInTheDocument()
       expect(document.activeElement).toBe(giveButton('Plain Ring'))
       expect(giveButton('Plain Ring')).not.toHaveAttribute('aria-disabled')
+
+      // Given whole, its row goes from the sheet, and focus with it to the row beside.
+      const sheet = movingSheet()
+      const [weapons, equipment] = sheet.inventory.sections
+      rerender(
+        pane(tableMoves(), {
+          ...sheet,
+          inventory: {
+            ...sheet.inventory,
+            sections: [
+              weapons,
+              {
+                ...equipment,
+                items: equipment.items.filter(({ id }) => id !== 'ring'),
+              },
+            ],
+          },
+        }),
+      )
+      await advance(0)
+      expect(screen.queryByText('Plain Ring')).toBeNull()
+      expect(document.activeElement).toBe(
+        screen.getByText('Cloak of Protection').closest('summary'),
+      )
     } finally {
       jest.useRealTimers()
       restore()
