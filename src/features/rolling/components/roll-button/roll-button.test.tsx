@@ -66,8 +66,8 @@ describe('components/character-sheet/roll-button', () => {
     })
     expect(onRoll).not.toHaveBeenCalled()
 
-    // The next press is a plain click again.
-    fireEvent.pointerDown(button, { pointerType: 'mouse' })
+    // No click follows a mouse's menu, so the next one rolls, as Enter does once Escape has
+    // closed the menu and left focus on the button: no pointer goes down first.
     fireEvent.click(button)
     expect(onRoll).toHaveBeenCalledTimes(1)
   })
@@ -92,18 +92,23 @@ describe('components/character-sheet/roll-button', () => {
       () => new MouseEvent('contextmenu', { bubbles: true, clientX: 0 }),
     ],
   ])(
-    'opens its menu below itself for the context menu key, as %s sends it',
+    'opens its menu below itself for the context menu key, as %s sends it, and the next Enter rolls',
     (_, key) => {
-      const { button, onMenu } = renderButton()
+      const { button, onRoll, onMenu } = renderButton()
 
       fireEvent(button, key())
 
       expect(onMenu).toHaveBeenCalledWith(button, target, undefined)
+      expect(onRoll).not.toHaveBeenCalled()
+
+      // Enter or Space, once the menu has closed: a click with no pointer down first.
+      fireEvent.click(button)
+      expect(onRoll).toHaveBeenCalledTimes(1)
     },
   )
 
-  it('opens its menu above the finger for a touch screen’s own long-press', () => {
-    const { button, onMenu } = renderButton()
+  it('opens its menu above the finger for a touch screen’s own long-press, and the tap that ends it does not roll', () => {
+    const { button, onRoll, onMenu } = renderButton()
 
     fireEvent(
       button,
@@ -120,6 +125,14 @@ describe('components/character-sheet/roll-button', () => {
       y: 30,
       touch: true,
     })
+
+    // The click that ends the press rolls nothing; a tap after it rolls.
+    fireEvent.click(button)
+    expect(onRoll).not.toHaveBeenCalled()
+    fireEvent.pointerDown(button, touch)
+    fireEvent.pointerUp(button, touch)
+    fireEvent.click(button)
+    expect(onRoll).toHaveBeenCalledTimes(1)
   })
 
   it('opens its menu on a long-press, and the tap that ends it does not roll', () => {
