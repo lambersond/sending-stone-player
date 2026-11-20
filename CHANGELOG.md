@@ -19,6 +19,50 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
+## v0.53.0-rc
+
+### Fixes
+
+- **Every message of a Gamemaster's Give to 20 is theirs.** A Gamemaster's Give to 20 characters and
+  parties makes 21 chat messages. The last, "Thorin handed out …" to the Gamemasters, now has the GM
+  pill too, as the giving character's player sees it, and counts as the Gamemaster's. Needs Sending
+  Stone 0.53.0 in Foundry; with an older one, that last message shows without the pill, as before.
+  (app and module, item 93)
+- **A fraction of a coin moved stays as written.** Under dnd5e 6, in a world that shows a coin's
+  decimals, coins moved to or from a party, by its Take and Send to, and a party's coin shared out
+  are stored as written, as are those put back where a move fails: 10.7 gp less 7 leaves 3.7, never
+  3.69. Needs Sending Stone 0.53.0 in Foundry. (module, item 84)
+- **A description's links follow a world's own tools and damage types.** A tool, kind of vehicle or
+  damage type a world adds changes which checks and which damage in a description are links, and a
+  healing type what a damage link heals. Descriptions are now sent again whenever the game's tools,
+  damage or healing types change, so a link always rolls what it shows. Needs Sending Stone 0.53.0
+  in Foundry, which sends every description once more after the upgrade. (module, item 97)
+
+### Maintenance
+
+- **A spell prepared names no hit points, rerolls or enchantment.** The module refuses a spell
+  prepared that also names hit points, a typed roll's rerolls or an enchantment ended, where it
+  prepared the spell and ignored them, as it already refused a move, a favorite, coins and the other
+  fields its check lists. The app never sends one. (module, item 83)
+- **End-to-end checks.** `gmroll` gains a last part, against the module under test: a Gamemaster's
+  roll for which another module makes 21 more messages, 22 in all, lists the first 21, the roll's
+  own first. The app marks those as the Gamemaster's and not the 22nd, and Bob, Thorin's player,
+  sees the GM pill on the 21 and not on the 22nd. Its plain run wants 73 checks, 71 before; its SKEW
+  runs stay 6 and 71. (app, item 93)
+- **Jest tests.** Tests pin the app's answer of `gmRollMessages: 1`, last of its features and a
+  whole number, to a hello and a heartbeat (`src/app/api/events/route.test.ts` and the routes'
+  golden), and a result's `messages` read whole up to 21, a list of 22 left out whole
+  (`src/schemas/sending-stone.test.ts`). (app, item 93)
+- **The module harness.** `handouts.mjs` checks, under dnd5e 5.3.3 and 6.0.5, a Gamemaster's
+  hand-out to 20 characters and parties: all 21 of its messages listed to an app that answers
+  `gmRollMessages` as a whole number of 1 or more, the first 20 to any other, a late result's alike,
+  and in a world of two campaigns each app's answer read for its own (item 93). `transfers.mjs` and
+  `sends.mjs` check that a dnd5e 6 fraction moved or shared out stays as it's written, the coins put
+  back too (item 84); `preparing.mjs`, a prepare refused beside rerolls, an enchantment or hit
+  points, each given as 1 and as 0 (item 83); and `links.mjs` and `groups.mjs`, descriptions in
+  format 9, whose hash changes with the game's tools, kinds of vehicle, damage and healing types
+  (item 97). `test/README.md` counts 52 harnesses and 122 runs. (module, items 83, 84, 93 and 97)
+
 ## v0.52.0 — 2026-11-19
 
 ### Features

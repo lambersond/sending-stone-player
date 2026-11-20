@@ -341,22 +341,10 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     after it: Live and Help sit one button's width to the right, then step back as Full screen
     appears (36 px at 360, measured while building item 70). A slot kept for Full screen until then,
     as the outline keeps one, would hold them still. Found while building item 70. In batch 8.
-83. **A spell prepared's check lets three other kinds' fields by:** a `prepare` command that also
-    names `hitPoints`, `rerolls` or `enchantment` isn't refused `"invalid"` by the module: its list
-    of other kinds' fields (`OTHERS` above `checkPrepareCommand`, in the module's
-    `scripts/command-rolls.mjs`) lacks those three, where hit points' own list has every one. The
-    module would prepare the spell and ignore the rest. The app's schema refuses such a request
-    before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
-    `OTHER_FIELDS`. Found building item 67. In batch 8.
-84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
-    coin fractional digits, coins moved to or from a party (a party's Take and Send to, and coins
-    given to a party by an app before v0.51.0), coins given to another character from an app before
-    v0.50.0, and a party's distributed are written as floating point makes them: 10.7 gp less 10 is
-    stored as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin
-    goes to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`)
-    could write through `coinUpdate`, as coins added, removed and handed out do since 0.49.0, to
-    parties too since 0.51.0. A default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole
-    coins: neither shows it. Module only, small. Found building items 67 and 68. In batch 8.
+
+Items 83 and 84, a spell prepared's check and coins moved or distributed keeping their fractions,
+are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
     it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
@@ -455,12 +443,10 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     Allow targets off your screen, since Midi-QOL otherwise needs the target drawn. The module
     harness's `inCombat` stand-in reads every combat (`test/fvtt/activity5e.mjs:424-428`), so it
     doesn't show this. Found building item 36. In batch 8.
-93. **A Gamemaster's message past the twentieth isn't marked as theirs:** a Gamemaster's hand-out
-    to 20 characters who each have a player makes 21 messages, and the module lists only 20 in the
-    result's `messages` (`MOST_MESSAGES`, `scripts/commands.mjs:175`; the app's
-    `MAX_GM_ROLL_MESSAGES`, `src/schemas/sending-stone.ts:174`), so the last, the Gamemasters' own,
-    isn't marked as theirs in the app. Since before 0.51.0; parties add one message each, as
-    characters do. Found building item 91. In batch 8.
+
+Item 93, a Gamemaster's message past the twentieth, is done, in [CHANGELOG.md](CHANGELOG.md)'s
+v0.53.0-rc.
+
 94. **The module harness's wait for a druid's copy made late, under load:**
     `test/fvtt/wildshape.mjs` (line 1170), under `MIDI=1`, "her copy made too late: Rowan's
     concentration gone, and nothing of it left on her", turns the wolf back into Elowen with the
@@ -493,14 +479,9 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     ammunition, whose name begins with a "u" said "you", or with "Eu", would read "an Utility check"
     or "an European". dnd5e's own names all read right. A short list of such beginnings beside the
     silent h's would mend it. Found building item 64. In batch 8.
-97. **A world's own tools aren't in a description's hash:** since module 0.52.0 a description's hash
-    holds the game's abilities and skills (`textFormat`, the module's `scripts/sheet-texts.mjs`),
-    which decide which checks are links and so every later link's number. A world's own tools decide
-    that for a tool check too (`isTool`, `scripts/sheet-links.mjs`), and aren't in it. So a tool
-    added mid-campaign can, after a reload, renumber a description's links under the same hash, and
-    an app's copy name a link as one it no longer is, until the description changes. One more line
-    in `textFormat` would mend it, renewing every hash once more. Found building item 65.
-    In batch 8.
+
+Item 97, a world's own tools in a description's hash, is done, in [CHANGELOG.md](CHANGELOG.md)'s
+v0.53.0-rc.
 
 **Asked for on 2026-11-20**
 
@@ -525,6 +506,26 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     Campaigns, between Party and Player actions, each character with its constant companions, a
     Remove button for each, and an NPC dropped from the Actors sidebar or chosen by Add companions.
     In batch 6.
+
+**Found while building Batch 8**
+
+99. **The checks of commands that aren't rolls let other kinds' fields by:** `prepare`, `hitPoints`
+    and `coins`, whose own words say they name nothing else, let a roll's `use`, `types`,
+    `modifiers`, `critical`, `combatId`, `denomination`, `hitDice`, `attackMode`, `ammunition` and
+    `consume`, and a dice answer's `diceAsk`, by. The older checks refuse only the kinds that came
+    before them: `effect`, `wildShape`, `favorite` and `remove` let most later kinds' fields by.
+    `spellSlot`, `inspiration`, `endConcentration` and `spend` call only `namesRollFields` and let
+    nearly every field by. The module makes the command and ignores them (the module's
+    `scripts/command-rolls.mjs`, each `check<Kind>Command` and its list of other kinds' fields; hit
+    points' in `scripts/command-checks.mjs`). The app's request schemas refuse every one first, so
+    no player meets it. Found planning item 83. In no batch yet.
+100. **A description's hash misses labels changed in place:** a description's hash holds the keys of
+     the game's abilities, skills, tools, kinds of vehicle, and damage and healing types
+     (`textFormat`, the module's `scripts/sheet-texts.mjs`), never their labels. So a module that
+     renames an ability, skill or damage type in place moves which plain English text is a link and
+     renumbers every later link under the same hash. A condition type added or renamed changes which
+     text is a condition, though no number moves: condition spans carry no `data-n`. Found planning
+     item 97. In no batch yet.
 
 ## v1.0
 
