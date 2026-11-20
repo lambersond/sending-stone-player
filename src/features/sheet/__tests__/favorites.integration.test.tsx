@@ -1479,6 +1479,30 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     },
   )
 
+  it('keeps focus on a favorite moved to the other list, never on a row listed inside one open above it (ROADMAP item 74)', async () => {
+    wide(720)
+    renderMoving(
+      withFavorites([
+        fireball,
+        item('backpack', 'container', 'Backpack'),
+        warhammer,
+        perception,
+        tools,
+        slots,
+      ]),
+    )
+    // Open in the first list, the Backpack lists what it holds, rows of its own.
+    await userEvent.setup().click(openerOf('Backpack'))
+    expect(
+      within(favoriteIn('Backpack')).getAllByRole('listitem'),
+    ).toHaveLength(2)
+
+    await moveFrom(warhammerName, 'Warhammer', 'Move down')
+
+    expect(warhammerName()).toHaveFocus()
+    expect(listsIn()[1].firstElementChild).toBe(favoriteIn('Warhammer'))
+  })
+
   /** Orders sent and held back, each shown as it's called, as `holdBack` keeps them. */
   const held: (() => void)[] = []
   const holdBack = (keys: string[], show: ShowOrder) => {
