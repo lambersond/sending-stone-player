@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.51.0 and its app, with v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0
-and v0.44.0 before it.
+Released: module v0.52.0 and its app, with v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0,
+v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -174,12 +174,13 @@ Midi-QOL v14.0.x:
   party's sheet shows 2 gp more within a few seconds, a party you aren't in too; the party's own
   Give says "held", with no All.
 
-## v0.52 (release candidate)
+## v0.52 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc entry.
+Released on 2026-11-19: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0 entry. v0.52 is
+the release candidate for v1.0 after v0.51: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.52.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Honor, Sanity and a world's own skill:** with Honor Ability Score and Sanity Ability Score
   turned on in dnd5e's settings, and a skill your world adds on Honor, such as Etiquette: on a
@@ -213,7 +214,7 @@ tweaks needed may change it as it goes. Batches 1 to 5 are done; 6 and 7 are to 
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
-   ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
+   ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
 
@@ -417,7 +418,7 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
     how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
 
 Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
-ability, and eight abilities laid out, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
+ability, and eight abilities laid out, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
 
 **Asked for on 2026-11-17**
 

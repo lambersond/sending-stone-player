@@ -19,7 +19,7 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
-## v0.52.0-rc
+## v0.52.0 — 2026-11-19
 
 ### Features
 
