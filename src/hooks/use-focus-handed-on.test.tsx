@@ -63,6 +63,47 @@ describe('hooks/use-focus-handed-on', () => {
     expect(button('Cloak')).toHaveFocus()
   })
 
+  it('hands focus to the row still there as the next row goes with it', async () => {
+    const { rerender } = render(
+      <List names={['Rope', 'Ring', 'Cloak', 'Lamp']} />,
+    )
+    button('Ring').focus()
+
+    rerender(<List names={['Rope', 'Lamp']} />)
+    await settled()
+
+    expect(button('Rope')).toHaveFocus()
+  })
+
+  // As the HTML standard lets a browser say it until it next draws, or as one may still name it.
+  it.each([
+    ['nothing', () => null],
+    ['the button gone', (gone: HTMLElement) => gone],
+  ])(
+    'hands focus to the next row where the page says %s has focus once the row has gone',
+    async (_, lost) => {
+      const { rerender } = render(<List names={['Rope', 'Ring', 'Cloak']} />)
+      const ring = button('Ring')
+      ring.focus()
+      const { get } = Object.getOwnPropertyDescriptor(
+        Document.prototype,
+        'activeElement',
+      )!
+      const said = jest
+        .spyOn(document, 'activeElement', 'get')
+        .mockImplementation(() => {
+          const active = get!.call(document) as Element | null
+          return active === document.body ? lost(ring) : active
+        })
+
+      rerender(<List names={['Rope', 'Cloak']} />)
+      await settled()
+      said.mockRestore()
+
+      expect(button('Cloak')).toHaveFocus()
+    },
+  )
+
   it('moves nothing as a row goes without focus in it', async () => {
     const { rerender } = render(<List names={['Rope', 'Ring', 'Cloak']} />)
     button('Rope').focus()
@@ -71,6 +112,16 @@ describe('hooks/use-focus-handed-on', () => {
     await settled()
 
     expect(button('Rope')).toHaveFocus()
+  })
+
+  it('moves nothing as a row goes while nothing has focus', async () => {
+    const { rerender } = render(<List names={['Rope', 'Ring', 'Cloak']} />)
+    expect(document.body).toHaveFocus()
+
+    rerender(<List names={['Rope', 'Cloak']} />)
+    await settled()
+
+    expect(document.body).toHaveFocus()
   })
 
   it('leaves focus where something else took it as the row went', async () => {
