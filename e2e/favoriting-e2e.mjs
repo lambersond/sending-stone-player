@@ -36,7 +36,7 @@
 // the window; and a favorite moved from the keyboard to the other list keeps focus, an item's from
 // its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a list
 // does; and one open to its description stays open as Favorites is hidden and shown and as it's
-// moved by the mouse.
+// moved by the mouse, the sheet scrolling to it where its new place is out of sight.
 // Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
@@ -1245,6 +1245,41 @@ async function putInOrder() {
     `moved up by a right-click, the Longsword is last of the first list, still open, focus on its name (${JSON.stringify({ made: made.status, isOpen, ...after })})`)
   await toastsGone(wide)
   await shoot(wide, 'favorites-moved-open', top)
+
+  // Item 74, by the mouse too: moved to a place out of sight, the page scrolls to it. The Longsword,
+  // last of the first list, its name in sight and the top of the card above the sheet's scroller.
+  /**
+   * The sheet's scroller, scrolled first by `by` pixels: how far it's scrolled, where the
+   * Longsword's name is in it, and whether that name and the second list's first row are wholly in
+   * its sight.
+   */
+  const sightOf = (by = 0) => top.evaluate((panel, by) => {
+    let scroller = panel.parentElement
+    while (scroller && !(scroller.scrollHeight > scroller.clientHeight && /auto|scroll/.test(getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement
+    scroller ??= document.scrollingElement
+    scroller.scrollTop += by
+    const box = scroller === document.scrollingElement ? { top: 0, bottom: innerHeight } : scroller.getBoundingClientRect()
+    const inSight = element => {
+      const rect = element?.getBoundingClientRect()
+      return !!rect && rect.top >= box.top && rect.bottom <= box.bottom
+    }
+    const lists = [...panel.querySelectorAll('ul')].filter(list => !list.closest('li'))
+    const name = [...panel.querySelectorAll('li')].find(row => row.querySelector('.font-medium')?.textContent === 'Longsword')?.querySelector(':scope > div > button')
+    return { scrolled: Math.round(scroller.scrollTop), at: Math.round((name?.getBoundingClientRect().top ?? 0) - box.top), name: inSight(name), second: inSight(lists[1]?.firstElementChild) }
+  }, by)
+  await toastsGone(wide)
+  const outOfSight = await sightOf((await sightOf()).at - 100)
+  const sightMenu = await menuOf(wide, longsword(), 'Longsword')
+  await paced()
+  const sentSight = orders().length
+  await sightMenu.getByRole('menuitem', { name: 'Move down', exact: true }).click()
+  made = await ordered(sentSight + 1, 'the Longsword moved down by the mouse, out of sight')
+  step('Longsword', 1)
+  after = await afterMove('Longsword')
+  await until(async () => (await sightOf()).name, 'the Longsword scrolled to', 5_000).catch(() => {})
+  const scrolledTo = await sightOf()
+  check(outOfSight.name && !outOfSight.second && made.status === 'done' && same(after.lists, splitPage()) && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 1 }) && scrolledTo.name && scrolledTo.scrolled < outOfSight.scrolled,
+    `moved down by a right-click while the top of his favorites is out of sight, the Longsword is first of the second list, focus on its name, and the sheet has scrolled to it (${JSON.stringify({ made: made.status, outOfSight, scrolledTo, ...after })})`)
   await wide.view.close()
   await big.view.close()
 }
