@@ -566,12 +566,18 @@ const MESSAGES: Record<string, TableMessage> = {
       abilities: ['dex'],
       dc: 15,
       label: 'Worn Bardic Eternal Flame',
+      title: 'DC 15 Dexterity saving throw',
     },
   }),
   'an ask for concentration': message({
     label: 'Roll Request: Bless',
     text: 'Concentration check',
-    ask: { type: 'concentration', abilities: ['con'], label: 'Bless' },
+    ask: {
+      type: 'concentration',
+      abilities: ['con'],
+      label: 'Bless',
+      title: 'Concentration check',
+    },
   }),
   'an ask for a check': message({
     label: 'Roll Request: Cloak of Climbing',
@@ -581,6 +587,7 @@ const MESSAGES: Record<string, TableMessage> = {
       checks: [{ type: 'skill', ability: 'str', skill: 'ath' }],
       dc: 12,
       label: 'Cloak of Climbing',
+      title: 'DC 12 Strength (Athletics) check',
     },
   }),
   'a whisper': message({ whisper: true, text: 'You hear a click.' }),

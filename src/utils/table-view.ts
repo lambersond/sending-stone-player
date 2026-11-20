@@ -1,7 +1,8 @@
-import { askTitle, isAbility } from './ask-words'
+import { askTitle } from './ask-words'
 import { withoutTags } from './beyond-tags'
 import { ABILITIES, DAMAGE_TYPE_LABELS, SKILLS } from '@/constants/dnd5e'
 import { MAX_CHECKS, toolOrSkillName } from '@/utils/description-links'
+import { DND5E_NAMES, isAbilityKey } from '@/utils/game-names'
 import { ownName } from '@/utils/own-name'
 import type { TableRoll } from '@/types/roll'
 import type {
@@ -12,6 +13,7 @@ import type {
   Dnd5eCheck,
   Dnd5eSave,
   Dnd5eTarget,
+  GameNames,
   HitPointsNow,
   MessageAsk,
   RollSummary,
@@ -146,10 +148,12 @@ export function toTableMessage(
   else if (isCard) kind = 'card'
   const action = combatAction(message, all)
   // A roll request card stays text, for pages that don't read its ask, but never its own text,
-  // which may hold a DC players may not see.
+  // which may hold a DC players may not see; its words name what it asks for as the seat's sheet
+  // names them.
+  const names = viewer.names ?? DND5E_NAMES
   const ask = kind === 'text' ? askOf(message) : undefined
   let text = kind === 'text' ? message.text.trim() || undefined : undefined
-  if (ask) text = askTitle({ ...ask, dc: undefined })
+  if (ask) text = askTitle({ ...ask, dc: undefined }, names)
 
   // Its damage rolls fold into damage cards, as dnd5e's card adds them up; every other roll keeps
   // a card of its own, so damage's dice aren't sent twice.
@@ -189,7 +193,7 @@ export function toTableMessage(
       viewer.portraits?.get(message.character ?? message.speaker.actorId ?? ''),
     whisper: !message.audience.public,
     kind,
-    label: messageLabel(message, damage !== undefined),
+    label: messageLabel(message, damage !== undefined, names),
     action,
     // A roll's or card's content is its rendering; their details are shown instead.
     text,
@@ -198,7 +202,7 @@ export function toTableMessage(
     ...(damage && { damage }),
     targets,
     ...(summary && { summary }),
-    ...(ask && { ask }),
+    ...(ask && { ask: { ...ask, title: askTitle(ask, names) } }),
     ...(byGm && { byGm: true as const }),
     ...(message.alone && { alone: true as const }),
   }
@@ -216,9 +220,9 @@ function askOf(message: SerializedMessage): TableAsk | undefined {
 
 /**
  * The module's ask, as stored. Checked when it was received, but checked again here, as one stored
- * before then may not have been: its abilities only dnd5e's own, its skills and tools only keys,
- * its DC a number, and what asks a name. A check any of whose ways doesn't hold up isn't read at
- * all, rather than read as asking for less than it does.
+ * before then may not have been: its abilities and its skills and tools only keys, its DC a number,
+ * and what asks a name. A saving throw any of whose abilities, or a check any of whose ways,
+ * doesn't hold up isn't read at all, rather than read as asking for less than it does.
  */
 function tableAsk(ask: MessageAsk | null): TableAsk | undefined {
   if (!ask) return
@@ -240,9 +244,8 @@ function tableAsk(ask: MessageAsk | null): TableAsk | undefined {
     return whole ? { type: 'check', checks, ...told } : undefined
   }
   if (ask.type !== 'save' && ask.type !== 'concentration') return
-  const abilities = Array.isArray(ask.abilities)
-    ? ask.abilities.filter(id => isAbility(id))
-    : []
+  const abilities = Array.isArray(ask.abilities) ? ask.abilities : []
+  if (!abilities.every(id => isAbilityKey(id))) return
   if (ask.type === 'save' && abilities.length === 0) return
   return { type: ask.type, abilities, ...told }
 }
@@ -255,14 +258,14 @@ const CHECK_KEY = /^[A-Za-z][\w-]{0,31}$/
 
 /**
  * One way a check may be made, as an ask or a card's button has it, if it holds up: an ability
- * check by one of dnd5e's abilities, a skill check by its skill's key, a tool check by its tool's,
- * with the tool's name where it says one.
+ * check by an ability's key, a skill check by its skill's key, a tool check by its tool's, with the
+ * tool's name where it says one.
  */
 function askedCheck(
   check: Partial<Record<keyof AskedCheck, unknown>>,
 ): AskedCheck | undefined {
   const { type, ability, skill, tool, name } = check
-  if (!CHECK_TYPES.has(type) || !isAbility(ability)) return
+  if (!CHECK_TYPES.has(type) || !isAbilityKey(ability)) return
   const key = type === 'skill' ? skill : tool
   if (type !== 'check' && (typeof key !== 'string' || !CHECK_KEY.test(key))) {
     return
@@ -300,9 +303,7 @@ function requestCardAsk(message: SerializedMessage): TableAsk | undefined {
   const type = buttons[0].get('type') as 'save' | 'concentration'
   const abilities = buttons.flatMap(data => {
     const ability = data.get('ability')
-    return data.get('type') === type && ability && isAbility(ability)
-      ? [ability]
-      : []
+    return data.get('type') === type && isAbilityKey(ability) ? [ability] : []
   })
   if (type === 'save' && abilities.length === 0) return
   return { type, abilities: [...new Set(abilities)] }
@@ -819,17 +820,19 @@ export function toTableRoll(roll: RollSummary): TableRoll {
 /**
  * What a message is about, from what D&D Fifth Edition recorded or else its flavor.
  * @param damaged - Whether it has damage rolls.
+ * @param names - The game's names for its abilities and skills, as the seat's sheet has them.
  */
 function messageLabel(
   message: SerializedMessage,
   damaged: boolean,
+  names: GameNames,
 ): string | undefined {
   const dnd5e = message.dnd5e
   const item = textOf(dnd5e?.item?.name)
   const activity = textOf(dnd5e?.activity?.name)
   const roll = dnd5e?.roll
 
-  const rolled = roll ? rollLabel(message, roll, item) : undefined
+  const rolled = roll ? rollLabel(message, roll, item, names) : undefined
   if (rolled) return rolled
   if (isUsage(message) && item) {
     // Its rolls are named for its item alone, as dnd5e's own attack and damage messages are, such
@@ -843,18 +846,20 @@ function messageLabel(
 }
 
 /**
- * What a message's roll is, by what D&D Fifth Edition recorded of it; none where it says too
- * little.
+ * What a message's roll is, by what D&D Fifth Edition recorded of it, an ability or skill as the
+ * game names it, such as "Sanity save"; none where it says too little, or names one the game's
+ * names don't, which its flavor then names.
  */
 function rollLabel(
   message: SerializedMessage,
   roll: NonNullable<NonNullable<SerializedMessage['dnd5e']>['roll']>,
   item: string | undefined,
+  names: GameNames,
 ): string | undefined {
-  const ability = ownName(ABILITIES, roll.ability)
+  const ability = ownName(names.abilities, roll.ability)
   switch (roll.type) {
     case 'skill': {
-      return named(ownName(SKILLS, roll.skillId), 'check')
+      return named(ownName(names.skills, roll.skillId), 'check')
     }
     case 'ability': {
       return named(ability, 'check')

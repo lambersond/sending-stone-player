@@ -1,6 +1,7 @@
 // The character view, end to end: the real module (in a stand-in Foundry, with a dnd5e-shaped
 // character) sends Thorin's sheet to the production app; Alice opens Thorin, rolls checks and
-// saves with 3D dice, and sees the sheet follow changes in Foundry. Screenshots to SHOTS.
+// saves with 3D dice, and sees the sheet follow changes in Foundry; and lays out seven and eight
+// abilities at ten widths. Screenshots to SHOTS.
 import { actor, combat, combatant, message, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -388,6 +389,70 @@ for (const [name, width, height] of sizes) {
   }
   if (SHOTS && ['small-phone', 'tablet', 'laptop-1024'].includes(name)) await wide.screenshot({ path: `${SHOTS}/${name}-sheet.png` })
 }
+
+// ---- Honor and Sanity: seven and eight abilities laid out (v0.52.0) ----
+// Foundry turns on dnd5e's Honor (a save of +10 at Adv, its check at Adv) and Sanity (a save at Dis).
+CONFIG.DND5E.abilities.hon = { label: 'Honor', abbreviation: 'hon', type: 'mental' }
+CONFIG.DND5E.abilities.san = { label: 'Sanity', abbreviation: 'san', type: 'mental' }
+const hon = { value: 14, mod: 2, proficient: 1, checkBonus: 0, checkProf: { term: '0', flat: 0 }, save: { value: 10, roll: { mode: 1 } }, check: { roll: { mode: 1 } } }
+const san = { value: 12, mod: 1, proficient: 0, checkBonus: 0, checkProf: { term: '0', flat: 0 }, save: { value: 1, roll: { mode: -1 } }, check: { roll: { mode: 0 } } }
+Object.assign(thorin.system.abilities, { hon, san })
+await Hooks.callAll('updateActor', thorin, { system: { abilities: { hon, san } } })
+await wait(400)
+await idle()
+const abilityTiles = sheetWide.getByRole('region', { name: 'Abilities' }).locator('ul > li')
+await sheetWide.getByRole('button', { name: /^Sanity check/ }).waitFor({ timeout: 15_000 })
+check(await sheetWide.getByRole('button', { name: /^Honor check/ }).isVisible() && await abilityTiles.count() === 8,
+  "Foundry turns on Honor and Sanity, and Thorin's sheet shows eight abilities without a reload")
+/**
+ * The ability tiles as laid out: the sheet's own width (its scroller's, less any scrollbar), the
+ * tiles in each row, top to bottom, and any part of a tile drawn outside it, or an icon squeezed
+ * narrower than it is tall, each named by the button it is in.
+ */
+const tilesLaidOut = () => wide.evaluate(() => {
+  const sheet = document.querySelector('#character-pane .overflow-y-auto').clientWidth
+  const region = [...document.querySelectorAll('#character-pane section[aria-labelledby]')]
+    .find(section => document.getElementById(section.getAttribute('aria-labelledby'))?.textContent === 'Abilities')
+  const tiles = [...region.querySelectorAll('ul > li')]
+  const rows = []
+  for (const top of tiles.map(tile => Math.round(tile.getBoundingClientRect().top))) {
+    if (rows.at(-1)?.top === top) rows.at(-1).count++
+    else rows.push({ top, count: 1 })
+  }
+  const cut = tiles.flatMap(tile => {
+    const box = tile.getBoundingClientRect()
+    return [...tile.querySelectorAll('span, svg')].filter(part => {
+      const r = part.getBoundingClientRect()
+      if (part.tagName.toLowerCase() === 'svg' && r.height > 0 && r.width < r.height - 0.5) return true
+      return r.width > 0 && (r.left < box.left - 0.5 || r.right > box.right + 0.5)
+    }).map(part => `${part.closest('button')?.getAttribute('aria-label')?.split(',')[0]}: ${part.tagName.toLowerCase()} "${part.textContent}"`)
+  })
+  return { sheet, rows: rows.map(row => row.count), tile: Math.round(tiles[0].getBoundingClientRect().width * 10) / 10, cut }
+})
+/** The abilities at a width, shot before they are checked, against the rows their sheet's width gives. */
+async function laidOut(count, width, expected) {
+  await wide.setViewportSize({ width, height: width < 768 ? 844 : 900 })
+  await wait(300)
+  if (width < 1024) await wide.getByRole('button', { name: 'Character' }).click()
+  await wait(200)
+  const region = sheetWide.getByRole('region', { name: 'Abilities' })
+  await region.scrollIntoViewIfNeeded()
+  if (SHOTS) await region.screenshot({ path: `${SHOTS}/abilities-${count}-${width}.png` })
+  const { sheet, rows, tile, cut } = await tilesLaidOut()
+  const want = sheet < 384 ? expected[0] : sheet < 1024 ? expected[1] : expected[2]
+  check(rows.join() === want.join() && cut.length === 0,
+    `${width}: ${count === 8 ? 'eight' : 'seven'} abilities in rows of ${rows.join(', ')} on a ${sheet}px sheet, tiles of ${tile}px, nothing in a tile cut short, a save's and a check's Adv and Dis among them${cut.length ? ` (cut: ${cut.join('; ')})` : ''}`)
+}
+for (const width of [320, 360, 390, 768, 864, 1024, 1268, 1280, 1440, 1920]) await laidOut(8, width, [[3, 3, 2], [4, 4], [8]])
+// Sanity off again: seven.
+delete CONFIG.DND5E.abilities.san
+delete thorin.system.abilities.san
+await Hooks.callAll('updateActor', thorin, { system: { abilities: { '-=san': null } } })
+await wait(400)
+await idle()
+await sheetWide.getByRole('button', { name: /^Sanity check/ }).waitFor({ state: 'detached', timeout: 15_000 })
+check(await abilityTiles.count() === 7, 'Foundry turns Sanity off, and the sheet shows seven')
+for (const width of [390, 1280, 1920]) await laidOut(7, width, [[3, 3, 1], [4, 3], [7]])
 
 console.log('problems:', problems)
 check(problems.filter(p => !p.includes('Failed to load resource')).length === 0, 'no page errors')

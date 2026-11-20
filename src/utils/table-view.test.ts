@@ -1,4 +1,5 @@
 import { askTitle } from './ask-words'
+import { gameNames } from './game-names'
 import {
   damageKinds,
   encountersShown,
@@ -202,6 +203,14 @@ const isThorin = ({ character }: CombatantSummary) =>
   character === 'actor-thorin'
 const isPip = ({ companion }: CombatantSummary) => companion === 'pip'
 
+/** A roll of a Sanity save, or another, as dnd5e records it, its card's flavor saying it too. */
+const rolled = (roll: object) =>
+  chatMessage({
+    rolls: [d20],
+    flavor: 'Sanity Saving Throw',
+    dnd5e: dnd5e({ roll }),
+  })
+
 describe('utils/table-view', () => {
   describe('toTableMessage', () => {
     it("shows a campaign character's portrait as the speaker's avatar", () => {
@@ -373,6 +382,28 @@ describe('utils/table-view', () => {
       })
 
       expect(toTableMessage(message, viewer).label).toBe(label)
+    })
+
+    it("labels a roll on an ability or skill the game names, as the seat's sheet names it, else by its flavor", () => {
+      const names = gameNames({
+        abilities: [{ id: 'san', label: 'Sanity', abbreviation: 'san' }],
+        skills: [{ id: 'eti', label: 'Etiquette' }],
+      })
+      expect(
+        toTableMessage(rolled({ type: 'save', ability: 'san' }), {
+          ...viewer,
+          names,
+        }).label,
+      ).toBe('Sanity save')
+      expect(
+        toTableMessage(rolled({ type: 'skill', skillId: 'eti' }), {
+          ...viewer,
+          names,
+        }).label,
+      ).toBe('Etiquette check')
+      expect(
+        toTableMessage(rolled({ type: 'save', ability: 'san' }), viewer).label,
+      ).toBe('Sanity Saving Throw')
     })
 
     it.each([
@@ -1305,13 +1336,48 @@ describe('utils/table-view', () => {
         text: 'Dexterity saving throw',
         rolls: [],
         targets: [],
+        // Its words with its DC, which the player may see; its line of text without.
         ask: {
           type: 'save',
           abilities: ['dex'],
           dc: 15,
           label: 'Worn Bardic Eternal Flame',
+          title: 'DC 15 Dexterity saving throw',
         },
       })
+    })
+
+    it("words a stored ask by the seat's sheet's names, Sanity's and a world's own skill's", () => {
+      const names = gameNames({
+        abilities: [
+          { id: 'wis', label: 'Wisdom', abbreviation: 'wis' },
+          { id: 'san', label: 'Sanity', abbreviation: 'san' },
+          { id: 'hon', label: 'Honor', abbreviation: 'hon' },
+        ],
+        skills: [{ id: 'eti', label: 'Etiquette' }],
+      })
+      const sanity = toTableMessage(
+        asked({ type: 'save', abilities: ['wis', 'san'], dc: 13 }),
+        { ...viewer, names },
+      )
+      const etiquette = toTableMessage(
+        asked({
+          type: 'check',
+          checks: [{ type: 'skill', ability: 'hon', skill: 'eti' }],
+        }),
+        { ...viewer, names },
+      )
+
+      expect(sanity.ask?.title).toBe('DC 13 Wisdom or Sanity saving throw')
+      expect(sanity.text).toBe('Wisdom or Sanity saving throw')
+      expect(etiquette.ask?.title).toBe('Honor (Etiquette) check')
+      // Where no sheet names them, by their keys.
+      expect(
+        toTableMessage(
+          asked({ type: 'save', abilities: ['wis', 'san'], dc: 13 }),
+          viewer,
+        ).ask?.title,
+      ).toBe('DC 13 Wisdom or san saving throw')
     })
 
     it("shows a module's message that asks nothing as before, its buttons unread", () => {
@@ -1322,7 +1388,7 @@ describe('utils/table-view', () => {
     })
 
     it("never reads the buttons of a Gamemaster's card whose ask the app couldn't read", () => {
-      // Its ask names dnd5e's Honor, an ability the app doesn't have, so it was stored as null.
+      // Its ask names dnd5e's Honor, so it was stored as null, as an app before v0.52.0 stored it.
       const message = toTableMessage(
         gmCard(card(button('dex'), button('hon')), {
           text: 'DC 15 Dexterity or Honor saving throw',
@@ -1336,20 +1402,24 @@ describe('utils/table-view', () => {
     })
 
     it("checks the module's ask again, as one stored before it was checked may not be", () => {
-      expect(askWith({ abilities: ['constructor', 'dex'] })).toEqual({
-        type: 'save',
-        abilities: ['dex'],
-      })
+      // Changed on purpose (v0.52.0, item 64): a saving throw is read whole or not at all, as a
+      // check is, never as asking for less than it does.
+      expect(askWith({ abilities: ['constructor', 'dex'] })).toBeUndefined()
       expect(askWith({ abilities: ['constructor'] })).toBeUndefined()
       expect(askWith({ abilities: 'dex' })).toBeUndefined()
       expect(askWith({ type: 'check' })).toBeUndefined()
       expect(askWith({ dc: '15', label: { name: 'x' } })).toEqual({
         type: 'save',
         abilities: ['dex'],
+        title: 'Dexterity saving throw',
       })
       expect(
         askWith({ type: 'concentration', abilities: [], label: ' ' }),
-      ).toEqual({ type: 'concentration', abilities: [] })
+      ).toEqual({
+        type: 'concentration',
+        abilities: [],
+        title: 'Concentration check',
+      })
     })
 
     it("reads an older module's Gamemaster card from its buttons, without its DC, and never its doubled text", () => {
@@ -1369,6 +1439,12 @@ describe('utils/table-view', () => {
       expect(JSON.stringify(message)).not.toContain('15')
     })
 
+    it("reads an older module's Gamemaster card for a save on any ability the game has, Sanity's, from its buttons", () => {
+      expect(
+        toTableMessage(gmCard(card(button('wis'), button('san'))), viewer).ask,
+      ).toMatchObject({ type: 'save', abilities: ['wis', 'san'] })
+    })
+
     it("reads a concentration card's buttons, and only those of its first kind", () => {
       expect(
         toTableMessage(
@@ -1381,7 +1457,11 @@ describe('utils/table-view', () => {
           ),
           viewer,
         ).ask,
-      ).toEqual({ type: 'concentration', abilities: ['con', 'wis'] })
+      ).toEqual({
+        type: 'concentration',
+        abilities: ['con', 'wis'],
+        title: 'Concentration check',
+      })
     })
 
     it.each([
@@ -1404,13 +1484,13 @@ describe('utils/table-view', () => {
         gmCard(card(button('dex', 'save', 'rollSave'))),
       ],
       [
-        'asking for a check with an ability dnd5e lacks',
+        'asking for a skill check that names no skill',
         gmCard(card(button('ath', 'skill'))),
       ],
       [
-        'asking with abilities dnd5e lacks',
+        'asking with no ability by its key',
         gmCard(
-          card(button('constructor'), button('__proto__'), button('luck')),
+          card(button('constructor'), button('__proto__'), button('my.luck')),
         ),
       ],
       ['with no button', gmCard('<p>rollRequest</p>')],
@@ -1462,6 +1542,7 @@ describe('utils/table-view', () => {
         type: 'check',
         checks: [{ type: 'check', ability: 'int' }],
         label: 'Map',
+        title: 'Intelligence check',
       })
       // What only a tool has is left off any other.
       expect(
@@ -1471,6 +1552,7 @@ describe('utils/table-view', () => {
       ).toEqual({
         type: 'check',
         checks: [{ type: 'skill', ability: 'str', skill: 'ath' }],
+        title: 'Strength (Athletics) check',
       })
       expect(checkWith([])).toBeUndefined()
       expect(checkWith('ath')).toBeUndefined()
@@ -1508,7 +1590,7 @@ describe('utils/table-view', () => {
             checkButton(
               'data-type="tool" data-ability="dex" data-tool="thief"',
             ),
-            checkButton('data-type="check" data-ability="luck"'),
+            checkButton('data-type="check" data-ability="my.luck"'),
           ),
           { text: 'DC 15 check check' },
         ),
@@ -1574,12 +1656,12 @@ describe('utils/table-view', () => {
       [
         'a long run of "data-" in a tag',
         `<button data-action="rollRequest" data-type="save" data-ability="dex" title="${'data-'.repeat(20_000)}">`,
-        { type: 'save', abilities: ['dex'] },
+        { type: 'save', abilities: ['dex'], title: 'Dexterity saving throw' },
       ],
       [
         'a long run of unclosed tags',
         `<button data-action="rollRequest" data-type="save" data-ability="dex">${'<button'.repeat(15_000)}`,
-        { type: 'save', abilities: ['dex'] },
+        { type: 'save', abilities: ['dex'], title: 'Dexterity saving throw' },
       ],
     ])(
       "reads an older module's card with %s quickly, each tag once",
@@ -1604,7 +1686,11 @@ describe('utils/table-view', () => {
           ),
           viewer,
         ).ask,
-      ).toEqual({ type: 'save', abilities: ['dex'] })
+      ).toEqual({
+        type: 'save',
+        abilities: ['dex'],
+        title: 'Dexterity saving throw',
+      })
     })
 
     it('reads no ask from a roll', () => {
@@ -1641,10 +1727,6 @@ describe('utils/table-view', () => {
       [
         { type: 'concentration', abilities: ['wis'] },
         'Concentration check (Wisdom)',
-      ],
-      [
-        { type: 'save', abilities: ['constructor', 'int'] },
-        'Intelligence saving throw',
       ],
     ] as const)('words %j as "%s"', (ask, title) => {
       expect(askTitle({ ...ask, abilities: [...ask.abilities] })).toBe(title)

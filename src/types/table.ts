@@ -12,6 +12,7 @@ import type {
   DiceAskPurpose,
   DiceAskRoll,
   GameDiceAsk,
+  GameNames,
   Health,
   PromptSource,
   SheetWithheld,
@@ -95,8 +96,8 @@ export type TableMessage = {
    * 3" or "3 of 8 saved", or both, joined by " · ". Absent where no target has one.
    */
   summary?: string
-  /** For a roll request card, the saving throw or check it asks the table for. */
-  ask?: TableAsk
+  /** For a roll request card, the saving throw or check it asks the table for, in words too. */
+  ask?: TitledAsk
   /** Made for a roll the campaign's Gamemaster made here as a character, as this app knows. */
   byGm?: true
   /** A damage or healing card made on its own, for the Gamemaster to apply (module 0.36.0). */
@@ -154,6 +155,12 @@ export type TableDamage = {
  * the Gamemaster, or by a player from the app, naming what asks for it.
  */
 export type TableAsk = TableSaveAsk | TableCheckAsk
+
+/**
+ * A roll request card's ask, with what it asks for in words: its DC where players may see it, each
+ * ability and skill named as the seat's sheet names them, such as "DC 12 Honor (Etiquette) check".
+ */
+export type TitledAsk = TableAsk & { title: string }
 
 /** A saving throw, or a concentration check, the table is asked for. */
 type TableSaveAsk = {
@@ -601,6 +608,11 @@ export type Viewer = {
   of?: string
   /** What the seat is shown of creatures not of the party, from module 0.50.0; unset for none. */
   health?: HealthShown
+  /**
+   * The game's names for its abilities and skills, as the seat's sheet has them; dnd5e's English
+   * where unset (v0.52.0).
+   */
+  names?: GameNames
 }
 
 /** What a message's targets are shown with, from the rest of the chat. */

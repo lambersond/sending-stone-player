@@ -1,5 +1,4 @@
 import { BellRing, Dices, Send } from 'lucide-react'
-import { ABILITIES } from '@/constants/dnd5e'
 import { D20_CHOICES } from '@/features/rolling/constants'
 import { formulaOf } from '@/features/rolling/utils/damage-words'
 import { choiceItem } from '@/features/rolling/utils/menu-points'
@@ -15,6 +14,7 @@ import {
 } from '@/utils/damage-modifiers'
 import { checkName, toolOrSkillName } from '@/utils/description-links'
 import { formatModifier } from '@/utils/format-modifier'
+import { DND5E_NAMES, abilityName, gameNames } from '@/utils/game-names'
 import type { CheckFrom, CheckWay, LinkMenus, OpenMenu } from './types'
 import type {
   DescribedDamage,
@@ -31,6 +31,7 @@ import type {
   CheckOption,
   CriticalRule,
   DamageLink,
+  GameNames,
   RollMode,
   SaveLink,
   SheetAbility,
@@ -40,34 +41,45 @@ import type {
 
 /**
  * What a saving throw a description calls for is, in words: such as "DC 15 Dexterity saving
- * throw", "Strength or Dexterity saving throw", or "DC 10 Concentration check".
+ * throw", "Strength or Dexterity saving throw", "DC 13 Sanity saving throw", or "DC 10
+ * Concentration check".
+ * @param names - The game's names for its abilities, as the character's sheet has them; dnd5e's
+ *   English where none are given.
  */
-export function saveTitle(link: SaveLink): string {
+export function saveTitle(
+  link: SaveLink,
+  names: GameNames = DND5E_NAMES,
+): string {
   const dc = link.dc === undefined ? '' : `DC ${link.dc} `
   if (link.concentration) {
     const [ability] = link.abilities
     return ability && ability !== 'con'
-      ? `${dc}Concentration check (${ABILITIES[ability]})`
+      ? `${dc}Concentration check (${abilityName(names, ability)})`
       : `${dc}Concentration check`
   }
-  const names = link.abilities.map(id => ABILITIES[id])
-  const list = new Intl.ListFormat('en', { type: 'disjunction' }).format(names)
+  const list = new Intl.ListFormat('en', { type: 'disjunction' }).format(
+    link.abilities.map(id => abilityName(names, id)),
+  )
   return `${dc}${list} saving throw`
 }
 
 /**
- * A way a check may be made, by the sheet's name for its skill or tool, where it has one, as
- * dnd5e's card names it: such as "Dexterity (Sleight of Hand)".
+ * A way a check may be made, by the sheet's names for its ability and its skill or tool, where it
+ * has them, as dnd5e's card names it: such as "Dexterity (Sleight of Hand)" or "Honor (Etiquette)".
  */
 export function checkOptionName(
   option: CheckOption,
-  actions?: Pick<DescriptionActions, 'skills' | 'tools'>,
+  actions?: Pick<DescriptionActions, 'abilities' | 'skills' | 'tools'>,
 ): string {
   const named =
     option.type === 'skill'
       ? actions?.skills.find(skill => skill.id === option.key)?.label
       : actions?.tools.find(tool => tool.id === option.key)?.name
-  return checkName(option, option.type === 'check' ? undefined : named)
+  return checkName(
+    option,
+    option.type === 'check' ? undefined : named,
+    gameNames(actions),
+  )
 }
 
 /**
@@ -78,10 +90,13 @@ export function checkOptionName(
  */
 export function checkWayName(
   option: CheckOption,
-  actions?: Pick<DescriptionActions, 'skills' | 'tools'>,
+  actions?: Pick<DescriptionActions, 'abilities' | 'skills' | 'tools'>,
 ): string {
   const { type, key } = option
-  if (type === 'check' || key === undefined) return checkName(option)
+  const names = gameNames(actions)
+  if (type === 'check' || key === undefined) {
+    return checkName(option, undefined, names)
+  }
   const own =
     type === 'skill'
       ? actions?.skills.find(skill => skill.id === key)
@@ -90,7 +105,7 @@ export function checkWayName(
     return checkOptionName(option, actions)
   }
   const named = own && ('label' in own ? own.label : own.name)
-  return named || toolOrSkillName(type, key)
+  return named || toolOrSkillName(type, key, names)
 }
 
 /**

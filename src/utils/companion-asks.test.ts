@@ -1,4 +1,5 @@
 import { companionAsks } from './companion-asks'
+import { gameNames } from './game-names'
 
 const NOW = Date.parse('2026-10-08T12:05:00Z')
 const at = (time: string) => new Date(`2026-10-08T${time}Z`)
@@ -99,6 +100,38 @@ describe('utils/companion-asks', () => {
         'san saving throw',
       )
       expect(wordsOf({ type: 'concentration' })).toBe('Concentration check')
+    })
+
+    it("words a save or check on any ability the game has, as the character's sheet names it", () => {
+      const names = gameNames({
+        abilities: [
+          { id: 'san', label: 'Sanity', abbreviation: 'san' },
+          { id: 'hon', label: 'Honor', abbreviation: 'hon' },
+        ],
+        skills: [{ id: 'eti', label: 'Etiquette' }],
+      })
+      const named = (data: object) =>
+        companionAsks(
+          [
+            {
+              actorId: 'bat1',
+              data,
+              expiresAt: new Date('2026-10-08T12:10:00Z'),
+            },
+          ],
+          Date.parse('2026-10-08T12:00:00Z'),
+          [],
+          names,
+        )[0]?.label
+
+      expect(named({ type: 'save', abilities: ['san'] })).toBe(
+        'Sanity saving throw',
+      )
+      expect(named({ type: 'check', abilities: ['hon'] })).toBe('Honor check')
+      expect(named({ type: 'skill', skills: ['eti'] })).toBe('Etiquette check')
+      expect(named({ type: 'concentration', abilities: ['san'] })).toBe(
+        'Concentration check (Sanity)',
+      )
     })
 
     // A prompt's keys may name what every object answers to: never found as a name, nor thrown on.

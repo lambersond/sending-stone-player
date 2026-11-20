@@ -110,6 +110,7 @@ const ask = (fields: Partial<TableMessage> = {}) =>
       abilities: ['dex'],
       dc: 15,
       label: 'Worn Bardic Eternal Flame',
+      title: 'DC 15 Dexterity saving throw',
     },
     ...fields,
   })
@@ -1026,7 +1027,9 @@ describe('components/game-table/chat-log', () => {
       expect(within(article).queryByText(/Roll Request/)).toBeNull()
     })
 
-    it("words the Gamemaster's card without a DC, nor what asks, and a concentration check", () => {
+    // What a card asks for is worded on the server, with the seat's sheet's names (table-view's
+    // and ask-words' tests); the bubble writes the words it is given, with their article.
+    it("writes the words it is given, a Gamemaster's card with no What asks, and a concentration check's chip", () => {
       render(
         <ChatLog
           messages={[
@@ -1034,11 +1037,20 @@ describe('components/game-table/chat-log', () => {
               id: 'm1',
               speaker: 'Gamemaster',
               side: 'other',
-              ask: { type: 'save', abilities: ['int', 'wis'] },
+              ask: {
+                type: 'save',
+                abilities: ['int', 'wis'],
+                title: 'Intelligence or Wisdom saving throw',
+              },
             }),
             ask({
               id: 'm2',
-              ask: { type: 'concentration', abilities: ['con'], dc: 10 },
+              ask: {
+                type: 'concentration',
+                abilities: ['con'],
+                dc: 10,
+                title: 'DC 10 Concentration check',
+              },
             }),
           ]}
         />,
@@ -1055,58 +1067,35 @@ describe('components/game-table/chat-log', () => {
       )
     })
 
-    it("words a check, the player's and the Gamemaster's, a tool by the game's name for it", () => {
+    it('writes a check with its chip and what asks for it, "an" before a silent h', () => {
       render(
         <ChatLog
           messages={[
             ask({
               id: 'm1',
-              text: 'Strength (Athletics) check',
+              text: 'Honor (Etiquette) check',
               ask: {
                 type: 'check',
-                checks: [{ type: 'skill', ability: 'str', skill: 'ath' }],
-                dc: 15,
-                label: 'Cloak of Climbing',
-              },
-            }),
-            ask({
-              id: 'm2',
-              speaker: 'Gamemaster',
-              side: 'other',
-              ask: {
-                type: 'check',
-                checks: [
-                  { type: 'check', ability: 'int' },
-                  {
-                    type: 'tool',
-                    ability: 'dex',
-                    tool: 'thief',
-                    name: 'Lockpicks',
-                  },
-                ],
+                checks: [{ type: 'skill', ability: 'hon', skill: 'eti' }],
+                label: 'Oathbound Signet',
+                title: 'Honor (Etiquette) check',
               },
             }),
           ]}
         />,
       )
 
-      const [thorin, gm] = screen.getAllByRole('article')
+      const thorin = screen.getByRole('article')
       expect(
-        within(thorin).getByText(
-          'Thorin asks for a DC 15 Strength (Athletics) check',
-        ),
+        within(thorin).getByText('Thorin asks for an Honor (Etiquette) check'),
       ).toBeInTheDocument()
       expect(within(thorin).getByText('Check')).toHaveAttribute(
         'aria-hidden',
         'true',
       )
-      expect(within(thorin).getByText('Cloak of Climbing')).toHaveTextContent(
-        'From Cloak of Climbing',
+      expect(within(thorin).getByText('Oathbound Signet')).toHaveTextContent(
+        'From Oathbound Signet',
       )
-      expect(gm).toHaveTextContent(
-        'Gamemaster asks for an Intelligence or Dexterity (Lockpicks) check',
-      )
-      expect(within(gm).queryByText(/^From/)).toBeNull()
     })
   })
 

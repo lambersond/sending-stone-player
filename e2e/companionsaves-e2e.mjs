@@ -11,10 +11,12 @@
 // page; Brakka's concentration card asked on her pane, closed when her concentration is ended from
 // the app; the Spirit's whispered to the Gamemaster alone asked on Alice's Spirit pane; a Gamemaster's
 // request in chat asks Thorin alone; a Bat that leaves the list has its prompt closed; Thorin's own
-// seat can't answer a Bat's; every width in both themes. MIDI=1: Midi-QOL's own save of Bat 1 while
-// Thorin's page is open waits, on its pane and in his notice, at 390 and 1280, and is answered there;
-// with his page closed Midi rolls one its own way. DND5E6=1: dnd5e 6.0.5's dice. SKEW=040 with
-// MODULE=module-0.40.0: no companionPrompts, a Bat asked nothing, a crafted answer refused.
+// seat can't answer a Bat's; since v0.52.0 (item 64), with dnd5e's Sanity on, a save card asking Bat 1
+// for a Sanity save named in Thorin's notice as his sheet names it; every width in both themes.
+// MIDI=1: Midi-QOL's own save of Bat 1 while Thorin's page is open waits, on its pane and in his
+// notice, at 390 and 1280, and is answered there; with his page closed Midi rolls one its own way.
+// DND5E6=1: dnd5e 6.0.5's dice. SKEW=040 with MODULE=module-0.40.0: no companionPrompts, a Bat asked
+// nothing, a crafted answer refused.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
 // Screenshots to SHOTS.
 import {
@@ -210,9 +212,10 @@ part('1. the hello and the answer')
   const keys = Object.keys(rolls)
   // Changed on purpose (round 0.42.0 §8.5): module 0.42.0's effectDice and keptRerolls come after
   // it, the last of v0.41's flags; and since module 0.44.0 (item 11), its diceAsks and
-  // diceAsksReason after them, under dnd5e 6 too, there diceAsks false.
-  check(rolls.companionPrompts === true && rolls.prompts === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason']),
-    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls and 0.44.0's diceAsks and diceAsksReason after it (${JSON.stringify(keys)})`)
+  // diceAsksReason after them, under dnd5e 6 too, there diceAsks false; and since module 0.52.0
+  // (item 65), its anyAbility, last, true whatever the rolls.
+  check(rolls.companionPrompts === true && rolls.prompts === true && rolls.anyAbility === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility']),
+    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls, 0.44.0's diceAsks and diceAsksReason and 0.52.0's anyAbility after it (${JSON.stringify(keys)})`)
   // Changed on purpose (module 0.51.0, ROADMAP item 18): the app reads companions on every scene too.
   check(JSON.parse(hello().body ?? '{}').features?.companions === 3, `the app answers companions: 3 (${hello().body})`)
   await until(() => features().includes('companionPrompts'), 'the app to keep companionPrompts', 15_000).catch(() => {})
@@ -429,6 +432,35 @@ part('9. leaving')
   const names = await tabNames(alice)
   check(await noticeOf(alice).count() === 0 && !names.some(name => name.endsWith(ASKS)), `within a poll the notice without it, no tab marked (${JSON.stringify(names)})`)
   await deleteMessage(card)
+}
+
+// =================================================================================================
+// 13. A Sanity save (v0.52.0, item 64): the plain run only
+// =================================================================================================
+if (!MIDI && !DND5E6) {
+  part('13. a sanity save')
+  // dnd5e's Sanity, as its setting turns it on (D5 config.mjs DND5E.abilities.san), on Thorin's sheet
+  // and the Bat's; taken away again after, so that the parts after see dnd5e's six.
+  CONFIG.DND5E.abilities.san = { label: 'Sanity', abbreviation: 'san', type: 'mental', fullKey: 'sanity' }
+  bat.system.abilities.san = foundry.utils.deepClone(bat.system.abilities.wis)
+  await thorin.update({ 'system.abilities.san': foundry.utils.deepClone(thorin.system.abilities.wis) })
+  const sheetHas = id => sql(`select data->'abilities' from actor_sheet where "campaignId" = '${A}' and "actorId" = 'thorin'`).includes(`"${id}"`)
+  await until(() => sheetHas('san'), "Thorin's sheet with Sanity", 30_000)
+  const card = await saveCard({ by: goblin, item: burning, dc: 13, abilities: ['san'], targets: [bat1.actor] })
+  const rows = []
+  for (const who of [alice, phone]) {
+    await until(async () => (await noticeRows(who)).length === 1, `the notice at ${who.width}`, 30_000).catch(() => {})
+    rows.push(await noticeRows(who))
+    await shootBoth(who, 'companionsaves-sanity-notice', bannerOf(who, 'self'))
+  }
+  check(rows.every(each => same(each, ['Bat 1 is asked for a Sanity saving throw'])),
+    `a save card asking Bat 1 for a Sanity save: Thorin's notice names it as his sheet does, at 1280 and 390 (${JSON.stringify(rows)})`)
+  await deleteMessage(card)
+  await until(async () => (await noticeOf(alice).count()) === 0, 'the notice gone', 30_000).catch(() => {})
+  delete CONFIG.DND5E.abilities.san
+  delete bat.system.abilities.san
+  await thorin.update({ 'system.abilities.-=san': null })
+  await until(() => !sheetHas('san'), "Thorin's sheet without Sanity", 30_000).catch(() => {})
 }
 
 // =================================================================================================

@@ -2592,6 +2592,55 @@ describe("db/table, the saves the game asks of the character's companions, from 
     )
   })
 
+  it("words the chat's cards and its companions' prompts as the character's sheet names them, Honor and Sanity too (item 64)", async () => {
+    held()
+    const sheet = characterSheet()
+    const wisdom = sheet.abilities.find(({ id }) => id === 'wis')!
+    sheet.abilities = [
+      ...sheet.abilities,
+      { ...wisdom, id: 'hon', label: 'Honor', abbreviation: 'hon' },
+      { ...wisdom, id: 'san', label: 'Sanity', abbreviation: 'san' },
+    ]
+    sheet.skills = [
+      ...sheet.skills,
+      {
+        id: 'eti',
+        label: 'Etiquette',
+        ability: 'hon',
+        total: 5,
+        passive: 15,
+        proficiency: 1,
+        mode: 0,
+      },
+    ]
+    prismaMock.actorSheet.findUnique.mockResolvedValue({
+      data: sheet,
+      updatedAt: new Date(NOW),
+    } as any)
+    prismaMock.chatMessage.findMany.mockResolvedValue([
+      {
+        messageId: 'm1',
+        byGm: false,
+        data: chatMessage({
+          text: 'DC 12 Honor (Etiquette) check',
+          ask: {
+            type: 'check',
+            checks: [{ type: 'skill', ability: 'hon', skill: 'eti' }],
+            dc: 12,
+          },
+        }),
+      },
+    ] as any)
+    askingCompanions([
+      asked('wolfBrakka', { type: 'save', abilities: ['san'] }, at('12:10:00')),
+    ])
+
+    const view = await getTableView(thorin)
+    expect(view.messages[0].ask?.title).toBe('DC 12 Honor (Etiquette) check')
+    expect(view.messages[0].text).toBe('Honor (Etiquette) check')
+    expect(view.companionPrompts?.[0].label).toBe('Sanity saving throw')
+  })
+
   it('marks none where none of its companions is asked, or every prompt of theirs has run out', async () => {
     held()
     askingCompanions([])

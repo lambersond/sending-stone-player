@@ -1,4 +1,5 @@
 import { ENDING_STATUSES } from '@/constants/sending-stone'
+import { articleOf } from '@/utils/articles'
 import { switchOn } from '@/utils/features'
 import type { WildShapeInput } from '@/types/roll'
 import type { CharacterSheet, KnownForm } from '@/types/sending-stone'
@@ -149,11 +150,11 @@ function checkLearn(
 }
 
 /**
- * A form's name with "a" or "an" before it, by its first letter alone: "an" before a vowel, in
- * either case, as "an Ape", "an elk"; else "a", as "a Wolf", "a Giant Elk".
+ * A form's name with "a" or "an" before it, as `articleOf` says it: "an Ape", "an elk"; "a Wolf",
+ * "a Giant Elk".
  */
 export function articled(name: string): string {
-  return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`
+  return `${articleOf(name)} ${name}`
 }
 
 /** A Wild Shape's duration in words: "1 hour", "2 hours". */

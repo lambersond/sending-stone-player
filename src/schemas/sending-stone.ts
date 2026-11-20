@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { ABILITIES } from '@/constants/dnd5e'
 import {
   MOST_NOTE_TEXT,
   MOST_NOTE_TITLE,
@@ -29,6 +28,7 @@ import {
   HIT_DIE,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
+  MOST_ABILITIES,
   MOST_ALONE_CHOICES,
   MOST_AMONG,
   MOST_ASK_DICE,
@@ -45,8 +45,9 @@ import {
   PROMPT_SOURCES,
 } from '@/constants/sending-stone'
 import { foundrySettingsSchema } from '@/schemas/foundry-settings'
-import { leftOut, listOf, orNull } from '@/schemas/utils'
+import { leftOut, listOf, orNull, requiredListOf } from '@/schemas/utils'
 import { MAX_CHECKS } from '@/utils/description-links'
+import { isAbilityKey } from '@/utils/game-names'
 import { NOTE_ID } from '@/utils/note-id'
 import { MAX_DICE } from '@/utils/roll-modifiers'
 import { expandSheet } from '@/utils/slim-sheet'
@@ -155,8 +156,11 @@ export const LONGEST_TEXT = 200_000
 /** A description's hash, or null; anything else is taken as no description. */
 const textRef = orNull(z.string().regex(TEXT_HASH))
 
-/** One of dnd5e's abilities, never a name any object answers to. */
-const abilityId = z.string().refine(id => Object.hasOwn(ABILITIES, id))
+/**
+ * Any ability the game has, by its key, never a name any object answers to; which a character has
+ * is its sheet's to say, and the server's checks'.
+ */
+const abilityId = z.string().refine(isAbilityKey)
 
 /** A skill's or tool's key, as dnd5e's are. */
 const checkKey = z.string().regex(/^[A-Za-z][\w-]{0,31}$/)
@@ -1070,31 +1074,31 @@ const effectDiceSchema: z.ZodType<SheetEffectDie[] | undefined> = leftOut(
     }),
 )
 
-// A sheet that can't be read is dropped rather than failing the event that carries it.
+// A sheet that can't be read is dropped rather than failing the event that carries it. Its
+// abilities and skills are read row by row, a row it can't read left out, but a sheet with no list
+// of either is none; its classes likewise, no list read as none (v0.52.0).
 const sheetSchema: z.ZodType<CharacterSheet | null | undefined> = z
   .looseObject({
     img: nullableString,
     level: nullableNumber,
-    classes: z
-      .array(
-        z.looseObject({
-          id: nullableString.optional(),
-          identifier: nullableString.optional(),
-          name: z.string(),
-          levels: nullableNumber,
-          subclass: nullableString,
-          hitDice: z
-            .object({
-              die: z.string(),
-              value: nullableNumber,
-              max: nullableNumber,
-            })
-            .nullable()
-            .optional()
-            .catch(null),
-        }),
-      )
-      .catch([]),
+    classes: listOf(
+      z.looseObject({
+        id: nullableString.optional(),
+        identifier: nullableString.optional(),
+        name: z.string(),
+        levels: nullableNumber,
+        subclass: nullableString,
+        hitDice: z
+          .object({
+            die: z.string(),
+            value: nullableNumber,
+            max: nullableNumber,
+          })
+          .nullable()
+          .optional()
+          .catch(null),
+      }),
+    ),
     species: nullableString,
     background: nullableString,
     hp: z
@@ -1111,7 +1115,7 @@ const sheetSchema: z.ZodType<CharacterSheet | null | undefined> = z
     initiative: nullableNumber,
     speed: orNull(z.looseObject({ value: z.number(), units: nullableString })),
     inspiration: z.boolean().catch(false),
-    abilities: z.array(
+    abilities: requiredListOf(
       z.looseObject({
         id: z.string(),
         label: z.string().catch(''),
@@ -1125,7 +1129,7 @@ const sheetSchema: z.ZodType<CharacterSheet | null | undefined> = z
         saveMode: rollMode,
       }),
     ),
-    skills: z.array(
+    skills: requiredListOf(
       z.looseObject({
         id: z.string(),
         label: z.string().catch(''),
@@ -1510,11 +1514,11 @@ const askedCheckSchema: z.ZodType<AskedCheck> = z
 /**
  * The saving throw a roll request card asks the table for, from module 0.17.0: one the Gamemaster
  * posted from a description, or one a player asked for from the app; or from module 0.18.0, the
- * check. Its abilities are dnd5e's own, never a name any object answers to, as are its skills' and
- * tools' keys; its DC is there only where players may see it, and what asks for it, such as an
- * item, is a name. Null for any other message, and for one that can't be read, which then shows as
- * its text, as one of a kind a later module adds does; absent from an older module, whose cards are
- * read from their buttons instead.
+ * check. Its abilities are any the game has, by key, never a name any object answers to, as are its
+ * skills' and tools' keys; its DC is there only where players may see it, and what asks for it,
+ * such as an item, is a name. Null for any other message, and for one that can't be read, which
+ * then shows as its text, as one of a kind a later module adds does; absent from an older module,
+ * whose cards are read from their buttons instead.
  */
 const askSchema: z.ZodType<MessageAsk | null | undefined> = z
   .discriminatedUnion('type', [
@@ -1523,7 +1527,7 @@ const askSchema: z.ZodType<MessageAsk | null | undefined> = z
         type: z.enum(['save', 'concentration']),
         abilities: z
           .array(abilityId)
-          .max(6)
+          .max(MOST_ABILITIES)
           .transform(ids => [...new Set(ids)]),
         ...askFields,
       })

@@ -312,6 +312,73 @@ describe('components/character-sheet/description-link', () => {
       ])
     })
 
+    it("offers a save on any ability the sheet has, Sanity's, named as the sheet names it", async () => {
+      const user = userEvent.setup()
+      const wisdom = characterSheet().abilities.find(({ id }) => id === 'wis')!
+      const abilities = [
+        ...characterSheet().abilities,
+        { ...wisdom, id: 'san', label: 'Sanity', abbreviation: 'san', save: 1 },
+      ]
+      await renderText(
+        save('data-ability="san" data-dc="13"', 'DC 13 Sanity') +
+          save('data-ability="wis|san"', 'Wisdom or Sanity').replace(
+            'data-n="3"',
+            'data-n="5"',
+          ),
+        actionsFor({ abilities }),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'DC 13 Sanity' }))
+      expect(
+        itemsOf(
+          screen.getByRole('menu', { name: 'DC 13 Sanity saving throw' }),
+        ),
+      ).toEqual([
+        'Ask the table',
+        'Roll my Sanity save (+1)',
+        'Roll with advantage',
+        'Roll with disadvantage',
+        'Modify roll…',
+      ])
+      await user.keyboard('{Escape}')
+      await user.click(screen.getByRole('button', { name: 'Wisdom or Sanity' }))
+      expect(
+        itemsOf(
+          screen.getByRole('menu', { name: 'Wisdom or Sanity saving throw' }),
+        ),
+      ).toEqual([
+        'Ask the table',
+        `Roll my Wisdom save (+${wisdom.save})`,
+        'Roll my Sanity save (+1)',
+      ])
+    })
+
+    it("titles a concentration check made with any ability the sheet has as the sheet names it, Sanity's", async () => {
+      const user = userEvent.setup()
+      const wisdom = characterSheet().abilities.find(({ id }) => id === 'wis')!
+      await renderText(
+        save(
+          'data-ability="san" data-dc="10" data-type="concentration"',
+          'DC 10 Concentration (Sanity)',
+        ),
+        actionsFor({
+          abilities: [
+            ...characterSheet().abilities,
+            { ...wisdom, id: 'san', label: 'Sanity', abbreviation: 'san' },
+          ],
+        }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'DC 10 Concentration (Sanity)' }),
+      )
+      expect(
+        screen.getByRole('menu', {
+          name: 'DC 10 Concentration check (Sanity)',
+        }),
+      ).toBeInTheDocument()
+    })
+
     it('rolls a concentration check as one, with Constitution', async () => {
       const user = userEvent.setup()
       const { actions } = await renderText(
@@ -982,6 +1049,55 @@ describe('components/character-sheet/description-link', () => {
           }),
         ),
       ).toContain('Roll my Dexterity (Outils de voleur) check (+5)')
+    })
+
+    it("names a check on any ability the sheet has, Honor's, and a world's own skill on it, as the sheet does", async () => {
+      const user = userEvent.setup()
+      const wisdom = characterSheet().abilities.find(({ id }) => id === 'wis')!
+      const abilities = [
+        ...characterSheet().abilities,
+        { ...wisdom, id: 'hon', label: 'Honor', abbreviation: 'hon', check: 3 },
+      ]
+      const skills = [
+        ...characterSheet().skills,
+        {
+          id: 'eti',
+          label: 'Etiquette',
+          ability: 'hon',
+          total: 5,
+          passive: 15,
+          proficiency: 1,
+          mode: 0 as const,
+        },
+      ]
+      await renderText(
+        check('data-checks="skill:hon:eti"', 'Honor (Etiquette)') +
+          check(
+            'data-checks="check:wis|check:hon" data-dc="12"',
+            'DC 12 Wisdom or Honor',
+          ).replace('data-n="4"', 'data-n="5"'),
+        actionsFor({ abilities, skills }),
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'Honor (Etiquette)' }),
+      )
+      expect(
+        itemsOf(screen.getByRole('menu', { name: 'Honor (Etiquette) check' })),
+      ).toContain('Roll my Honor (Etiquette) check (+5)')
+      await user.keyboard('{Escape}')
+      await user.click(
+        screen.getByRole('button', { name: 'DC 12 Wisdom or Honor' }),
+      )
+      expect(
+        itemsOf(
+          screen.getByRole('menu', { name: 'DC 12 Wisdom or Honor check' }),
+        ),
+      ).toEqual([
+        'Ask the table',
+        `Roll my Wisdom check (+${wisdom.check})`,
+        'Roll my Honor check (+3)',
+      ])
     })
 
     it('rolls a skill check made using a tool the character hasn’t as the sheet has it', async () => {

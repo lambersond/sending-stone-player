@@ -1,10 +1,12 @@
 'use client'
 
 import clsx from 'clsx'
+import { useDescriptionActions } from '../description-actions/use-description-actions'
 import { UsesButton } from '../uses-button/uses-button'
 import { recoveryOf } from './utils'
 import { poolName } from '@/utils/action-groups'
 import { formatModifier } from '@/utils/format-modifier'
+import { abilityAbbreviation, gameNames } from '@/utils/game-names'
 import type { UsesSpending } from './types'
 import type { SheetAction, SheetUses, SlotPool } from '@/types/sending-stone'
 import type { ReactNode } from 'react'
@@ -35,6 +37,8 @@ export function Facts({
   spending?: UsesSpending
 }>) {
   const { save } = action
+  // Its saving throw's ability by the sheet's abbreviation, as its grid shows it.
+  const names = gameNames(useDescriptionActions())
   const healing =
     action.damage.length > 0 && action.damage.every(part => part.healing)
   const recovery = uses && recoveryOf(uses)
@@ -53,7 +57,7 @@ export function Facts({
     [
       'Saving throw',
       save &&
-        `${save.dc === null ? '' : `DC ${save.dc} `}${save.ability.toUpperCase()}`,
+        `${save.dc === null ? '' : `DC ${save.dc} `}${abilityAbbreviation(names, save.ability).toUpperCase()}`,
     ],
     [
       healing ? 'Healing' : 'Damage',

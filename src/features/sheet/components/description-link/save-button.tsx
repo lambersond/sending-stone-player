@@ -6,6 +6,7 @@ import { askItems, modeWord, rollAgainst, saveTitle } from './utils'
 import { D20_CHOICES } from '@/features/rolling/constants'
 import { choiceItem } from '@/features/rolling/utils/menu-points'
 import { formatModifier } from '@/utils/format-modifier'
+import { gameNames } from '@/utils/game-names'
 import type { LinkMenus } from './types'
 import type { DescriptionActions } from '../description-actions/types'
 import type { MenuItem, RollTarget } from '@/features/rolling/types'
@@ -33,7 +34,7 @@ export function SaveButton({
   actions: DescriptionActions
   menus: LinkMenus
 }>) {
-  const title = saveTitle(link)
+  const title = saveTitle(link, gameNames(actions))
   const abilities = link.abilities.flatMap(id => {
     const ability = actions.abilities.find(each => each.id === id)
     return ability ? [ability] : []

@@ -25,7 +25,7 @@ run organize 43 X=1
 run step3 39 X=1
 run step2 69 X=1
 run step1 36 X=1
-run sheet 60 X=1
+run sheet 75 X=1
 run gm 66 X=1 SHOTS=$O/shots-gm
 run gm 66 X=1 SKEW=1 MODULE_DIR=$O/module-0.22.0 SHOTS=$O/shots-gm
 run conditions 22 X=1
@@ -61,8 +61,12 @@ run prompts 23 SHOTS=$O/shots-prompts
 run prompts 25 MIDI=1 SHOTS=$O/shots-prompts
 run midi 65 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-027
 run midi 10 SKEW=026 MODULE=$O/module-0.26.0 SHOTS=$O/shots-027
-run links 119 SHOTS=$O/shots-links
+# v0.52.0 (items 64 and 65): part 13, Honor and Sanity, in the plain run; and with module 0.51.0,
+# which sends saves on any ability but checks on the six alone, that part alone, its Sanity save
+# rolled and made by that module.
+run links 126 SHOTS=$O/shots-links
 run links 143 MIDI=1 SHOTS=$O/shots-links
+run links 11 SKEW=051 MODULE=$O/module-0.51.0 SHOTS=$O/shots-links
 run activities 100 SHOTS=$O/shots-activities
 run activities 105 MIDI=1 SHOTS=$O/shots-activities
 run phone 97 SHOTS=$O/shots-phone
@@ -224,7 +228,7 @@ run wildshape 33 DND5E6=1 SHOTS=$O/shots-040
 run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040
 # Module 0.41.0: the saves the game asks of companions, on their own panes; Midi-QOL's; dnd5e 6.0.5;
 # and module 0.40.0 (none).
-run companionsaves 44 SHOTS=$O/shots-041
+run companionsaves 45 SHOTS=$O/shots-041
 run companionsaves 46 MIDI=1 SHOTS=$O/shots-041
 run companionsaves 38 DND5E6=1 SHOTS=$O/shots-041
 run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041

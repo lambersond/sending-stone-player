@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.50.0 and its app, with v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0 and
-v0.44.0 before it.
+Released: module v0.51.0 and its app, with v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0
+and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -148,12 +148,13 @@ Midi-QOL v14.0.x:
   Iron Company", spoken by the giver. Add or remove's dialog reads Add and Remove, and each change
   is still a line for everyone, "Thorin paid 5 gp".
 
-## v0.51 (release candidate)
+## v0.51 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc entry.
+Released on 2026-11-19: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0 entry. v0.51 is
+the release candidate for v1.0 after v0.50: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.51.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Companions on another scene:** with a familiar summoned and an owned sidekick's unlinked token
   on one scene, then another scene made active: each keeps its tab, pinned, with the note on its
@@ -173,11 +174,34 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   party's sheet shows 2 gp more within a few seconds, a party you aren't in too; the party's own
   Give says "held", with no All.
 
+## v0.52 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc entry.
+
+**To check at the table before module v0.52.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Honor, Sanity and a world's own skill:** with Honor Ability Score and Sanity Ability Score
+  turned on in dnd5e's settings, and a skill your world adds on Honor, such as Etiquette: on a
+  player's sheet, an item whose text asks for a Sanity save, an Honor check, a Wisdom or Honor check
+  and that skill shows each as a button named as dnd5e names it, Wisdom or Honor offering both, and
+  each rolled from the app is made in Foundry and named so in the app's chat ("Sanity save"); a
+  check activity on Sanity shows its chip and rolls; an item asking a DC 13 Sanity save shows
+  "SAN 13"; the Gamemaster's request card for the skill, its DC hidden, reads "Gamemaster asks for
+  an Honor (Etiquette) check", and a player's roll from its button in Foundry is made; and a
+  companion the game asks for a Sanity save is named so in its character's notice. A description
+  sent before the update shows its new buttons once the Gamemaster's Foundry has loaded with 0.52.0.
+- **Eight abilities:** with Honor and Sanity on, a character's sheet lies its abilities four and
+  four on a 390 phone, a save at Adv or Dis showing its shield, bonus and chip without the word
+  Save, and four and four at 1024 and 1280 too; in Wild Shape, a druid's sheet marks as the form's
+  an ability your world adds with no type, and not Honor; and under a transformation with Appearance
+  it marks no tile.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to come.
+tweaks needed may change it as it goes. Batches 1 to 5 are done; 6 and 7 are to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -185,10 +209,11 @@ tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to c
    the stone as the installed app opens, two more e2e checks under load, and coins added, taken away
    and handed out from the sheet: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.49.0.
 3. Items 18, 36 and 91, companions and sidekicks wherever they are, two encounters at once, and Give
-   to parties and characters alike: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+   to parties and characters alike: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
-5. Items 64, 65 and 66: any ability or skill the game has.
+5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
+   ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
 
@@ -218,7 +243,7 @@ tweaks needed may change it as it goes. Batches 1 to 4 are done; 5 to 7 are to c
 **Moved from the next slice**
 
 Items 18 and 36, companions and sidekicks wherever they are and two encounters at once, are done, in
-[CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+[CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 **Found while building Batch 2**
 
@@ -390,29 +415,9 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
     page; offline mode's worker is its own, for which `/sw.js` is left free. A fairly large update:
     what's kept on a device and for whom (cleared on sign-out, so a shared device keeps nothing),
     how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
-64. **Any ability or skill the game has, named as the game names it:** with dnd5e's Honor or
-    Sanity turned on, or a world's own ability or skill, the sheet already shows and rolls them
-    and the Gamemaster's asked saves work, but the app still knows only the six abilities and 18
-    skills in places, by English name (`src/constants/dnd5e.ts`, and the schemas' `abilityId`).
-    It should accept any ability the character's sheet has, the server's checks per character
-    staying the safety, and name abilities and skills from the sheet the module already sends.
-    Then a Sanity save in an item's text or on the Gamemaster's request card is a button again,
-    "Wisdom or Sanity" keeps both, and a companion's notice says "a Sanity saving throw", not "a
-    san saving throw"; a game in another language sees its own names there too. App only; both
-    parts ship together. From v0.48's look at how flexible the app is.
-65. **Checks on any ability:** the module still sends checks (in chat asks, description links and
-    an item's check activity) only for the six abilities, so an Honor check, a check of a world's
-    own ability or a skill tied to one (Etiquette on Honor) stays plain text, and "DC 12 Wisdom or
-    Honor check" becomes a button offering only Wisdom while it reads "or Honor". Once item 64 is
-    in, the module sends any ability the game has, behind a feature the app announces in its
-    hello so an older app is never sent one; a choice is linked whole or not at all; PROTOCOL.md
-    says so, with harness cases for Honor, Sanity, a world's skill on Honor and an untyped
-    ability. Module and app; needs item 64.
-66. **Eight abilities, laid out:** with Honor and Sanity on, the abilities grid ends on a short
-    row (3, 3 and 2 on a phone), and the loading skeleton draws six; its columns could follow the
-    count. With it, two small guards: Wild Shape marks a world's untyped ability neither physical
-    nor mental, as dnd5e does (the module's `sheet-wild-shape.mjs`), and abilities and skills are
-    read row by row, so one bad row can't blank a whole sheet. App and module, small.
+
+Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
+ability, and eight abilities laid out, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
 
 **Asked for on 2026-11-17**
 
@@ -437,7 +442,7 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 Item 91, Give coins to parties and characters alike (on a character's Give of its coins the parties
 are checkboxes, as the characters are, and one give may go to any of them together, each given the
-same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
+same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 **Found while building Batch 3**
 
@@ -466,6 +471,35 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0-rc.
     and alone three times (33 of 33 each). Neither the check nor the module's Wild Shape scripts
     have changed since v0.50.0. Of a kind with item 90. The check could wait until the sweep has
     run, or allow more than its 160 ms. Found landing item 18. In no batch yet.
+
+**Found in Batch 3's last checks**
+
+95. **The companions e2e near its time limit, under load:** `e2e/companions-e2e.mjs`'s three long
+    runs (plain, `MIDI=1` and `DND5E6=1`) are given `e2e/regress.sh`'s usual 400 s. Passing on a
+    lane beside two others, they took 333 to 345 s in batch 3, against 293 to 303 s in batch 4's
+    full e2e pass: item 18's parts for companions on another scene added 8 checks and about 40 s to
+    each. In batch 3's full e2e pass, three lanes up on four cores, the `DND5E6=1` run was stopped
+    at 400 s in part 15, at 132 of its 146 checks with none failed, and passed when rerun alone on
+    its lane at once (146 of 146 in 323 s). Of a kind with items 90 and 94. The runs could be given
+    `TIMEOUT=600`, as `typed`'s and `notesoffline`'s are, or the suite split in two. Found in batch
+    3's last checks. In no batch yet.
+
+**Found while building Batch 5**
+
+96. **"an" before a "u" that sounds like "you":** the app's one rule for "a" or "an" (`articleOf`,
+    `src/utils/articles.ts`), which the chat's request cards and companions' notices use, among
+    others, says "an" before every vowel. So a world's own skill or ability, or a Wild Shape form or
+    ammunition, whose name begins with a "u" said "you", or with "Eu", would read "an Utility check"
+    or "an European". dnd5e's own names all read right. A short list of such beginnings beside the
+    silent h's would mend it. Found building item 64. In no batch yet.
+97. **A world's own tools aren't in a description's hash:** since module 0.52.0 a description's hash
+    holds the game's abilities and skills (`textFormat`, the module's `scripts/sheet-texts.mjs`),
+    which decide which checks are links and so every later link's number. A world's own tools decide
+    that for a tool check too (`isTool`, `scripts/sheet-links.mjs`), and aren't in it. So a tool
+    added mid-campaign can, after a reload, renumber a description's links under the same hash, and
+    an app's copy name a link as one it no longer is, until the description changes. One more line
+    in `textFormat` would mend it, renewing every hash once more. Found building item 65. In no
+    batch yet.
 
 ## v1.0
 

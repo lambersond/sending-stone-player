@@ -39,3 +39,14 @@ export function listOf<T extends z.ZodType>(entry: T, most?: number) {
       return most === undefined ? read : read.slice(0, most)
     })
 }
+
+/**
+ * A list that must be there, read entry by entry: as `listOf`, the entries `entry` can't read
+ * dropped, never failing the whole; but anything but a list fails, where what holds it can't be
+ * read without one.
+ * @param entry - What each entry holds when it can be read.
+ * @returns The schema, reading a list of what `entry` reads.
+ */
+export function requiredListOf<T extends z.ZodType>(entry: T) {
+  return z.array(z.unknown()).pipe(listOf(entry))
+}

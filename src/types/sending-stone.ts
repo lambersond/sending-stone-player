@@ -293,6 +293,17 @@ export type SheetAbility = {
   saveMode: RollMode
 }
 
+/**
+ * The game's names for its abilities and skills, by their keys: as the character's sheet names
+ * them, its own language's and any the world adds, over dnd5e's English six and 18. An ability's
+ * abbreviation only where the sheet gives one.
+ */
+export type GameNames = {
+  abilities: Record<string, string>
+  abbreviations: Record<string, string>
+  skills: Record<string, string>
+}
+
 export type SheetSkill = {
   id: string
   label: string

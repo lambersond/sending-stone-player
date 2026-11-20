@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { z } from 'zod'
-import { leftOut, listOf, orNull } from './utils'
+import { leftOut, listOf, orNull, requiredListOf } from './utils'
 
 describe('schemas/utils', () => {
   describe('leftOut', () => {
@@ -56,6 +56,19 @@ describe('schemas/utils', () => {
 
     it('keeps every one it reads, where it is given no most', () => {
       expect(listOf(z.int()).parse([1, 'two', 3, 4])).toStrictEqual([1, 3, 4])
+    })
+  })
+
+  describe('requiredListOf', () => {
+    it.each([['Ash'], [{}], [null], [undefined]])(
+      'fails on %p, not a list',
+      value => {
+        expect(requiredListOf(z.int()).safeParse(value).success).toBe(false)
+      },
+    )
+
+    it('reads a list entry by entry, leaving out what it can’t read', () => {
+      expect(requiredListOf(z.int()).parse([1, 'two', 3])).toStrictEqual([1, 3])
     })
   })
 })

@@ -1,11 +1,23 @@
-import { ABILITIES, SKILLS, TOOLS } from '@/constants/dnd5e'
-import { DAMAGE_TYPE, LINK_CLASSES } from '@/constants/sending-stone'
+import { TOOLS } from '@/constants/dnd5e'
+import {
+  DAMAGE_TYPE,
+  LINK_CLASSES,
+  MOST_ABILITIES,
+} from '@/constants/sending-stone'
 import { formulaTerms } from '@/utils/formulas'
+import {
+  DND5E_NAMES,
+  abilityName,
+  isAbilityKey,
+  skillName,
+} from '@/utils/game-names'
+import { ownName } from '@/utils/own-name'
 import type {
   LinkClass,
   DescriptionLink,
   DamageLink,
   CheckOption,
+  GameNames,
 } from '@/types/sending-stone'
 
 /*
@@ -38,11 +50,11 @@ export const MAX_LINKS = 200
 /** A part's damage types: one, or several joined by | for a choice. */
 const TYPES = String.raw`(?:[A-Za-z][\w-]{0,31}(?:\|[A-Za-z][\w-]{0,31}){0,9})`
 
-/** One of dnd5e's abilities. */
-const ABILITY = '(?:str|dex|con|int|wis|cha)'
-
 /** A skill's or tool's key, as dnd5e's are. */
 const KEY = String.raw`[A-Za-z][\w-]{0,31}`
+
+/** An ability's key, any the game has, as dnd5e's and a world's own are. */
+const ABILITY = KEY
 
 /**
  * One way a check may be made: `check:<ability>`, `skill:<ability>:<skill>` or
@@ -64,8 +76,10 @@ const FORMULA = String.raw`[\da-z\s+\-−*/().<>=]{1,100}`
 export const LINK_ATTRIBUTES: Record<LinkClass, Record<string, RegExp>> = {
   'ss-save': {
     'data-n': /^(?:0|[1-9]\d?|1\d\d)$/,
-    'data-ability':
-      /^(?:str|dex|con|int|wis|cha)(?:\|(?:str|dex|con|int|wis|cha)){0,5}$/,
+    // Its abilities joined by |, any the game has, as many as a saving throw may offer.
+    'data-ability': new RegExp(
+      String.raw`^${ABILITY}(?:\|${ABILITY}){0,${MOST_ABILITIES - 1}}$`,
+    ),
     'data-dc': /^[1-9]\d?$/,
     'data-type': /^concentration$/,
   },
@@ -161,7 +175,7 @@ export function linkOf(
       const abilities = kept['data-ability']
         ? [...new Set(kept['data-ability'].split('|'))]
         : [CONCENTRATION_ABILITY]
-      if (!abilities.every(id => Object.hasOwn(ABILITIES, id))) return
+      if (!abilities.every(id => isAbilityKey(id))) return
       return {
         kind: 'save',
         n,
@@ -171,10 +185,14 @@ export function linkOf(
       }
     }
     case 'ss-check': {
+      // Whole or not at all: a check any of whose ways is by a name every object answers to, such
+      // as `constructor`, is only text, never a check of the rest.
+      const checks = checkOptions(kept['data-checks'])
+      if (!checks.every(option => isAbilityKey(option.ability))) return
       return {
         kind: 'check',
         n,
-        checks: checkOptions(kept['data-checks']),
+        checks,
         ...(kept['data-dc'] && { dc: Number(kept['data-dc']) }),
         ...(kept['data-using-tool'] && {
           usingTool: kept['data-using-tool'],
@@ -254,22 +272,33 @@ function checkOptions(value: string): CheckOption[] {
 
 /**
  * What a check is called, as dnd5e's roll request card names it: such as "Strength", "Strength
- * (Athletics)" or "Dexterity (Thieves' Tools)".
+ * (Athletics)", "Dexterity (Thieves' Tools)" or "Honor (Etiquette)".
  * @param name - The skill's or tool's name, where it's known better than dnd5e's own, as from the
  *   character's sheet; else dnd5e's, or else its key.
+ * @param names - The game's names for its abilities and skills, as the character's sheet has them;
+ *   dnd5e's English where none are given.
  */
-export function checkName(option: CheckOption, name?: string): string {
-  const ability = Object.hasOwn(ABILITIES, option.ability)
-    ? ABILITIES[option.ability]
-    : option.ability
+export function checkName(
+  option: CheckOption,
+  name?: string,
+  names: GameNames = DND5E_NAMES,
+): string {
+  const ability = abilityName(names, option.ability)
   if (option.type === 'check' || option.key === undefined) return ability
-  return `${ability} (${name || toolOrSkillName(option.type, option.key)})`
+  return `${ability} (${name || toolOrSkillName(option.type, option.key, names)})`
 }
 
-/** A skill's or tool's name, as dnd5e has it, or else its key. */
-export function toolOrSkillName(type: 'skill' | 'tool', key: string): string {
-  const names = type === 'skill' ? SKILLS : TOOLS
-  return Object.hasOwn(names, key) ? names[key] : key
+/**
+ * A skill's name, as the game names it, or a tool's, as dnd5e has it; or else its key.
+ * @param names - The game's names for its skills, as the character's sheet has them; dnd5e's
+ *   English where none are given.
+ */
+export function toolOrSkillName(
+  type: 'skill' | 'tool',
+  key: string,
+  names: GameNames = DND5E_NAMES,
+): string {
+  return type === 'skill' ? skillName(names, key) : (ownName(TOOLS, key) ?? key)
 }
 
 /**

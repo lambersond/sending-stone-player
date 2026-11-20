@@ -1411,6 +1411,37 @@ describe('schemas/sending-stone', () => {
     })
   })
 
+  const whole = characterSheet()
+  it.each<{
+    field: 'abilities' | 'skills' | 'classes'
+    rows: unknown[]
+    read: object[]
+  }>([
+    {
+      field: 'abilities',
+      rows: whole.abilities.with(1, {
+        ...whole.abilities[1],
+        mod: 'x' as never,
+      }),
+      read: whole.abilities.toSpliced(1, 1),
+    },
+    {
+      field: 'skills',
+      rows: whole.skills.with(1, { ...whole.skills[1], total: 'x' as never }),
+      read: whole.skills.toSpliced(1, 1),
+    },
+    {
+      field: 'classes',
+      rows: [{ name: 5, levels: 1, subclass: null }, ...whole.classes],
+      read: [{ name: 'Fighter' }],
+    },
+  ])(
+    "reads a sheet's $field row by row, one it can't read left out and the rest kept",
+    ({ field, rows, read }) => {
+      expect(readSheet({ ...whole, [field]: rows })[field]).toMatchObject(read)
+    },
+  )
+
   it("reads the world's rules, from module 0.16.0, as unknown when it can't", () => {
     expect(rulesOf('modern')).toBe('modern')
     expect(rulesOf('legacy')).toBe('legacy')
@@ -2752,13 +2783,19 @@ describe('schemas/sending-stone', () => {
     expect(() => parseGameEvent('character.texts', {})).toThrow()
   })
 
-  it("drops a sheet it can't read, keeping the character", () => {
-    const event = parseGameEvent('character.updated', {
-      character: { ...roster[0], sheet: { abilities: 'many' } },
-    }) as any
+  it.each([['abilities'], ['skills']])(
+    'drops a sheet with no list of %s, keeping the character',
+    field => {
+      const event = parseGameEvent('character.updated', {
+        character: {
+          ...roster[0],
+          sheet: { ...characterSheet(), [field]: 'many' },
+        },
+      }) as any
 
-    expect(event.data.character).toEqual({ ...roster[0], sheet: null })
-  })
+      expect(event.data.character).toEqual({ ...roster[0], sheet: null })
+    },
+  )
 
   it('refuses character.updated without its character', () => {
     expect(() => parseGameEvent('character.updated', {})).toThrow()
@@ -2927,19 +2964,35 @@ describe('schemas/sending-stone', () => {
       })
     })
 
+    it("reads a saving throw on any ability the game has, Sanity or a world's own, up to ten", () => {
+      expect(
+        askOf({ type: 'save', abilities: ['wis', 'san'], dc: 13 }),
+      ).toEqual({ type: 'save', abilities: ['wis', 'san'], dc: 13 })
+      // As many as a saving throw may offer: the six, Honor, Sanity and two of a world's own.
+      const ten = 'str dex con int wis cha hon san luck grit'.split(' ')
+      expect(askOf({ type: 'save', abilities: ten })).toEqual({
+        type: 'save',
+        abilities: ten,
+      })
+    })
+
     it('tells a message that asks nothing from an older module, which sends no ask', () => {
       expect(askOf(null)).toBeNull()
       expect(askOf()).toBe('absent')
     })
 
     it.each([
-      ['an ability dnd5e lacks', { abilities: ['luck'] }],
+      ['an ability by no key', { abilities: ['my.luck'] }],
       ['a name any object answers to', { abilities: ['constructor'] }],
+      [
+        'a name any object answers to among others',
+        { abilities: ['wis', 'valueOf'] },
+      ],
       ['a prototype', { abilities: ['__proto__'] }],
       ['no ability for a save', { abilities: [] }],
       [
-        'too many abilities',
-        { abilities: Array.from({ length: 7 }, () => 'dex') },
+        'more abilities than ten',
+        { abilities: Array.from({ length: 11 }, (_, n) => `a${n}`) },
       ],
       ['another kind', { type: 'attack' }],
       ['a check with no ways to make it', { type: 'check' }],
@@ -2996,7 +3049,7 @@ describe('schemas/sending-stone', () => {
         'more than ten ways',
         Array.from({ length: 11 }, () => ({ type: 'check', ability: 'str' })),
       ],
-      ['an ability dnd5e lacks', [{ type: 'check', ability: 'san' }]],
+      ['an ability by no key', [{ type: 'check', ability: 'my.luck' }]],
       ['a name any object answers to', [{ type: 'check', ability: 'valueOf' }]],
       ['a kind of roll that isn’t a check', [{ type: 'save', ability: 'dex' }]],
       ['a skill check of no skill', [{ type: 'skill', ability: 'str' }]],
@@ -3020,7 +3073,7 @@ describe('schemas/sending-stone', () => {
         'one way that doesn’t hold up among others',
         [
           { type: 'check', ability: 'str' },
-          { type: 'check', ability: 'luck' },
+          { type: 'check', ability: 'my.luck' },
         ],
       ],
       ['ways that are not a list', { type: 'check', ability: 'str' }],
@@ -3190,14 +3243,15 @@ describe('schemas/sending-stone', () => {
       }
     })
 
-    it('reads an ability check, and drops a malformed way to make one, or one twice', () => {
+    it('reads an ability check, on any ability the game has, and drops a malformed way to make one, or one twice', () => {
       const [read] = readRolls({
         check: {
           checks: [
             { type: 'check', ability: 'str' },
             { type: 'skill', ability: 'dex' },
             { type: 'skill', ability: 'dex', key: 'slt', bonus: 'two' },
-            { type: 'tool', ability: 'luck', key: 'thief' },
+            { type: 'tool', ability: 'my.luck', key: 'thief' },
+            { type: 'check', ability: 'hon' },
             { type: 'check', ability: 'str', key: 'ath' },
             { type: 'vehicle', ability: 'dex', key: 'land' },
             { type: 'skill', ability: 'int', key: 'slt' },
@@ -3211,6 +3265,7 @@ describe('schemas/sending-stone', () => {
         checks: [
           { type: 'check', ability: 'str' },
           { type: 'skill', ability: 'dex', key: 'slt' },
+          { type: 'check', ability: 'hon' },
         ],
         dc: 13,
         own: true,
@@ -5526,15 +5581,19 @@ describe('schemas/sending-stone, Wild Shape, from module 0.40.0', () => {
       { beast: { abilities: [], saves: [], skills: [] } },
     ],
     [
-      'an ability it doesn’t know, leaving the rest',
+      // A world's own ability is the game's as dnd5e's six are, so a shaped druid's tile for it is
+      // marked the form's (item 64); a name any object answers to is still no ability.
+      'any ability the game has, leaving out one by no key',
       {
         beast: {
           abilities: ['str', 'luck'],
-          saves: ['str'],
+          saves: ['san', 'constructor'],
           skills: ['prc', 7],
         },
       },
-      { beast: { abilities: ['str'], saves: ['str'], skills: ['prc'] } },
+      {
+        beast: { abilities: ['str', 'luck'], saves: ['san'], skills: ['prc'] },
+      },
     ],
   ])('reads a form with %s', (_name, fields, read) => {
     expect(

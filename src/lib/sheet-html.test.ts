@@ -150,15 +150,16 @@ describe('lib/sheet-html', () => {
         '<span class="ss-check roll" data-n="1" data-checks="check:int|check:wis">Intelligence or Wisdom</span>' +
         '<span class="ss-check roll" data-n="2" data-checks="skill:str:ath|skill:dex:acr" data-dc="12">DC 12 Strength (Athletics) or Dexterity (Acrobatics)</span>' +
         '<span class="ss-check roll" data-n="3" data-checks="tool:dex:thief" data-dc="15">DC 15 Dexterity (Thieves’ Tools)</span>' +
-        '<span class="ss-check roll" data-n="4" data-checks="skill:dex:slt" data-using-tool="thief">Dexterity (Sleight of Hand)</span>'
+        '<span class="ss-check roll" data-n="4" data-checks="skill:dex:slt" data-using-tool="thief">Dexterity (Sleight of Hand)</span>' +
+        '<span class="ss-check roll" data-n="5" data-checks="check:wis|check:hon" data-dc="12">DC 12 Wisdom or Honor</span>'
 
       expect(clean(html)).toBe(html)
-      expect(sheetLinks(clean(html)).size).toBe(5)
+      expect(sheetLinks(clean(html)).size).toBe(6)
     })
 
     it.each([
-      ['an ability dnd5e hasn’t', 'check:hon'],
       ['an ability any object has', 'check:constructor'],
+      ['an ability any object has among others', 'check:wis|check:valueOf'],
       ['a skill without its ability', 'skill:ath'],
       ['a check with a skill', 'check:str:ath'],
       ['a kind of roll that isn’t a check', 'save:dex'],
@@ -265,7 +266,7 @@ describe('lib/sheet-html', () => {
         'ss-damage',
         'data-n="0" data-formulas="1d6&amp;@mod"',
       ],
-      ['an ability dnd5e lacks', 'ss-save', 'data-n="0" data-ability="luck"'],
+      ['an ability by no key', 'ss-save', 'data-n="0" data-ability="my.luck"'],
       [
         'a name any object answers to',
         'ss-save',

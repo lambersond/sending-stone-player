@@ -175,6 +175,12 @@ export const MOST_MOVED_ITEMS = 10
 export const MOST_AMONG = 20
 
 /**
+ * The most abilities one saving throw may offer, a card's buttons or a description's
+ * `data-ability`, as a prompt's may.
+ */
+export const MOST_ABILITIES = 10
+
+/**
  * What else the Gamemaster's module can do with players' rolls, as its hello says: take damage a
  * player changed, with more dice, another die or every die at its highest, and from module 0.19.0
  * a description's damage changed so too, whose sheets then say how the world rolls a critical
@@ -387,6 +393,13 @@ export const COIN_OPS = ['add', 'remove'] as const
  * 0.50.0, a fetch's `quiet` and the answer's, which the module sends and takes only then.
  */
 export const QUIET_FETCHES = 1
+
+/**
+ * The format of checks this app reads, as it tells the module (`anyAbility`): from module 0.52.0,
+ * checks on any ability the game has, in descriptions, items' check activities and roll request
+ * cards, which the module sends only then.
+ */
+export const ANY_ABILITY = 1
 
 /** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
 export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/

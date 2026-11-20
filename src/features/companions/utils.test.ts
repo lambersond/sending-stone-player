@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { awayWords, describe as described } from './utils'
+import { askedWords, awayWords, describe as described } from './utils'
 import { seatWords } from '@/utils/seat-words'
 import type { SwitcherCreature } from './types'
 
@@ -41,5 +41,15 @@ describe('features/companions/utils, a companion on another scene', () => {
     ],
   ] as const)('says so on its sheet at the %s’s seat', (role, words) => {
     expect(awayWords('Brakka', seatWords(role))).toBe(words)
+  })
+})
+
+// Item 64: what a companion is asked for, "an" before a silent h, as the chat's request card says.
+describe('features/companions/utils, what a companion is asked for', () => {
+  it.each([
+    ['Honor check', 'an Honor check'],
+    ['Sanity saving throw', 'a Sanity saving throw'],
+  ])('says %p as %p', (label, words) => {
+    expect(askedWords({ label })).toBe(words)
   })
 })

@@ -1,5 +1,6 @@
 import {
   ALONE_CHOICES,
+  ANY_ABILITY,
   COINS,
   COMPANIONS,
   DICE_ASKS,
@@ -67,7 +68,8 @@ export const BRIDGE_SWITCHES = [
  * module 0.50.0 how hurt other creatures are, and their hit points where their Gamemaster shows
  * them, which the module sends only then, and quiet fetches while nobody is in the app, which the
  * module makes only then; and from module 0.51.0 companions on every scene, each saying whether
- * it's away (`companions` 3), which the module lists only then.
+ * it's away (`companions` 3), which the module lists only then; and from module 0.52.0 checks on
+ * any ability the game has (`anyAbility`), which the module sends only then.
  */
 export const FEATURES = {
   commands: true,
@@ -90,6 +92,7 @@ export const FEATURES = {
   coins: COINS,
   health: HEALTH,
   quiet: QUIET_FETCHES,
+  anyAbility: ANY_ABILITY,
 }
 
 /**
