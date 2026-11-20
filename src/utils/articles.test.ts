@@ -48,6 +48,9 @@ describe('utils/articles', () => {
     ['Onyx', 'an'],
     ['Onerous', 'an'],
     ['Oneiric', 'an'],
+    // Nor where such a sound comes later in the name.
+    ['Ioun Stone', 'an'],
+    ['Ammunition', 'an'],
     // Numbers said with a vowel: eight and the eighties, eleven, eighteen.
     ['8th-level spell slot', 'an'],
     ['80', 'an'],
