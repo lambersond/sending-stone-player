@@ -26,7 +26,8 @@ const SPLIT_FROM = 720
  * Character tab; and each opens to its description. Inside them, nothing is marked a favorite, as
  * every one is. Where they're wide enough, they're in two lists side by side. From module 0.47.0,
  * where the game takes it, they're put in order: Reorder, beneath them, and Move up and Move down
- * in each one's menu, an order on its way shown at once.
+ * in each one's menu, an order on its way shown at once. A favorite moved from one list to the
+ * other keeps focus there, as within one.
  */
 export function FavoritesList({
   characterId,
@@ -51,7 +52,7 @@ export function FavoritesList({
   const [card, setCard] = useState<HTMLDivElement | null>(null)
   const width = useWidth(card)
   const reorder = useRef<HTMLButtonElement>(null)
-  const list = useFavoriteList(entries, reorder)
+  const list = useFavoriteList(entries, reorder, card)
   const { arranged } = list
   // Side by side, the first half is in the first list and the rest in the second, so that each
   // stays in its list as favorites open and close.

@@ -1282,12 +1282,38 @@ function Moving({
 /** Shows each order at once, as the pane does with one on its way. */
 const showAtOnce = (keys: string[], show: ShowOrder) => show(keys)
 
+/** Until Floating UI's focus, given back in a microtask as a menu closes, has been. */
+const settle = () =>
+  act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0))
+  })
+
 /** The favorites' card's lists, as they're laid out: one, or two side by side. */
 const listsIn = () => [
   ...screen
     .getByRole('region', { name: 'Favorites' })
     .querySelectorAll<HTMLElement>(':scope > div > div > ul'),
 ]
+
+/** Warhammer's name, which opens it and its menu. */
+const warhammerName = () =>
+  screen.getByRole('button', { name: /^Warhammer/, expanded: false })
+
+/** Opens a favorite's menu from what has focus for it, and chooses a move there. */
+const moveFrom = async (
+  control: () => HTMLElement,
+  menu: string | RegExp,
+  move: string,
+) => {
+  control().focus()
+  fireEvent.contextMenu(control())
+  await userEvent.setup().click(
+    within(screen.getByRole('menu', { name: menu })).getByRole('menuitem', {
+      name: move,
+    }),
+  )
+  await settle()
+}
 
 describe('components/character-sheet/favorites, put in order, from module 0.47.0', () => {
   const Observer = globalThis.ResizeObserver
@@ -1370,6 +1396,103 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
         .getAllByRole('listitem')
         .map(row => row.textContent?.slice(0, 9)),
     ).toEqual(['Superiori', 'Cast Fire', 'Warhammer', 'Bless9 Ro'])
+  })
+
+  // Six favorites at 720, three and three: Superiority Dice, the old-style resource, left out.
+  const [, warhammer, fireball, bless, perception, tools, slots] =
+    sheetFavorites()
+  it.each([
+    [
+      'an item moved from its own menu on its name',
+      [fireball, bless, warhammer, perception, tools, slots],
+      warhammerName,
+      'Warhammer',
+      'Move down',
+      1,
+    ],
+    [
+      "a skill moved from its roll's menu",
+      [fireball, bless, warhammer, perception, tools, slots],
+      () => screen.getByRole('button', { name: /^Perception check/ }),
+      /^Perception check/,
+      'Move up',
+      0,
+    ],
+    [
+      'spell slots moved from a menu of their own',
+      [fireball, bless, warhammer, slots, perception, tools],
+      () => rowOf('1st Level'),
+      '1st Level',
+      'Move up',
+      0,
+    ],
+    [
+      'an effect moved from the row that opens it',
+      [fireball, warhammer, bless, perception, tools, slots],
+      () => rowOf('Bless'),
+      'Bless',
+      'Move down',
+      1,
+    ],
+  ])(
+    'keeps focus on %s to the other of two lists, as within one (ROADMAP item 74)',
+    async (_what, favorites, control, menu, move, list) => {
+      wide(720)
+      renderMoving(withFavorites(favorites))
+      const [first] = listsIn()
+      const before = first.contains(control()) ? 0 : 1
+      expect(before).toBe(1 - list)
+
+      await moveFrom(control, menu, move)
+
+      expect(control()).toHaveFocus()
+      expect(listsIn()[list]).toContainElement(control())
+    },
+  )
+
+  /** Orders sent and held back, each shown as it's called, as `holdBack` keeps them. */
+  const held: (() => void)[] = []
+  const holdBack = (keys: string[], show: ShowOrder) => {
+    held.push(() => show(keys))
+  }
+  afterEach(() => {
+    held.length = 0
+  })
+
+  it.each([
+    ['again, once the move has shown', showAtOnce],
+    ["for a move the list didn't show at once", holdBack],
+  ])('never moves focus %s', async (_what, onSave) => {
+    wide(720)
+    const favorites = [fireball, bless, warhammer, perception, tools, slots]
+    const { rerender } = renderMoving(withFavorites(favorites), onSave)
+    await moveFrom(warhammerName, 'Warhammer', 'Move down')
+    act(() => (document.activeElement as HTMLElement).blur())
+
+    // The list's next commit, as a sheet arrives; then, where the order was held back, one that
+    // shows that very order.
+    rerender(<Moving sheet={withFavorites([...favorites])} onSave={onSave} />)
+    await settle()
+    act(() => held.shift()?.())
+    await settle()
+
+    expect(listsIn()[1]).toContainElement(warhammerName())
+    expect(document.body).toHaveFocus()
+  })
+
+  it('never moves focus from where it is as the move shows', async () => {
+    wide(720)
+    renderMoving(
+      withFavorites([fireball, bless, warhammer, perception, tools, slots]),
+      (keys, show) => {
+        screen.getByRole('button', { name: 'Elsewhere' }).focus()
+        show(keys)
+      },
+    )
+    await moveFrom(warhammerName, 'Warhammer', 'Move down')
+
+    expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus()
+    expect(listsIn()[1]).toContainElement(warhammerName())
   })
 
   it('takes focus to Reorder’s heading as it opens, and back to Reorder as Cancel or Save order closes it', async () => {

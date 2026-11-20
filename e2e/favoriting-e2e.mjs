@@ -31,14 +31,17 @@
 // slots, which have no favorites entry of their own, moved all the same: at 390 Stealth's Move up
 // from its roll's menu, after its ways to roll, which rolls nothing, and his slots' from a menu of
 // their own, held by their name (part 14); at 1280 that menu by a right-click and from the keyboard
-// (part 10); with module 0.46.0 neither (part 16). And (item 75) at 1366, where his favorites lie
-// in two lists: Reorder closed by Cancel and by Save order leaves two lists that follow the window.
+// (part 10); with module 0.46.0 neither (part 16). And (items 74 and 75) at 1366, where his
+// favorites lie in two lists: Reorder closed by Cancel and by Save order leaves two lists that follow
+// the window; and a favorite moved from the keyboard to the other list keeps focus, an item's from
+// its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a list
+// does.
 // Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
 import {
   BASE, BOB, DND5E6, SKEW036, W, activeScene, actors, browse, call, character, check, companion, embedded, escapeRe,
-  favoring, finish, foundryWorld, group, launch, newCampaign, note, part, place, posted, postsOf, relay, same, sceneWorld,
+  favoring, finish, focusInside, foundryWorld, group, launch, newCampaign, note, part, place, posted, postsOf, relay, same, sceneWorld,
   settled, shoot, shootBoth, sideways, sql, startFetching, startModule, stopFetching, theme, until, wait,
 } from './world-030.mjs'
 
@@ -1143,6 +1146,74 @@ async function putInOrder() {
   await until(async () => same(await listsOf(), twoLists), 'two lists at 1366 again', 5_000).catch(() => {})
   lists = await listsOf()
   check(narrowed.length === 1 && same(lists, twoLists), `narrowed to 1024, one list; widened to 1366 again, two: the card drawn after Reorder is watched (${JSON.stringify({ narrowed: narrowed.length, lists })})`)
+
+  // Item 74: a favorite moved from the keyboard to the other list keeps focus there, as one moved
+  // within a list does: an item's from its own menu, a skill's from its roll's, spell slots' from
+  // theirs. Each move made, and Foundry keeping its order.
+  /** What has focus: its tag, its row's name, and which of the strip's lists that row is in, from 0. */
+  const focusAt = () => top.evaluate(panel => {
+    const active = document.activeElement
+    const row = active?.closest('li')
+    const lists = [...panel.querySelectorAll('ul')].filter(list => !list.closest('li'))
+    return { tag: active?.tagName ?? null, name: row?.querySelector('.font-medium')?.textContent ?? null, list: row ? lists.indexOf(row.parentElement) : -1 }
+  })
+  /**
+   * A move from the keyboard: focus on what opens the row's menu, Shift+F10, the down key to the
+   * move and Enter; until the order it sends is made, and Foundry keeps it. The order made.
+   */
+  async function keyMove(control, title, move) {
+    await toastsGone(wide)
+    await control.focus()
+    await wide.page.keyboard.press('Shift+F10')
+    const menu = wide.page.getByRole('menu', { name: title })
+    await menu.waitFor({ timeout: 5_000 })
+    await focusInside(menu)
+    const { items } = await lookOf(menu)
+    for (let i = 0; i < items.length && (await lookOf(menu)).focused !== move; i++) await wide.page.keyboard.press('ArrowDown')
+    await paced()
+    const sent = orders().length
+    await wide.page.keyboard.press('Enter')
+    const done = await ordered(sent + 1, `${move} made`)
+    await until(async () => same(await foundryKeys(wide), done.payload.favorite.order.map(keyOf)), `Foundry's favorites after ${move}`, 15_000).catch(() => {})
+    return { done, kept: same(await foundryKeys(wide), done.payload.favorite.order.map(keyOf)) }
+  }
+  const onPage = [...placed]
+  /** The two lists `onPage` makes, Ki first. */
+  const splitPage = () => [['Ki', ...onPage].slice(0, half), ['Ki', ...onPage].slice(half)]
+  /** `onPage` with a favorite moved one place, up (-1) or down (1). */
+  const step = (name, by) => {
+    const at = onPage.indexOf(name)
+    onPage.splice(at, 1)
+    onPage.splice(at + by, 0, name)
+  }
+  /** After a move: its order, the lists, and where focus is once it has settled on `name`. */
+  async function afterMove(name) {
+    await until(async () => same(await listsOf(), splitPage()), 'the lists in the order moved', 5_000).catch(() => {})
+    await until(async () => (await focusAt()).name === name, `focus on ${name}`, 5_000).catch(() => {})
+    return { lists: await listsOf(), focus: await focusAt() }
+  }
+  let byKey = await keyMove(panelTarget(wide, 'Longsword'), 'Longsword', 'Move down')
+  step('Longsword', 1)
+  let after = await afterMove('Longsword')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 1 }),
+    `Move down on the Longsword, last of the first list, puts it first in the second, focus on its name there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+  await toastsGone(wide)
+  await shoot(wide, 'favorites-moved-focus', top)
+  byKey = await keyMove(top.getByRole('button', { name: /^Stealth check/ }), /^Stealth check/, 'Move down')
+  step('Stealth', 1)
+  after = await afterMove('Stealth')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[1][0] === 'Stealth' && same(after.focus, { tag: 'BUTTON', name: 'Stealth', list: 1 }),
+    `Move down on Stealth, now last of the first list, puts it first in the second, focus on its roll there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+  byKey = await keyMove(panelTarget(wide, '1st Level'), '1st Level', 'Move up')
+  step('1st Level', -1)
+  after = await afterMove('1st Level')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[1][0] === '1st Level' && same(after.focus, { tag: 'DIV', name: '1st Level', list: 1 }),
+    `Move up on his 1st Level slots, second in the second list, puts them first there, within their list, focus still on their row (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+  byKey = await keyMove(panelTarget(wide, '1st Level'), '1st Level', 'Move up')
+  step('1st Level', -1)
+  after = await afterMove('1st Level')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[0].at(-1) === '1st Level' && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'DIV', name: '1st Level', list: 0 }),
+    `Move up on his 1st Level slots, first of the second list, puts them last of the first, focus on their row there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
   await wide.view.close()
   await big.view.close()
 }
