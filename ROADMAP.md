@@ -188,9 +188,9 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   each rolled from the app is made in Foundry and named so in the app's chat ("Sanity save"); a
   check activity on Sanity shows its chip and rolls; an item asking a DC 13 Sanity save shows
   "SAN 13"; the Gamemaster's request card for the skill, its DC hidden, reads "Gamemaster asks for
-  an Honor (Etiquette) check", and a player's roll from it is made; and a companion the game asks
-  for a Sanity save is named so in its character's notice. A description sent before the update
-  shows its new buttons once the Gamemaster's Foundry has loaded with 0.52.0.
+  an Honor (Etiquette) check", and a player's roll from its button in Foundry is made; and a
+  companion the game asks for a Sanity save is named so in its character's notice. A description
+  sent before the update shows its new buttons once the Gamemaster's Foundry has loaded with 0.52.0.
 - **Eight abilities:** with Honor and Sanity on, a character's sheet lies its abilities four and
   four on a 390 phone, a save at Adv or Dis showing its shield, bonus and chip without the word
   Save, and four and four at 1024 and 1280 too; in Wild Shape, a druid's sheet marks as the form's
