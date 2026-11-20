@@ -50,6 +50,8 @@ export function ActionEntry({
   look: { rowRef, ...look } = {},
   section,
   favorite: target = { type: 'item', id: action.id },
+  open: held,
+  onOpenChange,
 }: Readonly<{
   action: SheetAction
   rows: ActionRows
@@ -63,8 +65,16 @@ export function ActionEntry({
    * resource's feature. Its other activities keep theirs.
    */
   favorite?: FavoriteTarget | null
+  /**
+   * Whether it's open, where its owner keeps that, as the favorites do (ROADMAP item 74), so that
+   * it opens again wherever it's drawn next; its own otherwise.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }>) {
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = held ?? ownOpen
+  const setOpen = onOpenChange ?? setOwnOpen
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const { name } = action

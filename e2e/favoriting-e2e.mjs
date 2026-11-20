@@ -35,7 +35,8 @@
 // favorites lie in two lists: Reorder closed by Cancel and by Save order leaves two lists that follow
 // the window; and a favorite moved from the keyboard to the other list keeps focus, an item's from
 // its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a list
-// does.
+// does; and one open to its description stays open as Favorites is hidden and shown and as it's
+// moved by the mouse.
 // Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
@@ -1214,6 +1215,36 @@ async function putInOrder() {
   after = await afterMove('1st Level')
   check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[0].at(-1) === '1st Level' && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'DIV', name: '1st Level', list: 0 }),
     `Move up on his 1st Level slots, first of the second list, puts them last of the first, focus on their row there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+
+  // Item 74: one open to its description stays open as Favorites is hidden and shown, and as it's
+  // moved to the other list by the mouse, focus following it there.
+  const longsword = () => panelTarget(wide, 'Longsword')
+  await toastsGone(wide)
+  await longsword().click()
+  await until(async () => (await longsword().getAttribute('aria-expanded')) === 'true', 'the Longsword open', 5_000).catch(() => {})
+  const heading = top.getByRole('button', { name: /^Favorites/, expanded: true })
+  await heading.click()
+  // Hidden, the card is 0 wide, and its favorites in one list.
+  await until(async () => (await listsOf()).length === 1, 'one list while hidden', 5_000).catch(() => {})
+  await top.getByRole('button', { name: /^Favorites/, expanded: false }).click()
+  await until(async () => same(await listsOf(), splitPage()), 'two lists once Favorites is shown', 5_000).catch(() => {})
+  lists = await listsOf()
+  let isOpen = await longsword().getAttribute('aria-expanded')
+  check(same(lists, splitPage()) && lists[1][0] === 'Longsword' && isOpen === 'true',
+    `the Longsword, first of the second list, opened; Favorites hidden and shown again by its heading: still open there (${JSON.stringify({ lists, isOpen })})`)
+  await toastsGone(wide)
+  const swordMenu = await menuOf(wide, longsword(), 'Longsword')
+  await paced()
+  const sentOpen = orders().length
+  await swordMenu.getByRole('menuitem', { name: 'Move up', exact: true }).click()
+  made = await ordered(sentOpen + 1, 'the Longsword moved up by the mouse')
+  step('Longsword', -1)
+  after = await afterMove('Longsword')
+  isOpen = await longsword().getAttribute('aria-expanded')
+  check(made.status === 'done' && same(after.lists, splitPage()) && after.lists[0].at(-1) === 'Longsword' && isOpen === 'true' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 0 }),
+    `moved up by a right-click, the Longsword is last of the first list, still open, focus on its name (${JSON.stringify({ made: made.status, isOpen, ...after })})`)
+  await toastsGone(wide)
+  await shoot(wide, 'favorites-moved-open', top)
   await wide.view.close()
   await big.view.close()
 }

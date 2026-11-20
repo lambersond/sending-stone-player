@@ -31,6 +31,8 @@ export function ItemEntry({
   item,
   rows,
   favorite: target = { type: 'item', id: item.id },
+  open,
+  onOpenChange,
 }: Readonly<{
   characterId: string
   item: SheetItem | SheetContainer
@@ -40,6 +42,12 @@ export function ItemEntry({
    * none, as among the favorites for a resource's feature.
    */
   favorite?: FavoriteTarget | null
+  /**
+   * Whether it's open, and its change, where its owner keeps that, as the favorites do; passed to
+   * the row it's drawn as.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }>) {
   const transfers = useTransferring()
   const moves = item.quantity >= 1 ? transfers.item?.(item) : undefined
@@ -68,6 +76,8 @@ export function ItemEntry({
           action={action}
           rows={rows}
           favorite={null}
+          open={open}
+          onOpenChange={onOpenChange}
           look={{
             // What it is to carry, rather than how it's used, which it opens to; or nothing.
             detail: detail ?? '',
@@ -105,6 +115,8 @@ export function ItemEntry({
         favoriteKey={`item:${item.id}`}
         onMenu={onMenu}
         favorite={null}
+        open={open}
+        onOpenChange={onOpenChange}
         busy={waiting}
         detail={detail}
         aside={

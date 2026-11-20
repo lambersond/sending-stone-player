@@ -11,6 +11,7 @@ import { hitDieSpending } from '../hit-dice/utils'
 import { FavoriteRow } from './favorite-row'
 import { FavoritesReorder } from './favorites-reorder'
 import { useFavoriteList } from './use-favorite-list'
+import { useOpenRows } from './use-open-rows'
 import { useWidth } from '@/features/sheet/hooks/use-width'
 import type { FavoritesProps } from './types'
 
@@ -53,6 +54,7 @@ export function FavoritesList({
   const width = useWidth(card)
   const reorder = useRef<HTMLButtonElement>(null)
   const list = useFavoriteList(entries, reorder, card)
+  const rowsOpen = useOpenRows()
   const { arranged } = list
   // Side by side, the first half is in the first list and the rest in the second, so that each
   // stays in its list as favorites open and close.
@@ -88,6 +90,8 @@ export function FavoritesList({
                     rows={rows}
                     abilities={sheet.abilities}
                     spending={spending}
+                    open={rowsOpen.openAt(entry.key)}
+                    onOpenChange={open => rowsOpen.setOpenAt(entry.key, open)}
                   />
                 ))}
               </ul>

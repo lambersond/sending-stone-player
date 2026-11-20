@@ -28,12 +28,20 @@ export function SpellEntry({
   spell,
   rows,
   favorite,
+  open,
+  onOpenChange,
 }: Readonly<{
   characterId: string
   spell: SheetSpell
   rows?: ActionRows
   /** What its row's favorites entry adds or removes, from module 0.37.0: the spell, unless said. */
   favorite?: FavoriteTarget | null
+  /**
+   * Whether it's open, and its change, where its owner keeps that, as the favorites do; passed to
+   * the row it's drawn as.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }>) {
   // Asked whichever it's drawn as, before either is returned; an action's row asks it itself.
   const prepare = usePrepareChoice(spell.id)
@@ -57,6 +65,8 @@ export function SpellEntry({
         action={action}
         rows={rows}
         favorite={favorite}
+        open={open}
+        onOpenChange={onOpenChange}
         note={spell.castFrom ? fromNote(spell.castFrom) : undefined}
         look={{
           marks: marked && (
@@ -89,6 +99,8 @@ export function SpellEntry({
       fallback={Wand}
       favoriteKey={`item:${spell.id}`}
       favorite={favorite}
+      open={open}
+      onOpenChange={onOpenChange}
       prepareChoice={prepare}
       detail={
         unusable

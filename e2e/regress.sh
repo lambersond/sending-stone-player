@@ -207,9 +207,10 @@ run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 # his favorites lie in two lists: Reorder closed by Cancel and by Save order leaves two lists that
 # follow the window; and a favorite moved from the keyboard to the other list keeps focus, an item's
 # from its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a
-# list does.
-run favoriting 117 SHOTS=$O/shots-037
-run favoriting 83 DND5E6=1 SHOTS=$O/shots-037
+# list does; and one open to its description stays open as Favorites is hidden and shown and as
+# it's moved by the mouse.
+run favoriting 119 SHOTS=$O/shots-037
+run favoriting 85 DND5E6=1 SHOTS=$O/shots-037
 run favoriting 9 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
 run favoriting 6 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
