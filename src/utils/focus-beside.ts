@@ -29,9 +29,7 @@ export function rowControlOf(
 export function placesBeside(element: HTMLElement): HTMLElement[] {
   const group = element.closest('[role="group"]')
   const together = group
-    ? [...group.querySelectorAll<HTMLElement>('button')].filter(
-        button => button !== element,
-      )
+    ? [...group.querySelectorAll<HTMLElement>('button')]
     : []
   const row = element.closest('li')
   const panel = element.closest<HTMLElement>('[role="tabpanel"]')
