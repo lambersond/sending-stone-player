@@ -5,6 +5,7 @@ import { MAX_USE_TARGETS } from '@/constants/sending-stone'
 import { enchantOf, offeredProfiles } from '@/features/sheet/utils/enchantments'
 import { slotPools, ordinal, defaultPool } from '@/utils/action-groups'
 import { aloneSelection } from '@/utils/alone-choices'
+import { articleOf } from '@/utils/articles'
 import { castOf, castAtLevel } from '@/utils/casts'
 import { listed } from '@/utils/roll-reasons'
 import {
@@ -230,12 +231,15 @@ function spendParts(
   ]
 }
 
-/** A slot spent, in words: "a 2nd-level spell slot", or pact magic's "a pact slot (3rd level)". */
+/**
+ * A slot spent, in words: "a 2nd-level spell slot", "an 8th-level spell slot", or pact magic's "a
+ * pact slot (3rd level)".
+ */
 function slotWords(pool: SlotPool): string {
   if (pool.level === null) return 'a spell slot'
-  return pool.id === 'pact'
-    ? `a pact slot (${ordinal(pool.level)} level)`
-    : `a ${ordinal(pool.level)}-level spell slot`
+  if (pool.id === 'pact') return `a pact slot (${ordinal(pool.level)} level)`
+  const name = `${ordinal(pool.level)}-level spell slot`
+  return `${articleOf(name)} ${name}`
 }
 
 /**

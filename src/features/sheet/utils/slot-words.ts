@@ -1,4 +1,5 @@
 import { ordinal } from '@/utils/action-groups'
+import { articleOf } from '@/utils/articles'
 import type { SpellSlotPool } from './types'
 
 // How a pool of spell slots is named, as the app says it everywhere; the use picker keeps its own
@@ -15,7 +16,11 @@ export function slotName({ id, level }: SpellSlotPool): string {
     : `${ordinal(level)}-level spell slot`
 }
 
-/** The same, as one of them: "a 1st-level spell slot", "a pact slot (3rd level)". */
+/**
+ * The same, as one of them: "a 1st-level spell slot", "an 8th-level spell slot", "a pact slot (3rd
+ * level)".
+ */
 export function slotWords(pool: SpellSlotPool): string {
-  return `a ${slotName(pool)}`
+  const name = slotName(pool)
+  return `${articleOf(name)} ${name}`
 }
