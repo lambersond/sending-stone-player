@@ -218,11 +218,11 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
     game answering each check before the fourth lands; under load its answer came after. It runs alone
     already (`solo`), and failed so twice in a row there, straight after a pass's lanes, then passed
     when rerun with `ONLY=toasts`.
-  - **alone DND5E6=1**, part 17's deferred "as it opens, focus on the chip picked in its first row":
-    focus was on the Spend switch. The picker opened on the page's sheet from before Thorin's 2nd-level
-    slot reached it, with one level and so no row of levels, where the switch takes focus; and the poll
-    bringing the slot landed before the suite's first look at the picker, so `openPicker` took it as
-    ready. Under load more time passes between the two.
+  - **alone DND5E6=1, and once its dnd5e 5 run**, part 17's deferred "as it opens, focus on the chip
+    picked in its first row": focus was on the Spend switch. The picker opened on the page's sheet
+    from before Thorin's 2nd-level slot reached it, with one level and so no row of levels, where
+    the switch takes focus; and the poll bringing the slot landed before the suite's first look at
+    the picker, so `openPicker` took it as ready. Under load more time passes between the two.
 - **Five pages show a skeleton before their content** (v0.48.0): your characters, your campaigns, a
   character's sheet, the Gamemaster's seat at one and an invite link. Each sends what it knows at
   once (your characters' headings and invite form, a sheet's name in its skeleton's header), a
