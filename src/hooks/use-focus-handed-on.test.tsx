@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import { useFocusHandedOn } from './use-focus-handed-on'
 
-/** A row of a list whose button hands focus on as it goes. */
+/** A row of a list whose button hands focus on as it goes; another of its own beside it. */
 function Row({ name, on }: Readonly<{ name: string; on: boolean }>) {
   const button = useRef<HTMLButtonElement>(null)
   useFocusHandedOn(button, on)
@@ -11,6 +11,7 @@ function Row({ name, on }: Readonly<{ name: string; on: boolean }>) {
       <button ref={button} type='button'>
         {name}
       </button>
+      <button type='button'>{name}’s uses</button>
     </li>
   )
 }
@@ -45,6 +46,16 @@ describe('hooks/use-focus-handed-on', () => {
   it('hands focus to the next row as the row with it goes', async () => {
     const { rerender } = render(<List names={['Rope', 'Ring', 'Cloak']} />)
     button('Ring').focus()
+
+    rerender(<List names={['Rope', 'Cloak']} />)
+    await settled()
+
+    expect(button('Cloak')).toHaveFocus()
+  })
+
+  it('hands focus to the next row as the row goes with focus elsewhere in it', async () => {
+    const { rerender } = render(<List names={['Rope', 'Ring', 'Cloak']} />)
+    button('Ring’s uses').focus()
 
     rerender(<List names={['Rope', 'Cloak']} />)
     await settled()
