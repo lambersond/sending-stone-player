@@ -515,7 +515,16 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     all that Foundry's own sheet allows without one: its sheet, checks and saves, attacks and
     spells with no targets picked, its uses and hit points; initiative and the saves the game asks
     for still need a token in a combat. Today only a linked NPC its player owns by name shows with
-    no scene; a summoned creature, or an unlinked NPC, needs a token on a scene. In batch 6.
+    no scene; a summoned creature, or an unlinked NPC, needs a token on a scene. The look, as the
+    owner chose it from prototypes on 2026-11-20: its tab has a pin after its name, kept wherever
+    its token is, and with no token a dashed ring round its avatar and a dashed circle; above its
+    sheet, "Steel Defender isn't on a scene in your Gamemaster's game. You can still roll for it
+    and use its features here; its attacks and spells go without a target."; its sheet says
+    "Thorin's constant companion"; the Gamemaster's campaign card lists it "(constant, not on a
+    scene)" and gains a Constant companions row; and in Foundry, a Companions tab on Manage
+    Campaigns, between Party and Player actions, each character with its constant companions, a
+    Remove button for each, and an NPC dropped from the Actors sidebar or chosen by Add companions.
+    In batch 6.
 
 ## v1.0
 
