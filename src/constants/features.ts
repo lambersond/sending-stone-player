@@ -9,6 +9,7 @@ import {
   EVENTS,
   FAVORITES,
   FOUNDRY_SETTINGS,
+  GM_ROLL_MESSAGES,
   GROUPS,
   HEALTH,
   HIT_POINTS,
@@ -69,7 +70,9 @@ export const BRIDGE_SWITCHES = [
  * them, which the module sends only then, and quiet fetches while nobody is in the app, which the
  * module makes only then; and from module 0.51.0 companions on every scene, each saying whether
  * it's away (`companions` 3), which the module lists only then; and from module 0.52.0 checks on
- * any ability the game has (`anyAbility`), which the module sends only then.
+ * any ability the game has (`anyAbility`), which the module sends only then; and from module 0.53.0
+ * every message a Gamemaster's roll made, up to 21 (`gmRollMessages`), which the module lists only
+ * then.
  */
 export const FEATURES = {
   commands: true,
@@ -93,6 +96,7 @@ export const FEATURES = {
   health: HEALTH,
   quiet: QUIET_FETCHES,
   anyAbility: ANY_ABILITY,
+  gmRollMessages: GM_ROLL_MESSAGES,
 }
 
 /**
