@@ -107,33 +107,37 @@ describe('components/character-sheet/roll-button', () => {
     },
   )
 
-  it('opens its menu above the finger for a touch screen’s own long-press, and the tap that ends it does not roll', () => {
-    const { button, onRoll, onMenu } = renderButton()
+  // A pen's long-press marks the press as a finger's does, as a row's menu does (item 73).
+  it.each(['touch', 'pen'])(
+    'opens its menu above the finger for a %s screen’s own long-press, and the tap that ends it does not roll',
+    pointerType => {
+      const { button, onRoll, onMenu } = renderButton()
 
-    fireEvent(
-      button,
-      new PointerEvent('contextmenu', {
-        bubbles: true,
-        pointerType: 'touch',
-        clientX: 200,
-        clientY: 80,
-      }),
-    )
+      fireEvent(
+        button,
+        new PointerEvent('contextmenu', {
+          bubbles: true,
+          pointerType,
+          clientX: 200,
+          clientY: 80,
+        }),
+      )
 
-    expect(onMenu).toHaveBeenCalledWith(button, target, {
-      x: 100,
-      y: 30,
-      touch: true,
-    })
+      expect(onMenu).toHaveBeenCalledWith(button, target, {
+        x: 100,
+        y: 30,
+        touch: true,
+      })
 
-    // The click that ends the press rolls nothing; a tap after it rolls.
-    fireEvent.click(button)
-    expect(onRoll).not.toHaveBeenCalled()
-    fireEvent.pointerDown(button, touch)
-    fireEvent.pointerUp(button, touch)
-    fireEvent.click(button)
-    expect(onRoll).toHaveBeenCalledTimes(1)
-  })
+      // The click that ends the press rolls nothing; a tap after it rolls.
+      fireEvent.click(button)
+      expect(onRoll).not.toHaveBeenCalled()
+      fireEvent.pointerDown(button, touch)
+      fireEvent.pointerUp(button, touch)
+      fireEvent.click(button)
+      expect(onRoll).toHaveBeenCalledTimes(1)
+    },
+  )
 
   it('opens its menu on a long-press, and the tap that ends it does not roll', () => {
     const { button, onRoll, onMenu } = renderButton()
