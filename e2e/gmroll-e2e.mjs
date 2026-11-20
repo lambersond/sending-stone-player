@@ -9,7 +9,9 @@
 // "GM" in the app, for Bob too. Bob, as Thorin's player and as the Gamemaster of another campaign,
 // "Mirkwood", made by SQL, reaches none of Ashlands' Gamemaster pages; nor does Alice Mirkwood's.
 // Since module 0.25.0 each roll's result lists the messages it made, and only those get the pill:
-// a message of Bob's with a roll's flags copied gets none. With the module's chat events off, Bob
+// a message of Bob's with a roll's flags copied gets none. Since module 0.53.0 a roll that makes
+// more than 20 messages lists 21 to this app, which says it reads them: the 21st gets its pill, the
+// 22nd none. With the module's chat events off, Bob
 // sees Alice's rolls as Thorin as his own, as toasts on his phone and in the banner on his tablet,
 // marked GM, with the game's result and nothing to roll after them. Her area attack as Thorin at
 // three bandits and a lurker says whom it hit, "Hit 3 of 4: Bandit 1, Bandit 3, Lurker", in the
@@ -964,6 +966,69 @@ await toastsAt.page.keyboard.press('Escape')
 await alice.tabs.getByRole('tab', { name: 'Character' }).click()
 await toastsAt.view.close()
 await bannerAt.view.close()
+
+// ---- Since module 0.53.0: a roll that makes 22 messages lists the first 21 to this app ----
+// A module posting messages of its own for the roll on the Gamemaster's browser, as the module's
+// rolls harness has one do, makes 21 more for Alice's Perception check as Thorin: 22 in all. The app
+// answers that it reads up to 21 (`gmRollMessages`), so the module lists the first 21, its own
+// first, and the app marks those as the Gamemaster's; the 22nd claims the roll too, but isn't
+// listed, so it gets no pill. Module 0.24.0 lists none, so its run leaves this out.
+if (!OLD_RULE) {
+  hellosNow = posted.filter(p => p.type === 'bridge.hello').length
+  await game.settings.set('sending-stone', 'chatEvents', true)
+  await until(() => posted.filter(p => p.type === 'bridge.hello').length > hellosNow, 'the hello saying chat events are on again', 15_000)
+  const MORE = 21
+  const extras = []
+  const more = (made, _options, userId) => {
+    const flags = ownFlags(made)
+    if ((userId !== game.user.id) || (flags?.by !== 'gm') || !flags.request || (made.speaker?.actor !== 'thorin') || extras.length) return
+    for (let i = 1; i <= MORE; i++) {
+      const card = Object.assign(Object.create(Object.getPrototypeOf(made)), made, {
+        id: `moreThorinMsg${String(i).padStart(3, '0')}`, uuid: `ChatMessage.moreThorinMsg${String(i).padStart(3, '0')}`,
+        timestamp: made.timestamp + i, author: users.get('bob'), _source: { author: 'bob' }, rolls: [],
+        content: `<p>More for the roll, ${i}</p>`, flags: JSON.parse(JSON.stringify(made.flags)),
+      })
+      extras.push(card.id)
+      messages.set(card.id, card)
+      Hooks.callAll('createChatMessage', card, {}, game.user.id)
+    }
+  }
+  Hooks.on('createChatMessage', more)
+  ;({ request, made, text } = await alice.rollAtTable(() => alice.sheet.getByRole('button', { name: /^Perception check/ }).click(), "Thorin's Perception, with 21 more messages"))
+  Hooks.off('createChatMessage', more)
+  const manyId = request.id
+  const many = [messageFor(manyId)?.id, ...extras]
+  await until(() => resultOf(manyId), "the roll's result", 15_000)
+  await until(() => many.every(id => byGm(id) !== ''), 'all 22 messages to reach the app', 15_000)
+  await until(() => many.slice(0, 21).every(id => byGm(id) === 't'), 'the first 21 marked', 15_000).catch(() => {})
+  const listedMany = resultOf(manyId).messages ?? []
+  const marked = many.map(id => byGm(id))
+  check(extras.length === MORE && listedMany.length === 21 && same(listedMany, many.slice(0, 21)) && listedMany[0] === messageFor(manyId).id
+    && same(marked, [...Array(21).fill('t'), 'f']),
+    `Alice's Perception check as Thorin, which makes 22 messages, lists the first 21, its own first, and the app marks those as the Gamemaster's; the 22nd, unlisted, isn't (${listedMany.length} listed; ${marked.join('')})`)
+  // Bob, Thorin's player, sees the pill on the 21 and not on the 22nd.
+  const thorinsChat = at => at.getByRole('region', { name: 'Chat' }).locator('ol[aria-label="Chat log"] > li').evaluateAll(items => items
+    .filter(item => item.querySelector('header .font-semibold')?.textContent === 'Thorin')
+    .map(item => ({ text: item.textContent, pill: item.querySelector('[title="Rolled by the Gamemaster"]')?.textContent ?? null })))
+  const PILL = 'GM, rolled by the Gamemaster'
+  const pillsOfMore = async () => {
+    const seen = await thorinsChat(bobPage)
+    const mores = seen.filter(({ text }) => text.includes('More for the roll, '))
+    return {
+      own: seen.filter(({ text }) => !text.includes('More for the roll, ')).at(-1)?.pill ?? null,
+      pilled: mores.filter(({ pill }) => pill === PILL).length,
+      last: mores.find(({ text }) => text.includes(`More for the roll, ${MORE}`))?.pill,
+      count: mores.length,
+    }
+  }
+  await bobs.nav.getByRole('button', { name: /^Chat/ }).click()
+  let bobSees = await pillsOfMore()
+  await until(async () => (bobSees = await pillsOfMore()).count === MORE && bobSees.pilled === MORE - 1 && bobSees.own === PILL, "the 22 in Bob's chat", 15_000).catch(() => {})
+  check(bobSees.count === MORE && bobSees.own === PILL && bobSees.pilled === MORE - 1 && bobSees.last === null,
+    `Bob's chat shows the GM pill on the roll's own message and the 20 more listed, and none on the 22nd (${JSON.stringify(bobSees)})`)
+  await shoot(bobPage, 'gm-player-chat-22-phone')
+  await bobs.nav.getByRole('button', { name: /^Character/ }).click()
+}
 
 await bobView.close()
 console.log('problems:', problems)
