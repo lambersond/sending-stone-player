@@ -23,8 +23,8 @@ import type { SheetItem, SheetContainer } from '@/types/sending-stone'
  * 0.32.0's feedback, "Send to…" in its own menu, on a right-click or long-press of its row, beside
  * "Remove…" from module 0.33.0, after "Add to favorites" or "Remove from favorites" from module
  * 0.37.0. An item that holds activities offers each of them its own entry on the activity's row.
- * As it goes from the sheet with focus in it, as once given whole, focus goes to the row beside it
- * (ROADMAP item 85).
+ * As it goes from the sheet with focus in it, as once given whole, focus goes to the row beside it,
+ * else to its container's (ROADMAP item 85).
  */
 export function ItemEntry({
   characterId,

@@ -959,6 +959,16 @@ describe('moving items and coins, from module 0.31.0', () => {
       'Handaxe',
       'Dagger',
     ],
+    // The Old Coin is all the Pouch in the Backpack holds.
+    [
+      'Send to…, as a container’s only item',
+      sending,
+      movingSheet,
+      ['Backpack', 'Pouch'],
+      'coin',
+      'Old Coin',
+      'Pouch',
+    ],
   ] as const)(
     'hands focus to the row beside as a row with %s goes from under it (item 85)',
     async (_, transfers: TransferControls, sheet, opens, id, gone, beside) => {

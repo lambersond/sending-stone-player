@@ -45,6 +45,27 @@ describe('utils/focus-beside', () => {
       ['b', 'panel'],
     ],
     [
+      "an item in a container: the rows beside it in there, then the container's row, then the panel",
+      `<div role="tabpanel" tabindex="-1" id="panel"><ul>
+        <li><details open><summary id="sack">Sack</summary><div><ul aria-label="In the Sack">
+          <li><details><summary id="candle">Candle</summary></details></li>
+          <li><details><summary id="rope">Rope</summary></details></li>
+        </ul></div></details></li>
+      </ul></div>`,
+      'candle',
+      ['rope', 'sack', 'panel'],
+    ],
+    [
+      "a container's only item: the container's row, then the panel",
+      `<div role="tabpanel" tabindex="-1" id="panel"><ul>
+        <li><details open><summary id="sack">Sack</summary><div><ul aria-label="In the Sack">
+          <li><details><summary id="candle">Candle</summary></details></li>
+        </ul></div></details></li>
+      </ul></div>`,
+      'candle',
+      ['sack', 'panel'],
+    ],
+    [
       'an only row: the panel',
       `<div role="tabpanel" tabindex="-1" id="panel"><ul>
         <li><details><summary id="only">Only</summary></details></li>
