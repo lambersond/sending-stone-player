@@ -10,14 +10,14 @@
 // "Mirkwood", made by SQL, reaches none of Ashlands' Gamemaster pages; nor does Alice Mirkwood's.
 // Since module 0.25.0 each roll's result lists the messages it made, and only those get the pill:
 // a message of Bob's with a roll's flags copied gets none. Since module 0.53.0 a roll that makes
-// more than 20 messages lists 21 to this app, which says it reads them: the 21st gets its pill, the
-// 22nd none. With the module's chat events off, Bob
-// sees Alice's rolls as Thorin as his own, as toasts on his phone and in the banner on his tablet,
-// marked GM, with the game's result and nothing to roll after them. Her area attack as Thorin at
-// three bandits and a lurker says whom it hit, "Hit 3 of 4: Bandit 1, Bandit 3, Lurker", in the
-// order they were picked, by the names Bob's own view of the fight gives them; once the Gamemaster
-// hides the lurker, which the app then keeps hidden, Bob's pages count it, "and 1 more", and its
-// name is nowhere in them nor in what the app sends him.
+// more than 20 messages lists 21 to this app, which says it reads them: the 21st gets its pill,
+// the 22nd none. With the module's chat events off, Bob sees Alice's rolls as Thorin as his own,
+// as toasts on his phone and in the banner on his tablet, marked GM, with the game's result and
+// nothing to roll after them. Her area attack as Thorin at three bandits and a lurker says whom it
+// hit, "Hit 3 of 4: Bandit 1, Bandit 3, Lurker", in the order they were picked, by the names Bob's
+// own view of the fight gives them; once the Gamemaster hides the lurker, which the app then keeps
+// hidden, Bob's pages count it, "and 1 more", and its name is nowhere in them nor in what the app
+// sends him.
 // SKEW=1 with MODULE (or MODULE_DIR) set to module 0.22.0 checks the app's side against a module
 // that can't mark a roll: the Gamemaster's rolls stay in the app. SKEW=024 with module 0.24.0,
 // against one that marks them but lists no messages: the app keeps its rule from before, the pill on
