@@ -44,52 +44,81 @@ so an item from it is named with its number when it was built, which may since b
   type, as a world's own may have, is marked as the form's, as dnd5e takes its score from the
   creature. A transformation that keeps the whole character, as Appearance does, no longer marks
   every ability as the creature's. Needs Sending Stone 0.52.0 in Foundry; with an older one, a
-  world's own ability shows unmarked and Appearance marks every ability as the creature's. (app and
-  module, items 64 and 66)
+  world's own ability shows unmarked in Wild Shape, and Appearance marks every ability as the
+  creature's. (app and module, items 64 and 66)
 
 ### Enhancements
 
 - **Seven or eight abilities in even rows.** With Honor or Sanity on, or a world's own abilities,
   the abilities follow how many there are. Eight lie four and four on most phones (384 px wide and
   up), on a tablet and on a laptop, and all in one row only where the sheet is widest. Seven lie
-  four and three. A narrower phone keeps three to a row, and six are as before. The loading sheet
-  still draws six, so with more, the tiles move as the sheet arrives. Where a save shows Adv or Dis
-  in a narrow tile, it leaves out the word "Save" and keeps its shield, which also mends a chip cut
-  short at 1024 px. (app, item 66)
+  four and three, or all in one row where the sheet is widest. A narrower phone keeps three to a
+  row, and six are as before. The loading sheet still draws six, so with more, the tiles move as the
+  sheet arrives. Where a save shows Adv or Dis in a narrow tile, it leaves out the word "Save" and
+  keeps its shield, which also mends a chip cut short at 1024 px. (app, item 66)
 
 ### Maintenance
 
-- **Any ability, end to end.** `links` gains a part with dnd5e's Honor and Sanity on and Etiquette,
-  a world's own skill on Honor: an item's Sanity save, its Wisdom or Sanity save, its Honor check,
-  its Wisdom or Honor check and its Etiquette are buttons named as the sheet names them; the Sanity
-  save is made in the game against its DC and named "Sanity save" in the chat; and Etiquette asked
-  of the table reads "Thorin asks for an Honor (Etiquette) check". A new run of that part against
-  module 0.51.0 (`e2e/skew.conf`'s new 051) finds the saves buttons, the checks on Honor text and
-  Wisdom or Honor a Wisdom check alone, and makes the Sanity save. `companionsaves` finds a Bat
-  asked for a Sanity save named so in its character's notice, and, with `laterdice`, the hello's
-  `anyAbility` last of its `rolls`. The module harness checks that checks on any ability go only to
-  an app that answers `anyAbility`, in descriptions, check activities, request cards, companions'
-  and Wild Shape forms' sheets, and the commands that read a description's links; that a choice is
-  sent whole or not at all, a check in it on an ability the game doesn't have passed over;
-  descriptions in format 8, their hashes new; and a campaign's sheets and companions sent again as
-  its app starts or stops reading checks on any ability. Jest pins the game's names
-  (`src/utils/game-names.ts`), "an" before a silent h (`src/utils/articles.ts`) and any ability's
-  key in the schemas, a description's links, an item's chips, the chat's cards and a companion's
-  notice. (app and module, items 64 and 65)
-- **Seven and eight abilities, end to end.** `sheet` gains a part in which Foundry turns on Honor
-  and Sanity and Thorin's sheet shows eight abilities without a reload, laid out at ten widths from
-  320 to 1920 px: three, three and two on a sheet under 384 px, four and four up to a 1024-px sheet,
-  and eight in a row from it, with nothing in a tile cut short, a save's and a check's Adv and Dis
-  among them; then, with Sanity off again, seven at three widths. The module harness's `wildshape`
-  checks, under dnd5e 5.3.3 and 6.0.5, that a world's own ability with no type (Luck) is listed as
-  the form's under Wild Shape and Honor, a mental one, isn't; that a transformation keeping only the
-  physical lists her mental ones, Honor among them, and Luck; and that one keeping her whole self,
-  as Appearance does, lists none. Jest pins the abilities' columns for each count
-  (`src/features/sheet/utils/abilities-grid.ts`), a list that must be there read entry by entry
-  (`requiredListOf`, `src/schemas/utils.ts`), a sheet's abilities, skills and classes read row by
-  row, a sheet with no list of abilities or of skills dropped, one with no abilities showing no
-  Abilities heading, and a save's word left out of a narrow tile only where it shows Adv or Dis.
-  (app and module, item 66)
+- **A new module script in its layer.** `check-abilities.mjs`, which abilities a check sent to a
+  campaign's app may be made with and which campaigns' apps read checks on any ability, imports
+  nothing and stands in Ground, below every script that sends a check, so the module's 83 scripts,
+  82 in v0.51.0, still stand in seven layers with no loop among their imports, as `npm test`'s guard
+  checks. (module, item 65)
+- **End-to-end checks.** `links` gains a part with dnd5e's Honor and Sanity on and Etiquette, a
+  world's own skill on Honor: an item's Sanity save, its Wisdom or Sanity save, its Honor check, its
+  Wisdom or Honor check and its Etiquette are buttons named as the sheet names them; the Sanity save
+  is made in the game against its DC and named "Sanity save" in the chat; and Etiquette asked of the
+  table reads "Thorin asks for an Honor (Etiquette) check". A new run of that part against module
+  0.51.0 (`e2e/skew.conf`'s new 051) finds the saves buttons, the checks on Honor text and Wisdom or
+  Honor a Wisdom check alone, and makes the Sanity save. `companionsaves` finds a Bat asked for a
+  Sanity save named so in its character's notice, and, with `laterdice`, the hello's `anyAbility`
+  last of its `rolls` (items 64 and 65). `sheet` gains a part in which Foundry turns on Honor and
+  Sanity and Thorin's sheet shows eight abilities without a reload, laid out at ten widths from 320
+  to 1920 px: three, three and two on a sheet under 384 px, four and four up to a 1024-px sheet, and
+  eight in a row from it, with nothing in a tile cut short, a save's Adv and Dis and a check's Adv
+  among them; then, with Sanity off again, seven at three widths (item 66). `e2e/README.md` counts
+  61 suites and 140 runs. (app, items 64, 65 and 66)
+- **Jest tests.** New tests pin the game's names (`src/utils/game-names.ts`), "an" before a silent h
+  (`src/utils/articles.ts`), and any ability's key in the schemas, a description's links, an item's
+  chips, the chat's cards and a companion's notice; the chat's cards and companions' notices worded
+  as the seat's own sheet names its abilities and skills (`src/db/table.ts`); a check or save let
+  through on any ability the character's sheet has (`src/utils/requests/checks.ts`); and the app's
+  answer of `anyAbility: 1`, last of its features (items 64 and 65). Others pin the abilities'
+  columns for each count (`src/features/sheet/utils/abilities-grid.ts`), a list that must be there
+  read entry by entry (`requiredListOf`, `src/schemas/utils.ts`), a sheet's abilities, skills and
+  classes read row by row, a sheet with no list of abilities or of skills dropped, one with no
+  abilities showing no Abilities heading, and a save's word left out of a narrow tile only where it
+  shows Adv or Dis (item 66). (app, items 64, 65 and 66)
+- **The module harness.** Checks on any ability are found sent only to an app that answers
+  `anyAbility`, in descriptions, check activities, request cards, companions' and Wild Shape forms'
+  sheets, and the commands that read a description's links; a choice sent whole or not at all, a
+  check in it on an ability the game doesn't have passed over; descriptions in format 8, their
+  hashes new; a campaign's sheets and companions sent again as its app starts or stops reading
+  checks on any ability; and a dnd5e 6 request on Honor still asking the app nothing (`chat6.mjs`).
+  The harnesses that read the hello take in `anyAbility`, last of its `rolls` (item 65).
+  `wildshape.mjs` checks, under dnd5e 5.3.3 and 6.0.5, that a world's own ability with no type
+  (Luck) is listed as the form's under Wild Shape and Honor, a mental one, isn't; that a
+  transformation keeping only the physical lists her mental ones, Honor among them, and Luck; and
+  that one keeping her whole self, as Appearance does, lists none (item 66). `test/README.md` counts
+  52 harnesses and 122 runs. (module, items 65 and 66)
+- **Docs for v0.52.** README.md's supported-versions table gains v0.52.0, and its Tested line names
+  module 0.51.0. The module's `PROTOCOL.md` gains checks on any ability the game has, by a key that
+  matches `[A-Za-z][\w-]{0,31}`, to a listener that answers `"anyAbility": 1` (the hello's
+  `features.rolls.anyAbility`, `ss-check` links, a check activity's `checks` and a request card's
+  `ask`), a choice of checks sent whole or not at all, and a description's hash of the game's
+  abilities and skills; a transformed character's `form.beast.abilities` as dnd5e keeps their
+  scores, a world's own ability with no `type` among them and none under Appearance; and its two
+  "Module 0.52.0" entries. Its `README.md` says each, in its Check activities, What's marked,
+  descriptions sent again and Wild Shape paragraphs and its Layout's row for `check-abilities.mjs`;
+  its `CLAUDE.md`'s Ground names which abilities checks are sent on. (app and module)
+- **ROADMAP kept current.** ROADMAP.md gains a v0.52 section, the release candidate, listing two
+  checks to make at the table before module v0.52.0 is tagged: Honor, Sanity and a world's own
+  skill, and eight abilities laid out; its v0.51 section reads as released, to check at the table,
+  and its Released line names module v0.51.0. Under "Before v1.0", batch 5 reads as done, its items
+  taken out: items 64, 65 and 66, with a line saying so where they stood; the plan's opening says
+  batches 1 to 5 are done. Items 96 and 97, under "Found while building Batch 5", are what batch 5
+  found: "an" before a "u" said "you", as in a world's own skill or ability, a Wild Shape form or
+  ammunition (96), and a world's own tools left out of a description's hash (97). (app)
 
 ## v0.51.0 — 2026-11-19
 
