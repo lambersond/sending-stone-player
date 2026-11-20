@@ -25,15 +25,15 @@ so an item from it is named with its number when it was built, which may since b
 
 - **Honor, Sanity and a world's own abilities and skills.** With dnd5e's Honor or Sanity on, or a
   world's own ability or skill, their saving throws and checks are buttons, named as your game names
-  them, in an item's text, on an item's check activity and on the Gamemaster's request card
-  ("Gamemaster asks for an Honor (Etiquette) check"), and a choice such as Wisdom or Honor offers
-  both. A companion's notice ("Bat is asked for a Sanity saving throw"), the chat's rolls ("Sanity
-  save") and an item's save chip ("SAN 13") use your game's names too. Checks need Sending Stone
-  0.52.0 in Foundry, which sends every description again once. With module 0.51.0, only saves: a
-  description or card it sends from now on works at once, and a description already sent works once
-  it is read again, after the Gamemaster's next Foundry load or up to a day later on a device that
-  kept its copy; a card already in the chat stays text; and a choice of checks such as Wisdom or
-  Honor is a Wisdom check alone, as before. (app and module, items 64 and 65)
+  them, in an item's text and on an item's check activity, and a choice such as Wisdom or Honor
+  offers both. The Gamemaster's request card in the chat ("Gamemaster asks for an Honor (Etiquette)
+  check"), a companion's notice ("Bat is asked for a Sanity saving throw"), the chat's rolls
+  ("Sanity save") and an item's save chip ("SAN 13") use your game's names too. Checks need Sending
+  Stone 0.52.0 in Foundry, which sends every description again once. With module 0.51.0, only saves:
+  a description or card it sends from now on works at once, and a description already sent works
+  once it is read again, after the Gamemaster's next Foundry load or up to a day later on a device
+  that kept its copy; a card already in the chat stays text; and a choice of checks such as Wisdom
+  or Honor is a Wisdom check alone, as before. (app and module, items 64 and 65)
 
 ### Fixes
 
