@@ -231,7 +231,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
       expect(row).toHaveAttribute('aria-busy', 'true')
       for (const name of ['Add or remove', 'Give']) {
         const button = within(row).getByRole('button', { name })
-        expect(button).toBeDisabled()
+        expect(button).toHaveAttribute('aria-disabled', 'true')
         expect(button).toHaveAttribute('aria-busy', 'true')
         expect(button.querySelector('svg')).toBeNull()
       }
@@ -241,7 +241,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
 
       await advance(CHECK_EVERY)
       expect(screen.getByText('Paid 5 gp, using 1 pp')).toBeInTheDocument()
-      expect(changeButton()).toBeEnabled()
+      expect(changeButton()).not.toHaveAttribute('aria-disabled')
       expect(row).not.toHaveAttribute('aria-busy')
     } finally {
       jest.useRealTimers()
@@ -337,11 +337,13 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
 
     expect(
       screen.getByRole('button', { name: 'Give Plain Ring' }),
-    ).toBeDisabled()
+    ).toHaveAttribute('aria-disabled', 'true')
     const row = screen.getByRole('group', { name: 'Currency' })
     expect(row).not.toHaveAttribute('aria-busy')
     for (const name of ['Add or remove', 'Give']) {
-      expect(within(row).getByRole('button', { name })).toBeEnabled()
+      expect(within(row).getByRole('button', { name })).not.toHaveAttribute(
+        'aria-disabled',
+      )
     }
   })
 

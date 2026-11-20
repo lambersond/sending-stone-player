@@ -21,7 +21,8 @@
 // 0.33.0: "Remove…" after "Send to…" in the character's item menu (not under module 0.31.0), and on
 // the party's sheet one spinner by "Currency" or by the item's name while it's on its way, its
 // buttons disabled with none of their own, the row or group busy; the character's own Give keeps
-// its spinner where it's the row's only button. DND5E6=1: dnd5e 6.0.5's fractional gold. SKEW=031
+// its spinner where it's the row's only button, and once sent by Enter keeps focus, waiting until
+// the give is made (item 85). DND5E6=1: dnd5e 6.0.5's fractional gold. SKEW=031
 // with MODULE=module-0.31.0: gives only. Since module 0.51.0 (item 91) a character's Give ticks the
 // parties as it does the characters, none ticked as it opens, and the party sheet's Give is a
 // hand-out to the party, "held" beside each coin and no All; part 19 gives 2 gp each to the
@@ -183,7 +184,8 @@ const currencyButtons = scope => scope.getByRole('group', { name: 'Currency', ex
   .evaluateAll(bs => bs.map(b => b.getAttribute('aria-label') ?? b.textContent.trim()))
 /**
  * A Currency row as drawn (module 0.33.0's feedback): its group's aria-busy and name, each button's
- * disabled and spinners, the spinners in its label, and whether the label's one sits right of its text.
+ * disabled, whether it waits as a character's does (aria-disabled, item 85) and its spinners, the
+ * spinners in its label, and whether the label's one sits right of its text.
  */
 const currencyLook = group => group.evaluate(g => {
   const dt = document.getElementById(g.getAttribute('aria-labelledby'))
@@ -191,7 +193,7 @@ const currencyLook = group => group.evaluate(g => {
   const spinners = [...dt.querySelectorAll('svg.motion-safe\\:animate-spin')]
   return {
     busy: g.getAttribute('aria-busy'), name: dt.textContent.trim(),
-    buttons: [...g.querySelectorAll('button')].map(b => ({ name: b.getAttribute('aria-label') ?? b.textContent.trim(), disabled: b.disabled, svgs: b.querySelectorAll('svg').length })),
+    buttons: [...g.querySelectorAll('button')].map(b => ({ name: b.getAttribute('aria-label') ?? b.textContent.trim(), disabled: b.disabled, waits: b.getAttribute('aria-disabled') === 'true', svgs: b.querySelectorAll('svg').length })),
     termSpinners: spinners.length, right: spinners.length === 1 && spinners[0].getBoundingClientRect().left >= text.getBoundingClientRect().right - 0.5,
   }
 })
@@ -900,7 +902,10 @@ part('15. a race')
     await alice.tab('Inventory')
     const group = tabpanel(alice).getByRole('group', { name: 'Currency', exact: true })
     const giveHold = holdWrite((kind, target) => kind === 'update' && target.id === 'thorin')
-    await group.getByRole('button', { name: 'Give', exact: true }).click()
+    const send = group.getByRole('button', { name: 'Give', exact: true })
+    // By the keyboard (item 85): Enter on his Give opens its dialog, and Enter on Give coins sends it.
+    await send.focus()
+    await alice.page.keyboard.press('Enter')
     dialog = alice.page.getByRole('dialog', { name: 'Give coins' })
     await dialog.waitFor()
     // Changed on purpose (item 89): with module 0.49.0 Vex is ticked, a hand-out to one, whose
@@ -908,23 +913,33 @@ part('15. a race')
     if (NEW) await dialog.getByRole('checkbox', { name: /^Vex/ }).locator('xpath=ancestor::label[1]').click()
     else await pick(dialog, /^Vex/)
     await dialog.getByRole('textbox', { name: 'Gold' }).fill('1')
-    await dialog.getByRole('button', { name: 'Give coins' }).click()
+    await dialog.getByRole('button', { name: 'Give coins' }).focus()
+    await alice.page.keyboard.press('Enter')
     await Promise.race([giveHold.held, wait(20_000)])
-    const send = group.getByRole('button', { name: 'Give', exact: true })
     await until(async () => (await send.getAttribute('aria-busy')) === 'true', 'his Give to wait', 10_000)
+    await dialog.waitFor({ state: 'hidden' })
+    const onSend = () => send.evaluate(button => button === document.activeElement)
+    // The dialog gives focus back as it closes, a moment after the give is sent.
+    await until(onSend, 'focus back on his Give', 5_000).catch(() => {})
+    check(await onSend() && await send.getAttribute('aria-disabled') === 'true',
+      `sent by Enter, focus is back on his Give, which waits while the give is on its way (focus on ${await alice.page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent?.trim() ?? document.activeElement?.tagName)})`)
     const look = await currencyLook(group)
     // Changed on purpose (items 67 and 68): with module 0.49.0 his row has more than one button, and says what's
     // on its way once, by its label, as a party's does; with an older one Give, alone, keeps its own spinner.
     // Changed on purpose (item 89): the row's buttons are Add or remove and Give.
+    // Changed on purpose (item 85): a character's buttons wait without being disabled, so that
+    // focus stays on them.
     check(NEW
-      ? look.busy === 'true' && look.buttons.length === 2 && look.buttons.every(b => b.disabled && b.svgs === 0) && look.termSpinners === 1 && look.right && look.name === 'Currency'
-      : look.buttons.length === 1 && look.buttons[0].disabled && look.buttons[0].svgs === 1 && look.termSpinners === 0 && look.busy === null,
+      ? look.busy === 'true' && look.buttons.length === 2 && look.buttons.every(b => b.waits && !b.disabled && b.svgs === 0) && look.termSpinners === 1 && look.right && look.name === 'Currency'
+      : look.buttons.length === 1 && look.buttons[0].waits && !look.buttons[0].disabled && look.buttons[0].svgs === 1 && look.termSpinners === 0 && look.busy === null,
     NEW
-      ? `on Thorin's own sheet: while his give is on its way, his Currency row is busy, both its buttons disabled with no spinner of their own, one spinner right of the label (${JSON.stringify(look)})`
-      : `on Thorin's own sheet, as before: while his give is on its way, his Give has its own spinner, his "Currency" label none, the group not busy (${JSON.stringify(look)})`)
+      ? `on Thorin's own sheet: while his give is on its way, his Currency row is busy, both its buttons waiting with no spinner of their own, one spinner right of the label (${JSON.stringify(look)})`
+      : `on Thorin's own sheet, as before: while his give is on its way, his Give waits with its own spinner, his "Currency" label none, the group not busy (${JSON.stringify(look)})`)
     giveHold.release()
     // The give is the last move posted: it was taken before its write was held.
     await answered(moves().length, "Thorin's 1 gp to Vex")
+    await until(async () => (await send.getAttribute('aria-disabled')) === null, 'his Give ready again', 10_000).catch(() => {})
+    check(await onSend() && await send.getAttribute('aria-disabled') === null, 'and stays there, Give ready again, once it is made')
   }
 }
 

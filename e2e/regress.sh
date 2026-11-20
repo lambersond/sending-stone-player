@@ -144,8 +144,8 @@ run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # and its coin distributed; dnd5e 6.0.5's fractions; and module 0.31.0 (none of the party's new ones).
 # Module 0.51.0 (item 91): a character's Give ticks parties and characters together; and module 0.50.0,
 # the parties chosen one at a time.
-run givetake 76 SHOTS=$O/shots-032
-run givetake 77 DND5E6=1 SHOTS=$O/shots-032
+run givetake 78 SHOTS=$O/shots-032
+run givetake 79 DND5E6=1 SHOTS=$O/shots-032
 run givetake 19 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 run givetake 10 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-032
 # Module 0.33.0: an item removed from a character (its menu, the confirmation, stacks, containers,
