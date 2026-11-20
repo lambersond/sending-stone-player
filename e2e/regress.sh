@@ -181,7 +181,7 @@ run companions 17 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-051
 # v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
 # "recharged", and the page reading the table as the game answers the recharge and again a moment
 # after that read. Module 0.53.0 (item 92): its MIDI=1 run's part 10b, the Potion refused with no
-# encounter up, the fight begun and its scene's current one still counting.
+# encounter up, the fight begun and its scene's chosen one still counting.
 run alone 126 SHOTS=$O/shots-036
 run alone 133 MIDI=1 SHOTS=$O/shots-036
 run alone 126 DND5E6=1 SHOTS=$O/shots-036

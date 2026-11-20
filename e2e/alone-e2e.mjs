@@ -1515,7 +1515,7 @@ if (CHOICES) {
     const rolled = await sent(() => potionPicker.getByRole('button', { name: 'Roll healing' }).click(), 'the Potion, spending nothing')
     check(rolled.made.status === 'done' && kindOf(madeFor(rolled.request.id)) === 'healing' && thorin.items.get('potion')?.system.quantity === quantity && W.midi.bonusMarks.length === marks,
       `the switch off: rolled, nothing spent, nothing marked (${rolled.made.status})`)
-    // 10b. Since module 0.53.0, with no encounter up, the fight begun and its scene's current one still
+    // 10b. Since module 0.53.0, with no encounter up, the fight begun and its scene's chosen one still
     // counts: the Potion with the switch on refused as in the encounter up.
     Object.defineProperty(game, 'combat', { get: () => null, configurable: true })
     try {
@@ -1524,7 +1524,7 @@ if (CHOICES) {
       await setSpend(potionPicker, true)
       const unseen = await sent(() => potionPicker.getByRole('button', { name: 'Roll healing' }).click(), 'the Potion, no encounter up, its Bonus Action used')
       check(unseen.made.status === 'failed' && unseen.made.result?.reason === 'bonus-action' && !madeFor(unseen.request.id) && thorin.items.get('potion')?.system.quantity === quantity,
-        `no encounter up, the fight begun and current, his Bonus Action used: the Potion with the switch on refused "bonus-action", nothing rolled or spent (${JSON.stringify(unseen.made.result)})`)
+        `no encounter up, the fight begun and chosen, his Bonus Action used: the Potion with the switch on refused "bonus-action", nothing rolled or spent (${JSON.stringify(unseen.made.result)})`)
       await statusOf(alice).getByText(/Not made at the table/).waitFor({ timeout: 30_000 }).catch(() => {})
       const unseenSaid = await statusText(alice)
       check(/Not made at the table: you’ve used your bonus action/.test(unseenSaid), `no encounter up, the tray: "Not made at the table: you’ve used your bonus action" ("${unseenSaid}")`)
