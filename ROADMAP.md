@@ -202,8 +202,7 @@ Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 5 are done; the cleanup batch is next, then 6
-and 7.
+tweaks needed may change it as it goes. Batches 1 to 5 are done; batch 8 is next, then 6 and 7.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -218,10 +217,8 @@ and 7.
    ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
 6. Items 59 and 60: summon activities, and known forms from anywhere.
 7. Item 63, offline mode.
-
-The cleanup batch, chosen by the owner on 2026-11-20 to come before batch 6: items 72, 83, 84,
-92, 93 and 97 (the module's fixes), 75, 82 and 96 (the app's looks), and 73, 74 and 85 (keyboard
-and focus).
+8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
+   and 85, keyboard and focus: chosen on 2026-11-20, to come before batch 6.
 
 **Found while untangling the module's imports**
 
@@ -260,8 +257,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     is the cost of another activity Midi pairs with a Gamemaster's own attack
     (`checkOtherActivityConsumption`), read from its source and not tried. Midi's own, and said in
     the module's `PROTOCOL.md`; the module could roll the first with Foundry's computer dice, as it
-    does for a use from the app and, since 0.49.0, for the reactions Midi looks for. In the cleanup
-    batch.
+    does for a use from the app and, since 0.49.0, for the reactions Midi looks for. In batch 8.
 73. **A roll's button drops the first Enter after its menu was opened from the keyboard:** with a
     check's, save's or attack's button focused, the menu key or Shift+F10 opens its menu; whatever
     is done there, the next Enter or Space on the button does nothing, and the one after rolls.
@@ -270,7 +266,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     followed by no such tap, as `usePressMenu` already knows. Every roll button, from before v0.47;
     found building item 47, whose Move up and Move down on a skill or tool favorite are one more way
     into it, and seen in Chromium at 1280 px: after Shift+F10 and Escape on a skill favorite, the
-    first Enter rolled nothing and the second rolled. In the cleanup batch.
+    first Enter rolled nothing and the second rolled. In batch 8.
 74. **Keyboard focus after a favorite moves from one list to the other:** where the favorites are in
     two lists side by side (their card 720 px wide or wider with no column of its own, as on a
     laptop 1366 px wide), Move up or Move down chosen from a favorite's menu with the keyboard, on
@@ -280,8 +276,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     (`src/features/sheet/components/favorites/favorites-list.tsx`) draws the two halves as two
     lists, so a row that crosses is drawn anew. Every favorite, since v0.47; item 47 brought a
     skill, a tool and spell slots to it. Seen in Chromium at 1366 px on an item's row, a skill and
-    spell slots. The known limits say the same of Remove from favorites and Prepare. In the cleanup
-    batch.
+    spell slots. The known limits say the same of Remove from favorites and Prepare. In batch 8.
 75. **The favorites in one list once Reorder has been opened:** where the favorites are in two lists
     side by side, opening Reorder and closing it, by Cancel or by Save order, leaves them in one
     list the card's full width, whatever the window's width after; another tab of the sheet and
@@ -290,7 +285,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     while Reorder shows the card isn't drawn, and the one drawn after is never watched: the cause as
     the code reads, the width itself not measured in the browser. A look only: every favorite is
     there and works. Since v0.47 (Reorder); seen in Chromium at 1366 px, looking for the two lists
-    for item 47. In the cleanup batch.
+    for item 47. In batch 8.
 76. **What a druid begins in Wild Shape:** a spell a Moon druid casts as a beast and concentrates
     on, such as Moonbeam or Fount of Moonlight, ends in Foundry when Wild Shape ends. Whether what
     it kept up, a template on the map or an effect on another creature, ends with the form or is
@@ -345,15 +340,14 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     hydration the header's right has one button fewer than the outline before it and the header
     after it: Live and Help sit one button's width to the right, then step back as Full screen
     appears (36 px at 360, measured while building item 70). A slot kept for Full screen until then,
-    as the outline keeps one, would hold them still. Found while building item 70. In the cleanup
-    batch.
+    as the outline keeps one, would hold them still. Found while building item 70. In batch 8.
 83. **A spell prepared's check lets three other kinds' fields by:** a `prepare` command that also
     names `hitPoints`, `rerolls` or `enchantment` isn't refused `"invalid"` by the module: its list
     of other kinds' fields (`OTHERS` above `checkPrepareCommand`, in the module's
     `scripts/command-rolls.mjs`) lacks those three, where hit points' own list has every one. The
     module would prepare the spell and ignore the rest. The app's schema refuses such a request
     before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
-    `OTHER_FIELDS`. Found building item 67. In the cleanup batch.
+    `OTHER_FIELDS`. Found building item 67. In batch 8.
 84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
     coin fractional digits, coins moved to or from a party (a party's Take and Send to, and coins
     given to a party by an app before v0.51.0), coins given to another character from an app before
@@ -362,8 +356,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     goes to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`)
     could write through `coinUpdate`, as coins added, removed and handed out do since 0.49.0, to
     parties too since 0.51.0. A default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole
-    coins: neither shows it. Module only, small. Found building items 67 and 68. In the cleanup
-    batch.
+    coins: neither shows it. Module only, small. Found building items 67 and 68. In batch 8.
 85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
     keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
     it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
@@ -371,7 +364,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     from v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which
     has no tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet,
     where focus should go (the tray's line, or the row's label, which says what's on its way) is one
-    decision for all of its moves. Found reviewing items 67 and 68. In the cleanup batch.
+    decision for all of its moves. Found reviewing items 67 and 68. In batch 8.
 86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
     the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
     300 ms of the tap, timed from before `page.touchscreen.tap` to the toast detached, so the 300 ms
@@ -461,13 +454,13 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     check), and a use at Self finds no combatant (`selfTarget`, `:531-541`). It matters only with
     Allow targets off your screen, since Midi-QOL otherwise needs the target drawn. The module
     harness's `inCombat` stand-in reads every combat (`test/fvtt/activity5e.mjs:424-428`), so it
-    doesn't show this. Found building item 36. In the cleanup batch.
+    doesn't show this. Found building item 36. In batch 8.
 93. **A Gamemaster's message past the twentieth isn't marked as theirs:** a Gamemaster's hand-out
     to 20 characters who each have a player makes 21 messages, and the module lists only 20 in the
     result's `messages` (`MOST_MESSAGES`, `scripts/commands.mjs:175`; the app's
     `MAX_GM_ROLL_MESSAGES`, `src/schemas/sending-stone.ts:174`), so the last, the Gamemasters' own,
     isn't marked as theirs in the app. Since before 0.51.0; parties add one message each, as
-    characters do. Found building item 91. In the cleanup batch.
+    characters do. Found building item 91. In batch 8.
 94. **The module harness's wait for a druid's copy made late, under load:**
     `test/fvtt/wildshape.mjs` (line 1170), under `MIDI=1`, "her copy made too late: Rowan's
     concentration gone, and nothing of it left on her", turns the wolf back into Elowen with the
@@ -499,15 +492,15 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     others, says "an" before every vowel. So a world's own skill or ability, or a Wild Shape form or
     ammunition, whose name begins with a "u" said "you", or with "Eu", would read "an Utility check"
     or "an European". dnd5e's own names all read right. A short list of such beginnings beside the
-    silent h's would mend it. Found building item 64. In the cleanup batch.
+    silent h's would mend it. Found building item 64. In batch 8.
 97. **A world's own tools aren't in a description's hash:** since module 0.52.0 a description's hash
     holds the game's abilities and skills (`textFormat`, the module's `scripts/sheet-texts.mjs`),
     which decide which checks are links and so every later link's number. A world's own tools decide
     that for a tool check too (`isTool`, `scripts/sheet-links.mjs`), and aren't in it. So a tool
     added mid-campaign can, after a reload, renumber a description's links under the same hash, and
     an app's copy name a link as one it no longer is, until the description changes. One more line
-    in `textFormat` would mend it, renewing every hash once more. Found building item 65. In the
-    cleanup batch.
+    in `textFormat` would mend it, renewing every hash once more. Found building item 65.
+    In batch 8.
 
 ## v1.0
 
