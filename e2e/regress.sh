@@ -126,7 +126,7 @@ run feedback 115 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-029
 # Foundry; plain dnd5e, Midi-QOL, dnd5e 6.0.5, and module 0.29.0 (no Party list on Inventory, no settings, 0.29.0 results).
 run party 64 SHOTS=$O/shots-030
 run party 8 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
-run fullscreen 30 SHOTS=$O/shots-030
+run fullscreen 31 SHOTS=$O/shots-030
 run settings 22 SHOTS=$O/shots-030
 run settings 24 MIDI=1 SHOTS=$O/shots-030
 run settings 11 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
@@ -245,7 +245,7 @@ run hitpoints 36 MIDI=1 SHOTS=$O/shots-044
 # device's Send to the table off; the paragraph on the dice an item rolls later by the module's
 # version, typing allowed or not; the panel's layout, the chips and reduced motion, focus going back;
 # the Gamemaster's long name at 360. Module 0.42.0, and dnd5e 6.0.5: no row nor paragraph for them.
-run help 28 SHOTS=$O/shots-help
+run help 30 SHOTS=$O/shots-help
 run help 4 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-help
 run help 4 DND5E6=1 SHOTS=$O/shots-help
 # Item 56: the installed app's launch page, with no Foundry. Nothing registered in a browser's tab,
