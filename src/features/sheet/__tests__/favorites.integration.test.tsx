@@ -1522,10 +1522,11 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     await moveFrom(warhammerName, 'Warhammer', 'Move down')
     act(() => (document.activeElement as HTMLElement).blur())
 
-    // The list's next commit, as a sheet arrives; then, where the order was held back, one that
-    // shows that very order.
+    // The list's next commit, as a sheet arrives, gives no row focus, whatever order it shows;
+    // nor, where the order was held back, a later one that shows that very order.
     rerender(<Moving sheet={withFavorites([...favorites])} onSave={onSave} />)
     await settle()
+    expect(document.body).toHaveFocus()
     act(() => held.shift()?.())
     await settle()
 
