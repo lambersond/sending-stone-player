@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useConditionsPanel } from '../conditions/use-conditions-panel'
 import { rulesOf } from '../conditions/utils'
 import { DiceAskBanner } from '../dice-ask-banner/dice-ask-banner'
@@ -166,7 +166,7 @@ export function CharacterPane({
     combat,
   })
   const { tab, tabs, show, scroller } = useSheetTabs({ sheet, creature, notes })
-  const body = useRef<HTMLDivElement>(null)
+  const [body, setBody] = useState<HTMLDivElement | null>(null)
   // The row of tabs, and the game's prompts beneath it while it asks any, which the rolls' toasts
   // start below, so as not to cover the prompts' only buttons.
   const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null)
@@ -382,7 +382,7 @@ export function CharacterPane({
           />
         )}
         <SheetPanel
-          bodyRef={body}
+          bodyRef={setBody}
           scrollerRef={scroller}
           column={beside && <FavoritesColumn {...favorites} />}
           strip={

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import clsx from 'clsx'
 import { ArrowDownUp } from 'lucide-react'
 import { useActionRows } from '../action-entry/use-action-rows'
@@ -48,7 +48,7 @@ export function FavoritesList({
     tableDamage,
   })
   const spending = hitDieSpending(sheet, onRollFormula)
-  const card = useRef<HTMLDivElement>(null)
+  const [card, setCard] = useState<HTMLDivElement | null>(null)
   const width = useWidth(card)
   const reorder = useRef<HTMLButtonElement>(null)
   const list = useFavoriteList(entries, reorder)
@@ -71,7 +71,7 @@ export function FavoritesList({
       ) : (
         <FavoriteMovesContext value={list.movesOf}>
           <div
-            ref={card}
+            ref={setCard}
             className={clsx(
               'rounded-2xl border border-border bg-card p-1.5',
               lists.length > 1 && 'grid grid-cols-2 gap-x-3',

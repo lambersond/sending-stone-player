@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -15,6 +17,7 @@ import { FavoritesColumn } from '../components/favorites/favorites-column'
 import { Favoriting } from '../components/favoriting/favoriting'
 import { Preparing } from '../components/preparing/preparing'
 import { usePreparing } from '../components/preparing/use-preparing'
+import { arrangeEntries } from '../utils/favorite-order'
 import {
   castingSheet,
   fullerSheet,
@@ -1237,13 +1240,64 @@ describe('components/character-sheet/favorites, removed from the app, from modul
 /** Reorder, beneath the favorites, from module 0.47.0. */
 const reorder = () => screen.getByRole('button', { name: 'Reorder favorites' })
 
+/** Shows an order of the favorites, by key. */
+type ShowOrder = (keys: string[]) => void
+
+/**
+ * The strip of this sheet's favorites, after a button elsewhere on the page, inside a pane that
+ * offers favorites and takes orders, each order sent shown as `onSave` says: at once, as the pane
+ * shows one on its way, unless it says otherwise.
+ */
+function Moving({
+  sheet,
+  onSave,
+}: Readonly<{
+  sheet: CharacterSheet
+  onSave: (keys: string[], show: ShowOrder) => void
+}>) {
+  const [order, setOrder] = useState<string[]>()
+  const offering = offeringFavorites([
+    'item:warhammer',
+    'activity:staff.cast-fireball',
+    'effect:blessed',
+  ])
+  return (
+    <>
+      <button type='button'>Elsewhere</button>
+      <Favoriting
+        value={offering.value}
+        ordering={{
+          on: true,
+          arrange: entries =>
+            order ? arrangeEntries(entries, order) : entries,
+          save: keys => onSave(keys, setOrder),
+        }}
+      >
+        <FavoritesStrip {...propsFor(sheet)} />
+      </Favoriting>
+    </>
+  )
+}
+
+/** Shows each order at once, as the pane does with one on its way. */
+const showAtOnce = (keys: string[], show: ShowOrder) => show(keys)
+
+/** The favorites' card's lists, as they're laid out: one, or two side by side. */
+const listsIn = () => [
+  ...screen
+    .getByRole('region', { name: 'Favorites' })
+    .querySelectorAll<HTMLElement>(':scope > div > div > ul'),
+]
+
 describe('components/character-sheet/favorites, put in order, from module 0.47.0', () => {
+  const Observer = globalThis.ResizeObserver
   beforeEach(() => {
     globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
   })
 
   afterEach(() => {
     jest.restoreAllMocks()
+    globalThis.ResizeObserver = Observer
   })
 
   /**
@@ -1267,6 +1321,57 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     )
     return save
   }
+  /** The strip of this sheet's favorites, its orders shown as `onSave` says (at once). */
+  const renderMoving = (
+    sheet: CharacterSheet,
+    onSave: (keys: string[], show: ShowOrder) => void = showAtOnce,
+  ) => render(<Moving sheet={sheet} onSave={onSave} />)
+
+  it('lays them out in two lists again once Reorder closes, by Cancel or by Save order (ROADMAP item 75)', async () => {
+    const user = userEvent.setup()
+    // As a browser does: each watch told of a change to its element's size until it ends, and an
+    // element gone from the page 0 wide.
+    const watching = new Set<() => void>()
+    globalThis.ResizeObserver = jest.fn((callback: () => void) => {
+      const told = () => callback()
+      watching.add(told)
+      return {
+        observe: jest.fn(),
+        unobserve: jest.fn(),
+        disconnect: () => watching.delete(told),
+      }
+    }) as unknown as typeof ResizeObserver
+    const report = () => {
+      for (const told of watching) told()
+    }
+    jest
+      .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        // eslint-disable-next-line unicorn/no-this-outside-of-class -- the element it's read of
+        return this.isConnected ? 720 : 0
+      })
+    renderMoving(withFavorites())
+    expect(listsIn()).toHaveLength(2)
+
+    await user.click(reorder())
+    act(report)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(listsIn()).toHaveLength(2)
+
+    await user.click(reorder())
+    await user.click(
+      screen.getByRole('button', { name: 'Move Warhammer down' }),
+    )
+    act(report)
+    await user.click(screen.getByRole('button', { name: 'Save order' }))
+    expect(listsIn()).toHaveLength(2)
+    expect(
+      within(listsIn()[0])
+        .getAllByRole('listitem')
+        .map(row => row.textContent?.slice(0, 9)),
+    ).toEqual(['Superiori', 'Cast Fire', 'Warhammer', 'Bless9 Ro'])
+  })
+
   it('takes focus to Reorder’s heading as it opens, and back to Reorder as Cancel or Save order closes it', async () => {
     const user = userEvent.setup()
     const save = renderOrdering()

@@ -31,7 +31,8 @@
 // slots, which have no favorites entry of their own, moved all the same: at 390 Stealth's Move up
 // from its roll's menu, after its ways to roll, which rolls nothing, and his slots' from a menu of
 // their own, held by their name (part 14); at 1280 that menu by a right-click and from the keyboard
-// (part 10); with module 0.46.0 neither (part 16).
+// (part 10); with module 0.46.0 neither (part 16). And (item 75) at 1366, where his favorites lie
+// in two lists: Reorder closed by Cancel and by Save order leaves two lists that follow the window.
 // Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
@@ -1074,6 +1075,75 @@ async function putInOrder() {
     && same(made.payload.favorite.order.map(keyOf), wanted) && same(await foundryKeys(small), wanted),
   `an order on its way, the Wand of Frost made a favorite in Foundry is last, and its Move up is taken (${status}) and made from the order shown, the Wand among it, Foundry keeping it one up (${JSON.stringify({ waited, since: Math.round(Number(since)), made: made?.status, reason: made?.result?.reason, favorite: made?.payload?.favorite })})`)
   await small.view.close()
+
+  // Items 74 and 75 at 1366: the sheet beside the chat's column is 866 px, under the 936 his
+  // favorites' own column needs, so they're at the top of Actions, their card some 790 px wide, over
+  // the 720 two lists need.
+  const wide = await browse({ device: { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }, path: '/characters/sheet-thorin' })
+  await wide.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await wide.tab('Actions')
+  const top = panelOf(wide)
+  const reorderTop = top.getByRole('button', { name: 'Reorder favorites' })
+  await reorderTop.waitFor({ timeout: 15_000 })
+  /** The names in each of the strip's own lists, in order: one list, or two side by side. */
+  const listsOf = () => top.evaluate(panel => [...panel.querySelectorAll('ul')].filter(list => !list.closest('li'))
+    .map(list => [...list.children].map(row => row.querySelector('.font-medium')?.textContent)))
+  const all = await namesIn(top)
+  const half = Math.ceil(all.length / 2)
+  await until(async () => (await listsOf()).length === 2, 'two lists at 1366', 10_000).catch(() => {})
+  let lists = await listsOf()
+  const tag = await top.evaluate(panel => panel.tagName)
+  check(tag === 'SECTION' && same(lists, [all.slice(0, half), all.slice(half)]),
+    `at 1366, too narrow for their column, his favorites are at the top of Actions in two lists, the first half first (${JSON.stringify({ tag, lists })})`)
+
+  // Item 75: Reorder closed, by Cancel and by Save order, leaves two lists that follow the window.
+  await toastsGone(wide)
+  await reorderTop.click()
+  const cancel = top.getByRole('button', { name: 'Cancel', exact: true })
+  await cancel.waitFor({ timeout: 5_000 })
+  await cancel.click()
+  await reorderTop.waitFor({ timeout: 5_000 })
+  await until(async () => (await listsOf()).length === 2, 'two lists once Reorder is cancelled', 5_000).catch(() => {})
+  lists = await listsOf()
+  check(same(lists, [all.slice(0, half), all.slice(half)]), `Reorder opened and closed by Cancel: still two lists (${JSON.stringify(lists)})`)
+  // By its grips' keys, the Longsword last of the first list, Stealth first of the second and his
+  // 1st Level slots second: each in turn from the top, its grip's up key until it's in its place.
+  await reorderTop.focus()
+  await wide.page.keyboard.press('Enter')
+  const gripsTop = top.getByRole('button', { name: /^Reorder .*: drag it, or press the up and down arrows$/ })
+  await gripsTop.first().waitFor({ timeout: 5_000 })
+  const reorderedTop = () => gripsTop.evaluateAll(grips => grips.map(grip => grip.getAttribute('aria-label').replace(/^Reorder (.*): drag it, or press the up and down arrows$/, '$1')))
+  const BOUNDARY = ['Longsword', 'Stealth', '1st Level']
+  const placed = (await reorderedTop()).filter(name => !BOUNDARY.includes(name))
+  placed.splice(half - 2, 0, ...BOUNDARY)
+  for (const [at, name] of placed.entries()) {
+    for (let from = (await reorderedTop()).indexOf(name); from > at; from--) {
+      await gripsTop.nth(from).focus()
+      await wide.page.keyboard.press('ArrowUp')
+      await until(async () => (await reorderedTop())[from - 1] === name, `${name} up one`, 5_000).catch(() => {})
+    }
+  }
+  await paced()
+  const sentTop = orders().length
+  await top.getByRole('button', { name: 'Save order' }).focus()
+  await wide.page.keyboard.press('Enter')
+  const twoLists = [['Ki', ...placed].slice(0, half), ['Ki', ...placed].slice(half)]
+  await until(async () => same(await listsOf(), twoLists), 'two lists in the new order', 5_000).catch(() => {})
+  lists = await listsOf()
+  made = await ordered(sentTop + 1, 'the order saved at 1366')
+  await until(async () => same(await foundryKeys(wide), made.payload.favorite.order.map(keyOf)), 'Foundry\'s favorites in the order saved at 1366', 15_000).catch(() => {})
+  check(same(lists, twoLists) && made.status === 'done' && same(await foundryKeys(wide), made.payload.favorite.order.map(keyOf)),
+    `Reorder's order saved: two lists at once, in the new order; made, and Foundry keeps it (${JSON.stringify({ lists, made: made.status, reason: made.result?.reason })})`)
+  await toastsGone(wide)
+  await shoot(wide, 'favorites-two-lists', top)
+  await wide.page.setViewportSize({ width: 1024, height: 768 })
+  await until(async () => (await listsOf()).length === 1, 'one list at 1024', 5_000).catch(() => {})
+  const narrowed = await listsOf()
+  await wide.page.setViewportSize({ width: 1366, height: 768 })
+  await until(async () => same(await listsOf(), twoLists), 'two lists at 1366 again', 5_000).catch(() => {})
+  lists = await listsOf()
+  check(narrowed.length === 1 && same(lists, twoLists), `narrowed to 1024, one list; widened to 1366 again, two: the card drawn after Reorder is watched (${JSON.stringify({ narrowed: narrowed.length, lists })})`)
+  await wide.view.close()
   await big.view.close()
 }
 
