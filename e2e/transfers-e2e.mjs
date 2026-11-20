@@ -22,8 +22,9 @@
 // 0.33.0's feedback, a party row waiting has one spinner, beside its name, its Take without one.
 // Since item 43 (v0.47), Thorin's sheet shows what he took within about a second of the panel's
 // "Took"; since item 46, of the game's answer, at 390, with the panel closed before it. DND5E6=1:
-// dnd5e 6.0.5, whose coin may be fractional. Since item 85, the Longsword given whole by Enter
-// hands focus to the Inventory tab as its row goes. SKEW=030 with MODULE=module 0.30.0: no moves at all.
+// dnd5e 6.0.5, whose coin may be fractional. Since item 85, the Longsword given by Enter keeps
+// focus on its Give…, which waits, dimmed, while the give is held, then, given whole, hands focus
+// to the Inventory tab as its row goes. SKEW=030 with MODULE=module 0.30.0: no moves at all.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import { readFileSync } from 'node:fs'
@@ -554,8 +555,24 @@ await dialog.waitFor()
     `"To" has The Iron Company (Primary) chosen, then Vex; "It arrives unequipped and unattuned." (${JSON.stringify(radios)})`)
 }
 await shootBoth(alice, 'give-dialog', dialog)
-await dialog.getByRole('button', { name: 'Give', exact: true }).focus()
-await alice.page.keyboard.press('Enter')
+{
+  // Held at its first write (item 85): sent by Enter, focus is back on Give Longsword, which
+  // waits while the give is on its way, dimmed as it was when disabled.
+  const hold = holdWrite((kind, target) => [target.id, target.actor?.id].some(id => ['company', 'thorin'].includes(id)))
+  await dialog.getByRole('button', { name: 'Give', exact: true }).focus()
+  await alice.page.keyboard.press('Enter')
+  await Promise.race([hold.held, wait(20_000)])
+  await dialog.waitFor({ state: 'hidden' })
+  const give = sheet.getByRole('button', { name: 'Give Longsword' })
+  await until(() => give.evaluate(button => button === document.activeElement), 'focus back on Give Longsword', 5_000).catch(() => {})
+  const waiting = await give.evaluate(button => ({
+    focused: button === document.activeElement, waits: button.getAttribute('aria-disabled') === 'true', disabled: button.disabled,
+    busy: button.getAttribute('aria-busy'), opacity: getComputedStyle(button).opacity,
+  }))
+  hold.release()
+  check(waiting.focused && waiting.waits && !waiting.disabled && waiting.busy === 'true' && waiting.opacity === '0.6',
+    `sent by Enter, focus is back on Give Longsword, which waits, dimmed, while the give is on its way (${JSON.stringify(waiting)})`)
+}
 made = await answered(4, 'the give of the Longsword')
 {
   const sword = holding(company, 'Longsword')[0]
