@@ -250,14 +250,9 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
 
 **Found while building Batch 2**
 
-72. **Midi-QOL's check of a Gamemaster's own use asks for its dice twice:** where Midi spends what a
-    use spends without its dialog, it works the cost out first and throws that away
-    (`checkAutoConsume` in its `MidiActivityMixin.ts`), so a dice cost is rolled twice with the
-    Gamemaster's dice settings, for a use they make in Foundry and for a reaction they take; and so
-    is the cost of another activity Midi pairs with a Gamemaster's own attack
-    (`checkOtherActivityConsumption`), read from its source and not tried. Midi's own, and said in
-    the module's `PROTOCOL.md`; the module could roll the first with Foundry's computer dice, as it
-    does for a use from the app and, since 0.49.0, for the reactions Midi looks for. In batch 8.
+Item 72, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, is done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+
 73. **A roll's button drops the first Enter after its menu was opened from the keyboard:** with a
     check's, save's or attack's button focused, the menu key or Shift+F10 opens its menu; whatever
     is done there, the next Enter or Space on the button does nothing, and the one after rolls.
@@ -435,17 +430,8 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 **Found while building Batch 3**
 
-92. **Midi-QOL's checks in an encounter the Gamemaster doesn't have up:** for a creature fighting
-    in an encounter on another scene than the one the Gamemaster views, Midi-QOL's reaction,
-    bonus-action and opportunity checks aren't made (Foundry's `Actor#inCombat` and the module's
-    check both read `game.combat`, the module's `scripts/command-uses.mjs:893-901`; Foundry's, to
-    check), and a use at Self finds no combatant (`selfTarget`, `:531-541`). It matters only with
-    Allow targets off your screen, since Midi-QOL otherwise needs the target drawn. The module
-    harness's `inCombat` stand-in reads every combat (`test/fvtt/activity5e.mjs:424-428`), so it
-    doesn't show this. Found building item 36. In batch 8.
-
-Item 93, a Gamemaster's message past the twentieth, is done, in [CHANGELOG.md](CHANGELOG.md)'s
-v0.53.0-rc.
+Items 92 and 93, Midi-QOL's checks in an encounter the Gamemaster doesn't have up and a Gamemaster's
+message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 94. **The module harness's wait for a druid's copy made late, under load:**
     `test/fvtt/wildshape.mjs` (line 1170), under `MIDI=1`, "her copy made too late: Rowan's
@@ -526,6 +512,14 @@ v0.53.0-rc.
      renumbers every later link under the same hash. A condition type added or renamed changes which
      text is a condition, though no number moves: condition spans carry no `data-n`. Found planning
      item 97. In no batch yet.
+101. **Midi-QOL's Requires targets "in combat" with two encounters on one scene:** Midi reads a
+     creature as in combat, for its Requires targets setting, by any encounter on the scene the
+     Gamemaster's canvas shows (its `isInCombat`), and the module by Foundry's `Actor#inCombat`, the
+     encounter the Gamemaster has up alone (`midiNeedsTargets`, the module's
+     `scripts/command-uses.mjs`). So with two encounters on one scene, a creature in the one not up
+     that uses from the app something needing a target, with none picked, isn't refused beforehand
+     ("target"): Midi refuses it, and the player is told Midi-QOL didn't make it ("midi") rather
+     than why. Read from Midi's source, not tried. Found planning item 92. In no batch yet.
 
 ## v1.0
 

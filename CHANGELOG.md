@@ -37,6 +37,28 @@ so an item from it is named with its number when it was built, which may since b
   healing type what a damage link heals. Descriptions are now sent again whenever the game's tools,
   damage or healing types change, so a link always rolls what it shows. Needs Sending Stone 0.53.0
   in Foundry, which sends every description once more after the upgrade. (module, item 97)
+- **A Gamemaster's Manual Dice asks once for a Midi-QOL cost.** Midi-QOL works out what a use would
+  spend, throws that away, and then spends it, so a Gamemaster with Manual Dice was asked twice for
+  a dice cost such as 1d4 charges. Midi's check now rolls Foundry's computer dice wherever Midi
+  makes it: a use the Gamemaster makes in Foundry where Midi spends without its dialog (as its
+  setting for what the Gamemaster's uses consume, or the item's own, says), a reaction they take
+  among them, and the activity Midi pairs with an attack, such as Frost Brand's Rime, in their own
+  attacks, from Midi's card button, in an attack from the app whose player doesn't type their dice,
+  and in any attack from the app under dnd5e 6. The cost itself is asked once, of the dice settings
+  of whoever makes the use. Needs Sending Stone 0.53.0 in Foundry; a player's use in their own
+  Foundry is as before. (module, item 72)
+- **Midi-QOL's reactions and Bonus Actions in an encounter the Gamemaster doesn't have up.** With
+  Midi-QOL enforcing them, a creature fighting in an encounter the Gamemaster doesn't have up, one
+  that has begun and is its scene's chosen one, is now refused from the app a reaction or Bonus
+  Action it has used, as in the encounter up, and an attack out of its turn counts as its reaction
+  where Midi records opportunity attacks. One it uses there from the app is marked, and the mark
+  comes off at the creature's next turn there, for a creature Midi allows more than one a round too.
+  Damage on its own and Wild Shape count the same encounter, and a druid in Wild Shape is counted by
+  her own place in the fight. A use at the creature itself, with Midi-QOL or without, is made at its
+  token in that encounter where the scene the Gamemaster views draws none of it. Needs Sending Stone
+  0.53.0 in Foundry; with an older one, only the encounter the Gamemaster has up counts. Midi alone
+  still checks a use the Gamemaster makes in Foundry, and only in the encounter they have up.
+  (module, item 92)
 
 ### Maintenance
 
@@ -48,7 +70,12 @@ so an item from it is named with its number when it was built, which may since b
   roll for which another module makes 21 more messages, 22 in all, lists the first 21, the roll's
   own first. The app marks those as the Gamemaster's and not the 22nd, and Bob, Thorin's player,
   sees the GM pill on the 21 and not on the 22nd. Its plain run wants 73 checks, 71 before; its SKEW
-  runs stay 6 and 71. (app, item 93)
+  runs stay 6 and 71 (item 93). `alone`'s Midi-QOL run gains part 10b: with no encounter up,
+  Thorin's fight begun and its scene's chosen one, and his Bonus Action used, his Potion used with
+  its switch to spend on is refused "bonus-action", nothing rolled or spent, and the tray reads "Not
+  made at the table: you’ve used your bonus action"; that run wants 133 checks where it wanted 131
+  (item 92). `e2e/README.md`'s known focus race in `alone`'s part 17 is said to be met once in its
+  dnd5e 5 run too. (app, items 92 and 93)
 - **Jest tests.** Tests pin the app's answer of `gmRollMessages: 1`, last of its features and a
   whole number, to a hello and a heartbeat (`src/app/api/events/route.test.ts` and the routes'
   golden), and a result's `messages` read whole up to 21, a list of 22 left out whole
@@ -61,7 +88,20 @@ so an item from it is named with its number when it was built, which may since b
   back too (item 84); `preparing.mjs`, a prepare refused beside rerolls, an enchantment or hit
   points, each given as 1 and as 0 (item 83); and `links.mjs` and `groups.mjs`, descriptions in
   format 9, whose hash changes with the game's tools, kinds of vehicle, damage and healing types
-  (item 97). `test/README.md` counts 52 harnesses and 122 runs. (module, items 83, 84, 93 and 97)
+  (item 97). Under Midi-QOL, `later-dice.mjs` checks that Midi's check of a cost rolls Foundry's
+  computer dice and the cost is asked once, in the Gamemaster's own use where Midi spends without
+  its dialog, a reaction taken so, the activity Midi pairs with an attack and an untyped attack from
+  the app, and that a configuration that isn't Midi's check, as one that also spends the action, is
+  still asked (item 72). `companions.mjs`, `alone.mjs` and `wildshape.mjs` check a creature in an
+  encounter begun elsewhere refused a reaction or Bonus Action it has used, in a use, damage on its
+  own or a Wild Shape return; what it spends there marked, and the mark taken off at its next turn
+  there, each once, and not before, as Previous Turn, Previous Round or Undo End Turn takes the turn
+  back onto it; nothing marked for a use Midi stops before its card; a creature gone skipped, an
+  encounter deleted forgotten, and a creature Midi allows two a round; and a druid in Wild Shape
+  counted by her own combatant. `uses.mjs` checks a use at its user made at its token in that
+  encounter, `enchant.mjs` an enchantment's Bonus Action marked there, and the stand-in for
+  Foundry's `inCombat` reads only the encounter the Gamemaster has up, as Foundry's does (item 92).
+  `test/README.md` counts 52 harnesses and 122 runs. (module, items 72, 83, 84, 92, 93 and 97)
 
 ## v0.52.0 — 2026-11-19
 
