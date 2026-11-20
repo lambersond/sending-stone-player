@@ -1615,6 +1615,60 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     },
   )
 
+  // An action's row is open only as the list says, so it couldn't close again; a row that rolls
+  // nothing closes its own details, and would open again as it's drawn anew.
+  it.each([
+    ["an action's row", warhammer, 'Warhammer'],
+    ['a row that rolls nothing', item('rope', 'loot'), 'Hempen Rope'],
+  ])(
+    'closes %s again, and it stays closed as it moves to the other list (ROADMAP item 74)',
+    async (_what, favorite, name) => {
+      const user = userEvent.setup()
+      wide(720)
+      renderMoving(
+        withFavorites([fireball, bless, favorite, perception, tools, slots]),
+      )
+      await user.click(openerOf(name))
+      await settle()
+      expect(isOpen(openerOf(name))).toBe(true)
+
+      await user.click(openerOf(name))
+      await settle()
+      expect(isOpen(openerOf(name))).toBe(false)
+      fireEvent.contextMenu(openerOf(name))
+      await user.click(
+        within(screen.getByRole('menu', { name })).getByRole('menuitem', {
+          name: 'Move down',
+        }),
+      )
+      await settle()
+
+      expect(listsIn()[1].firstElementChild).toBe(favoriteIn(name))
+      expect(isOpen(openerOf(name))).toBe(false)
+    },
+  )
+
+  it('opens a favorite again as it was once Reorder closes, by Cancel or by Save order (ROADMAP item 74)', async () => {
+    const user = userEvent.setup()
+    renderMoving(withFavorites())
+    await user.click(warhammerName())
+    const before = favoriteIn('Warhammer')
+    expect(isOpen(openerOf('Warhammer'))).toBe(true)
+
+    await user.click(reorder())
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    // Drawn anew, as Reorder took the card's place, and open as it was.
+    expect(before.isConnected).toBe(false)
+    expect(isOpen(openerOf('Warhammer'))).toBe(true)
+
+    await user.click(reorder())
+    await user.click(
+      screen.getByRole('button', { name: 'Move Warhammer down' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Save order' }))
+    expect(isOpen(openerOf('Warhammer'))).toBe(true)
+  })
+
   it('takes focus to Reorder’s heading as it opens, and back to Reorder as Cancel or Save order closes it', async () => {
     const user = userEvent.setup()
     const save = renderOrdering()
