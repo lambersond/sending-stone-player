@@ -215,7 +215,7 @@ tweaks needed may change it as it goes. Batches 1 to 5 are done; batch 8 is next
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
    ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
-6. Items 59 and 60: summon activities, and known forms from anywhere.
+6. Items 59, 60 and 98: summon activities, known forms from anywhere, and constant companions.
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
    and 85, keyboard and focus: chosen on 2026-11-20, to come before batch 6.
@@ -501,6 +501,21 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
     an app's copy name a link as one it no longer is, until the description changes. One more line
     in `textFormat` would mend it, renewing every hash once more. Found building item 65.
     In batch 8.
+
+**Asked for on 2026-11-20**
+
+98. **Constant companions:** a companion its character keeps, always there or summoned again and
+    again, such as a sidekick, an artificer's Steel Defender or a familiar summoned every session.
+    The Gamemaster marks an NPC in the Actors sidebar as a character's constant companion on the
+    campaign's Manage Campaigns window (a Companions list: the NPC and the character it belongs
+    to); only the Gamemaster marks or unmarks one. It then shows in the app beside its character
+    whether or not a token of it is on any scene, so in an impromptu encounter with no scene ready
+    the player can still act with it. While a token of it is on a scene the app uses that token,
+    as today; with none placed, the sidebar actor. With no token the player can do from the app
+    all that Foundry's own sheet allows without one: its sheet, checks and saves, attacks and
+    spells with no targets picked, its uses and hit points; initiative and the saves the game asks
+    for still need a token in a combat. Today only a linked NPC its player owns by name shows with
+    no scene; a summoned creature, or an unlinked NPC, needs a token on a scene. In batch 6.
 
 ## v1.0
 
