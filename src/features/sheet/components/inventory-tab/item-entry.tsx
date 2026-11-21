@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { Backpack, Package } from 'lucide-react'
 import { ActionEntry } from '../action-entry/action-entry'
 import { enchantedEntry } from '../enchantments/enchanted-entry'
@@ -9,6 +10,7 @@ import { SheetEntry } from '../sheet-entry/sheet-entry'
 import { UsesButton } from '../uses-button/uses-button'
 import { itemWords } from './utils'
 import { useTransferring } from '@/features/transfers/hooks/use-transferring'
+import { useFocusHandedOn } from '@/hooks/use-focus-handed-on'
 import { itemAction } from '@/utils/sheet-actions'
 import type { ActionRows } from '../action-entry/types'
 import type { FavoriteTarget } from '@/types/roll'
@@ -21,12 +23,16 @@ import type { SheetItem, SheetContainer } from '@/types/sending-stone'
  * 0.32.0's feedback, "Send to…" in its own menu, on a right-click or long-press of its row, beside
  * "Remove…" from module 0.33.0, after "Add to favorites" or "Remove from favorites" from module
  * 0.37.0. An item that holds activities offers each of them its own entry on the activity's row.
+ * As it goes from the sheet with focus in it, as once given whole, focus goes to the row beside it,
+ * else to its container's (ROADMAP item 85).
  */
 export function ItemEntry({
   characterId,
   item,
   rows,
   favorite: target = { type: 'item', id: item.id },
+  open,
+  onOpenChange,
 }: Readonly<{
   characterId: string
   item: SheetItem | SheetContainer
@@ -36,12 +42,21 @@ export function ItemEntry({
    * none, as among the favorites for a resource's feature.
    */
   favorite?: FavoriteTarget | null
+  /**
+   * Whether it's open, and its change, where its owner keeps that, as the favorites do; passed to
+   * the row it's drawn as.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }>) {
   const transfers = useTransferring()
   const moves = item.quantity >= 1 ? transfers.item?.(item) : undefined
   const send = item.quantity >= 1 ? transfers.send?.(item) : undefined
   // From module 0.33.0, a stack of none too, which goes whole.
   const remove = transfers.remove?.(item)
+  // Its row, which hands focus on as it goes, where it has a move or Remove… (item 85).
+  const row = useRef<HTMLElement>(null)
+  useFocusHandedOn(row, !!(moves || send || remove))
   const favorite = useFavoriteChoice(target, item.name)
   const { onMenu, menu } = useItemMenu(item.name, { send, remove, favorite })
   const container = 'contents' in item ? item : undefined
@@ -61,6 +76,8 @@ export function ItemEntry({
           action={action}
           rows={rows}
           favorite={null}
+          open={open}
+          onOpenChange={onOpenChange}
           look={{
             // What it is to carry, rather than how it's used, which it opens to; or nothing.
             detail: detail ?? '',
@@ -69,6 +86,7 @@ export function ItemEntry({
             facts,
             moves: moves?.body,
             onMenu,
+            rowRef: row,
           }}
         />
         {menu}
@@ -97,6 +115,8 @@ export function ItemEntry({
         favoriteKey={`item:${item.id}`}
         onMenu={onMenu}
         favorite={null}
+        open={open}
+        onOpenChange={onOpenChange}
         busy={waiting}
         detail={detail}
         aside={
@@ -112,6 +132,7 @@ export function ItemEntry({
         facts={facts}
         text={item.text}
         origin={{ name: item.name, item: item.id }}
+        rowRef={row}
         {...enchantedEntry(item)}
       >
         {opened || undefined}

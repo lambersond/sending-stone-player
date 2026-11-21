@@ -19,7 +19,184 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
-## v0.52.0-rc
+## v0.53.0-rc
+
+### Fixes
+
+- **Every message of a Gamemaster's Give to 20 is theirs.** A Gamemaster's Give to 20 characters and
+  parties can make 21 chat messages, where each character given has a player: a line for each one
+  given, and the last, "Thorin handed out …", to the Gamemasters. That last message now has the GM
+  pill too, as the giving character's player sees it, and counts as the Gamemaster's. Needs Sending
+  Stone 0.53.0 in Foundry; with an older one, it shows without the pill, as before. (app and module,
+  item 93)
+- **A fraction of a coin moved stays as written.** Under dnd5e 6, in a world that shows a coin's
+  decimals, coins moved to or from a party, by its Take and Send to, and a party's coin shared out
+  are stored as written, as are those put back where a move fails: 10.7 gp less 7 leaves 3.7, never
+  3.69. Needs Sending Stone 0.53.0 in Foundry. (module, item 84)
+- **A description's links follow a world's own tools and damage types.** A tool, kind of vehicle or
+  damage type a world adds changes which checks and which damage in a description are links, and a
+  healing type what a damage link heals. Descriptions are now sent again whenever the game gains or
+  loses a tool, kind of vehicle, damage or healing type, so a link rolls what it shows. Needs
+  Sending Stone 0.53.0 in Foundry, which sends every description once more after the upgrade.
+  (module, item 97)
+- **A Gamemaster's Manual Dice asks once for a Midi-QOL cost.** Midi-QOL works out what a use would
+  spend, throws that away, and then spends it, so a Gamemaster with Manual Dice was asked twice for
+  a dice cost such as 1d4 charges. Midi's check now rolls Foundry's computer dice wherever Midi
+  makes it: a use the Gamemaster makes in Foundry where Midi spends without its dialog (as its
+  setting for what the Gamemaster's uses consume, or the item's own, says), a reaction they take
+  among them, and the activity Midi pairs with an attack, such as Frost Brand's Rime, in their own
+  attacks, from Midi's card button, in an attack from the app whose player doesn't type their dice,
+  and in any attack from the app under dnd5e 6. The cost itself is asked once, of the dice settings
+  of whoever makes the use. Needs Sending Stone 0.53.0 in Foundry; a player's use in their own
+  Foundry is as before. (module, item 72)
+- **Midi-QOL's reactions and Bonus Actions in an encounter the Gamemaster doesn't have up.** With
+  Midi-QOL enforcing them, a creature fighting in an encounter the Gamemaster doesn't have up, one
+  that has begun and is its scene's chosen one, is now refused from the app a reaction or Bonus
+  Action it has used, as in the encounter up, and an attack out of its turn counts as its reaction
+  where Midi records opportunity attacks. One it uses there from the app is marked, and the mark
+  comes off at the creature's next turn there, for a creature Midi allows more than one a round too.
+  Damage on its own and Wild Shape count the same encounter, and a druid in Wild Shape is counted by
+  her own place in the fight. A use at the creature itself names its token in that encounter on its
+  card, with Midi-QOL or without, where the scene the Gamemaster views draws none of it. Needs
+  Sending Stone 0.53.0 in Foundry; with an older one, only the encounter the Gamemaster has up
+  counts. Midi alone still checks a use the Gamemaster makes in Foundry, and only in the encounter
+  they have up. (module, item 92)
+- **Enter rolls after a roll's menu opened from the keyboard.** With a check's, save's or attack's
+  button focused, the menu key or Shift+F10 opens its menu; once it closes, the next Enter or Space
+  rolls, where it did nothing and the one after rolled. (app, item 73)
+- **A favorite moved to the other list keeps focus and stays open.** Where your favorites lie in two
+  lists side by side, as on a laptop, Move up or Move down in a favorite's menu that takes it to the
+  other list leaves focus on it there, as a move within a list does, and the sheet scrolls to it
+  where its new place is out of sight. A favorite open to its description stays open as it moves;
+  and at any width it's open again after Reorder, and, where the favorites lie in two lists, after
+  Favorites is hidden and shown again. (app, item 74)
+- **Two lists again after Reorder.** Where your favorites lie in two lists side by side, as on a
+  laptop, opening Reorder and closing it, by Cancel or by Save order, no longer leaves them in one
+  list as wide as their card: they're in two lists again, and follow the window's width. (app,
+  item 75)
+- **The header holds still as a page loads.** Live and Help no longer step left as Full screen
+  appears: its room is kept, empty, until the page is ready. Where there's no Full screen, as in
+  Sending Stone added to an iPhone's Home Screen, the room closes as soon as the page is ready.
+  (app, item 82)
+- **Focus stays where a move was sent from.** A move sent from its dialog with the keyboard, from a
+  character's Currency row (Add or remove, Give) or an item's Give…, leaves focus on the button that
+  opened the dialog, as Escape does, where it fell to the page; the button waits, dimmed and doing
+  nothing, until the move is made. Where the move takes it away: as an item given, sent or removed
+  whole leaves the sheet, focus goes to the row beside it, else to the row of the container it was
+  in, else to the Inventory tab; as the last coins are given, from Give to Add or remove. A row of a
+  party's sheet that goes with focus in it hands it on the same way. (app, item 85)
+- **"a Utility check".** Names that begin with a common "u" said "you", such as Uni-, Use- or Uti-,
+  with "eu" or with the word "one" take "a": a world's own ability, a Wild Shape form or ammunition,
+  as "a Utility saving throw", "a Unicorn", where they took "an". dnd5e's own names read as before.
+  And "an 8th-level spell slot", where it read "a". (app, item 96)
+
+### Maintenance
+
+- **A spell prepared names no hit points, rerolls or enchantment.** The module refuses a spell
+  prepared that also names hit points, a typed roll's rerolls or an enchantment ended, where it
+  prepared the spell and ignored them, as it already refused a move, a favorite, coins and the other
+  fields its check lists. The app never sends one. (module, item 83)
+- **End-to-end checks.** `gmroll` gains a last part, against the module under test: a Gamemaster's
+  roll for which another module makes 21 more messages, 22 in all, lists the first 21, the roll's
+  own first. The app marks those as the Gamemaster's and not the 22nd, and Bob, Thorin's player,
+  sees the GM pill on the 21 and not on the 22nd. Its plain run wants 73 checks, 71 before; its SKEW
+  runs stay 6 and 71 (item 93). `alone`'s Midi-QOL run gains part 10b: with no encounter up,
+  Thorin's fight begun and its scene's chosen one, and his Bonus Action used, his Potion used with
+  its switch to spend on is refused "bonus-action", nothing rolled or spent, and the tray reads "Not
+  made at the table: you’ve used your bonus action"; that run wants 133 checks where it wanted 131
+  (item 92). `e2e/README.md`'s known focus race in `alone`'s part 17 is said to be met once in its
+  dnd5e 5 run too. `sheet` gains Enter after Shift+F10 and Escape on a skill, and after a way to
+  roll chosen from its menu (item 73); `help` the header at 360, at both seats, before and after the
+  page hydrates, and `fullscreen` the header in the iPhone Home Screen app (item 82); `givetake`
+  focus on Thorin's Give, dimmed, while his coins are on their way, and after, and `transfers` focus
+  on Give Longsword, dimmed, while its give is held, and on the Inventory tab once the Longsword,
+  given whole, leaves his sheet (item 85); `companionsaves` a world's own Utility save in a
+  companion's notice (item 96); and `favoriting`, in its part 14 at 1366, where Thorin's favorites
+  lie in two lists: two lists again after Reorder, closed by Cancel and by Save order, following the
+  window; focus kept on a favorite moved from the keyboard to the other list, an item from its own
+  menu, a skill from its roll's and spell slots from theirs; and one open to its description still
+  open as Favorites is hidden and shown and as it's moved by the mouse, the sheet scrolling to it
+  where its new place is out of sight (items 74 and 75). So the plain runs of `sheet`, `help`,
+  `fullscreen`, `givetake`, `transfers`, `companionsaves` and `favoriting` want 77, 30, 31, 78, 79,
+  46 and 120 checks, where they wanted 75, 28, 30, 76, 77, 45 and 109, and the dnd5e 6 runs of
+  `givetake`, `transfers` and `favoriting` 79, 83 and 86, where they wanted 77, 81 and 75; their
+  other runs want what they did. `e2e/README.md` counts 61 suites and 140 runs. (app, items 73, 74,
+  75, 82, 85, 92, 93 and 96)
+- **Jest tests.** Tests pin the app's answer of `gmRollMessages: 1`, last of its features and a
+  whole number, to a hello and a heartbeat (`src/app/api/events/route.test.ts` and the routes'
+  golden), and a result's `messages` read whole up to 21, a list of 22 left out whole
+  (`src/schemas/sending-stone.test.ts`). New tests pin where focus goes as a row or a move's button
+  goes from the page (`src/utils/focus-beside.ts`, `src/hooks/use-focus-handed-on.ts`), only where
+  focus was in it and was lost; a move's button that waits, keeping focus and doing nothing; and an
+  item given whole by Enter, the Currency row's Give as the last coins go and a container's last
+  item handing focus on, a row with no move handing it nowhere (the Inventory tab's and the give and
+  coin controls' tests) (item 85). Others pin a roll's menu from the keyboard leaving the next Enter
+  to roll, a touch's or a pen's long-press leaving its ending tap unrolled (item 73); Full screen's
+  room kept, empty and hidden from screen readers, until the page hydrates (item 82); and "a" or
+  "an" before a "u" said "you", "eu", the word "one", a silent h and a number said with a vowel, and
+  the slot words with it (`src/utils/articles.ts`, item 96). For the favorites, tests pin `useWidth`
+  watching whichever element is drawn in its place, so that they're in two lists again once Reorder
+  closes (`src/features/sheet/hooks/use-width.ts`, item 75); a favorite moved to the other of two
+  lists keeping focus, from an item's own menu, a skill's roll's menu, spell slots' menu and an
+  effect's row, never on a row listed inside one open above it, nor on the row beside it that an
+  item's row with a move hands focus to, and taking none for a move the list's next commit doesn't
+  show or where focus is elsewhere; and one open to its description open again where it's drawn
+  anew, through each of the seven ways a row is drawn, and after Reorder, one closed staying closed
+  (item 74). (app, items 73, 74, 75, 82, 85, 93 and 96)
+- **The module harness.** `handouts.mjs` checks, under dnd5e 5.3.3 and 6.0.5, a Gamemaster's
+  hand-out to 20 characters and parties: all 21 of its messages listed to an app that answers
+  `gmRollMessages` as a whole number of 1 or more, the first 20 to any other, a late result's alike,
+  and in a world of two campaigns each app's answer read for its own (item 93). `transfers.mjs` and
+  `sends.mjs` check that a dnd5e 6 fraction moved or shared out stays as it's written, the coins put
+  back too (item 84); `preparing.mjs`, a prepare refused beside rerolls, an enchantment or hit
+  points, each given as 1 and as 0 (item 83); and `links.mjs` and `groups.mjs`, descriptions in
+  format 9, whose hash changes as the game gains a tool, kind of vehicle, damage or healing type
+  (item 97). Under Midi-QOL, `later-dice.mjs` checks that Midi's check of a cost rolls Foundry's
+  computer dice and the cost is asked once, in the Gamemaster's own use where Midi spends without
+  its dialog, a reaction taken so, the activity Midi pairs with an attack and an untyped attack from
+  the app, and that a configuration that isn't Midi's check, as one that also spends the action, is
+  still asked (item 72). `companions.mjs`, `alone.mjs` and `wildshape.mjs` check a creature in an
+  encounter begun elsewhere refused a reaction or Bonus Action it has used, in a use, damage on its
+  own or a Wild Shape return; what it spends there marked, and the mark taken off at its next turn
+  there, each once, and not before, as Previous Turn, in the same round or a round back, or Undo End
+  Turn takes the turn back onto it; nothing marked for a use Midi stops before its card; a creature
+  gone skipped, an encounter deleted forgotten, and a creature Midi allows two a round; and a druid
+  in Wild Shape counted by her own combatant. `uses.mjs` checks that a use at its user names its
+  token in that encounter on its card, where the scene the Gamemaster views draws none of it, and
+  that Midi-QOL makes it at no one; `enchant.mjs`, an enchantment's Bonus Action marked there; and
+  the stand-in for Foundry's `inCombat` reads only the encounter the Gamemaster has up, as Foundry's
+  does (item 92). `test/README.md` counts 52 harnesses and 122 runs. (module, items 72, 83, 84, 92,
+  93 and 97)
+- **Docs for v0.53.** README.md's supported-versions table gains v0.53.0; its Tested line is as it
+  was, as no older module joined `e2e/skew.conf`. The module's `PROTOCOL.md` gains `gmRollMessages`
+  in the answer to a hello or heartbeat, and a Gamemaster's command's `messages` of up to 21 to a
+  listener that says it; descriptions in format 9, their hash also of which tools, kinds of vehicle,
+  damage and healing types the game has, never of what each is called, a known limit; coins moved
+  and a party's coin shared out kept as they're written; a `prepare` refused beside `rerolls`,
+  `enchantment` or `hitPoints`; Midi-QOL's check of a use and of the activity it pairs with an
+  attack on Foundry's computer dice; reactions and Bonus Actions counted in the encounter a creature
+  fights in, one begun elsewhere too, and a use at its user named by its token there; and its six
+  "Module 0.53.0" entries. Its `README.md` says each but that limit and the `prepare` refusal, which
+  no player meets, in its Players' rolls, dice, At themselves, Midi-QOL, Moving items and coins,
+  Wild Shape and descriptions sent again paragraphs, a new known limit, Midi-QOL reading only the
+  encounter you have up, and its Layout's rows for `coin-change.mjs`, `midi-economy.mjs` and
+  `dice-plan.mjs`; its `test/README.md`'s rows for the dnd5e and Midi-QOL stand-ins say what they
+  now model. (app and module)
+- **ROADMAP kept current.** ROADMAP.md gains a v0.53 section, the release candidate, listing five
+  checks to make at the table before module v0.53.0 is tagged: Midi-QOL's check of a cost asked
+  once, reactions and Bonus Actions in an encounter the Gamemaster doesn't have up, a favorite moved
+  to the other list, two lists after Reorder, and the header as a page loads. Under "Before v1.0",
+  batch 8 reads as done, its twelve items taken out, with a line saying so where each run of them
+  stood; the plan's opening says batches 1 to 5 and 8 are done. Items 99 to 104, under "Found while
+  building Batch 8", are what batch 8 found: the checks of commands that aren't rolls letting other
+  kinds' fields by (99), a description's hash missing labels changed in place (100), Midi-QOL's
+  Requires targets with two encounters on one scene (101), the module's own "a" or "an" (102), Move
+  up and Move down on a favorite inside another (103), and a move's toast over the favorite that
+  just took focus (104). Items 80 and 94 cite their checks' lines where they now stand, and the
+  known limits gain a favorite with focus going to the other list by anything but its own move, and
+  dnd5e 6 reading a few coins a hundredth low. (app)
+
+## v0.52.0 — 2026-11-19
 
 ### Features
 

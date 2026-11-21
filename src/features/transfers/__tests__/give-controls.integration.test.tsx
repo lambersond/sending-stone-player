@@ -310,19 +310,19 @@ describe('components/transfers/give-controls', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Give' }))
 
     const handaxe = giveButton('Handaxe')
-    expect(handaxe).toBeDisabled()
+    expect(handaxe).toHaveAttribute('aria-disabled', 'true')
     expect(handaxe).toHaveAttribute('aria-busy', 'true')
     expect(handaxe.querySelector('svg')).toHaveClass('motion-safe:animate-spin')
     // The rest stay as they were.
     const coins = coinsButton()
-    expect(coins).toBeEnabled()
+    expect(coins).not.toHaveAttribute('aria-disabled')
     expect(coins).not.toHaveAttribute('aria-busy')
 
     await user.click(coins)
     const giving = screen.getByRole('dialog', { name: 'Give coins' })
     await user.type(within(giving).getByRole('textbox', { name: 'Gold' }), '5')
     await user.click(within(giving).getByRole('button', { name: 'Give coins' }))
-    expect(coinsButton()).toBeDisabled()
+    expect(coinsButton()).toHaveAttribute('aria-disabled', 'true')
     expect(posts()).toHaveLength(2)
     expect(posts()[1].body.transfer).toEqual({
       from: 'actorThorin1',
@@ -340,7 +340,7 @@ describe('components/transfers/give-controls', () => {
     await user.click(within(giving).getByRole('button', { name: 'Give coins' }))
 
     const coins = coinsButton()
-    expect(coins).toBeDisabled()
+    expect(coins).toHaveAttribute('aria-disabled', 'true')
     expect(coins.querySelector('svg')).toHaveClass('motion-safe:animate-spin')
     const group = screen.getByRole('group', { name: 'Currency' })
     expect(group).not.toHaveAttribute('aria-busy')
@@ -621,7 +621,7 @@ describe('components/transfers/give-controls', () => {
           screen.getByText('Giving it in your Gamemaster’s game…'),
         ).toBeInTheDocument()
         const ring = giveButton('Plain Ring')
-        expect(ring).toBeDisabled()
+        expect(ring).toHaveAttribute('aria-disabled', 'true')
         expect(ring).toHaveAttribute('aria-busy', 'true')
       }
 
@@ -630,10 +630,100 @@ describe('components/transfers/give-controls', () => {
         screen.getByText('Gave 1 Plain Ring to The Iron Company'),
       ).toBeInTheDocument()
       const ring = giveButton('Plain Ring')
-      expect(ring).toBeEnabled()
+      expect(ring).not.toHaveAttribute('aria-disabled')
       expect(ring).not.toHaveAttribute('aria-busy')
     } finally {
       jest.useRealTimers()
+    }
+  })
+
+  it('keeps focus on an item’s Give… as it is sent by Enter, waiting there till it’s given, and hands it to the row beside once it’s gone (item 85)', async () => {
+    const restore = focusingDialogs()
+    jest.useFakeTimers()
+    try {
+      const given = {
+        id: 'req-1',
+        status: 'done',
+        visible: true,
+        rolls: [],
+        transfer: {
+          from: 'actorThorin1',
+          to: 'groupIronCo01',
+          items: [
+            { id: 'ring', quantity: 1, created: 'ringParty001', stacked: null },
+          ],
+          currency: null,
+        },
+      }
+      // Claimed by the game at once, which takes two checks to give it.
+      const answers = [
+        { id: 'req-1', status: 'rolling' },
+        { id: 'req-1', status: 'rolling' },
+        given,
+      ]
+      jest.mocked(fetch).mockImplementation(async (url, init) => {
+        if (init?.method === 'POST') return respond(202, { id: 'req-1' })
+        if (url === '/api/characters/char-1/rolls/req-1') {
+          return respond(200, answers.length > 1 ? answers.shift() : answers[0])
+        }
+        // An opened row's description, which never comes.
+        return new Promise<Response>(() => {})
+      })
+      const { user, rerender } = await renderGive({
+        user: userEvent.setup({ advanceTimers: jest.advanceTimersByTime }),
+      })
+      await user.click(screen.getByText('Plain Ring'))
+      await advance(0)
+      giveButton('Plain Ring').focus()
+      await user.keyboard('{Enter}')
+      const dialog = screen.getByRole('dialog', { name: 'Give Plain Ring' })
+      within(dialog).getByRole('button', { name: 'Give' }).focus()
+      await user.keyboard('{Enter}')
+
+      // Sent: the dialog gives focus back to Give…, which waits for the game, doing nothing.
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(document.activeElement).toBe(giveButton('Plain Ring'))
+      expect(giveButton('Plain Ring')).toHaveAttribute('aria-disabled', 'true')
+      await user.keyboard('{Enter}')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(posts()).toHaveLength(1)
+
+      // Given, it's ready again, focus still on it.
+      await advance(CHECK_EVERY)
+      await advance(CHECK_EVERY)
+      await advance(CHECK_EVERY)
+      expect(
+        screen.getByText('Gave 1 Plain Ring to The Iron Company'),
+      ).toBeInTheDocument()
+      expect(document.activeElement).toBe(giveButton('Plain Ring'))
+      expect(giveButton('Plain Ring')).not.toHaveAttribute('aria-disabled')
+
+      // Given whole, its row goes from the sheet, and focus with it to the row beside.
+      const sheet = movingSheet()
+      const [weapons, equipment] = sheet.inventory.sections
+      rerender(
+        pane(tableMoves(), {
+          ...sheet,
+          inventory: {
+            ...sheet.inventory,
+            sections: [
+              weapons,
+              {
+                ...equipment,
+                items: equipment.items.filter(({ id }) => id !== 'ring'),
+              },
+            ],
+          },
+        }),
+      )
+      await advance(0)
+      expect(screen.queryByText('Plain Ring')).toBeNull()
+      expect(document.activeElement).toBe(
+        screen.getByText('Cloak of Protection').closest('summary'),
+      )
+    } finally {
+      jest.useRealTimers()
+      restore()
     }
   })
 

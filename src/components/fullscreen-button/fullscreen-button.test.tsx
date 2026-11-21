@@ -2,6 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderToString } from 'react-dom/server'
 import { FullscreenButton } from './fullscreen-button'
+import { TABLE_HEADER_BOX } from '@/constants/buttons'
 import {
   DESKTOP,
   fakeDevice,
@@ -132,9 +133,33 @@ describe('components/game-table/fullscreen-button', () => {
     },
   )
 
-  it('renders nothing on the server, nor before the page hydrates', () => {
-    on(IPHONE, { enabled: false, standalone: false })
+  it('keeps its room, empty, on the server and until the page hydrates', () => {
+    // The icon's own size, from the button once hydrated: lucide's classes aside.
+    on(DESKTOP)
+    const { unmount } = render(<FullscreenButton />)
+    const glyph = iconOf(screen.getByRole('button', { name: 'Full screen' }))
+      ?.split(' ')
+      .filter(name => !name.startsWith('lucide'))
+    unmount()
+    fullscreen.restore()
+    device.restore()
+    // On the server, whatever the device: it can't tell yet.
+    on(IPHONE, { enabled: false, standalone: true })
 
-    expect(renderToString(<FullscreenButton />)).toBe('')
+    const page = new DOMParser().parseFromString(
+      renderToString(<FullscreenButton />),
+      'text/html',
+    ).body
+
+    expect(page.children).toHaveLength(1)
+    const room = page.firstElementChild
+    expect(room?.tagName).toBe('SPAN')
+    expect(room?.getAttribute('aria-hidden')).toBe('true')
+    expect(room?.getAttribute('class')).toBe(TABLE_HEADER_BOX)
+    expect(room?.children).toHaveLength(1)
+    expect(room?.firstElementChild?.getAttribute('class')?.split(' ')).toEqual(
+      glyph,
+    )
+    expect(page.querySelector('button')).toBeNull()
   })
 })

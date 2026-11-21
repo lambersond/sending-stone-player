@@ -174,8 +174,12 @@ const conditionSchema: z.ZodType<SheetCondition> = z.looseObject({
   text: textRef,
 })
 
-/** The most chat messages one of the Gamemaster's rolls lists as its own. */
-const MAX_GM_ROLL_MESSAGES = 20
+/**
+ * The most chat messages one of the Gamemaster's rolls lists as its own: from module 0.53.0, to
+ * this app, every message one command makes, a hand-out to MOST_AMONG characters and parties and
+ * the Gamemasters' own; 20 before.
+ */
+const MAX_GM_ROLL_MESSAGES = MOST_AMONG + 1
 
 /** A Foundry document's id, as a command names one. */
 const DOCUMENT_ID = /^[\dA-Za-z]{1,64}$/
@@ -2115,7 +2119,9 @@ const commandResultSchema: z.ZodType<CommandResult> = z.object({
     .catch(null),
   damage: damagePreviewSchema.nullable().optional().catch(null),
   // From module 0.25.0, for the Gamemaster's roll as a character: the ids of the chat messages it
-  // made, which alone are marked as theirs. Anything else is ignored, as from an older module.
+  // made, which alone are marked as theirs. Anything else is ignored, as from an older module. Up
+  // to 21 from module 0.53.0, to this app, which says it reads them (`gmRollMessages`); a longer
+  // list is left out whole.
   messages: leftOut(
     z.array(z.string().min(1).max(64)).max(MAX_GM_ROLL_MESSAGES),
   ),

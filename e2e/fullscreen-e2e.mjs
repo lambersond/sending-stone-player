@@ -7,7 +7,8 @@
 // turns the button back; it lasts from the sheet to the party's own page and back, and ends on the
 // way back to the list. The Gamemaster's page has it too. An iPhone, which lets no page fill the
 // screen, gets the button and the modal explaining Add to Home Screen, and in the Home Screen app no
-// button at all; a Pixel 7 gets the toggle, an installed app too. The manifest, its icons and the
+// button at all, nor its room, which the header keeps only until the page hydrates (item 82); a
+// Pixel 7 gets the toggle, an installed app too. The manifest, its icons and the
 // head's tags as pinned. Headless Chromium can't show the viewport growing, Escape leaving full
 // screen, or that a page may only enter it from a tap (the 0.30.0 full-screen map): those are on the
 // device checklist. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
@@ -236,6 +237,17 @@ for (const scheme of ['light', 'dark']) {
   await wait(1000)
   check(await toggle(home).count() === 0 && await home.page.locator('header').first().getByRole('status').isVisible(),
     'opened from the Home Screen, navigator.standalone: no button at all')
+  // Full screen's room, kept while the page hydrated, closes once it has (item 82).
+  const right = await home.page.locator('header').first().locator('> div').last().evaluate(group => {
+    const children = [...group.children]
+    const box = name => children.find(el => el.getAttribute('aria-label') === name)?.getBoundingClientRect()
+    return {
+      children: children.map(el => el.getAttribute('aria-label') ?? el.getAttribute('role') ?? (el.getAttribute('aria-hidden') === 'true' ? 'aria-hidden' : el.tagName.toLowerCase())),
+      help: box('Help')?.right, remove: box('Delete Thorin')?.left,
+    }
+  })
+  check(same(right.children.slice(0, 3), ['status', 'Help', 'Delete Thorin']) && !right.children.includes('aria-hidden') && Math.abs(right.help + 4 - right.remove) <= 0.5,
+    `opened from the Home Screen: no room left for Full screen beside Help (${right.children.join(', ')}; Help's right edge ${right.help}, Delete's left ${right.remove})`)
   await home.view.close()
 }
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CHECK_EVERY } from '@/constants/lifecycle'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
@@ -231,7 +231,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
       expect(row).toHaveAttribute('aria-busy', 'true')
       for (const name of ['Add or remove', 'Give']) {
         const button = within(row).getByRole('button', { name })
-        expect(button).toBeDisabled()
+        expect(button).toHaveAttribute('aria-disabled', 'true')
         expect(button).toHaveAttribute('aria-busy', 'true')
         expect(button.querySelector('svg')).toBeNull()
       }
@@ -241,7 +241,7 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
 
       await advance(CHECK_EVERY)
       expect(screen.getByText('Paid 5 gp, using 1 pp')).toBeInTheDocument()
-      expect(changeButton()).toBeEnabled()
+      expect(changeButton()).not.toHaveAttribute('aria-disabled')
       expect(row).not.toHaveAttribute('aria-busy')
     } finally {
       jest.useRealTimers()
@@ -325,6 +325,23 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
     ).toBeInTheDocument()
   })
 
+  it('hands focus on Give to Add or remove as the last coins go (item 85)', async () => {
+    const given: Given = {
+      coins: { change: true },
+      moves: tableMoves(),
+      sheet: holding({ gp: 1 }),
+    }
+    const { rerenderWith } = await renderCoins(given)
+    const row = screen.getByRole('group', { name: 'Currency' })
+    within(row).getByRole('button', { name: 'Give' }).focus()
+
+    rerenderWith({ ...given, sheet: holding({}) })
+    await act(async () => {})
+
+    expect(within(row).queryByRole('button', { name: 'Give' })).toBeNull()
+    expect(changeButton()).toHaveFocus()
+  })
+
   it('leaves the row’s buttons be while an item, not coins, is on its way', async () => {
     const { user } = await renderCoins({
       coins: { change: true },
@@ -337,11 +354,13 @@ describe('features/transfers/coin-controls, from module 0.49.0', () => {
 
     expect(
       screen.getByRole('button', { name: 'Give Plain Ring' }),
-    ).toBeDisabled()
+    ).toHaveAttribute('aria-disabled', 'true')
     const row = screen.getByRole('group', { name: 'Currency' })
     expect(row).not.toHaveAttribute('aria-busy')
     for (const name of ['Add or remove', 'Give']) {
-      expect(within(row).getByRole('button', { name })).toBeEnabled()
+      expect(within(row).getByRole('button', { name })).not.toHaveAttribute(
+        'aria-disabled',
+      )
     }
   })
 

@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -15,6 +16,7 @@ import { InventoryTab } from './inventory-tab'
 import { ItemEntry } from './item-entry'
 import { Modal } from '@/components/modal/modal'
 import { Transferring } from '@/features/transfers/components/transferring/transferring'
+import { NO_TRANSFERS } from '@/features/transfers/constants'
 import {
   castingSheet,
   characterSheet,
@@ -29,7 +31,11 @@ import {
 import { toTableSheet } from '@/utils/table-view'
 import type { TransferControls } from '@/features/transfers/types'
 import type { SeatRole } from '@/types/seats'
-import type { CharacterSheet, SheetInventory } from '@/types/sending-stone'
+import type {
+  CharacterSheet,
+  SheetInventory,
+  SheetItem,
+} from '@/types/sending-stone'
 import type { TableSheet } from '@/types/table'
 import type { ReactNode } from 'react'
 
@@ -711,6 +717,68 @@ const movingSheet = () => {
   })
 }
 
+/** Thorin's things with a second weapon that rolls, a Dagger, below the Handaxe. */
+const armedSheet = (): CharacterSheet => {
+  const sheet = movingSheet()
+  const [weapons, ...rest] = sheet.inventory.sections
+  const [handaxe] = weapons.items
+  const dagger = {
+    ...handaxe,
+    id: 'dagger',
+    name: 'Dagger',
+    attackId: 'daggerAttack',
+  }
+  return {
+    ...sheet,
+    inventory: {
+      ...sheet.inventory,
+      sections: [{ ...weapons, items: [handaxe, dagger] }, ...rest],
+    },
+  }
+}
+
+/** What's left of these once one of them, wherever it is, has gone. */
+const leaving = <T extends SheetItem>(items: T[], id: string): T[] =>
+  items
+    .filter(item => item.id !== id)
+    .map(item =>
+      'contents' in item && Array.isArray(item.contents)
+        ? { ...item, contents: leaving(item.contents, id) }
+        : item,
+    )
+
+/** The same sheet, the item gone from it, as once given whole. */
+const without = (sheet: CharacterSheet, id: string): CharacterSheet => ({
+  ...sheet,
+  inventory: {
+    ...sheet.inventory,
+    sections: sheet.inventory.sections.map(section => ({
+      ...section,
+      items: leaving(section.items, id),
+    })),
+    containers: leaving(sheet.inventory.containers, id),
+  },
+})
+
+/** The Inventory tab in its panel, as the sheet draws it, with these controls. */
+const tabWith = (transfers: TransferControls, sheet: CharacterSheet) => (
+  <div role='tabpanel' tabIndex={-1}>
+    <InventoryTab
+      characterId='char-1'
+      onRoll={jest.fn()}
+      onRollDamage={jest.fn()}
+      sheet={toTableSheet(sheet, 'https://my-game.forge-vtt.com')}
+      transfers={transfers}
+    />
+  </div>
+)
+
+/** An item's row's own control, by its name: its summary, its focusable row, or its name. */
+const rowOf = (name: string) =>
+  screen
+    .getByText(name)
+    .closest('summary, [tabindex="0"], button[aria-expanded]') as HTMLElement
+
 describe('moving items and coins, from module 0.31.0', () => {
   /** Controls that say which item and coin they're for, where they're shown. */
   const controls: TransferControls = {
@@ -849,6 +917,81 @@ describe('moving items and coins, from module 0.31.0', () => {
     expect(
       screen.getByRole('button', { name: 'Aside Plain Ring' }),
     ).toBeInTheDocument()
+  })
+
+  const sending: TransferControls = { send: () => jest.fn() }
+  // Each with what opens it to show its row, its id, its name and the row beside it.
+  it.each([
+    [
+      'a move of its own, as given whole',
+      controls,
+      movingSheet,
+      [],
+      'ring',
+      'Plain Ring',
+      'Cloak of Protection',
+    ],
+    [
+      'Send to… alone',
+      sending,
+      movingSheet,
+      [],
+      'ring',
+      'Plain Ring',
+      'Cloak of Protection',
+    ],
+    [
+      'Remove… alone',
+      { remove: () => ({ open: jest.fn(), waiting: false }) },
+      movingSheet,
+      [],
+      'ring',
+      'Plain Ring',
+      'Cloak of Protection',
+    ],
+    // Drawn as an action, its name a button of its own.
+    [
+      'Send to…, as a row that rolls',
+      sending,
+      armedSheet,
+      [],
+      'handaxe',
+      'Handaxe',
+      'Dagger',
+    ],
+    // The Old Coin is all the Pouch in the Backpack holds.
+    [
+      'Send to…, as a container’s only item',
+      sending,
+      movingSheet,
+      ['Backpack', 'Pouch'],
+      'coin',
+      'Old Coin',
+      'Pouch',
+    ],
+  ] as const)(
+    'hands focus to the row beside as a row with %s goes from under it (item 85)',
+    async (_, transfers: TransferControls, sheet, opens, id, gone, beside) => {
+      const user = userEvent.setup()
+      const { rerender } = render(tabWith(transfers, sheet()))
+      for (const name of opens) await user.click(screen.getByText(name))
+      rowOf(gone).focus()
+
+      rerender(tabWith(transfers, without(sheet(), id)))
+      await act(async () => {})
+
+      expect(rowOf(beside)).toHaveFocus()
+    },
+  )
+
+  it('hands focus nowhere as a row with no move goes from under it (item 85)', async () => {
+    const { rerender } = render(tabWith(NO_TRANSFERS, movingSheet()))
+    rowOf('Plain Ring').focus()
+
+    rerender(tabWith(NO_TRANSFERS, without(movingSheet(), 'ring')))
+    await act(async () => {})
+
+    expect(document.body).toHaveFocus()
   })
 })
 

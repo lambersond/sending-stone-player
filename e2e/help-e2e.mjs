@@ -20,15 +20,17 @@
 // your player sees", its note naming her, its own box, the same sections and paragraphs as her
 // player's; at 1280 the same; at 390 with their Send to the table off, their rolls stay here.
 // SKEW=042 (module 0.42.0) and DND5E6=1 (dnd5e 6.0.5, whose dice the module never asks for), typing
-// allowed and on: no row and no paragraph for the dice an item rolls later, at either seat.
-// Screenshots at twice the pixels, to SHOTS: the panel at 360, 390, 768 and 1280, in both themes at
+// allowed and on: no row and no paragraph for the dice an item rolls later, at either seat. First,
+// Thorin's page and the Gamemaster's for Seraphina at 360, their scripts held: Live and Help stand
+// where they'll stay before the page hydrates, Full screen's room kept empty, then Full screen in it
+// (item 82). Screenshots at twice the pixels, to SHOTS: the panel at 360, 390, 768 and 1280, in both themes at
 // 390 and 1280; the Gamemaster's at 390 and 1280, and at 390 with their Send off; the box with typing
 // off, on, and on with Send off; the paragraph with typing off; the settings menu; the Gamemaster's
 // header at 360; under SKEW=042 and DND5E6=1, the box at 390. Focus and scrolling are waited for as
 // they happen, never for a fixed time. Synthetic characters only. Run with --import
 // ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
 import {
-  DND5E6, SKEW042, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, note, part, same,
+  BASE, DND5E6, SKEW042, browse, character, check, finish, foundryWorld, launch, manualDice, newCampaign, note, part, same,
   settled, shoot, sideways, sql, startModule, theme, until,
 } from './world-030.mjs'
 
@@ -70,14 +72,47 @@ const open = (width, height, path, scheme = 'light') => browse({
 /**
  * A page's sheet, once it has hydrated: its tabs, then Full screen in its header, which a page draws
  * only once it has hydrated (useFullscreen answers false until then), a moment after the sheet's
- * markup is there; the header read before that has one button fewer (ROADMAP item 70). 20 s on
- * with no Full screen, the page as it is, for the check after it to say.
+ * markup is there, which keeps Full screen's room empty until then (item 82). 20 s on with no Full
+ * screen, the page as it is, for the check after it to say.
  */
 const ready = async who => {
   await who.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
   await who.page.getByRole('button', { name: 'Full screen', exact: true }).waitFor({ timeout: 20_000 }).catch(() => {})
 }
 const panelOf = who => who.page.getByRole('dialog', { name: 'Help' })
+/**
+ * A page at 360 × 780 loaded with its scripts held, so that it can't hydrate until `release()`: its
+ * markup as the server streams it, which React's own inline scripts swap into the outline's place,
+ * with its CSS and font loaded as ever; once its sheet's tabs are there and its font is ready.
+ */
+async function held(path) {
+  const who = await open(360, 780)
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  await who.view.route('**/_next/static/**', async route => {
+    if (route.request().resourceType() === 'script') await gate
+    await route.continue()
+  })
+  // Not `load`, which waits for the scripts held.
+  await who.page.goto(`${BASE}${path}`, { waitUntil: 'commit' })
+  await who.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await who.page.evaluate(() => document.fonts.ready)
+  return { who, release }
+}
+/**
+ * The header's right group: each of its children by its label, else its role, else "aria-hidden"
+ * for an empty room; Live's text and right edge; and Help's box.
+ */
+const headerRight = who => who.page.locator('header').first().locator('> div').last().evaluate(group => {
+  const children = [...group.children]
+  const live = children.find(el => el.getAttribute('role') === 'status')?.getBoundingClientRect()
+  const help = children.find(el => el.getAttribute('aria-label') === 'Help')?.getBoundingClientRect()
+  return {
+    children: children.map(el => el.getAttribute('aria-label') ?? el.getAttribute('role') ?? (el.getAttribute('aria-hidden') === 'true' ? 'aria-hidden' : el.tagName.toLowerCase())),
+    live: { text: children.find(el => el.getAttribute('role') === 'status')?.textContent.trim(), right: live?.right },
+    help: help && { x: help.x, width: help.width },
+  }
+})
 /** What has focus: its role or tag, and its name. */
 const focused = who => who.page.evaluate(() => {
   const el = document.activeElement
@@ -173,6 +208,22 @@ if (SKEW042 || DND5E6) {
 
 // =================================================================================================
 part('1. a player at 360: the header, the panel and its box')
+// Live and Help stand where they'll stay as the page hydrates, Full screen's room kept empty until
+// then (item 82), at the player's seat and the Gamemaster's.
+for (const [seat, path] of [['player', '/characters/sheet-thorin'], ['Gamemaster', `/campaigns/${A}/characters/seraphina`]]) {
+  const { who, release } = await held(path)
+  const before = await headerRight(who)
+  const fullBefore = await who.page.getByRole('button', { name: 'Full screen', exact: true }).count()
+  release()
+  await ready(who)
+  const after = await headerRight(who)
+  const near = (a, b) => a !== undefined && b !== undefined && Math.abs(a - b) <= 0.5
+  check(same(before.children.slice(0, 3), ['status', 'Help', 'aria-hidden']) && fullBefore === 0 && same(after.children.slice(0, 3), ['status', 'Help', 'Full screen'])
+    && near(before.help?.x, after.help?.x) && near(before.help?.width, after.help?.width)
+    && near(before.live.right + 4, before.help?.x) && near(after.live.right + 4, after.help?.x),
+    `the ${seat}'s header at 360: Live and Help where they'll stay before the page hydrates, Full screen's room kept empty, then Full screen in it (before: ${before.children.join(', ')}, Live "${before.live.text}" to ${before.live.right}, Help at ${before.help?.x} × ${before.help?.width}; after: ${after.children.join(', ')}, Live "${after.live.text}" to ${after.live.right}, Help at ${after.help?.x} × ${after.help?.width})`)
+  await who.view.close()
+}
 const phone = await open(360, 780, '/characters/sheet-thorin')
 await ready(phone)
 {

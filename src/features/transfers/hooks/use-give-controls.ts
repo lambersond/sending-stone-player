@@ -59,7 +59,8 @@ export function useGiveControls({
   setActed: (acted: boolean) => void
 }>): { controls: TransferControls; dialog: ReactNode } {
   // What it was last opened for, kept once it closes: the dialog is closed rather than removed,
-  // as only the browser's own close gives focus back to the Give that opened it.
+  // as only the browser's own close gives focus back to the Give that opened it, which waits for
+  // its move without losing focus (GiveButton).
   const [giving, setGiving] = useState<Giving>()
   const [open, setOpen] = useState(false)
   // What's on its way: the items, by id, and coins.
