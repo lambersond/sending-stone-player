@@ -62,6 +62,16 @@ so an item from it is named with its number when it was built, which may since b
 - **Enter rolls after a roll's menu opened from the keyboard.** With a check's, save's or attack's
   button focused, the menu key or Shift+F10 opens its menu; once it closes, the next Enter or Space
   rolls, where it did nothing and the one after rolled. (app, item 73)
+- **A favorite moved to the other list keeps focus and stays open.** Where your favorites lie in two
+  lists side by side, as on a laptop, Move up or Move down in a favorite's menu that takes it to the
+  other list leaves focus on it there, as a move within a list does, and the sheet scrolls to it
+  where its new place is out of sight. A favorite open to its description stays open as it moves;
+  and at any width it's open again after Reorder, and, where the favorites lie in two lists, after
+  Favorites is hidden and shown again. (app, item 74)
+- **Two lists again after Reorder.** Where your favorites lie in two lists side by side, as on a
+  laptop, opening Reorder and closing it, by Cancel or by Save order, no longer leaves them in one
+  list as wide as their card: they're in two lists again, and follow the window's width. (app,
+  item 75)
 - **The header holds still as a page loads.** Live and Help no longer step left as Full screen
   appears: its room is kept, empty, until the page is ready. Where there's no Full screen, as in
   Sending Stone added to an iPhone's Home Screen, the room closes as soon as the page is ready.
@@ -98,11 +108,17 @@ so an item from it is named with its number when it was built, which may since b
   page hydrates, and `fullscreen` the header in the iPhone Home Screen app (item 82); `givetake`
   focus on Thorin's Give, dimmed, while his coins are on their way, and after, and `transfers` focus
   on Give Longsword, dimmed, while its give is held, and on the Inventory tab once the Longsword,
-  given whole, leaves his sheet (item 85); and `companionsaves` a world's own Utility save in a
-  companion's notice (item 96). So the plain runs of `sheet`, `help`, `fullscreen`, `givetake`,
-  `transfers` and `companionsaves` want 77, 30, 31, 78, 79 and 46 checks, where they wanted 75, 28,
-  30, 76, 77 and 45, and the dnd5e 6 runs of `givetake` and `transfers` 79 and 83, where they wanted
-  77 and 81; their other runs want what they did. (app, items 73, 82, 85, 92, 93 and 96)
+  given whole, leaves his sheet (item 85); `companionsaves` a world's own Utility save in a
+  companion's notice (item 96); and `favoriting`, in its part 14 at 1366, where Thorin's favorites
+  lie in two lists: two lists again after Reorder, closed by Cancel and by Save order, following the
+  window; focus kept on a favorite moved from the keyboard to the other list, an item from its own
+  menu, a skill from its roll's and spell slots from theirs; and one open to its description still
+  open as Favorites is hidden and shown and as it's moved by the mouse, the sheet scrolling to it
+  where its new place is out of sight (items 74 and 75). So the plain runs of `sheet`, `help`,
+  `fullscreen`, `givetake`, `transfers`, `companionsaves` and `favoriting` want 77, 30, 31, 78, 79,
+  46 and 120 checks, where they wanted 75, 28, 30, 76, 77, 45 and 109, and the dnd5e 6 runs of
+  `givetake`, `transfers` and `favoriting` 79, 83 and 86, where they wanted 77, 81 and 75; their
+  other runs want what they did. (app, items 73, 74, 75, 82, 85, 92, 93 and 96)
 - **Jest tests.** Tests pin the app's answer of `gmRollMessages: 1`, last of its features and a
   whole number, to a hello and a heartbeat (`src/app/api/events/route.test.ts` and the routes'
   golden), and a result's `messages` read whole up to 21, a list of 22 left out whole
@@ -115,7 +131,15 @@ so an item from it is named with its number when it was built, which may since b
   to roll, a touch's or a pen's long-press leaving its ending tap unrolled (item 73); Full screen's
   room kept, empty and hidden from screen readers, until the page hydrates (item 82); and "a" or
   "an" before a "u" said "you", "eu", the word "one", a silent h and a number said with a vowel, and
-  the slot words with it (`src/utils/articles.ts`, item 96). (app, items 73, 82, 85, 93 and 96)
+  the slot words with it (`src/utils/articles.ts`, item 96). For the favorites, tests pin `useWidth`
+  watching whichever element is drawn in its place, so that they're in two lists again once Reorder
+  closes (`src/features/sheet/hooks/use-width.ts`, item 75); a favorite moved to the other of two
+  lists keeping focus, from an item's own menu, a skill's roll's menu, spell slots' menu and an
+  effect's row, never on a row listed inside one open above it, nor on the row beside it that an
+  item's row with a move hands focus to, and taking none for a move the list's next commit doesn't
+  show or where focus is elsewhere; and one open to its description open again where it's drawn
+  anew, through each of the seven ways a row is drawn, and after Reorder, one closed staying closed
+  (item 74). (app, items 73, 74, 75, 82, 85, 93 and 96)
 - **The module harness.** `handouts.mjs` checks, under dnd5e 5.3.3 and 6.0.5, a Gamemaster's
   hand-out to 20 characters and parties: all 21 of its messages listed to an app that answers
   `gmRollMessages` as a whole number of 1 or more, the first 20 to any other, a late result's alike,

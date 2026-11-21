@@ -250,29 +250,11 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
 
 **Found while building Batch 2**
 
-Items 72 and 73, Midi-QOL's check of a Gamemaster's own use asking for its dice twice and a roll's
-button dropping the first Enter after its menu was opened from the keyboard, are done, in
-[CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+Items 72 to 75, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, a roll's
+button dropping the first Enter after its menu was opened from the keyboard, keyboard focus after a
+favorite moves from one list to the other, and the favorites in one list once Reorder has been
+opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
-74. **Keyboard focus after a favorite moves from one list to the other:** where the favorites are in
-    two lists side by side (their card 720 px wide or wider with no column of its own, as on a
-    laptop 1366 px wide), Move up or Move down chosen from a favorite's menu with the keyboard, on
-    the last row of the first list or the first of the second, takes the row to the other list and
-    leaves keyboard focus on the page, where a move within a list leaves it on the row; a row open
-    to its description is closed as it crosses, by the mouse too. `FavoritesList`
-    (`src/features/sheet/components/favorites/favorites-list.tsx`) draws the two halves as two
-    lists, so a row that crosses is drawn anew. Every favorite, since v0.47; item 47 brought a
-    skill, a tool and spell slots to it. Seen in Chromium at 1366 px on an item's row, a skill and
-    spell slots. The known limits say the same of Remove from favorites and Prepare. In batch 8.
-75. **The favorites in one list once Reorder has been opened:** where the favorites are in two lists
-    side by side, opening Reorder and closing it, by Cancel or by Save order, leaves them in one
-    list the card's full width, whatever the window's width after; another tab of the sheet and
-    back, or the page loaded again, brings the two back. `FavoritesList` measures its card with
-    `useWidth` (`src/features/sheet/hooks/use-width.ts`), which begins watching the element once;
-    while Reorder shows the card isn't drawn, and the one drawn after is never watched: the cause as
-    the code reads, the width itself not measured in the browser. A look only: every favorite is
-    there and works. Since v0.47 (Reorder); seen in Chromium at 1366 px, looking for the two lists
-    for item 47. In batch 8.
 76. **What a druid begins in Wild Shape:** a spell a Moon druid casts as a beast and concentrates
     on, such as Moonbeam or Fount of Moonlight, ends in Foundry when Wild Shape ends. Whether what
     it kept up, a template on the map or an effect on another creature, ends with the form or is
@@ -498,6 +480,24 @@ hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
      world's Unicorn form reads "becomes an Unicorn", and one named for Honor "a Honor". The app's
      rule (`articleOf`, `src/utils/articles.ts`) could be the module's too. Module only, small.
      Found building item 96. In no batch yet.
+103. **Move up and Move down on a favorite inside another:** a favorite open to its description
+     lists rows of its own, such as an item's other activities or what a container holds. One of
+     those that is a favorite too offers Move up and Move down in its menu there, and moves that
+     favorite among the favorites: `FavoritesList`
+     (`src/features/sheet/components/favorites/favorites-list.tsx`) gives `FavoriteMovesContext`
+     around every row it draws, the rows inside a favorite's description among them, and
+     `useFavoriteChoice` (`src/features/sheet/components/favoriting/use-favorite-choice.ts`) reads
+     it for any row under it. Read from the code, not tried. Found planning items 74 and 75. In no
+     batch yet.
+104. **A move's toast over the favorite that just took focus:** where the favorites lie in two lists
+     (1366 px, Actions), Move down on the first list's last favorite puts it first in the second, at
+     the top of their card, with focus on it, and the move's toast ("… · Order saved") shows over
+     that very place: the favorite's name is hidden under it, its focus ring showing only at its
+     edges, for as long as the toast shows. The same where the sheet scrolls a moved favorite into
+     sight: it comes to the top, under the toast. The toasts are centered at the top of the window
+     (`RollToasts`, `src/features/rolling/components/roll-toasts/roll-toasts.tsx`), which at that
+     width is the top of the second list; their place predates batch 8, and item 74 is what now puts
+     focus there. Found reviewing item 74. In no batch yet.
 
 ## v1.0
 
@@ -634,6 +634,10 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   as Bless, a favorite that turns from a spell's row to an action's, or a spell unprepared on the
   Actions tab, which leaves it), keyboard focus goes to the page, as after Remove from favorites
   among the favorites.
+- Where the favorites lie in two lists, a favorite with keyboard focus that goes to the other list
+  for any reason but its own Move up or Move down leaves focus on the page: its move refused because
+  Foundry's sheet changed meanwhile, an order made in Foundry or on another device, a favorite added
+  or removed, or the window resized.
 - Dishes from the Magical Recipe Book need dnd5e 5 for now (dnd5e 6 is planned for v2.0).
 - A dish's effect ends with world time: a table that never advances time keeps it until the next
   dish replaces it or the Gamemaster deletes it.
