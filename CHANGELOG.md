@@ -24,19 +24,21 @@ so an item from it is named with its number when it was built, which may since b
 ### Fixes
 
 - **Every message of a Gamemaster's Give to 20 is theirs.** A Gamemaster's Give to 20 characters and
-  parties makes 21 chat messages. The last, "Thorin handed out …" to the Gamemasters, now has the GM
+  parties can make 21 chat messages, where each character given has a player: a line for each one
+  given, and the last, "Thorin handed out …", to the Gamemasters. That last message now has the GM
   pill too, as the giving character's player sees it, and counts as the Gamemaster's. Needs Sending
-  Stone 0.53.0 in Foundry; with an older one, that last message shows without the pill, as before.
-  (app and module, item 93)
+  Stone 0.53.0 in Foundry; with an older one, it shows without the pill, as before. (app and module,
+  item 93)
 - **A fraction of a coin moved stays as written.** Under dnd5e 6, in a world that shows a coin's
   decimals, coins moved to or from a party, by its Take and Send to, and a party's coin shared out
   are stored as written, as are those put back where a move fails: 10.7 gp less 7 leaves 3.7, never
   3.69. Needs Sending Stone 0.53.0 in Foundry. (module, item 84)
 - **A description's links follow a world's own tools and damage types.** A tool, kind of vehicle or
   damage type a world adds changes which checks and which damage in a description are links, and a
-  healing type what a damage link heals. Descriptions are now sent again whenever the game's tools,
-  damage or healing types change, so a link always rolls what it shows. Needs Sending Stone 0.53.0
-  in Foundry, which sends every description once more after the upgrade. (module, item 97)
+  healing type what a damage link heals. Descriptions are now sent again whenever the game gains or
+  loses a tool, kind of vehicle, damage or healing type, so a link rolls what it shows. Needs
+  Sending Stone 0.53.0 in Foundry, which sends every description once more after the upgrade.
+  (module, item 97)
 - **A Gamemaster's Manual Dice asks once for a Midi-QOL cost.** Midi-QOL works out what a use would
   spend, throws that away, and then spends it, so a Gamemaster with Manual Dice was asked twice for
   a dice cost such as 1d4 charges. Midi's check now rolls Foundry's computer dice wherever Midi
@@ -54,11 +56,11 @@ so an item from it is named with its number when it was built, which may since b
   where Midi records opportunity attacks. One it uses there from the app is marked, and the mark
   comes off at the creature's next turn there, for a creature Midi allows more than one a round too.
   Damage on its own and Wild Shape count the same encounter, and a druid in Wild Shape is counted by
-  her own place in the fight. A use at the creature itself, with Midi-QOL or without, is made at its
-  token in that encounter where the scene the Gamemaster views draws none of it. Needs Sending Stone
-  0.53.0 in Foundry; with an older one, only the encounter the Gamemaster has up counts. Midi alone
-  still checks a use the Gamemaster makes in Foundry, and only in the encounter they have up.
-  (module, item 92)
+  her own place in the fight. A use at the creature itself names its token in that encounter on its
+  card, with Midi-QOL or without, where the scene the Gamemaster views draws none of it. Needs
+  Sending Stone 0.53.0 in Foundry; with an older one, only the encounter the Gamemaster has up
+  counts. Midi alone still checks a use the Gamemaster makes in Foundry, and only in the encounter
+  they have up. (module, item 92)
 - **Enter rolls after a roll's menu opened from the keyboard.** With a check's, save's or attack's
   button focused, the menu key or Shift+F10 opens its menu; once it closes, the next Enter or Space
   rolls, where it did nothing and the one after rolled. (app, item 73)
@@ -83,10 +85,10 @@ so an item from it is named with its number when it was built, which may since b
   whole leaves the sheet, focus goes to the row beside it, else to the row of the container it was
   in, else to the Inventory tab; as the last coins are given, from Give to Add or remove. A row of a
   party's sheet that goes with focus in it hands it on the same way. (app, item 85)
-- **"a Utility check".** Names that begin with a "u" said "you", with "eu" or with the word "one"
-  take "a": a world's own ability, a Wild Shape form or ammunition, as "a Utility saving throw", "a
-  Unicorn", where they took "an". dnd5e's own names read as before. And "an 8th-level spell slot",
-  where it read "a". (app, item 96)
+- **"a Utility check".** Names that begin with a common "u" said "you", such as Uni-, Use- or Uti-,
+  with "eu" or with the word "one" take "a": a world's own ability, a Wild Shape form or ammunition,
+  as "a Utility saving throw", "a Unicorn", where they took "an". dnd5e's own names read as before.
+  And "an 8th-level spell slot", where it read "a". (app, item 96)
 
 ### Maintenance
 
@@ -118,7 +120,8 @@ so an item from it is named with its number when it was built, which may since b
   `fullscreen`, `givetake`, `transfers`, `companionsaves` and `favoriting` want 77, 30, 31, 78, 79,
   46 and 120 checks, where they wanted 75, 28, 30, 76, 77, 45 and 109, and the dnd5e 6 runs of
   `givetake`, `transfers` and `favoriting` 79, 83 and 86, where they wanted 77, 81 and 75; their
-  other runs want what they did. (app, items 73, 74, 75, 82, 85, 92, 93 and 96)
+  other runs want what they did. `e2e/README.md` counts 61 suites and 140 runs. (app, items 73, 74,
+  75, 82, 85, 92, 93 and 96)
 - **Jest tests.** Tests pin the app's answer of `gmRollMessages: 1`, last of its features and a
   whole number, to a hello and a heartbeat (`src/app/api/events/route.test.ts` and the routes'
   golden), and a result's `messages` read whole up to 21, a list of 22 left out whole
@@ -155,13 +158,39 @@ so an item from it is named with its number when it was built, which may since b
   still asked (item 72). `companions.mjs`, `alone.mjs` and `wildshape.mjs` check a creature in an
   encounter begun elsewhere refused a reaction or Bonus Action it has used, in a use, damage on its
   own or a Wild Shape return; what it spends there marked, and the mark taken off at its next turn
-  there, each once, and not before, as Previous Turn, Previous Round or Undo End Turn takes the turn
-  back onto it; nothing marked for a use Midi stops before its card; a creature gone skipped, an
-  encounter deleted forgotten, and a creature Midi allows two a round; and a druid in Wild Shape
-  counted by her own combatant. `uses.mjs` checks a use at its user made at its token in that
-  encounter, `enchant.mjs` an enchantment's Bonus Action marked there, and the stand-in for
+  there, each once, and not before, as Previous Turn, in the same round or a round back, or Undo End
+  Turn takes the turn back onto it; nothing marked for a use Midi stops before its card; a creature
+  gone skipped, an encounter deleted forgotten, and a creature Midi allows two a round; and a druid
+  in Wild Shape counted by her own combatant. `uses.mjs` checks a use at its user made at its token
+  in that encounter, `enchant.mjs` an enchantment's Bonus Action marked there, and the stand-in for
   Foundry's `inCombat` reads only the encounter the Gamemaster has up, as Foundry's does (item 92).
   `test/README.md` counts 52 harnesses and 122 runs. (module, items 72, 83, 84, 92, 93 and 97)
+- **Docs for v0.53.** README.md's supported-versions table gains v0.53.0; its Tested line is as it
+  was, as no older module joined `e2e/skew.conf`. The module's `PROTOCOL.md` gains `gmRollMessages`
+  in the answer to a hello or heartbeat, and a Gamemaster's command's `messages` of up to 21 to a
+  listener that says it; descriptions in format 9, their hash also of the game's tools, kinds of
+  vehicle, damage and healing types; coins moved and a party's coin shared out kept as they're
+  written; a `prepare` refused beside `rerolls`, `enchantment` or `hitPoints`; Midi-QOL's check of a
+  use and of the activity it pairs with an attack on Foundry's computer dice; reactions and Bonus
+  Actions counted in the encounter a creature fights in, one begun elsewhere too, and a use at its
+  user named by its token there; and its six "Module 0.53.0" entries. Its `README.md` says each, in
+  its Players' rolls, dice, At themselves, Midi-QOL, Moving items and coins and Wild Shape
+  paragraphs, a new known limit, Midi-QOL reading only the encounter you have up, and its Layout's
+  rows for `coin-change.mjs`, `midi-economy.mjs` and `dice-plan.mjs`; its `test/README.md`'s rows
+  for the dnd5e and Midi-QOL stand-ins say what they now model. (app and module)
+- **ROADMAP kept current.** ROADMAP.md gains a v0.53 section, the release candidate, listing five
+  checks to make at the table before module v0.53.0 is tagged: Midi-QOL's check of a cost asked
+  once, reactions and Bonus Actions in an encounter the Gamemaster doesn't have up, a favorite moved
+  to the other list, two lists after Reorder, and the header as a page loads. Under "Before v1.0",
+  batch 8 reads as done, its twelve items taken out, with a line saying so where each run of them
+  stood; the plan's opening says batches 1 to 5 and 8 are done. Items 99 to 104, under "Found while
+  building Batch 8", are what batch 8 found: the checks of commands that aren't rolls letting other
+  kinds' fields by (99), a description's hash missing labels changed in place (100), Midi-QOL's
+  Requires targets with two encounters on one scene (101), the module's own "a" or "an" (102), Move
+  up and Move down on a favorite inside another (103), and a move's toast over the favorite that
+  just took focus (104). Items 80 and 94 cite their checks' lines where they now stand, and the
+  known limits gain a favorite with focus going to the other list by anything but its own move, and
+  dnd5e 6 reading a few coins a hundredth low. (app)
 
 ## v0.52.0 — 2026-11-19
 

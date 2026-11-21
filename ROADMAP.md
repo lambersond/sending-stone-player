@@ -198,11 +198,44 @@ Midi-QOL v14.0.x:
   an ability your world adds with no type, and not Honor; and under a transformation with Appearance
   it marks no tile.
 
+## v0.53 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc entry.
+
+**To check at the table before module v0.53.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Midi-QOL's check of a cost, asked once:** with Manual Dice on for the Gamemaster and Midi-QOL
+  set to consume the Gamemaster's resources without asking, a charm that spends 1d4 charges, used in
+  Foundry, opens one Manual Dice window, not two; so does a reaction you take that spends 1d4, and
+  Frost Brand's Rime, from Midi's card button too.
+- **Reactions and Bonus Actions in an encounter you don't have up** (what stand-ins prove least:
+  Midi-QOL's own marker there, which the module writes, is tried against a stand-in of Midi only):
+  on two scenes, each with an encounter begun on it, you viewing one, and Midi-QOL's Enforce bonus
+  actions on for all, a companion fighting in the other uses a Bonus Action from the app and gets
+  Midi's marker; a second is refused, the app saying "Not made at the table: you’ve used your bonus
+  action"; and at its next turn there the marker goes. In the console,
+  `game.actors.getName('Bat').inCombat` is `false` while you view the other encounter; and for a
+  druid in Wild Shape in the one you view, `game.combat.getCombatantsByActor(form).length` says
+  which core matches her combatant to: 1 for her form, 0 for her.
+- **A favorite moved to the other list:** on a laptop where the favorites lie in two lists (1366 px,
+  Actions), Move down from the keyboard on the first list's last favorite puts it first in the
+  second, with focus on it, and one open to its description stays open as it moves; with the mouse
+  or a touch it moves and stays open the same, and the page follows it if its new place was out of
+  sight. On a phone (390 px), a favorite open to its description is still open after Reorder is
+  opened and cancelled.
+- **Two lists after Reorder:** on that laptop, open Reorder and close it, by Cancel and by Save
+  order: the favorites are in two lists again, and follow the window's width.
+- **The header as a page loads:** on a phone, in its browser, as a sheet loads, Live and Help hold
+  still while Full screen appears in the room kept for it; in Sending Stone added to an iPhone's
+  Home Screen, which has no Full screen, the room closes as the page is ready, so Live and Help step
+  right once, and stay there.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 5 are done; batch 8 is next, then 6 and 7.
+tweaks needed may change it as it goes. Batches 1 to 5 and 8 are done; 6 and 7 are to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -218,7 +251,7 @@ tweaks needed may change it as it goes. Batches 1 to 5 are done; batch 8 is next
 6. Items 59, 60 and 98: summon activities, known forms from anywhere, and constant companions.
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
-   and 85, keyboard and focus: chosen on 2026-11-20, to come before batch 6.
+   and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 **Found while untangling the module's imports**
 
@@ -283,8 +316,8 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
     no batch yet.
 80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
     or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
-    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:594` and `:611` ("Add to
-    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:331` and, to be
+    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:599` and `:616` ("Add to
+    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:401` and, to be
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
     look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
     that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
@@ -395,7 +428,7 @@ Items 92 and 93, Midi-QOL's checks in an encounter the Gamemaster doesn't have u
 message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 94. **The module harness's wait for a druid's copy made late, under load:**
-    `test/fvtt/wildshape.mjs` (line 1170), under `MIDI=1`, "her copy made too late: Rowan's
+    `test/fvtt/wildshape.mjs` (line 1171), under `MIDI=1`, "her copy made too late: Rowan's
     concentration gone, and nothing of it left on her", turns the wolf back into Elowen with the
     copy of an effect Rowan concentrates on held back eight turns (`port.faults.slowEffects = 8`),
     then waits a fixed 160 ms (`settle(160)`) for the bridge to sweep the copy off her. It found the
@@ -491,13 +524,13 @@ hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
      batch yet.
 104. **A move's toast over the favorite that just took focus:** where the favorites lie in two lists
      (1366 px, Actions), Move down on the first list's last favorite puts it first in the second, at
-     the top of their card, with focus on it, and the move's toast ("… · Order saved") shows over
-     that very place: the favorite's name is hidden under it, its focus ring showing only at its
-     edges, for as long as the toast shows. The same where the sheet scrolls a moved favorite into
-     sight: it comes to the top, under the toast. The toasts are centered at the top of the window
-     (`RollToasts`, `src/features/rolling/components/roll-toasts/roll-toasts.tsx`), which at that
-     width is the top of the second list; their place predates batch 8, and item 74 is what now puts
-     focus there. Found reviewing item 74. In no batch yet.
+     the top of their card, with focus on it, and the move's toast ("Longsword" over "Order saved")
+     shows over that very place: the favorite's name is hidden under it, its focus ring showing only
+     at its edges, for as long as the toast shows. The same where the sheet scrolls a moved favorite
+     into sight: it comes to the top, under the toast. The toasts are centered at the top of the
+     window (`RollToasts`, `src/features/rolling/components/roll-toasts/roll-toasts.tsx`), which at
+     that width is the top of the second list; their place predates batch 8, and item 74 is what now
+     puts focus there. Found reviewing item 74. In no batch yet.
 
 ## v1.0
 
@@ -561,6 +594,9 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   as two Hunter's Marks, have it rolled by Foundry for both, until each has rolled its bonus
   damage; a bonus only one of them awaits, such as Sneak Attack, is still asked.
 - Moving several items at once isn't planned unless it's asked for.
+- Under dnd5e 6, in a world that shows a coin's decimals, dnd5e floors each coin to them as it reads
+  the sheet, so a few amounts stored as written read a hundredth low, in Foundry and in the app:
+  4.56 gp reads 4.55.
 - Summon activities are used in Foundry (planned before v1.0, item 59).
 - A companion shared by several characters is asked a save card's save only where every one of
   their players can read the card.
