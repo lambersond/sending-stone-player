@@ -59,6 +59,24 @@ so an item from it is named with its number when it was built, which may since b
   0.53.0 in Foundry; with an older one, only the encounter the Gamemaster has up counts. Midi alone
   still checks a use the Gamemaster makes in Foundry, and only in the encounter they have up.
   (module, item 92)
+- **Enter rolls after a roll's menu opened from the keyboard.** With a check's, save's or attack's
+  button focused, the menu key or Shift+F10 opens its menu; once it closes, the next Enter or Space
+  rolls, where it did nothing and the one after rolled. (app, item 73)
+- **The header holds still as a page loads.** Live and Help no longer step left as Full screen
+  appears: its room is kept, empty, until the page is ready. Where there's no Full screen, as in
+  Sending Stone added to an iPhone's Home Screen, the room closes as soon as the page is ready.
+  (app, item 82)
+- **Focus stays where a move was sent from.** A move sent from its dialog with the keyboard, from a
+  character's Currency row (Add or remove, Give) or an item's Give…, leaves focus on the button that
+  opened the dialog, as Escape does, where it fell to the page; the button waits, dimmed and doing
+  nothing, until the move is made. Where the move takes it away: as an item given, sent or removed
+  whole leaves the sheet, focus goes to the row beside it, else to the row of the container it was
+  in, else to the Inventory tab; as the last coins are given, from Give to Add or remove. A row of a
+  party's sheet that goes with focus in it hands it on the same way. (app, item 85)
+- **"a Utility check".** Names that begin with a "u" said "you", with "eu" or with the word "one"
+  take "a": a world's own ability, a Wild Shape form or ammunition, as "a Utility saving throw", "a
+  Unicorn", where they took "an". dnd5e's own names read as before. And "an 8th-level spell slot",
+  where it read "a". (app, item 96)
 
 ### Maintenance
 
@@ -75,11 +93,29 @@ so an item from it is named with its number when it was built, which may since b
   its switch to spend on is refused "bonus-action", nothing rolled or spent, and the tray reads "Not
   made at the table: you’ve used your bonus action"; that run wants 133 checks where it wanted 131
   (item 92). `e2e/README.md`'s known focus race in `alone`'s part 17 is said to be met once in its
-  dnd5e 5 run too. (app, items 92 and 93)
+  dnd5e 5 run too. `sheet` gains Enter after Shift+F10 and Escape on a skill, and after a way to
+  roll chosen from its menu (item 73); `help` the header at 360, at both seats, before and after the
+  page hydrates, and `fullscreen` the header in the iPhone Home Screen app (item 82); `givetake`
+  focus on Thorin's Give, dimmed, while his coins are on their way, and after, and `transfers` focus
+  on Give Longsword, dimmed, while its give is held, and on the Inventory tab once the Longsword,
+  given whole, leaves his sheet (item 85); and `companionsaves` a world's own Utility save in a
+  companion's notice (item 96). So the plain runs of `sheet`, `help`, `fullscreen`, `givetake`,
+  `transfers` and `companionsaves` want 77, 30, 31, 78, 79 and 46 checks, where they wanted 75, 28,
+  30, 76, 77 and 45, and the dnd5e 6 runs of `givetake` and `transfers` 79 and 83, where they wanted
+  77 and 81; their other runs want what they did. (app, items 73, 82, 85, 92, 93 and 96)
 - **Jest tests.** Tests pin the app's answer of `gmRollMessages: 1`, last of its features and a
   whole number, to a hello and a heartbeat (`src/app/api/events/route.test.ts` and the routes'
   golden), and a result's `messages` read whole up to 21, a list of 22 left out whole
-  (`src/schemas/sending-stone.test.ts`). (app, item 93)
+  (`src/schemas/sending-stone.test.ts`). New tests pin where focus goes as a row or a move's button
+  goes from the page (`src/utils/focus-beside.ts`, `src/hooks/use-focus-handed-on.ts`), only where
+  focus was in it and was lost; a move's button that waits, keeping focus and doing nothing; and an
+  item given whole by Enter, the Currency row's Give as the last coins go and a container's last
+  item handing focus on, a row with no move handing it nowhere (the Inventory tab's and the give and
+  coin controls' tests) (item 85). Others pin a roll's menu from the keyboard leaving the next Enter
+  to roll, a touch's or a pen's long-press leaving its ending tap unrolled (item 73); Full screen's
+  room kept, empty and hidden from screen readers, until the page hydrates (item 82); and "a" or
+  "an" before a "u" said "you", "eu", the word "one", a silent h and a number said with a vowel, and
+  the slot words with it (`src/utils/articles.ts`, item 96). (app, items 73, 82, 85, 93 and 96)
 - **The module harness.** `handouts.mjs` checks, under dnd5e 5.3.3 and 6.0.5, a Gamemaster's
   hand-out to 20 characters and parties: all 21 of its messages listed to an app that answers
   `gmRollMessages` as a whole number of 1 or more, the first 20 to any other, a late result's alike,

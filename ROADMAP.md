@@ -250,18 +250,10 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
 
 **Found while building Batch 2**
 
-Item 72, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, is done, in
+Items 72 and 73, Midi-QOL's check of a Gamemaster's own use asking for its dice twice and a roll's
+button dropping the first Enter after its menu was opened from the keyboard, are done, in
 [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
-73. **A roll's button drops the first Enter after its menu was opened from the keyboard:** with a
-    check's, save's or attack's button focused, the menu key or Shift+F10 opens its menu; whatever
-    is done there, the next Enter or Space on the button does nothing, and the one after rolls.
-    `RollButton` (`src/features/rolling/components/roll-button/roll-button.tsx`) marks every menu as
-    opened by a press, so that the tap ending a long-press doesn't roll too; a key's menu is
-    followed by no such tap, as `usePressMenu` already knows. Every roll button, from before v0.47;
-    found building item 47, whose Move up and Move down on a skill or tool favorite are one more way
-    into it, and seen in Chromium at 1280 px: after Shift+F10 and Escape on a skill favorite, the
-    first Enter rolled nothing and the second rolled. In batch 8.
 74. **Keyboard focus after a favorite moves from one list to the other:** where the favorites are in
     two lists side by side (their card 720 px wide or wider with no column of its own, as on a
     laptop 1366 px wide), Move up or Move down chosen from a favorite's menu with the keyboard, on
@@ -314,14 +306,14 @@ Item 72, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, i
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
     look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
     that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
-    600 ms)". (c) A page's header read before the page has hydrated, where Full screen is drawn only
-    once it has: to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several
-    looks at a page `goto()` loaded, which has been enough so far; help's `ready`
-    (`e2e/help-e2e.mjs`) is the wait. The party suite reads its header (`party-e2e.mjs:213`, `:505`)
-    after a link within the app or a wait for "Reconnecting", which only a page that has hydrated
-    shows. Item 57's kind has none left: `stopFetching({ age })` waits, and so do notesoffline's
-    four closings by the Gamemaster leaving. Nor has item 71's, a photograph read for its colors,
-    which is toasts' alone. In no batch yet.
+    600 ms)". (c) Full screen read before the page has hydrated, where it is drawn only once it has
+    (its room is kept, empty, until then, item 82, so the header no longer moves): to be checked,
+    `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page `goto()`
+    loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait. The party
+    suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a wait for
+    "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none left:
+    `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster leaving.
+    Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no batch yet.
 81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
     Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
     screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
@@ -330,24 +322,11 @@ Item 72, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, i
     once, waiting up to a second for it on an opening that has none. An opening connected but unable
     to reach Sending Stone still ends on the phone's own error page, which is item 63's. Left by
     item 56. In no batch yet.
-82. **The header's Help moves as a sheet hydrates:** Full screen is drawn only once the page has
-    hydrated (`useFullscreen` answers false until then), so between the sheet's markup arriving and
-    hydration the header's right has one button fewer than the outline before it and the header
-    after it: Live and Help sit one button's width to the right, then step back as Full screen
-    appears (36 px at 360, measured while building item 70). A slot kept for Full screen until then,
-    as the outline keeps one, would hold them still. Found while building item 70. In batch 8.
 
-Items 83 and 84, a spell prepared's check and coins moved or distributed keeping their fractions,
-are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
+or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
+sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
-85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
-    keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
-    it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
-    Give (v0.49's Add or take away and Hand out); by the same code it is so for an item's Give…,
-    from v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which
-    has no tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet,
-    where focus should go (the tray's line, or the row's label, which says what's on its way) is one
-    decision for all of its moves. Found reviewing items 67 and 68. In batch 8.
 86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
     the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
     300 ms of the tap, timed from before `page.touchscreen.tap` to the toast detached, so the 300 ms
@@ -459,15 +438,8 @@ message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-
 
 **Found while building Batch 5**
 
-96. **"an" before a "u" that sounds like "you":** the app's one rule for "a" or "an" (`articleOf`,
-    `src/utils/articles.ts`), which the chat's request cards and companions' notices use, among
-    others, says "an" before every vowel. So a world's own skill or ability, or a Wild Shape form or
-    ammunition, whose name begins with a "u" said "you", or with "Eu", would read "an Utility check"
-    or "an European". dnd5e's own names all read right. A short list of such beginnings beside the
-    silent h's would mend it. Found building item 64. In batch 8.
-
-Item 97, a world's own tools in a description's hash, is done, in [CHANGELOG.md](CHANGELOG.md)'s
-v0.53.0-rc.
+Items 96 and 97, "an" before a "u" that sounds like "you" and a world's own tools in a description's
+hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 **Asked for on 2026-11-20**
 
@@ -520,6 +492,12 @@ v0.53.0-rc.
      that uses from the app something needing a target, with none picked, isn't refused beforehand
      ("target"): Midi refuses it, and the player is told Midi-QOL didn't make it ("midi") rather
      than why. Read from Midi's source, not tried. Found planning item 92. In no batch yet.
+102. **The module's "a" or "an":** Wild Shape's lines in Foundry's chat ("… uses Wild Shape and
+     becomes {aForm}.", "… is no longer {aForm}: Wild Shape ends.") put "an" before every vowel and
+     "a" before everything else (`articled`, the module's `scripts/command-wildshape.mjs`), so a
+     world's Unicorn form reads "becomes an Unicorn", and one named for Honor "a Honor". The app's
+     rule (`articleOf`, `src/utils/articles.ts`) could be the module's too. Module only, small.
+     Found building item 96. In no batch yet.
 
 ## v1.0
 
