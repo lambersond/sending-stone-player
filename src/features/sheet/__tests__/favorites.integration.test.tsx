@@ -18,6 +18,7 @@ import { Favoriting } from '../components/favoriting/favoriting'
 import { Preparing } from '../components/preparing/preparing'
 import { usePreparing } from '../components/preparing/use-preparing'
 import { arrangeEntries } from '../utils/favorite-order'
+import { Transferring } from '@/features/transfers/components/transferring/transferring'
 import {
   castingSheet,
   fullerSheet,
@@ -1501,6 +1502,33 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
 
     expect(warhammerName()).toHaveFocus()
     expect(listsIn()[1].firstElementChild).toBe(favoriteIn('Warhammer'))
+  })
+
+  it('keeps focus on an item with a move of its own moved to the other list, never on the row beside it that its row hands focus to as it goes (ROADMAP items 74 and 85)', async () => {
+    wide(720)
+    // Where transfers reach the favorites, an item's row with a move hands focus, as it goes, to
+    // the row beside it (item 85): Bless, beside the Hempen Rope last of the first list.
+    render(
+      <Transferring controls={{ send: () => jest.fn() }}>
+        <Moving
+          sheet={withFavorites([
+            fireball,
+            bless,
+            item('rope', 'loot'),
+            perception,
+            tools,
+            slots,
+          ])}
+          onSave={showAtOnce}
+        />
+      </Transferring>,
+    )
+    expect(listsIn()[0].lastElementChild).toBe(favoriteIn('Hempen Rope'))
+
+    await moveFrom(() => openerOf('Hempen Rope'), 'Hempen Rope', 'Move down')
+
+    expect(openerOf('Hempen Rope')).toHaveFocus()
+    expect(listsIn()[1].firstElementChild).toBe(favoriteIn('Hempen Rope'))
   })
 
   /** Orders sent and held back, each shown as it's called, as `holdBack` keeps them. */
