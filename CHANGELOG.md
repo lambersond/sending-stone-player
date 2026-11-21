@@ -150,7 +150,7 @@ so an item from it is named with its number when it was built, which may since b
   `sends.mjs` check that a dnd5e 6 fraction moved or shared out stays as it's written, the coins put
   back too (item 84); `preparing.mjs`, a prepare refused beside rerolls, an enchantment or hit
   points, each given as 1 and as 0 (item 83); and `links.mjs` and `groups.mjs`, descriptions in
-  format 9, whose hash changes with the game's tools, kinds of vehicle, damage and healing types
+  format 9, whose hash changes as the game gains a tool, kind of vehicle, damage or healing type
   (item 97). Under Midi-QOL, `later-dice.mjs` checks that Midi's check of a cost rolls Foundry's
   computer dice and the cost is asked once, in the Gamemaster's own use where Midi spends without
   its dialog, a reaction taken so, the activity Midi pairs with an attack and an untyped attack from
@@ -161,23 +161,27 @@ so an item from it is named with its number when it was built, which may since b
   there, each once, and not before, as Previous Turn, in the same round or a round back, or Undo End
   Turn takes the turn back onto it; nothing marked for a use Midi stops before its card; a creature
   gone skipped, an encounter deleted forgotten, and a creature Midi allows two a round; and a druid
-  in Wild Shape counted by her own combatant. `uses.mjs` checks a use at its user made at its token
-  in that encounter, `enchant.mjs` an enchantment's Bonus Action marked there, and the stand-in for
-  Foundry's `inCombat` reads only the encounter the Gamemaster has up, as Foundry's does (item 92).
-  `test/README.md` counts 52 harnesses and 122 runs. (module, items 72, 83, 84, 92, 93 and 97)
+  in Wild Shape counted by her own combatant. `uses.mjs` checks that a use at its user names its
+  token in that encounter on its card, where the scene the Gamemaster views draws none of it, and
+  that Midi-QOL makes it at no one; `enchant.mjs`, an enchantment's Bonus Action marked there; and
+  the stand-in for Foundry's `inCombat` reads only the encounter the Gamemaster has up, as Foundry's
+  does (item 92). `test/README.md` counts 52 harnesses and 122 runs. (module, items 72, 83, 84, 92,
+  93 and 97)
 - **Docs for v0.53.** README.md's supported-versions table gains v0.53.0; its Tested line is as it
   was, as no older module joined `e2e/skew.conf`. The module's `PROTOCOL.md` gains `gmRollMessages`
   in the answer to a hello or heartbeat, and a Gamemaster's command's `messages` of up to 21 to a
-  listener that says it; descriptions in format 9, their hash also of the game's tools, kinds of
-  vehicle, damage and healing types; coins moved and a party's coin shared out kept as they're
-  written; a `prepare` refused beside `rerolls`, `enchantment` or `hitPoints`; Midi-QOL's check of a
-  use and of the activity it pairs with an attack on Foundry's computer dice; reactions and Bonus
-  Actions counted in the encounter a creature fights in, one begun elsewhere too, and a use at its
-  user named by its token there; and its six "Module 0.53.0" entries. Its `README.md` says each, in
-  its Players' rolls, dice, At themselves, Midi-QOL, Moving items and coins and Wild Shape
-  paragraphs, a new known limit, Midi-QOL reading only the encounter you have up, and its Layout's
-  rows for `coin-change.mjs`, `midi-economy.mjs` and `dice-plan.mjs`; its `test/README.md`'s rows
-  for the dnd5e and Midi-QOL stand-ins say what they now model. (app and module)
+  listener that says it; descriptions in format 9, their hash also of which tools, kinds of vehicle,
+  damage and healing types the game has, never of what each is called, a known limit; coins moved
+  and a party's coin shared out kept as they're written; a `prepare` refused beside `rerolls`,
+  `enchantment` or `hitPoints`; Midi-QOL's check of a use and of the activity it pairs with an
+  attack on Foundry's computer dice; reactions and Bonus Actions counted in the encounter a creature
+  fights in, one begun elsewhere too, and a use at its user named by its token there; and its six
+  "Module 0.53.0" entries. Its `README.md` says each but that limit and the `prepare` refusal, which
+  no player meets, in its Players' rolls, dice, At themselves, Midi-QOL, Moving items and coins,
+  Wild Shape and descriptions sent again paragraphs, a new known limit, Midi-QOL reading only the
+  encounter you have up, and its Layout's rows for `coin-change.mjs`, `midi-economy.mjs` and
+  `dice-plan.mjs`; its `test/README.md`'s rows for the dnd5e and Midi-QOL stand-ins say what they
+  now model. (app and module)
 - **ROADMAP kept current.** ROADMAP.md gains a v0.53 section, the release candidate, listing five
   checks to make at the table before module v0.53.0 is tagged: Midi-QOL's check of a cost asked
   once, reactions and Bonus Actions in an encounter the Gamemaster doesn't have up, a favorite moved

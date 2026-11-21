@@ -316,7 +316,7 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
     no batch yet.
 80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
     or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
-    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:599` and `:616` ("Add to
+    `removals-e2e.mjs:354` (part 2, Shift+F10), `favoriting-e2e.mjs:598` and `:615` ("Add to
     favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:401` and, to be
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
     look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
