@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { FavoriteOrderContext } from '@/features/sheet/components/favoriting/use-favorite-choice'
 import { movable, stepOrders } from '@/features/sheet/utils/favorite-order'
+import { rowControlOf } from '@/utils/focus-beside'
 import type { FavoriteMoves } from '@/features/sheet/components/favoriting/types'
 import type { FavoriteEntry } from '@/types/sending-stone'
 
@@ -17,24 +18,17 @@ import type { FavoriteEntry } from '@/types/sending-stone'
 const REORDERED = 'Favorites'
 
 /**
- * What takes focus for a favorite's row, as its own menu opens from it: what opens it, the row
- * itself where it takes focus for its menu, as spell slots' does, or its first button, an action's
- * name or a check's roll. Only the row's own, never a row listed inside it once it's open, and a
- * button too: so not the effect controls' `rowControl`, which looks anywhere in a row for what
- * opens it.
- */
-const ROW_CONTROL =
-  ':scope > details > summary, :scope > [tabindex="0"], :scope > button, :scope > div > button'
-
-/**
  * Gives a favorite's row focus where focus was lost, as it is with the row it was on, drawn anew
- * in the other of two lists (ROADMAP item 74); never where focus is somewhere else.
+ * in the other of two lists (ROADMAP item 74); never where focus is somewhere else. What takes it
+ * is the row's own control (`rowControlOf`), as its own menu opens from it: what opens it, the row
+ * itself where it takes focus for its menu, as spell slots' does, or its first button, an action's
+ * name or a check's roll; never a row listed inside it once it's open.
  * @param row - The favorite's row, by its place among the card's rows.
  */
 function focusRowIfLost(row: Element | undefined): void {
   const active = document.activeElement
   if (active && active !== document.body && active.isConnected) return
-  row?.querySelector<HTMLElement>(ROW_CONTROL)?.focus()
+  rowControlOf(row)?.focus()
 }
 
 /**
