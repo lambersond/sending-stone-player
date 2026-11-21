@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -15,6 +17,8 @@ import { FavoritesColumn } from '../components/favorites/favorites-column'
 import { Favoriting } from '../components/favoriting/favoriting'
 import { Preparing } from '../components/preparing/preparing'
 import { usePreparing } from '../components/preparing/use-preparing'
+import { arrangeEntries } from '../utils/favorite-order'
+import { Transferring } from '@/features/transfers/components/transferring/transferring'
 import {
   castingSheet,
   fullerSheet,
@@ -1237,13 +1241,119 @@ describe('components/character-sheet/favorites, removed from the app, from modul
 /** Reorder, beneath the favorites, from module 0.47.0. */
 const reorder = () => screen.getByRole('button', { name: 'Reorder favorites' })
 
+/** Shows an order of the favorites, by key. */
+type ShowOrder = (keys: string[]) => void
+
+/**
+ * The strip of this sheet's favorites, after a button elsewhere on the page, inside a pane that
+ * offers favorites and takes orders, each order sent shown as `onSave` says: at once, as the pane
+ * shows one on its way, unless it says otherwise.
+ */
+function Moving({
+  sheet,
+  onSave,
+}: Readonly<{
+  sheet: CharacterSheet
+  onSave: (keys: string[], show: ShowOrder) => void
+}>) {
+  const [order, setOrder] = useState<string[]>()
+  const offering = offeringFavorites([
+    'item:warhammer',
+    'activity:staff.cast-fireball',
+    'effect:blessed',
+  ])
+  return (
+    <>
+      <button type='button'>Elsewhere</button>
+      <Favoriting
+        value={offering.value}
+        ordering={{
+          on: true,
+          arrange: entries =>
+            order ? arrangeEntries(entries, order) : entries,
+          save: keys => onSave(keys, setOrder),
+        }}
+      >
+        <FavoritesStrip {...propsFor(sheet)} />
+      </Favoriting>
+    </>
+  )
+}
+
+/** Shows each order at once, as the pane does with one on its way. */
+const showAtOnce = (keys: string[], show: ShowOrder) => show(keys)
+
+/** Until Floating UI's focus, given back in a microtask as a menu closes, has been. */
+const settle = () =>
+  act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0))
+  })
+
+/** The favorites' card's lists, as they're laid out: one, or two side by side. */
+const listsIn = () => [
+  ...screen
+    .getByRole('region', { name: 'Favorites' })
+    .querySelectorAll<HTMLElement>(':scope > div > div > ul'),
+]
+
+/** Warhammer's name, which opens it and its menu. */
+const warhammerName = () =>
+  screen.getByRole('button', { name: /^Warhammer/, expanded: false })
+
+/** Opens a favorite's menu from what has focus for it, and chooses a move there. */
+const moveFrom = async (
+  control: () => HTMLElement,
+  menu: string | RegExp,
+  move: string,
+) => {
+  control().focus()
+  fireEvent.contextMenu(control())
+  await userEvent.setup().click(
+    within(screen.getByRole('menu', { name: menu })).getByRole('menuitem', {
+      name: move,
+    }),
+  )
+  await settle()
+}
+
+/** Damage, which makes a row roll. */
+const ROLLS = [{ formula: '1d6', type: 'Force', healing: false }]
+/** The sheet, its `id` taken off the Actions list, as Tidy 5e lets a player do. */
+const offActions = (sheet: CharacterSheet, id: string) => {
+  for (const group of sheet.actions) {
+    group.actions = group.actions.filter(action => action.id !== id)
+  }
+  return sheet
+}
+/** The sheet as it is. */
+const asIs = (sheet: CharacterSheet) => sheet
+/** A favorite's row among the card's, by its name. */
+const favoriteIn = (name: string) =>
+  listsIn()
+    .flatMap(list => [...list.children])
+    .find(
+      row => row.querySelector('.font-medium')?.textContent === name,
+    ) as HTMLElement
+/** What opens a favorite's row: an action's name, or a row's summary. */
+const openerOf = (name: string) =>
+  favoriteIn(name).querySelector(
+    ':scope > details > summary, :scope > div > button[aria-expanded]',
+  ) as HTMLElement
+/** Whether what opens a row has it open. */
+const isOpen = (opener: HTMLElement) =>
+  opener.tagName === 'SUMMARY'
+    ? (opener.parentElement as HTMLDetailsElement).open
+    : opener.getAttribute('aria-expanded') === 'true'
+
 describe('components/character-sheet/favorites, put in order, from module 0.47.0', () => {
+  const Observer = globalThis.ResizeObserver
   beforeEach(() => {
     globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
   })
 
   afterEach(() => {
     jest.restoreAllMocks()
+    globalThis.ResizeObserver = Observer
   })
 
   /**
@@ -1267,6 +1377,351 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
     )
     return save
   }
+  /** The strip of this sheet's favorites, its orders shown as `onSave` says (at once). */
+  const renderMoving = (
+    sheet: CharacterSheet,
+    onSave: (keys: string[], show: ShowOrder) => void = showAtOnce,
+  ) => render(<Moving sheet={sheet} onSave={onSave} />)
+
+  it('lays them out in two lists again once Reorder closes, by Cancel or by Save order (ROADMAP item 75)', async () => {
+    const user = userEvent.setup()
+    // As a browser does: each watch told of a change to its element's size until it ends, and an
+    // element gone from the page 0 wide.
+    const watching = new Set<() => void>()
+    globalThis.ResizeObserver = jest.fn((callback: () => void) => {
+      const told = () => callback()
+      watching.add(told)
+      return {
+        observe: jest.fn(),
+        unobserve: jest.fn(),
+        disconnect: () => watching.delete(told),
+      }
+    }) as unknown as typeof ResizeObserver
+    const report = () => {
+      for (const told of watching) told()
+    }
+    jest
+      .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        // eslint-disable-next-line unicorn/no-this-outside-of-class -- the element it's read of
+        return this.isConnected ? 720 : 0
+      })
+    renderMoving(withFavorites())
+    expect(listsIn()).toHaveLength(2)
+
+    await user.click(reorder())
+    act(report)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(listsIn()).toHaveLength(2)
+
+    await user.click(reorder())
+    await user.click(
+      screen.getByRole('button', { name: 'Move Warhammer down' }),
+    )
+    act(report)
+    await user.click(screen.getByRole('button', { name: 'Save order' }))
+    expect(listsIn()).toHaveLength(2)
+    expect(
+      within(listsIn()[0])
+        .getAllByRole('listitem')
+        .map(row => row.textContent?.slice(0, 9)),
+    ).toEqual(['Superiori', 'Cast Fire', 'Warhammer', 'Bless9 Ro'])
+  })
+
+  // Six favorites at 720, three and three: Superiority Dice, the old-style resource, left out.
+  const [, warhammer, fireball, bless, perception, tools, slots] =
+    sheetFavorites()
+  it.each([
+    [
+      'an item moved from its own menu on its name',
+      [fireball, bless, warhammer, perception, tools, slots],
+      warhammerName,
+      'Warhammer',
+      'Move down',
+      1,
+    ],
+    [
+      "a skill moved from its roll's menu",
+      [fireball, bless, warhammer, perception, tools, slots],
+      () => screen.getByRole('button', { name: /^Perception check/ }),
+      /^Perception check/,
+      'Move up',
+      0,
+    ],
+    [
+      'spell slots moved from a menu of their own',
+      [fireball, bless, warhammer, slots, perception, tools],
+      () => rowOf('1st Level'),
+      '1st Level',
+      'Move up',
+      0,
+    ],
+    [
+      'an effect moved from the row that opens it',
+      [fireball, warhammer, bless, perception, tools, slots],
+      () => rowOf('Bless'),
+      'Bless',
+      'Move down',
+      1,
+    ],
+  ])(
+    'keeps focus on %s to the other of two lists, as within one (ROADMAP item 74)',
+    async (_what, favorites, control, menu, move, list) => {
+      wide(720)
+      renderMoving(withFavorites(favorites))
+      const [first] = listsIn()
+      const before = first.contains(control()) ? 0 : 1
+      expect(before).toBe(1 - list)
+
+      await moveFrom(control, menu, move)
+
+      expect(control()).toHaveFocus()
+      expect(listsIn()[list]).toContainElement(control())
+    },
+  )
+
+  it('keeps focus on a favorite moved to the other list, never on a row listed inside one open above it (ROADMAP item 74)', async () => {
+    wide(720)
+    renderMoving(
+      withFavorites([
+        fireball,
+        item('backpack', 'container', 'Backpack'),
+        warhammer,
+        perception,
+        tools,
+        slots,
+      ]),
+    )
+    // Open in the first list, the Backpack lists what it holds, rows of its own.
+    await userEvent.setup().click(openerOf('Backpack'))
+    expect(
+      within(favoriteIn('Backpack')).getAllByRole('listitem'),
+    ).toHaveLength(2)
+
+    await moveFrom(warhammerName, 'Warhammer', 'Move down')
+
+    expect(warhammerName()).toHaveFocus()
+    expect(listsIn()[1].firstElementChild).toBe(favoriteIn('Warhammer'))
+  })
+
+  it('keeps focus on an item with a move of its own moved to the other list, never on the row beside it that its row hands focus to as it goes (ROADMAP items 74 and 85)', async () => {
+    wide(720)
+    // Where transfers reach the favorites, an item's row with a move hands focus, as it goes, to
+    // the row beside it (item 85): Bless, beside the Hempen Rope last of the first list.
+    render(
+      <Transferring controls={{ send: () => jest.fn() }}>
+        <Moving
+          sheet={withFavorites([
+            fireball,
+            bless,
+            item('rope', 'loot'),
+            perception,
+            tools,
+            slots,
+          ])}
+          onSave={showAtOnce}
+        />
+      </Transferring>,
+    )
+    expect(listsIn()[0].lastElementChild).toBe(favoriteIn('Hempen Rope'))
+
+    await moveFrom(() => openerOf('Hempen Rope'), 'Hempen Rope', 'Move down')
+
+    expect(openerOf('Hempen Rope')).toHaveFocus()
+    expect(listsIn()[1].firstElementChild).toBe(favoriteIn('Hempen Rope'))
+  })
+
+  /** Orders sent and held back, each shown as it's called, as `holdBack` keeps them. */
+  const held: (() => void)[] = []
+  const holdBack = (keys: string[], show: ShowOrder) => {
+    held.push(() => show(keys))
+  }
+  afterEach(() => {
+    held.length = 0
+  })
+
+  it.each([
+    ['again, once the move has shown', showAtOnce],
+    ["for a move the list didn't show at once", holdBack],
+  ])('never moves focus %s', async (_what, onSave) => {
+    wide(720)
+    const favorites = [fireball, bless, warhammer, perception, tools, slots]
+    const { rerender } = renderMoving(withFavorites(favorites), onSave)
+    await moveFrom(warhammerName, 'Warhammer', 'Move down')
+    act(() => (document.activeElement as HTMLElement).blur())
+
+    // The list's next commit, as a sheet arrives, gives no row focus, whatever order it shows;
+    // nor, where the order was held back, a later one that shows that very order.
+    rerender(<Moving sheet={withFavorites([...favorites])} onSave={onSave} />)
+    await settle()
+    expect(document.body).toHaveFocus()
+    act(() => held.shift()?.())
+    await settle()
+
+    expect(listsIn()[1]).toContainElement(warhammerName())
+    expect(document.body).toHaveFocus()
+  })
+
+  it('never moves focus from where it is as the move shows', async () => {
+    wide(720)
+    renderMoving(
+      withFavorites([fireball, bless, warhammer, perception, tools, slots]),
+      (keys, show) => {
+        screen.getByRole('button', { name: 'Elsewhere' }).focus()
+        show(keys)
+      },
+    )
+    await moveFrom(warhammerName, 'Warhammer', 'Move down')
+
+    expect(screen.getByRole('button', { name: 'Elsewhere' })).toHaveFocus()
+    expect(listsIn()[1]).toContainElement(warhammerName())
+  })
+
+  // One row for each way the list's open state reaches the row it's drawn as.
+  it.each([
+    ["an action's row", warhammer, 'Warhammer', 'BUTTON', asIs],
+    [
+      "a spell that rolls but isn't among the actions",
+      item('misty', 'spell'),
+      'Misty Step',
+      'BUTTON',
+      (sheet: CharacterSheet) => {
+        const misty = sheet.spells
+          .flatMap(level => level.spells)
+          .find(({ id }) => id === 'misty')
+        Object.assign(misty ?? {}, { damage: ROLLS })
+        return sheet
+      },
+    ],
+    [
+      'a spell that rolls nothing',
+      item('cure', 'spell'),
+      'Cure Wounds',
+      'SUMMARY',
+      asIs,
+    ],
+    [
+      "a thing carried that rolls but isn't among the actions",
+      item('warhammer', 'weapon'),
+      'Warhammer',
+      'BUTTON',
+      (sheet: CharacterSheet) => {
+        const warhammer = sheet.inventory.sections
+          .flatMap(section => section.items)
+          .find(({ id }) => id === 'warhammer')
+        Object.assign(warhammer ?? {}, { damage: ROLLS })
+        return offActions(sheet, 'warhammer')
+      },
+    ],
+    [
+      'a thing carried that rolls nothing',
+      item('rope', 'loot'),
+      'Hempen Rope',
+      'SUMMARY',
+      asIs,
+    ],
+    [
+      "a feature that rolls but isn't among the actions",
+      item('second-wind', 'feat'),
+      'Second Wind',
+      'BUTTON',
+      (sheet: CharacterSheet) => {
+        const [fighter] = sheet.features
+        fighter.features[0] = { ...fighter.features[0], damage: ROLLS }
+        return offActions(sheet, 'second-wind')
+      },
+    ],
+    [
+      'a feature that rolls nothing',
+      item('darkvision', 'feat'),
+      'Darkvision',
+      'SUMMARY',
+      asIs,
+    ],
+  ])(
+    'keeps %s open to its description as it moves to the other list (ROADMAP item 74)',
+    async (_what, favorite, name, drawn, sheetOf) => {
+      const user = userEvent.setup()
+      wide(720)
+      renderMoving(
+        sheetOf(
+          withFavorites([fireball, bless, favorite, perception, tools, slots]),
+        ),
+      )
+      // Drawn as the row says, last of the first list.
+      expect(openerOf(name).tagName).toBe(drawn)
+      expect(listsIn()[0].lastElementChild).toBe(favoriteIn(name))
+
+      await user.click(openerOf(name))
+      await settle()
+      expect(isOpen(openerOf(name))).toBe(true)
+      fireEvent.contextMenu(openerOf(name))
+      await user.click(
+        within(screen.getByRole('menu', { name })).getByRole('menuitem', {
+          name: 'Move down',
+        }),
+      )
+      await settle()
+
+      expect(listsIn()[1].firstElementChild).toBe(favoriteIn(name))
+      expect(isOpen(openerOf(name))).toBe(true)
+    },
+  )
+
+  // An action's row is open only as the list says, so it couldn't close again; a row that rolls
+  // nothing closes its own details, and would open again as it's drawn anew.
+  it.each([
+    ["an action's row", warhammer, 'Warhammer'],
+    ['a row that rolls nothing', item('rope', 'loot'), 'Hempen Rope'],
+  ])(
+    'closes %s again, and it stays closed as it moves to the other list (ROADMAP item 74)',
+    async (_what, favorite, name) => {
+      const user = userEvent.setup()
+      wide(720)
+      renderMoving(
+        withFavorites([fireball, bless, favorite, perception, tools, slots]),
+      )
+      await user.click(openerOf(name))
+      await settle()
+      expect(isOpen(openerOf(name))).toBe(true)
+
+      await user.click(openerOf(name))
+      await settle()
+      expect(isOpen(openerOf(name))).toBe(false)
+      fireEvent.contextMenu(openerOf(name))
+      await user.click(
+        within(screen.getByRole('menu', { name })).getByRole('menuitem', {
+          name: 'Move down',
+        }),
+      )
+      await settle()
+
+      expect(listsIn()[1].firstElementChild).toBe(favoriteIn(name))
+      expect(isOpen(openerOf(name))).toBe(false)
+    },
+  )
+
+  it('opens a favorite again as it was once Reorder closes, by Cancel or by Save order (ROADMAP item 74)', async () => {
+    const user = userEvent.setup()
+    renderMoving(withFavorites())
+    await user.click(warhammerName())
+    const before = favoriteIn('Warhammer')
+    expect(isOpen(openerOf('Warhammer'))).toBe(true)
+
+    await user.click(reorder())
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    // Drawn anew, as Reorder took the card's place, and open as it was.
+    expect(before.isConnected).toBe(false)
+    expect(isOpen(openerOf('Warhammer'))).toBe(true)
+
+    await user.click(reorder())
+    await user.click(
+      screen.getByRole('button', { name: 'Move Warhammer down' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Save order' }))
+    expect(isOpen(openerOf('Warhammer'))).toBe(true)
+  })
+
   it('takes focus to Reorder’s heading as it opens, and back to Reorder as Cancel or Save order closes it', async () => {
     const user = userEvent.setup()
     const save = renderOrdering()

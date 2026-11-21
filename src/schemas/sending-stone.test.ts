@@ -1108,14 +1108,15 @@ describe('schemas/sending-stone', () => {
           messages?: string[]
         }
       ).messages
-    const twenty = Array.from({ length: 20 }, (_, index) => `m${index}`)
+    // Changed on purpose (item 93): from module 0.53.0, 21.
+    const most = Array.from({ length: 21 }, (_, index) => `m${index}`)
 
     expect(listed(['m-roll', 'm-outcome'])).toEqual(['m-roll', 'm-outcome'])
     expect(listed([])).toEqual([])
-    expect(listed(twenty)).toEqual(twenty)
+    expect(listed(most)).toEqual(most)
     expect(listed(['x'.repeat(64)])).toEqual(['x'.repeat(64)])
     for (const junk of [
-      [...twenty, 'm20'],
+      [...most, 'm21'],
       ['x'.repeat(65)],
       [''],
       ['m-roll', 7],

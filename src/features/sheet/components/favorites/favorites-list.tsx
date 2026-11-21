@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import clsx from 'clsx'
 import { ArrowDownUp } from 'lucide-react'
 import { useActionRows } from '../action-entry/use-action-rows'
@@ -11,6 +11,7 @@ import { hitDieSpending } from '../hit-dice/utils'
 import { FavoriteRow } from './favorite-row'
 import { FavoritesReorder } from './favorites-reorder'
 import { useFavoriteList } from './use-favorite-list'
+import { useOpenRows } from './use-open-rows'
 import { useWidth } from '@/features/sheet/hooks/use-width'
 import type { FavoritesProps } from './types'
 
@@ -26,7 +27,8 @@ const SPLIT_FROM = 720
  * Character tab; and each opens to its description. Inside them, nothing is marked a favorite, as
  * every one is. Where they're wide enough, they're in two lists side by side. From module 0.47.0,
  * where the game takes it, they're put in order: Reorder, beneath them, and Move up and Move down
- * in each one's menu, an order on its way shown at once.
+ * in each one's menu, an order on its way shown at once. A favorite moved from one list to the
+ * other keeps focus there, as within one.
  */
 export function FavoritesList({
   characterId,
@@ -48,10 +50,11 @@ export function FavoritesList({
     tableDamage,
   })
   const spending = hitDieSpending(sheet, onRollFormula)
-  const card = useRef<HTMLDivElement>(null)
+  const [card, setCard] = useState<HTMLDivElement | null>(null)
   const width = useWidth(card)
   const reorder = useRef<HTMLButtonElement>(null)
-  const list = useFavoriteList(entries, reorder)
+  const list = useFavoriteList(entries, reorder, card)
+  const rowsOpen = useOpenRows()
   const { arranged } = list
   // Side by side, the first half is in the first list and the rest in the second, so that each
   // stays in its list as favorites open and close.
@@ -71,7 +74,7 @@ export function FavoritesList({
       ) : (
         <FavoriteMovesContext value={list.movesOf}>
           <div
-            ref={card}
+            ref={setCard}
             className={clsx(
               'rounded-2xl border border-border bg-card p-1.5',
               lists.length > 1 && 'grid grid-cols-2 gap-x-3',
@@ -87,6 +90,8 @@ export function FavoritesList({
                     rows={rows}
                     abilities={sheet.abilities}
                     spending={spending}
+                    open={rowsOpen.openAt(entry.key)}
+                    onOpenChange={open => rowsOpen.setOpenAt(entry.key, open)}
                   />
                 ))}
               </ul>

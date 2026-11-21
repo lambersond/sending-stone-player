@@ -1,7 +1,8 @@
 // The character view, end to end: the real module (in a stand-in Foundry, with a dnd5e-shaped
 // character) sends Thorin's sheet to the production app; Alice opens Thorin, rolls checks and
 // saves with 3D dice, and sees the sheet follow changes in Foundry; and lays out seven and eight
-// abilities at ten widths. Screenshots to SHOTS.
+// abilities at ten widths. A roll's menu opened by Shift+F10 leaves the next Enter to roll (item
+// 73). Screenshots to SHOTS.
 import { actor, combat, combatant, message, settings, user, users } from './fvtt/stub.mjs'
 import { chromium } from 'playwright'
 import { BASE, MODULE, cookieFor, sql } from './env.mjs'
@@ -365,6 +366,47 @@ await wait(2500)
 if (SHOTS) await wide.screenshot({ path: `${SHOTS}/laptop-sheet.png` })
 check(unexpected(wideRequests.slice(wideBefore)).length === 0, `the menu and modified roll send nothing anywhere (${JSON.stringify(unexpected(wideRequests.slice(wideBefore)))})`)
 check(await wide.evaluate(() => document.scrollingElement.scrollHeight === document.scrollingElement.clientHeight), 'the page itself does not scroll on a laptop')
+
+// Shift+F10, the other way in from the keyboard: once its menu closes, the next Enter rolls (item
+// 73), where it did nothing and the one after rolled. After the modified roll, so that its read of
+// the banner isn't met by a plain roll first.
+const rollsShown = async () => 1 + Number(/Earlier rolls \((\d+)\)/.exec(await wideTray.textContent())?.[1] ?? 0)
+const bannerRoll = (has, hasNot) => wide.waitForFunction(([has, hasNot]) => {
+  const said = document.querySelector('[aria-label="Your rolls"] [role="status"]')?.textContent ?? ''
+  return said.includes('Perception check') && said.includes(has) && !hasNot.some(word => said.includes(word))
+}, [has, hasNot], { timeout: 20_000 }).then(() => true, () => false)
+let shown = await rollsShown()
+await perception.focus()
+await wide.keyboard.press('Shift+F10')
+await wideMenu.waitFor()
+await wide.keyboard.press('Escape')
+await wideMenu.waitFor({ state: 'detached' })
+await wide.keyboard.press('Enter')
+const plainAfterEscape = await bannerRoll('d20', ['Disadvantage', 'Advantage'])
+check(plainAfterEscape && await rollsShown() === shown + 1, `after Shift+F10 and Escape on Perception, the first Enter rolls it (${await wideTray.getByRole('status').textContent()}; ${await rollsShown()} rolls, were ${shown})`)
+await wait(2500)
+// A way to roll chosen from the menu by Enter rolls once; the Enter that chose it doesn't reach
+// the row, and the next one on the row rolls it.
+shown = await rollsShown()
+await wide.keyboard.press('Shift+F10')
+await wideMenu.waitFor()
+// floating-ui gives the menu its focus from the next animation frame.
+await wideMenu.evaluate(menu => new Promise(resolve => {
+  const look = () => menu.contains(document.activeElement) ? resolve() : requestAnimationFrame(look)
+  look()
+}))
+// Its first way to roll, Roll with advantage, has focus.
+await wide.keyboard.press('Enter')
+const advantaged = await bannerRoll('Advantage', ['Disadvantage'])
+await wait(500)
+const once = { said: await wideTray.getByRole('status').textContent(), rolls: await rollsShown() }
+const perceptionHandle = await perception.elementHandle()
+await wide.waitForFunction(button => button === document.activeElement, perceptionHandle, { timeout: 5_000 }).catch(() => {})
+await wide.keyboard.press('Enter')
+const plainAfterMenu = await bannerRoll('d20', ['Disadvantage', 'Advantage'])
+check(advantaged && once.rolls === shown + 1 && plainAfterMenu && await rollsShown() === shown + 2,
+  `Shift+F10 then Enter rolls Perception with advantage once (${once.said}; ${once.rolls} rolls, were ${shown}), and the next Enter rolls it (${await wideTray.getByRole('status').textContent()}; ${await rollsShown()} rolls)`)
+await wait(2500)
 
 // The column at other widths, and the stat boxes in every layout.
 const statBoxes = target => target.evaluate(() => [...document.querySelectorAll('#character-pane dt')].map(dt => ({

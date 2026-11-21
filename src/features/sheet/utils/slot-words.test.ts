@@ -40,6 +40,21 @@ const POOLS: {
     spellbook: aloneSpells(0, 1),
   },
   {
+    pool: { id: 'spell8', level: 8 },
+    words: 'an 8th-level spell slot',
+    action: burningHandsAction(),
+    // None left below the 8th, so the picker picks it.
+    spellbook: [
+      ...aloneSpells(0, 0),
+      {
+        id: 'spell8',
+        label: '8th Level',
+        slots: { value: 1, max: 1, level: 8 },
+        spells: [],
+      },
+    ],
+  },
+  {
     pool: { id: 'pact', level: 3 },
     words: 'a pact slot (3rd level)',
     action: hellishRebukeAction(),
@@ -63,17 +78,18 @@ describe('utils/slot-words', () => {
   })
 
   it.each([
-    [{ id: 'spell1', level: 1 }, '1st-level spell slot'],
-    [{ id: 'spell2', level: 2 }, '2nd-level spell slot'],
-    [{ id: 'spell3', level: 3 }, '3rd-level spell slot'],
-    [{ id: 'spell9', level: 9 }, '9th-level spell slot'],
-    [{ id: 'pact', level: 3 }, 'pact slot (3rd level)'],
-    [{ id: 'pact', level: 1 }, 'pact slot (1st level)'],
-    [{ id: 'spell4', level: null }, 'spell slot'],
-    [{ id: 'pact', level: null }, 'spell slot'],
-  ] as const)('names %p’s slot %p', (pool, name) => {
+    [{ id: 'spell1', level: 1 }, '1st-level spell slot', 'a'],
+    [{ id: 'spell2', level: 2 }, '2nd-level spell slot', 'a'],
+    [{ id: 'spell3', level: 3 }, '3rd-level spell slot', 'a'],
+    [{ id: 'spell8', level: 8 }, '8th-level spell slot', 'an'],
+    [{ id: 'spell9', level: 9 }, '9th-level spell slot', 'a'],
+    [{ id: 'pact', level: 3 }, 'pact slot (3rd level)', 'a'],
+    [{ id: 'pact', level: 1 }, 'pact slot (1st level)', 'a'],
+    [{ id: 'spell4', level: null }, 'spell slot', 'a'],
+    [{ id: 'pact', level: null }, 'spell slot', 'a'],
+  ] as const)('names %p’s slot %p, after %p', (pool, name, article) => {
     expect(slotName(pool)).toBe(name)
-    expect(slotWords(pool)).toBe(`a ${name}`)
+    expect(slotWords(pool)).toBe(`${article} ${name}`)
   })
 
   it.each(POOLS)('says $words as the use picker does', ({ pool, words }) => {

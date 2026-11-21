@@ -401,6 +401,13 @@ export const QUIET_FETCHES = 1
  */
 export const ANY_ABILITY = 1
 
+/**
+ * The format of a Gamemaster's roll's messages this app reads, as it tells the module
+ * (`gmRollMessages`): from module 0.53.0, every message one command makes, up to 21, which the
+ * module lists only then.
+ */
+export const GM_ROLL_MESSAGES = 1
+
 /** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
 export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/
 

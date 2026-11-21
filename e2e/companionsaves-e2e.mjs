@@ -12,7 +12,8 @@
 // the app; the Spirit's whispered to the Gamemaster alone asked on Alice's Spirit pane; a Gamemaster's
 // request in chat asks Thorin alone; a Bat that leaves the list has its prompt closed; Thorin's own
 // seat can't answer a Bat's; since v0.52.0 (item 64), with dnd5e's Sanity on, a save card asking Bat 1
-// for a Sanity save named in Thorin's notice as his sheet names it; every width in both themes.
+// for a Sanity save named in Thorin's notice as his sheet names it, and a world's own Utility "a
+// Utility saving throw" (item 96); every width in both themes.
 // MIDI=1: Midi-QOL's own save of Bat 1 while Thorin's page is open waits, on its pane and in his
 // notice, at 390 and 1280, and is answered there; with his page closed Midi rolls one its own way.
 // DND5E6=1: dnd5e 6.0.5's dice. SKEW=040 with MODULE=module-0.40.0: no companionPrompts, a Bat asked
@@ -440,12 +441,18 @@ part('9. leaving')
 if (!MIDI && !DND5E6) {
   part('13. a sanity save')
   // dnd5e's Sanity, as its setting turns it on (D5 config.mjs DND5E.abilities.san), on Thorin's sheet
-  // and the Bat's; taken away again after, so that the parts after see dnd5e's six.
+  // and the Bat's; and a world's own Utility, whose "u" is said "you" (item 96). Taken away again
+  // after, so that the parts after see dnd5e's six.
   CONFIG.DND5E.abilities.san = { label: 'Sanity', abbreviation: 'san', type: 'mental', fullKey: 'sanity' }
+  CONFIG.DND5E.abilities.uti = { label: 'Utility', abbreviation: 'uti', type: 'mental', fullKey: 'utility' }
   bat.system.abilities.san = foundry.utils.deepClone(bat.system.abilities.wis)
-  await thorin.update({ 'system.abilities.san': foundry.utils.deepClone(thorin.system.abilities.wis) })
+  bat.system.abilities.uti = foundry.utils.deepClone(bat.system.abilities.wis)
+  await thorin.update({
+    'system.abilities.san': foundry.utils.deepClone(thorin.system.abilities.wis),
+    'system.abilities.uti': foundry.utils.deepClone(thorin.system.abilities.wis),
+  })
   const sheetHas = id => sql(`select data->'abilities' from actor_sheet where "campaignId" = '${A}' and "actorId" = 'thorin'`).includes(`"${id}"`)
-  await until(() => sheetHas('san'), "Thorin's sheet with Sanity", 30_000)
+  await until(() => sheetHas('san') && sheetHas('uti'), "Thorin's sheet with Sanity and Utility", 30_000)
   const card = await saveCard({ by: goblin, item: burning, dc: 13, abilities: ['san'], targets: [bat1.actor] })
   const rows = []
   for (const who of [alice, phone]) {
@@ -457,10 +464,23 @@ if (!MIDI && !DND5E6) {
     `a save card asking Bat 1 for a Sanity save: Thorin's notice names it as his sheet does, at 1280 and 390 (${JSON.stringify(rows)})`)
   await deleteMessage(card)
   await until(async () => (await noticeOf(alice).count()) === 0, 'the notice gone', 30_000).catch(() => {})
+  // A Utility save: "a Utility saving throw", as "Utility" is said (item 96).
+  const utility = await saveCard({ by: goblin, item: burning, dc: 13, abilities: ['uti'], targets: [bat1.actor] })
+  const said = []
+  for (const who of [alice, phone]) {
+    await until(async () => (await noticeRows(who)).length === 1, `the Utility notice at ${who.width}`, 30_000).catch(() => {})
+    said.push(await noticeRows(who))
+  }
+  check(said.every(each => same(each, ['Bat 1 is asked for a Utility saving throw'])),
+    `a save card asking Bat 1 for a world's own Utility save: "a Utility saving throw" in Thorin's notice, at 1280 and 390 (${JSON.stringify(said)})`)
+  await deleteMessage(utility)
+  await until(async () => (await noticeOf(alice).count()) === 0, 'the Utility notice gone', 30_000).catch(() => {})
   delete CONFIG.DND5E.abilities.san
+  delete CONFIG.DND5E.abilities.uti
   delete bat.system.abilities.san
-  await thorin.update({ 'system.abilities.-=san': null })
-  await until(() => !sheetHas('san'), "Thorin's sheet without Sanity", 30_000).catch(() => {})
+  delete bat.system.abilities.uti
+  await thorin.update({ 'system.abilities.-=san': null, 'system.abilities.-=uti': null })
+  await until(() => !sheetHas('san') && !sheetHas('uti'), "Thorin's sheet without Sanity and Utility", 30_000).catch(() => {})
 }
 
 // =================================================================================================

@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId, useState, type Ref } from 'react'
 import clsx from 'clsx'
 import { Sparkles } from 'lucide-react'
 import { ActionChips } from '../action-chips/action-chips'
@@ -47,9 +47,11 @@ export function ActionEntry({
   action,
   rows,
   note,
-  look = {},
+  look: { rowRef, ...look } = {},
   section,
   favorite: target = { type: 'item', id: action.id },
+  open: held,
+  onOpenChange,
 }: Readonly<{
   action: SheetAction
   rows: ActionRows
@@ -63,8 +65,16 @@ export function ActionEntry({
    * resource's feature. Its other activities keep theirs.
    */
   favorite?: FavoriteTarget | null
+  /**
+   * Whether it's open, where its owner keeps that, as the favorites do (ROADMAP item 74), so that
+   * it opens again wherever it's drawn next; its own otherwise.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }>) {
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = held ?? ownOpen
+  const setOpen = onOpenChange ?? setOwnOpen
   const body = useId()
   const favorite = useFavorite(`item:${action.id}`)
   const { name } = action
@@ -92,6 +102,7 @@ export function ActionEntry({
           name short, as on a narrow phone. */}
       <div className='flex flex-wrap items-center gap-x-2 gap-y-0 rounded-xl py-1.5 pr-1.5 pl-1'>
         <button
+          ref={rowRef as Ref<HTMLButtonElement>}
           type='button'
           aria-expanded={open}
           aria-controls={open ? body : undefined}

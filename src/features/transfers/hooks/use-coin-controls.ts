@@ -49,7 +49,8 @@ export function useCoinControls({
   dialog: ReactNode
 } {
   // What it was last opened with, kept once it closes: the dialog is closed rather than removed,
-  // as only the browser's own close gives focus back to the button that opened it.
+  // as only the browser's own close gives focus back to the button that opened it, which waits for
+  // its move without losing focus (GiveButton).
   const [changing, setChanging] = useState<CoinChanging>()
   const [open, setOpen] = useState(false)
   // Whether a change to its coins, or a move of them, is on its way from this page: the app

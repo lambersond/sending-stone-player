@@ -15,7 +15,7 @@ import type {
 // How Wild Shape from the app (module 0.40.0) is told, in English: on the ribbon, the Wild Shape
 // row, the form picker and the Known forms manager, the shaped sheet's marks and notes, the tray
 // and its toasts, the banner when the game ends it, and why the game didn't make one. Every one
-// names the character, never a pronoun, and puts "a" or "an" before a form by its first letter.
+// names the character, never a pronoun, and puts "a" or "an" before a form as `articled` says it.
 
 /** Temporary hit points in words: "5 temporary hit points", "1 temporary hit point". */
 export function tempWords(temp: number): string {

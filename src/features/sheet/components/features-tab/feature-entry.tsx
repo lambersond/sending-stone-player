@@ -29,6 +29,8 @@ export function FeatureEntry({
   note,
   favorite,
   knownForms = false,
+  open,
+  onOpenChange,
 }: Readonly<{
   characterId: string
   feature: SheetFeature
@@ -47,6 +49,12 @@ export function FeatureEntry({
   favorite?: FavoriteTarget | null
   /** On Features, Wild Shape's row offers Known forms… too (module 0.40.0). */
   knownForms?: boolean
+  /**
+   * Whether it's open, and its change, where its owner keeps that, as the favorites do; passed to
+   * the row it's drawn as.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }>) {
   const meta = joinParts(feature.kind, feature.requirements)
   // A 2024 druid's Wild Shape, from module 0.40.0, is drawn as an action's row, rolling nothing,
@@ -70,6 +78,8 @@ export function FeatureEntry({
           }),
         }}
         favorite={favorite}
+        open={open}
+        onOpenChange={onOpenChange}
       />
     )
   }
@@ -82,6 +92,8 @@ export function FeatureEntry({
       fallback={Sparkles}
       favoriteKey={`item:${feature.id}`}
       favorite={favorite}
+      open={open}
+      onOpenChange={onOpenChange}
       detail={joinParts(
         note,
         feature.activation ?? (feature.passive ? 'Passive' : undefined),

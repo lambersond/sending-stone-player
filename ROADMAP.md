@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.51.0 and its app, with v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0, v0.45.0
-and v0.44.0 before it.
+Released: module v0.52.0 and its app, with v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0,
+v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -174,12 +174,13 @@ Midi-QOL v14.0.x:
   party's sheet shows 2 gp more within a few seconds, a party you aren't in too; the party's own
   Give says "held", with no All.
 
-## v0.52 (release candidate)
+## v0.52 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc entry.
+Released on 2026-11-19: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0 entry. v0.52 is
+the release candidate for v1.0 after v0.51: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.52.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Honor, Sanity and a world's own skill:** with Honor Ability Score and Sanity Ability Score
   turned on in dnd5e's settings, and a skill your world adds on Honor, such as Etiquette: on a
@@ -197,11 +198,44 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   an ability your world adds with no type, and not Honor; and under a transformation with Appearance
   it marks no tile.
 
+## v0.53 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc entry.
+
+**To check at the table before module v0.53.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Midi-QOL's check of a cost, asked once:** with Manual Dice on for the Gamemaster and Midi-QOL
+  set to consume the Gamemaster's resources without asking, a charm that spends 1d4 charges, used in
+  Foundry, opens one Manual Dice window, not two; so does a reaction you take that spends 1d4, and
+  Frost Brand's Rime, from Midi's card button too.
+- **Reactions and Bonus Actions in an encounter you don't have up** (what stand-ins prove least:
+  Midi-QOL's own marker there, which the module writes, is tried against a stand-in of Midi only):
+  on two scenes, each with an encounter begun on it, you viewing one, and Midi-QOL's Enforce bonus
+  actions on for all, a companion fighting in the other uses a Bonus Action from the app and gets
+  Midi's marker; a second is refused, the app saying "Not made at the table: you’ve used your bonus
+  action"; and at its next turn there the marker goes. In the console,
+  `game.actors.getName('Bat').inCombat` is `false` while you view the other encounter; and for a
+  druid in Wild Shape in the one you view, `game.combat.getCombatantsByActor(form).length` says
+  which core matches her combatant to: 1 for her form, 0 for her.
+- **A favorite moved to the other list:** on a laptop where the favorites lie in two lists (1366 px,
+  Actions), Move down from the keyboard on the first list's last favorite puts it first in the
+  second, with focus on it, and one open to its description stays open as it moves; with the mouse
+  or a touch it moves and stays open the same, and the page follows it if its new place was out of
+  sight. On a phone (390 px), a favorite open to its description is still open after Reorder is
+  opened and cancelled.
+- **Two lists after Reorder:** on that laptop, open Reorder and close it, by Cancel and by Save
+  order: the favorites are in two lists again, and follow the window's width.
+- **The header as a page loads:** on a phone, in its browser, as a sheet loads, Live and Help hold
+  still while Full screen appears in the room kept for it; in Sending Stone added to an iPhone's
+  Home Screen, which has no Full screen, the room closes as the page is ready, so Live and Help step
+  right once, and stay there.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 5 are done; 6 and 7 are to come.
+tweaks needed may change it as it goes. Batches 1 to 5 and 8 are done; 6 and 7 are to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -213,9 +247,11 @@ tweaks needed may change it as it goes. Batches 1 to 5 are done; 6 and 7 are to 
 4. Items 61, 62, 58 and 89, quieter polling, fewer sign-in reads, non-allies' health, and one Give
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
-   ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
-6. Items 59 and 60: summon activities, and known forms from anywhere.
+   ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
+6. Items 59, 60 and 98: summon activities, known forms from anywhere, and constant companions.
 7. Item 63, offline mode.
+8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
+   and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 **Found while untangling the module's imports**
 
@@ -247,44 +283,11 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
 
 **Found while building Batch 2**
 
-72. **Midi-QOL's check of a Gamemaster's own use asks for its dice twice:** where Midi spends what a
-    use spends without its dialog, it works the cost out first and throws that away
-    (`checkAutoConsume` in its `MidiActivityMixin.ts`), so a dice cost is rolled twice with the
-    Gamemaster's dice settings, for a use they make in Foundry and for a reaction they take; and so
-    is the cost of another activity Midi pairs with a Gamemaster's own attack
-    (`checkOtherActivityConsumption`), read from its source and not tried. Midi's own, and said in
-    the module's `PROTOCOL.md`; the module could roll the first with Foundry's computer dice, as it
-    does for a use from the app and, since 0.49.0, for the reactions Midi looks for. In no batch
-    yet.
-73. **A roll's button drops the first Enter after its menu was opened from the keyboard:** with a
-    check's, save's or attack's button focused, the menu key or Shift+F10 opens its menu; whatever
-    is done there, the next Enter or Space on the button does nothing, and the one after rolls.
-    `RollButton` (`src/features/rolling/components/roll-button/roll-button.tsx`) marks every menu as
-    opened by a press, so that the tap ending a long-press doesn't roll too; a key's menu is
-    followed by no such tap, as `usePressMenu` already knows. Every roll button, from before v0.47;
-    found building item 47, whose Move up and Move down on a skill or tool favorite are one more way
-    into it, and seen in Chromium at 1280 px: after Shift+F10 and Escape on a skill favorite, the
-    first Enter rolled nothing and the second rolled. In no batch yet.
-74. **Keyboard focus after a favorite moves from one list to the other:** where the favorites are in
-    two lists side by side (their card 720 px wide or wider with no column of its own, as on a
-    laptop 1366 px wide), Move up or Move down chosen from a favorite's menu with the keyboard, on
-    the last row of the first list or the first of the second, takes the row to the other list and
-    leaves keyboard focus on the page, where a move within a list leaves it on the row; a row open
-    to its description is closed as it crosses, by the mouse too. `FavoritesList`
-    (`src/features/sheet/components/favorites/favorites-list.tsx`) draws the two halves as two
-    lists, so a row that crosses is drawn anew. Every favorite, since v0.47; item 47 brought a
-    skill, a tool and spell slots to it. Seen in Chromium at 1366 px on an item's row, a skill and
-    spell slots. The known limits say the same of Remove from favorites and Prepare. In no batch
-    yet.
-75. **The favorites in one list once Reorder has been opened:** where the favorites are in two lists
-    side by side, opening Reorder and closing it, by Cancel or by Save order, leaves them in one
-    list the card's full width, whatever the window's width after; another tab of the sheet and
-    back, or the page loaded again, brings the two back. `FavoritesList` measures its card with
-    `useWidth` (`src/features/sheet/hooks/use-width.ts`), which begins watching the element once;
-    while Reorder shows the card isn't drawn, and the one drawn after is never watched: the cause as
-    the code reads, the width itself not measured in the browser. A look only: every favorite is
-    there and works. Since v0.47 (Reorder); seen in Chromium at 1366 px, looking for the two lists
-    for item 47. In no batch yet.
+Items 72 to 75, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, a roll's
+button dropping the first Enter after its menu was opened from the keyboard, keyboard focus after a
+favorite moves from one list to the other, and the favorites in one list once Reorder has been
+opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+
 76. **What a druid begins in Wild Shape:** a spell a Moon druid casts as a beast and concentrates
     on, such as Moonbeam or Fount of Moonlight, ends in Foundry when Wild Shape ends. Whether what
     it kept up, a template on the map or an effect on another creature, ends with the form or is
@@ -313,19 +316,19 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     no batch yet.
 80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
     or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
-    `removals-e2e.mjs:353` (part 2, Shift+F10), `favoriting-e2e.mjs:594` and `:611` ("Add to
-    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:331` and, to be
+    `removals-e2e.mjs:354` (part 2, Shift+F10), `favoriting-e2e.mjs:598` and `:615` ("Add to
+    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:401` and, to be
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
     look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
     that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
-    600 ms)". (c) A page's header read before the page has hydrated, where Full screen is drawn only
-    once it has: to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several
-    looks at a page `goto()` loaded, which has been enough so far; help's `ready`
-    (`e2e/help-e2e.mjs`) is the wait. The party suite reads its header (`party-e2e.mjs:213`, `:505`)
-    after a link within the app or a wait for "Reconnecting", which only a page that has hydrated
-    shows. Item 57's kind has none left: `stopFetching({ age })` waits, and so do notesoffline's
-    four closings by the Gamemaster leaving. Nor has item 71's, a photograph read for its colors,
-    which is toasts' alone. In no batch yet.
+    600 ms)". (c) Full screen read before the page has hydrated, where it is drawn only once it has
+    (its room is kept, empty, until then, item 82, so the header no longer moves): to be checked,
+    `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page `goto()`
+    loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait. The party
+    suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a wait for
+    "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none left:
+    `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster leaving.
+    Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no batch yet.
 81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
     Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
     screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
@@ -334,36 +337,11 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
     once, waiting up to a second for it on an opening that has none. An opening connected but unable
     to reach Sending Stone still ends on the phone's own error page, which is item 63's. Left by
     item 56. In no batch yet.
-82. **The header's Help moves as a sheet hydrates:** Full screen is drawn only once the page has
-    hydrated (`useFullscreen` answers false until then), so between the sheet's markup arriving and
-    hydration the header's right has one button fewer than the outline before it and the header
-    after it: Live and Help sit one button's width to the right, then step back as Full screen
-    appears (36 px at 360, measured while building item 70). A slot kept for Full screen until then,
-    as the outline keeps one, would hold them still. Found while building item 70. In no batch yet.
-83. **A spell prepared's check lets three other kinds' fields by:** a `prepare` command that also
-    names `hitPoints`, `rerolls` or `enchantment` isn't refused `"invalid"` by the module: its list
-    of other kinds' fields (`OTHERS` above `checkPrepareCommand`, in the module's
-    `scripts/command-rolls.mjs`) lacks those three, where hit points' own list has every one. The
-    module would prepare the spell and ignore the rest. The app's schema refuses such a request
-    before it is queued, so no player meets it. Add the three, and to `test/fvtt/preparing.mjs`'s
-    `OTHER_FIELDS`. Found building item 67. In no batch yet.
-84. **Coins moved or distributed leave a fraction's noise:** under dnd5e 6, in a world that gives a
-    coin fractional digits, coins moved to or from a party (a party's Take and Send to, and coins
-    given to a party by an app before v0.51.0), coins given to another character from an app before
-    v0.50.0, and a party's distributed are written as floating point makes them: 10.7 gp less 10 is
-    stored as 0.6999999999999993, which dnd5e's own rounding shows as 0.69, so a hundredth of a coin
-    goes to no one. The module's `moveCoins` and `distributeNow` (`scripts/command-transfers.mjs`)
-    could write through `coinUpdate`, as coins added, removed and handed out do since 0.49.0, to
-    parties too since 0.51.0. A default dnd5e 6 world shows whole coins, and dnd5e 5 stores whole
-    coins: neither shows it. Module only, small. Found building items 67 and 68. In no batch yet.
-85. **Keyboard focus after a move is sent from a character's sheet:** sent from its dialog with the
-    keyboard, a move leaves focus on the page, as the dialog hands it back to the button that opened
-    it, which waits disabled until the move is made. Seen for the Currency row's Add or remove and
-    Give (v0.49's Add or take away and Hand out); by the same code it is so for an item's Give…,
-    from v0.31. Escape, which sends nothing, gives focus back as it should. A party's sheet, which
-    has no tray, gives where the move stands focus instead (`MoveStatus`); on a character's sheet,
-    where focus should go (the tray's line, or the row's label, which says what's on its way) is one
-    decision for all of its moves. Found reviewing items 67 and 68. In no batch yet.
+
+Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
+or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
+sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+
 86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
     the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
     300 ms of the tap, timed from before `page.touchscreen.tap` to the toast detached, so the 300 ms
@@ -417,7 +395,7 @@ Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
     how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
 
 Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
-ability, and eight abilities laid out, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0-rc.
+ability, and eight abilities laid out, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
 
 **Asked for on 2026-11-17**
 
@@ -446,22 +424,11 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 **Found while building Batch 3**
 
-92. **Midi-QOL's checks in an encounter the Gamemaster doesn't have up:** for a creature fighting
-    in an encounter on another scene than the one the Gamemaster views, Midi-QOL's reaction,
-    bonus-action and opportunity checks aren't made (Foundry's `Actor#inCombat` and the module's
-    check both read `game.combat`, the module's `scripts/command-uses.mjs:893-901`; Foundry's, to
-    check), and a use at Self finds no combatant (`selfTarget`, `:531-541`). It matters only with
-    Allow targets off your screen, since Midi-QOL otherwise needs the target drawn. The module
-    harness's `inCombat` stand-in reads every combat (`test/fvtt/activity5e.mjs:424-428`), so it
-    doesn't show this. Found building item 36. In no batch yet.
-93. **A Gamemaster's message past the twentieth isn't marked as theirs:** a Gamemaster's hand-out
-    to 20 characters who each have a player makes 21 messages, and the module lists only 20 in the
-    result's `messages` (`MOST_MESSAGES`, `scripts/commands.mjs:175`; the app's
-    `MAX_GM_ROLL_MESSAGES`, `src/schemas/sending-stone.ts:174`), so the last, the Gamemasters' own,
-    isn't marked as theirs in the app. Since before 0.51.0; parties add one message each, as
-    characters do. Found building item 91. In no batch yet.
+Items 92 and 93, Midi-QOL's checks in an encounter the Gamemaster doesn't have up and a Gamemaster's
+message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+
 94. **The module harness's wait for a druid's copy made late, under load:**
-    `test/fvtt/wildshape.mjs` (line 1170), under `MIDI=1`, "her copy made too late: Rowan's
+    `test/fvtt/wildshape.mjs` (line 1171), under `MIDI=1`, "her copy made too late: Rowan's
     concentration gone, and nothing of it left on her", turns the wolf back into Elowen with the
     copy of an effect Rowan concentrates on held back eight turns (`port.faults.slowEffects = 8`),
     then waits a fixed 160 ms (`settle(160)`) for the bridge to sweep the copy off her. It found the
@@ -486,20 +453,84 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 
 **Found while building Batch 5**
 
-96. **"an" before a "u" that sounds like "you":** the app's one rule for "a" or "an" (`articleOf`,
-    `src/utils/articles.ts`), which the chat's request cards and companions' notices use, among
-    others, says "an" before every vowel. So a world's own skill or ability, or a Wild Shape form or
-    ammunition, whose name begins with a "u" said "you", or with "Eu", would read "an Utility check"
-    or "an European". dnd5e's own names all read right. A short list of such beginnings beside the
-    silent h's would mend it. Found building item 64. In no batch yet.
-97. **A world's own tools aren't in a description's hash:** since module 0.52.0 a description's hash
-    holds the game's abilities and skills (`textFormat`, the module's `scripts/sheet-texts.mjs`),
-    which decide which checks are links and so every later link's number. A world's own tools decide
-    that for a tool check too (`isTool`, `scripts/sheet-links.mjs`), and aren't in it. So a tool
-    added mid-campaign can, after a reload, renumber a description's links under the same hash, and
-    an app's copy name a link as one it no longer is, until the description changes. One more line
-    in `textFormat` would mend it, renewing every hash once more. Found building item 65. In no
-    batch yet.
+Items 96 and 97, "an" before a "u" that sounds like "you" and a world's own tools in a description's
+hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+
+**Asked for on 2026-11-20**
+
+98. **Constant companions:** a companion its character keeps, always there or summoned again and
+    again, such as a sidekick, an artificer's Steel Defender or a familiar summoned every session.
+    The Gamemaster marks an NPC in the Actors sidebar as a character's constant companion on the
+    campaign's Manage Campaigns window (a Companions list: the NPC and the character it belongs
+    to); only the Gamemaster marks or unmarks one. It then shows in the app beside its character
+    whether or not a token of it is on any scene, so in an impromptu encounter with no scene ready
+    the player can still act with it. While a token of it is on a scene the app uses that token,
+    as today; with none placed, the sidebar actor. With no token the player can do from the app
+    all that Foundry's own sheet allows without one: its sheet, checks and saves, attacks and
+    spells with no targets picked, its uses and hit points; initiative and the saves the game asks
+    for still need a token in a combat. Today only a linked NPC its player owns by name shows with
+    no scene; a summoned creature, or an unlinked NPC, needs a token on a scene. The look, as the
+    owner chose it from prototypes on 2026-11-20: its tab has a pin after its name, kept wherever
+    its token is, and with no token a dashed ring round its avatar and a dashed circle; above its
+    sheet, "Steel Defender isn't on a scene in your Gamemaster's game. You can still roll for it
+    and use its features here; its attacks and spells go without a target."; its sheet says
+    "Thorin's constant companion"; the Gamemaster's campaign card lists it "(constant, not on a
+    scene)" and gains a Constant companions row; and in Foundry, a Companions tab on Manage
+    Campaigns, between Party and Player actions, each character with its constant companions, a
+    Remove button for each, and an NPC dropped from the Actors sidebar or chosen by Add companions.
+    In batch 6.
+
+**Found while building Batch 8**
+
+99. **The checks of commands that aren't rolls let other kinds' fields by:** `prepare`, `hitPoints`
+    and `coins`, whose own words say they name nothing else, let a roll's `use`, `types`,
+    `modifiers`, `critical`, `combatId`, `denomination`, `hitDice`, `attackMode`, `ammunition` and
+    `consume`, and a dice answer's `diceAsk`, by. The older checks refuse only the kinds that came
+    before them: `effect`, `wildShape`, `favorite` and `remove` let most later kinds' fields by.
+    `spellSlot`, `inspiration`, `endConcentration` and `spend` call only `namesRollFields` and let
+    nearly every field by. The module makes the command and ignores them (the module's
+    `scripts/command-rolls.mjs`, each `check<Kind>Command` and its list of other kinds' fields; hit
+    points' in `scripts/command-checks.mjs`). The app's request schemas refuse every one first, so
+    no player meets it. Found planning item 83. In no batch yet.
+100. **A description's hash misses labels changed in place:** a description's hash holds the keys of
+     the game's abilities, skills, tools, kinds of vehicle, and damage and healing types
+     (`textFormat`, the module's `scripts/sheet-texts.mjs`), never their labels. So a module that
+     renames an ability, skill or damage type in place moves which plain English text is a link and
+     renumbers every later link under the same hash. A condition type added or renamed changes which
+     text is a condition, though no number moves: condition spans carry no `data-n`. Found planning
+     item 97. In no batch yet.
+101. **Midi-QOL's Requires targets "in combat" with two encounters on one scene:** Midi reads a
+     creature as in combat, for its Requires targets setting, by any encounter on the scene the
+     Gamemaster's canvas shows (its `isInCombat`), and the module by Foundry's `Actor#inCombat`, the
+     encounter the Gamemaster has up alone (`midiNeedsTargets`, the module's
+     `scripts/command-uses.mjs`). So with two encounters on one scene, a creature in the one not up
+     that uses from the app something needing a target, with none picked, isn't refused beforehand
+     ("target"): Midi refuses it, and the player is told Midi-QOL didn't make it ("midi") rather
+     than why. Read from Midi's source, not tried. Found planning item 92. In no batch yet.
+102. **The module's "a" or "an":** Wild Shape's lines in Foundry's chat ("… uses Wild Shape and
+     becomes {aForm}.", "… is no longer {aForm}: Wild Shape ends.") put "an" before every vowel and
+     "a" before everything else (`articled`, the module's `scripts/command-wildshape.mjs`), so a
+     world's Unicorn form reads "becomes an Unicorn", and one named for Honor "a Honor". The app's
+     rule (`articleOf`, `src/utils/articles.ts`) could be the module's too. Module only, small.
+     Found building item 96. In no batch yet.
+103. **Move up and Move down on a favorite inside another:** a favorite open to its description
+     lists rows of its own, such as an item's other activities or what a container holds. One of
+     those that is a favorite too offers Move up and Move down in its menu there, and moves that
+     favorite among the favorites: `FavoritesList`
+     (`src/features/sheet/components/favorites/favorites-list.tsx`) gives `FavoriteMovesContext`
+     around every row it draws, the rows inside a favorite's description among them, and
+     `useFavoriteChoice` (`src/features/sheet/components/favoriting/use-favorite-choice.ts`) reads
+     it for any row under it. Read from the code, not tried. Found planning items 74 and 75. In no
+     batch yet.
+104. **A move's toast over the favorite that just took focus:** where the favorites lie in two lists
+     (1366 px, Actions), Move down on the first list's last favorite puts it first in the second, at
+     the top of their card, with focus on it, and the move's toast ("Longsword" over "Order saved")
+     shows over that very place: the favorite's name is hidden under it, its focus ring showing only
+     at its edges, for as long as the toast shows. The same where the sheet scrolls a moved favorite
+     into sight: it comes to the top, under the toast. The toasts are centered at the top of the
+     window (`RollToasts`, `src/features/rolling/components/roll-toasts/roll-toasts.tsx`), which at
+     that width is the top of the second list; their place predates batch 8, and item 74 is what now
+     puts focus there. Found reviewing item 74. In no batch yet.
 
 ## v1.0
 
@@ -563,6 +594,9 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   as two Hunter's Marks, have it rolled by Foundry for both, until each has rolled its bonus
   damage; a bonus only one of them awaits, such as Sneak Attack, is still asked.
 - Moving several items at once isn't planned unless it's asked for.
+- Under dnd5e 6, in a world that shows a coin's decimals, dnd5e floors each coin to them as it reads
+  the sheet, so a few amounts stored as written read a hundredth low, in Foundry and in the app:
+  4.56 gp reads 4.55.
 - Summon activities are used in Foundry (planned before v1.0, item 59).
 - A companion shared by several characters is asked a save card's save only where every one of
   their players can read the card.
@@ -636,6 +670,10 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   as Bless, a favorite that turns from a spell's row to an action's, or a spell unprepared on the
   Actions tab, which leaves it), keyboard focus goes to the page, as after Remove from favorites
   among the favorites.
+- Where the favorites lie in two lists, a favorite with keyboard focus that goes to the other list
+  for any reason but its own Move up or Move down leaves focus on the page: its move refused because
+  Foundry's sheet changed meanwhile, an order made in Foundry or on another device, a favorite added
+  or removed, or the window resized.
 - Dishes from the Magical Recipe Book need dnd5e 5 for now (dnd5e 6 is planned for v2.0).
 - A dish's effect ends with world time: a table that never advances time keeps it until the next
   dish replaces it or the Gamemaster deletes it.

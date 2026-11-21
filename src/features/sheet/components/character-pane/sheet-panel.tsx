@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, type RefObject } from 'react'
+import { type ReactNode, type Ref, type RefObject } from 'react'
 import { ActionsTab } from '../actions-tab/actions-tab'
 import { BiographyTab } from '../biography-tab/biography-tab'
 import { CharacterSheet } from '../character-sheet/character-sheet'
@@ -42,7 +42,7 @@ export function SheetPanel({
   actions,
   onShowConditions,
 }: Readonly<{
-  bodyRef: RefObject<HTMLDivElement | null>
+  bodyRef: Ref<HTMLDivElement>
   scrollerRef: RefObject<HTMLDivElement | null>
   column: ReactNode
   strip: ReactNode

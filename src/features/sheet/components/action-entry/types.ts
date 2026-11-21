@@ -19,7 +19,7 @@ import type {
   SheetSpellSection,
   CastIndex,
 } from '@/types/sending-stone'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 
 /**
  * An action's damage or healing, ready to roll, with its formula as dnd5e shows it; and from module
@@ -161,6 +161,8 @@ export type EntryLook = {
    * keyboard's context menu key.
    */
   onMenu?: (anchor: HTMLElement, point?: MenuPoint) => void
+  /** Its name, the row's own button: for focus to be handed on as the row goes (item 85). */
+  rowRef?: Ref<HTMLElement>
 }
 
 /** One of an action's other activities, beneath it. */

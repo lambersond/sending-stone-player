@@ -25,7 +25,7 @@ run organize 43 X=1
 run step3 39 X=1
 run step2 69 X=1
 run step1 36 X=1
-run sheet 75 X=1
+run sheet 77 X=1
 run gm 66 X=1 SHOTS=$O/shots-gm
 run gm 66 X=1 SKEW=1 MODULE_DIR=$O/module-0.22.0 SHOTS=$O/shots-gm
 run conditions 22 X=1
@@ -76,7 +76,7 @@ run sync 62 SHOTS=$O/shots-022
 run favres 21 SHOTS=$O/shots-023
 run toasts 149 TIMEOUT=900 SHOTS=$O/shots-026
 run gmerr 58 SHOTS=$O/shots-025
-run gmroll 71 SHOTS=$O/shots-026
+run gmroll 73 SHOTS=$O/shots-026
 run gmroll 6 SKEW=1 MODULE=$O/module-0.22.0 SHOTS=$O/shots-026
 run gmroll 71 SKEW=024 MODULE=$O/module-0.24.0 SHOTS=$O/shots-026
 # Module 0.32.0: players type in what their own dice show, and module 0.31.0 (no gate).
@@ -126,7 +126,7 @@ run feedback 115 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-029
 # Foundry; plain dnd5e, Midi-QOL, dnd5e 6.0.5, and module 0.29.0 (no Party list on Inventory, no settings, 0.29.0 results).
 run party 64 SHOTS=$O/shots-030
 run party 8 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
-run fullscreen 30 SHOTS=$O/shots-030
+run fullscreen 31 SHOTS=$O/shots-030
 run settings 22 SHOTS=$O/shots-030
 run settings 24 MIDI=1 SHOTS=$O/shots-030
 run settings 11 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
@@ -136,16 +136,16 @@ run results 12 DND5E6=1 SHOTS=$O/shots-030
 run results 17 SKEW=029 MODULE=$O/module-0.29.0 SHOTS=$O/shots-030
 # Module 0.31.0: moving items and coins (party ↔ character, character → character), dnd5e 6.0.5's
 # fractional coins, and module 0.30.0 (no moves); and Hit/miss and save results in the app.
-run transfers 77 SHOTS=$O/shots-031
-run transfers 81 DND5E6=1 SHOTS=$O/shots-031
+run transfers 79 SHOTS=$O/shots-031
+run transfers 83 DND5E6=1 SHOTS=$O/shots-031
 run transfers 10 SKEW=030 MODULE=$O/module-0.30.0 SHOTS=$O/shots-031
 # Module 0.32.0, the give/take feedback: Send to in an item's menu; the Currency rows (the character's Send
 # to, Give since item 89; the party's Take, Send to, Give and Distribute); a party's things sent by its Owner, party to party,
 # and its coin distributed; dnd5e 6.0.5's fractions; and module 0.31.0 (none of the party's new ones).
 # Module 0.51.0 (item 91): a character's Give ticks parties and characters together; and module 0.50.0,
 # the parties chosen one at a time.
-run givetake 76 SHOTS=$O/shots-032
-run givetake 77 DND5E6=1 SHOTS=$O/shots-032
+run givetake 78 SHOTS=$O/shots-032
+run givetake 79 DND5E6=1 SHOTS=$O/shots-032
 run givetake 19 SKEW=031 MODULE=$O/module-0.31.0 SHOTS=$O/shots-032
 run givetake 10 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-032
 # Module 0.33.0: an item removed from a character (its menu, the confirmation, stacks, containers,
@@ -180,9 +180,10 @@ run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 run companions 17 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-051
 # v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
 # "recharged", and the page reading the table as the game answers the recharge and again a moment
-# after that read.
+# after that read. Module 0.53.0 (item 92): its MIDI=1 run's part 10b, the Potion refused with no
+# encounter up, the fight begun and its scene's chosen one still counting.
 run alone 126 SHOTS=$O/shots-036
-run alone 131 MIDI=1 SHOTS=$O/shots-036
+run alone 133 MIDI=1 SHOTS=$O/shots-036
 run alone 126 DND5E6=1 SHOTS=$O/shots-036
 run alone 7 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036
 # Module 0.41.0: the runs above add part 17, damage on its own with its choices, a spell's level, a
@@ -202,9 +203,14 @@ run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 # actor keeping each order, and (item 48) one made a favorite in Foundry while an order is on its way
 # moved up; module 0.36.0 offering none; and module 0.46.0, favorites never put in order. And (item
 # 47) a skill moved from its roll's menu and spell slots from a menu of their own at 390, that menu
-# from the keyboard at 1280, and neither with module 0.46.0.
-run favoriting 109 SHOTS=$O/shots-037
-run favoriting 75 DND5E6=1 SHOTS=$O/shots-037
+# from the keyboard at 1280, and neither with module 0.46.0. And (items 74 and 75) at 1366, where
+# his favorites lie in two lists: Reorder closed by Cancel and by Save order leaves two lists that
+# follow the window; and a favorite moved from the keyboard to the other list keeps focus, an item's
+# from its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a
+# list does; and one open to its description stays open as Favorites is hidden and shown and as
+# it's moved by the mouse, the sheet scrolling to it where its new place is out of sight.
+run favoriting 120 SHOTS=$O/shots-037
+run favoriting 86 DND5E6=1 SHOTS=$O/shots-037
 run favoriting 9 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
 run favoriting 6 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link
@@ -228,7 +234,7 @@ run wildshape 33 DND5E6=1 SHOTS=$O/shots-040
 run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040
 # Module 0.41.0: the saves the game asks of companions, on their own panes; Midi-QOL's; dnd5e 6.0.5;
 # and module 0.40.0 (none).
-run companionsaves 45 SHOTS=$O/shots-041
+run companionsaves 46 SHOTS=$O/shots-041
 run companionsaves 46 MIDI=1 SHOTS=$O/shots-041
 run companionsaves 38 DND5E6=1 SHOTS=$O/shots-041
 run companionsaves 7 SKEW=040 MODULE=$O/module-0.40.0 SHOTS=$O/shots-041
@@ -244,7 +250,7 @@ run hitpoints 36 MIDI=1 SHOTS=$O/shots-044
 # device's Send to the table off; the paragraph on the dice an item rolls later by the module's
 # version, typing allowed or not; the panel's layout, the chips and reduced motion, focus going back;
 # the Gamemaster's long name at 360. Module 0.42.0, and dnd5e 6.0.5: no row nor paragraph for them.
-run help 28 SHOTS=$O/shots-help
+run help 30 SHOTS=$O/shots-help
 run help 4 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-help
 run help 4 DND5E6=1 SHOTS=$O/shots-help
 # Item 56: the installed app's launch page, with no Foundry. Nothing registered in a browser's tab,

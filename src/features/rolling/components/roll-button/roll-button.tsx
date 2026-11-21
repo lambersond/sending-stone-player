@@ -49,7 +49,9 @@ export function RollButton<T = RollTarget>({
     x: 0,
     y: 0,
     timer: undefined as ReturnType<typeof setTimeout> | undefined,
-    // The menu opened from this press, so the tap that ends it must not roll too.
+    // A touch or pen opened the menu, so the tap that ends its press mustn't roll too. A mouse's
+    // right-click, the context menu key and Shift+F10 are followed by no click, so they never set
+    // it: were it set, the next Enter or Space would roll nothing.
     opened: false,
   })
   const cancel = () => clearTimeout(press.current.timer)
@@ -79,13 +81,13 @@ export function RollButton<T = RollTarget>({
         if (disabled) return
         event.preventDefault()
         cancel()
-        press.current.opened = true
         const button = event.currentTarget
         const { pointerType } = event.nativeEvent as Partial<PointerEvent>
         // A context menu key has no pointer: Chrome gives its menu no button, and the Pointer
         // Events spec no pointer type.
         const fromKey = event.button === -1 || pointerType === ''
         const touch = pointerType === 'touch' || pointerType === 'pen'
+        if (touch) press.current.opened = true
         const point = fromKey ? undefined : pointWithin(button, event, touch)
         onMenu(button, target, point)
       }}

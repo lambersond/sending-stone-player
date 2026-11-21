@@ -62,11 +62,19 @@ export function FavoriteRow({
   rows,
   abilities,
   spending,
+  open,
+  onOpenChange,
 }: Readonly<{
   entry: FavoriteEntry
   rows: ActionRows
   abilities: SheetAbility[]
   spending?: HitDieSpending
+  /**
+   * Whether it's open to its description, kept by the list, so that it opens again wherever it's
+   * drawn next (ROADMAP item 74).
+   */
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }>) {
   const { characterId } = rows
   const { target } = entry
@@ -81,6 +89,8 @@ export function FavoriteRow({
           note={joinParts(resourceNote(resource, action.name), entry.note)}
           look={resource && { uses: resource.uses }}
           favorite={target}
+          open={open}
+          onOpenChange={onOpenChange}
         />
       )
     }
@@ -91,6 +101,8 @@ export function FavoriteRow({
           spell={entry.spell}
           rows={rows}
           favorite={target}
+          open={open}
+          onOpenChange={onOpenChange}
         />
       )
     }
@@ -101,6 +113,8 @@ export function FavoriteRow({
           item={entry.item}
           rows={rows}
           favorite={target}
+          open={open}
+          onOpenChange={onOpenChange}
         />
       )
     }
@@ -112,6 +126,8 @@ export function FavoriteRow({
           feature={feature}
           rows={rows}
           favorite={target}
+          open={open}
+          onOpenChange={onOpenChange}
           {...(resource && {
             uses: resource.uses,
             note: resourceNote(resource, feature.name),

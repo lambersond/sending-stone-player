@@ -31,13 +31,18 @@
 // slots, which have no favorites entry of their own, moved all the same: at 390 Stealth's Move up
 // from its roll's menu, after its ways to roll, which rolls nothing, and his slots' from a menu of
 // their own, held by their name (part 14); at 1280 that menu by a right-click and from the keyboard
-// (part 10); with module 0.46.0 neither (part 16).
+// (part 10); with module 0.46.0 neither (part 16). And (items 74 and 75) at 1366, where his
+// favorites lie in two lists: Reorder closed by Cancel and by Save order leaves two lists that follow
+// the window; and a favorite moved from the keyboard to the other list keeps focus, an item's from
+// its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a list
+// does; and one open to its description stays open as Favorites is hidden and shown and as it's
+// moved by the mouse, the sheet scrolling to it where its new place is out of sight.
 // Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
 import {
   BASE, BOB, DND5E6, SKEW036, W, activeScene, actors, browse, call, character, check, companion, embedded, escapeRe,
-  favoring, finish, foundryWorld, group, launch, newCampaign, note, part, place, posted, postsOf, relay, same, sceneWorld,
+  favoring, finish, focusInside, foundryWorld, group, launch, newCampaign, note, part, place, posted, postsOf, relay, same, sceneWorld,
   settled, shoot, shootBoth, sideways, sql, startFetching, startModule, stopFetching, theme, until, wait,
 } from './world-030.mjs'
 
@@ -1074,6 +1079,208 @@ async function putInOrder() {
     && same(made.payload.favorite.order.map(keyOf), wanted) && same(await foundryKeys(small), wanted),
   `an order on its way, the Wand of Frost made a favorite in Foundry is last, and its Move up is taken (${status}) and made from the order shown, the Wand among it, Foundry keeping it one up (${JSON.stringify({ waited, since: Math.round(Number(since)), made: made?.status, reason: made?.result?.reason, favorite: made?.payload?.favorite })})`)
   await small.view.close()
+
+  // Items 74 and 75 at 1366: the sheet beside the chat's column is 866 px, under the 936 his
+  // favorites' own column needs, so they're at the top of Actions, their card some 790 px wide, over
+  // the 720 two lists need.
+  const wide = await browse({ device: { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 }, path: '/characters/sheet-thorin' })
+  await wide.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await wide.tab('Actions')
+  const top = panelOf(wide)
+  const reorderTop = top.getByRole('button', { name: 'Reorder favorites' })
+  await reorderTop.waitFor({ timeout: 15_000 })
+  /** The names in each of the strip's own lists, in order: one list, or two side by side. */
+  const listsOf = () => top.evaluate(panel => [...panel.querySelectorAll('ul')].filter(list => !list.closest('li'))
+    .map(list => [...list.children].map(row => row.querySelector('.font-medium')?.textContent)))
+  const all = await namesIn(top)
+  const half = Math.ceil(all.length / 2)
+  await until(async () => (await listsOf()).length === 2, 'two lists at 1366', 10_000).catch(() => {})
+  let lists = await listsOf()
+  const tag = await top.evaluate(panel => panel.tagName)
+  check(tag === 'SECTION' && same(lists, [all.slice(0, half), all.slice(half)]),
+    `at 1366, too narrow for their column, his favorites are at the top of Actions in two lists, the first half first (${JSON.stringify({ tag, lists })})`)
+
+  // Item 75: Reorder closed, by Cancel and by Save order, leaves two lists that follow the window.
+  await toastsGone(wide)
+  await reorderTop.click()
+  const cancel = top.getByRole('button', { name: 'Cancel', exact: true })
+  await cancel.waitFor({ timeout: 5_000 })
+  await cancel.click()
+  await reorderTop.waitFor({ timeout: 5_000 })
+  await until(async () => (await listsOf()).length === 2, 'two lists once Reorder is cancelled', 5_000).catch(() => {})
+  lists = await listsOf()
+  check(same(lists, [all.slice(0, half), all.slice(half)]), `Reorder opened and closed by Cancel: still two lists (${JSON.stringify(lists)})`)
+  // By its grips' keys, the Longsword last of the first list, Stealth first of the second and his
+  // 1st Level slots second: each in turn from the top, its grip's up key until it's in its place.
+  await reorderTop.focus()
+  await wide.page.keyboard.press('Enter')
+  const gripsTop = top.getByRole('button', { name: /^Reorder .*: drag it, or press the up and down arrows$/ })
+  await gripsTop.first().waitFor({ timeout: 5_000 })
+  const reorderedTop = () => gripsTop.evaluateAll(grips => grips.map(grip => grip.getAttribute('aria-label').replace(/^Reorder (.*): drag it, or press the up and down arrows$/, '$1')))
+  const BOUNDARY = ['Longsword', 'Stealth', '1st Level']
+  const placed = (await reorderedTop()).filter(name => !BOUNDARY.includes(name))
+  placed.splice(half - 2, 0, ...BOUNDARY)
+  for (const [at, name] of placed.entries()) {
+    for (let from = (await reorderedTop()).indexOf(name); from > at; from--) {
+      await gripsTop.nth(from).focus()
+      await wide.page.keyboard.press('ArrowUp')
+      await until(async () => (await reorderedTop())[from - 1] === name, `${name} up one`, 5_000).catch(() => {})
+    }
+  }
+  await paced()
+  const sentTop = orders().length
+  await top.getByRole('button', { name: 'Save order' }).focus()
+  await wide.page.keyboard.press('Enter')
+  const twoLists = [['Ki', ...placed].slice(0, half), ['Ki', ...placed].slice(half)]
+  await until(async () => same(await listsOf(), twoLists), 'two lists in the new order', 5_000).catch(() => {})
+  lists = await listsOf()
+  made = await ordered(sentTop + 1, 'the order saved at 1366')
+  await until(async () => same(await foundryKeys(wide), made.payload.favorite.order.map(keyOf)), 'Foundry\'s favorites in the order saved at 1366', 15_000).catch(() => {})
+  check(same(lists, twoLists) && made.status === 'done' && same(await foundryKeys(wide), made.payload.favorite.order.map(keyOf)),
+    `Reorder's order saved: two lists at once, in the new order; made, and Foundry keeps it (${JSON.stringify({ lists, made: made.status, reason: made.result?.reason })})`)
+  await toastsGone(wide)
+  await shoot(wide, 'favorites-two-lists', top)
+  await wide.page.setViewportSize({ width: 1024, height: 768 })
+  await until(async () => (await listsOf()).length === 1, 'one list at 1024', 5_000).catch(() => {})
+  const narrowed = await listsOf()
+  await wide.page.setViewportSize({ width: 1366, height: 768 })
+  await until(async () => same(await listsOf(), twoLists), 'two lists at 1366 again', 5_000).catch(() => {})
+  lists = await listsOf()
+  check(narrowed.length === 1 && same(lists, twoLists), `narrowed to 1024, one list; widened to 1366 again, two: the card drawn after Reorder is watched (${JSON.stringify({ narrowed: narrowed.length, lists })})`)
+
+  // Item 74: a favorite moved from the keyboard to the other list keeps focus there, as one moved
+  // within a list does: an item's from its own menu, a skill's from its roll's, spell slots' from
+  // theirs. Each move made, and Foundry keeping its order.
+  /** What has focus: its tag, its row's name, and which of the strip's lists that row is in, from 0. */
+  const focusAt = () => top.evaluate(panel => {
+    const active = document.activeElement
+    const row = active?.closest('li')
+    const lists = [...panel.querySelectorAll('ul')].filter(list => !list.closest('li'))
+    return { tag: active?.tagName ?? null, name: row?.querySelector('.font-medium')?.textContent ?? null, list: row ? lists.indexOf(row.parentElement) : -1 }
+  })
+  /**
+   * A move from the keyboard: focus on what opens the row's menu, Shift+F10, the down key to the
+   * move and Enter; until the order it sends is made, and Foundry keeps it. The order made.
+   */
+  async function keyMove(control, title, move) {
+    await toastsGone(wide)
+    await control.focus()
+    await wide.page.keyboard.press('Shift+F10')
+    const menu = wide.page.getByRole('menu', { name: title })
+    await menu.waitFor({ timeout: 5_000 })
+    await focusInside(menu)
+    const { items } = await lookOf(menu)
+    for (let i = 0; i < items.length && (await lookOf(menu)).focused !== move; i++) await wide.page.keyboard.press('ArrowDown')
+    await paced()
+    const sent = orders().length
+    await wide.page.keyboard.press('Enter')
+    const done = await ordered(sent + 1, `${move} made`)
+    await until(async () => same(await foundryKeys(wide), done.payload.favorite.order.map(keyOf)), `Foundry's favorites after ${move}`, 15_000).catch(() => {})
+    return { done, kept: same(await foundryKeys(wide), done.payload.favorite.order.map(keyOf)) }
+  }
+  const onPage = [...placed]
+  /** The two lists `onPage` makes, Ki first. */
+  const splitPage = () => [['Ki', ...onPage].slice(0, half), ['Ki', ...onPage].slice(half)]
+  /** `onPage` with a favorite moved one place, up (-1) or down (1). */
+  const step = (name, by) => {
+    const at = onPage.indexOf(name)
+    onPage.splice(at, 1)
+    onPage.splice(at + by, 0, name)
+  }
+  /** After a move: its order, the lists, and where focus is once it has settled on `name`. */
+  async function afterMove(name) {
+    await until(async () => same(await listsOf(), splitPage()), 'the lists in the order moved', 5_000).catch(() => {})
+    await until(async () => (await focusAt()).name === name, `focus on ${name}`, 5_000).catch(() => {})
+    return { lists: await listsOf(), focus: await focusAt() }
+  }
+  let byKey = await keyMove(panelTarget(wide, 'Longsword'), 'Longsword', 'Move down')
+  step('Longsword', 1)
+  let after = await afterMove('Longsword')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 1 }),
+    `Move down on the Longsword, last of the first list, puts it first in the second, focus on its name there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+  await toastsGone(wide)
+  await shoot(wide, 'favorites-moved-focus', top)
+  byKey = await keyMove(top.getByRole('button', { name: /^Stealth check/ }), /^Stealth check/, 'Move down')
+  step('Stealth', 1)
+  after = await afterMove('Stealth')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[1][0] === 'Stealth' && same(after.focus, { tag: 'BUTTON', name: 'Stealth', list: 1 }),
+    `Move down on Stealth, now last of the first list, puts it first in the second, focus on its roll there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+  byKey = await keyMove(panelTarget(wide, '1st Level'), '1st Level', 'Move up')
+  step('1st Level', -1)
+  after = await afterMove('1st Level')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[1][0] === '1st Level' && same(after.focus, { tag: 'DIV', name: '1st Level', list: 1 }),
+    `Move up on his 1st Level slots, second in the second list, puts them first there, within their list, focus still on their row (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+  byKey = await keyMove(panelTarget(wide, '1st Level'), '1st Level', 'Move up')
+  step('1st Level', -1)
+  after = await afterMove('1st Level')
+  check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[0].at(-1) === '1st Level' && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'DIV', name: '1st Level', list: 0 }),
+    `Move up on his 1st Level slots, first of the second list, puts them last of the first, focus on their row there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+
+  // Item 74: one open to its description stays open as Favorites is hidden and shown, and as it's
+  // moved to the other list by the mouse, focus following it there.
+  const longsword = () => panelTarget(wide, 'Longsword')
+  await toastsGone(wide)
+  await longsword().click()
+  await until(async () => (await longsword().getAttribute('aria-expanded')) === 'true', 'the Longsword open', 5_000).catch(() => {})
+  const heading = top.getByRole('button', { name: /^Favorites/, expanded: true })
+  await heading.click()
+  // Hidden, the card is 0 wide, and its favorites in one list.
+  await until(async () => (await listsOf()).length === 1, 'one list while hidden', 5_000).catch(() => {})
+  await top.getByRole('button', { name: /^Favorites/, expanded: false }).click()
+  await until(async () => same(await listsOf(), splitPage()), 'two lists once Favorites is shown', 5_000).catch(() => {})
+  lists = await listsOf()
+  let isOpen = await longsword().getAttribute('aria-expanded')
+  check(same(lists, splitPage()) && lists[1][0] === 'Longsword' && isOpen === 'true',
+    `the Longsword, first of the second list, opened; Favorites hidden and shown again by its heading: still open there (${JSON.stringify({ lists, isOpen })})`)
+  await toastsGone(wide)
+  const swordMenu = await menuOf(wide, longsword(), 'Longsword')
+  await paced()
+  const sentOpen = orders().length
+  await swordMenu.getByRole('menuitem', { name: 'Move up', exact: true }).click()
+  made = await ordered(sentOpen + 1, 'the Longsword moved up by the mouse')
+  step('Longsword', -1)
+  after = await afterMove('Longsword')
+  isOpen = await longsword().getAttribute('aria-expanded')
+  check(made.status === 'done' && same(after.lists, splitPage()) && after.lists[0].at(-1) === 'Longsword' && isOpen === 'true' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 0 }),
+    `moved up by a right-click, the Longsword is last of the first list, still open, focus on its name (${JSON.stringify({ made: made.status, isOpen, ...after })})`)
+  await toastsGone(wide)
+  await shoot(wide, 'favorites-moved-open', top)
+
+  // Item 74, by the mouse too: moved to a place out of sight, the page scrolls to it. The Longsword,
+  // last of the first list, its name in sight and the top of the card above the sheet's scroller.
+  /**
+   * The sheet's scroller, scrolled first by `by` pixels: how far it's scrolled, where the
+   * Longsword's name is in it, and whether that name and the second list's first row are wholly in
+   * its sight.
+   */
+  const sightOf = (by = 0) => top.evaluate((panel, by) => {
+    let scroller = panel.parentElement
+    while (scroller && !(scroller.scrollHeight > scroller.clientHeight && /auto|scroll/.test(getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement
+    scroller ??= document.scrollingElement
+    scroller.scrollTop += by
+    const box = scroller === document.scrollingElement ? { top: 0, bottom: innerHeight } : scroller.getBoundingClientRect()
+    const inSight = element => {
+      const rect = element?.getBoundingClientRect()
+      return !!rect && rect.top >= box.top && rect.bottom <= box.bottom
+    }
+    const lists = [...panel.querySelectorAll('ul')].filter(list => !list.closest('li'))
+    const name = [...panel.querySelectorAll('li')].find(row => row.querySelector('.font-medium')?.textContent === 'Longsword')?.querySelector(':scope > div > button')
+    return { scrolled: Math.round(scroller.scrollTop), at: Math.round((name?.getBoundingClientRect().top ?? 0) - box.top), name: inSight(name), second: inSight(lists[1]?.firstElementChild) }
+  }, by)
+  await toastsGone(wide)
+  const outOfSight = await sightOf((await sightOf()).at - 100)
+  const sightMenu = await menuOf(wide, longsword(), 'Longsword')
+  await paced()
+  const sentSight = orders().length
+  await sightMenu.getByRole('menuitem', { name: 'Move down', exact: true }).click()
+  made = await ordered(sentSight + 1, 'the Longsword moved down by the mouse, out of sight')
+  step('Longsword', 1)
+  after = await afterMove('Longsword')
+  await until(async () => (await sightOf()).name, 'the Longsword scrolled to', 5_000).catch(() => {})
+  const scrolledTo = await sightOf()
+  check(outOfSight.name && !outOfSight.second && made.status === 'done' && same(after.lists, splitPage()) && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 1 }) && scrolledTo.name && scrolledTo.scrolled < outOfSight.scrolled,
+    `moved down by a right-click while the top of his favorites is out of sight, the Longsword is first of the second list, focus on its name, and the sheet has scrolled to it (${JSON.stringify({ made: made.status, outOfSight, scrolledTo, ...after })})`)
+  await wide.view.close()
   await big.view.close()
 }
 

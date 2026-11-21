@@ -1,7 +1,15 @@
-import { type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle } from 'lucide-react'
+import { useFocusHandedOn } from '@/hooks/use-focus-handed-on'
 
+/**
+ * A move's button on a character's sheet, Give…, Give or Add or remove, which opens its move's
+ * dialog. While its move is on its way it waits: it does nothing and says so, but keeps taking
+ * focus, so that the dialog gives focus back to it as it closes, whether the move was sent or not
+ * (ROADMAP item 85), as End Turn and the Hit points tile wait. Should it go with the move, as
+ * Give does once a character's last coins are given, focus on it goes to what's beside it.
+ */
 export function GiveButton({
   label,
   className,
@@ -16,21 +24,26 @@ export function GiveButton({
   busy: boolean
   /**
    * On a row whose label says what's on its way, as a character's Currency row does from module
-   * 0.49.0: it waits, disabled, with no spinner of its own.
+   * 0.49.0: it waits with no spinner of its own.
    */
   quiet?: boolean
   onGive: () => void
   children?: ReactNode
 }>) {
+  const button = useRef<HTMLButtonElement>(null)
+  useFocusHandedOn(button)
   const spins = busy && !quiet
   return (
     <button
+      ref={button}
       type='button'
       aria-haspopup='dialog'
       aria-label={label}
-      disabled={busy}
+      aria-disabled={busy || undefined}
       aria-busy={busy || undefined}
-      onClick={onGive}
+      onClick={() => {
+        if (!busy) onGive()
+      }}
       className={clsx(className, spins && 'inline-flex items-center gap-1')}
     >
       {spins && (

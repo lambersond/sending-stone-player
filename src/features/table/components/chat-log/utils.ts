@@ -22,8 +22,8 @@ function edgeOf(whisper: boolean, mine: boolean): string {
 }
 
 /**
- * The article before what a roll request card asks for: "an" before a vowel or a silent h, as "an
- * Honor (Etiquette) check", else "a".
+ * The article before what a roll request card asks for, as `articleOf` says it: "an Honor
+ * (Etiquette) check", "a Utility saving throw".
  */
 export function article(title: string): string {
   return articleOf(title)
