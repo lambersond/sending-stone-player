@@ -1214,7 +1214,7 @@ part('26. forms from anywhere')
     dialog: el.scrollWidth <= el.clientWidth,
     cards: ids.map(id => {
       const card = el.querySelector(`[data-ws-card="${id}"]`)
-      const badge = card.querySelector('.rounded-full')
+      const badge = card.querySelector('.rounded-full.border')
       const name = card.querySelector('.font-semibold').parentElement
       return {
         id, fits: card.scrollWidth <= card.clientWidth, name: Math.round(name.getBoundingClientRect().width),
