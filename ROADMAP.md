@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.52.0 and its app, with v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0,
-v0.45.0 and v0.44.0 before it.
+Released: module v0.53.0 and its app, with v0.52.0, v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0,
+v0.46.0, v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -198,12 +198,13 @@ Midi-QOL v14.0.x:
   an ability your world adds with no type, and not Honor; and under a transformation with Appearance
   it marks no tile.
 
-## v0.53 (release candidate)
+## v0.53 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc entry.
+Released on 2026-11-21: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0 entry. v0.53 is
+the release candidate for v1.0 after v0.52: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.53.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Midi-QOL's check of a cost, asked once:** with Manual Dice on for the Gamemaster and Midi-QOL
   set to consume the Gamemaster's resources without asking, a charm that spends 1d4 charges, used in
@@ -251,7 +252,7 @@ tweaks needed may change it as it goes. Batches 1 to 5 and 8 are done; 6 and 7 a
 6. Items 59, 60 and 98: summon activities, known forms from anywhere, and constant companions.
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
-   and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+   and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Found while untangling the module's imports**
 
@@ -286,7 +287,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
 Items 72 to 75, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, a roll's
 button dropping the first Enter after its menu was opened from the keyboard, keyboard focus after a
 favorite moves from one list to the other, and the favorites in one list once Reorder has been
-opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 76. **What a druid begins in Wild Shape:** a spell a Moon druid casts as a beast and concentrates
     on, such as Moonbeam or Fount of Moonlight, ends in Foundry when Wild Shape ends. Whether what
@@ -340,7 +341,7 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
 or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
-sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
     the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
@@ -425,7 +426,7 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 **Found while building Batch 3**
 
 Items 92 and 93, Midi-QOL's checks in an encounter the Gamemaster doesn't have up and a Gamemaster's
-message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 94. **The module harness's wait for a druid's copy made late, under load:**
     `test/fvtt/wildshape.mjs` (line 1171), under `MIDI=1`, "her copy made too late: Rowan's
@@ -454,7 +455,7 @@ message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-
 **Found while building Batch 5**
 
 Items 96 and 97, "an" before a "u" that sounds like "you" and a world's own tools in a description's
-hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Asked for on 2026-11-20**
 
