@@ -203,6 +203,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         // Changed on purpose (round 3, decision 3): whether its module asks for the dice an item
         // rolls later, by its versions; none from a hello that gives none.
         laterDice: false,
@@ -278,6 +281,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -350,6 +356,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -406,6 +415,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -537,6 +549,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -592,6 +607,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -655,6 +673,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -710,6 +731,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -778,6 +802,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -835,6 +862,9 @@ describe('db/campaign-events', () => {
           // Changed on purpose (item 18): whether companions are listed on every scene, from
           // module 0.51.0; none from a hello that says nothing of it.
           companionsAway: false,
+          // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+          // companions, from module 0.54.0.
+          companionsConstant: false,
           laterDice: false,
           initiativeAnywhere: false,
           foundry: { receivedAt: SENT },
@@ -895,6 +925,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -1249,6 +1282,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -1311,6 +1347,9 @@ describe('db/campaign-events', () => {
         // Changed on purpose (item 18): whether companions are listed on every scene, from
         // module 0.51.0; none from a hello that says nothing of it.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
         laterDice: false,
         initiativeAnywhere: false,
         foundry: { receivedAt: SENT },
@@ -1371,6 +1410,9 @@ describe('db/campaign-events', () => {
           // Changed on purpose (item 18): whether companions are listed on every scene, from
           // module 0.51.0; none from a hello that says nothing of it.
           companionsAway: false,
+          // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+          // companions, from module 0.54.0.
+          companionsConstant: false,
           laterDice: false,
           initiativeAnywhere: false,
           foundry: { receivedAt: SENT },
@@ -3463,6 +3505,55 @@ describe('db/campaign-events, companions, from module 0.36.0', () => {
     expect(prismaMock.companionSheet.deleteMany).toHaveBeenCalledWith({
       where: { campaignId: 'c1', key: { notIn: [wolf.key, imp.key] } },
     })
+  })
+
+  // Module 0.54.0 (item 98): beside them it lists the companions as an app that says
+  // `companions: 4` is listed them, the Gamemaster's constant ones among them; this app keeps that
+  // list over the other two, and says so for Help. A hello without it keeps `companionsEverywhere`.
+  it('keeps the companions a hello from module 0.54.0 lists with the constant ones, over those on every scene, and says so for Help', async () => {
+    const steel = {
+      ...mockCompanionEntry(),
+      key: 'steelDef',
+      kind: 'constant' as const,
+      name: 'Steel Defender',
+      away: false,
+      placed: false,
+    }
+    const constant = [{ ...wolf, away: false }, steel]
+    await hello(
+      [wolf],
+      {
+        ...companionFeatures,
+        companions: {
+          ...companionFeatures.companions,
+          away: true,
+          constant: true,
+        },
+      },
+      {
+        ...apart,
+        companionsEverywhere: [{ ...wolf, away: false }],
+        companionsConstant: constant,
+      },
+    )
+
+    expect(storedHello().companions).toEqual(constant)
+    expect(storedHello().companionsConstant).toBe(true)
+  })
+
+  it('keeps the companions on every scene from a hello that lists no constant ones, and says none for Help', async () => {
+    const everywhere = [{ ...wolf, away: false }]
+    await hello(
+      [wolf],
+      {
+        ...companionFeatures,
+        companions: { ...companionFeatures.companions, away: true },
+      },
+      { ...apart, companionsEverywhere: everywhere },
+    )
+
+    expect(storedHello().companions).toEqual(everywhere)
+    expect(storedHello().companionsConstant).toBe(false)
   })
 
   it.each([

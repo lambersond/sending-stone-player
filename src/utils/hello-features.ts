@@ -175,7 +175,8 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
  * feature does, or coins from module 0.49.0, which none takes; and how they enter initiative, each
  * its own roll unless the module says otherwise. A module before it says nothing of them, which
  * clears the first and sets the second back to its own roll. And from module 0.51.0, whether it
- * lists companions on every scene, each saying whether it's away, for Help: only where it says so.
+ * lists companions on every scene, each saying whether it's away, for Help: only where it says so;
+ * and from module 0.54.0 whether it lists the Gamemaster's constant companions, the same way.
  */
 export function helloCompanionData(
   features: BridgeFeatures | null | undefined,
@@ -190,5 +191,6 @@ export function helloCompanionData(
     companionInitiative:
       features?.companions?.initiative === 'after' ? 'after' : 'own',
     companionsAway: features?.companions?.away === true,
+    companionsConstant: features?.companions?.constant === true,
   }
 }

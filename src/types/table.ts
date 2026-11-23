@@ -496,6 +496,12 @@ export type TableView = {
    * `companionsAway`). Unset where it doesn't.
    */
   companionsAway?: true
+  /**
+   * At either seat, for Help: whether the campaign's module lists the Gamemaster's constant
+   * companions, from module 0.54.0, as its hello said last (the campaign's `companionsConstant`).
+   * Unset where it doesn't.
+   */
+  companionsConstant?: true
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
@@ -519,7 +525,8 @@ export type TableCompanion = {
   key: string
   name: string
   portrait?: string
-  kind: 'owned' | 'summoned'
+  /** From module 0.54.0 "constant" too: one the Gamemaster keeps beside its character. */
+  kind: 'owned' | 'summoned' | 'constant'
   /** For a summoned one, the item it was summoned with, such as "Find Familiar". */
   from?: string
   /**
@@ -527,6 +534,11 @@ export type TableCompanion = {
    * where it isn't, or the module doesn't say.
    */
   away?: true
+  /**
+   * A constant companion with no token on any scene, as the module last listed it; from module
+   * 0.54.0. Unset where it has one, or the module doesn't say.
+   */
+  unplaced?: true
 }
 
 /**

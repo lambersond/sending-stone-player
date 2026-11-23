@@ -283,6 +283,9 @@ describe('db/table', () => {
           // Changed on purpose (item 18): whether its module lists companions on every scene,
           // from module 0.51.0, for Help.
           companionsAway: true,
+          // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+          // companions, from module 0.54.0.
+          companionsConstant: true,
         },
       })
       expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith({
@@ -1787,6 +1790,25 @@ describe('db/table, companions on every scene, from module 0.51.0', () => {
       expect(view.companionsAway).toBe(true)
       givenCampaign({ ...asking, companionsAway: false })
       expect(await getTableView(seat)).not.toHaveProperty('companionsAway')
+    },
+  )
+
+  // Item 98: for Help's "Constant companions.", at either seat, as its hello said last.
+  it.each([
+    ['the player', thorin],
+    [
+      'the Gamemaster',
+      { ...thorin, role: 'gm' as const, userId: 'gm-1', characterId: null },
+    ],
+  ])(
+    'tells %s, for Help, whether its module lists constant companions, as it said last',
+    async (_, seat) => {
+      givenCampaign({ ...asking, companionsConstant: true })
+      prismaMock.diceAsk.findMany.mockResolvedValue([])
+      const view = await getTableView(seat)
+      expect(view.companionsConstant).toBe(true)
+      givenCampaign({ ...asking, companionsConstant: false })
+      expect(await getTableView(seat)).not.toHaveProperty('companionsConstant')
     },
   )
 })

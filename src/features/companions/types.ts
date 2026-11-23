@@ -11,7 +11,7 @@ export type SwitcherCreature = {
   number?: number
   portrait?: string
   /** A companion's kind; none for the character. */
-  kind?: 'owned' | 'summoned'
+  kind?: 'owned' | 'summoned' | 'constant'
   /** For a summoned one, the item it was summoned with. */
   from?: string
   /** No longer listed: kept until it has been shown and left (§8.3). */
@@ -21,6 +21,10 @@ export type SwitcherCreature = {
    * a gone one.
    */
   away?: true
+  /**
+   * A constant companion with no token on any scene, from module 0.54.0: never a gone one.
+   */
+  unplaced?: true
   /**
    * For the character, what it's transformed into, from module 0.40.0, as its accessible name
    * says it, chosen or not, before its news: ", in Wild Shape as a Wolf".

@@ -366,22 +366,29 @@ describe('db/campaigns', () => {
         ],
       })
 
+      // Changed on purpose (item 98): each with its key, which tells one listed for two characters
+      // once, from module 0.54.0's constant companions.
       expect(
         campaign.characters.map(({ id, companions }) => ({ id, companions })),
       ).toEqual([
         {
           id: 'thorin',
           companions: [
-            { name: 'Wolf', kind: 'owned' },
-            { name: 'Imp', kind: 'summoned', from: 'Find Familiar' },
-            { name: 'Bessie', kind: 'owned' },
+            { key: 'wolfBrakka', name: 'Wolf', kind: 'owned' },
+            {
+              key: 'sceneFrost-tokenImp',
+              name: 'Imp',
+              kind: 'summoned',
+              from: 'Find Familiar',
+            },
+            { key: 'muleBessie', name: 'Bessie', kind: 'owned' },
           ],
         },
         {
           id: 'vex',
           companions: [
-            { name: 'Bessie', kind: 'owned' },
-            { name: 'Spirit', kind: 'summoned' },
+            { key: 'muleBessie', name: 'Bessie', kind: 'owned' },
+            { key: 'sceneFrost-tokenSpirit', name: 'Spirit', kind: 'summoned' },
           ],
         },
         { id: 'balin', companions: [] },
@@ -407,10 +414,53 @@ describe('db/campaigns', () => {
         ],
       })
 
+      // Changed on purpose (item 98): each with its key, from module 0.54.0.
       expect(campaign.characters[0]?.companions).toEqual([
-        { name: 'Wolf', kind: 'owned', away: true },
-        { name: 'Imp', kind: 'summoned', from: 'Find Familiar', away: true },
-        { name: 'Bessie', kind: 'owned' },
+        { key: 'wolfBrakka', name: 'Wolf', kind: 'owned', away: true },
+        {
+          key: 'sceneFrost-tokenImp',
+          name: 'Imp',
+          kind: 'summoned',
+          from: 'Find Familiar',
+          away: true,
+        },
+        { key: 'muleBessie', name: 'Bessie', kind: 'owned' },
+      ])
+    })
+
+    it('gives each companion on the card its key, and marks a constant one with no token, from module 0.54.0, only where its entry says so', async () => {
+      const campaign = await listed({
+        characters: [{ id: 'thorin', name: 'Thorin' }],
+        companions: [
+          mockCompanionEntry({
+            key: 'steelDef',
+            name: 'Steel Defender',
+            kind: 'constant',
+            placed: false,
+          }),
+          mockCompanionEntry({
+            key: 'owl',
+            name: 'Owl',
+            kind: 'constant',
+            placed: true,
+          }),
+          mockCompanionEntry({
+            key: 'muleBessie',
+            name: 'Bessie',
+            placed: false,
+          }),
+        ],
+      })
+
+      expect(campaign.characters[0]?.companions).toEqual([
+        {
+          key: 'steelDef',
+          name: 'Steel Defender',
+          kind: 'constant',
+          unplaced: true,
+        },
+        { key: 'owl', name: 'Owl', kind: 'constant' },
+        { key: 'muleBessie', name: 'Bessie', kind: 'owned' },
       ])
     })
 

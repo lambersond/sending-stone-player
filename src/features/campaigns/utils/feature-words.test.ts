@@ -178,10 +178,21 @@ describe('features/campaigns/utils/feature-words, companions on another scene (m
   it('marks one owned or summoned on another scene, numbering repeated names as before', () => {
     expect(
       companionsLine([
-        { name: 'Brakka', kind: 'owned' },
-        { name: 'Wolf', kind: 'owned', away: true },
-        { name: 'Bat', kind: 'summoned', from: 'Find Familiar' },
-        { name: 'Bat', kind: 'summoned', from: 'Find Familiar', away: true },
+        { key: 'brakka', name: 'Brakka', kind: 'owned' },
+        { key: 'sB-wolf', name: 'Wolf', kind: 'owned', away: true },
+        {
+          key: 'sA-bat1',
+          name: 'Bat',
+          kind: 'summoned',
+          from: 'Find Familiar',
+        },
+        {
+          key: 'sB-bat2',
+          name: 'Bat',
+          kind: 'summoned',
+          from: 'Find Familiar',
+          away: true,
+        },
       ]),
     ).toBe(
       'Companions: Brakka, Wolf (on another scene), Bat 1 (summoned), Bat 2 (summoned, on another scene)',

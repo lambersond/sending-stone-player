@@ -1381,7 +1381,8 @@ const cutTo = (most: number) =>
 const companionEntrySchema: z.ZodType<CompanionEntry> = z.looseObject({
   key: z.string().regex(COMPANION_KEY),
   of: z.array(z.string().regex(ACTOR_ID)).min(1).max(20),
-  kind: z.enum(['owned', 'summoned']),
+  // From module 0.54.0 "constant" too: one the Gamemaster marked, with a token or without.
+  kind: z.enum(['owned', 'summoned', 'constant']),
   actorId: z.string().regex(ACTOR_ID),
   tokenId: z.string().regex(DOCUMENT_ID).nullable(),
   sceneId: z.string().regex(DOCUMENT_ID).nullable(),
@@ -1399,6 +1400,9 @@ const companionEntrySchema: z.ZodType<CompanionEntry> = z.looseObject({
   // From module 0.51.0, to an app that reads companions on every scene: whether it's on another
   // scene than the active one. Left out where it can't be read.
   away: leftOut(z.boolean()),
+  // From module 0.54.0, a constant companion's only: whether a token of it is on a scene. Left out
+  // where it can't be read.
+  placed: leftOut(z.boolean()),
 })
 
 /**
@@ -1705,6 +1709,8 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         initiative: z.enum(COMPANION_INITIATIVE).catch('own'),
         // From module 0.51.0: whether it lists companions on every scene, each with `away`.
         away: leftOut(z.boolean()),
+        // From module 0.54.0: whether it lists the Gamemaster's constant companions.
+        constant: leftOut(z.boolean()),
       }),
     ),
     // From module 0.37.0: whether favorites may be added and removed here, under dnd5e, with no
@@ -2432,6 +2438,9 @@ const helloSchema = z.looseObject({
   // From module 0.51.0: the companions on every scene, as an app that says `companions: 3` is
   // listed them; none from an older module, whose `companions` stand.
   companionsEverywhere: leftOut(companionsSchema),
+  // From module 0.54.0: the companions as an app that says `companions: 4` is listed them, the
+  // Gamemaster's constant companions among them; none from an older module, whose others stand.
+  companionsConstant: leftOut(companionsSchema),
   combats: z.array(combatSchema),
   // Sent from module 0.10.0.
   features: featuresSchema,

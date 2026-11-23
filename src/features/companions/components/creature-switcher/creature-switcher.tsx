@@ -1,7 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
-import { CircleOff, MapPinOff, PawPrint, Sparkles } from 'lucide-react'
+import { CircleOff, MapPinOff, PawPrint, Pin, Sparkles } from 'lucide-react'
 import { SWITCH_TAB, SWITCH_TAB_OFF, SWITCH_TAB_ON } from '@/constants/buttons'
 import { useSwitcherLayout } from '@/features/companions/hooks/use-switcher-layout'
 import { describe, shownName } from '@/features/companions/utils'
@@ -156,18 +156,22 @@ export function CreatureSwitcher({
   )
 }
 
-/** A companion's kind, as an icon its description says in words: owned, summoned, or gone. */
+/**
+ * A companion's kind, as an icon its description says in words: owned, summoned, from module 0.54.0
+ * constant, a pin, or gone.
+ */
 function KindIcon({
   kind,
   gone,
   className,
 }: Readonly<{
-  kind: 'owned' | 'summoned'
+  kind: 'owned' | 'summoned' | 'constant'
   gone?: boolean
   className: string
 }>) {
   if (gone) return <CircleOff aria-hidden className={className} />
   if (kind === 'owned') return <PawPrint aria-hidden className={className} />
+  if (kind === 'constant') return <Pin aria-hidden className={className} />
   return <Sparkles aria-hidden className={className} />
 }
 

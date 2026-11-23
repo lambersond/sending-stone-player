@@ -290,6 +290,7 @@ const TABLE_CAMPAIGN = {
   initiativeAnywhere: true,
   // Whether its module lists companions on every scene, from module 0.51.0, for Help.
   companionsAway: true,
+  companionsConstant: true,
 } as const
 
 /**
@@ -427,15 +428,18 @@ export async function getTableView(
  * What Help reads of the campaign's module at either seat, as its hello said last, stored, never
  * whether it polled lately: whether it asks a typing player for the dice an item rolls later, by
  * its versions, never its switches (the owner's round 3 decision 3); and from module 0.51.0 whether
- * it lists companions on every scene, each saying whether it's away.
+ * it lists companions on every scene, each saying whether it's away; and from module 0.54.0 whether
+ * it lists the Gamemaster's constant companions.
  */
 function helpModule(campaign: {
   laterDice: boolean
   companionsAway: boolean
-}): Pick<TableView, 'laterDice' | 'companionsAway'> {
+  companionsConstant: boolean
+}): Pick<TableView, 'laterDice' | 'companionsAway' | 'companionsConstant'> {
   return {
     ...(campaign.laterDice && { laterDice: true as const }),
     ...(campaign.companionsAway && { companionsAway: true as const }),
+    ...(campaign.companionsConstant && { companionsConstant: true as const }),
   }
 }
 

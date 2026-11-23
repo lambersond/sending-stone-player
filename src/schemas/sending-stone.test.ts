@@ -4896,6 +4896,63 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
     ])
   })
 
+  // Module 0.54.0 (item 98): to this app, the Gamemaster's constant companions, each saying
+  // whether a token of it is on a scene, and the hello's list with them, beside the other two.
+  it('reads a constant companion and whether it’s placed, leaving out what isn’t a boolean, and drops another kind', () => {
+    const [none, placed, junk] = hello([
+      mockCompanionEntry({
+        key: 'steelDef',
+        actorId: 'steelDef',
+        kind: 'constant',
+        placed: false,
+      }),
+      mockCompanionEntry({
+        key: 'owl',
+        actorId: 'owl',
+        kind: 'constant',
+        placed: true,
+      }),
+      {
+        ...mockCompanionEntry({ key: 'hawk', actorId: 'hawk' }),
+        kind: 'constant',
+        placed: 'x',
+      },
+      {
+        ...mockCompanionEntry({ key: 'bear', actorId: 'bear' }),
+        kind: 'other',
+      },
+    ]).companions
+    expect([none.kind, none.placed, placed.placed]).toEqual([
+      'constant',
+      false,
+      true,
+    ])
+    expect(junk.key).toBe('hawk')
+    expect(junk.placed).toBeUndefined()
+    expect(hello([{ ...wolf, kind: 'other' }]).companions).toEqual([])
+    const features = (constant: unknown) =>
+      hello([], { companions: { kinds: [], initiative: 'own', constant } })
+        .features.companions.constant
+    expect([features(true), features('yes'), features(undefined)]).toEqual([
+      true,
+      undefined,
+      undefined,
+    ])
+    const read = parseGameEvent('bridge.hello', {
+      characters: roster,
+      combats: [],
+      companions: [wolf],
+      companionsConstant: [
+        wolf,
+        { ...wolf, key: 'steelDef', kind: 'constant', placed: false },
+      ],
+    })?.data as any
+    expect(
+      read.companionsConstant.map((each: { key: string }) => each.key),
+    ).toEqual(['wolfBrakka', 'steelDef'])
+    expect(hello([wolf]).companionsConstant).toBeUndefined()
+  })
+
   it('reads the hello’s companions on every scene, from module 0.51.0, and none where unsaid', () => {
     const everywhere = [wolf, { ...imp, away: true }]
     const read = parseGameEvent('bridge.hello', {

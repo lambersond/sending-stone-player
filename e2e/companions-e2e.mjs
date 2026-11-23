@@ -345,7 +345,8 @@ part('1. the hello and the answer')
     `its features.companions: kinds without inspiration, spend, endTurn or undoEndTurn, initiative "own" (${JSON.stringify(features)})`)
   // Changed on purpose (round 0.41.0 §8.4): from module 0.41.0 the app reads companions' saves too.
   // Changed on purpose (module 0.51.0, ROADMAP item 18): and companions on every scene.
-  check(JSON.parse(hello().body ?? '{}').features?.companions === 3, `the app answers companions: 3 (${hello().body})`)
+  // Changed on purpose (module 0.54.0, ROADMAP item 98): and the Gamemaster's constant companions.
+  check(JSON.parse(hello().body ?? '{}').features?.companions === 4, `the app answers companions: 4 (${hello().body})`)
   // Module 0.51.0 (ROADMAP item 18): the hello lists the companions on every scene too, each saying
   // whether it's on another scene, and features.companions says so.
   if (!SKEW050) {
@@ -1185,7 +1186,8 @@ const GONE = 'No longer with Thorin in your Gamemaster’s game'
     `the Bat on another scene still rolled for: its Perception made on its token's actor (${awayRoll.made.status}, ${madeFor(awayRoll.request.id)?.speaker?.token})`)
   // A Gamemaster's page load (C1): the bridge starts with no answer heard yet, so its hello is built
   // for an app it doesn't know yet, its `companions` the active scene's. The app keeps
-  // `companionsEverywhere`, and the module, told 3, notes that list as the app's: no tab goes, the
+  // `companionsConstant` (here `companionsEverywhere`'s list: no companion is marked constant), and
+  // the module, told 4, notes that list as the app's: no tab goes, the
   // Drake's sheet stays, and no companions.listed follows. (The answer forgotten, then the hello, as
   // the module's harness does: a reload of the game's page here would leave the first module's hooks
   // on, and part 16 posts through it.)

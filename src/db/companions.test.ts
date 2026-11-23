@@ -533,6 +533,32 @@ describe('db/companions', () => {
       },
     )
 
+    // Module 0.54.0 (item 98): a constant companion with no token on any scene, as the module lists
+    // it now; said only where it's constant and unplaced.
+    it.each([
+      ['constant', false, true],
+      ['constant', true, undefined],
+      ['constant', undefined, undefined],
+      ['owned', false, undefined],
+    ] as const)(
+      'says a %p companion listed with placed %p is unplaced: %p',
+      async (kind, placed, shown) => {
+        const seat = await seatAt(thorin, 'wolfBrakka')
+        held({
+          companions: [
+            { ...wolf, kind, ...(placed !== undefined && { placed }) },
+            imp,
+          ],
+        })
+
+        const view = await getCompanionView(seat)
+        expect(view.companion?.unplaced).toBe(shown)
+        expect(Object.hasOwn(view.companion ?? {}, 'unplaced')).toBe(
+          shown === true,
+        )
+      },
+    )
+
     it('offers nothing to roll once the module no longer lists it as the character’s', async () => {
       const seat = await seatAt(thorin, 'wolfBrakka')
       held({ companions: [imp] })

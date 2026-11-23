@@ -522,9 +522,11 @@ export const NOTES = 3
  * 0.36.0, the hello's `companions`, `companions.listed` and `companion.updated`; from module
  * 0.41.0, 2: the saves the game asks of companions, which the module asks only then; and from
  * module 0.51.0, 3: companions on every scene, each saying whether it's `away`, which the module
- * lists only then, and the hello's `companionsEverywhere`.
+ * lists only then, and the hello's `companionsEverywhere`; and from module 0.54.0, 4: the
+ * Gamemaster's constant companions, `kind` `"constant"` with `placed`, which the module lists only
+ * then, and the hello's `companionsConstant`.
  */
-export const COMPANIONS = 3
+export const COMPANIONS = 4
 
 /**
  * The format of damage on its own's choices this app takes, as it tells the module
