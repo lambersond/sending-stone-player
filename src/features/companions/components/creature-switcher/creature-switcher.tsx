@@ -330,10 +330,12 @@ function CreatureAvatar({
   let tint: string = tintOf(name)
   if (gone) tint = 'bg-text-secondary/15 text-text-secondary'
   else if (self) tint = 'bg-primary text-on-primary'
+  // A box of its own, so that its ring goes round the initials as an avatar too, where it isn't a
+  // flex item.
   return (
     <span
       aria-hidden
-      className={clsx('shrink-0 rounded-full bg-card', dashed && ring)}
+      className={clsx('flex shrink-0 rounded-full bg-card', dashed && ring)}
     >
       <span
         className={clsx(
