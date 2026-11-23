@@ -3,11 +3,13 @@ import { chargesOf } from '../action-info/utils'
 import { PILLS } from './constants'
 import { MAX_USE_TARGETS } from '@/constants/sending-stone'
 import { enchantOf, offeredProfiles } from '@/features/sheet/utils/enchantments'
+import { offeredSummons, summonOf } from '@/features/sheet/utils/summons'
 import { slotPools, ordinal, defaultPool } from '@/utils/action-groups'
 import { aloneSelection } from '@/utils/alone-choices'
 import { articleOf } from '@/utils/articles'
 import { castOf, castAtLevel } from '@/utils/casts'
 import { listed } from '@/utils/roll-reasons'
+import { seatWords } from '@/utils/seat-words'
 import {
   offersSelf,
   picksTargets,
@@ -19,12 +21,14 @@ import { articled } from '@/utils/wild-shape'
 import type { Picked, Picking, Section, Whom } from './types'
 import type { AloneChoice } from '@/features/sheet/utils/types'
 import type { AloneSelection } from '@/types/roll'
+import type { SeatRole } from '@/types/seats'
 import type {
   AloneSpend,
   CastIndex,
   SheetAction,
   SheetEnchant,
   SheetSpellSection,
+  SheetSummon,
   SheetCastLevel,
   SlotPool,
 } from '@/types/sending-stone'
@@ -247,7 +251,8 @@ function slotWords(pool: SlotPool): string {
  * or with which slot, ammunition or mode, where there's more than one, or at which level a spell an
  * item casts is cast, where it may be cast higher? One that enchants another item always asks
  * which, or to leave it on its card; one that enchants its own, how, where it may more ways than
- * one.
+ * one. One that summons, from module 0.54.0, asks where a level may be chosen, where it offers
+ * other than one creature at the level it's cast at by default, or a choice of type or size.
  * @param casts - How each spell an item casts is cast, by its copy's id.
  * @param selfTargets - Whether the game makes a use at its user as asked, from module 0.22.0.
  */
@@ -289,6 +294,19 @@ export function asks(
       offeredProfiles(enchant, level).length > 1
     )
   }
+  const summon =
+    picking.kind === 'use' ? summonOf(picking.action.activity) : undefined
+  if (summon) {
+    const { slot } = summonPicks(picking.action, spellbook, casts)
+    const level = castAtLevel(picking.action, spellbook, slot, casts)
+    return (
+      pools.length > 0 ||
+      levels.length > 0 ||
+      offeredSummons(summon, level).length !== 1 ||
+      summon.types.length > 0 ||
+      summon.sizes.length > 0
+    )
+  }
   const targets =
     picking.kind === 'attack'
       ? targetsOf(combat)
@@ -322,6 +340,56 @@ export function enchantPicks(
     ...(slot && { slot }),
     ...(profile && { enchant: { profile: profile.id } }),
   }
+}
+
+/**
+ * How a summon activity is cast where nothing is asked, from module 0.54.0, as dnd5e's dialog would
+ * preset it: at the level a spell is cast at by default, with its slot, or for one an item casts,
+ * the level; the first creature offered there, and the first type and size it offers a choice of.
+ * Nothing for anything else; no creature for one that summons nothing there, which the game then
+ * refuses.
+ */
+export function summonPicks(
+  action: SheetAction,
+  spellbook: SheetSpellSection[],
+  casts: CastIndex = NO_CASTS,
+): Pick<Picked, 'slot' | 'summon'> {
+  const summon = summonOf(action.activity)
+  if (!summon) return {}
+  const slot = defaultSlot(action, spellbook, casts)
+  const level = castAtLevel(action, spellbook, slot, casts)
+  const [profile] = offeredSummons(summon, level)
+  return {
+    ...(slot && { slot }),
+    ...(profile && { summon: summonChoiceOf(summon, profile.id) }),
+  }
+}
+
+/**
+ * A summon activity's creature as the game is asked for it: with the type and size chosen, else
+ * the first it offers a choice of, as dnd5e presets them; none where it offers no choice.
+ */
+export function summonChoiceOf(
+  summon: SheetSummon,
+  profile: string,
+  { type, size }: { type?: string; size?: string } = {},
+): NonNullable<Picked['summon']> {
+  const typed = type ?? summon.types[0]?.key
+  const sized = size ?? summon.sizes[0]?.key
+  return {
+    profile,
+    ...(typed && { type: typed }),
+    ...(sized && { size: sized }),
+  }
+}
+
+/**
+ * The line above a summoning's button, from module 0.54.0, as the seat reads it: that the
+ * Gamemaster places what it summons in Foundry from the card, or the Gamemaster's seat does.
+ */
+export function summonLine(role: SeatRole): string {
+  const { places } = seatWords(role)
+  return `${places.charAt(0).toUpperCase()}${places.slice(1)} it in Foundry from the card.`
 }
 
 export function pillOf(
@@ -477,8 +545,9 @@ export function movedOff(
 
 /**
  * What an attack or a use is asked with beyond whom at, of what there's a choice of: the slot, or
- * the level, and always for one that enchants, as the ways it may enchant may hang on it; the
- * ammunition; and the attack mode.
+ * the level, and always for one that enchants, or from module 0.54.0 summons (`levelled`), as the
+ * ways it may enchant, or the creatures it may summon, may hang on it; the ammunition; and the
+ * attack mode.
  */
 export function optionsOf(
   {
@@ -496,11 +565,11 @@ export function optionsOf(
     slot,
     ammo,
     mode,
-    enchanting,
-  }: { slot?: string; ammo?: string; mode?: string; enchanting: boolean },
+    levelled,
+  }: { slot?: string; ammo?: string; mode?: string; levelled: boolean },
 ): Pick<Picked, 'slot' | 'ammunition' | 'attackMode'> {
   return {
-    ...((pools.length > 0 || levels.length > 0 || enchanting) &&
+    ...((pools.length > 0 || levels.length > 0 || levelled) &&
       slot && { slot }),
     ...(ammunition.length > 0 && ammo && { ammunition: ammo }),
     ...(modes.length > 0 && mode && { attackMode: mode }),
@@ -509,9 +578,9 @@ export function optionsOf(
 
 /**
  * Whom an attack or a use is made at, as the picker asks it: an area attack at those ticked, as
- * many as it takes at the level chosen; one that enchants at no one, with what it enchants; an
- * attack at the one tapped, the last attacked first; and a use as `whomOfUse` has it. An attack
- * with no one to make it at is made at no one.
+ * many as it takes at the level chosen; one that enchants at no one, with what it enchants; one
+ * that summons, from module 0.54.0, at no one; an attack at the one tapped, the last attacked
+ * first; and a use as `whomOfUse` has it. An attack with no one to make it at is made at no one.
  * @param base - The level it's cast at by default; `castAt` the level chosen.
  */
 export function whomOf({
@@ -550,6 +619,9 @@ export function whomOf({
       : { kind: 'attack' }
   }
   if (enchant) return { kind: 'enchant', enchant, verb: verbOf(action) }
+  if (picking.kind === 'use' && summonOf(action.activity)) {
+    return { kind: 'summon', verb: verbOf(action) }
+  }
   if (picking.kind === 'attack') {
     const targets = targetsOf(combat)
     return targets.length > 0

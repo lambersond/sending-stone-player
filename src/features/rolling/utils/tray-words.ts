@@ -451,18 +451,27 @@ function verbsOf(roll: LocalUse): [verb: string, doing: string] {
 
 /**
  * What a use made at the table says: charges spent, how many; the damage or healing that follows
- * it, where its kind needn't be chosen first; and for an enchant activity, the enchantment it
- * applied.
+ * it, where its kind needn't be chosen first; for an enchant activity, the enchantment it applied;
+ * and for a summon activity, from module 0.54.0, who places the creature, or creatures, in Foundry.
  */
-function usedAt(roll: LocalUse, verb: string, state: TableRollState): string {
+function usedAt(
+  roll: LocalUse,
+  verb: string,
+  state: TableRollState,
+  role: SeatRole,
+): string {
   const { damage } = state
   const follows = damage && !state.damaged && choicesOf(damage).length === 0
   const enchanted = roll.ending ? undefined : enchantmentNote(state.enchantment)
+  const creatures = roll.placing === 'many' ? 'creatures' : 'creature'
   return [
     roll.spent === undefined ? verb : `${verb} ${roll.spent}`,
     ' at the table',
     follows ? `, its ${damage.healing ? 'healing' : 'damage'} to follow` : '',
     enchanted ? ` ${enchanted}` : '',
+    roll.placing
+      ? ` · ${seatWords(role).places} the ${creatures} in Foundry`
+      : '',
   ].join('')
 }
 
@@ -483,7 +492,7 @@ export function usedWords(
   const [verb, doing] = verbsOf(roll)
   const words = {
     doing,
-    done: usedAt(roll, verb, state),
+    done: usedAt(roll, verb, state, role),
     not: `Not ${verb.toLowerCase()} at the table`,
   }
   return wayWords(state, role, words, reasonOf(state, role, creature))

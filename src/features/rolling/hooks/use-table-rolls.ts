@@ -315,6 +315,8 @@ export function useTableRolls(
           slot: use.slot ?? null,
           // How an enchant activity enchants, and what.
           ...(use.enchant && { enchant: use.enchant }),
+          // What a summon activity summons, from module 0.54.0.
+          ...(use.summon && { summon: use.summon }),
           ...NO_DICE,
         },
         {

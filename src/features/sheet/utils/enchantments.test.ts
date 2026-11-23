@@ -33,9 +33,7 @@ describe('utils/enchantments', () => {
     expect(offeredAt(PLUS_THREE, 9)).toBe(true)
     // A level it can't say offers nothing with limits, and anything without.
     expect(offeredAt(PLUS_ONE, null)).toBe(false)
-    expect(
-      offeredAt({ id: 'x', name: 'Ablaze', min: null, max: null }, null),
-    ).toBe(true)
+    expect(offeredAt({ min: null, max: null }, null)).toBe(true)
   })
 
   it('offers the ways at the level it is cast at, but those on its own item already', () => {

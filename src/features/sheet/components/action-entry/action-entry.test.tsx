@@ -27,6 +27,8 @@ import {
   offeringFavorites,
   sheetAction,
   sheetSpell,
+  summonUse,
+  summonProfile,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { DamageTarget, TableDamage } from './types'
@@ -1439,5 +1441,81 @@ describe('components/character-sheet/action-entry, favorites, from module 0.37.0
     expect(part.className).not.toMatch(/select-none|-webkit-touch-callout/)
     expect(fireEvent.contextMenu(part, { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+/** Flaming Sphere's summoning, with its activity where the module sends one, then its ram. */
+const flamingSphere = (activity: SheetActivity['activity']): SheetAction =>
+  sheetAction({
+    id: 'sphere',
+    name: 'Flaming Sphere',
+    type: 'spell',
+    level: 2,
+    activityName: 'Summon',
+    activity,
+    activities: [
+      {
+        id: 'sphere-summon',
+        name: 'Summon',
+        type: 'summon',
+        activation: '1 Action',
+        range: '60 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        activity,
+        save: null,
+        damage: [],
+        uses: null,
+      },
+      {
+        id: 'sphere-ram',
+        name: 'Ram',
+        type: 'save',
+        activation: '1 Bonus Action',
+        range: '5 ft',
+        target: null,
+        toHit: null,
+        attackId: null,
+        activity: null,
+        save: { ability: 'dex', dc: 15 },
+        damage: [],
+        uses: null,
+      },
+    ],
+  })
+
+/** Rook's sheet with Flaming Sphere alone on its Actions tab. */
+const renderSphere = (activity: SheetActivity['activity']) => {
+  const sheet = checkingSheet()
+  renderRook({
+    sheet: {
+      ...sheet,
+      actions: [
+        {
+          id: 'action',
+          label: 'Actions',
+          actions: [flamingSphere(activity)],
+        },
+      ],
+    },
+  })
+}
+
+describe('action-entry for summon activities, from module 0.54.0', () => {
+  afterEach(cleanup)
+
+  it('leads with a summoning the module sends its activity for, as the app may cast it', () => {
+    renderSphere(
+      summonUse('sphere-summon', {
+        profiles: [summonProfile('sphereProfile000', 'Flaming Sphere')],
+      }),
+    )
+    expect(rowOf('Flaming Sphere')).not.toHaveTextContent('Used in Foundry')
+  })
+
+  it('marks it used in Foundry where an older module sends no activity for it', () => {
+    renderSphere(null)
+    expect(rowOf('Flaming Sphere')).toHaveTextContent('Used in Foundry')
   })
 })

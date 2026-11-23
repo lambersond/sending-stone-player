@@ -919,6 +919,11 @@ export type LocalUse = {
    */
   itemCast?: boolean
   /**
+   * For a summon activity, from module 0.54.0: whether the creature chosen is one, or more, which
+   * the Gamemaster places in Foundry.
+   */
+  placing?: 'one' | 'many'
+  /**
    * An enchantment ended, such as Magic Weapon's on a longsword, rather than anything used, from
    * module 0.21.0: what it's called is the label; or from module 0.29.0, a concentration ended.
    */

@@ -4,45 +4,46 @@ import { useId } from 'react'
 import clsx from 'clsx'
 import { Chip } from './chip'
 import { ChipRow } from './chip-row'
-import type { SheetEnchantProfile } from '@/types/sending-stone'
+import type { ProfileOption } from './types'
 
 /**
- * The most ways to enchant shown as chips, side by side; more are listed one under another, as a
- * phone has room for only so many long names.
+ * The most ways to enchant, or creatures to summon, shown as chips, side by side; more are listed
+ * one under another, as a phone has room for only so many long names.
  */
 const MOST_PROFILE_CHIPS = 4
 
 /**
- * The ways an enchant activity may enchant at the level chosen, one of which is chosen: as chips,
- * each name cut short where it's long, the whole of it said; or, for more than a row's worth,
- * listed one under another. That none is offered at that level is said, where none is.
+ * The ways an enchant activity may enchant at the level chosen, or from module 0.54.0 the creatures
+ * a summon activity may summon there, one of which is chosen, under its `label`: as chips, each
+ * name cut short where it's long, the whole of it said; or, for more than a row's worth, listed one
+ * under another. That none is offered at that level is said, in its `empty` words, where none is.
  */
 export function ProfileChoice({
+  label,
+  empty,
   profiles,
   chosen,
   onChoose,
 }: Readonly<{
-  profiles: SheetEnchantProfile[]
+  label: string
+  empty: string
+  profiles: ProfileOption[]
   chosen?: string
   onChoose: (id: string) => void
 }>) {
   const legend = useId()
   if (profiles.length === 0) {
-    return (
-      <p className='text-sm text-text-secondary'>
-        It can’t enchant anything at this level.
-      </p>
-    )
+    return <p className='text-sm text-text-secondary'>{empty}</p>
   }
   if (profiles.length <= MOST_PROFILE_CHIPS) {
     return (
-      <ChipRow label='Enchantment'>
-        {profiles.map(({ id, name }) => (
+      <ChipRow label={label}>
+        {profiles.map(({ id, name, label: said }) => (
           <Chip
             key={id}
             selected={id === chosen}
             onSelect={() => onChoose(id)}
-            label={name}
+            label={said ?? name}
           >
             <span className='block truncate'>{name}</span>
           </Chip>
@@ -56,20 +57,20 @@ export function ProfileChoice({
         id={legend}
         className='mb-1.5 text-xs font-semibold text-text-secondary'
       >
-        Enchantment
+        {label}
       </p>
       <div
         role='radiogroup'
         aria-labelledby={legend}
         className='flex flex-col gap-1.5'
       >
-        {profiles.map(({ id, name }) => (
+        {profiles.map(({ id, name, label: said }) => (
           <button
             key={id}
             type='button'
             role='radio'
             aria-checked={id === chosen}
-            aria-label={name}
+            aria-label={said ?? name}
             onClick={() => onChoose(id)}
             className={clsx(
               'flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 py-1.5 text-left text-sm font-semibold transition-colors',

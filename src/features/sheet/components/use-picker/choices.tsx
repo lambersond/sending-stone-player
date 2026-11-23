@@ -6,6 +6,8 @@ import { ChipRow } from './chip-row'
 import { EnchantWhat } from './enchant-what'
 import { Go } from './go'
 import { ProfileChoice } from './profile-choice'
+import { SummonChoices } from './summon-choices'
+import { SummonGo } from './summon-go'
 import { TargetList } from './target-list'
 import { TickList } from './tick-list'
 import { useChoices } from './use-choices'
@@ -29,8 +31,9 @@ import type { TableCombat } from '@/types/table'
 
 /**
  * An attack's or a use's choices: the slot, or the level a spell an item casts is cast at, the
- * ammunition, the way it enchants and the attack mode, each a row of chips where there's a choice;
- * then whom at, as `whomOf` has it.
+ * ammunition, the way it enchants, from module 0.54.0 the creature it summons and its type and
+ * size, and the attack mode, each a row of chips where there's a choice; then whom at, as `whomOf`
+ * has it.
  */
 export function Choices({
   picking,
@@ -70,7 +73,8 @@ export function Choices({
     offered,
     profile,
     setChosen,
-    enchantsAt,
+    summoning,
+    choosableAt,
     whom,
     targeting,
   } = useChoices({
@@ -92,7 +96,9 @@ export function Choices({
             <Chip
               key={pool.id}
               selected={pool.id === slot}
-              disabled={(spends && pool.value === 0) || !enchantsAt(pool.level)}
+              disabled={
+                (spends && pool.value === 0) || !choosableAt(pool.level)
+              }
               onSelect={() => setSlot(pool.id)}
               label={spends ? poolLabel(pool) : pool.label}
             >
@@ -113,7 +119,7 @@ export function Choices({
             <Chip
               key={level.level}
               selected={`spell${level.level}` === slot}
-              disabled={(spends && level.short) || !enchantsAt(level.level)}
+              disabled={(spends && level.short) || !choosableAt(level.level)}
               onSelect={() => setSlot(`spell${level.level}`)}
               label={levelLabel(level, spends)}
             >
@@ -148,11 +154,14 @@ export function Choices({
       )}
       {enchant && (enchant.profiles.length > 1 || offered.length === 0) && (
         <ProfileChoice
+          label='Enchantment'
+          empty='It can’t enchant anything at this level.'
           profiles={offered}
           chosen={profile?.id}
           onChoose={setChosen}
         />
       )}
+      <SummonChoices summoning={summoning} />
       {modes.length > 0 && (
         <ChipRow label='Mode'>
           {modes.map(({ value, label }) => (
@@ -172,6 +181,7 @@ export function Choices({
         targeting={targeting}
         options={options}
         profile={profile}
+        summon={summoning.choice}
         combat={combat}
         belongings={belongings}
         onPick={onPick}
@@ -180,12 +190,16 @@ export function Choices({
   )
 }
 
-/** Whom at, as `whomOf` has it: those to tick, one to tap, what to enchant, or no one to pick. */
+/**
+ * Whom at, as `whomOf` has it: those to tick, one to tap, what to enchant, no one for one that
+ * summons, or no one to pick.
+ */
 function WhomChoice({
   whom,
   targeting,
   options,
   profile,
+  summon,
   combat,
   belongings,
   onPick,
@@ -194,6 +208,7 @@ function WhomChoice({
   targeting: Targeting
   options: Pick<Picked, 'slot' | 'ammunition' | 'attackMode'>
   profile?: SheetEnchantProfile
+  summon?: Picked['summon']
   combat?: TableCombat
   belongings: ReadonlyMap<string, Belonging>
   onPick: (picked: Picked) => void
@@ -231,6 +246,15 @@ function WhomChoice({
               enchant: { profile: profile.id, ...(item && { item }) },
             })
           }
+        />
+      )
+    }
+    case 'summon': {
+      return (
+        <SummonGo
+          verb={whom.verb}
+          ready={!!summon}
+          onGo={() => summon && onPick({ targets: [], ...options, summon })}
         />
       )
     }

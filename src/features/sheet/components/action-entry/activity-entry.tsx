@@ -22,10 +22,11 @@ import type { SheetAction } from '@/types/sending-stone'
 /**
  * One of an action's other activities, beneath it, such as Hex's Bonus Hex Damage: its name, how
  * it differs from the action in how it's used and how far it reaches, and what it rolls beside it,
- * as an action's row has them. One the app can't use, such as a summoning, says so. One of an
- * item's opens to what there is to read of it from beside its name. From module 0.37.0, its name
- * opens a menu of its own, adding the activity itself to the favorites or removing it, where the
- * pane offers them, and is a tab stop then, for the keyboard to open it.
+ * as an action's row has them. One the app can't use, such as a transformation, or a summoning to
+ * a module before 0.54.0, says so. One of an item's opens to what there is to read of it from
+ * beside its name. From module 0.37.0, its name opens a menu of its own, adding the activity itself
+ * to the favorites or removing it, where the pane offers them, and is a tab stop then, for the
+ * keyboard to open it.
  */
 export function ActivityEntry({
   other,

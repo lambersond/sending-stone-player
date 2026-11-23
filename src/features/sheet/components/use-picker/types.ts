@@ -1,5 +1,10 @@
 import type { AloneChoice } from '@/features/sheet/utils/types'
-import type { SheetRoll, EnchantChoice, DamageModifiers } from '@/types/roll'
+import type {
+  SheetRoll,
+  EnchantChoice,
+  DamageModifiers,
+  SummonChoice,
+} from '@/types/roll'
 import type { SheetAction, SheetEnchant } from '@/types/sending-stone'
 import type { TableCombatant } from '@/types/table'
 
@@ -39,6 +44,8 @@ export type Picked = {
   attackMode?: string
   /** For a use of an enchant activity, how it enchants, and which item, if one. */
   enchant?: EnchantChoice
+  /** For a use of a summon activity, from module 0.54.0, the creature, and its type and size. */
+  summon?: SummonChoice
   /** For damage on its own, from module 0.41.0: spend what its use would, as its switch says. */
   consume?: true
 }
@@ -52,8 +59,9 @@ export type Section = {
 
 /**
  * Whom an attack or a use is made at, as the picker asks it (`whomOf`): those to tick, as many as
- * it takes; one to tap, or no one; for one that enchants, what it enchants; an attack with no one
- * to make it at; or a use with no one to pick, at its user where it's made there by default.
+ * it takes; one to tap, or no one; for one that enchants, what it enchants; for one that summons,
+ * from module 0.54.0, no one, the creature placed in Foundry; an attack with no one to make it at;
+ * or a use with no one to pick, at its user where it's made there by default.
  */
 export type Whom =
   | {
@@ -72,6 +80,7 @@ export type Whom =
       preset?: string
     }
   | { kind: 'enchant'; enchant: SheetEnchant; verb: string }
+  | { kind: 'summon'; verb: string }
   | { kind: 'attack' }
   | { kind: 'use'; verb: string; at?: Pick<Picked, 'targets' | 'self'> }
 
@@ -85,3 +94,9 @@ export type Targeting = {
   setTicked: (ticked: string[]) => void
   pick: (targets: TableCombatant[]) => void
 }
+
+/**
+ * One of the ways or creatures to choose among, as a chip: its id, what it shows, and what a
+ * screen reader is told of it, where that's otherwise.
+ */
+export type ProfileOption = { id: string; name: string; label?: string }

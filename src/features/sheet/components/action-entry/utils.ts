@@ -164,7 +164,10 @@ function spellActivities(
   })
 }
 
-/** The kinds of activity the app rolls or uses; others, such as a summoning, are Foundry's. */
+/**
+ * The kinds of activity the app rolls or uses; others, such as a transformation, or a summoning to
+ * a module before 0.54.0, are Foundry's.
+ */
 const FROM_APP = new Set(['attack', 'save', 'damage', 'heal', 'utility'])
 
 /**
@@ -278,8 +281,8 @@ export function usesName(
 }
 
 /**
- * Is an action with more than one activity first one the app can't use, such as Flaming Sphere's
- * summoning, with the rest beneath it?
+ * Is an action with more than one activity first one the app can't use, such as a transformation,
+ * or a summoning to a module before 0.54.0, with the rest beneath it?
  */
 export function firstInFoundry(action: SheetAction): boolean {
   const [first] = action.activities ?? []

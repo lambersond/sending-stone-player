@@ -156,7 +156,7 @@ export function itemSpellOf(
  * A spell as an action, for what it rolls: its attack, saving throw and damage or healing, and
  * while it's prepared, how the game casts it. One not prepared is rolled here only, as the game
  * would have it prepared first. Nothing for a spell that rolls nothing and is cast through
- * nothing, such as one that summons.
+ * nothing, such as one that transforms, or one that summons to a module before 0.54.0.
  */
 export function spellAction(spell: SheetSpell): SheetAction | undefined {
   const rolls = rollsOf(spell, spell.prepared !== 0)

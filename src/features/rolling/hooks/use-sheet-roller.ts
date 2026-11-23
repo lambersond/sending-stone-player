@@ -557,10 +557,21 @@ export function useSheetRoller(
     [],
   )
 
-  // Keeps a spell or feature used, first among the rolls.
+  // Keeps a spell or feature used, first among the rolls; for a summoning, from module 0.54.0,
+  // whether what it summons is one creature or more.
   const logUse = useCallback(
-    (label: string, spell: boolean, itemCast?: boolean): LocalUse =>
-      keep('use', { label, spell, ...(itemCast && { itemCast }) }),
+    (
+      label: string,
+      spell: boolean,
+      itemCast?: boolean,
+      placing?: LocalUse['placing'],
+    ): LocalUse =>
+      keep('use', {
+        label,
+        spell,
+        ...(itemCast && { itemCast }),
+        ...(placing && { placing }),
+      }),
     [keep],
   )
 

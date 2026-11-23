@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { actionTitle, verbOf } from '../action-entry/utils'
-import { asks, enchantPicks } from '../use-picker/utils'
+import { asks, enchantPicks, summonPicks } from '../use-picker/utils'
 import { alonePicked, pickedAttack } from './utils'
-import { isItemCast } from '@/utils/casts'
+import { placingOf, summonOf } from '@/features/sheet/utils/summons'
+import { castAtLevel, isItemCast } from '@/utils/casts'
 import { sheetActions } from '@/utils/sheet-actions'
 import type { PaneRoller, PaneTable } from './types'
 import type { AlonePick } from '../action-entry/types'
@@ -66,16 +67,12 @@ export function usePicking({
     modifiers?: DamageModifiers,
   ) => {
     if (!action.activity) return
-    // An enchant activity used without asking is used as dnd5e would use it, in the first way it
-    // may enchant.
-    const picked =
-      action.activity.type === 'enchant' && !chose.enchant
-        ? { ...chose, ...enchantPicks(action, sheet.spells, itemCasts) }
-        : chose
+    const picked = withPresets(action, chose)
     const used = logUse(
       actionTitle(action),
       verbOf(action) === 'Cast',
       isItemCast(action),
+      placingFor(action, picked),
     )
     // A combat that ended while they picked leaves no one to target; its user, as Self, is still
     // its user, where the game makes a use at them as asked.
@@ -99,9 +96,31 @@ export function usePicking({
         ...(self && { self: true as const }),
         slot: picked.slot,
         ...(picked.enchant && { enchant: picked.enchant }),
+        ...(picked.summon && { summon: picked.summon }),
       },
       modifiers,
     )
+  }
+  // An enchant activity used without asking is used as dnd5e would use it, in the first way it
+  // may enchant; and from module 0.54.0 a summon activity cast without asking, as dnd5e's dialog
+  // presets it, its first creature at the level it's cast at.
+  const withPresets = (action: SheetAction, chose: Picked): Picked => {
+    const type = action.activity?.type
+    if (type === 'enchant' && !chose.enchant) {
+      return { ...chose, ...enchantPicks(action, sheet.spells, itemCasts) }
+    }
+    if (type === 'summon' && !chose.summon) {
+      return { ...chose, ...summonPicks(action, sheet.spells, itemCasts) }
+    }
+    return chose
+  }
+  // Whether what a summoning casts is one creature, or more, for the tray, from module 0.54.0.
+  const placingFor = (action: SheetAction, picked: Picked) => {
+    const profile = summonOf(action.activity)?.profiles.find(
+      ({ id }) => id === picked.summon?.profile,
+    )
+    const level = castAtLevel(action, sheet.spells, picked.slot, itemCasts)
+    return profile && placingOf(profile, level)
   }
   // Damage on its own's choices, from module 0.41.0, where the game takes them: picked first where
   // there's anything to ask, as an attack's or a use's are, else it goes on at once.

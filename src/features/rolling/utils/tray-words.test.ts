@@ -90,3 +90,66 @@ describe('features/rolling/utils/tray-words, the dice the game asks for (module 
     )
   })
 })
+
+describe('features/rolling/utils/tray-words, a summoning cast (module 0.54.0)', () => {
+  /** Find Familiar cast, an Owl, or Pack of Wolves used, two wolves. */
+  const familiar: LocalUse = {
+    kind: 'use',
+    id: 'u-ff',
+    label: 'Find Familiar',
+    spell: true,
+    placing: 'one',
+    at: 0,
+  }
+  const wolves: LocalUse = {
+    ...familiar,
+    id: 'u-pw',
+    label: 'Pack of Wolves',
+    spell: false,
+    placing: 'many',
+  }
+
+  it.each<[string, LocalUse, 'player' | 'gm', string]>([
+    [
+      'one creature, at the player’s seat',
+      familiar,
+      'player',
+      'Cast at the table · your Gamemaster places the creature in Foundry',
+    ],
+    [
+      'more, at the player’s seat',
+      wolves,
+      'player',
+      'Used at the table · your Gamemaster places the creatures in Foundry',
+    ],
+    [
+      'one creature, at the Gamemaster’s',
+      familiar,
+      'gm',
+      'Cast at the table · you place the creature in Foundry',
+    ],
+    [
+      'more, at the Gamemaster’s',
+      wolves,
+      'gm',
+      'Used at the table · you place the creatures in Foundry',
+    ],
+  ])('says who places %s once it’s cast', (_name, roll, role, words) => {
+    expect(usedWords(roll, { status: 'done' }, role)).toBe(words)
+  })
+
+  it('says nothing of placing for one refused, failed or on its way', () => {
+    for (const state of [
+      { status: 'refused', reason: 'creature' },
+      { status: 'failed', reason: 'cancelled' },
+      { status: 'sending' },
+    ] as TableRollState[]) {
+      expect(usedWords(familiar, state, 'player')).not.toMatch(/places/)
+    }
+    expect(
+      usedWords(familiar, { status: 'refused', reason: 'creature' }, 'player'),
+    ).toBe(
+      'Not cast at the table: that creature can’t be summoned that way at that level',
+    )
+  })
+})
