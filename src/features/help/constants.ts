@@ -70,7 +70,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         lead: 'Constant companions.',
-        text: ' A companion your Gamemaster keeps beside your character, such as a Steel Defender, has a pin on its tab and shows whether or not it’s on a scene. While it isn’t on a scene, a dashed ring marks it, and its attacks and spells go without a target.',
+        text: ' A companion your Gamemaster keeps beside your character, such as a Steel Defender, has a pin on its tab and shows whether or not it’s on a scene. While it isn’t on a scene, a dashed ring marks it, its attacks and spells go without a target, and it can’t roll initiative or be asked a save your Gamemaster asks of the tokens on a scene; it’s still asked its concentration saves, as Foundry asks them.',
         constant: true,
       },
     ],

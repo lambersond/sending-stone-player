@@ -136,6 +136,18 @@ describe('features/help/components/help-panel', () => {
     },
   )
 
+  // The owner's answer on concentration with no token: asked as Foundry asks it; initiative and a
+  // save the Gamemaster asks of tokens wait for a token.
+  it('says what a constant companion off every scene can’t do, and that it’s still asked concentration', () => {
+    renderPanel({ shown: view({ companionsConstant: true }) })
+
+    expect(
+      screen.getByText('Constant companions.').closest('p'),
+    ).toHaveTextContent(
+      'it can’t roll initiative or be asked a save your Gamemaster asks of the tokens on a scene; it’s still asked its concentration saves, as Foundry asks them.',
+    )
+  })
+
   it.each([
     [
       'player',
