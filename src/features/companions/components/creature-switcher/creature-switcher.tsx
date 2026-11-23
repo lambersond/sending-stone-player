@@ -1,7 +1,14 @@
 'use client'
 
 import clsx from 'clsx'
-import { CircleOff, MapPinOff, PawPrint, Pin, Sparkles } from 'lucide-react'
+import {
+  CircleDashed,
+  CircleOff,
+  MapPinOff,
+  PawPrint,
+  Pin,
+  Sparkles,
+} from 'lucide-react'
 import { SWITCH_TAB, SWITCH_TAB_OFF, SWITCH_TAB_ON } from '@/constants/buttons'
 import { useSwitcherLayout } from '@/features/companions/hooks/use-switcher-layout'
 import { describe, shownName } from '@/features/companions/utils'
@@ -106,6 +113,8 @@ export function CreatureSwitcher({
             'data-kind': kind && (gone ? 'gone' : kind),
             // On another scene, from module 0.51.0.
             'data-away': creature.away ? 'true' : undefined,
+            // On no scene, a constant companion, from module 0.54.0.
+            'data-unplaced': creature.unplaced ? 'true' : undefined,
             'aria-selected': on,
             tabIndex: on ? 0 : -1,
             'aria-controls':
@@ -177,13 +186,14 @@ function KindIcon({
 
 /**
  * A tab's face: its picture, its name, its number where names repeat, its kind, from module 0.51.0
- * a pin where it's on another scene, and news.
+ * a struck pin where it's on another scene, from module 0.54.0 a dashed circle and ring where a
+ * constant companion is on none, and news.
  */
 function TabFace({
   creature,
   dot,
 }: Readonly<{ creature: SwitcherCreature; dot: boolean }>) {
-  const { name, number, portrait, kind, gone, away } = creature
+  const { name, number, portrait, kind, gone, away, unplaced } = creature
   return (
     <>
       <CreatureAvatar
@@ -191,6 +201,7 @@ function TabFace({
         portrait={portrait}
         self={!kind}
         gone={gone}
+        dashed={unplaced}
       />
       <span className='max-w-[9rem] truncate' title={shownName(creature)}>
         {name}
@@ -204,6 +215,9 @@ function TabFace({
         </span>
       )}
       {kind && <KindIcon kind={kind} gone={gone} className='size-3.5' />}
+      {unplaced && (
+        <CircleDashed aria-hidden className='size-3.5 text-text-secondary' />
+      )}
       {away && (
         <MapPinOff aria-hidden className='size-3.5 text-text-secondary' />
       )}
@@ -214,13 +228,14 @@ function TabFace({
 
 /**
  * An avatar's face: its picture, with its number, its gone mark, or from module 0.51.0 its pin on
- * another scene, and its news at the corners.
+ * another scene, and its news at the corners; from module 0.54.0, a constant companion on no scene
+ * ringed in dashes, its only mark.
  */
 function AvatarFace({
   creature,
   dot,
 }: Readonly<{ creature: SwitcherCreature; dot: boolean }>) {
-  const { name, number, portrait, kind, gone, away } = creature
+  const { name, number, portrait, kind, gone, away, unplaced } = creature
   return (
     <span className='relative' title={shownName(creature)}>
       <CreatureAvatar
@@ -228,6 +243,7 @@ function AvatarFace({
         portrait={portrait}
         self={!kind}
         gone={gone}
+        dashed={unplaced}
         size='size-8'
       />
       {number !== undefined && (
@@ -268,24 +284,31 @@ function AvatarFace({
  * A creature's picture in the switcher: its portrait, dimmed once it's gone; or its initials where
  * it has none or it won't load, always over the card, so that their tint reads the same on a
  * chosen tab: the character's in the accent, a companion's in a tint by its name, and a gone one's
- * muted, never dimmed, as its badge and description say it's gone.
+ * muted, never dimmed, as its badge and description say it's gone. From module 0.54.0, ringed in
+ * dashes for a constant companion on no scene, in place of its border.
  * @param self - The character's own.
+ * @param dashed - A constant companion on no scene.
  */
 function CreatureAvatar({
   name,
   portrait,
   self,
   gone,
+  dashed,
   size = 'size-7',
 }: Readonly<{
   name: string
   portrait?: string
   self?: boolean
   gone?: boolean
+  dashed?: boolean
   /** 28 pixels on a tab, 32 as an avatar. */
   size?: 'size-7' | 'size-8'
 }>): ReactNode {
   const { shown, ref, onError } = useImageFallback(portrait)
+  const ring = dashed
+    ? 'border-[1.5px] border-dashed border-primary-text'
+    : 'border border-border'
   if (shown) {
     return (
       // A portrait from the Gamemaster's game, which Next's image optimizer doesn't know.
@@ -295,7 +318,8 @@ function CreatureAvatar({
         src={portrait}
         alt=''
         className={clsx(
-          'shrink-0 rounded-full border border-border object-cover object-top',
+          'shrink-0 rounded-full object-cover object-top',
+          ring,
           size,
           gone && 'opacity-60',
         )}
@@ -307,7 +331,10 @@ function CreatureAvatar({
   if (gone) tint = 'bg-text-secondary/15 text-text-secondary'
   else if (self) tint = 'bg-primary text-on-primary'
   return (
-    <span aria-hidden className='shrink-0 rounded-full bg-card'>
+    <span
+      aria-hidden
+      className={clsx('shrink-0 rounded-full bg-card', dashed && ring)}
+    >
       <span
         className={clsx(
           'flex items-center justify-center rounded-full text-[11px] font-bold',

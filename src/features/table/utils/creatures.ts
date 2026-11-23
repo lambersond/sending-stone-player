@@ -50,7 +50,16 @@ export function switcherCreatures({
         .join(''),
     },
     ...row.map(
-      ({ key, name, portrait, kind, from, gone, away }): SwitcherCreature => ({
+      ({
+        key,
+        name,
+        portrait,
+        kind,
+        from,
+        gone,
+        away,
+        unplaced,
+      }): SwitcherCreature => ({
         key,
         name,
         number: numbers.get(key),
@@ -60,6 +69,8 @@ export function switcherCreatures({
         gone,
         // On another scene, from module 0.51.0: a gone one is never away.
         ...(away && !gone && { away }),
+        // On no scene, a constant companion from module 0.54.0: nor is a gone one.
+        ...(unplaced && !gone && { unplaced }),
         news: gone
           ? ''
           : [

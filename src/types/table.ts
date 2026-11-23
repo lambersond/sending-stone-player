@@ -542,14 +542,23 @@ export type TableCompanion = {
 }
 
 /**
- * What the creature view says of whose a creature is: a companion now; a wild-shaped form later.
+ * What the creature view says of whose a creature is: a companion now, from module 0.54.0 one the
+ * Gamemaster keeps beside the character; a wild-shaped form later.
  */
 export type CreatureRelation =
   | { kind: 'owned'; of: string }
   | { kind: 'summoned'; of: string; from?: string }
+  | { kind: 'constant'; of: string }
 
-/** A creature's pane's facts (module 0.36.0): its name, and whose it is. */
-export type CreatureFacts = { name: string; relation: CreatureRelation }
+/**
+ * A creature's pane's facts (module 0.36.0): its name, and whose it is; and from module 0.54.0,
+ * whether it's a constant companion with no token on any scene, which its portrait marks.
+ */
+export type CreatureFacts = {
+  name: string
+  relation: CreatureRelation
+  unplaced?: true
+}
 
 /**
  * A companion's own view, for its pane to poll (module 0.36.0): its sheet, the encounter seen from

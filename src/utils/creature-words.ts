@@ -20,10 +20,12 @@ export function creatureLine(creature?: SheetCreature): string | undefined {
 
 /**
  * Whose a creature is: "Thorin’s companion" for one its player owns; "Summoned by Thorin", and
- * " with Find Familiar" where what summoned it is known, for a summoned one.
+ * " with Find Familiar" where what summoned it is known, for a summoned one; and from module
+ * 0.54.0 "Thorin’s constant companion" for one the Gamemaster keeps beside the character.
  */
 export function relationWords(relation: CreatureRelation): string {
   if (relation.kind === 'owned') return `${relation.of}’s companion`
+  if (relation.kind === 'constant') return `${relation.of}’s constant companion`
   const from = relation.from ? ` with ${relation.from}` : ''
   return `Summoned by ${relation.of}${from}`
 }

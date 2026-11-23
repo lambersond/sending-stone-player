@@ -33,3 +33,24 @@ describe('features/table/utils/creatures, a companion on another scene', () => {
     expect(left).not.toHaveProperty('away')
   })
 })
+
+// Module 0.54.0 (item 98): a constant companion with no token on any scene is unplaced on its tab;
+// a gone one never is.
+describe('features/table/utils/creatures, a constant companion with no token', () => {
+  it('is unplaced as the row lists it, and never once it’s gone', () => {
+    const [, steel, owl, left] = creaturesOf([
+      {
+        key: 'steel',
+        name: 'Steel Defender',
+        kind: 'constant',
+        unplaced: true,
+      },
+      { key: 'owl', name: 'Owl', kind: 'constant' },
+      { key: 'imp', name: 'Imp', kind: 'constant', unplaced: true, gone: true },
+    ])
+    expect(steel).toMatchObject({ kind: 'constant', unplaced: true })
+    expect(owl).not.toHaveProperty('unplaced')
+    expect(left).toMatchObject({ key: 'imp', gone: true })
+    expect(left).not.toHaveProperty('unplaced')
+  })
+})

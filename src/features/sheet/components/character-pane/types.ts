@@ -202,6 +202,12 @@ export type CharacterPaneProps = {
    */
   note?: ReactNode
   /**
+   * From module 0.54.0, a constant companion with no token on any scene: its attacks and uses are
+   * offered as out of a combat, at no one, or at itself where the game makes a use so, while its
+   * Combat tab still shows the encounter.
+   */
+  targetless?: boolean
+  /**
    * At the character's own pane, from module 0.41.0: which of their companions the game asks a
    * save of, each said under the prompts' heading with a way to its tab (round 0.41.0 §3.1.3),
    * as `CompanionAskNotice` lists them. Never at a companion's.
