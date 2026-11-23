@@ -83,7 +83,7 @@ type AttackChoices = {
  * A spell or feature a player has used in the game, with no roll of its own: an item's activity, at
  * the combatants picked, and from module 0.22.0 at its user too, with the spell slot chosen; and
  * for an enchant activity, from module 0.21.0, the way it enchants and the item it enchants, if one
- * of the character's.
+ * of the character's; and for a summon activity, from module 0.54.0, the creature it summons.
  */
 export type UseSource = {
   kind: 'use'
@@ -94,6 +94,8 @@ export type UseSource = {
   self?: true
   slot?: string | null
   enchant?: EnchantChoice
+  /** For a summon activity, from module 0.54.0, the creature, and its type and size. */
+  summon?: SummonChoice
 }
 
 /**
@@ -102,6 +104,13 @@ export type UseSource = {
  * its own, or to leave on its card in the game, for whoever the Gamemaster says.
  */
 export type EnchantChoice = { profile: string; item?: string }
+
+/**
+ * How a summon activity is cast, from module 0.54.0: the creature, its profile's id; and the
+ * creature type and size, by key, where it offers a choice of them. The Gamemaster places it in
+ * Foundry from the card, with these chosen.
+ */
+export type SummonChoice = { profile: string; type?: string; size?: string }
 
 /**
  * An enchantment on one of the character's items ended, as dnd5e's chat card lets its caster end
@@ -354,6 +363,8 @@ export type RollRequestInput = {
   consume?: true
   /** For a use of an enchant activity, from module 0.21.0, how it enchants, and what. */
   enchant?: EnchantChoice
+  /** For a use of a summon activity, from module 0.54.0, which creature, type and size. */
+  summon?: SummonChoice
   /** For an enchantment ended, from module 0.21.0, the item it's on, and its effect. */
   enchantment?: { item: string; effect: string }
   /** For a concentration ended, from module 0.29.0, its effect. */

@@ -817,13 +817,19 @@ export type SheetUse = {
   id: string
   /**
    * From module 0.21.0, "check" too, for one that asks for a check, such as Maze; and "enchant",
-   * for one that enchants an item, such as Magic Weapon.
+   * for one that enchants an item, such as Magic Weapon; and from module 0.54.0, "summon", for one
+   * that summons a creature, such as Find Familiar.
    */
-  type: 'save' | 'damage' | 'heal' | 'utility' | 'check' | 'enchant'
-  /** Whom it's used at; for an enchant activity, never anyone: what it enchants is in `enchant`. */
+  type: 'save' | 'damage' | 'heal' | 'utility' | 'check' | 'enchant' | 'summon'
+  /**
+   * Whom it's used at; for an enchant activity, never anyone: what it enchants is in `enchant`; nor
+   * for a summon activity, whose creatures are in `summon`.
+   */
   targets: SheetUseTargets
   /** For an enchant activity, what it enchants and how. Module 0.21.0; absent for any other. */
   enchant?: SheetEnchant
+  /** For a summon activity, the creatures it summons. Module 0.54.0; absent for any other. */
+  summon?: SheetSummon
   /**
    * What using it spends, from module 0.29.0: each counter, and how many of it, null for a cost
    * worked out by a formula. Absent before, and where it spends none of the character's counters.
@@ -869,6 +875,43 @@ export type SheetEnchantProfile = {
   min: number | null
   max: number | null
 }
+
+/**
+ * What a summon activity summons, from module 0.54.0, as dnd5e's usage dialog offers it: the
+ * creatures, at most twenty, at least one; and the creature types and sizes it may give them, where
+ * it offers a choice of more than one, else none.
+ */
+export type SheetSummon = {
+  profiles: SheetSummonProfile[]
+  types: SheetSummonOption[]
+  sizes: SheetSummonOption[]
+}
+
+/**
+ * A creature a summon activity may summon, from module 0.54.0: its profile's id, which the app
+ * sends back; its name and count, as dnd5e's dialog writes them at the spell's own level, such as
+ * "Wolf" and "2", the count null where dnd5e writes none; the spell levels it's offered at, from
+ * `min` to `max`, each null for no limit, as anything but a leveled spell always has; and each
+ * level above the spell's own at which dnd5e writes it otherwise.
+ */
+export type SheetSummonProfile = {
+  id: string
+  name: string
+  count: string | null
+  min: number | null
+  max: number | null
+  higher: SheetSummonLabel[]
+}
+
+/** How dnd5e's dialog writes a creature at a spell level above the spell's own. Module 0.54.0. */
+export type SheetSummonLabel = {
+  level: number
+  name: string
+  count: string | null
+}
+
+/** A creature type or size a summon activity offers, its key and its label. Module 0.54.0. */
+export type SheetSummonOption = { key: string; label: string }
 
 /** An enchantment an enchant activity applied: on which item, its effect's id, and which way. */
 type SheetEnchantApplied = {

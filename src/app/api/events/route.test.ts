@@ -99,6 +99,9 @@ const FEATURES = {
   // Changed on purpose (item 93): from module 0.53.0, every message a Gamemaster's roll made, up
   // to 21.
   gmRollMessages: 1,
+  // Changed on purpose (item 59): from module 0.54.0, summon activities cast from the app, their
+  // creatures, types and sizes at each level.
+  summons: 1,
 }
 const world = { id: 'erebor', title: 'Return to Erebor' }
 const campaign = { id: 'camp-a', title: 'The Lonely Mountain' }
@@ -849,7 +852,8 @@ describe('app/api/events', () => {
         // Changed on purpose (item 61): quiet fetches follow health, last.
         // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-12, -4)).toEqual([
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-13, -5)).toEqual([
           'favorites',
           'dishes',
           'effects',
@@ -878,7 +882,8 @@ describe('app/api/events', () => {
       // Changed on purpose (item 61): quiet fetches follow health, last.
       // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
       // Changed on purpose (item 93): `gmRollMessages` follows, last.
-      expect(Object.keys(features).slice(0, -9)).toEqual([
+      // Changed on purpose (item 59): `summons` follows, last.
+      expect(Object.keys(features).slice(0, -10)).toEqual([
         'commands',
         'slimSheets',
         'maxBytes',
@@ -911,7 +916,8 @@ describe('app/api/events', () => {
         // Changed on purpose (item 61): quiet fetches follow health, last.
         // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-10, -8)).toEqual([
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-11, -9)).toEqual([
           'effects',
           'wildShape',
         ])
@@ -937,7 +943,8 @@ describe('app/api/events', () => {
         // Changed on purpose (item 61): quiet fetches follow health, last.
         // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-9, -7)).toEqual([
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-10, -8)).toEqual([
           'wildShape',
           'aloneChoices',
         ])
@@ -967,7 +974,8 @@ describe('app/api/events', () => {
         // Changed on purpose (item 61): quiet fetches follow health, last.
         // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-8, -6)).toEqual([
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-9, -7)).toEqual([
           'aloneChoices',
           'hitPoints',
         ])
@@ -989,7 +997,8 @@ describe('app/api/events', () => {
         // Changed on purpose (item 61): quiet fetches follow health, last.
         // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-7, -5)).toEqual([
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-8, -6)).toEqual([
           'hitPoints',
           'diceAsks',
         ])
@@ -1010,7 +1019,8 @@ describe('app/api/events', () => {
         const { features } = await response.json()
         // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-6, -4)).toEqual([
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-7, -5)).toEqual([
           'diceAsks',
           'coins',
         ])
@@ -1031,7 +1041,8 @@ describe('app/api/events', () => {
         const { features } = await response.json()
         // Changed on purpose (item 65): checks on any ability follow quiet fetches, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-5, -3)).toEqual(['coins', 'health'])
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-6, -4)).toEqual(['coins', 'health'])
         // The module describes another creature's health only to a listener whose answer says
         // `"health": 1`, a whole number of 1 or more.
         expect(features.health).toBe(1)
@@ -1048,7 +1059,8 @@ describe('app/api/events', () => {
         const { features } = await response.json()
         // Changed on purpose (item 65): checks on any ability follow it, last.
         // Changed on purpose (item 93): `gmRollMessages` follows, last.
-        expect(Object.keys(features).slice(-4, -2)).toEqual(['health', 'quiet'])
+        // Changed on purpose (item 59): `summons` follows, last.
+        expect(Object.keys(features).slice(-5, -3)).toEqual(['health', 'quiet'])
         // The module sends and takes `quiet` only for a listener whose answer says `"quiet": 1`, a
         // whole number of 1 or more.
         expect(features.quiet).toBe(1)
@@ -1056,6 +1068,7 @@ describe('app/api/events', () => {
     })
 
     // Changed on purpose (item 93): `gmRollMessages` follows, last.
+    // Changed on purpose (item 59): `summons` follows, last.
     it('says it reads checks on any ability the game has, from module 0.52.0, after quiet fetches, as a whole number', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
@@ -1064,7 +1077,7 @@ describe('app/api/events', () => {
           envelope(type, { characters: [], combats: [] }),
         )
         const { features } = await response.json()
-        expect(Object.keys(features).slice(-3, -1)).toEqual([
+        expect(Object.keys(features).slice(-4, -2)).toEqual([
           'quiet',
           'anyAbility',
         ])
@@ -1074,7 +1087,26 @@ describe('app/api/events', () => {
       }
     })
 
-    it('says it reads every message a Gamemaster’s roll made, from module 0.53.0, after checks on any ability, last, as a whole number', async () => {
+    // Changed on purpose (item 59): `summons` follows, last.
+    it('says it reads every message a Gamemaster’s roll made, from module 0.53.0, after checks on any ability, as a whole number', async () => {
+      jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
+
+      for (const type of ['bridge.hello', 'bridge.heartbeat']) {
+        const response = await post(
+          envelope(type, { characters: [], combats: [] }),
+        )
+        const { features } = await response.json()
+        expect(Object.keys(features).slice(-3, -1)).toEqual([
+          'anyAbility',
+          'gmRollMessages',
+        ])
+        // The module lists up to 21 messages only to a listener whose answer says
+        // `"gmRollMessages": 1`, a whole number of 1 or more; to any other, the first 20.
+        expect(features.gmRollMessages).toBe(1)
+      }
+    })
+
+    it('says it reads summon activities, from module 0.54.0, after every message a Gamemaster’s roll made, last, as a whole number', async () => {
       jest.mocked(findEventCampaign).mockResolvedValue({ id: 'c1' })
 
       for (const type of ['bridge.hello', 'bridge.heartbeat']) {
@@ -1083,12 +1115,13 @@ describe('app/api/events', () => {
         )
         const { features } = await response.json()
         expect(Object.keys(features).slice(-2)).toEqual([
-          'anyAbility',
           'gmRollMessages',
+          'summons',
         ])
-        // The module lists up to 21 messages only to a listener whose answer says
-        // `"gmRollMessages": 1`, a whole number of 1 or more; to any other, the first 20.
-        expect(features.gmRollMessages).toBe(1)
+        // The module sends summon activities, and casts them, only for a listener whose answer
+        // says `"summons": 1`, a whole number of 1 or more.
+        expect(features.summons).toBe(1)
+        expect(Number.isInteger(features.summons)).toBe(true)
       }
     })
 

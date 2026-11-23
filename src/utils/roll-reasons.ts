@@ -79,6 +79,9 @@ function reasonsOf(role: SeatRole): Record<string, string> {
     // Dice the game asked for, once it no longer waits for them, or has them already, from module
     // 0.44.0.
     diceAsk: `${game} no longer waits for those dice`,
+    // A summon activity's creature, type or size not offered at the level it's cast at, or a level
+    // at which it summons nothing, as only a sheet out of date sends, from module 0.54.0.
+    creature: 'that creature can’t be summoned that way at that level',
   }
 }
 

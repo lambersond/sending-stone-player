@@ -8,6 +8,7 @@ import {
   checkTypeOf,
   checkLinked,
   checkEnchant,
+  checkSummon,
   checkAloneChoices,
   throws,
 } from '@/utils/requests/check-linked'
@@ -317,9 +318,10 @@ function checkAttack(
  * Can the character use this spell or feature: is it what one of its actions, favorites, spells,
  * features or inventory items is used through, identified, with a spell slot left for a spell, at
  * no more combatants than it takes at the level it's cast at, all of them combatants its player
- * can see? An enchant activity is used at no one, its user neither, as `checkEnchant` says. One
- * made at its user too, from module 0.22.0, is only where the game makes it so, of one with
- * targets beyond its user, whose own combatant isn't among them too, and counts as one of them.
+ * can see? An enchant activity is used at no one, its user neither, as `checkEnchant` says, and a
+ * summon activity, from module 0.54.0, as `checkSummon` says. One made at its user too, from
+ * module 0.22.0, is only where the game makes it so, of one with targets beyond its user, whose
+ * own combatant isn't among them too, and counts as one of them.
  * Whatever else it spends, such as its uses, the game checks as it would spend it.
  * @param actorId - The character's actor, whose combatant is its user.
  * @param features - What else the campaign's game does with its players' rolls.
@@ -338,6 +340,10 @@ function checkUse(
   const casts = castIndex(sheet)
   const slot = checkSlot(input, action, sheet, casts)
   if (slot) return slot
+  // Only a summon activity summons, from module 0.54.0.
+  if (input.summon !== undefined && action.activity.type !== 'summon') {
+    return 'unknown'
+  }
   if (action.activity.type === 'enchant') {
     // It's used at no one, its user neither, as the game refuses.
     if (input.self) return 'target'
@@ -345,6 +351,9 @@ function checkUse(
   }
   // Only an enchant activity enchants.
   if (input.enchant !== undefined) return 'unknown'
+  if (action.activity.type === 'summon') {
+    return checkSummon(input, action, sheet, casts)
+  }
   const targets = input.targets ?? []
   const { base, level } = levelsOf(input, action, sheet, casts)
   const self = input.self === true

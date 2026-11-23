@@ -410,6 +410,19 @@ export const ANY_ABILITY = 1
  */
 export const GM_ROLL_MESSAGES = 1
 
+/**
+ * The format of summon activities this app reads, as it tells the module (`summons`): from module
+ * 0.54.0, a summon activity's creatures, labelled at each level, types and sizes, which the module
+ * sends only then.
+ */
+export const SUMMONS = 1
+
+/**
+ * A creature type or size's key, as dnd5e names one, such as "fey" or "lg": one a summon activity
+ * offers, from module 0.54.0.
+ */
+export const SUMMON_KEY = /^[A-Za-z][\w-]{0,31}$/
+
 /** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
 export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/
 

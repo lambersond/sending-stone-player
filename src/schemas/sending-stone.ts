@@ -44,6 +44,7 @@ import {
   PROFILE_ID,
   PROMPT_ID,
   PROMPT_SOURCES,
+  SUMMON_KEY,
 } from '@/constants/sending-stone'
 import { foundrySettingsSchema } from '@/schemas/foundry-settings'
 import { leftOut, listOf, orNull, requiredListOf } from '@/schemas/utils'
@@ -109,6 +110,8 @@ import type {
   SheetItem,
   SheetSpell,
   SheetSpend,
+  SheetSummon,
+  SheetSummonProfile,
   SheetUse,
   SheetUses,
   SheetWildShape,
@@ -246,6 +249,68 @@ const enchantSchema: z.ZodType<SheetEnchant | undefined> = leftOut(
     ),
 )
 
+/** The most creatures a summon activity offers, and levels above a spell's own it's written at. */
+const MAX_SUMMONS = 20
+const MAX_HIGHER = 8
+
+/** A creature's count, as dnd5e's dialog writes it, such as "2" or "1d4"; null for none. */
+const summonCount = z.string().trim().min(1).max(50).nullable()
+
+/**
+ * A creature a summon activity may summon, from module 0.54.0: its profile's id, which the app
+ * sends back, its name and count as dnd5e writes them, the spell levels it's offered at, from `min`
+ * to `max`, each null for no limit, and each level above the spell's own at which dnd5e writes it
+ * otherwise, a malformed one dropped, none where missing. One that can't be read is dropped,
+ * rather than offered at any level.
+ */
+const summonProfileSchema: z.ZodType<SheetSummonProfile> = z
+  .looseObject({
+    id: z.string().regex(DOCUMENT_ID),
+    name: z.string().trim().min(1).max(200),
+    count: summonCount,
+    min: z.int().min(0).max(99).nullable(),
+    max: z.int().min(0).max(99).nullable(),
+    higher: listOf(
+      z.looseObject({
+        level: z.int().min(2).max(9),
+        name: z.string().trim().min(1).max(200),
+        count: summonCount,
+      }),
+      MAX_HIGHER,
+    ),
+  })
+  .refine(({ min, max }) => min === null || max === null || min <= max)
+
+/** The creature types or sizes a summon activity offers, from module 0.54.0, a bad one dropped. */
+const summonOptionsSchema = listOf(
+  z.looseObject({
+    key: z.string().regex(SUMMON_KEY),
+    label: z.string().trim().min(1).max(100),
+  }),
+)
+
+/**
+ * What a summon activity summons, from module 0.54.0: its creatures, each once, at least one; and
+ * the creature types and sizes it offers a choice of, none where missing. A malformed creature is
+ * dropped, and so is the whole where none is left, so that the activity reads as used in Foundry.
+ */
+const summonSchema: z.ZodType<SheetSummon | undefined> = leftOut(
+  z.looseObject({
+    profiles: listOf(summonProfileSchema)
+      .transform(profiles =>
+        profiles
+          .filter(
+            (profile, index) =>
+              profiles.findIndex(({ id }) => id === profile.id) === index,
+          )
+          .slice(0, MAX_SUMMONS),
+      )
+      .refine(profiles => profiles.length > 0),
+    types: summonOptionsSchema,
+    sizes: summonOptionsSchema,
+  }),
+)
+
 /**
  * The enchantments on an item, a spell, a feature or an action's item, from module 0.21.0, as many
  * as fifty; a malformed one dropped. Left out, as sent, for none, and by earlier modules.
@@ -358,12 +423,21 @@ const spendsSchema: z.ZodType<SheetSpend[] | undefined> = listOf(
 /**
  * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
  * kinds of activity the game uses, or none. From module 0.21.0, an activity that asks for a check;
- * and one that enchants, with what it enchants, without which it's none.
+ * and one that enchants, with what it enchants, without which it's none; and from module 0.54.0 one
+ * that summons, with what it summons, without which it's none too.
  */
 const useSchema: z.ZodType<SheetUse | null | undefined> = z
   .looseObject({
     id: z.string().min(1),
-    type: z.enum(['save', 'damage', 'heal', 'utility', 'check', 'enchant']),
+    type: z.enum([
+      'save',
+      'damage',
+      'heal',
+      'utility',
+      'check',
+      'enchant',
+      'summon',
+    ]),
     targets: z.looseObject({
       self: z.boolean().catch(false),
       area: z.boolean().catch(false),
@@ -381,13 +455,21 @@ const useSchema: z.ZodType<SheetUse | null | undefined> = z
     }),
     // From module 0.21.0, for an enchant activity.
     enchant: enchantSchema,
+    // From module 0.54.0, for a summon activity.
+    summon: summonSchema,
     spends: spendsSchema,
   })
   .nullable()
   .optional()
   .catch(null)
-  // An enchant activity that can't say what it enchants is used in Foundry.
-  .transform(use => (use?.type === 'enchant' && !use.enchant ? null : use))
+  // An enchant activity that can't say what it enchants is used in Foundry, and so is a summon
+  // activity that can't say what it summons.
+  .transform(use =>
+    (use?.type === 'enchant' && !use.enchant) ||
+    (use?.type === 'summon' && !use.summon)
+      ? null
+      : use,
+  )
 
 const usesSchema: z.ZodType<SheetUses | null> = orNull(
   z.looseObject({

@@ -216,9 +216,10 @@ part('1. the hello and the answer')
   // Changed on purpose (round 0.42.0 §8.5): module 0.42.0's effectDice and keptRerolls come after
   // it, the last of v0.41's flags; and since module 0.44.0 (item 11), its diceAsks and
   // diceAsksReason after them, under dnd5e 6 too, there diceAsks false; and since module 0.52.0
-  // (item 65), its anyAbility, last, true whatever the rolls.
-  check(rolls.companionPrompts === true && rolls.prompts === true && rolls.anyAbility === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility']),
-    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls, 0.44.0's diceAsks and diceAsksReason and 0.52.0's anyAbility after it (${JSON.stringify(keys)})`)
+  // (item 65), its anyAbility, true whatever the rolls; and since module 0.54.0 (item 59) its
+  // summons, last, true whatever the rolls.
+  check(rolls.companionPrompts === true && rolls.prompts === true && rolls.anyAbility === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility', 'summons']),
+    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls, 0.44.0's diceAsks and diceAsksReason, 0.52.0's anyAbility and 0.54.0's summons after it (${JSON.stringify(keys)})`)
   // Changed on purpose (module 0.51.0, ROADMAP item 18): the app reads companions on every scene too.
   // Changed on purpose (module 0.54.0, ROADMAP item 98): and the Gamemaster's constant companions.
   check(JSON.parse(hello().body ?? '{}').features?.companions === 4, `the app answers companions: 4 (${hello().body})`)
