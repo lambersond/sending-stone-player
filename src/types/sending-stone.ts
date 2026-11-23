@@ -8,6 +8,7 @@ import type {
   HEALTH_STATES,
   PREPARE_OPS,
   WILD_SHAPE_OPS,
+  KNOWN_FORM_WHYS,
   SPELL_SLOT_OPS,
   LINK_CLASSES,
   ALONE_SPENDS,
@@ -157,9 +158,10 @@ export type SheetForm = {
 
 /**
  * One of a druid's known forms, from module 0.40.0, in her Wild Shape's order, by its profile's id.
- * One from the campaign's compendiums (`pool`) carries its statistics once the game has loaded it,
- * whether it fits the rules for her now (`fits`), and `found: false` where it no longer loads; one
- * from anywhere else carries its name alone, and is used only in Foundry.
+ * One from the campaign's compendiums, or from module 0.54.0 one from anywhere its players could
+ * use in Foundry (`pool`), carries its statistics once the game has loaded it, whether it fits the
+ * rules for her now (`fits`), and `found: false` where it no longer loads; any other carries its
+ * name alone, and from module 0.54.0 why (`why`), and is used only in Foundry.
  */
 export type KnownForm = {
   id: string
@@ -181,6 +183,8 @@ export type KnownForm = {
   attack?: { name: string; toHit: number | null; damage: string | null } | null
   fits?: boolean
   found?: boolean
+  /** From module 0.54.0, why one from anywhere else is used only in Foundry. */
+  why?: KnownFormWhy
 }
 
 /** Why a Wild Shape last ended, from module 0.40.0, and when, the real time it was written. */
@@ -2246,6 +2250,8 @@ export type EffectOp = (typeof EFFECT_OPS)[number]
 export type PrepareOp = (typeof PREPARE_OPS)[number]
 
 export type WildShapeOp = (typeof WILD_SHAPE_OPS)[number]
+
+export type KnownFormWhy = (typeof KNOWN_FORM_WHYS)[number]
 
 export type SpellSlotOp = (typeof SPELL_SLOT_OPS)[number]
 

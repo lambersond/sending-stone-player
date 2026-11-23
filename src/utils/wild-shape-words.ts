@@ -5,6 +5,7 @@ import type { WildShapeLogged } from '@/types/roll'
 import type { SeatRole } from '@/types/seats'
 import type {
   KnownForm,
+  KnownFormWhy,
   SheetForm,
   SheetSpellSection,
   SheetWildShape,
@@ -182,10 +183,34 @@ export function chipWords(block: SheetWildShape): string[] {
   ]
 }
 
-/** Why a known form can't be taken from here, as its badge says; none where it can. */
+/** A known form the game can't find, as its badge says. */
+const NOT_FOUND = 'Not found in Foundry'
+
+/**
+ * Why a known form from anywhere else is used only in Foundry, as its badge says, from module
+ * 0.54.0's `why`: one of another shape keeps an older module's words.
+ */
+const FOUNDRY_ONLY: Partial<Record<KnownFormWhy, string>> = {
+  gone: NOT_FOUND,
+  owner: 'Not your character in Foundry',
+  permission: 'Not shared in Foundry',
+  transformation: 'Transformation is off in Foundry',
+  create: 'Needs Create New Actors in Foundry',
+}
+
+/**
+ * Why a known form can't be taken from here, as its badge says; none where it can. One from
+ * anywhere else by what the game says from module 0.54.0, else, as from an older module, that it's
+ * from elsewhere.
+ */
 export function badgeOf(known: KnownForm): string | undefined {
-  if (!known.pool) return 'Not from your Gamemaster’s compendiums'
-  if (known.found === false) return 'Not found in Foundry'
+  if (!known.pool) {
+    return (
+      (known.why && FOUNDRY_ONLY[known.why]) ??
+      'Not from your Gamemaster’s compendiums'
+    )
+  }
+  if (known.found === false) return NOT_FOUND
   if (known.fits !== true) return 'Outside the rules'
   return undefined
 }

@@ -343,9 +343,11 @@ export const PREPARE_OPS = ['prepare', 'unprepare'] as const
 /**
  * The format of Wild Shape this app takes, as it tells the module (`wildShape`): from module
  * 0.40.0, Wild Shape from the app and a shaped character's sheet, which the module sends and
- * fetches for only then.
+ * fetches for only then; and from module 0.54.0 known forms from anywhere their players could use
+ * in Foundry, sent as usable (`pool`) with their statistics, and why any other isn't (`why`), which
+ * the module sends only then.
  */
-export const WILD_SHAPE = 1
+export const WILD_SHAPE = 2
 
 /**
  * The format of hit points set from the app this app takes, as it tells the module (`hitPoints`):
@@ -459,6 +461,19 @@ export const MOST_HIT_POINTS = 9999
  * form, or the Beasts she may learn listed, which writes nothing.
  */
 export const WILD_SHAPE_OPS = ['transform', 'revert', 'learn', 'forms'] as const
+
+/**
+ * Why a known form from anywhere else is used only in Foundry, as the module says from 0.54.0, in
+ * the order it checks them.
+ */
+export const KNOWN_FORM_WHYS = [
+  'source',
+  'gone',
+  'owner',
+  'permission',
+  'transformation',
+  'create',
+] as const
 
 /**
  * A known form as the sheet names it, from module 0.40.0: the id of its profile on the druid's Wild

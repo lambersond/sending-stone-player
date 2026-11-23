@@ -7,9 +7,10 @@ import type { CharacterSheet, KnownForm } from '@/types/sending-stone'
 // How this app reads a druid's Wild Shape (module 0.40.0) before the Gamemaster's module is sent a
 // change, a return or a form learned: whether the campaign lets its players now, and whether the
 // sheet, as last sent, lets her do it. The module checks it all again, live, in the game, by the
-// 2024 rules and the campaign's compendiums; these checks only spare a player one the game would
-// refuse, and tell them why before a round trip. And the few words the server and the screens both
-// need: "a" or "an" before a form, its hours, and the time it has left.
+// 2024 rules and the campaign's compendiums, or from module 0.54.0 what its players could use in
+// Foundry; these checks only spare a player one the game would refuse, and tell them why before a
+// round trip. And the few words the server and the screens both need: "a" or "an" before a form,
+// its hours, and the time it has left.
 
 /** What these checks read of a sheet, as last sent. */
 type ShapedSheet = Partial<
@@ -58,7 +59,8 @@ export function isIncapacitated(sheet?: ShapedSheet | null): boolean {
 }
 
 /**
- * Whether a known form can be taken from here: one from the campaign's compendiums, that fits the
+ * Whether a known form can be taken from here: one from the campaign's compendiums or, from module
+ * 0.54.0, from anywhere its players could use in Foundry, as the game says by `pool`; that fits the
  * rules for her now, and that the game still finds. Any other is used only in Foundry.
  */
 export function usableForm(known: KnownForm): boolean {

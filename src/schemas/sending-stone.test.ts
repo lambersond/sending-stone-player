@@ -5649,6 +5649,8 @@ describe('schemas/sending-stone, Wild Shape, from module 0.40.0', () => {
       { speeds: 'Walk 40 ft' },
       { speeds: undefined },
     ],
+    ['a why it can’t read, as none', { why: 'nope' }, { why: undefined }],
+    ['a why it reads', { why: 'owner' }, { why: 'owner' }],
   ])('reads a known form with %s', (_name, fields, read) => {
     const [first] = readSheet(
       druidSheet({

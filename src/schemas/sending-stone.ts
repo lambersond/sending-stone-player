@@ -26,6 +26,7 @@ import {
   FORM_UUID,
   HEALTH_STATES,
   HIT_DIE,
+  KNOWN_FORM_WHYS,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
   MOST_ABILITIES,
@@ -981,12 +982,13 @@ const formLimitsSchema = z.object({
 
 /**
  * One of a druid's known forms, from module 0.40.0, by its profile's id: one from the campaign's
- * compendiums with its statistics, once loaded, and whether it fits the rules for her now, or not
- * found; one from anywhere else by its name alone. A part that can't be read is none; whether it
- * fits, or was found, read as not, so it's never offered for it. One with no id is left out. One
- * with no name is kept, nameless: dnd5e writes none for a form dropped on her Wild Shape in
- * Foundry, and the game counts it among her known forms all the same, so a place it fills is never
- * offered here as empty.
+ * compendiums, or from module 0.54.0 one from anywhere its players could use in Foundry (`pool`),
+ * with its statistics, once loaded, and whether it fits the rules for her now, or not found; any
+ * other by its name alone, and from module 0.54.0 why (`why`). A part that can't be read is none;
+ * whether it fits, or was found, read as not, so it's never offered for it. One with no id is left
+ * out. One with no name is kept, nameless: dnd5e writes none for a form dropped on her Wild Shape
+ * in Foundry, and the game counts it among her known forms all the same, so a place it fills is
+ * never offered here as empty.
  */
 const knownFormSchema: z.ZodType<KnownForm> = z.looseObject({
   id: z.string().regex(PROFILE_ID),
@@ -1009,6 +1011,7 @@ const knownFormSchema: z.ZodType<KnownForm> = z.looseObject({
     .catch(null),
   fits: z.boolean().optional().catch(false),
   found: z.boolean().optional().catch(false),
+  why: leftOut(z.enum(KNOWN_FORM_WHYS)),
 })
 
 /**

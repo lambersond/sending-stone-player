@@ -73,8 +73,9 @@ const FEATURES = {
   // off, on and deleted, fetched for with everything else off.
   effects: 1,
   // Changed on purpose (round 0.40.0 §10.3): from module 0.40.0, Wild Shape from the app and a
-  // shaped character's sheet, fetched for with everything else off.
-  wildShape: 1,
+  // shaped character's sheet, fetched for with everything else off; and (item 60) 2 from module
+  // 0.54.0, known forms from anywhere their players could use in Foundry.
+  wildShape: 2,
   // Changed on purpose (round 0.41.0 §8.3): from module 0.41.0, the plans of damage on its own at
   // each level, in each attack mode and with each ammunition, and what it would spend.
   aloneChoices: 1,
@@ -913,7 +914,9 @@ describe('app/api/events', () => {
           'effects',
           'wildShape',
         ])
-        expect(features.wildShape).toBe(1)
+        // Changed on purpose (item 60): 2 from module 0.54.0, known forms from anywhere their
+        // players could use in Foundry.
+        expect(features.wildShape).toBe(2)
         // The module reads it as a whole number, 1 or more, as it reads effects'.
         expect(Number.isInteger(features.wildShape)).toBe(true)
       }
