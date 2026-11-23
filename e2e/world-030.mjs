@@ -43,7 +43,8 @@
 // SKEW=040 is module 0.40.0. Since module 0.42.0 (its contract §8.5): SKEW=041 is module 0.41.0. Since
 // module 0.42.1 and 0.44.0 (v0.44): SKEW=042 is module 0.42.0. Since module 0.50.0 (item 61): each
 // fetch for commands `posted` keeps its own `quiet`, as `look`: true a quiet look, false a full fetch,
-// left out by a module before 0.50.0.
+// left out by a module before 0.50.0. Since module 0.54.0 (item 60): any of core's permissions given
+// to roles by `setPermission(key, roles)`, as Create New Actors.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { actors, settings, user, users } from './fvtt/stub.mjs'
@@ -788,20 +789,22 @@ export async function changeMembers(g, members, { tell = true } = {}) {
   if (tell) await Hooks.callAll('updateActor', g, { system: { members: members.map(m => ({ actor: m.id })) } }, {}, 'gm')
 }
 
-// ---- Who may type their own dice (module 0.32.0) ----
+// ---- Who may type their own dice (module 0.32.0), and who may create actors (module 0.54.0) ----
 let permissionsStored = false
 /**
- * Make Manual Rolls given to these roles, as core changes the world's roles' permissions (MD
+ * One of core's permissions given to these roles, as core changes the world's roles' permissions (MD
  * scripts/module.mjs:15-17): the hook first, `game.permissions` after it; the setting created the
- * first time it's changed.
+ * first time any is changed.
  */
-export async function setPermissions(manualRolls) {
-  const value = { ...game.permissions, MANUAL_ROLLS: manualRolls }
+export async function setPermission(key, roles) {
+  const value = { ...game.permissions, [key]: roles }
   const hook = permissionsStored ? 'updateSetting' : 'createSetting'
   permissionsStored = true
   await Hooks.callAll(hook, { key: 'core.permissions', value }, {}, 'gm')
   game.permissions = value
 }
+/** Make Manual Rolls given to these roles (`setPermission`). */
+export const setPermissions = manualRolls => setPermission('MANUAL_ROLLS', manualRolls)
 let manualDiceSwitch = false
 let manualDiceReady = false
 /**

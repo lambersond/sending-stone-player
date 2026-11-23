@@ -6,7 +6,10 @@ import { formStats } from './utils'
 import { badgeOf, ONLY_IN_FOUNDRY, sizeCrWords } from '@/utils/wild-shape-words'
 import type { KnownForm } from '@/types/sending-stone'
 
-/** A known form's card's face: its name, size and CR, its statistics, and its badge. */
+/**
+ * A known form's card's face: its name, size and CR, its statistics, and its badge. A badge too
+ * long to sit beside a name at least 80 px wide goes on a line of its own below it.
+ */
 export function FormFace({
   known,
   acFloor,
@@ -24,9 +27,9 @@ export function FormFace({
   const line = known.pool ? sizeCrWords(known.size, known.cr) : ''
   return (
     <>
-      <span className='flex items-center gap-2.5'>
+      <span className='flex flex-wrap items-center gap-x-2.5 gap-y-1.5'>
         <Paw />
-        <span className='min-w-0 flex-1'>
+        <span className='min-w-20 flex-1'>
           <span
             {...(nameFocus && {
               tabIndex: -1,

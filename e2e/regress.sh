@@ -228,8 +228,8 @@ run effects 7 SKEW=038 MODULE=$O/module-0.38.1 SHOTS=$O/shots-039
 run campaigns 54 SHOTS=$O/shots-039
 # Module 0.40.0: Wild Shape from the app, a 2024 druid's known forms, the shaped seat; dnd5e 6.0.5;
 # and module 0.39.0 (none). Since module 0.49.0 its return keeps the effects others put on the form,
-# and takes off those taken off it.
-run wildshape 96 TIMEOUT=900 SHOTS=$O/shots-040
+# and takes off those taken off it; since module 0.54.0, known forms from anywhere, shared or not.
+run wildshape 107 TIMEOUT=900 SHOTS=$O/shots-040
 run wildshape 33 DND5E6=1 SHOTS=$O/shots-040
 run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040
 # Module 0.41.0: the saves the game asks of companions, on their own panes; Midi-QOL's; dnd5e 6.0.5;
