@@ -337,6 +337,7 @@ if (NEW) {
   const backAtSecond = (await chips(beast, 'Creature')).map(([name, chosen]) => [name, chosen])
   check(same(backAtSecond, [['Land', 'true'], ['Sea', 'false']]) && await beast.getByRole('button', { name: 'Cast', exact: true }).isEnabled(),
     `Air chosen, then the 2nd: ${JSON.stringify(backAtSecond)}, Cast enabled`)
+  if (PLAIN) await shootBoth(alice, 'summons-beast-level-changed', beast)
   await beast.getByRole('radio', { name: '3rd Level, 3 slots left', exact: true }).click()
   await beast.getByRole('radio', { name: 'Air', exact: true }).click()
   const air = await sent(() => beast.getByRole('button', { name: 'Cast', exact: true }).click(), 'Summon Beast')
