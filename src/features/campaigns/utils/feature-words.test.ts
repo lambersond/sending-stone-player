@@ -4,6 +4,7 @@
 import {
   coinsText,
   companionsLine,
+  constantText,
   healthText,
   hitPointsText,
   movesText,
@@ -196,6 +197,121 @@ describe('features/campaigns/utils/feature-words, companions on another scene (m
       ]),
     ).toBe(
       'Companions: Brakka, Wolf (on another scene), Bat 1 (summoned), Bat 2 (summoned, on another scene)',
+    )
+  })
+})
+
+// Module 0.54.0 (item 98): the companions the Gamemaster keeps beside a character, marked on the
+// card's line and counted in its own row.
+describe('features/campaigns/utils/feature-words, constant companions (module 0.54.0)', () => {
+  it('marks a constant one, and one with no token on any scene', () => {
+    expect(
+      companionsLine([
+        { key: 'brakka', name: 'Brakka', kind: 'owned' },
+        { key: 'sA-bat1', name: 'Bat', kind: 'summoned', away: true },
+        {
+          key: 'steel',
+          name: 'Steel Defender',
+          kind: 'constant',
+          unplaced: true,
+        },
+        { key: 'owl', name: 'Owl', kind: 'constant' },
+        { key: 'hawk', name: 'Hawk', kind: 'constant', away: true },
+      ]),
+    ).toBe(
+      'Companions: Brakka, Bat (summoned, on another scene), Steel Defender (constant, not on a scene), Owl (constant), Hawk (constant, on another scene)',
+    )
+  })
+
+  /** Thorin's campaign with this many constant companions. */
+  const many = (count: number) =>
+    campaign({
+      foundry: foundry('0.54.0'),
+      characters: [
+        {
+          id: 't',
+          name: 'Thorin',
+          companions: Array.from({ length: count }, (_, at) => ({
+            key: `c${at}`,
+            name: `Construct ${at + 1}`,
+            kind: 'constant' as const,
+          })),
+        },
+      ],
+    })
+
+  const HOW =
+    'A constant companion shows beside its character in the app with no token on a scene. Mark one on the campaign’s Companions tab in Sending Stone’s settings in Foundry.'
+  const steel = {
+    key: 'steel',
+    name: 'Steel Defender',
+    kind: 'constant' as const,
+  }
+  const owl = { key: 'owl', name: 'Owl', kind: 'constant' as const }
+  const brakka = { key: 'brakka', name: 'Brakka', kind: 'owned' as const }
+
+  it.each([
+    [
+      'an older module',
+      {
+        foundry: foundry('0.53.0'),
+        characters: [{ id: 't', name: 'Thorin', companions: [steel] }],
+      },
+      'Your Sending Stone module doesn’t keep constant companions yet. Version 0.54.0 or later does.',
+    ],
+    [
+      'none',
+      {
+        foundry: foundry('0.54.0'),
+        characters: [{ id: 't', name: 'Thorin', companions: [brakka] }],
+      },
+      `None yet. ${HOW}`,
+    ],
+    [
+      'one',
+      {
+        foundry: foundry('0.54.0'),
+        characters: [{ id: 't', name: 'Thorin', companions: [brakka, steel] }],
+      },
+      `One in Foundry: Steel Defender, Thorin’s. ${HOW}`,
+    ],
+    [
+      'two',
+      {
+        foundry: foundry('0.54.0'),
+        characters: [
+          { id: 't', name: 'Thorin', companions: [steel] },
+          { id: 'v', name: 'Vex', companions: [owl] },
+        ],
+      },
+      `Two in Foundry: Steel Defender, Thorin’s; Owl, Vex’s. ${HOW}`,
+    ],
+    [
+      'one shared by two characters, said once',
+      {
+        foundry: foundry('0.54.0'),
+        characters: [
+          { id: 't', name: 'Thorin', companions: [steel] },
+          { id: 'v', name: 'Vex', companions: [steel] },
+        ],
+      },
+      `One in Foundry: Steel Defender, Thorin’s and Vex’s. ${HOW}`,
+    ],
+    [
+      'a module that hasn’t said its version',
+      { characters: [{ id: 't', name: 'Thorin', companions: [steel] }] },
+      `One in Foundry: Steel Defender, Thorin’s. ${HOW}`,
+    ],
+  ])('says so with %s', (_name, fields, text) => {
+    expect(constantText(campaign(fields))).toBe(text)
+  })
+
+  it('counts in words to nine, then in digits', () => {
+    expect(constantText(many(9))).toMatch(
+      /^Nine in Foundry: Construct 1, Thorin’s; /,
+    )
+    expect(constantText(many(10))).toMatch(
+      /^10 in Foundry: Construct 1, Thorin’s; .*Construct 10, Thorin’s\. /,
     )
   })
 })

@@ -13,10 +13,16 @@ export type HelpPart = {
   text: string
   later?: true
   away?: true
+  /** Shown where the module lists the Gamemaster's constant companions, from module 0.54.0. */
+  constant?: true
 }
 
 /** What decides which of Help's parts show, as the campaign's view says it. */
-export type HelpShown = { laterDice: boolean; companionsAway: boolean }
+export type HelpShown = {
+  laterDice: boolean
+  companionsAway: boolean
+  companionsConstant: boolean
+}
 
 /** One of Help's sections, with the id its chip goes to it by. */
 export type HelpSection = { id: string; title: string; parts: HelpPart[] }

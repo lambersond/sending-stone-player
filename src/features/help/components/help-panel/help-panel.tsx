@@ -27,6 +27,8 @@ export function HelpPanel({
   const sections = helpSections({
     laterDice: facts.view.laterDice === true,
     companionsAway: facts.view.companionsAway === true,
+    // The Gamemaster's constant companions, from module 0.54.0.
+    companionsConstant: facts.view.companionsConstant === true,
   })
   return (
     <SidePanel

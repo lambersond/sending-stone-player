@@ -15762,14 +15762,14 @@ exports[`golden C4: words chat lines, per kind and variant, at each seat a roll:
       "list: Chat log",
       "list: Dice",
     ],
-    "text": "TThorin⟨time⟩AttackWarhammer attack1d20 + 717Total 24",
+    "text": "TThorin⟨time⟩AttackWarhammer attackNo target1d20 + 717Total 24",
   },
   "player": {
     "names": [
       "list: Chat log",
       "list: Dice",
     ],
-    "text": "TThorin⟨time⟩AttackWarhammer attack1d20 + 717Total 24",
+    "text": "TThorin⟨time⟩AttackWarhammer attackNo target1d20 + 717Total 24",
   },
 }
 `;

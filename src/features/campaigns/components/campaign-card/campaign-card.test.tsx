@@ -643,6 +643,42 @@ describe('components/campaigns/campaign-card', () => {
     },
   )
 
+  // Module 0.54.0 (item 98): the companions the Gamemaster keeps beside a character, its words
+  // constantText's own test; this is the wiring.
+  it('says which constant companions the campaign keeps, right after the players’ rolls', () => {
+    renderCard({
+      foundry: {
+        receivedAt: '2026-11-23T12:00:00.000Z',
+        module: { id: 'sending-stone', version: '0.54.0' },
+      },
+      characters: [
+        {
+          id: 'thorin',
+          name: 'Thorin',
+          companions: [
+            { key: 'steel', name: 'Steel Defender', kind: 'constant' },
+          ],
+        },
+      ],
+    })
+    const heading = screen.getByRole('heading', {
+      name: 'Constant companions',
+    })
+    expect(heading.nextSibling).toHaveTextContent(
+      /^One in Foundry: Steel Defender, Thorin’s\./,
+    )
+    expect(heading.querySelector('.lucide-pin')).not.toBeNull()
+    expect(
+      screen.getByText("Players' rolls").compareDocumentPosition(heading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      heading.compareDocumentPosition(
+        screen.getByRole('heading', { name: 'Items and coins' }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
   it.each([
     ['0.30.0', 'update'],
     ['0.9.12', 'update'],
@@ -992,6 +1028,9 @@ describe('components/campaigns/campaign-card', () => {
         'Chat',
         // The straight apostrophe four end-to-end suites read.
         "Players' rolls",
+        // Changed on purpose (item 98): the Gamemaster's constant companions follow them (module
+        // 0.54.0).
+        'Constant companions',
         'Items and coins',
         // Changed on purpose (item 67): the players' coins follow them (module 0.49.0).
         "Players' coins",
@@ -1040,6 +1079,9 @@ describe('components/campaigns/campaign-card', () => {
         // Changed on purpose (v0.44 item 8): its players' chat, after the invite link.
         'Chat',
         "Players' rolls",
+        // Changed on purpose (item 98): the Gamemaster's constant companions follow them (module
+        // 0.54.0).
+        'Constant companions',
         'Items and coins',
         // Changed on purpose (item 67): the players' coins follow them (module 0.49.0).
         "Players' coins",

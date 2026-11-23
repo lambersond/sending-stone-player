@@ -68,6 +68,11 @@ export const HELP_SECTIONS: HelpSection[] = [
         text: ' A companion on another scene in your Gamemaster’s game says so on its tab and its sheet. You can still roll for it, but an attack may need your Gamemaster to view its target.',
         away: true,
       },
+      {
+        lead: 'Constant companions.',
+        text: ' A companion your Gamemaster keeps beside your character, such as a Steel Defender, has a pin on its tab and shows whether or not it’s on a scene. While it isn’t on a scene, a dashed ring marks it, and its attacks and spells go without a target.',
+        constant: true,
+      },
     ],
   },
   {

@@ -122,6 +122,20 @@ describe('features/help/components/help-panel', () => {
     },
   )
 
+  // Module 0.54.0 (item 98): and its word on constant companions; which parts it shows is
+  // helpSections'.
+  it.each([
+    [true, true],
+    [undefined, false],
+  ] as const)(
+    'with the view’s companionsConstant %p, describes constant companions: %p',
+    (companionsConstant, shown) => {
+      renderPanel({ shown: view({ companionsConstant }) })
+
+      expect(screen.queryByText('Constant companions.') !== null).toBe(shown)
+    },
+  )
+
   it.each([
     [
       'player',
