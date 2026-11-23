@@ -1801,6 +1801,73 @@ describe('components/character-sheet/use-picker for summon activities, from modu
     expect(screen.getByRole('button', { name: 'Cast' })).toBeDisabled()
   })
 
+  it('offers the sizes it gives a choice of, the first chosen, and casts the size chosen with the type', async () => {
+    const user = userEvent.setup()
+    const sized: SheetAction = {
+      ...familiar,
+      activity: {
+        ...familiar.activity!,
+        summon: {
+          ...familiar.activity!.summon!,
+          sizes: [
+            { key: 'med', label: 'Medium' },
+            { key: 'lg', label: 'Large' },
+          ],
+        },
+      },
+    }
+    const { onPick } = renderSummon(sized)
+    expect(chips('Size')).toEqual([
+      ['Medium', 'true', false],
+      ['Large', 'false', false],
+    ])
+    await user.click(screen.getByRole('radio', { name: 'Owl' }))
+    await user.click(screen.getByRole('radio', { name: 'Fey' }))
+    await user.click(screen.getByRole('radio', { name: 'Large' }))
+    expect(chips('Size')).toEqual([
+      ['Medium', 'false', false],
+      ['Large', 'true', false],
+    ])
+    expect(chips('Type').map(([name, chosen]) => [name, chosen])).toEqual([
+      ['Celestial', 'false'],
+      ['Fey', 'true'],
+      ['Fiend', 'false'],
+    ])
+    await user.click(screen.getByRole('button', { name: 'Cast' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      slot: 'spell1',
+      summon: { profile: 'owlProfile000000', type: 'fey', size: 'lg' },
+    })
+  })
+
+  it('falls back to the first creature offered where the level chosen drops the one chosen', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderSummon(beast)
+    await user.click(
+      screen.getByRole('radio', { name: '3rd Level, 3 slots left' }),
+    )
+    await user.click(screen.getByRole('radio', { name: 'Air' }))
+    expect(chips('Creature').map(([name, chosen]) => [name, chosen])).toEqual([
+      ['Land', 'false'],
+      ['Sea', 'false'],
+      ['Air', 'true'],
+    ])
+    await user.click(
+      screen.getByRole('radio', { name: '2nd Level, 3 slots left' }),
+    )
+    expect(chips('Creature').map(([name, chosen]) => [name, chosen])).toEqual([
+      ['Land', 'true'],
+      ['Sea', 'false'],
+    ])
+    await user.click(screen.getByRole('button', { name: 'Cast' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      slot: 'spell2',
+      summon: { profile: 'landProfile00000' },
+    })
+  })
+
   it('tells the Gamemaster they place it', () => {
     renderSummon(familiar, { role: 'gm', api: '/api/c', key: 'gm' })
     expect(

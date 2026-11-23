@@ -8,9 +8,10 @@ import type { RollKind } from '@/types/roll'
 
 /*
  * Summon activities, from module 0.54.0, as Thorin's sheet casts them at the table: Find Familiar
- * from the Spells tab, its creature and type chosen in the picker, and Pack of Wolves from the
- * Features tab, used at once with its one creature. Nothing is placed from the app: the tray says
- * who places the creature in Foundry, from the card.
+ * from the Spells tab, its creature and type chosen in the picker; Conjure Animals at the 5th, its
+ * one beast two there; and Pack of Wolves from the Features tab, used at once with its one
+ * creature. Nothing is placed from the app: the tray says who places the creature, or the
+ * creatures, by the count at the level cast, in Foundry, from the card.
  */
 
 // Without WebGL the renderer is never ready, so rolls resolve at once, without dice.
@@ -111,6 +112,42 @@ describe('summon activities at the table, from module 0.54.0', () => {
       () =>
         expect(screen.getByRole('status')).toHaveTextContent(
           'Cast at the table · your Gamemaster places the creature in Foundry',
+        ),
+      { timeout: 5000 },
+    )
+  })
+
+  it('says the creatures are placed by the count at the level cast, Conjure Animals’ one beast of Challenge Rating 2 two at the 5th', async () => {
+    const user = userEvent.setup()
+    const posted = answering({ 'req-1': CAST })
+    render(pane())
+    await show(user, 'Spells')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Cast Conjure Animals' }),
+    )
+    const picker = screen.getByRole('dialog', { name: 'Conjure Animals' })
+    await user.click(
+      within(picker).getByRole('radio', { name: '5th Level, 1 slot left' }),
+    )
+    await user.click(
+      within(picker).getByRole('radio', {
+        name: 'Challenge Rating of 2 or lower, 2 of them',
+      }),
+    )
+    await user.click(within(picker).getByRole('button', { name: 'Cast' }))
+
+    expect(posted[0]).toMatchObject({
+      kind: 'use',
+      item: 'conjureAnimals',
+      activity: 'caSummon',
+      slot: 'spell5',
+      summon: { profile: 'caCr2' },
+    })
+    await waitFor(
+      () =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Cast at the table · your Gamemaster places the creatures in Foundry',
         ),
       { timeout: 5000 },
     )
