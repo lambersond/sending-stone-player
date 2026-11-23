@@ -324,10 +324,12 @@ run constant 7 SKEW=053 MODULE=$O/module-0.53.0 SHOTS=$O/shots-054
 # hello's summons and the app's summons: 1; Find Familiar's picker, its creatures, types and who places
 # it, cast as the Owl, Fey, at no one, its slot spent, the tray's line and the card's "Chosen on Sending
 # Stone"; the card's Summon button opening dnd5e's dialog with them chosen, the Owl placed and its tab;
-# Summon Beast's Air from the 3rd and its concentration; Conjure Animals' labels at the 3rd and 5th;
-# Pack of Wolves used at once; the Gamemaster's seat; the keyboard and the layout at 390, dnd5e's
-# fourteen creatures listed; and module 0.53.0, which casts none.
-run summons 24 SHOTS=$O/shots-summons
-run summons 24 MIDI=1
-run summons 24 DND5E6=1
+# Summon Beast's Air from the 3rd, Land chosen in its place at the 2nd, and its concentration; Conjure
+# Animals' labels at the 3rd and 5th, cast at the 5th as its Challenge Rating 2, the creatures placed;
+# Summon Air Spirit cast Large, its card's line and dnd5e's dialog with Large chosen; Pack of Wolves
+# used at once; the Gamemaster's seat; the keyboard and the layout at 390, dnd5e's fourteen creatures
+# listed, Conjure Animals' chips whole and the tray's line; and module 0.53.0, which casts none.
+run summons 33 SHOTS=$O/shots-summons
+run summons 33 MIDI=1
+run summons 33 DND5E6=1
 run summons 4 SKEW=053 MODULE=$O/module-0.53.0

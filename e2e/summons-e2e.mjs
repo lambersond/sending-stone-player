@@ -11,21 +11,27 @@
 // 3. The Gamemaster clicks the card's Summon button: dnd5e's dialog has the Owl and Fey chosen; the
 //    token placed as dnd5e places it, an Owl tab, "Summoned by Thorin with Find Familiar", its
 //    Perception rolled.
-// 4. Summon Beast: Land and Sea at the 2nd, Air too at the 3rd, cast as Air, concentration shown;
-//    Conjure Animals' labels at the 3rd and the 5th.
+// 4. Summon Beast: Land and Sea at the 2nd, Air too at the 3rd; Air chosen, then the 2nd again:
+//    Land chosen in its place; cast at the 3rd as Air, concentration shown. Conjure Animals' labels
+//    at the 3rd and the 5th; cast at the 5th as its Challenge Rating 2, two beasts there: "…places
+//    the creatures", the card's "2 × Challenge Rating of 2 or lower". Summon Air Spirit's one spirit,
+//    Medium or Large: Large cast, the card's "Air Spirit (Large)", dnd5e's dialog with Large chosen.
 // 5. Pack of Wolves used at once, "…places the creatures in Foundry", its card with no line.
 // 6. The Gamemaster's seat casts Find Familiar for Thorin: "You place it…".
 // 7. The keyboard and the layout at 390: focus in the picker, Tab through each chip to Cast, the
-//    chips wrapping with nothing sideways; the fourteen listed one under another.
+//    chips wrapping with nothing sideways; the fourteen listed one under another; Conjure Animals'
+//    chips at the 5th read whole; the tray's line after a cast at 390.
 // MIDI=1: the uses through Midi-QOL's stand-in. DND5E6=1: dnd5e 6.0.5's card and dice. SKEW=053 with
 // MODULE=module-0.53.0: nothing to cast, and no request naming a summon.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs.
 // Screenshots to SHOTS.
 import {
-  DND5E6, MIDI, W, activeScene, browse, character, check, companion, finish, focusInside, foundryWorld, launch,
+  DND5E6, MIDI, SHOTS, W, activeScene, browse, character, check, companion, finish, focusInside, foundryWorld, launch,
   newCampaign, part, place, postsOf, same, sameJson, sceneWorld, settled, shootBoth, sideways, sql, startModule, summoned, until,
 } from './world-030.mjs'
 import { JSDOM } from 'jsdom'
+import { readFileSync } from 'node:fs'
+import { MODULE } from './env.mjs'
 
 /** Module 0.53.0, which casts no summon activity (the app's ROADMAP item 59). */
 const SKEW053 = process.env.SKEW === '053'
@@ -88,7 +94,7 @@ const summonSpell = (id, name, level, activity, system = {}) => ({
 })
 const P = {
   bat: 'batProfile000000', cat: 'catProfile000000', owl: 'owlProfile000000', land: 'landProfile00000', sea: 'seaProfile000000',
-  air: 'airProfile000000', wolves: 'wolvesProfile000',
+  air: 'airProfile000000', wolves: 'wolvesProfile000', spirit: 'airSpiritProfile', cr2: 'caCr200000000000',
 }
 const FAMILIAR = [profile(P.bat, { uuid: MONSTER('Bat') }), profile(P.cat, { uuid: MONSTER('Cat') }), profile(P.owl, { uuid: MONSTER('Owl') })]
 const level = n => [`spell${n}`, { value: [0, 4, 3, 3, 3, 2][n] ?? 0, max: [0, 4, 3, 3, 3, 2][n] ?? 0, level: n }]
@@ -108,6 +114,10 @@ const thorin = character({ id: 'thorin', name: 'Thorin', owners: ['alice'], mods
       profiles: [['caCr2', '2', 1], ['caCr1', '1', 2], ['caCrHalf', '0.5', 4], ['caCrQuarter', '0.25', 8]].map(([id, cr, n]) =>
         profile(id.padEnd(16, '0'), { cr, count: `${n} * floor((@item.level - 1) / 2)`, types: ['beast'] })),
     }, { properties: ['concentration'] }),
+    // Summon Air Spirit, its one spirit Medium or Large.
+    summonSpell('summonAir', 'Summon Air Spirit', 2, {
+      id: 'saSummon', profiles: [profile(P.spirit, { name: 'Air Spirit', uuid: MONSTER('Bestial Spirit') })], creatureSizes: ['med', 'lg'],
+    }),
     // Find Familiar with dnd5e's own fourteen creatures, listed one under another.
     summonSpell('familiarPack', 'Find Familiar (all fourteen)', 1, {
       id: 'fpSummon', profiles: FOURTEEN.map(name => profile(`fp${name.replace(/\W/g, '')}`.padEnd(16, '0'), { uuid: MONSTER(name) })),
@@ -201,6 +211,31 @@ const panelOf = (who, key) => who.page.locator(`#creature-panel-${key}`)
 const describedAs = (who, key) => tabOf(who, key).evaluate(tab => document.getElementById(tab.getAttribute('aria-describedby'))?.textContent ?? null)
 const summonRequests = () => Number(sql(`select count(*) from roll_request where "campaignId" = '${A}' and payload::jsonb ? 'summon'`))
 const PLAIN = !MIDI && !DND5E6
+/** The tray, where what was cast at the table is said. */
+const tray = who => who.page.getByRole('region', { name: 'Your rolls' })
+/** dnd5e's dialog that a card's Summon button opens, once it's drawn, and the promise of its end. */
+async function dialogFrom(card, html) {
+  const opened = screen.summonDialogs.length
+  const done = clickSummon(card, html)
+  await until(() => (screen.summonDialogs.length > opened) && (screen.summonDialogs.at(-1).renders > 0), 'dnd5e\'s summoning dialog', 10_000)
+  const dialog = screen.summonDialogs.at(-1)
+  return { dialog, done, field: name => [...dialog.form.elements].find(element => element.name === name)?.value ?? null }
+}
+/**
+ * A card as the Gamemaster's Foundry draws it, its line in the module's stylesheet, shot at 390 and
+ * 1280 in a page of its own: the line is Foundry's, not the app's, so it has no theme of its own.
+ */
+async function shootCard(who, name, html) {
+  if (!SHOTS) return
+  const css = readFileSync(`${MODULE}/styles/sending-stone.css`, 'utf8')
+  for (const width of [390, 1280]) {
+    const page = await who.view.newPage()
+    await page.setViewportSize({ width, height: 400 })
+    await page.setContent(`<style>${css} body { font-family: sans-serif; margin: 8px } .chat-message { max-width: 300px; border: 1px solid #999; padding: 4px; list-style: none }</style><ol>${html.outerHTML}</ol>`)
+    await page.screenshot({ path: `${SHOTS}/${name}-${width}.png` })
+    await page.close()
+  }
+}
 
 // =================================================================================================
 // 1. The hello
@@ -245,14 +280,16 @@ if (NEW) {
   check(request.kind === 'use' && sameJson(request.payload.summon, { profile: P.owl, type: 'fey' }) && same(request.payload.targets, []) && request.payload.slot === 'spell1'
     && !('self' in request.payload) && made.status === 'done',
     `sent as the Owl, Fey, at no one, with a 1st-level slot, and made (${JSON.stringify(request.payload.summon)}, ${made.status})`)
-  const tray = await trayShows(alice, 'places the creature in Foundry')
-  check(/Cast at the table · your Gamemaster places the creature in Foundry/.test(tray), `the tray: "${tray}"`)
+  const said = await trayShows(alice, 'places the creature in Foundry')
+  check(/Cast at the table · your Gamemaster places the creature in Foundry/.test(said), `the tray: "${said}"`)
+  if (PLAIN) await shootBoth(alice, 'summons-tray', tray(alice))
   await alice.page.getByText('3 of 4 spell slots left').first().waitFor({ timeout: 20_000 })
   check(slots().spell1 === before.spell1 - 1, `a 1st-level slot spent in the game, and the sheet says 3 of 4 left (${slots().spell1})`)
   const owlCard = useCard(request.id)
   const html = await drawn(owlCard)
   check(same(linesOf(html), ['Chosen on Sending Stone: Owl (Fey)']) && !!html.querySelector('[data-action="placeSummons"]'),
     `its card has dnd5e's Summon button and the line "${linesOf(html)[0]}"`)
+  if (PLAIN) await shootCard(alice, 'summons-card-line', html)
 
   // ===============================================================================================
   // 3. The Gamemaster places it
@@ -295,6 +332,13 @@ if (NEW) {
   const atThird = (await chips(beast, 'Creature')).map(([name]) => name)
   check(same(atSecond, ['Land', 'Sea']) && same(atThird, ['Land', 'Sea', 'Air']), `Summon Beast: ${atSecond.join(', ')} at the 2nd; ${atThird.join(', ')} at the 3rd`)
   await beast.getByRole('radio', { name: 'Air', exact: true }).click()
+  // The 2nd again, where there's no Air: Land chosen in its place, and Cast still there to press.
+  await beast.getByRole('radio', { name: '2nd Level, 3 slots left', exact: true }).click()
+  const backAtSecond = (await chips(beast, 'Creature')).map(([name, chosen]) => [name, chosen])
+  check(same(backAtSecond, [['Land', 'true'], ['Sea', 'false']]) && await beast.getByRole('button', { name: 'Cast', exact: true }).isEnabled(),
+    `Air chosen, then the 2nd: ${JSON.stringify(backAtSecond)}, Cast enabled`)
+  await beast.getByRole('radio', { name: '3rd Level, 3 slots left', exact: true }).click()
+  await beast.getByRole('radio', { name: 'Air', exact: true }).click()
   const air = await sent(() => beast.getByRole('button', { name: 'Cast', exact: true }).click(), 'Summon Beast')
   check(sameJson(air.request.payload.summon, { profile: P.air }) && air.request.payload.slot === 'spell3' && air.made.status === 'done',
     `cast at the 3rd as the Air spirit (${JSON.stringify(air.request.payload.summon)})`)
@@ -316,8 +360,36 @@ if (NEW) {
     && fifth[1][0] === `${cr(1)}, 4 of them`,
     `Conjure Animals as dnd5e labels it: "${third[1]}" at the 3rd, "${fifth[1][2]}" at the 5th, told "${fifth[1][0]}"`)
   if (PLAIN) await shootBoth(alice, 'summons-conjure-picker', animals)
-  await alice.page.keyboard.press('Escape')
-  await animals.waitFor({ state: 'hidden', timeout: 10_000 })
+  // Cast at the 5th as its Challenge Rating 2, two beasts there: the creatures placed.
+  await animals.getByRole('radio', { name: `${cr(2)}, 2 of them`, exact: true }).click()
+  const conjured = await sent(() => animals.getByRole('button', { name: 'Cast', exact: true }).click(), 'Conjure Animals')
+  const conjuredTray = await trayShows(alice, 'places the creatures in Foundry')
+  check(sameJson(conjured.request.payload.summon, { profile: P.cr2 }) && conjured.request.payload.slot === 'spell5' && conjured.made.status === 'done'
+    && /Cast at the table · your Gamemaster places the creatures in Foundry/.test(conjuredTray),
+    `cast at the 5th as its Challenge Rating 2 (${JSON.stringify(conjured.request.payload.summon)}): "${conjuredTray}"`)
+  const conjuredCard = await drawn(useCard(conjured.request.id))
+  check(same(linesOf(conjuredCard), [`Chosen on Sending Stone: 2 × ${cr(2)}`]), `its card: "${linesOf(conjuredCard)[0]}"`)
+
+  // Summon Air Spirit: its one spirit, Medium or Large.
+  await button(alice, 'Cast Summon Air Spirit').click()
+  const spirit = pickerOf(alice, 'Summon Air Spirit')
+  await spirit.waitFor({ timeout: 10_000 })
+  const sizes = (await chips(spirit, 'Size')).map(([name, chosen]) => [name, chosen])
+  check(await spirit.getByRole('group', { name: 'Creature', exact: true }).count() === 0 && await spirit.getByRole('group', { name: 'Type', exact: true }).count() === 0
+    && same(sizes, [['Medium', 'true'], ['Large', 'false']]),
+    `Summon Air Spirit's picker: no Creature or Type, Size ${JSON.stringify(sizes)}`)
+  await spirit.getByRole('radio', { name: 'Large', exact: true }).click()
+  if (PLAIN) await shootBoth(alice, 'summons-size-picker', spirit)
+  const large = await sent(() => spirit.getByRole('button', { name: 'Cast', exact: true }).click(), 'Summon Air Spirit')
+  check(sameJson(large.request.payload.summon, { profile: P.spirit, size: 'lg' }) && large.made.status === 'done',
+    `cast as the Air Spirit, Large (${JSON.stringify(large.request.payload.summon)})`)
+  const largeHtml = await drawn(useCard(large.request.id))
+  check(same(linesOf(largeHtml), ['Chosen on Sending Stone: Air Spirit (Large)']), `its card: "${linesOf(largeHtml)[0]}"`)
+  const largeDialog = await dialogFrom(useCard(large.request.id), largeHtml)
+  check(largeDialog.field('summons.creatureSize') === 'lg' && largeDialog.dialog.config.summons.creatureSize === 'lg',
+    `its Summon button opens dnd5e's dialog with Large chosen (${largeDialog.field('summons.creatureSize')})`)
+  await largeDialog.dialog.use()
+  await largeDialog.done
 
   // ===============================================================================================
   // 5. Pack of Wolves
@@ -387,6 +459,32 @@ if (NEW) {
   check(same(listed.map(text => text.trim()), FOURTEEN) && await sideways(phone.page) === 0,
     `dnd5e's fourteen creatures listed one under another at 390, nothing sideways (${listed.length})`)
   if (PLAIN) await shootBoth(phone, 'summons-fourteen-picker', fourteen)
+  await phone.page.keyboard.press('Escape')
+  await fourteen.waitFor({ state: 'hidden', timeout: 10_000 })
+  // Conjure Animals at the 5th, its longest chip "16 × Challenge Rating of ¼ or lower": each whole.
+  await button(phone, 'Cast Conjure Animals').click()
+  const phoneAnimals = pickerOf(phone, 'Conjure Animals')
+  await phoneAnimals.waitFor({ timeout: 10_000 })
+  await phoneAnimals.getByRole('radio', { name: /^5th Level/ }).click()
+  const whole = await phoneAnimals.getByRole('group', { name: 'Creature', exact: true }).getByRole('radio')
+    .evaluateAll(all => all.map(chip => [chip.textContent.trim(), [chip, ...chip.querySelectorAll('*')].every(el => el.scrollWidth <= el.clientWidth + 1)]))
+  check(whole.length === 4 && whole.every(([, fits]) => fits) && await sideways(phone.page) === 0,
+    `at 390 Conjure Animals' chips at the 5th read whole, nothing sideways (${whole.map(([text]) => text).join('; ')})`)
+  if (PLAIN) await shootBoth(phone, 'summons-conjure-picker', phoneAnimals)
+  await phone.page.keyboard.press('Escape')
+  await phoneAnimals.waitFor({ state: 'hidden', timeout: 10_000 })
+  // A cast at 390: the tray's line.
+  await button(phone, 'Cast Find Familiar').click()
+  const phoneFamiliar = pickerOf(phone, 'Find Familiar')
+  await phoneFamiliar.waitFor({ timeout: 10_000 })
+  await phoneFamiliar.getByRole('radio', { name: 'Cat', exact: true }).click()
+  const castAt390 = await sent(() => phoneFamiliar.getByRole('button', { name: 'Cast', exact: true }).click(), 'Find Familiar at 390')
+  const phoneTray = await trayShows(phone, 'places the creature in Foundry')
+  // The tray's line wraps inside it: nothing in it reaches past its edge.
+  const trayFits = await tray(phone).evaluate(el => el.scrollWidth <= el.clientWidth + 1)
+  check(castAt390.made.status === 'done' && /Cast at the table · your Gamemaster places the creature in Foundry/.test(phoneTray) && trayFits && await sideways(phone.page) === 0,
+    `at 390 the tray: "${phoneTray}", its line wrapping inside it, nothing sideways`)
+  if (PLAIN) await shootBoth(phone, 'summons-tray', tray(phone))
   await phone.view.close()
 } else {
   // ===============================================================================================
