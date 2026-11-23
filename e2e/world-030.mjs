@@ -89,6 +89,8 @@ export const SKEW041 = process.env.SKEW === '041'
 export const SKEW042 = process.env.SKEW === '042'
 /** Module 0.50.0, from before 0.51.0, against this round's app: companions only while on the active scene. */
 export const SKEW050 = process.env.SKEW === '050'
+/** Module 0.53.0, which keeps no constant companions (the app's ROADMAP item 98). */
+export const SKEW053 = process.env.SKEW === '053'
 export const MIDI = Boolean(process.env.MIDI)
 export const DND5E6 = Boolean(process.env.DND5E6)
 export const SHOTS = process.env.SHOTS
@@ -105,7 +107,7 @@ if (SHOTS_041) mkdirSync(SHOTS_041, { recursive: true })
 /** Module 0.42.0's pictures, beside the others, whatever folder a run's SHOTS is. */
 export const SHOTS_042 = SHOTS && `${SHOTS.replace(/\/[^/]*\/?$/, '')}/shots-042`
 if (SHOTS_042) mkdirSync(SHOTS_042, { recursive: true })
-export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${SKEW038 ? '-skew038' : ''}${SKEW039 ? '-skew039' : ''}${SKEW040 ? '-skew040' : ''}${SKEW041 ? '-skew041' : ''}${SKEW042 ? '-skew042' : ''}${SKEW050 ? '-skew050' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
+export const VARIANT = `${SKEW ? '-skew029' : ''}${SKEW030 ? '-skew030' : ''}${SKEW031 ? '-skew031' : ''}${SKEW032 ? '-skew032' : ''}${SKEW033 ? '-skew033' : ''}${SKEW034 ? '-skew034' : ''}${SKEW035 ? '-skew035' : ''}${SKEW036 ? '-skew036' : ''}${SKEW037 ? '-skew037' : ''}${SKEW038 ? '-skew038' : ''}${SKEW039 ? '-skew039' : ''}${SKEW040 ? '-skew040' : ''}${SKEW041 ? '-skew041' : ''}${SKEW042 ? '-skew042' : ''}${SKEW050 ? '-skew050' : ''}${SKEW053 ? '-skew053' : ''}${MIDI ? '-midi' : ''}${DND5E6 ? '-dnd5e6' : ''}`
 export const ALICE = await cookieFor('e2e-token')
 export const BOB = await cookieFor('e2e-bob-token')
 export const check = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('ok -', msg) }
@@ -885,11 +887,12 @@ const tokenCore = () => {
  * A companion's world actor: an NPC whose players are given Owner by user id, linked unless said,
  * with its armour class and gear as `equip` gives them; `npc`, what else it has: `spec` (Actor5e's
  * mods, hp, skills, prof and npc hit dice), `system` merged into its system (its details, resources
- * and traits), `flags` and `img`.
+ * and traits), `flags`, `img`, and since module 0.54.0 `stats`, its `_stats` (`compendiumSource`,
+ * `duplicateSource`), which dnd5e's summons read.
  */
-export function companion(id, name, { owners = [], linked = true, ac, gear = {}, npc: { spec = {}, system = {}, flags = {}, img = `icons/${id}.webp`, ownership } = {} } = {}) {
+export function companion(id, name, { owners = [], linked = true, ac, gear = {}, npc: { spec = {}, system = {}, flags = {}, img = `icons/${id}.webp`, ownership, stats } = {} } = {}) {
   const actor = tokenCore().companionActor(id, name, {
-    owners, linked, spec, system, flags, img, ...(ownership && { ownership }),
+    owners, linked, spec, system, flags, img, ...(ownership && { ownership }), ...(stats && { stats }),
     gear: { ...gear, ...(ac !== undefined && { ac }) },
   })
   actor.prototypeToken = { ...actor.prototypeToken, texture: { src: `tokens/${id}.webp` } }

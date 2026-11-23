@@ -309,3 +309,13 @@ run encounters 37 SKEW=050 MODULE=$O/module-0.50.0
 # minutes, on its own timings: run alone after the lanes (lanes.conf's solo).
 run quiet 26 TIMEOUT=600
 run quiet 12 TIMEOUT=600 SKEW=049 MODULE=$O/module-0.49.0
+# Item 98 (module 0.54.0): constant companions, in world-030's world with scenes: the hello's
+# companionsConstant and the app's companions: 4; the Gamemaster's mark taking a summoned token of
+# dnd5e's copy over; with no token, the pin, the dashed ring and circle, the note, rolls, an attack at
+# no one saying "No target" (MIDI=1: Midi-QOL's workflow at no one), a use and hit points on the NPC
+# marked, at 390 and 1280; a token placed, moved to another scene and deleted; the Gamemaster's card
+# and seat, the keyboard and Help; and module 0.53.0, which keeps none.
+run constant 21 SHOTS=$O/shots-054
+run constant 21 MIDI=1 SHOTS=$O/shots-054
+run constant 21 DND5E6=1 SHOTS=$O/shots-054
+run constant 7 SKEW=053 MODULE=$O/module-0.53.0 SHOTS=$O/shots-054
