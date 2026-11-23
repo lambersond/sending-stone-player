@@ -320,3 +320,14 @@ run constant 24 SHOTS=$O/shots-054
 run constant 24 MIDI=1 SHOTS=$O/shots-054
 run constant 24 DND5E6=1 SHOTS=$O/shots-054
 run constant 7 SKEW=053 MODULE=$O/module-0.53.0 SHOTS=$O/shots-054
+# Item 59 (module 0.54.0): summon activities cast from the app, in world-030's world with scenes: the
+# hello's summons and the app's summons: 1; Find Familiar's picker, its creatures, types and who places
+# it, cast as the Owl, Fey, at no one, its slot spent, the tray's line and the card's "Chosen on Sending
+# Stone"; the card's Summon button opening dnd5e's dialog with them chosen, the Owl placed and its tab;
+# Summon Beast's Air from the 3rd and its concentration; Conjure Animals' labels at the 3rd and 5th;
+# Pack of Wolves used at once; the Gamemaster's seat; the keyboard and the layout at 390, dnd5e's
+# fourteen creatures listed; and module 0.53.0, which casts none.
+run summons 24 SHOTS=$O/shots-summons
+run summons 24 MIDI=1
+run summons 24 DND5E6=1
+run summons 4 SKEW=053 MODULE=$O/module-0.53.0
