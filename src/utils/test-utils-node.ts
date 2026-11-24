@@ -66,11 +66,10 @@ export const guardNoDb = () => {
 
 /**
  * The mock as fresh: every implementation and answer given it gone (the config's `clearMocks`
- * clears only calls), and the client extended as itself again, as jest.setup.ts has it.
+ * clears only calls).
  */
 export const resetPrisma = () => {
   mockReset(prismaMock)
-  prismaMock.$extends.mockReturnValue(prismaMock as never)
 }
 
 type Row = Record<string, unknown>
