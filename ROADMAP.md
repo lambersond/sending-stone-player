@@ -379,9 +379,8 @@ sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 59. **Summon activities** used from the app.
-60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
-    campaign's compendiums, such as another compendium or a world actor, used from the app too,
-    where its player could use it in Foundry.
+
+Item 60, known forms from anywhere, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
 
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
@@ -703,10 +702,12 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   meanwhile, is kept on the return, added to what the form took.
 - Uses spent by a module's consumption hooks, such as Midi-QOL's, aren't run for a change from the
   app, which spends the use itself.
-- A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
-  outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
-  Polymorphing and the source's permissions apply (from outside the compendiums: planned before
-  v1.0, item 60).
+- A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums is
+  used from the app only where each of the druid's players could use it in Foundry: the druid
+  theirs, the form shared with them, dnd5e's Allow Transformation on and the Create New Actors
+  permission. One outside the rules, from anywhere, is used only in Foundry.
+- Beasts are learned from the app only from the campaign's compendiums: a form from anywhere else is
+  put on the druid's Wild Shape in Foundry.
 - A session ended from outside the app, such as one deleted from the database or revoked through
   Better Auth's own endpoints, still reads the table, the party sheet and the journal, and still
   sends what the table sends the game (rolls, moves, hit points, coins and ending a turn among them)

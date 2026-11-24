@@ -19,6 +19,44 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
+## v0.54.0-rc
+
+### Features
+
+- **Known forms from anywhere.** A form put on your druid's Wild Shape in Foundry from outside your
+  Gamemaster's compendiums, such as a Beast from another compendium or one of the world's own
+  actors, can now be taken from the app, with its numbers on its card, where each of the druid's
+  players could use it in Foundry: the druid theirs, the form shared with them, Allow Transformation
+  on, and the Create New Actors permission. Any other says why on its card. Needs Sending
+  Stone 0.54.0 in Foundry; with an older one, such a form stays Foundry's alone, as before. (app and
+  module, item 60)
+
+### Fixes
+
+- **A known form's badge no longer squeezes its name.** On a phone, a long badge on a known form's
+  card, such as "Not from your Gamemaster’s compendiums", left the form's name a narrow column; a
+  badge too long to sit beside the name now takes a line of its own below it. (app, item 60)
+
+### Maintenance
+
+- **Tests for known forms from anywhere.** The module's `wildshape.mjs` gains a case, under
+  dnd5e 5.3.3 and 6.0.5 and with Midi-QOL: to an app that answers `wildShape` 1, such forms by name
+  alone and a change into one refused; at 2 or more, each of Foundry's gates and the form's own
+  reasons, in their order, each usable form listed with its numbers, the sheet sent again as a world
+  actor, Allow Transformation or a compendium's sharing changes, whatever the campaign's switch, and
+  a change into one refused at each gate closed while the app holds a sheet gone stale; and the
+  stand-in for dnd5e's transformations gains the world's folders. The app's Jest pins its answer of
+  `wildShape: 2` to a hello and a heartbeat (`src/app/api/events/route.test.ts` and the routes'
+  golden), a known form's `why` read or left out (`src/schemas/sending-stone.test.ts`), and each
+  badge (`src/utils/wild-shape-words.test.ts`). The e2e's `wildshape` gains part 26: a world actor's
+  Grey Wolf and the Monsters' Wolf on Elowen's Wild Shape, listed by name while Allow Transformation
+  is off or Alice lacks Create New Actors, then offered with their numbers; the Grey Wolf taken by
+  its card and returned from; unshared in Foundry, its card says so and a crafted change into it is
+  refused; and at 360 px each name at least 80 px wide, each badge on one line. Its part 1 reads the
+  app's answer of 2, and part 25 why Thorin and the Moon Hare are Foundry's alone. Its plain run
+  wants 107 checks, 96 before; its `DND5E6=1` and `SKEW=039` runs still want 33 and 8. (app and
+  module, item 60)
+
 ## v0.53.0 — 2026-11-21
 
 ### Fixes
