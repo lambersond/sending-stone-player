@@ -298,6 +298,18 @@ describe('features/campaigns/utils/feature-words, constant companions (module 0.
       `One in Foundry: Steel Defender, Thorin’s and Vex’s. ${HOW}`,
     ],
     [
+      'one shared by three characters, the last after "and"',
+      {
+        foundry: foundry('0.54.0'),
+        characters: [
+          { id: 't', name: 'Thorin', companions: [steel] },
+          { id: 'v', name: 'Vex', companions: [steel] },
+          { id: 'm', name: 'Mira', companions: [steel] },
+        ],
+      },
+      `One in Foundry: Steel Defender, Thorin’s, Vex’s and Mira’s. ${HOW}`,
+    ],
+    [
       'two of one name, told apart by key',
       {
         foundry: foundry('0.54.0'),
