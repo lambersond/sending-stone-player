@@ -3541,6 +3541,33 @@ describe('db/campaign-events, companions, from module 0.36.0', () => {
     expect(storedHello().companionsConstant).toBe(true)
   })
 
+  // Under another system than D&D Fifth Edition the module draws no Companions tab, so Help says
+  // nothing of constant companions, as the hello's own system says.
+  it('says none for Help from a hello under another system, though its module lists constant companions', async () => {
+    await hello(
+      [wolf],
+      {
+        ...companionFeatures,
+        companions: {
+          ...companionFeatures.companions,
+          away: true,
+          constant: true,
+        },
+      },
+      {
+        ...apart,
+        companionsConstant: [{ ...wolf, away: false }],
+        system: {
+          id: 'pf2e',
+          title: 'Pathfinder Second Edition',
+          version: '7.0.0',
+        },
+      },
+    )
+
+    expect(storedHello().companionsConstant).toBe(false)
+  })
+
   it('keeps the companions on every scene from a hello that lists no constant ones, and says none for Help', async () => {
     const everywhere = [{ ...wolf, away: false }]
     await hello(

@@ -109,6 +109,20 @@ describe('utils/hello-features', () => {
     },
   )
 
+  // Under another system than D&D Fifth Edition the module has no Companions tab to mark one on,
+  // so Help says nothing of them, as the hello's own system says; a hello that names none is read
+  // as before.
+  it.each([
+    ['dnd5e', true],
+    ['pf2e', false],
+  ])('keeps constant companions listed under %p as %p', (id, on) => {
+    const { companionsConstant } = helloCompanionData(
+      { companions: { kinds: [], initiative: 'own', constant: true } },
+      { id, title: id, version: '5.3.3' },
+    )
+    expect(companionsConstant).toBe(on)
+  })
+
   it('takes no command kind as a roll, and no move feature while moves are off', () => {
     const data = helloCampaignData({
       rolls: {

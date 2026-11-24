@@ -358,7 +358,7 @@ async function applyHello(
       // Its characters' companions, from module 0.36.0, each as listed, never its sheet; and how
       // they roll (`helloCompanionData`).
       companions: listed.map(entry => toJson(entry)),
-      ...helloCompanionData(features),
+      ...helloCompanionData(features, system),
       // Whether its module is one that asks a typing player for the dice an item rolls later, by
       // its versions, whatever its switches, for Help at either seat: apart from what follows,
       // which a player's view never reads.

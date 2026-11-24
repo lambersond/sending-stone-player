@@ -268,6 +268,19 @@ describe('features/campaigns/utils/feature-words, constant companions (module 0.
       `None yet. ${HOW}`,
     ],
     [
+      'another system, which has no Companions tab',
+      {
+        foundry: foundry('0.54.0', 'pf2e'),
+        characters: [{ id: 't', name: 'Thorin', companions: [brakka] }],
+      },
+      'Off. Constant companions need D&D Fifth Edition in Foundry.',
+    ],
+    [
+      'an older module under another system: its version first',
+      { foundry: foundry('0.53.0', 'pf2e') },
+      'Your Sending Stone module doesn’t keep constant companions yet. Version 0.54.0 or later does.',
+    ],
+    [
       'one',
       {
         foundry: foundry('0.54.0'),

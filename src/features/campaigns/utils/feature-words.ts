@@ -215,11 +215,15 @@ const HEALTH_FROM = [0, 50, 0] as const
  * The campaign's constant companions, from module 0.54.0: those its Gamemaster keeps beside a
  * character in Foundry, each once by its key, with whose it is, "Steel Defender, Thorin’s" or
  * "Steel Defender, Thorin’s and Vex’s", counted; and where to mark one. With a module before that,
- * which keeps none, that it doesn't.
+ * which keeps none, that it doesn't; under another system than D&D Fifth Edition, where the
+ * module has no Companions tab to mark one on, that they need it, as the hello's own system says.
  */
 export function constantText({ characters, foundry }: OwnedCampaign): string {
   if (before(foundry?.module?.version, CONSTANT_FROM)) {
     return 'Your Sending Stone module doesn’t keep constant companions yet. Version 0.54.0 or later does.'
+  }
+  if (foundry?.system && foundry.system.id !== 'dnd5e') {
+    return 'Off. Constant companions need D&D Fifth Edition in Foundry.'
   }
   const kept = new Map<string, { name: string; of: string[] }>()
   for (const { name: character, companions = [] } of characters) {
