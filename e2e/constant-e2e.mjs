@@ -12,9 +12,10 @@
 // next read the same tab, its ring solid, no note, the token's hit points; moved to the den, its pin
 // then the struck pin and the away note; deleted, by the next read back to no token. The
 // Gamemaster's card and seat, the keyboard, and Help, each checked by what the campaign gives it and
-// where it's drawn, the words being the unit tests'. MIDI=1: the attack through Midi-QOL's stand-in, its workflow at no one, whose own card
-// stands for it in chat in place of the roll card. DND5E6=1: dnd5e 6.0.5's dice. SKEW=053 with
-// MODULE=module-0.53.0: no constant tab, the card's row naming 0.54.0, Help without the part.
+// where it's drawn, the words being the unit tests'. MIDI=1: the attack through Midi-QOL's stand-in,
+// its workflow at no one, whose own card stands for it in chat in place of the roll card. DND5E6=1:
+// dnd5e 6.0.5's dice. SKEW=053 with MODULE=module-0.53.0: no constant tab, the card's row naming
+// 0.54.0, Help without the part.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
