@@ -378,9 +378,8 @@ sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
-59. **Summon activities** used from the app.
-
-Item 60, known forms from anywhere, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
+Items 59 and 60, summon activities used from the app and known forms from anywhere, are done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
 
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
@@ -577,7 +576,13 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Under dnd5e 6, in a world that shows a coin's decimals, dnd5e floors each coin to them as it reads
   the sheet, so a few amounts stored as written read a hundredth low, in Foundry and in the app:
   4.56 gp reads 4.55.
-- Summon activities are used in Foundry (planned before v1.0, item 59).
+- A summon activity cast from the app places nothing: the Gamemaster places the creature in Foundry,
+  from the Summon button on its card, and it shows as the character's companion once placed.
+- A summoning by Challenge Rating, such as Conjure Animals, is cast from the app at the band the
+  player picks; the Gamemaster picks its creatures in dnd5e's compendium browser as they place them.
+- With Midi-QOL's Auto Remove Summoned Creature, a creature placed from a card's Summon button isn't
+  removed as the concentration ends, as in Foundry.
+- A creature a companion summons isn't listed as a companion.
 - A companion shared by several characters is asked a save card's save only where every one of
   their players can read the card.
 - A Gamemaster's request for a save posted in chat asks the campaign's characters, not their

@@ -40,6 +40,16 @@ so an item from it is named with its number when it was built, which may since b
   on, and the Create New Actors permission. Any other says why on its card. Needs Sending
   Stone 0.54.0 in Foundry; with an older one, such a form stays Foundry's alone, as before. (app and
   module, item 60)
+- **Summon activities cast from the app.** A spell or feature that summons, such as Find Familiar,
+  Find Steed, Summon Beast, Conjure Animals or a Steel Defender, now has Cast or Use on your sheet
+  where it said "Used in Foundry". Pick the creature at the level you cast it, and its type and size
+  where it offers a choice; one that summons by Challenge Rating, such as Conjure Animals, offers
+  its bands at that level, such as "4 × Challenge Rating of 1 or lower". The slot or use is spent
+  and concentration begins, and your Gamemaster places the creature in Foundry from the card's
+  Summon button, the card saying what you chose and dnd5e's dialog opening with it chosen; for one
+  by Challenge Rating, they pick the creatures in dnd5e's compendium browser. Once placed, it shows
+  as your character's companion. Needs Sending Stone 0.54.0 in Foundry; with an older one, summon
+  activities are used in Foundry, as before. (app and module, item 59)
 
 ### Fixes
 
@@ -53,9 +63,8 @@ so an item from it is named with its number when it was built, which may since b
   three runs, and `companion-saves.mjs` a Midi-QOL section; `groups.mjs`, `sync.mjs`, `rolls.mjs`,
   `companions.mjs` and `dialog.mjs` pin the settings window, the hello and the saved campaign as
   they change on purpose; the app's Jest pins `companions: 4` and its golden snapshots are taken
-  again; the new e2e suite `constant` runs plain, `MIDI=1`, `DND5E6=1` and `SKEW=053`.
-  `e2e/README.md` counts 62 suites and 144 runs; `test/README.md` counts 52 harnesses and 122 runs,
-  unchanged. (app and module, item 98)
+  again; the new e2e suite `constant` runs plain, `MIDI=1`, `DND5E6=1` and `SKEW=053`. (app and
+  module, item 98)
 - **Tests for known forms from anywhere.** The module's `wildshape.mjs` gains a case, under
   dnd5e 5.3.3 and 6.0.5 and with Midi-QOL: to an app that answers `wildShape` 1, such forms by name
   alone and a change into one refused; at 2 or more, each of Foundry's gates and the form's own
@@ -73,6 +82,17 @@ so an item from it is named with its number when it was built, which may since b
   app's answer of 2, and part 25 why Thorin and the Moon Hare are Foundry's alone. Its plain run
   wants 107 checks, 96 before; its `DND5E6=1` and `SKEW=039` runs still want 33 and 8. (app and
   module, item 60)
+- **Summon activities' checks.** The new e2e suite `summons` runs plain, with `MIDI=1`, with
+  `DND5E6=1` and against module 0.53.0 (`SKEW=053`, the `053` line in `e2e/skew.conf`); the new
+  module harness `summons.mjs` runs plain, with `MIDI=1`, with `DND5E6=1` and with both, its last
+  case a Steel Defender the Gamemaster marked a constant companion, placed from its card and listed
+  as that companion. The stand-ins gain dnd5e's summon activity, its card's Summon button and its
+  usage dialog, and Foundry's `Set#first`. The pins of the hello's `rolls` tail change on purpose
+  for `summons` (the module's `rolls.mjs`, `companion-saves.mjs`, `later-dice.mjs` and `typed.mjs`;
+  the app's `companionsaves-e2e.mjs` and `laterdice-e2e.mjs`), and
+  `src/app/api/events/route.test.ts`'s eleven order checks move one place for it. `e2e/README.md`
+  counts 63 suites and 148 runs; `test/README.md` counts 53 harnesses and 126 runs. (app and module,
+  item 59)
 
 ## v0.53.0 — 2026-11-21
 
