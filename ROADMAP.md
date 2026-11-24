@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.53.0 and its app, with v0.52.0, v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0,
-v0.46.0, v0.45.0 and v0.44.0 before it.
+Released: module v0.54.0 and its app, with v0.53.0, v0.52.0, v0.51.0, v0.50.0, v0.49.0, v0.48.0,
+v0.47.0, v0.46.0, v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -232,12 +232,13 @@ Midi-QOL v14.0.x:
   Home Screen, which has no Full screen, the room closes as the page is ready, so Live and Help step
   right once, and stay there.
 
-## v0.54 (release candidate)
+## v0.54 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc entry.
+Released on 2026-11-24: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0 entry. v0.54 is
+the release candidate for v1.0 after v0.53: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.54.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 (and 6.0.5 where a check says so) and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 (and 6.0.5
+where a check says so) and Midi-QOL v14.0.x:
 
 - **Constant companions:** in Foundry, drag a Steel Defender from the Actors sidebar onto Thorin's
   box on the campaign's Companions tab and save: it shows in the app last among Thorin's tabs, with
@@ -289,7 +290,7 @@ tweaks needed may change it as it goes. Batches 1 to 6 and 8 are done; 7 is to c
 5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
    ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
 6. Items 59, 60 and 98, summon activities, known forms from anywhere and constant companions: done,
-   in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
+   in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0.
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
@@ -419,7 +420,7 @@ sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 Items 59 and 60, summon activities used from the app and known forms from anywhere, are done, in
-[CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
+[CHANGELOG.md](CHANGELOG.md)'s v0.54.0.
 
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
@@ -497,7 +498,7 @@ hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Asked for on 2026-11-20**
 
-Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
+Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0.
 
 **Found while building Batch 8**
 
