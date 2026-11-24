@@ -458,27 +458,7 @@ hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Asked for on 2026-11-20**
 
-98. **Constant companions:** a companion its character keeps, always there or summoned again and
-    again, such as a sidekick, an artificer's Steel Defender or a familiar summoned every session.
-    The Gamemaster marks an NPC in the Actors sidebar as a character's constant companion on the
-    campaign's Manage Campaigns window (a Companions list: the NPC and the character it belongs
-    to); only the Gamemaster marks or unmarks one. It then shows in the app beside its character
-    whether or not a token of it is on any scene, so in an impromptu encounter with no scene ready
-    the player can still act with it. While a token of it is on a scene the app uses that token,
-    as today; with none placed, the sidebar actor. With no token the player can do from the app
-    all that Foundry's own sheet allows without one: its sheet, checks and saves, attacks and
-    spells with no targets picked, its uses and hit points; initiative and the saves the game asks
-    for still need a token in a combat. Today only a linked NPC its player owns by name shows with
-    no scene; a summoned creature, or an unlinked NPC, needs a token on a scene. The look, as the
-    owner chose it from prototypes on 2026-11-20: its tab has a pin after its name, kept wherever
-    its token is, and with no token a dashed ring round its avatar and a dashed circle; above its
-    sheet, "Steel Defender isn't on a scene in your Gamemaster's game. You can still roll for it
-    and use its features here; its attacks and spells go without a target."; its sheet says
-    "Thorin's constant companion"; the Gamemaster's campaign card lists it "(constant, not on a
-    scene)" and gains a Constant companions row; and in Foundry, a Companions tab on Manage
-    Campaigns, between Party and Player actions, each character with its constant companions, a
-    Remove button for each, and an NPC dropped from the Actors sidebar or chosen by Add companions.
-    In batch 6.
+Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
 
 **Found while building Batch 8**
 
@@ -610,6 +590,24 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Companions are found on every scene, but no level is read: one on another level of the active
   scene counts as there. With a module before 0.51.0, companions show while on the active scene; a
   linked NPC its player owns shows always.
+- A constant companion that a summon makes as an unlinked creature, as a Steel Defender often is,
+  has with no token on a scene the numbers of its actor in Foundry's Actors sidebar, not those its
+  summon adds, and not its last token's hit points or spent uses. One summoned as a linked creature
+  keeps dnd5e's linked copy's.
+- With no token on a scene, a constant companion's attacks and spells go without a target, its
+  initiative isn't rolled into a fight, and it isn't asked the saves a card asks of the tokens it
+  targets; it's still asked its concentration saves, as Foundry's card asks the actor.
+- A linked NPC its player owns, once marked a constant companion, is offered no targets while no
+  token of it is on a scene; unmarked, it's offered its campaign's fight as before.
+- A constant companion with tokens on several scenes uses one, on the active scene first; its other
+  tokens show as companions of their own only where they would anyway.
+- An NPC and dnd5e's copy of it for a summon, both marked for a character, are two constant
+  companions: a token of the copy goes to the copy first, its linked token before any unlinked one,
+  whatever the scene; the NPC takes a token of its own or an unlinked token of the copy, else shows
+  without one; every linked token of a linked copy is that one copy.
+- A mark of dnd5e's linked copy isn't shown in the app while a linked token of that copy is another
+  constant companion's; its row on the Companions tab says whose that token is.
+- Constant companions need Sending Stone 0.54.0 in Foundry, under D&D Fifth Edition.
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.
 - Damage on its own never spends the action itself, and with Spend off it counts nothing.

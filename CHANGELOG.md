@@ -23,6 +23,16 @@ so an item from it is named with its number when it was built, which may since b
 
 ### Features
 
+- **Constant companions.** Your Gamemaster can keep a companion beside your character, such as a
+  Steel Defender, a sidekick or a familiar summoned every session, by marking it on the campaign's
+  Companions tab in Sending Stone's settings in Foundry. It has a tab of its own, last among your
+  character's, with a pin, whether or not a token of it is on a scene. While none is, a dashed ring
+  and a note say so, and you still roll for it and use its features, its attacks and spells going
+  without a target; any attack made at no one now says "No target" on its roll card in chat (with
+  Midi-QOL, its own card shows instead). The campaign card lists them under Constant companions.
+  Needs Sending Stone 0.54.0 in Foundry, under D&D Fifth Edition; with an older one, a summoned
+  creature or an NPC that isn't its player's shows only while its token is on a scene, as before.
+  (app and module, item 98)
 - **Known forms from anywhere.** A form put on your druid's Wild Shape in Foundry from outside your
   Gamemaster's compendiums, such as a Beast from another compendium or one of the world's own
   actors, can now be taken from the app, with its numbers on its card, where each of the druid's
@@ -39,6 +49,13 @@ so an item from it is named with its number when it was built, which may since b
 
 ### Maintenance
 
+- **Tests for constant companions.** The module's `companions.mjs` gains a section for them in its
+  three runs, and `companion-saves.mjs` a Midi-QOL section; `groups.mjs`, `sync.mjs`, `rolls.mjs`,
+  `companions.mjs` and `dialog.mjs` pin the settings window, the hello and the saved campaign as
+  they change on purpose; the app's Jest pins `companions: 4` and its golden snapshots are taken
+  again; the new e2e suite `constant` runs plain, `MIDI=1`, `DND5E6=1` and `SKEW=053`.
+  `e2e/README.md` counts 62 suites and 144 runs; `test/README.md` counts 52 harnesses and 122 runs,
+  unchanged. (app and module, item 98)
 - **Tests for known forms from anywhere.** The module's `wildshape.mjs` gains a case, under
   dnd5e 5.3.3 and 6.0.5 and with Midi-QOL: to an app that answers `wildShape` 1, such forms by name
   alone and a change into one refused; at 2 or more, each of Foundry's gates and the form's own
