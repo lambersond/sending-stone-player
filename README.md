@@ -119,4 +119,28 @@ nothing else, and shows it with no network. No other page registers anything.
   on the production address: a protected preview refuses the worker's fetch, which carries no
   cookies, and may add to the page.
 
+## The database
+
+The app keeps its data in PostgreSQL through Prisma Client and its query engine, with no Prisma
+Accelerate (retired on 2026-12-01). It reads two connection strings, from the deployment's
+environment, or locally from `.env` (copied from `default.env`):
+
+- **`DB_DATABASE_URL_POOLED`:** every query the app makes, through the database's connection
+  pooler. The running app reads only this one.
+- **`DB_POSTGRES_URL`:** a direct connection, for the Prisma CLI's `prisma migrate deploy` and
+  `prisma db push`, which the deploy's build runs (`npm run vercel-build`). The CLI won't start
+  without both strings, so the build needs both.
+
+Locally both are the one database of `local/docker-compose.yaml`; the e2e sets both to each lane's
+own (`e2e/env.sh`).
+
+- **The build makes Prisma Client with its query engine** (`prisma generate`). Never add
+  `--no-engine` back: it makes a client for Accelerate alone, which refuses a `postgresql://` URL.
+- **If the app's log shows `prepared statement "s0" does not exist`**, its pooler keeps no prepared
+  statements across transactions, as PgBouncer doesn't before 1.21 or with
+  `max_prepared_statements` at 0: add `pgbouncer=true` to `DB_DATABASE_URL_POOLED`.
+- **After a deploy to a database that holds the old one's data:** the build's log has
+  `prisma migrate deploy` find no pending migrations and `prisma db push` find the database already
+  in sync; then sign in on the production address and open a character.
+
 TODO

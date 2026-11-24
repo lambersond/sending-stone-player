@@ -276,7 +276,7 @@ where a check says so) and Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 6 and 8 are done; 7 is to come.
+tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 is to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -294,6 +294,8 @@ tweaks needed may change it as it goes. Batches 1 to 6 and 8 are done; 7 is to c
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
+9. Off Prisma Accelerate, retired on 2026-12-01, onto the database's pooler, before 7: done, in
+   [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Found while untangling the module's imports**
 
