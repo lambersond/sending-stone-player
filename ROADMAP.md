@@ -358,21 +358,23 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
     the turn, they could start at the first frame drawn after it. Found while building item 42. In
     no batch yet.
-80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
+80. **e2e checks of the same kinds as items 41, 42 and 70, one of them seen to fail:** (a) a menu's
     or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
     `removals-e2e.mjs:354` (part 2, Shift+F10), `favoriting-e2e.mjs:598` and `:615` ("Add to
     favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:401` and, to be
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
-    look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
-    that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
-    600 ms)". (c) Full screen read before the page has hydrated, where it is drawn only once it has
-    (its room is kept, empty, until then, item 82, so the header no longer moves): to be checked,
-    `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page `goto()`
-    loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait. The party
-    suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a wait for
-    "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none left:
-    `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster leaving.
-    Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no batch yet.
+    look, which has been enough but once: removals' failed so in v0.55's full e2e pass, focus still
+    on the Potion's name, and passed when run again alone. `focusInside` (`e2e/world-030.mjs`) is
+    the wait. (b) A step that must land inside the page's own 600 ms: endturn part 20, "a tap on End
+    turn … (within 600 ms)". (c) Full screen read before the page has hydrated, where it is drawn
+    only once it has (its room is kept, empty, until then, item 82, so the header no longer moves):
+    to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page
+    `goto()` loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait.
+    The party suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a
+    wait for "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none
+    left: `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster
+    leaving. Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no
+    batch yet.
 81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
     Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
     screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
