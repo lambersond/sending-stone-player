@@ -444,6 +444,8 @@ describe('db/campaigns', () => {
             kind: 'constant',
             placed: true,
           }),
+          // Its `placed` unread, left out: not said to be on no scene.
+          mockCompanionEntry({ key: 'hawk', name: 'Hawk', kind: 'constant' }),
           mockCompanionEntry({
             key: 'muleBessie',
             name: 'Bessie',
@@ -460,6 +462,7 @@ describe('db/campaigns', () => {
           unplaced: true,
         },
         { key: 'owl', name: 'Owl', kind: 'constant' },
+        { key: 'hawk', name: 'Hawk', kind: 'constant' },
         { key: 'muleBessie', name: 'Bessie', kind: 'owned' },
       ])
     })
