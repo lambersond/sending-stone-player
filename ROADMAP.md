@@ -232,11 +232,50 @@ Midi-QOL v14.0.x:
   Home Screen, which has no Full screen, the room closes as the page is ready, so Live and Help step
   right once, and stay there.
 
+## v0.54 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc entry.
+
+**To check at the table before module v0.54.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+
+- **Constant companions:** in Foundry, drag a Steel Defender from the Actors sidebar onto Thorin's
+  box on the campaign's Companions tab and save: it shows in the app last among Thorin's tabs, with
+  its pin and dashed ring; summon it with Thorin's feature and the same tab's ring goes solid within
+  a second; dismiss it and it's dashed again.
+- **A summoning's choice, chosen beforehand in dnd5e's dialog** (what stand-ins prove least: the
+  module sets the player's choice on dnd5e's dialog in Foundry's `preRenderSummonUsageDialog` hook,
+  which counts on Foundry 14 drawing the dialog's parts after that hook, as the stand-in draws
+  them), under dnd5e 5.3.3 and again under 6.0.5, with Midi-QOL and without: cast Find Familiar from
+  the app as the Owl, Fey; as the Gamemaster, click its card's Summon button: dnd5e's dialog opens
+  once, with the Owl and Fey chosen in its very first draw (never Bat and Celestial first), and you
+  can change them; Summon places the Owl, which shows as the character's companion. In the console,
+  that dialog among `foundry.applications.instances` has a `config.summons` that agrees with its
+  form's `summons.profile` and `summons.creatureType`. Summon Beast cast at the 3rd as Air, and a
+  warlock's free casting of it as Air at her pact slots' level, the 3rd or higher, open with Air
+  offered and chosen; Conjure Animals cast at the 5th as "4 × Challenge Rating of 1 or lower" opens
+  with that chosen, then dnd5e's compendium browser; and a summon activity given a choice of Medium
+  or Large, cast Large, opens with Large chosen. A card cast in Foundry, or the same activity used
+  by hand there after a click on such a card, opens with dnd5e's own defaults. With Midi-QOL, the
+  card's "Chosen on Sending Stone: Owl (Fey)" line sits on Midi's card, perhaps at its end, and its
+  Summon button chooses the same. If the first draw shows dnd5e's defaults while the card says the
+  choice, Foundry draws the dialog's parts before that hook, and the fix is to draw it again from
+  its render hook.
+- **Known forms from anywhere, at each of Foundry's gates:** with Wild Shape from the app on, put on
+  a 2024 druid's Wild Shape in Foundry a Beast from one of the world's actors and one from an Actor
+  compendium the campaign's Beasts don't come from. With every gate open, the app offers each with
+  its numbers, and the druid changes into one and back: the druid owned by her player, not only
+  assigned; the form shared with them, Observer on the world actor or on the compendium in Foundry's
+  compendium settings; dnd5e's Allow Transformation on; and Create New Actors for their role. Close
+  each gate in turn and the form's card says which: "Not your character in Foundry", "Not shared in
+  Foundry", "Transformation is off in Foundry" or "Needs Create New Actors in Foundry", and the
+  player, in their own Foundry, can't make that change either; open it again and it's offered.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 5 and 8 are done; 6 and 7 are to come.
+tweaks needed may change it as it goes. Batches 1 to 6 and 8 are done; 7 is to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -249,7 +288,8 @@ tweaks needed may change it as it goes. Batches 1 to 5 and 8 are done; 6 and 7 a
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
    ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
-6. Items 59, 60 and 98: summon activities, known forms from anywhere, and constant companions.
+6. Items 59, 60 and 98, summon activities, known forms from anywhere and constant companions: done,
+   in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
