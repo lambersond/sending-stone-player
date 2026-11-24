@@ -237,7 +237,7 @@ Midi-QOL v14.0.x:
 Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc entry.
 
 **To check at the table before module v0.54.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+with dnd5e 5.3.3 (and 6.0.5 where a check says so) and Midi-QOL v14.0.x:
 
 - **Constant companions:** in Foundry, drag a Steel Defender from the Actors sidebar onto Thorin's
   box on the campaign's Companions tab and save: it shows in the app last among Thorin's tabs, with

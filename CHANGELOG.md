@@ -70,37 +70,37 @@ so an item from it is named with its number when it was built, which may since b
   campaign's next hello. (app, item 98)
 - **End-to-end checks.** A new `constant` suite, in `world-030.mjs`'s world with scenes, checks the
   hello's `companionsConstant` and the app's answer of `companions: 4`; the Gamemaster's mark taking
-  over a token of dnd5e's copy that Thorin summoned; with no token on any scene, at 390 and 1280 px,
-  the pin, the dashed ring and circle, the note and the header's dashed portrait, a check, an attack
-  at no one whose chat card says "No target" (under `MIDI=1`, Midi-QOL's workflow at no one, its own
-  card in its place), a versatile attack's picker offering no one in the fight, and a use and hit
-  points on the NPC marked; a token placed, moved to another scene and deleted, the placing and the
-  deleting on the page by its next read; the Gamemaster's card and seat, the keyboard and Help; and,
-  against module 0.53.0 (`e2e/skew.conf`'s new 053), no constant tab. Its plain, `MIDI=1` and
-  `DND5E6=1` runs want 24 checks each, and its `SKEW=053` run 7 (item 98). `wildshape` gains
-  part 26: a world actor's Grey Wolf and the Monsters' Wolf on Elowen's Wild Shape, listed by name
-  while Allow Transformation is off or Alice lacks Create New Actors, then offered with their
-  numbers; the Grey Wolf taken by its card and returned from; unshared in Foundry, its card says so
-  and a crafted change into it is refused; and at 360 px each name at least 80 px wide, each badge
-  on one line. Its part 1 reads the app's answer of 2, and part 25 why Thorin and the Moon Hare are
-  Foundry's alone; `world-030.mjs` gives any of core's permissions to roles (`setPermission`). Its
-  plain run wants 107 checks, where it wanted 96; its `DND5E6=1` and `SKEW=039` runs still want 33
-  and 8 (item 60). A new `summons` suite, in `world-030.mjs`'s world with scenes, checks the hello's
-  `summons` and the app's answer of `summons: 1`; Find Familiar's picker, its creatures and types
-  and who places it, cast as the Owl, Fey, at no one, its slot spent, the tray's line and the card's
-  "Chosen on Sending Stone: Owl (Fey)"; the card's Summon button opening dnd5e's dialog with them
-  chosen, the Owl placed and its tab; Summon Beast's Air from the 3rd, Land chosen in its place at
-  the 2nd, and its concentration; Conjure Animals' labels at the 3rd and 5th, cast at the 5th by
-  Challenge Rating 2, the tray saying the Gamemaster places the creatures and the card "Chosen on
-  Sending Stone: 2 × Challenge Rating of 2 or lower"; a spirit cast Large, its card's line and
-  dnd5e's dialog with Large chosen; a feature's two wolves used at once; the Gamemaster's seat; the
-  keyboard and the layout at 390 px, dnd5e's fourteen creatures listed, Conjure Animals' chips whole
-  and the tray's line; and, against module 0.53.0, nothing to cast. Its plain, `MIDI=1` and
-  `DND5E6=1` runs want 33 checks each, and its `SKEW=053` run 4 (item 59). `companions` and
-  `companionsaves` take the app's answer of `companions: 4` in, and `companionsaves` and `laterdice`
-  the hello's `summons`, last of its `rolls`; their runs want what they did. `e2e/README.md` counts
-  63 suites and 148 runs, thirty-two of them in `world-030.mjs`'s world and ten with its scenes.
-  (app, items 59, 60 and 98)
+  over a token of dnd5e's copy that Thorin summoned; with no token on any scene, the pin, the dashed
+  ring and circle, the note and the header's dashed portrait, and at 390 and 1280 px the ring dashed
+  and round with nothing wider than the page; a check, an attack at no one whose chat card says "No
+  target" (under `MIDI=1`, Midi-QOL's workflow at no one, its own card in its place), a versatile
+  attack's picker offering no one in the fight, and a use and hit points on the NPC marked; a token
+  placed, moved to another scene and deleted, the placing and the deleting on the page by its next
+  read; the Gamemaster's card and seat, the keyboard and Help; and, against module 0.53.0
+  (`e2e/skew.conf`'s new 053), no constant tab. Its plain, `MIDI=1` and `DND5E6=1` runs want 24
+  checks each, and its `SKEW=053` run 7 (item 98). `wildshape` gains part 26: a world actor's Grey
+  Wolf and the Monsters' Wolf on Elowen's Wild Shape, listed by name while Allow Transformation is
+  off or Alice lacks Create New Actors, then offered with their numbers; the Grey Wolf taken by its
+  card and returned from; unshared in Foundry, its card says so and a crafted change into it is
+  refused; and at 360 px each name at least 80 px wide, each badge on one line. Its part 1 reads the
+  app's answer of 2, and part 25 why Thorin and the Moon Hare are Foundry's alone; `world-030.mjs`
+  gives any of core's permissions to roles (`setPermission`). Its plain run wants 107 checks, where
+  it wanted 96; its `DND5E6=1` and `SKEW=039` runs still want 33 and 8 (item 60). A new `summons`
+  suite, in `world-030.mjs`'s world with scenes, checks the hello's `summons` and the app's answer
+  of `summons: 1`; Find Familiar's picker, its creatures and types and who places it, cast as the
+  Owl, Fey, at no one, its slot spent, the tray's line and the card's "Chosen on Sending Stone: Owl
+  (Fey)"; the card's Summon button opening dnd5e's dialog with them chosen, the Owl placed and its
+  tab; Summon Beast's Air from the 3rd, Land chosen in its place at the 2nd, and its concentration;
+  Conjure Animals' labels at the 3rd and 5th, cast at the 5th by Challenge Rating 2, the tray saying
+  the Gamemaster places the creatures and the card "Chosen on Sending Stone: 2 × Challenge Rating of
+  2 or lower"; a spirit cast Large, its card's line and dnd5e's dialog with Large chosen; a
+  feature's two wolves used at once; the Gamemaster's seat; the keyboard and the layout at 390 px,
+  dnd5e's fourteen creatures listed, Conjure Animals' chips whole and the tray's line; and, against
+  module 0.53.0, nothing to cast. Its plain, `MIDI=1` and `DND5E6=1` runs want 33 checks each, and
+  its `SKEW=053` run 4 (item 59). `companions` and `companionsaves` take the app's answer of
+  `companions: 4` in, and `companionsaves` and `laterdice` the hello's `summons`, last of its
+  `rolls`; their runs want what they did. `e2e/README.md` counts 63 suites and 148 runs, thirty-two
+  of them in `world-030.mjs`'s world and ten with its scenes. (app, items 59, 60 and 98)
 - **Jest tests.** Tests pin the app's answer of `companions: 4`, `wildShape: 2` and, last of its
   features, `summons: 1` to a hello and a heartbeat (`src/app/api/events/route.test.ts`, whose
   eleven checks of the features' order move one place for `summons`, and the routes' golden). For
