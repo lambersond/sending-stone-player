@@ -122,7 +122,8 @@ export function viewOf(
  * where it's one, come the other activities of its spell, as the Spells tab lists the spell under
  * the item, while the item can cast it: those used after it's cast, such as Hex's Bonus Hex Damage,
  * each named for the spell too, and used as the copy's. So do those of a Cast that says nothing of
- * how it's cast, such as one whose spell summons first. None is ever one of the action's own.
+ * how it's cast, such as one whose spell first transforms, or first summons to a module before
+ * 0.54.0. None is ever one of the action's own.
  */
 export function otherActivities(
   action: SheetAction,
