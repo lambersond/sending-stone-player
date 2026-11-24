@@ -8,10 +8,11 @@
 // 390 and 1280: its pin, its dashed ring and circle, "Thorin’s constant companion, not on a scene",
 // the note above its sheet and the header's dashed portrait; a check, an attack and a use made on
 // the NPC marked, the attack at no one with a fight on the arena, its chat card saying "No target",
-// and its hit points set from the tile on it. The Gamemaster places a token of it: the same tab,
-// its ring solid, no note, the token's hit points; moved to the den, its pin then the struck pin
-// and the away note; deleted, back to no token. The Gamemaster's card and seat, the keyboard, and
-// Help. MIDI=1: the attack through Midi-QOL's stand-in, its workflow at no one, whose own card
+// and its hit points set from the tile on it. The Gamemaster places a token of it: by the page's
+// next read the same tab, its ring solid, no note, the token's hit points; moved to the den, its pin
+// then the struck pin and the away note; deleted, by the next read back to no token. The
+// Gamemaster's card and seat, the keyboard, and Help, each checked by what the campaign gives it and
+// where it's drawn, the words being the unit tests'. MIDI=1: the attack through Midi-QOL's stand-in, its workflow at no one, whose own card
 // stands for it in chat in place of the roll card. DND5E6=1: dnd5e 6.0.5's dice. SKEW=053 with
 // MODULE=module-0.53.0: no constant tab, the card's row naming 0.54.0, Help without the part.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
@@ -166,7 +167,13 @@ const lookOf = (who, key) => tabOf(who, key).evaluate(tab => {
 const roundRing = look => Array.isArray(look.box) && look.box[0] >= 28 && Math.abs(look.box[0] - look.box[1]) <= 1
 const STEEL = 'steel'
 const SD1 = 'arena-sd1'
-const UNPLACED_NOTE = 'Steel Defender isn’t on a scene in your Gamemaster’s game. You can still roll for it and use its features here; its attacks and spells go without a target.'
+// The no-token note by its lead words, and the seat's own in it: its sentences are unplacedWords',
+// pinned in features/companions/utils.test.ts; this suite checks that it's drawn, where and for whom.
+const NOTE_LEAD = 'Steel Defender isn’t on a scene'
+// How soon a change in Foundry is on the page: the module's 250 ms settling, the page's read on its
+// way, then its next, 3 s after that one ends (POLL_INTERVAL), with time for both reads and the render
+// under the lanes' load. The runs so far took 0.4 to 3.2 s.
+const SEEN_WITHIN = 6_000
 const noteOf = (who, key = STEEL) => panelOf(who, key).getByRole('note')
 const hpOf = actor => actor.system.attributes.hp.value
 
@@ -259,8 +266,9 @@ if (NEW) {
     return { text: section.textContent, ring: ringed ? getComputedStyle(ringed).borderTopStyle : null }
   })
   const noteFirst = await noteOf(alice).evaluate(note => Boolean(note.compareDocumentPosition(document.getElementById('creature-steel-creature-name')) & Node.DOCUMENT_POSITION_FOLLOWING))
-  check((await noteOf(alice).textContent()).trim() === UNPLACED_NOTE && noteFirst && header.text.includes('Thorin’s constant companion') && header.ring === 'dashed',
-    `the note above its sheet, "${(await noteOf(alice).textContent()).trim()}"; the sheet says "Thorin’s constant companion", its portrait ringed in dashes (${header.ring})`)
+  const note = (await noteOf(alice).textContent()).trim()
+  check(note.startsWith(NOTE_LEAD) && note.includes('your Gamemaster’s game') && noteFirst && header.text.includes('Thorin’s constant companion') && header.ring === 'dashed',
+    `the note above its sheet, in the player's words, "${note}"; the sheet says "Thorin’s constant companion", its portrait ringed in dashes (${header.ring})`)
   await shootBoth(alice, 'constant-note', panelOf(alice, STEEL))
 }
 
@@ -340,12 +348,13 @@ if (NEW) {
   const placedAt = await place(arena, steel, { id: 'sdtok', name: 'Steel Defender', actorLink: false, delta: { system: { attributes: { hp: { value: 12, max: 20 } } } } })
   await until(async () => (await tabOf(alice, STEEL).getAttribute('data-unplaced')) === null, 'the mark to go', 30_000)
   const took = Date.now() - at
+  check(took <= SEEN_WITHIN, `a token placed on the arena: the tab's mark goes within ${took} ms, inside the page's next read (${SEEN_WITHIN} ms)`)
   await until(async () => (await noteOf(alice).count()) === 0, 'the note to go', 20_000)
   const tile = panelOf(alice, STEEL).getByRole('button', { name: /^Hit points: / })
   await until(async () => /^Hit points: 12 of 20/.test(await tile.getAttribute('aria-label') ?? ''), 'the token\'s hit points', 20_000)
   const look = await lookOf(alice, STEEL)
   check((await tabKeys(alice)).at(-1) === STEEL && look.ring === 'solid' && !look.icons.includes('lucide-circle-dashed') && await describedAs(alice, STEEL) === 'Thorin’s constant companion',
-    `a token placed on the arena: within ${took} ms the same tab, in the same place, its ring solid, no circle, no note, the token's 12 of 20 (${JSON.stringify(look)})`)
+    `a token placed on the arena: the same tab, in the same place, its ring solid, no circle, no note, the token's 12 of 20 (${JSON.stringify(look)})`)
   await shootBoth(alice, 'constant-placed', switcher(alice).locator('xpath=..'))
   await placedAt.delete()
   const moved = await place(den, steel, { id: 'sdtok2', name: 'Steel Defender', actorLink: false })
@@ -362,10 +371,13 @@ if (NEW) {
   // 7. Its token deleted
   // =================================================================================================
   part('7. the token deleted')
+  const gone = Date.now()
   await moved.delete()
   await until(async () => (await tabOf(alice, STEEL).getAttribute('data-unplaced')) === 'true', 'no token again', 30_000)
-  await noteOf(alice).filter({ hasText: 'isn’t on a scene' }).waitFor({ timeout: 20_000 })
-  check((await lookOf(alice, STEEL)).ring === 'dashed' && (await tabKeys(alice)).at(-1) === STEEL, 'its token deleted: back to no token, ring and note again')
+  const back = Date.now() - gone
+  await noteOf(alice).filter({ hasText: NOTE_LEAD }).waitFor({ timeout: 20_000 })
+  check(back <= SEEN_WITHIN && (await lookOf(alice, STEEL)).ring === 'dashed' && (await tabKeys(alice)).at(-1) === STEEL,
+    `its token deleted: within ${back} ms (${SEEN_WITHIN} at most) back to no token, ring and note again`)
 }
 
 // =================================================================================================
@@ -382,11 +394,11 @@ part('8. the gamemaster')
   if (NEW) {
     const line = card.getByText(/^Companions: /).first()
     await until(async () => /Steel Defender \(constant, not on a scene\)$/.test((await line.textContent().catch(() => '')).trim()), 'the card\'s line', 30_000)
-    check(said.startsWith('One in Foundry: Steel Defender, Thorin’s. A constant companion shows beside its character in the app with no token on a scene.')
+    check(said.startsWith('One in Foundry: Steel Defender, Thorin’s.')
       && await row.evaluate(heading => Boolean(heading.querySelector('.lucide-pin'))),
     `the card's line ends "Steel Defender (constant, not on a scene)", and its row, pinned, reads "${said}"`)
   } else {
-    check(said === 'Your Sending Stone module doesn’t keep constant companions yet. Version 0.54.0 or later does.', `with module 0.53.0 the card's row names 0.54.0: "${said}"`)
+    check(said.includes('0.54.0') && !said.includes('in Foundry:'), `with module 0.53.0 the card's row names 0.54.0, and none in Foundry: "${said}"`)
   }
   await shootBoth(cards, 'constant-gm-card', card)
   await cards.view.close()
@@ -396,8 +408,9 @@ part('8. the gamemaster')
     await until(async () => (await tabKeys(gm)).includes(STEEL), 'the Gamemaster\'s constant tab', 20_000)
     await choose(gm, STEEL)
     await noteOf(gm).waitFor({ timeout: 20_000 })
-    check((await noteOf(gm).textContent()).trim() === 'Steel Defender isn’t on a scene in your game. You can still roll for it and use its features here; its attacks and spells go without a target.',
-      `at Thorin's Gamemaster page the same tab, and the note in the Gamemaster's words: "${(await noteOf(gm).textContent()).trim()}"`)
+    const said = (await noteOf(gm).textContent()).trim()
+    check(said.startsWith(NOTE_LEAD) && said.includes('in your game') && !said.includes('Gamemaster'),
+      `at Thorin's Gamemaster page the same tab, and the note in the Gamemaster's words: "${said}"`)
     await gm.view.close()
   }
 }
@@ -433,9 +446,9 @@ part('10. help')
   await help.getByText('Companions and conditions.', { exact: true }).waitFor({ timeout: 15_000 })
   const lead = help.getByText('Constant companions.', { exact: true })
   if (NEW) {
-    const text = (await lead.evaluate(el => el.closest('p')?.textContent ?? '')).trim()
-    check(text === 'Constant companions. A companion your Gamemaster keeps beside your character, such as a Steel Defender, has a pin on its tab and shows whether or not it’s on a scene. While it isn’t on a scene, a dashed ring marks it, its attacks and spells go without a target, and it can’t roll initiative or be asked a save your Gamemaster asks of the tokens on a scene; it’s still asked its concentration saves, as Foundry asks them.',
-      `Help says so: "${text}"`)
+    // Its words are help-panel.test.tsx's; here, that the module's 0.54.0 shows it, and where.
+    const before = (await lead.evaluate(el => el.closest('p')?.previousElementSibling?.textContent ?? '')).trim()
+    check(await lead.count() === 1 && before.startsWith('Companions elsewhere.'), `Help has its "Constant companions." part, after "${before.slice(0, 40)}…"`)
   } else {
     check(await lead.count() === 0, 'with module 0.53.0 Help has no "Constant companions." part')
   }

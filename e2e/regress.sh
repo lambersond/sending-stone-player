@@ -313,9 +313,10 @@ run quiet 12 TIMEOUT=600 SKEW=049 MODULE=$O/module-0.49.0
 # companionsConstant and the app's companions: 4; the Gamemaster's mark taking a summoned token of
 # dnd5e's copy over; with no token, the pin, the dashed ring and circle, the note, rolls, an attack at
 # no one saying "No target" (MIDI=1: Midi-QOL's workflow at no one), a use and hit points on the NPC
-# marked, at 390 and 1280; a token placed, moved to another scene and deleted; the Gamemaster's card
-# and seat, the keyboard and Help; and module 0.53.0, which keeps none.
-run constant 21 SHOTS=$O/shots-054
-run constant 21 MIDI=1 SHOTS=$O/shots-054
-run constant 21 DND5E6=1 SHOTS=$O/shots-054
+# marked, at 390 and 1280; a token placed, moved to another scene and deleted, the placing and the
+# deleting on the page by its next read; the Gamemaster's card and seat, the keyboard and Help; and
+# module 0.53.0, which keeps none.
+run constant 22 SHOTS=$O/shots-054
+run constant 22 MIDI=1 SHOTS=$O/shots-054
+run constant 22 DND5E6=1 SHOTS=$O/shots-054
 run constant 7 SKEW=053 MODULE=$O/module-0.53.0 SHOTS=$O/shots-054
