@@ -21,9 +21,6 @@ const models = prismaMock as unknown as Record<
 const isMock = (value: unknown): value is jest.Mock =>
   typeof value === 'function' && '_isMockFunction' in value
 
-/** Set once, as the client is extended with Accelerate when it loads: never a query. */
-const LOADING = new Set(['$extends'])
-
 /** Every call made of the mock, in the order made: `$transaction` and each model's methods. */
 const callsMade = () => {
   const made: { model: string; method: string; arg: unknown; at: number }[] = []
@@ -38,7 +35,6 @@ const callsMade = () => {
     }
   }
   for (const model of Object.keys(prismaMock)) {
-    if (LOADING.has(model)) continue
     const value = models[model]
     if (isMock(value)) add(model, '', value)
     for (const method of Object.keys(value ?? {})) {

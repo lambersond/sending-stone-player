@@ -5,12 +5,9 @@ import { mockDeep } from 'jest-mock-extended'
 // create one shared deep‐mock for all tests
 export const prismaMock = mockDeep<PrismaClient>()
 
-// src/clients/prisma extends the client with Accelerate; hand back the same mock so that
-// `import prisma from '@/clients/prisma'` is prismaMock
-prismaMock.$extends.mockReturnValue(prismaMock as any)
-
-// jest will replace any import of { PrismaClient } with this mock. The Prisma namespace stays
-// real, for its error classes.
+// jest will replace any import of { PrismaClient } with this mock, so that
+// `import prisma from '@/clients/prisma'` is prismaMock. The Prisma namespace stays real, for its
+// error classes.
 jest.mock('@prisma/client', () => {
   return {
     __esModule: true,

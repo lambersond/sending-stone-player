@@ -1,18 +1,15 @@
 import { PrismaClient } from '@prisma/client'
-import { withAccelerate } from '@prisma/extension-accelerate'
 
-const prismaClientSingleton = () => {
-  return new PrismaClient().$extends(withAccelerate())
-}
+/*
+ * The app's one Prisma client, made once per server process and kept across reloads in
+ * development. Its queries go through the database's connection pooler, DB_DATABASE_URL_POOLED
+ * (prisma/schema.prisma).
+ */
 
-type ExtendedPrismaClient = ReturnType<typeof prismaClientSingleton>
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
-const globalForPrisma = globalThis as unknown as {
-  prisma?: ExtendedPrismaClient
-}
-
-const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
-export default prisma as unknown as PrismaClient
+export default prisma

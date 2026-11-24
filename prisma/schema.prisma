@@ -2,10 +2,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Prisma Client's queries go through the database's connection pooler; the Prisma CLI's migrations
+// go straight to the database (README.md, "The database").
 datasource db {
   provider  = "postgresql"
-  url       = env("DB_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  url       = env("DB_DATABASE_URL_POOLED")
+  directUrl = env("DB_POSTGRES_URL")
 }
 
 // -----------------------
