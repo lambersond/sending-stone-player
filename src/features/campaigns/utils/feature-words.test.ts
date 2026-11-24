@@ -298,6 +298,21 @@ describe('features/campaigns/utils/feature-words, constant companions (module 0.
       `One in Foundry: Steel Defender, Thorin’s and Vex’s. ${HOW}`,
     ],
     [
+      'two of one name, told apart by key',
+      {
+        foundry: foundry('0.54.0'),
+        characters: [
+          {
+            id: 't',
+            name: 'Thorin',
+            companions: [{ ...steel, key: 'sd-t' }],
+          },
+          { id: 'v', name: 'Vex', companions: [{ ...steel, key: 'sd-v' }] },
+        ],
+      },
+      `Two in Foundry: Steel Defender, Thorin’s; Steel Defender, Vex’s. ${HOW}`,
+    ],
+    [
       'a module that hasn’t said its version',
       { characters: [{ id: 't', name: 'Thorin', companions: [steel] }] },
       `One in Foundry: Steel Defender, Thorin’s. ${HOW}`,
