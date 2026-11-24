@@ -8,6 +8,7 @@ import type {
   HEALTH_STATES,
   PREPARE_OPS,
   WILD_SHAPE_OPS,
+  KNOWN_FORM_WHYS,
   SPELL_SLOT_OPS,
   LINK_CLASSES,
   ALONE_SPENDS,
@@ -82,7 +83,8 @@ export type CompanionEntry = {
   key: string
   /** The campaign characters it's a companion of, by actor id: at least one. */
   of: string[]
-  kind: 'owned' | 'summoned'
+  /** From module 0.54.0 "constant" too: one the Gamemaster marked, with a token or without. */
+  kind: 'owned' | 'summoned' | 'constant'
   actorId: string
   tokenId: string | null
   sceneId: string | null
@@ -97,6 +99,11 @@ export type CompanionEntry = {
    * the active scene, and one is on another. Unsaid by an older module.
    */
   away?: boolean
+  /**
+   * From module 0.54.0, a constant companion's only: a token of it is on a scene. Unsaid by an
+   * older module, which lists none.
+   */
+  placed?: boolean
 }
 
 /** What an NPC's sheet says of it as a creature (module 0.36.0). */
@@ -157,9 +164,10 @@ export type SheetForm = {
 
 /**
  * One of a druid's known forms, from module 0.40.0, in her Wild Shape's order, by its profile's id.
- * One from the campaign's compendiums (`pool`) carries its statistics once the game has loaded it,
- * whether it fits the rules for her now (`fits`), and `found: false` where it no longer loads; one
- * from anywhere else carries its name alone, and is used only in Foundry.
+ * One from the campaign's compendiums, or from module 0.54.0 one from anywhere its players could
+ * use in Foundry (`pool`), carries its statistics once the game has loaded it, whether it fits the
+ * rules for her now (`fits`), and `found: false` where it no longer loads; any other carries its
+ * name alone, and from module 0.54.0 why (`why`), and is used only in Foundry.
  */
 export type KnownForm = {
   id: string
@@ -181,6 +189,8 @@ export type KnownForm = {
   attack?: { name: string; toHit: number | null; damage: string | null } | null
   fits?: boolean
   found?: boolean
+  /** From module 0.54.0, why one from anywhere else is used only in Foundry. */
+  why?: KnownFormWhy
 }
 
 /** Why a Wild Shape last ended, from module 0.40.0, and when, the real time it was written. */
@@ -807,13 +817,19 @@ export type SheetUse = {
   id: string
   /**
    * From module 0.21.0, "check" too, for one that asks for a check, such as Maze; and "enchant",
-   * for one that enchants an item, such as Magic Weapon.
+   * for one that enchants an item, such as Magic Weapon; and from module 0.54.0, "summon", for one
+   * that summons a creature, such as Find Familiar.
    */
-  type: 'save' | 'damage' | 'heal' | 'utility' | 'check' | 'enchant'
-  /** Whom it's used at; for an enchant activity, never anyone: what it enchants is in `enchant`. */
+  type: 'save' | 'damage' | 'heal' | 'utility' | 'check' | 'enchant' | 'summon'
+  /**
+   * Whom it's used at; for an enchant activity, never anyone: what it enchants is in `enchant`; nor
+   * for a summon activity, whose creatures are in `summon`.
+   */
   targets: SheetUseTargets
   /** For an enchant activity, what it enchants and how. Module 0.21.0; absent for any other. */
   enchant?: SheetEnchant
+  /** For a summon activity, the creatures it summons. Module 0.54.0; absent for any other. */
+  summon?: SheetSummon
   /**
    * What using it spends, from module 0.29.0: each counter, and how many of it, null for a cost
    * worked out by a formula. Absent before, and where it spends none of the character's counters.
@@ -859,6 +875,43 @@ export type SheetEnchantProfile = {
   min: number | null
   max: number | null
 }
+
+/**
+ * What a summon activity summons, from module 0.54.0, as dnd5e's usage dialog offers it: the
+ * creatures, at most twenty, at least one; and the creature types and sizes it may give them, where
+ * it offers a choice of more than one, else none.
+ */
+export type SheetSummon = {
+  profiles: SheetSummonProfile[]
+  types: SheetSummonOption[]
+  sizes: SheetSummonOption[]
+}
+
+/**
+ * A creature a summon activity may summon, from module 0.54.0: its profile's id, which the app
+ * sends back; its name and count, as dnd5e's dialog writes them at the spell's own level, such as
+ * "Wolf" and "2", the count null where dnd5e writes none; the spell levels it's offered at, from
+ * `min` to `max`, each null for no limit, as anything but a leveled spell always has; and each
+ * level above the spell's own at which dnd5e writes it otherwise.
+ */
+export type SheetSummonProfile = {
+  id: string
+  name: string
+  count: string | null
+  min: number | null
+  max: number | null
+  higher: SheetSummonLabel[]
+}
+
+/** How dnd5e's dialog writes a creature at a spell level above the spell's own. Module 0.54.0. */
+export type SheetSummonLabel = {
+  level: number
+  name: string
+  count: string | null
+}
+
+/** A creature type or size a summon activity offers, its key and its label. Module 0.54.0. */
+export type SheetSummonOption = { key: string; label: string }
 
 /** An enchantment an enchant activity applied: on which item, its effect's id, and which way. */
 type SheetEnchantApplied = {
@@ -1615,9 +1668,16 @@ export type BridgeFeatures = {
   /**
    * The kinds a companion's rolls may be, as the campaign takes them now, and how its companions
    * enter initiative, as its Gamemaster sets it. Module 0.36.0; absent before. From module 0.51.0,
-   * `away`: it lists companions on every scene, each saying whether it's away, to this app.
+   * `away`: it lists companions on every scene, each saying whether it's away, to this app. From
+   * module 0.54.0, `constant`: it lists the Gamemaster's constant companions too, with a token or
+   * without, to this app.
    */
-  companions?: { kinds: string[]; initiative: 'own' | 'after'; away?: boolean }
+  companions?: {
+    kinds: string[]
+    initiative: 'own' | 'after'
+    away?: boolean
+    constant?: boolean
+  }
   /**
    * Whether the module adds and removes characters' favorites for the app, `"favorite"` among its
    * kinds, under dnd5e with no switch; or not, and why, `"system"`. Module 0.37.0.
@@ -2172,6 +2232,11 @@ export type GameEvent =
          * app that says `companions: 3` is listed them. None from an older module.
          */
         companionsEverywhere?: CompanionEntry[]
+        /**
+         * From module 0.54.0: the companions as an app that says `companions: 4` is listed them,
+         * the Gamemaster's constant companions among them. None from an older module.
+         */
+        companionsConstant?: CompanionEntry[]
         combats: CombatSnapshot[]
         features?: BridgeFeatures | null
         /** The saves the game is asking its players for. Module 0.13.0. */
@@ -2246,6 +2311,8 @@ export type EffectOp = (typeof EFFECT_OPS)[number]
 export type PrepareOp = (typeof PREPARE_OPS)[number]
 
 export type WildShapeOp = (typeof WILD_SHAPE_OPS)[number]
+
+export type KnownFormWhy = (typeof KNOWN_FORM_WHYS)[number]
 
 export type SpellSlotOp = (typeof SPELL_SLOT_OPS)[number]
 

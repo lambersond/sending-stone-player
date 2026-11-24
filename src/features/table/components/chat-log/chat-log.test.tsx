@@ -466,6 +466,66 @@ describe('components/game-table/chat-log', () => {
     expect(screen.getByText('1d20').closest('.border-l-4')).toBeNull()
   })
 
+  // Module 0.54.0's round (item 98): an attack made at no one, as a constant companion's with no
+  // token is, says so on its card; nothing else does.
+  describe('an attack at no one', () => {
+    it.each(['attack', 'spell-attack'] as const)(
+      'says a %s card had no target, on the attack alone',
+      action => {
+        render(
+          <ChatLog
+            messages={[
+              message({
+                kind: 'roll',
+                label: 'Warhammer',
+                text: undefined,
+                rolls: [
+                  roll({ formula: '1d20 + 5' }),
+                  roll({ formula: '1d4' }),
+                ],
+                attackRoll: { index: 0, action },
+              }),
+            ]}
+          />,
+        )
+        const said = screen.getByText('No target')
+        expect(said.closest('.border-l-4')).toBe(
+          screen.getByText('1d20 + 5').closest('.border-l-4'),
+        )
+        expect(said.querySelector('.lucide-crosshair')).not.toBeNull()
+        expect(screen.getAllByText('No target')).toHaveLength(1)
+      },
+    )
+
+    it('says nothing of targets on an attack with one, a check, or damage with none', () => {
+      render(
+        <ChatLog
+          messages={[
+            message({
+              id: 'm-hit',
+              kind: 'roll',
+              label: 'Warhammer',
+              text: undefined,
+              rolls: [roll({ formula: '1d20 + 5' })],
+              attackRoll: { index: 0, action: 'attack' },
+              targets: [{ name: 'Goblin' }],
+            }),
+            message({
+              id: 'm-check',
+              kind: 'roll',
+              label: 'Strength check',
+              text: undefined,
+              rolls: [roll({ formula: '1d20 + 4' })],
+            }),
+            damaged([corvin()], { id: 'm-damage' }),
+          ]}
+        />,
+      )
+      expect(screen.getByText('Goblin')).toBeInTheDocument()
+      expect(screen.queryByText('No target')).toBeNull()
+    })
+  })
+
   describe('damage cards', () => {
     it("shows Corvin's dagger: its formula, a chip for each kind, and its total", () => {
       render(<ChatLog messages={[damaged([corvin()])]} />)

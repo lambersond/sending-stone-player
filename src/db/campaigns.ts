@@ -236,11 +236,15 @@ export async function listOwnedCampaigns(
               const from =
                 entry.kind === 'summoned' ? entry.summon?.item : undefined
               return {
+                key: entry.key,
                 name: entry.name,
                 kind: entry.kind,
                 ...(from && { from }),
                 // On another scene, from module 0.51.0, for the Gamemaster to find and tidy.
                 ...(entry.away === true && { away: true as const }),
+                // A constant one with no token on any scene, from module 0.54.0.
+                ...(entry.kind === 'constant' &&
+                  entry.placed === false && { unplaced: true as const }),
               }
             }),
         }

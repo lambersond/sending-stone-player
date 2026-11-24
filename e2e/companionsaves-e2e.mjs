@@ -3,8 +3,9 @@
 // Ashlands, with Find Familiar and Summon Dragon; Brakka, a linked NPC she owns, is his companion;
 // two Bats summoned from one template with Find Familiar (arena-bat1, arena-bat2); and a Draconic
 // Spirit the Gamemaster summoned for Thorin with Summon Dragon, owned by no player. The hello says
-// companionPrompts and the app answers companions: 3 (2 or more reads companions' saves; 3, every
-// scene's companions, since v0.51.0); a save card at both Bats asks each, filed under
+// companionPrompts and the app answers companions: 4 (2 or more reads companions' saves; 3, every
+// scene's companions, since v0.51.0; 4, the Gamemaster's constant companions, since v0.54.0); a
+// save card at both Bats asks each, filed under
 // its key, on its own pane, its tab marked, the phone's Character tab dotted, and Thorin's own banner
 // saying so, with Show, which switches to it and posts nothing; Bat 1 answers on its pane with its own
 // modifier, rolled in Foundry on its token's creature as Alice; the Gamemaster answers Bat 2 from her
@@ -186,7 +187,8 @@ if (SKEW040) {
   check(rolls.prompts === true && !('companionPrompts' in rolls) && !features().includes('companionPrompts'),
     `module 0.40.0's hello asks its players for their saves and says nothing of companions' (${JSON.stringify(Object.keys(rolls))}; ${features().join(',')})`)
   // Changed on purpose (module 0.51.0, ROADMAP item 18): the app reads companions on every scene too.
-  check(JSON.parse(hello().body ?? '{}').features?.companions === 3, `the app answers companions: 3 all the same (${hello().body})`)
+  // Changed on purpose (module 0.54.0, ROADMAP item 98): and the Gamemaster's constant companions.
+  check(JSON.parse(hello().body ?? '{}').features?.companions === 4, `the app answers companions: 4 all the same (${hello().body})`)
   await switcher(alice).waitFor({ timeout: 20_000 })
   await until(async () => (await tabNames(alice)).length === 5, 'five tabs', 30_000)
   const card = await saveAt(bat1)
@@ -214,11 +216,13 @@ part('1. the hello and the answer')
   // Changed on purpose (round 0.42.0 §8.5): module 0.42.0's effectDice and keptRerolls come after
   // it, the last of v0.41's flags; and since module 0.44.0 (item 11), its diceAsks and
   // diceAsksReason after them, under dnd5e 6 too, there diceAsks false; and since module 0.52.0
-  // (item 65), its anyAbility, last, true whatever the rolls.
-  check(rolls.companionPrompts === true && rolls.prompts === true && rolls.anyAbility === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility']),
-    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls, 0.44.0's diceAsks and diceAsksReason and 0.52.0's anyAbility after it (${JSON.stringify(keys)})`)
+  // (item 65), its anyAbility, true whatever the rolls; and since module 0.54.0 (item 59) its
+  // summons, last, true whatever the rolls.
+  check(rolls.companionPrompts === true && rolls.prompts === true && rolls.anyAbility === true && same(keys.slice(keys.indexOf('companionPrompts')), ['companionPrompts', 'effectDice', 'keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility', 'summons']),
+    `features.rolls.companionPrompts true, as prompts is, and last of module 0.41.0's, only 0.42.0's effectDice and keptRerolls, 0.44.0's diceAsks and diceAsksReason, 0.52.0's anyAbility and 0.54.0's summons after it (${JSON.stringify(keys)})`)
   // Changed on purpose (module 0.51.0, ROADMAP item 18): the app reads companions on every scene too.
-  check(JSON.parse(hello().body ?? '{}').features?.companions === 3, `the app answers companions: 3 (${hello().body})`)
+  // Changed on purpose (module 0.54.0, ROADMAP item 98): and the Gamemaster's constant companions.
+  check(JSON.parse(hello().body ?? '{}').features?.companions === 4, `the app answers companions: 4 (${hello().body})`)
   await until(() => features().includes('companionPrompts'), 'the app to keep companionPrompts', 15_000).catch(() => {})
   check(features().includes('companionPrompts'), `the app keeps companionPrompts (${features().join(',')})`)
   check(same((data.companions ?? []).map(c => c.key), ['brakka', BAT1, BAT2, SPIRIT]), `the hello lists Brakka, both Bats and the Spirit (${JSON.stringify((data.companions ?? []).map(c => c.key))})`)

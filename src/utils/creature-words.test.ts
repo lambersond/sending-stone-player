@@ -62,6 +62,13 @@ describe('utils/creature-words', () => {
         'Summoned by Thorin',
       )
     })
+
+    // Module 0.54.0 (item 98): one the Gamemaster keeps beside the character.
+    it('names the character a constant one is kept beside', () => {
+      expect(relationWords({ kind: 'constant', of: 'Thorin' })).toBe(
+        'Thorin’s constant companion',
+      )
+    })
   })
 
   describe('crWords', () => {

@@ -8,7 +8,10 @@ import { bubble } from './utils'
 import type { TableRoll } from '@/types/roll'
 import type { TableAction, TableTarget } from '@/types/table'
 
-/** A roll's card: what it was for, its marks, who it was aimed at, its formula, dice and total. */
+/**
+ * A roll's card: what it was for, its marks, who it was aimed at, or for an attack at no one that
+ * it had no target, its formula, dice and total.
+ */
 export function RollCard({
   roll,
   label,
@@ -56,7 +59,12 @@ export function RollCard({
           )}
         </div>
       </div>
-      <Targets targets={targets} summary={summary} />
+      {/* An attack made at no one says so, as one with no token is (module 0.54.0's round). */}
+      <Targets
+        targets={targets}
+        summary={summary}
+        noTarget={action === 'attack' || action === 'spell-attack'}
+      />
       <div className='flex items-end justify-between gap-3'>
         <div className='flex min-w-0 flex-col gap-1.5'>
           <span className='font-mono text-sm break-all text-text-secondary'>

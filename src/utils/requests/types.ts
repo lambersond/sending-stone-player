@@ -73,6 +73,8 @@ import type { DiceAnswerTerm, RollRequestInput } from '@/types/roll'
  * From module 0.44.0, for dice the game asked for: the ask isn't the seat's, its player's while
  * they type in their dice, no longer waits, or is answered already, as from another device
  * (`diceAsk`); or its values don't fit it (`dice`).
+ * From module 0.54.0, for a summon activity: a creature, type or size not offered at the level it's
+ * cast at, or a level at which it summons nothing (`creature`).
  */
 export type RollRefusal =
   | 'unavailable'
@@ -128,6 +130,7 @@ export type RollRefusal =
   | 'shaped'
   | 'prepare'
   | 'diceAsk'
+  | 'creature'
 
 /**
  * Why a roll wasn't taken, with the HTTP status that says so; for a move of items and coins, from

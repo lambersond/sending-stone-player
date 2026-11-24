@@ -19,6 +19,7 @@ import {
   QUIET_FETCHES,
   REMOVALS,
   SLIM_SHEETS,
+  SUMMONS,
   TRANSFERS,
   WILD_SHAPE,
 } from '@/constants/sending-stone'
@@ -72,7 +73,11 @@ export const BRIDGE_SWITCHES = [
  * it's away (`companions` 3), which the module lists only then; and from module 0.52.0 checks on
  * any ability the game has (`anyAbility`), which the module sends only then; and from module 0.53.0
  * every message a Gamemaster's roll made, up to 21 (`gmRollMessages`), which the module lists only
- * then.
+ * then; and from module 0.54.0 the Gamemaster's constant companions (`companions` 4), which the
+ * module lists only then; and from module 0.54.0 known forms from anywhere their players could use
+ * in Foundry (`wildShape` 2), which the module sends only then; and from module 0.54.0 summon
+ * activities cast from here, each one's creatures at each level and its creature types and sizes
+ * (`summons`), which the module sends, and casts, only then.
  */
 export const FEATURES = {
   commands: true,
@@ -97,6 +102,7 @@ export const FEATURES = {
   quiet: QUIET_FETCHES,
   anyAbility: ANY_ABILITY,
   gmRollMessages: GM_ROLL_MESSAGES,
+  summons: SUMMONS,
 }
 
 /**

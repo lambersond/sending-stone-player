@@ -4,14 +4,23 @@ import clsx from 'clsx'
 import { initials } from './utils'
 import { useImageFallback } from '@/hooks/use-image-fallback'
 
-/** A character's or creature's portrait, or its initials where it has none or it won't load. */
+/**
+ * A character's or creature's portrait, or its initials where it has none or it won't load.
+ * @param dashed - Ringed in dashes in place of its border, as a constant companion on no scene is,
+ *   from module 0.54.0.
+ */
 export function Portrait({
   name,
   src,
-}: Readonly<{ name: string; src?: string }>) {
+  dashed = false,
+}: Readonly<{ name: string; src?: string; dashed?: boolean }>) {
   const { shown, ref, onError } = useImageFallback(src)
-  const box =
-    'size-16 shrink-0 overflow-hidden rounded-2xl border border-border bg-primary/10'
+  const box = clsx(
+    'size-16 shrink-0 overflow-hidden rounded-2xl bg-primary/10',
+    dashed
+      ? 'border-[1.5px] border-dashed border-primary-text'
+      : 'border border-border',
+  )
   if (!shown) {
     return (
       <span

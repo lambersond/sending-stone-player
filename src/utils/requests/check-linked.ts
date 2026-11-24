@@ -24,6 +24,7 @@ import type {
   DamageLink,
   FoundLink,
   SheetEnchantProfile,
+  SheetSummonOption,
 } from '@/types/sending-stone'
 import type { RollRefusal } from '@/utils/requests/types'
 
@@ -128,16 +129,53 @@ export function checkEnchant(
 }
 
 /**
- * Is an enchant activity used at a level the way it enchants is offered at: any, for one offered
- * at every level; else the level it's cast at, with the slot, or a spell an item casts at the
- * level, chosen, where there's a choice?
+ * Can the character cast this summon activity so, from module 0.54.0: at no one, its user neither,
+ * as what it summons the Gamemaster places; at a level at which it summons something; and where a
+ * creature is chosen, one offered at the level it's cast at, with a creature type and size, where
+ * chosen, among those it offers a choice of, none where it offers none. Without a creature chosen,
+ * it's cast and the Gamemaster chooses, as in Foundry.
+ */
+export function checkSummon(
+  input: RollRequestInput,
+  action: SheetAction,
+  sheet: CharacterSheet,
+  casts: CastIndex,
+): RollRefusal | undefined {
+  const summon = action.activity?.summon
+  if (!summon) return 'unknown'
+  if ((input.targets ?? []).length > 0 || input.self) return 'target'
+  const offered = summon.profiles.filter(profile =>
+    atProfileLevel(input, action, sheet, casts, profile),
+  )
+  if (offered.length === 0) return 'creature'
+  const chosen = input.summon
+  if (!chosen) return undefined
+  const fits =
+    offered.some(({ id }) => id === chosen.profile) &&
+    offersKey(summon.types, chosen.type) &&
+    offersKey(summon.sizes, chosen.size)
+  return fits ? undefined : 'creature'
+}
+
+/** Is a creature type or size chosen one of those offered, or is none chosen? */
+function offersKey(
+  options: readonly SheetSummonOption[],
+  key: string | undefined,
+): boolean {
+  return key === undefined || options.some(option => option.key === key)
+}
+
+/**
+ * Is an enchant activity used at a level the way it enchants is offered at, or a summon activity
+ * at a level its creature is offered at: any, for one offered at every level; else the level it's
+ * cast at, with the slot, or a spell an item casts at the level, chosen, where there's a choice?
  */
 function atProfileLevel(
   input: RollRequestInput,
   action: SheetAction,
   sheet: CharacterSheet,
   casts: CastIndex,
-  profile: SheetEnchantProfile,
+  profile: Pick<SheetEnchantProfile, 'min' | 'max'>,
 ): boolean {
   if (profile.min === null && profile.max === null) return true
   const chooses =

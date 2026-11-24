@@ -496,6 +496,12 @@ export type TableView = {
    * `companionsAway`). Unset where it doesn't.
    */
   companionsAway?: true
+  /**
+   * At either seat, for Help: whether the campaign's module lists the Gamemaster's constant
+   * companions, from module 0.54.0, as its hello said last (the campaign's `companionsConstant`).
+   * Unset where it doesn't.
+   */
+  companionsConstant?: true
 }
 
 /** Where the Gamemaster's rolls as a character go, as their view of it says. */
@@ -519,7 +525,8 @@ export type TableCompanion = {
   key: string
   name: string
   portrait?: string
-  kind: 'owned' | 'summoned'
+  /** From module 0.54.0 "constant" too: one the Gamemaster keeps beside its character. */
+  kind: 'owned' | 'summoned' | 'constant'
   /** For a summoned one, the item it was summoned with, such as "Find Familiar". */
   from?: string
   /**
@@ -527,17 +534,31 @@ export type TableCompanion = {
    * where it isn't, or the module doesn't say.
    */
   away?: true
+  /**
+   * A constant companion with no token on any scene, as the module last listed it; from module
+   * 0.54.0. Unset where it has one, or the module doesn't say.
+   */
+  unplaced?: true
 }
 
 /**
- * What the creature view says of whose a creature is: a companion now; a wild-shaped form later.
+ * What the creature view says of whose a creature is: a companion now, from module 0.54.0 one the
+ * Gamemaster keeps beside the character; a wild-shaped form later.
  */
 export type CreatureRelation =
   | { kind: 'owned'; of: string }
   | { kind: 'summoned'; of: string; from?: string }
+  | { kind: 'constant'; of: string }
 
-/** A creature's pane's facts (module 0.36.0): its name, and whose it is. */
-export type CreatureFacts = { name: string; relation: CreatureRelation }
+/**
+ * A creature's pane's facts (module 0.36.0): its name, and whose it is; and from module 0.54.0,
+ * whether it's a constant companion with no token on any scene, which its portrait marks.
+ */
+export type CreatureFacts = {
+  name: string
+  relation: CreatureRelation
+  unplaced?: true
+}
 
 /**
  * A companion's own view, for its pane to poll (module 0.36.0): its sheet, the encounter seen from

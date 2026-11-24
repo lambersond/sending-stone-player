@@ -1,6 +1,7 @@
 import { COOKBOOK_VERSIONS } from '@/constants/cookbook'
 import { OWN_KINDS } from '@/constants/roll-kinds'
 import { COMPANION_UNTAKEN, ROLL_KINDS } from '@/constants/sending-stone'
+import type { FoundrySnapshot } from '@/types/foundry-settings'
 import type { BridgeFeatures } from '@/types/sending-stone'
 
 // What a module's hello says the campaign does, as the campaign keeps it: replaced whole on every
@@ -175,10 +176,14 @@ export function helloCampaignData(features: BridgeFeatures | null | undefined) {
  * feature does, or coins from module 0.49.0, which none takes; and how they enter initiative, each
  * its own roll unless the module says otherwise. A module before it says nothing of them, which
  * clears the first and sets the second back to its own roll. And from module 0.51.0, whether it
- * lists companions on every scene, each saying whether it's away, for Help: only where it says so.
+ * lists companions on every scene, each saying whether it's away, for Help: only where it says so;
+ * and from module 0.54.0 whether it lists the Gamemaster's constant companions, the same way, never
+ * under another system than D&D Fifth Edition, as the hello's own system says, where the module has
+ * no Companions tab to mark one on.
  */
 export function helloCompanionData(
   features: BridgeFeatures | null | undefined,
+  system?: FoundrySnapshot['system'] | null,
 ) {
   return {
     companionKinds: (features?.companions?.kinds ?? []).filter(
@@ -190,5 +195,8 @@ export function helloCompanionData(
     companionInitiative:
       features?.companions?.initiative === 'after' ? 'after' : 'own',
     companionsAway: features?.companions?.away === true,
+    companionsConstant:
+      features?.companions?.constant === true &&
+      (!system || system.id === 'dnd5e'),
   }
 }

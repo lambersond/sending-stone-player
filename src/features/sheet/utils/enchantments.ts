@@ -24,10 +24,11 @@ export function enchantOf(
 /**
  * Is a way an enchant activity enchants offered at the spell level it's cast at: one with limits,
  * such as Magic Weapon's +2, from 4th level to 5th, within them; one without, at any level, or
- * none? None with limits is offered at no level, as for a spell whose level isn't known.
+ * none? None with limits is offered at no level, as for a spell whose level isn't known. A summon
+ * activity's creature, from module 0.54.0, is offered so too, as Summon Beast's Air from the 3rd.
  */
 export function offeredAt(
-  profile: SheetEnchantProfile,
+  profile: Pick<SheetEnchantProfile, 'min' | 'max'>,
   level: number | null,
 ): boolean {
   if (profile.min === null && profile.max === null) return true

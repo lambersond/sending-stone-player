@@ -292,7 +292,11 @@ describe('features/help/utils', () => {
   describe('the dice an item rolls later (H6 B)', () => {
     it('describes them only where the game asks for them, every other part kept', () => {
       const typingOf = (laterDice: boolean) =>
-        helpSections({ laterDice, companionsAway: true })
+        helpSections({
+          laterDice,
+          companionsAway: true,
+          companionsConstant: true,
+        })
           .find(({ id }) => id === 'typing')
           ?.parts.map(({ lead }) => lead)
       expect(typingOf(true)).toContain('Dice an item rolls later.')
@@ -303,11 +307,14 @@ describe('features/help/utils', () => {
       // switches, from module 0.50.0; and (item 36) Combat's part on two encounters at once.
       // Changed on purpose (item 18): and the rolls' part on companions elsewhere, from module
       // 0.51.0.
+      // Changed on purpose (item 98): and its part on constant companions, from module 0.54.0.
       expect(
-        helpSections({ laterDice: false, companionsAway: true }).map(
-          ({ parts }) => parts.length,
-        ),
-      ).toEqual([9, 7, 1, 7, 3, 3, 10, 16])
+        helpSections({
+          laterDice: false,
+          companionsAway: true,
+          companionsConstant: true,
+        }).map(({ parts }) => parts.length),
+      ).toEqual([10, 7, 1, 7, 3, 3, 10, 16])
     })
   })
 
@@ -318,9 +325,11 @@ describe('features/help/utils', () => {
       'describes them only where the module lists them there, the dice an item rolls later %p',
       laterDice => {
         const leadsOf = (companionsAway: boolean) =>
-          helpSections({ laterDice, companionsAway }).flatMap(({ parts }) =>
-            parts.map(({ lead }) => lead),
-          )
+          helpSections({
+            laterDice,
+            companionsAway,
+            companionsConstant: true,
+          }).flatMap(({ parts }) => parts.map(({ lead }) => lead))
         const shown = leadsOf(true)
         expect(shown[shown.indexOf('Companions and conditions.') + 1]).toBe(
           'Companions elsewhere.',
@@ -329,6 +338,36 @@ describe('features/help/utils', () => {
           shown.filter(lead => lead !== 'Companions elsewhere.'),
         )
         expect(shown.includes('Dice an item rolls later.')).toBe(laterDice)
+      },
+    )
+  })
+
+  // Module 0.54.0 (item 98): "Constant companions." where the module lists the Gamemaster's
+  // constant companions, after the companions' other parts, whatever the other two say.
+  describe('constant companions', () => {
+    it.each([
+      [true, true],
+      [true, false],
+      [false, true],
+      [false, false],
+    ])(
+      'describes them only where the module lists them, the dice an item rolls later %p and companions elsewhere %p',
+      (laterDice, companionsAway) => {
+        const leadsOf = (companionsConstant: boolean) =>
+          helpSections({
+            laterDice,
+            companionsAway,
+            companionsConstant,
+          }).flatMap(({ parts }) => parts.map(({ lead }) => lead))
+        const shown = leadsOf(true)
+        const before = companionsAway
+          ? 'Companions elsewhere.'
+          : 'Companions and conditions.'
+        expect(shown[shown.indexOf(before) + 1]).toBe('Constant companions.')
+        expect(leadsOf(false)).toEqual(
+          shown.filter(lead => lead !== 'Constant companions.'),
+        )
+        expect(shown.includes('Companions elsewhere.')).toBe(companionsAway)
       },
     )
   })

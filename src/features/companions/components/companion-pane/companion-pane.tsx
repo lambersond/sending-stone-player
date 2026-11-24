@@ -4,7 +4,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import clsx from 'clsx'
 import { LoaderCircle, Package } from 'lucide-react'
 import { useCompanionView } from '@/features/companions/hooks/use-companion-view'
-import { awayWords } from '@/features/companions/utils'
+import {
+  awayWords,
+  relationOf,
+  unplacedWords,
+} from '@/features/companions/utils'
 import { CharacterPane } from '@/features/sheet/components/character-pane/character-pane'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { TableReadContext } from '@/hooks/use-table-read'
@@ -14,7 +18,9 @@ import type { TableSeat } from '@/types/character'
 import type { SheetWithheld } from '@/types/sending-stone'
 import type { CreatureFacts, RowCompanion } from '@/types/table'
 
-/** The box of a note under a companion's sheet's tabs: that it's gone, or on another scene. */
+/**
+ * The box of a note under a companion's sheet's tabs: that it's gone, on no scene, or on another.
+ */
 const NOTE =
   'shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2.5 text-sm md:px-8'
 
@@ -27,7 +33,9 @@ const NOTE =
  * character's, its sheet stays as it was, a note under its tabs saying so, and nothing on it rolls.
  * From module 0.41.0, the saves the game asks of it are asked on its own banner, as a character's
  * are, with its own modifiers. From module 0.51.0, while it's on another scene, a note under its
- * tabs says so, and it rolls as ever.
+ * tabs says so, and it rolls as ever. From module 0.54.0, a constant companion with no token on any
+ * scene says so in its note, its portrait ringed in dashes, and its attacks and uses are offered at
+ * no one in the encounter.
  * @param companion - As the row has it.
  * @param name - Its name as the row says it, numbered where repeated, such as "Bat 2".
  * @param character - The character's name.
@@ -95,17 +103,17 @@ export function CompanionPane({
   }, [reconnecting, onReconnecting])
   const words = seatWords(seat.role)
   const { game } = words
-  // Whose it is, for its header and the words its tray says.
+  // Whose it is, for its header and the words its tray says; and from module 0.54.0, whether it's
+  // a constant companion with no token on any scene, as its view last said.
   const { kind, from } = companion
+  const unplaced = live?.companion?.unplaced === true
   const creature = useMemo<CreatureFacts>(
     () => ({
       name,
-      relation:
-        kind === 'summoned'
-          ? { kind, of: character, ...(from && { from }) }
-          : { kind: 'owned', of: character },
+      relation: relationOf(kind, character, from),
+      ...(unplaced && { unplaced: true as const }),
     }),
-    [name, kind, from, character],
+    [name, kind, from, character, unplaced],
   )
 
   // Focus on the panel while its sheet was on its way moves into the sheet's own tabs as it comes.
@@ -120,9 +128,11 @@ export function CompanionPane({
       ?.focus()
   }, [ready])
 
-  // Under the sheet's tab row, as the prototype draws it: gone first, then away (module 0.51.0).
+  // Under the sheet's tab row, as the prototype draws it: gone first, then on no scene (module
+  // 0.54.0), then away (module 0.51.0).
   let note
   if (left) note = <GoneNote name={name} character={character} game={game} />
+  else if (unplaced) note = <AwayNote words={unplacedWords(name, words)} />
   else if (live?.companion?.away)
     note = <AwayNote words={awayWords(name, words)} />
 
@@ -154,6 +164,8 @@ export function CompanionPane({
         locked={left}
         idPrefix={`creature-${key}-`}
         note={note}
+        // With no token, from module 0.54.0, it attacks and uses at no one in the encounter.
+        targetless={unplaced}
       />
     )
   } else if (left) {
@@ -217,9 +229,9 @@ function GoneNote({
 }
 
 /**
- * Says a companion is on another scene than the active one, from module 0.51.0, as a note under the
- * tabs of its sheet, which still rolls.
- * @param words - Its sentence, as `awayWords` makes it.
+ * Says a companion is on another scene than the active one, from module 0.51.0, or from module
+ * 0.54.0 on none, as a note under the tabs of its sheet, which still rolls.
+ * @param words - Its sentence, as `awayWords` or `unplacedWords` makes it.
  */
 function AwayNote({ words }: Readonly<{ words: string }>) {
   return (

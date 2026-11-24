@@ -212,6 +212,60 @@ export function healthText({ health, foundry }: OwnedCampaign): string {
 const HEALTH_FROM = [0, 50, 0] as const
 
 /**
+ * The campaign's constant companions, from module 0.54.0: those its Gamemaster keeps beside a
+ * character in Foundry, each once by its key, with whose it is, "Steel Defender, Thorin’s" or
+ * "Steel Defender, Thorin’s and Vex’s", counted; and where to mark one. With a module before that,
+ * which keeps none, that it doesn't; under another system than D&D Fifth Edition, where the
+ * module has no Companions tab to mark one on, that they need it, as the hello's own system says.
+ */
+export function constantText({ characters, foundry }: OwnedCampaign): string {
+  if (before(foundry?.module?.version, CONSTANT_FROM)) {
+    return 'Your Sending Stone module doesn’t keep constant companions yet. Version 0.54.0 or later does.'
+  }
+  if (foundry?.system && foundry.system.id !== 'dnd5e') {
+    return 'Off. Constant companions need D&D Fifth Edition in Foundry.'
+  }
+  const kept = new Map<string, { name: string; of: string[] }>()
+  for (const { name: character, companions = [] } of characters) {
+    for (const { key, name, kind } of companions) {
+      if (kind !== 'constant') continue
+      const one = kept.get(key) ?? { name, of: [] }
+      one.of.push(`${character}’s`)
+      kept.set(key, one)
+    }
+  }
+  const how =
+    'A constant companion shows beside its character in the app with no token on a scene. Mark one on the campaign’s Companions tab in Sending Stone’s settings in Foundry.'
+  if (kept.size === 0) return `None yet. ${how}`
+  const listed = [...kept.values()]
+    .map(({ name, of }) => `${name}, ${joinedAnd(of)}`)
+    .join('; ')
+  return `${COUNT_WORDS[kept.size - 1] ?? kept.size} in Foundry: ${listed}. ${how}`
+}
+
+/** The first Sending Stone in Foundry that keeps constant companions. */
+const CONSTANT_FROM = [0, 54, 0] as const
+
+/** A count as the card says it: in words to nine, then in digits. */
+const COUNT_WORDS = [
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+] as const
+
+/** Names in a sentence: "Thorin’s", "Thorin’s and Vex’s", "Thorin’s, Vex’s and Mira’s". */
+function joinedAnd(names: readonly string[]): string {
+  if (names.length < 2) return names.join('')
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+}
+
+/**
  * Is a module's version, as its hello said it, known to be before this one? One it doesn't say,
  * or that doesn't read as major.minor.patch, isn't.
  */
@@ -230,8 +284,8 @@ function before(
  * A character's companions as its card lists them (module 0.36.0): "Companions: Brakka, Bat 1
  * (summoned), Bat 2 (summoned)", in the module's order, a repeated name numbered as a fresh row of
  * tabs numbers it; from module 0.51.0 one on another scene marked so, "Wolf (on another scene)",
- * "Bat 2 (summoned, on another scene)", for the Gamemaster to find what to tidy. None where it has
- * none.
+ * "Bat 2 (summoned, on another scene)", for the Gamemaster to find what to tidy; and from module
+ * 0.54.0 a constant one so, "Steel Defender (constant, not on a scene)". None where it has none.
  */
 export function companionsLine(
   companions: OwnedCampaign['characters'][number]['companions'] = [],
@@ -241,9 +295,11 @@ export function companionsLine(
     companions.map(({ name }, index) => ({ key: String(index), name })),
     new Map(),
   )
-  const listed = companions.map(({ kind, away }, index) => {
+  const listed = companions.map(({ kind, away, unplaced }, index) => {
     const marks = [
       kind === 'summoned' && 'summoned',
+      kind === 'constant' && 'constant',
+      unplaced && 'not on a scene',
       away && 'on another scene',
     ]
       .filter(Boolean)

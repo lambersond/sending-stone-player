@@ -27,6 +27,7 @@ import {
   sheetSpell,
   shapedSheet,
   SLEIGHT_CHECK,
+  summoningSheet,
   TEXTS,
   WAND_LEVELS,
   wolfForm,
@@ -3403,6 +3404,117 @@ describe('utils/roll-requests for enchant activities, from module 0.21.0', () =>
       ]
       expect(end('club', 'sharedEffect01', sheet)).toBe('enchantment')
       expect(end('quarterstaff', 'sharedEffect01', sheet)).toBeUndefined()
+    })
+  })
+})
+
+/** A use of one of Thorin's summon activities, as his sheet has it, checked. */
+const summonCheck = (
+  fields: Partial<RollRequestInput>,
+  sheet = summoningSheet(),
+) =>
+  checkRoll(
+    request({ mode: 0, dice: [], key: undefined, ...fields }),
+    sheet,
+    [],
+    'actor-thorin',
+  )
+
+/** One of Thorin's summon activities cast so, at this slot, its creature chosen or not. */
+const summon = (
+  item: string,
+  activity: string,
+  slot?: string,
+  chosen?: RollRequestInput['summon'],
+  fields: Partial<RollRequestInput> = {},
+  sheet?: CharacterSheet,
+) =>
+  summonCheck(
+    {
+      kind: 'use',
+      item,
+      activity,
+      targets: [],
+      ...(slot && { slot }),
+      ...(chosen && { summon: chosen }),
+      ...fields,
+    },
+    sheet,
+  )
+
+/** Find Familiar cast with a 1st-level slot, so chosen. */
+const familiar = (chosen?: RollRequestInput['summon']) =>
+  summon('findFamiliar', 'ffSummon', 'spell1', chosen)
+
+/** Summon Beast cast with this slot, this creature chosen. */
+const beast = (profile: string, slot: string) =>
+  summon('summonBeast', 'sbSummon', slot, { profile })
+
+const OWL = 'owlProfile000000'
+
+describe('utils/roll-requests for summon activities, from module 0.54.0', () => {
+  describe('checkRoll for a use', () => {
+    it('lets Find Familiar summon a creature it offers, of a type it offers, or none chosen', () => {
+      expect(familiar({ profile: OWL, type: 'fey' })).toBeUndefined()
+      expect(familiar({ profile: 'batProfile000000' })).toBeUndefined()
+      expect(familiar()).toBeUndefined()
+    })
+
+    it.each([
+      ['a creature it hasn’t', { profile: 'Oy8fP2N3q4R5s6T7' }],
+      ['a type it doesn’t offer', { profile: OWL, type: 'beast' }],
+      ['a size where it offers none', { profile: OWL, size: 'lg' }],
+    ])('refuses %s, as only a sheet out of date sends', (_name, chosen) => {
+      expect(familiar(chosen)).toBe('creature')
+    })
+
+    it('lets Summon Beast summon Air only from the 3rd level, and Land at any', () => {
+      expect(beast('airProfile000000', 'spell2')).toBe('creature')
+      expect(beast('airProfile000000', 'spell3')).toBeUndefined()
+      expect(beast('landProfile00000', 'spell2')).toBeUndefined()
+    })
+
+    it('refuses a level at which it summons nothing, with no creature chosen', () => {
+      const sheet = summoningSheet()
+      const beast = sheet.spells[1].spells[0].activity!.summon!
+      beast.profiles = beast.profiles.map(profile => ({ ...profile, min: 3 }))
+      expect(
+        summon('summonBeast', 'sbSummon', 'spell2', undefined, {}, sheet),
+      ).toBe('creature')
+      expect(
+        summon('summonBeast', 'sbSummon', 'spell3', undefined, {}, sheet),
+      ).toBeUndefined()
+    })
+
+    it('lets Pack of Wolves, a feature, summon its one creature', () => {
+      expect(
+        summon('packOfWolves', 'pwSummon', undefined, {
+          profile: 'wolvesProfile000',
+        }),
+      ).toBeUndefined()
+    })
+
+    it.each<[string, Partial<RollRequestInput>]>([
+      [
+        'a target',
+        { targets: [{ combatId: 'combat-1', combatantId: 'cmb-goblin' }] },
+      ],
+      ['its user', { self: true as const }],
+    ])('refuses %s, as it summons at no one', (_name, fields) => {
+      expect(
+        summon('findFamiliar', 'ffSummon', 'spell1', { profile: OWL }, fields),
+      ).toBe('target')
+    })
+
+    it('refuses a creature named for any other activity, and a summon activity that says nothing it summons', () => {
+      expect(
+        magicWeapon(PLUS_ONE, 'spell2', { summon: { profile: OWL } }),
+      ).toBe('unknown')
+      const sheet = summoningSheet()
+      delete sheet.spells[0].spells[0].activity!.summon
+      expect(
+        summon('findFamiliar', 'ffSummon', 'spell1', undefined, {}, sheet),
+      ).toBe('unknown')
     })
   })
 })

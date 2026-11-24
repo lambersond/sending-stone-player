@@ -1,7 +1,13 @@
 /**
  * @jest-environment node
  */
-import { askedWords, awayWords, describe as described } from './utils'
+import {
+  askedWords,
+  awayWords,
+  describe as described,
+  relationOf,
+  unplacedWords,
+} from './utils'
 import { seatWords } from '@/utils/seat-words'
 import type { SwitcherCreature } from './types'
 
@@ -42,6 +48,66 @@ describe('features/companions/utils, a companion on another scene', () => {
   ] as const)('says so on its sheet at the %s’s seat', (role, words) => {
     expect(awayWords('Brakka', seatWords(role))).toBe(words)
   })
+})
+
+// Module 0.54.0 (item 98): a constant companion, on a scene, on another, or on none, in words.
+describe('features/companions/utils, a constant companion', () => {
+  const steel: SwitcherCreature = {
+    key: 'steel',
+    name: 'Steel Defender',
+    kind: 'constant',
+    news: '',
+  }
+  it.each([
+    [steel, 'Thorin’s constant companion'],
+    [
+      { ...steel, unplaced: true as const },
+      'Thorin’s constant companion, not on a scene',
+    ],
+    [
+      { ...steel, away: true as const },
+      'Thorin’s constant companion, on another scene',
+    ],
+    [
+      { ...steel, unplaced: true as const, gone: true as const },
+      'No longer with Thorin in your Gamemaster’s game',
+    ],
+  ])('describes %p as %p, gone first', (creature, words) => {
+    expect(described(creature, 'Thorin', GAME)).toBe(words)
+  })
+
+  it.each([
+    [
+      'player',
+      'Steel Defender isn’t on a scene in your Gamemaster’s game. You can still roll for it and use its features here; its attacks and spells go without a target.',
+    ],
+    [
+      'gm',
+      'Steel Defender isn’t on a scene in your game. You can still roll for it and use its features here; its attacks and spells go without a target.',
+    ],
+  ] as const)(
+    'says it has no token on its sheet at the %s’s seat',
+    (role, words) => {
+      expect(unplacedWords('Steel Defender', seatWords(role))).toBe(words)
+    },
+  )
+
+  it.each([
+    ['owned', undefined, { kind: 'owned', of: 'Thorin' }],
+    [
+      'summoned',
+      'Find Familiar',
+      { kind: 'summoned', of: 'Thorin', from: 'Find Familiar' },
+    ],
+    ['summoned', undefined, { kind: 'summoned', of: 'Thorin' }],
+    ['constant', 'Find Familiar', { kind: 'constant', of: 'Thorin' }],
+    [undefined, undefined, { kind: 'owned', of: 'Thorin' }],
+  ] as const)(
+    'reads a %s one as whose it is (from %p)',
+    (kind, from, relation) => {
+      expect(relationOf(kind, 'Thorin', from)).toEqual(relation)
+    },
+  )
 })
 
 // Item 64: what a companion is asked for, "an" before a silent h, as the chat's request card says.

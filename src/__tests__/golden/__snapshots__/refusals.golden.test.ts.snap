@@ -2511,7 +2511,7 @@ exports[`parseGameEvent refuses a malformed command.result: command.result malfo
 
 exports[`parseGameEvent refuses a malformed companion.updated: companion.updated malformed 1`] = `
 "{
- "prettified": "✖ Invalid input: expected array, received undefined\\n  → at companion.of\\n✖ Invalid option: expected one of \\"owned\\"|\\"summoned\\"\\n  → at companion.kind\\n✖ Invalid input: expected string, received undefined\\n  → at companion.actorId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.tokenId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.sceneId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.uuid\\n✖ Invalid input: expected string, received undefined\\n  → at companion.name"
+ "prettified": "✖ Invalid input: expected array, received undefined\\n  → at companion.of\\n✖ Invalid option: expected one of \\"owned\\"|\\"summoned\\"|\\"constant\\"\\n  → at companion.kind\\n✖ Invalid input: expected string, received undefined\\n  → at companion.actorId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.tokenId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.sceneId\\n✖ Invalid input: expected string, received undefined\\n  → at companion.uuid\\n✖ Invalid input: expected string, received undefined\\n  → at companion.name"
 }"
 `;
 

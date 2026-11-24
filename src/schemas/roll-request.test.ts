@@ -1183,6 +1183,50 @@ describe('enchant activities, from module 0.21.0', () => {
   })
 })
 
+/** Find Familiar cast with a 1st-level slot, an Owl of the Fey chosen. */
+const summoning = {
+  kind: 'use',
+  item: 'findFamiliar',
+  activity: 'ffSummon',
+  targets: [],
+  slot: 'spell1',
+  mode: 0,
+  explicit: false,
+  extras: [],
+  dice: [],
+  summon: { profile: 'owlProfile000000', type: 'fey' },
+}
+
+const parseSummoning = (fields: object) =>
+  rollRequestSchema.safeParse({ ...summoning, ...fields })
+
+describe('summon activities, from module 0.54.0', () => {
+  it('takes a use saying which creature it summons, its type and size, or none', () => {
+    expect(parseSummoning({}).success).toBe(true)
+    expect(
+      parseSummoning({ summon: { profile: 'owlProfile000000', size: 'tiny' } })
+        .success,
+    ).toBe(true)
+    expect(parseSummoning({ summon: undefined }).success).toBe(true)
+  })
+
+  it.each([
+    ['a creature that isn’t an id', { profile: 'Owl (Fey)' }],
+    ['a type that isn’t a key', { profile: 'owlProfile000000', type: 'f ey' }],
+    ['no creature', { type: 'fey' }],
+    ['anything else', { profile: 'owlProfile000000', count: 2 }],
+  ])('refuses a use summoning with %s', (_name, summon) => {
+    expect(parseSummoning({ summon }).success).toBe(false)
+  })
+
+  it('takes which creature only on a use', () => {
+    const summon = summoning.summon
+    expect(parseAttack({ summon }).success).toBe(false)
+    expect(parse({ summon }).success).toBe(false)
+    expect(parseEnding({ summon }).success).toBe(false)
+  })
+})
+
 describe('a use at its user, from module 0.22.0', () => {
   it('takes a use at its user, besides its targets, or none', () => {
     expect(parseUse({ self: true }).success).toBe(true)

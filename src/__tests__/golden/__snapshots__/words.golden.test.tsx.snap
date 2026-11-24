@@ -15762,14 +15762,14 @@ exports[`golden C4: words chat lines, per kind and variant, at each seat a roll:
       "list: Chat log",
       "list: Dice",
     ],
-    "text": "TThorin⟨time⟩AttackWarhammer attack1d20 + 717Total 24",
+    "text": "TThorin⟨time⟩AttackWarhammer attackNo target1d20 + 717Total 24",
   },
   "player": {
     "names": [
       "list: Chat log",
       "list: Dice",
     ],
-    "text": "TThorin⟨time⟩AttackWarhammer attack1d20 + 717Total 24",
+    "text": "TThorin⟨time⟩AttackWarhammer attackNo target1d20 + 717Total 24",
   },
 }
 `;
@@ -16818,6 +16818,7 @@ exports[`golden C4: words why a roll was not made, per seat reasons(gm): reasons
   "charged": "it’s charged already",
   "concentration": "that concentration has already ended",
   "consume": "there’s nothing left to use it with",
+  "creature": "that creature can’t be summoned that way at that level",
   "critical": "that damage can’t be a critical hit’s",
   "damage-type": "its kind of damage is chosen in the game",
   "damaged": "its damage is rolled already",
@@ -16882,6 +16883,7 @@ exports[`golden C4: words why a roll was not made, per seat reasons(player): rea
   "charged": "it’s charged already",
   "concentration": "that concentration has already ended",
   "consume": "there’s nothing left to use it with",
+  "creature": "that creature can’t be summoned that way at that level",
   "critical": "that damage can’t be a critical hit’s",
   "damage-type": "its kind of damage is chosen in the game",
   "damaged": "its damage is rolled already",

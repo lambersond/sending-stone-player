@@ -26,6 +26,7 @@ import {
   FORM_UUID,
   HEALTH_STATES,
   HIT_DIE,
+  KNOWN_FORM_WHYS,
   MAX_DAMAGE_TERMS,
   MAX_USE_TARGETS,
   MOST_ABILITIES,
@@ -43,6 +44,7 @@ import {
   PROFILE_ID,
   PROMPT_ID,
   PROMPT_SOURCES,
+  SUMMON_KEY,
 } from '@/constants/sending-stone'
 import { foundrySettingsSchema } from '@/schemas/foundry-settings'
 import { leftOut, listOf, orNull, requiredListOf } from '@/schemas/utils'
@@ -108,6 +110,8 @@ import type {
   SheetItem,
   SheetSpell,
   SheetSpend,
+  SheetSummon,
+  SheetSummonProfile,
   SheetUse,
   SheetUses,
   SheetWildShape,
@@ -245,6 +249,68 @@ const enchantSchema: z.ZodType<SheetEnchant | undefined> = leftOut(
     ),
 )
 
+/** The most creatures a summon activity offers, and levels above a spell's own it's written at. */
+const MAX_SUMMONS = 20
+const MAX_HIGHER = 8
+
+/** A creature's count, as dnd5e's dialog writes it, such as "2" or "1d4"; null for none. */
+const summonCount = z.string().trim().min(1).max(50).nullable()
+
+/**
+ * A creature a summon activity may summon, from module 0.54.0: its profile's id, which the app
+ * sends back, its name and count as dnd5e writes them, the spell levels it's offered at, from `min`
+ * to `max`, each null for no limit, and each level above the spell's own at which dnd5e writes it
+ * otherwise, a malformed one dropped, none where missing. One that can't be read is dropped,
+ * rather than offered at any level.
+ */
+const summonProfileSchema: z.ZodType<SheetSummonProfile> = z
+  .looseObject({
+    id: z.string().regex(DOCUMENT_ID),
+    name: z.string().trim().min(1).max(200),
+    count: summonCount,
+    min: z.int().min(0).max(99).nullable(),
+    max: z.int().min(0).max(99).nullable(),
+    higher: listOf(
+      z.looseObject({
+        level: z.int().min(2).max(9),
+        name: z.string().trim().min(1).max(200),
+        count: summonCount,
+      }),
+      MAX_HIGHER,
+    ),
+  })
+  .refine(({ min, max }) => min === null || max === null || min <= max)
+
+/** The creature types or sizes a summon activity offers, from module 0.54.0, a bad one dropped. */
+const summonOptionsSchema = listOf(
+  z.looseObject({
+    key: z.string().regex(SUMMON_KEY),
+    label: z.string().trim().min(1).max(100),
+  }),
+)
+
+/**
+ * What a summon activity summons, from module 0.54.0: its creatures, each once, at least one; and
+ * the creature types and sizes it offers a choice of, none where missing. A malformed creature is
+ * dropped, and so is the whole where none is left, so that the activity reads as used in Foundry.
+ */
+const summonSchema: z.ZodType<SheetSummon | undefined> = leftOut(
+  z.looseObject({
+    profiles: listOf(summonProfileSchema)
+      .transform(profiles =>
+        profiles
+          .filter(
+            (profile, index) =>
+              profiles.findIndex(({ id }) => id === profile.id) === index,
+          )
+          .slice(0, MAX_SUMMONS),
+      )
+      .refine(profiles => profiles.length > 0),
+    types: summonOptionsSchema,
+    sizes: summonOptionsSchema,
+  }),
+)
+
 /**
  * The enchantments on an item, a spell, a feature or an action's item, from module 0.21.0, as many
  * as fifty; a malformed one dropped. Left out, as sent, for none, and by earlier modules.
@@ -357,12 +423,21 @@ const spendsSchema: z.ZodType<SheetSpend[] | undefined> = listOf(
 /**
  * What else an action is used through in the game, and whom at, from module 0.12.0: one of the
  * kinds of activity the game uses, or none. From module 0.21.0, an activity that asks for a check;
- * and one that enchants, with what it enchants, without which it's none.
+ * and one that enchants, with what it enchants, without which it's none; and from module 0.54.0 one
+ * that summons, with what it summons, without which it's none too.
  */
 const useSchema: z.ZodType<SheetUse | null | undefined> = z
   .looseObject({
     id: z.string().min(1),
-    type: z.enum(['save', 'damage', 'heal', 'utility', 'check', 'enchant']),
+    type: z.enum([
+      'save',
+      'damage',
+      'heal',
+      'utility',
+      'check',
+      'enchant',
+      'summon',
+    ]),
     targets: z.looseObject({
       self: z.boolean().catch(false),
       area: z.boolean().catch(false),
@@ -380,13 +455,21 @@ const useSchema: z.ZodType<SheetUse | null | undefined> = z
     }),
     // From module 0.21.0, for an enchant activity.
     enchant: enchantSchema,
+    // From module 0.54.0, for a summon activity.
+    summon: summonSchema,
     spends: spendsSchema,
   })
   .nullable()
   .optional()
   .catch(null)
-  // An enchant activity that can't say what it enchants is used in Foundry.
-  .transform(use => (use?.type === 'enchant' && !use.enchant ? null : use))
+  // An enchant activity that can't say what it enchants is used in Foundry, and so is a summon
+  // activity that can't say what it summons.
+  .transform(use =>
+    (use?.type === 'enchant' && !use.enchant) ||
+    (use?.type === 'summon' && !use.summon)
+      ? null
+      : use,
+  )
 
 const usesSchema: z.ZodType<SheetUses | null> = orNull(
   z.looseObject({
@@ -981,12 +1064,13 @@ const formLimitsSchema = z.object({
 
 /**
  * One of a druid's known forms, from module 0.40.0, by its profile's id: one from the campaign's
- * compendiums with its statistics, once loaded, and whether it fits the rules for her now, or not
- * found; one from anywhere else by its name alone. A part that can't be read is none; whether it
- * fits, or was found, read as not, so it's never offered for it. One with no id is left out. One
- * with no name is kept, nameless: dnd5e writes none for a form dropped on her Wild Shape in
- * Foundry, and the game counts it among her known forms all the same, so a place it fills is never
- * offered here as empty.
+ * compendiums, or from module 0.54.0 one from anywhere its players could use in Foundry (`pool`),
+ * with its statistics, once loaded, and whether it fits the rules for her now, or not found; any
+ * other by its name alone, and from module 0.54.0 why (`why`). A part that can't be read is none;
+ * whether it fits, or was found, read as not, so it's never offered for it. One with no id is left
+ * out. One with no name is kept, nameless: dnd5e writes none for a form dropped on her Wild Shape
+ * in Foundry, and the game counts it among her known forms all the same, so a place it fills is
+ * never offered here as empty.
  */
 const knownFormSchema: z.ZodType<KnownForm> = z.looseObject({
   id: z.string().regex(PROFILE_ID),
@@ -1009,6 +1093,7 @@ const knownFormSchema: z.ZodType<KnownForm> = z.looseObject({
     .catch(null),
   fits: z.boolean().optional().catch(false),
   found: z.boolean().optional().catch(false),
+  why: leftOut(z.enum(KNOWN_FORM_WHYS)),
 })
 
 /**
@@ -1378,7 +1463,8 @@ const cutTo = (most: number) =>
 const companionEntrySchema: z.ZodType<CompanionEntry> = z.looseObject({
   key: z.string().regex(COMPANION_KEY),
   of: z.array(z.string().regex(ACTOR_ID)).min(1).max(20),
-  kind: z.enum(['owned', 'summoned']),
+  // From module 0.54.0 "constant" too: one the Gamemaster marked, with a token or without.
+  kind: z.enum(['owned', 'summoned', 'constant']),
   actorId: z.string().regex(ACTOR_ID),
   tokenId: z.string().regex(DOCUMENT_ID).nullable(),
   sceneId: z.string().regex(DOCUMENT_ID).nullable(),
@@ -1396,6 +1482,9 @@ const companionEntrySchema: z.ZodType<CompanionEntry> = z.looseObject({
   // From module 0.51.0, to an app that reads companions on every scene: whether it's on another
   // scene than the active one. Left out where it can't be read.
   away: leftOut(z.boolean()),
+  // From module 0.54.0, a constant companion's only: whether a token of it is on a scene. Left out
+  // where it can't be read.
+  placed: leftOut(z.boolean()),
 })
 
 /**
@@ -1702,6 +1791,8 @@ const featuresSchema: z.ZodType<BridgeFeatures | null | undefined> = z
         initiative: z.enum(COMPANION_INITIATIVE).catch('own'),
         // From module 0.51.0: whether it lists companions on every scene, each with `away`.
         away: leftOut(z.boolean()),
+        // From module 0.54.0: whether it lists the Gamemaster's constant companions.
+        constant: leftOut(z.boolean()),
       }),
     ),
     // From module 0.37.0: whether favorites may be added and removed here, under dnd5e, with no
@@ -2429,6 +2520,9 @@ const helloSchema = z.looseObject({
   // From module 0.51.0: the companions on every scene, as an app that says `companions: 3` is
   // listed them; none from an older module, whose `companions` stand.
   companionsEverywhere: leftOut(companionsSchema),
+  // From module 0.54.0: the companions as an app that says `companions: 4` is listed them, the
+  // Gamemaster's constant companions among them; none from an older module, whose others stand.
+  companionsConstant: leftOut(companionsSchema),
   combats: z.array(combatSchema),
   // Sent from module 0.10.0.
   features: featuresSchema,

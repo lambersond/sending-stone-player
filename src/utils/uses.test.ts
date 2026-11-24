@@ -97,6 +97,11 @@ describe('utils/uses', () => {
     expect(picksTargets(use('enchant', { area: true }))).toBe(false)
   })
 
+  it('has no targets to pick for a summon activity, from module 0.54.0, whatever dnd5e says it affects', () => {
+    expect(picksTargets(use('summon'))).toBe(false)
+    expect(picksTargets(use('summon', { area: true }))).toBe(false)
+  })
+
   it('makes healing and help for allies friendly, and harm not', () => {
     expect(friendly(use('heal'))).toBe(true)
     expect(friendly(use('utility', { affects: 'ally' }))).toBe(true)
@@ -171,6 +176,12 @@ describe('utils/uses', () => {
       [
         'an enchantment, Self',
         at('Self', ranged('enchant', { self: true })),
+        false,
+        false,
+      ],
+      [
+        'a summoning, Self, from module 0.54.0',
+        at('Self', ranged('summon', { self: true })),
         false,
         false,
       ],

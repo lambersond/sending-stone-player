@@ -34,6 +34,7 @@ import type {
   SheetInventory,
   SheetItem,
   SheetSpell,
+  SheetSummonProfile,
   SheetUse,
   SheetUses,
   SheetWildShape,
@@ -1679,6 +1680,180 @@ export function enchantingSheet(
       encumbrance: null,
       attunement: null,
     },
+    ...fields,
+  })
+}
+
+/** Whom a summon activity is used at, as the module describes it: no one it targets. */
+const summonTargets = {
+  self: false,
+  area: false,
+  count: null,
+  perLevel: null,
+  affects: null,
+}
+
+/** A summon activity, as the module sends it from 0.54.0. */
+export const summonUse = (
+  id: string,
+  summon: Partial<NonNullable<SheetUse['summon']>> = {},
+): SheetUse => ({
+  id,
+  type: 'summon',
+  targets: summonTargets,
+  summon: { profiles: [], types: [], sizes: [], ...summon },
+})
+
+/** A creature a summon activity offers, as the module sends it from 0.54.0. */
+export const summonProfile = (
+  id: string,
+  name: string,
+  fields: Partial<SheetSummonProfile> = {},
+): SheetSummonProfile => ({
+  id,
+  name,
+  count: null,
+  min: null,
+  max: null,
+  higher: [],
+  ...fields,
+})
+
+/** dnd5e's label of a creature by Challenge Rating, as the module sends it from 0.54.0. */
+const challenge = (cr: string) => `Challenge Rating of ${cr} or lower`
+
+/**
+ * How many times as many beasts Conjure Animals conjures at a level as at its own: twice at the
+ * 5th, three times at the 7th, four at the 9th.
+ */
+const conjuredTimes = (level: number) => Math.floor((level - 1) / 2)
+
+/**
+ * Conjure Animals' creatures by Challenge Rating, as the module sends them from 0.54.0: one beast
+ * of 2 or lower, two of 1, four of ½ or eight of ¼ at the 3rd level, twice as many at the 5th.
+ */
+const CONJURE_ANIMALS = (
+  [
+    ['caCr2', '2', 1],
+    ['caCr1', '1', 2],
+    ['caCrHalf', '½', 4],
+    ['caCrQuarter', '¼', 8],
+  ] as const
+).map(([id, cr, count]) =>
+  summonProfile(id, challenge(cr), {
+    count: String(count),
+    higher: [5, 6, 7, 8, 9].map(level => ({
+      level,
+      name: challenge(cr),
+      count: String(count * conjuredTimes(level)),
+    })),
+  }),
+)
+
+/** A conjuration Thorin casts with an action, at 10 feet, through this summon activity. */
+const summonSpell = (
+  id: string,
+  name: string,
+  level: number,
+  activity: SheetUse,
+  concentration = false,
+) =>
+  sheetSpell({
+    id,
+    name,
+    level,
+    school: 'Conjuration',
+    activation: '1 Action',
+    range: '10 ft',
+    concentration,
+    prepared: 1,
+    toHit: null,
+    save: null,
+    damage: [],
+    activity,
+  })
+
+/** A spellbook's level with so many slots, all left. */
+const slotsAt = (level: number, value: number) => ({
+  id: `spell${level}`,
+  label: `${['1st', '2nd', '3rd', '4th', '5th'][level - 1]} Level`,
+  slots: { value, max: value, level },
+})
+
+/**
+ * Thorin, as module 0.54.0 sends him to an app that reads summons: Find Familiar, a Bat, a Cat or
+ * an Owl, Celestial, Fey or Fiend; Summon Beast, a Land or Sea spirit, and an Air one from the
+ * 3rd level; Conjure Animals, by Challenge Rating; and Pack of Wolves, a feature summoning two
+ * wolves once a day.
+ */
+export function summoningSheet(
+  fields: Partial<CharacterSheet> = {},
+): CharacterSheet {
+  const familiar = summonUse('ffSummon', {
+    profiles: [
+      summonProfile('batProfile000000', 'Bat'),
+      summonProfile('catProfile000000', 'Cat'),
+      summonProfile('owlProfile000000', 'Owl'),
+    ],
+    types: [
+      { key: 'celestial', label: 'Celestial' },
+      { key: 'fey', label: 'Fey' },
+      { key: 'fiend', label: 'Fiend' },
+    ],
+  })
+  const beast = summonUse('sbSummon', {
+    profiles: [
+      summonProfile('landProfile00000', 'Land'),
+      summonProfile('seaProfile000000', 'Sea'),
+      summonProfile('airProfile000000', 'Air', { min: 3 }),
+    ],
+  })
+  const animals = summonUse('caSummon', { profiles: CONJURE_ANIMALS })
+  const wolves = summonUse('pwSummon', {
+    profiles: [summonProfile('wolvesProfile000', 'Wolf', { count: '2' })],
+  })
+  return characterSheet({
+    level: 9,
+    classes: [{ name: 'Druid', levels: 9, subclass: 'Circle of the Shepherd' }],
+    spellcasting: {
+      ability: 'wis',
+      dc: 15,
+      attack: 7,
+      classes: [{ name: 'Druid', ability: 'wis', dc: 15, attack: 7 }],
+    },
+    spells: [
+      {
+        ...slotsAt(1, 4),
+        spells: [summonSpell('findFamiliar', 'Find Familiar', 1, familiar)],
+      },
+      {
+        ...slotsAt(2, 3),
+        spells: [summonSpell('summonBeast', 'Summon Beast', 2, beast, true)],
+      },
+      {
+        ...slotsAt(3, 3),
+        spells: [
+          summonSpell('conjureAnimals', 'Conjure Animals', 3, animals, true),
+        ],
+      },
+      { ...slotsAt(4, 3), spells: [] },
+      { ...slotsAt(5, 1), spells: [] },
+    ],
+    features: [
+      {
+        id: 'druid',
+        label: 'Druid Features',
+        text: null,
+        features: [
+          classFeature(
+            'packOfWolves',
+            'Pack of Wolves',
+            counted(1, 1, { item: 'packOfWolves' }),
+            wolves,
+          ),
+        ],
+      },
+    ],
     ...fields,
   })
 }

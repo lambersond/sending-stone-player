@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.52.0 and its app, with v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0, v0.46.0,
-v0.45.0 and v0.44.0 before it.
+Released: module v0.53.0 and its app, with v0.52.0, v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0,
+v0.46.0, v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -198,12 +198,13 @@ Midi-QOL v14.0.x:
   an ability your world adds with no type, and not Honor; and under a transformation with Appearance
   it marks no tile.
 
-## v0.53 (release candidate)
+## v0.53 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc entry.
+Released on 2026-11-21: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0 entry. v0.53 is
+the release candidate for v1.0 after v0.52: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.53.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 and
+Midi-QOL v14.0.x:
 
 - **Midi-QOL's check of a cost, asked once:** with Manual Dice on for the Gamemaster and Midi-QOL
   set to consume the Gamemaster's resources without asking, a charm that spends 1d4 charges, used in
@@ -231,11 +232,50 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   Home Screen, which has no Full screen, the room closes as the page is ready, so Live and Help step
   right once, and stay there.
 
+## v0.54 (release candidate)
+
+Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc entry.
+
+**To check at the table before module v0.54.0 is tagged** (built and tested against stand-ins only),
+with dnd5e 5.3.3 (and 6.0.5 where a check says so) and Midi-QOL v14.0.x:
+
+- **Constant companions:** in Foundry, drag a Steel Defender from the Actors sidebar onto Thorin's
+  box on the campaign's Companions tab and save: it shows in the app last among Thorin's tabs, with
+  its pin and dashed ring; summon it with Thorin's feature and the same tab's ring goes solid within
+  a few seconds, by the page's next read; dismiss it and it's dashed again.
+- **Known forms from anywhere, at each of Foundry's gates:** with Wild Shape from the app on, put on
+  a 2024 druid's Wild Shape in Foundry a Beast from one of the world's actors and one from an Actor
+  compendium the campaign's Beasts don't come from. With every gate open, the app offers each with
+  its numbers, and the druid changes into one and back: the druid owned by her player, not only
+  assigned; the form shared with them, Observer on the world actor or on the compendium in Foundry's
+  compendium settings; dnd5e's Allow Transformation on; and Create New Actors for their role. Close
+  each gate in turn and the form's card says which: "Not your character in Foundry", "Not shared in
+  Foundry", "Transformation is off in Foundry" or "Needs Create New Actors in Foundry", and the
+  player, in their own Foundry, can't make that change either; open it again and it's offered.
+- **A summoning's choice, chosen beforehand in dnd5e's dialog** (what stand-ins prove least: the
+  module sets the player's choice on dnd5e's dialog in Foundry's `preRenderSummonUsageDialog` hook,
+  which counts on Foundry 14 drawing the dialog's parts after that hook, as the stand-in draws
+  them), under dnd5e 5.3.3 and again under 6.0.5, with Midi-QOL and without: cast Find Familiar from
+  the app as the Owl, Fey; as the Gamemaster, click its card's Summon button: dnd5e's dialog opens
+  once, with the Owl and Fey chosen in its very first draw (never Bat and Celestial first), and you
+  can change them; Summon places the Owl, which shows as the character's companion. In the console,
+  that dialog among `foundry.applications.instances` has a `config.summons` that agrees with its
+  form's `summons.profile` and `summons.creatureType`. Summon Beast cast at the 3rd as Air, and a
+  warlock's free casting of it as Air at her pact slots' level, the 3rd or higher, open with Air
+  offered and chosen; Conjure Animals cast at the 5th as "4 × Challenge Rating of 1 or lower" opens
+  with that chosen, then dnd5e's compendium browser; and a summon activity given a choice of Medium
+  or Large, cast Large, opens with Large chosen. A card cast in Foundry, or the same activity used
+  by hand there after a click on such a card, opens with dnd5e's own defaults. With Midi-QOL, the
+  card's "Chosen on Sending Stone: Owl (Fey)" line sits on Midi's card, perhaps at its end, and its
+  Summon button chooses the same. If that dialog's `config.summons` holds the choice while its form
+  shows dnd5e's defaults, Foundry draws the dialog's parts before that hook, and the fix is to draw
+  it again from its render hook.
+
 ## Before v1.0
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 5 and 8 are done; 6 and 7 are to come.
+tweaks needed may change it as it goes. Batches 1 to 6 and 8 are done; 7 is to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -248,10 +288,11 @@ tweaks needed may change it as it goes. Batches 1 to 5 and 8 are done; 6 and 7 a
    and Add or remove for a character's coins: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
    ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
-6. Items 59, 60 and 98: summon activities, known forms from anywhere, and constant companions.
+6. Items 59, 60 and 98, summon activities, known forms from anywhere and constant companions: done,
+   in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
-   and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+   and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Found while untangling the module's imports**
 
@@ -286,7 +327,7 @@ Items 18 and 36, companions and sidekicks wherever they are and two encounters a
 Items 72 to 75, Midi-QOL's check of a Gamemaster's own use asking for its dice twice, a roll's
 button dropping the first Enter after its menu was opened from the keyboard, keyboard focus after a
 favorite moves from one list to the other, and the favorites in one list once Reorder has been
-opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 76. **What a druid begins in Wild Shape:** a spell a Moon druid casts as a beast and concentrates
     on, such as Moonbeam or Fount of Moonlight, ends in Foundry when Wild Shape ends. Whether what
@@ -340,7 +381,7 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
 or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
-sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
     the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
@@ -377,10 +418,8 @@ sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
 
 Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
-59. **Summon activities** used from the app.
-60. **Known forms from anywhere:** a form put on a druid's Wild Shape in Foundry from outside the
-    campaign's compendiums, such as another compendium or a world actor, used from the app too,
-    where its player could use it in Foundry.
+Items 59 and 60, summon activities used from the app and known forms from anywhere, are done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
 
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
@@ -425,7 +464,7 @@ same), is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.51.0.
 **Found while building Batch 3**
 
 Items 92 and 93, Midi-QOL's checks in an encounter the Gamemaster doesn't have up and a Gamemaster's
-message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 94. **The module harness's wait for a druid's copy made late, under load:**
     `test/fvtt/wildshape.mjs` (line 1171), under `MIDI=1`, "her copy made too late: Rowan's
@@ -454,31 +493,11 @@ message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-
 **Found while building Batch 5**
 
 Items 96 and 97, "an" before a "u" that sounds like "you" and a world's own tools in a description's
-hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0-rc.
+hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Asked for on 2026-11-20**
 
-98. **Constant companions:** a companion its character keeps, always there or summoned again and
-    again, such as a sidekick, an artificer's Steel Defender or a familiar summoned every session.
-    The Gamemaster marks an NPC in the Actors sidebar as a character's constant companion on the
-    campaign's Manage Campaigns window (a Companions list: the NPC and the character it belongs
-    to); only the Gamemaster marks or unmarks one. It then shows in the app beside its character
-    whether or not a token of it is on any scene, so in an impromptu encounter with no scene ready
-    the player can still act with it. While a token of it is on a scene the app uses that token,
-    as today; with none placed, the sidebar actor. With no token the player can do from the app
-    all that Foundry's own sheet allows without one: its sheet, checks and saves, attacks and
-    spells with no targets picked, its uses and hit points; initiative and the saves the game asks
-    for still need a token in a combat. Today only a linked NPC its player owns by name shows with
-    no scene; a summoned creature, or an unlinked NPC, needs a token on a scene. The look, as the
-    owner chose it from prototypes on 2026-11-20: its tab has a pin after its name, kept wherever
-    its token is, and with no token a dashed ring round its avatar and a dashed circle; above its
-    sheet, "Steel Defender isn't on a scene in your Gamemaster's game. You can still roll for it
-    and use its features here; its attacks and spells go without a target."; its sheet says
-    "Thorin's constant companion"; the Gamemaster's campaign card lists it "(constant, not on a
-    scene)" and gains a Constant companions row; and in Foundry, a Companions tab on Manage
-    Campaigns, between Party and Player actions, each character with its constant companions, a
-    Remove button for each, and an NPC dropped from the Actors sidebar or chosen by Add companions.
-    In batch 6.
+Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
 
 **Found while building Batch 8**
 
@@ -597,7 +616,13 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Under dnd5e 6, in a world that shows a coin's decimals, dnd5e floors each coin to them as it reads
   the sheet, so a few amounts stored as written read a hundredth low, in Foundry and in the app:
   4.56 gp reads 4.55.
-- Summon activities are used in Foundry (planned before v1.0, item 59).
+- A summon activity cast from the app places nothing: the Gamemaster places the creature in Foundry,
+  from the Summon button on its card, and it shows as the character's companion once placed.
+- A summoning by Challenge Rating, such as Conjure Animals, is cast from the app at the band the
+  player picks; the Gamemaster picks its creatures in dnd5e's compendium browser as they place them.
+- With Midi-QOL's Auto Remove Summoned Creature, a creature placed from a card's Summon button isn't
+  removed as the concentration ends, as in Foundry.
+- A creature a companion summons isn't listed as a companion.
 - A companion shared by several characters is asked a save card's save only where every one of
   their players can read the card.
 - A Gamemaster's request for a save posted in chat asks the campaign's characters, not their
@@ -610,6 +635,24 @@ campaigns, their secrets and every flag under it, and installs follow its manife
 - Companions are found on every scene, but no level is read: one on another level of the active
   scene counts as there. With a module before 0.51.0, companions show while on the active scene; a
   linked NPC its player owns shows always.
+- A constant companion that a summon makes as an unlinked creature, as a Steel Defender often is,
+  has with no token on a scene the numbers of its actor in Foundry's Actors sidebar, not those its
+  summon adds, and not its last token's hit points or spent uses. One summoned as a linked creature
+  keeps dnd5e's linked copy's.
+- With no token on a scene, a constant companion's attacks and spells go without a target, its
+  initiative isn't rolled into a fight, and it isn't asked the saves a card asks of the tokens it
+  targets; it's still asked its concentration saves, as Foundry's card asks the actor.
+- A linked NPC its player owns, once marked a constant companion, is offered no targets while no
+  token of it is on a scene; unmarked, it's offered its campaign's fight as before.
+- A constant companion with tokens on several scenes uses one, on the active scene first; its other
+  tokens show as companions of their own only where they would anyway.
+- An NPC and dnd5e's copy of it for a summon, both marked for a character, are two constant
+  companions: a token of the copy goes to the copy first, its linked token before any unlinked one,
+  whatever the scene; the NPC takes a token of its own or an unlinked token of the copy, else shows
+  without one; every linked token of a linked copy is that one copy.
+- A mark of dnd5e's linked copy isn't shown in the app while a linked token of that copy is another
+  constant companion's; its row on the Companions tab says whose that token is.
+- Constant companions need Sending Stone 0.54.0 in Foundry, under D&D Fifth Edition.
 - Damage on its own from a spell an item casts, such as a wand's Magic Missile, isn't offered: Cast
   it for its damage.
 - Damage on its own never spends the action itself, and with Spend off it counts nothing.
@@ -702,10 +745,12 @@ campaigns, their secrets and every flag under it, and installs follow its manife
   meanwhile, is kept on the return, added to what the form took.
 - Uses spent by a module's consumption hooks, such as Midi-QOL's, aren't run for a change from the
   app, which spends the use itself.
-- A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums, or
-  outside the rules, is listed by name and used only in Foundry, where dnd5e's own Allow
-  Polymorphing and the source's permissions apply (from outside the compendiums: planned before
-  v1.0, item 60).
+- A known form put on a druid's Wild Shape in Foundry from outside the campaign's compendiums is
+  used from the app only where each of the druid's players could use it in Foundry: the druid
+  theirs, the form shared with them, dnd5e's Allow Transformation on and the Create New Actors
+  permission. One outside the rules, from anywhere, is used only in Foundry.
+- Beasts are learned from the app only from the campaign's compendiums: a form from anywhere else is
+  put on the druid's Wild Shape in Foundry.
 - A session ended from outside the app, such as one deleted from the database or revoked through
   Better Auth's own endpoints, still reads the table, the party sheet and the journal, and still
   sends what the table sends the game (rolls, moves, hit points, coins and ending a turn among them)

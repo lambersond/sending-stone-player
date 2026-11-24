@@ -19,15 +19,16 @@
 // the endings (its hours, 0 hit points) and the banner; the replacement after a Long Rest;
 // the Moon; a Polymorph made in Foundry; the Gamemaster's page; two taps; a Wild Shape made in Foundry
 // and returned from the app; a form deleted by hand; the Favorites strip; known forms put there in
-// Foundry outside the pool; the campaign page and the switch; phones and both themes. DND5E6=1:
-// dnd5e 6.0.5, steps 1, 3, 4, 10 and 14. SKEW=039 with MODULE=module-0.39.0: no Wild Shape in the
-// hello or on any sheet, a druid shaped in Foundry keeping her own sheet with no End Turn, the
-// campaign page's words, and a Wild Shape queued by hand never handed over. Synthetic characters only.
+// Foundry outside the pool, and known forms from anywhere (module 0.54.0), shared or not; the
+// campaign page and the switch; phones and both themes. DND5E6=1: dnd5e 6.0.5, steps 1, 3, 4, 10 and
+// 14. SKEW=039 with MODULE=module-0.39.0: no Wild Shape in the hello or on any sheet, a druid shaped
+// in Foundry keeping her own sheet with no End Turn, the campaign page's words, and a Wild Shape
+// queued by hand never handed over. Synthetic characters only.
 // Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
   BOB, DND5E6, SKEW039, W, browse, call, check, companion, cookieFor, escapeRe, finish, foundryWorld, launch, newCampaign,
-  note, npc, part, postsOf, same, sameJson, sceneWorld, settled, shootBoth, sideways, sql, startFetching, startModule,
-  stopFetching, summoned, until, wait,
+  note, npc, part, postsOf, same, sameJson, sceneWorld, setPermission, settings, settled, shootBoth, sideways, sql,
+  startFetching, startModule, stopFetching, summoned, until, wait,
 } from './world-030.mjs'
 
 const GAME = 'https://ashlands-wildshape.forge-vtt.com'
@@ -392,7 +393,8 @@ part('1. the hello and the answer')
   check(same(features.wildShape, { enabled: true, kinds: ['wildShape'], reason: null })
     && same(Object.keys(features), ['rolls', 'transfers', 'removals', 'notes', 'companions', 'favorites', 'dishes', 'effects', 'wildShape', 'hitPoints', 'coins', 'health']),
   `the hello takes Wild Shape, by the campaign's switch, after effects, before hit points (module 0.44.0) (${JSON.stringify({ wildShape: features.wildShape, keys: Object.keys(features) })})`)
-  check(JSON.parse(hello().body ?? '{}').features?.wildShape === 1, `the app answers wildShape: 1 (${hello().body})`)
+  // Changed on purpose (item 60): 2, known forms from anywhere, from module 0.54.0.
+  check(JSON.parse(hello().body ?? '{}').features?.wildShape === 2, `the app answers wildShape: 2 (${hello().body})`)
   await until(() => wildShapeEnabled() === 't', 'the app to keep Wild Shape on', 15_000)
   check(wildShapeEnabled() === 't', 'the campaign row keeps wildShapeEnabled on')
 }
@@ -1093,20 +1095,145 @@ part('25. the pool')
   await knowing(elowen, [...known, profile('elowenThorin0000', 'Thorin', 'Actor.thorin'), profile('elowenSecretHare', 'Moon Hare', 'Compendium.world.secret-beasts.Actor.secretHare000000')])
   await until(() => (stored().wildShape?.known ?? []).length === 5, 'the two on her stored sheet', 20_000)
   const outside = stored().wildShape.known.slice(3)
-  check(sameJson(outside, [{ id: 'elowenThorin0000', name: 'Thorin', pool: false }, { id: 'elowenSecretHare', name: 'Moon Hare', pool: false }]),
-    `no stats for either in the stored sheet: ${JSON.stringify(outside)}`)
+  // Changed on purpose (item 60): module 0.54.0 says why each is used only in Foundry, to an app that
+  // says wildShape 2: Alice may observe neither Thorin, Carol's, nor the Gamemaster's own pack.
+  check(sameJson(outside, [{ id: 'elowenThorin0000', name: 'Thorin', pool: false, why: 'permission' }, { id: 'elowenSecretHare', name: 'Moon Hare', pool: false, why: 'permission' }]),
+    `no stats for either in the stored sheet, and why: ${JSON.stringify(outside)}`)
   await tab(desk, 'Actions')
   await openPicker(desk, wsRowOn(desk))
   await until(async () => (await cards(desk).count()) === 5, 'the two cards in the picker', 20_000)
   const names = await cardNames(desk)
   const thorinCard = card(desk, 'Thorin')
-  check(names.includes('Thorin, not from your Gamemaster’s compendiums') && names.includes('Moon Hare, not from your Gamemaster’s compendiums')
+  check(names.includes('Thorin, not shared in Foundry') && names.includes('Moon Hare, not shared in Foundry')
     && await thorinCard.getAttribute('aria-disabled') === 'true' && (await thorinCard.textContent()).includes('Only in Foundry.'),
-  `the picker lists them by name with "Not from your Gamemaster’s compendiums" and "Only in Foundry.", not offered: ${JSON.stringify(names)}`)
+  `the picker lists them by name with "Not shared in Foundry" and "Only in Foundry.", not offered: ${JSON.stringify(names)}`)
   await dialog(desk).getByRole('button', { name: 'Close' }).click()
   const posts = []
   for (const id of ['elowenThorin0000', 'elowenSecretHare']) posts.push(await crafted(desk, API, { op: 'transform', form: id }))
   check(posts.every(post => post.status === 422 && post.json?.reason === 'form'), `a crafted transform into each: ${JSON.stringify(posts.map(p => [p.status, p.json?.reason]))}`)
+}
+
+// =================================================================================================
+// 26. Known forms from anywhere (module 0.54.0)
+// =================================================================================================
+part('26. forms from anywhere')
+{
+  // Module 0.54.0 (item 60, the owner's answer A): to an app that says wildShape 2, a known form put on
+  // her Wild Shape in Foundry from another Actor compendium or a world actor is taken from the app
+  // where each of her players could use it in Foundry: Alice owns Elowen and may observe it, dnd5e's
+  // Allow Transformation is on, and she has Create New Actors; any other carries why not. A world
+  // actor's Grey Wolf, a copy of the 2024 Wolf Alice may observe, and the Monsters' Wolf, beside her
+  // three from the pool: two of the five would read "Wolf", so each card is found by its profile's id.
+  await t5.rest(elowen, { type: 'long' })
+  const before = profilesOf().map(p => profile(p._id, p.name, p.uuid))
+  const wolfSource = structuredClone(game.packs.get('dnd5e.actors24').sources.get(t5.beastUuid('Wolf').split('.').at(-1)))
+  const greyWolf = await Actor.implementation.create({ ...wolfSource, _id: 'greyWolf00000000', name: 'Grey Wolf', folder: null,
+    ownership: { default: 0, alice: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER } }, { keepId: true })
+  const GREY = 'elowenGreyWolf00'
+  const MONSTERS = 'elowenMonWolf000'
+  await knowing(elowen, [...before.slice(0, 3), profile(GREY, 'Grey Wolf', greyWolf.uuid), profile(MONSTERS, 'Wolf', t5.beastUuid('Wolf', 'dnd5e.monsters'))])
+  const knownAt = id => (stored()?.wildShape?.known ?? []).find(each => each.id === id)
+  const whys = () => [GREY, MONSTERS].map(id => knownAt(id)?.why ?? (knownAt(id)?.pool ? 'pool' : null))
+  const cardOf = (who, id) => dialog(who).locator(`[data-ws-card="${id}"]`)
+  const looks = who => Promise.all([GREY, MONSTERS].map(async id => ({ name: await cardOf(who, id).getAttribute('aria-label'), off: await cardOf(who, id).getAttribute('aria-disabled') })))
+
+  // 1. Allow Transformation off, as dnd5e's default: both listed by name, transformation off.
+  await until(() => same(whys(), ['transformation', 'transformation']), 'both on her stored sheet, transformation off', 20_000).catch(() => {})
+  check(same(whys(), ['transformation', 'transformation']) && !('cr' in (knownAt(GREY) ?? {})) && !('cr' in (knownAt(MONSTERS) ?? {})),
+    `Allow Transformation off: the Grey Wolf and the Monsters' Wolf "transformation", no stats (${JSON.stringify([knownAt(GREY), knownAt(MONSTERS)])})`)
+  await tab(desk, 'Actions')
+  await openPicker(desk, wsRowOn(desk))
+  await until(async () => (await cards(desk).count()) === 5, 'five cards', 10_000)
+  const off = await looks(desk)
+  check(off.every(card => card.name?.endsWith(', transformation is off in Foundry') && card.off === 'true'),
+    `each card "…, transformation is off in Foundry", not offered: ${JSON.stringify(off)}`)
+  await dialog(desk).getByRole('button', { name: 'Close' }).click()
+
+  // 2. Allow Transformation on, its setting stored the first time: Alice may not create actors; then
+  // Create New Actors given to every role: both taken from here, with their numbers.
+  settings.set('allowPolymorphing', true)
+  await Hooks.callAll('createSetting', { key: 'dnd5e.allowPolymorphing' }, {}, 'gm')
+  await until(() => same(whys(), ['create', 'create']), 'both needing Create New Actors', 20_000).catch(() => {})
+  check(same(whys(), ['create', 'create']), `Allow Transformation on: both "create", Alice without Create New Actors (${JSON.stringify(whys())})`)
+  await setPermission('ACTOR_CREATE', [1, 2, 3, 4])
+  const numbered = id => {
+    const known = knownAt(id)
+    return known?.pool === true && !('why' in known) && known.cr === 0.25 && Number.isFinite(known.ac) && known.speeds?.length > 0 && Boolean(known.attack?.name)
+  }
+  await until(() => numbered(GREY) && numbered(MONSTERS), 'both taken from here, with their numbers', 20_000).catch(() => {})
+  check(numbered(GREY) && numbered(MONSTERS), `Create New Actors for every role: both pool: true, with CR, AC, speeds and attack (${JSON.stringify([knownAt(GREY), knownAt(MONSTERS)])})`)
+  await openPicker(desk, wsRowOn(desk))
+  await until(async () => (await looks(desk)).every(card => card.off === null), 'both offered', 20_000).catch(() => {})
+  const on = await looks(desk)
+  check(on.every(card => card.off === null) && on[0].name?.startsWith('Grey Wolf, Medium, CR 1/4, AC') && on[1].name?.startsWith('Wolf, Medium, CR 1/4, AC'),
+    `each card offered, with its numbers: ${JSON.stringify(on)}`)
+
+  // 3. Into the Grey Wolf by its card: from the world actor, as from the pool.
+  await paced()
+  const was = commands().length
+  await cardOf(desk, GREY).click()
+  await become(desk).click()
+  const made = await answered(was + 1, 'the change into the Grey Wolf')
+  await until(() => stored()?.form?.name === 'Grey Wolf', "the Grey Wolf's sheet kept", 20_000)
+  await until(async () => (await ribbonText(desk))?.includes('Wild Shape · Grey Wolf'), 'the ribbon of the Grey Wolf', 20_000)
+  const result = postsOf('command.result').find(p => p.data?.id === made.id)?.data?.wildShape
+  const record = formOf()?.getFlag('sending-stone', 'form')
+  await column(desk, 'Chat')
+  const line = desk.log.locator('li').filter({ hasText: 'Elowen uses Wild Shape and becomes a Grey Wolf.' })
+  await line.waitFor({ timeout: 20_000 }).catch(() => {})
+  check(made.status === 'done' && result?.form?.uuid === greyWolf.uuid && record?.uuid === greyWolf.uuid && await line.count() === 1,
+    `a change into the Grey Wolf: done, its result's form and the form's record from ${greyWolf.uuid}, "Elowen uses Wild Shape and becomes a Grey Wolf." in chat, the ribbon (${JSON.stringify({ status: made.status, result: result?.form, record: record?.uuid, lines: await line.count() })})`)
+  await returnFrom(desk)
+  check(!formOf() && !stored()?.form, 'Return: her own sheet again')
+
+  // 4. Alice's Observer on the Grey Wolf taken away in Foundry, nothing of Elowen changed: her sheet
+  // is sent again, and the card says why.
+  await greyWolf.update({ 'ownership.alice': CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE })
+  await tab(desk, 'Actions')
+  await openPicker(desk, wsRowOn(desk))
+  const unshared = async () => (await cardOf(desk, GREY).getAttribute('aria-label'))?.endsWith(', not shared in Foundry')
+  await until(unshared, 'the Grey Wolf unshared', 20_000).catch(() => {})
+  check(await unshared() && knownAt(GREY)?.why === 'permission' && await cardOf(desk, GREY).getAttribute('aria-disabled') === 'true',
+    `within 20 s, the Grey Wolf's card "…, not shared in Foundry", not offered ("${await cardOf(desk, GREY).getAttribute('aria-label')}")`)
+  await dialog(desk).getByRole('button', { name: 'Close' }).click()
+  const refused = await crafted(desk, API, { op: 'transform', form: GREY })
+  check(refused.status === 422 && refused.json?.reason === 'form', `a crafted change into it: ${refused.status} ${JSON.stringify(refused.json)}`)
+
+  // 5. Allow Transformation off again, and on her phone at 360 × 780 the two badges: nothing wider than
+  // its box, each name at least 80 px wide, each badge on one line.
+  settings.set('allowPolymorphing', false)
+  await Hooks.callAll('updateSetting', { key: 'dnd5e.allowPolymorphing' }, {}, 'gm')
+  await until(() => same(whys(), ['permission', 'transformation']), "the Monsters' Wolf transformation off", 20_000).catch(() => {})
+  check(same(whys(), ['permission', 'transformation']), `Allow Transformation off again: the Grey Wolf "permission", the Monsters' Wolf "transformation" (${JSON.stringify(whys())})`)
+  await phone.page.setViewportSize({ width: 360, height: 780 })
+  phone.width = 360
+  await tab(phone, 'Actions')
+  await openPicker(phone, wsRowOn(phone))
+  await until(async () => (await cardOf(phone, MONSTERS).getAttribute('aria-label'))?.endsWith(', transformation is off in Foundry'), 'the badges on her phone', 20_000).catch(() => {})
+  const fit = await dialog(phone).evaluate((el, ids) => ({
+    dialog: el.scrollWidth <= el.clientWidth,
+    cards: ids.map(id => {
+      const card = el.querySelector(`[data-ws-card="${id}"]`)
+      const badge = card.querySelector('.rounded-full.border')
+      const name = card.querySelector('.font-semibold').parentElement
+      return {
+        id, fits: card.scrollWidth <= card.clientWidth, name: Math.round(name.getBoundingClientRect().width),
+        badge: badge.getClientRects().length === 1 && badge.clientHeight < 2 * parseFloat(getComputedStyle(badge).lineHeight),
+      }
+    }),
+  }), [GREY, MONSTERS])
+  check(fit.dialog && fit.cards.every(card => card.fits && card.name >= 80 && card.badge),
+    `at 360, the dialog and each card no wider than their boxes, each name at least 80 px wide, each badge one line (${JSON.stringify(fit)})`)
+  await shootBoth(phone, 'wildshape-anywhere', dialog(phone))
+  await dialog(phone).getByRole('button', { name: 'Close' }).click()
+  await phone.page.setViewportSize({ width: 390, height: 844 })
+  phone.width = 390
+
+  // 6. As it was: Create New Actors for no role, the Grey Wolf gone, her five known forms back.
+  await setPermission('ACTOR_CREATE', [])
+  await Actor.implementation.deleteDocuments([greyWolf.id])
+  await knowing(elowen, before)
+  await until(() => (stored()?.wildShape?.known ?? []).length === 5 && !knownAt(GREY), 'her five known forms again', 20_000)
 }
 
 // =================================================================================================

@@ -28,17 +28,22 @@ export function named(words: string, name: string): string {
  * or not the game polls now (H6 B; the owner's round 3 decision 3): Help never describes what its
  * game can't do, and its words never shift as the switches change. And "Companions elsewhere." only
  * where its module lists companions on every scene, module 0.51.0 or later, as its hello said last
- * (`TableView['companionsAway']`).
+ * (`TableView['companionsAway']`); and "Constant companions." only where it lists the
+ * Gamemaster's constant companions, module 0.54.0 or later (`TableView['companionsConstant']`).
  */
 export function helpSections({
   laterDice,
   companionsAway,
+  companionsConstant,
 }: HelpShown): HelpSection[] {
-  if (laterDice && companionsAway) return HELP_SECTIONS
+  if (laterDice && companionsAway && companionsConstant) return HELP_SECTIONS
   return HELP_SECTIONS.map(section => ({
     ...section,
     parts: section.parts.filter(
-      part => (laterDice || !part.later) && (companionsAway || !part.away),
+      part =>
+        (laterDice || !part.later) &&
+        (companionsAway || !part.away) &&
+        (companionsConstant || !part.constant),
     ),
   }))
 }

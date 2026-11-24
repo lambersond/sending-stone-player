@@ -9,6 +9,7 @@ import {
   KeyRound,
   MessageSquare,
   PawPrint,
+  Pin,
   Sparkles,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -36,6 +37,7 @@ import {
   chatText,
   coinsText,
   companionsLine,
+  constantText,
   dishesText,
   effectsText,
   healthText,
@@ -128,6 +130,17 @@ export function CampaignCard({
               Players&apos; rolls
             </h3>
             <p className='text-sm text-text-secondary'>{rollsText(campaign)}</p>
+          </section>
+
+          {/* The companions its Gamemaster keeps beside a character, from module 0.54.0. */}
+          <section className='grid gap-1'>
+            <h3 className='flex items-center gap-1.5 text-sm font-medium'>
+              <Pin aria-hidden className='size-4 text-text-secondary' />
+              Constant companions
+            </h3>
+            <p className='text-sm text-text-secondary'>
+              {constantText(campaign)}
+            </p>
           </section>
 
           <section className='grid gap-1'>

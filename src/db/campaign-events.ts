@@ -338,9 +338,10 @@ async function applyHello(
   // `companionsEverywhere`, the list this app is listed, which it keeps: the hello is built before
   // the module knows this app, so a list read from `companions` alone would drop every companion on
   // another scene, with its sheet, at each Gamemaster's page load. An older module's `companions`
-  // stand.
-  const { companions = [], companionsEverywhere } = data
-  const listed = companionsEverywhere ?? companions
+  // stand. From module 0.54.0 it lists them, the Gamemaster's constant companions among them, as
+  // `companionsConstant`, which this app, saying `companions: 4`, is listed and keeps.
+  const { companions = [], companionsEverywhere, companionsConstant } = data
+  const listed = companionsConstant ?? companionsEverywhere ?? companions
   const { module, foundry, system, settings } = data
   const switches = helloCampaignData(features)
   const before = await tx.campaign.findUnique({
@@ -357,7 +358,7 @@ async function applyHello(
       // Its characters' companions, from module 0.36.0, each as listed, never its sheet; and how
       // they roll (`helloCompanionData`).
       companions: listed.map(entry => toJson(entry)),
-      ...helloCompanionData(features),
+      ...helloCompanionData(features, system),
       // Whether its module is one that asks a typing player for the dice an item rolls later, by
       // its versions, whatever its switches, for Help at either seat: apart from what follows,
       // which a player's view never reads.

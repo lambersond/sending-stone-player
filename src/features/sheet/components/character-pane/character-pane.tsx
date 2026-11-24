@@ -87,6 +87,7 @@ export function CharacterPane({
   locked = false,
   idPrefix = '',
   note,
+  targetless = false,
   companionNotice,
 }: Readonly<CharacterPaneProps>) {
   const table = useTableRolls(characterId, rollsToTable, rollFeatures)
@@ -155,6 +156,9 @@ export function CharacterPane({
   const entries = useMemo(() => favoriteEntries(sheet), [sheet])
   // How each spell an item casts is cast, and at which levels it may be.
   const itemCasts = useMemo(() => castIndex(sheet), [sheet])
+  // Who its attacks and uses may be at: the encounter's, but none for a constant companion with no
+  // token (module 0.54.0), whose Combat tab still shows it.
+  const pickFrom = targetless ? undefined : combat
   const picking = usePicking({
     locked,
     lockedNow,
@@ -163,7 +167,7 @@ export function CharacterPane({
     sheet,
     entries,
     itemCasts,
-    combat,
+    combat: pickFrom,
   })
   const { tab, tabs, show, scroller } = useSheetTabs({ sheet, creature, notes })
   const [body, setBody] = useState<HTMLDivElement | null>(null)
@@ -274,7 +278,7 @@ export function CharacterPane({
     onRollDamage,
     sheet,
     entries,
-    combat,
+    combat: pickFrom,
   })
   // The features resources stand for are marked as favorites too, as their entries say.
   const marks = useMemo(
@@ -429,7 +433,7 @@ export function CharacterPane({
         />
         <UsePicker
           picking={picking.picking}
-          combat={combat}
+          combat={pickFrom}
           spellbook={sheet.spells}
           casts={itemCasts}
           belongings={belongings}

@@ -228,8 +228,8 @@ run effects 7 SKEW=038 MODULE=$O/module-0.38.1 SHOTS=$O/shots-039
 run campaigns 54 SHOTS=$O/shots-039
 # Module 0.40.0: Wild Shape from the app, a 2024 druid's known forms, the shaped seat; dnd5e 6.0.5;
 # and module 0.39.0 (none). Since module 0.49.0 its return keeps the effects others put on the form,
-# and takes off those taken off it.
-run wildshape 96 TIMEOUT=900 SHOTS=$O/shots-040
+# and takes off those taken off it; since module 0.54.0, known forms from anywhere, shared or not.
+run wildshape 107 TIMEOUT=900 SHOTS=$O/shots-040
 run wildshape 33 DND5E6=1 SHOTS=$O/shots-040
 run wildshape 8 SKEW=039 MODULE=$O/module-0.39.0 SHOTS=$O/shots-040
 # Module 0.41.0: the saves the game asks of companions, on their own panes; Midi-QOL's; dnd5e 6.0.5;
@@ -309,3 +309,29 @@ run encounters 37 SKEW=050 MODULE=$O/module-0.50.0
 # minutes, on its own timings: run alone after the lanes (lanes.conf's solo).
 run quiet 26 TIMEOUT=600
 run quiet 12 TIMEOUT=600 SKEW=049 MODULE=$O/module-0.49.0
+# Item 98 (module 0.54.0): constant companions, in world-030's world with scenes: the hello's
+# companionsConstant and the app's companions: 4; the Gamemaster's mark taking a summoned token of
+# dnd5e's copy over; with no token, the pin, the dashed ring and circle, the note, rolls, an attack
+# at no one saying "No target" (MIDI=1: Midi-QOL's workflow at no one), a versatile one's picker
+# offering no one in the fight, a use and hit points on the NPC marked; at 390 and 1280 its ring
+# dashed and round, nothing wider than the page; a token placed, moved to another scene and deleted,
+# the placing and the deleting on the page by its next read; the Gamemaster's card and seat, the
+# keyboard and Help; and module 0.53.0, which keeps none.
+run constant 24 SHOTS=$O/shots-054
+run constant 24 MIDI=1 SHOTS=$O/shots-054
+run constant 24 DND5E6=1 SHOTS=$O/shots-054
+run constant 7 SKEW=053 MODULE=$O/module-0.53.0 SHOTS=$O/shots-054
+# Item 59 (module 0.54.0): summon activities cast from the app, in world-030's world with scenes:
+# the hello's summons and the app's summons: 1; Find Familiar's picker, its creatures, types and who
+# places it, cast as the Owl, Fey, at no one, its slot spent, the tray's line and the card's "Chosen
+# on Sending Stone"; the card's Summon button opening dnd5e's dialog with them chosen, the Owl
+# placed and its tab; Summon Beast's Air from the 3rd, Land chosen in its place at the 2nd, and its
+# concentration; Conjure Animals' labels at the 3rd and 5th, cast at the 5th as its Challenge Rating
+# 2, the tray's "places the creatures" and the card's band; Summon Air Spirit cast Large, its card's
+# line and dnd5e's dialog with Large chosen; Pack of Wolves used at once; the Gamemaster's seat; the
+# keyboard and the layout at 390, dnd5e's fourteen creatures listed, Conjure Animals' chips whole
+# and the tray's line; and module 0.53.0, which casts none.
+run summons 33 SHOTS=$O/shots-summons
+run summons 33 MIDI=1
+run summons 33 DND5E6=1
+run summons 4 SKEW=053 MODULE=$O/module-0.53.0

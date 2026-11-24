@@ -5,11 +5,12 @@ import type { TableCompanion } from '@/types/table'
 
 /*
  * A campaign's characters' companions, from module 0.36.0, as the campaign keeps them: the
- * creatures each character summoned in Foundry and the NPCs its player owns there, each with the
- * campaign characters it's a companion of. Never a character's roster entry.
+ * creatures each character summoned in Foundry and the NPCs its player owns there, and from module
+ * 0.54.0 those its Gamemaster keeps beside it, each with the campaign characters it's a companion
+ * of. Never a character's roster entry.
  */
 
-const KINDS: ReadonlySet<string> = new Set(['owned', 'summoned'])
+const KINDS: ReadonlySet<string> = new Set(['owned', 'summoned', 'constant'])
 
 /**
  * A campaign's companions, as stored: those that can be read, by a key, the characters each is
@@ -33,7 +34,8 @@ export function companionRoster(companions: unknown): CompanionEntry[] {
 /**
  * A companion as its character's tab shows it: its key, name and portrait, its kind, for a
  * summoned one the item it was summoned with, where it's named, and from module 0.51.0 whether
- * it's on another scene, where the module says it is.
+ * it's on another scene, where the module says it is; and from module 0.54.0, for a constant one,
+ * whether it has no token on any scene, where the module says so.
  * @param origin - The game's address, which its portrait's path may be relative to.
  */
 export function tableCompanion(
@@ -49,6 +51,8 @@ export function tableCompanion(
     kind: entry.kind,
     ...(from && { from }),
     ...(entry.away === true && { away: true as const }),
+    ...(entry.kind === 'constant' &&
+      entry.placed === false && { unplaced: true as const }),
   }
 }
 

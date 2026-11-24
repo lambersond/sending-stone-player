@@ -42,6 +42,9 @@ import {
   sheetItem,
   sheetSpell,
   SLEIGHT_CHECK,
+  summoningSheet,
+  summonProfile,
+  summonUse,
   TAKING_DISHES,
   TAKING_EFFECTS,
   TAKING_WILD_SHAPE,
@@ -3704,6 +3707,138 @@ describe('enchant activities and enchantments, from module 0.21.0', () => {
   })
 })
 
+describe('summon activities, from module 0.54.0', () => {
+  const familiar = summonUse('ffSummon', {
+    profiles: [
+      summonProfile('batProfile000000', 'Bat'),
+      summonProfile('owlProfile000000', 'Owl'),
+    ],
+    types: [
+      { key: 'celestial', label: 'Celestial' },
+      { key: 'fey', label: 'Fey' },
+    ],
+  })
+  const animals = summonUse('caSummon', {
+    profiles: [
+      summonProfile('caCr2', 'Challenge Rating of 2 or lower', {
+        count: '1',
+        min: 3,
+        higher: [
+          { level: 5, name: 'Challenge Rating of 2 or lower', count: '2' },
+        ],
+      }),
+    ],
+  })
+
+  it('reads what a summon activity summons, its creatures at each level, types and sizes, on spells, features, actions and favorites', () => {
+    const sheet = summoningSheet()
+    const read = readSheet(sheet)
+    expect(read.spells[0].spells[0].activity).toEqual(
+      sheet.spells[0].spells[0].activity,
+    )
+    expect(read.features[0].features[0].activity.summon.profiles).toEqual([
+      summonProfile('wolvesProfile000', 'Wolf', { count: '2' }),
+    ])
+    for (const use of readUse(familiar)) expect(use).toEqual(familiar)
+    for (const use of readUse(animals)) expect(use).toEqual(animals)
+  })
+
+  it.each([
+    ['without what it summons', { ...familiar, summon: undefined }],
+    ['with what it summons malformed', { ...familiar, summon: 'owl' }],
+    [
+      'with no creature',
+      { ...familiar, summon: { ...familiar.summon, profiles: [] } },
+    ],
+    [
+      'with no creature it can read',
+      {
+        ...familiar,
+        summon: {
+          ...familiar.summon,
+          profiles: [{ ...summonProfile('not an id', 'Owl') }],
+        },
+      },
+    ],
+  ])('reads a summon activity %s as none, used in Foundry', (_name, use) => {
+    for (const read of readUse(use)) expect(read).toBeNull()
+  })
+
+  it('drops a malformed creature, or one twice, the rest kept, at most twenty', () => {
+    const [read] = readUse({
+      ...familiar,
+      summon: {
+        ...familiar.summon,
+        profiles: [
+          ...familiar.summon!.profiles,
+          familiar.summon!.profiles[0],
+          summonProfile('backwards000000', 'Backwards', { min: 5, max: 4 }),
+          summonProfile('unnamed00000000', ''),
+          summonProfile('countless000000', 'Countless', { count: '' }),
+          ...Array.from({ length: 20 }, (_, i) =>
+            summonProfile(`bat${String(i).padStart(2, '0')}`, `Bat ${i}`),
+          ),
+        ],
+      },
+    })
+    expect(read.summon.profiles.map(({ id }: { id: string }) => id)).toEqual([
+      'batProfile000000',
+      'owlProfile000000',
+      ...Array.from(
+        { length: 18 },
+        (_, i) => `bat${String(i).padStart(2, '0')}`,
+      ),
+    ])
+  })
+
+  it('drops a malformed level above, reading none where missing', () => {
+    const [read] = readUse({
+      ...animals,
+      summon: {
+        ...animals.summon,
+        profiles: [
+          {
+            ...animals.summon!.profiles[0],
+            higher: [
+              { level: 1, name: 'too low', count: '2' },
+              { level: 5, name: '', count: '2' },
+              { level: 10, name: 'too high', count: '2' },
+              { level: 7, name: 'Challenge Rating of 2 or lower', count: '3' },
+            ],
+          },
+          {
+            id: 'caCr1',
+            name: 'Challenge Rating of 1 or lower',
+            count: '2',
+            min: null,
+            max: null,
+          },
+        ],
+      },
+    })
+    expect(read.summon.profiles[0].higher).toEqual([
+      { level: 7, name: 'Challenge Rating of 2 or lower', count: '3' },
+    ])
+    expect(read.summon.profiles[1].higher).toEqual([])
+  })
+
+  it('drops a malformed type or size, reading none where missing', () => {
+    const [read] = readUse({
+      ...familiar,
+      summon: {
+        profiles: familiar.summon!.profiles,
+        types: [
+          { key: 'fey', label: 'Fey' },
+          { key: 'not a key', label: 'Fiend' },
+          { key: 'celestial', label: '' },
+        ],
+      },
+    })
+    expect(read.summon.types).toEqual([{ key: 'fey', label: 'Fey' }])
+    expect(read.summon.sizes).toEqual([])
+  })
+})
+
 describe('dice damage takes away, from module 0.21.0', () => {
   /** The rest of what a hello says of rolls, kept whatever it says of these. */
   const rolls = {
@@ -4896,6 +5031,63 @@ describe('schemas/sending-stone, companions, from module 0.36.0', () => {
     ])
   })
 
+  // Module 0.54.0 (item 98): to this app, the Gamemaster's constant companions, each saying
+  // whether a token of it is on a scene, and the hello's list with them, beside the other two.
+  it('reads a constant companion and whether it’s placed, leaving out what isn’t a boolean, and drops another kind', () => {
+    const [none, placed, junk] = hello([
+      mockCompanionEntry({
+        key: 'steelDef',
+        actorId: 'steelDef',
+        kind: 'constant',
+        placed: false,
+      }),
+      mockCompanionEntry({
+        key: 'owl',
+        actorId: 'owl',
+        kind: 'constant',
+        placed: true,
+      }),
+      {
+        ...mockCompanionEntry({ key: 'hawk', actorId: 'hawk' }),
+        kind: 'constant',
+        placed: 'x',
+      },
+      {
+        ...mockCompanionEntry({ key: 'bear', actorId: 'bear' }),
+        kind: 'other',
+      },
+    ]).companions
+    expect([none.kind, none.placed, placed.placed]).toEqual([
+      'constant',
+      false,
+      true,
+    ])
+    expect(junk.key).toBe('hawk')
+    expect(junk.placed).toBeUndefined()
+    expect(hello([{ ...wolf, kind: 'other' }]).companions).toEqual([])
+    const features = (constant: unknown) =>
+      hello([], { companions: { kinds: [], initiative: 'own', constant } })
+        .features.companions.constant
+    expect([features(true), features('yes'), features(undefined)]).toEqual([
+      true,
+      undefined,
+      undefined,
+    ])
+    const read = parseGameEvent('bridge.hello', {
+      characters: roster,
+      combats: [],
+      companions: [wolf],
+      companionsConstant: [
+        wolf,
+        { ...wolf, key: 'steelDef', kind: 'constant', placed: false },
+      ],
+    })?.data as any
+    expect(
+      read.companionsConstant.map((each: { key: string }) => each.key),
+    ).toEqual(['wolfBrakka', 'steelDef'])
+    expect(hello([wolf]).companionsConstant).toBeUndefined()
+  })
+
   it('reads the hello’s companions on every scene, from module 0.51.0, and none where unsaid', () => {
     const everywhere = [wolf, { ...imp, away: true }]
     const read = parseGameEvent('bridge.hello', {
@@ -5649,6 +5841,8 @@ describe('schemas/sending-stone, Wild Shape, from module 0.40.0', () => {
       { speeds: 'Walk 40 ft' },
       { speeds: undefined },
     ],
+    ['a why it can’t read, as none', { why: 'nope' }, { why: undefined }],
+    ['a why it reads', { why: 'owner' }, { why: 'owner' }],
   ])('reads a known form with %s', (_name, fields, read) => {
     const [first] = readSheet(
       druidSheet({

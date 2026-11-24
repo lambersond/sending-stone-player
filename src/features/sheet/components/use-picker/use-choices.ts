@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSummonChoices } from './use-summon-choices'
 import {
   choicesOf,
   defaultSlot,
@@ -8,6 +9,7 @@ import {
   whomOf,
 } from './utils'
 import { enchantOf, offeredProfiles } from '@/features/sheet/utils/enchantments'
+import { offeredSummons, summonOf } from '@/features/sheet/utils/summons'
 import { castAtLevel, castOf } from '@/utils/casts'
 import { friendly, selfDefault } from '@/utils/uses'
 import type { Picked, Picking, Targeting } from './types'
@@ -17,9 +19,10 @@ import type { TableCombat, TableCombatant } from '@/types/table'
 /**
  * An attack's or a use's choices as they're made: the slot, or the level, the ammunition and the
  * attack mode, each preset as the game would have it; for one that enchants, the way it enchants,
- * of those offered at the level chosen; and whom at, as `whomOf` has it, picked by its `targeting`:
- * those ticked, a use made at its user by default with them ticked already, as Self, and what the
- * targets are searched by.
+ * of those offered at the level chosen; for one that summons, from module 0.54.0, the creature,
+ * type and size, as `useSummonChoices` has them; and whom at, as `whomOf` has it, picked by its
+ * `targeting`: those ticked, a use made at its user by default with them ticked already, as Self,
+ * and what the targets are searched by.
  */
 export function useChoices({
   picking,
@@ -69,13 +72,14 @@ export function useChoices({
     usable &&
     !!action.activity &&
     (friendly(action.activity) || selfDefault(action))
-  // One that enchants is cast with the slot it's cast with, or at the level, even where there's no
-  // choice of it, as the ways it may enchant may hang on it.
+  // One that enchants, or summons, is cast with the slot it's cast with, or at the level, even
+  // where there's no choice of it, as the ways it may enchant, or what it summons, may hang on it.
   const enchant =
     picking.kind === 'use' ? enchantOf(action.activity) : undefined
+  const summon = picking.kind === 'use' ? summonOf(action.activity) : undefined
   const options = optionsOf(
     { pools, levels, ammunition, modes },
-    { slot, ammo, mode, enchanting: !!enchant },
+    { slot, ammo, mode, levelled: !!enchant || !!summon },
   )
   const pick = (targets: TableCombatant[]) =>
     onPick({ ...picked(targets), ...options })
@@ -88,12 +92,16 @@ export function useChoices({
   // above the one it's cast at by default.
   const castAt = castAtLevel(action, spellbook, slot, casts)
   const base = cast?.level ?? action.level
-  // The ways it may enchant at the level chosen; and a level it may enchant no way at isn't one.
+  // The ways it may enchant at the level chosen.
   const offered = enchant ? offeredProfiles(enchant, castAt) : []
   const [chosen, setChosen] = useState<string>()
   const profile = offered.find(({ id }) => id === chosen) ?? offered[0]
-  const enchantsAt = (level: number | null) =>
-    !enchant || offeredProfiles(enchant, level).length > 0
+  // The creatures it may summon at the level chosen, from module 0.54.0.
+  const summoning = useSummonChoices(summon, castAt)
+  // A level it may enchant no way at, or summon nothing at, isn't one.
+  const choosableAt = (level: number | null) =>
+    (!enchant || offeredProfiles(enchant, level).length > 0) &&
+    (!summon || offeredSummons(summon, level).length > 0)
   // Whom at.
   const whom = whomOf({
     picking,
@@ -125,7 +133,8 @@ export function useChoices({
     offered,
     profile,
     setChosen,
-    enchantsAt,
+    summoning,
+    choosableAt,
     whom,
     targeting,
   }

@@ -132,6 +132,23 @@ describe('utils/wild-shape-words, from module 0.40.0', () => {
     expect(badgeOf(elk({ fits: undefined }))).toBe('Outside the rules')
   })
 
+  // From module 0.54.0, one from anywhere else says why it's used only in Foundry; one of another
+  // shape, or from an older module that says no why, keeps the words it had.
+  it.each([
+    ['owner', 'Not your character in Foundry'],
+    ['permission', 'Not shared in Foundry'],
+    ['gone', 'Not found in Foundry'],
+    ['transformation', 'Transformation is off in Foundry'],
+    ['create', 'Needs Create New Actors in Foundry'],
+    ['source', 'Not from your Gamemaster’s compendiums'],
+    [undefined, 'Not from your Gamemaster’s compendiums'],
+  ] as const)(
+    'badges a known form from anywhere else, why %s, by what the game says',
+    (why, badge) => {
+      expect(badgeOf(elk({ pool: false, why }))).toBe(badge)
+    },
+  )
+
   it('says the manager’s line and when a known form may be replaced', () => {
     const full = wildShapeBlock()
     expect(managerLineWords(full, 'Elowen')).toBe(

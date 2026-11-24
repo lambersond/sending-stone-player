@@ -9,11 +9,12 @@ import {
   mockCompanionSheet,
   mockCompanionView,
   sheetAction,
+  sheetSpell,
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
 import type { TableSeat } from '@/types/character'
-import type { CompanionView, RowCompanion } from '@/types/table'
+import type { CompanionView, RowCompanion, TableCombat } from '@/types/table'
 
 /*
  * A companion's pane (module 0.36.0), its view and rolls through its own routes, which `fetch`
@@ -288,6 +289,223 @@ describe('CompanionPane', () => {
     expect(
       screen.getByRole('button', { name: 'Strength check, +4' }),
     ).toBeEnabled()
+  })
+
+  // Module 0.54.0 (item 98): a constant companion with no token on any scene says so under its
+  // tabs, its portrait dashed, and attacks at no one, its encounter still its own. The note's
+  // words are unplacedWords' own test; this is the wiring.
+  describe('a constant companion with no token', () => {
+    const STEEL: RowCompanion = { ...BRAKKA, kind: 'constant' }
+    const fight: TableCombat = {
+      id: 'cmbt1',
+      name: null,
+      underWay: true,
+      active: true,
+      round: 1,
+      combatants: [
+        {
+          id: 'c-goblin',
+          name: 'Goblin',
+          initiative: 15,
+          defeated: false,
+          side: 'other',
+        },
+        {
+          id: 'c-brakka',
+          name: 'Brakka',
+          initiative: null,
+          defeated: false,
+          side: 'me',
+        },
+      ],
+    }
+    const unplaced = (fields: Partial<CompanionView> = {}) =>
+      brakkaView({
+        companion: { ...STEEL, unplaced: true },
+        combat: fight,
+        ...fields,
+      })
+
+    it('says so above its sheet, its portrait dashed, and attacks at no one, the encounter still its own', async () => {
+      const user = userEvent.setup()
+      const asked = routes([unplaced()])
+      render(pane({ companion: STEEL }))
+      const note = await screen.findByRole('note')
+      expect(note).toHaveTextContent(
+        /^Brakka isn’t on a scene in your Gamemaster’s game\./,
+      )
+      expect(
+        note.compareDocumentPosition(
+          screen.getByRole('heading', { level: 2, name: 'Brakka' }),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+      expect(
+        screen.getByText('Thorin’s constant companion'),
+      ).toBeInTheDocument()
+      expect(document.querySelector('img')).toHaveClass('border-dashed')
+      // Its initiative is still for the encounter, whose combatant it is.
+      expect(
+        screen.getByRole('button', {
+          name: 'Initiative, +2, to roll for the combat',
+        }),
+      ).toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      await user.click(screen.getByRole('button', { name: 'Bite attack, +4' }))
+      expect(screen.queryByRole('dialog', { name: 'Bite attack' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Goblin' })).toBeNull()
+      const attack = posts(asked).find(
+        ({ body }) => (body as { kind?: string })?.kind === 'attack',
+      )
+      expect(attack?.url).toBe(`${API}/rolls`)
+      expect((attack?.body as { targets?: unknown[] }).targets ?? []).toEqual(
+        [],
+      )
+    })
+
+    // Where its picker opens, for a choice its attack or use asks, it offers no one in the
+    // encounter: an attack goes at no one, as out of a fight, and a use the game makes at its user
+    // goes at Self.
+    it('offers no one in the encounter where its picker opens: an attack at no one, a use at Self', async () => {
+      const user = userEvent.setup()
+      const modes = biteAction({
+        attackModes: [
+          { value: 'oneHanded', label: 'One-Handed' },
+          { value: 'twoHanded', label: 'Two-Handed' },
+        ],
+      })
+      const healing = sheetAction({
+        id: 'healWord',
+        name: 'Healing Word',
+        type: 'spell',
+        level: 1,
+        range: 'Self',
+        activity: {
+          id: 'healWordHeal',
+          type: 'heal',
+          targets: {
+            self: false,
+            area: false,
+            count: null,
+            perLevel: null,
+            affects: 'creature',
+            fromSelf: true,
+          },
+        },
+      })
+      const sheet = toTableSheet(
+        mockCompanionSheet({
+          actions: [
+            { id: 'action', label: 'Actions', actions: [modes, healing] },
+          ],
+          spells: [
+            {
+              id: 'spell1',
+              label: '1st Level',
+              slots: { value: 2, max: 2, level: 1 },
+              spells: [sheetSpell({ id: 'healWord', name: 'Healing Word' })],
+            },
+            {
+              id: 'spell2',
+              label: '2nd Level',
+              slots: { value: 1, max: 1, level: 2 },
+              spells: [],
+            },
+          ],
+        }),
+        GAME,
+      )
+      const asked = routes([
+        unplaced({
+          sheet,
+          rollsToTable: ['attack', 'damage', 'use'],
+          rollFeatures: ['selfTargets'],
+        }),
+      ])
+      render(pane({ companion: STEEL }))
+      await screen.findByRole('note')
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(screen.getByRole('button', { name: 'Bite attack, +4' }))
+      let picker = await screen.findByRole('dialog', { name: 'Bite attack' })
+      expect(
+        within(picker).getByRole('radio', { name: 'Two-Handed' }),
+      ).toBeInTheDocument()
+      expect(
+        within(picker).queryByRole('button', { name: 'Goblin' }),
+      ).toBeNull()
+      expect(
+        within(picker).queryByRole('button', { name: 'No target' }),
+      ).toBeNull()
+      await user.click(within(picker).getByRole('button', { name: 'Attack' }))
+      const attack = posts(asked).find(
+        ({ body }) => (body as { kind?: string })?.kind === 'attack',
+      )
+      expect((attack?.body as { targets?: unknown[] }).targets ?? []).toEqual(
+        [],
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'Cast Healing Word' }),
+      )
+      picker = await screen.findByRole('dialog', { name: 'Healing Word' })
+      expect(within(picker).getByText('At: Self')).toBeInTheDocument()
+      expect(
+        within(picker).queryByRole('button', { name: /Goblin/ }),
+      ).toBeNull()
+      expect(
+        within(picker).queryByRole('checkbox', { name: /Goblin|Self/ }),
+      ).toBeNull()
+      await user.click(within(picker).getByRole('button', { name: 'Cast' }))
+      const use = posts(asked).find(
+        ({ body }) => (body as { kind?: string })?.kind === 'use',
+      )
+      expect(use?.body).toMatchObject({ targets: [], self: true })
+    })
+
+    it('picks among the encounter as ever once a token of it is on a scene', async () => {
+      const user = userEvent.setup()
+      routes([unplaced({ companion: STEEL })])
+      render(pane({ companion: STEEL }))
+      expect(
+        await screen.findByText('Thorin’s constant companion'),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('note')).toBeNull()
+      expect(document.querySelector('img')).not.toHaveClass('border-dashed')
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+      await user.click(screen.getByRole('button', { name: 'Bite attack, +4' }))
+      expect(
+        within(screen.getByRole('dialog', { name: 'Bite attack' })).getByRole(
+          'button',
+          { name: 'Goblin' },
+        ),
+      ).toBeEnabled()
+    })
+
+    it('says the game is theirs at the Gamemaster’s seat', async () => {
+      routes([unplaced()])
+      render(
+        pane({
+          companion: STEEL,
+          seat: {
+            role: 'gm',
+            api: '/api/characters/char-1',
+            key: 'gm:c1:char-1',
+          },
+        }),
+      )
+      expect(await screen.findByRole('note')).toHaveTextContent(
+        /^Brakka isn’t on a scene in your game\./,
+      )
+    })
+
+    it('says only that it’s gone where it has left', async () => {
+      routes([unplaced({ connected: false, rollsToTable: undefined })])
+      render(pane({ companion: STEEL }))
+      expect(await screen.findByRole('note')).toHaveTextContent(
+        /^Brakka is no longer with Thorin/,
+      )
+      expect(screen.getAllByRole('note')).toHaveLength(1)
+    })
   })
 
   it('says only that it’s gone where it’s left while away, and offers nothing', async () => {

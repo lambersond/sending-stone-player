@@ -20,6 +20,8 @@ export type SeatWords = {
   applies: string
   /** Who puts an enchantment for someone else's item on from its card. */
   putsOn: string
+  /** Who places what a summoning summons in Foundry, from module 0.54.0. */
+  places: string
   /** Said of a roll the game made blind. */
   hidden: string
   /** The heading over the saves the game asks for. */

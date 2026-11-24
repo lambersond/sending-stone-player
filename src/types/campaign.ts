@@ -90,10 +90,14 @@ export type OwnedCampaign = {
     player?: string
     characterId?: string
     companions?: {
+      /** Its key, as the module lists it, which tells one listed for two characters once. */
+      key: string
       name: string
-      kind: 'owned' | 'summoned'
+      kind: 'owned' | 'summoned' | 'constant'
       from?: string
       away?: true
+      /** A constant companion with no token on any scene, from module 0.54.0. */
+      unplaced?: true
     }[]
     /** Whether its player's Magical Recipe Book is linked to it, from module 0.38.0. */
     cookbookLinked?: boolean

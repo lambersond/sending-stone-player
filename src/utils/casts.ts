@@ -30,7 +30,7 @@ type MaybeCast = Partial<Pick<SheetActivity, 'cast' | 'spellId'>>
  * How each spell an item casts is cast, by its copy's id: the first Cast of it the sheet lists,
  * with how it's cast, among its actions and their activities, its inventory's items and theirs,
  * its features and theirs, and its favorite activities. None for one cast through nothing the app
- * can say, such as a summoning, as no Cast says how.
+ * can say, such as a transformation, or a summoning to a module before 0.54.0, as no Cast says how.
  */
 export function castIndex(sheet: CastingSheet): CastIndex {
   const casts = new Map<string, SheetCast>()

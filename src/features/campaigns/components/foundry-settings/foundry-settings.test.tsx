@@ -243,10 +243,18 @@ describe('components/campaigns/foundry-settings', () => {
 
     const details = screen.getByText('Foundry settings').closest('details')
     const rolls = screen.getByRole('heading', { name: "Players' rolls" })
+    // Changed on purpose (item 98): from module 0.54.0 the Gamemaster's constant companions
+    // follow the players' rolls.
+    const constant = screen.getByRole('heading', {
+      name: 'Constant companions',
+    })
+    expect(constant.parentElement?.previousElementSibling).toBe(
+      rolls.parentElement,
+    )
     // From module 0.31.0, the players' items and coins are between them.
     const moves = screen.getByRole('heading', { name: 'Items and coins' })
     expect(moves.parentElement?.previousElementSibling).toBe(
-      rolls.parentElement,
+      constant.parentElement,
     )
     // Changed on purpose (item 67): from module 0.49.0 the players' coins follow the items and
     // coins.

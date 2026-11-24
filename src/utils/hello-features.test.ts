@@ -64,6 +64,9 @@ describe('utils/hello-features', () => {
         companionInitiative: 'own',
         // Changed on purpose (item 18): companions on every scene, from module 0.51.0.
         companionsAway: false,
+        // Changed on purpose (item 98): whether its module lists the Gamemaster's constant
+        // companions, from module 0.54.0.
+        companionsConstant: false,
       }),
     )
   })
@@ -83,6 +86,41 @@ describe('utils/hello-features', () => {
       },
     })
     expect(companionsAway).toBe(on)
+  })
+
+  // Module 0.54.0 (item 98): whether the module lists the Gamemaster's constant companions, for
+  // Help.
+  it.each([
+    [true, true],
+    [false, false],
+    ['yes', false],
+    [undefined, false],
+  ])(
+    'keeps constant companions listed for constant %p as %p',
+    (constant, on) => {
+      const { companionsConstant } = helloCompanionData({
+        companions: {
+          kinds: [],
+          initiative: 'own',
+          constant: constant as boolean | undefined,
+        },
+      })
+      expect(companionsConstant).toBe(on)
+    },
+  )
+
+  // Under another system than D&D Fifth Edition the module has no Companions tab to mark one on,
+  // so Help says nothing of them, as the hello's own system says; a hello that names none is read
+  // as before.
+  it.each([
+    ['dnd5e', true],
+    ['pf2e', false],
+  ])('keeps constant companions listed under %p as %p', (id, on) => {
+    const { companionsConstant } = helloCompanionData(
+      { companions: { kinds: [], initiative: 'own', constant: true } },
+      { id, title: id, version: '5.3.3' },
+    )
+    expect(companionsConstant).toBe(on)
   })
 
   it('takes no command kind as a roll, and no move feature while moves are off', () => {

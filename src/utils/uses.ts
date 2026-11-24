@@ -13,6 +13,12 @@ import type {
 const FRIENDLY = new Set(['ally', 'willing'])
 
 /**
+ * The kinds of activity used at no one, their user neither: one that enchants an item, and from
+ * module 0.54.0 one that summons a creature, which the Gamemaster places.
+ */
+const AT_NO_ONE = new Set<SheetUse['type']>(['enchant', 'summon'])
+
+/**
  * The most targets a use, or an area attack, takes when cast at a level: none for one used on its
  * user alone; the number it affects, and more for each level above its own where it says so, as
  * Bless; or any number.
@@ -42,11 +48,12 @@ export function mostTargets(
 /**
  * Does a use have targets to pick: not one used on its user alone, and one that affects someone,
  * or everyone in an area? A use that affects no one, such as Action Surge, has none; nor has one
- * that enchants an item, whatever dnd5e says it affects, as it's used at no one.
+ * that enchants an item, or from module 0.54.0 one that summons a creature, whatever dnd5e says
+ * it affects, as either is used at no one.
  */
 export function picksTargets(use: SheetUse): boolean {
   const { self, area, affects } = use.targets
-  if (self || use.type === 'enchant') return false
+  if (self || AT_NO_ONE.has(use.type)) return false
   return area || (affects !== null && !['object', 'space'].includes(affects))
 }
 
@@ -79,14 +86,15 @@ export function fromSelf(action: Pick<SheetAction, 'range' | 'activity'>) {
 /**
  * Is a use made at its user unless the player picks otherwise: one used on its user alone, as
  * Second Wind; or healing or a utility whose range is Self, with no area, though it may take
- * another target, as a potion or Wild Shape. Never one that enchants, which is used at no one, nor
- * one that saves, deals damage or asks for a check, whose range of Self is where it starts from.
+ * another target, as a potion or Wild Shape. Never one that enchants or summons, which is used at
+ * no one, nor one that saves, deals damage or asks for a check, whose range of Self is where it
+ * starts from.
  */
 export function selfDefault(
   action: Pick<SheetAction, 'range' | 'activity'>,
 ): boolean {
   const use = action.activity
-  if (!use || use.type === 'enchant') return false
+  if (!use || AT_NO_ONE.has(use.type)) return false
   if (use.targets.self) return true
   return fromSelf(action) && !use.targets.area && AT_SELF.has(use.type)
 }

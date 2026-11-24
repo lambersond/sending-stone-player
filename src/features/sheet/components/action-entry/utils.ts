@@ -122,7 +122,8 @@ export function viewOf(
  * where it's one, come the other activities of its spell, as the Spells tab lists the spell under
  * the item, while the item can cast it: those used after it's cast, such as Hex's Bonus Hex Damage,
  * each named for the spell too, and used as the copy's. So do those of a Cast that says nothing of
- * how it's cast, such as one whose spell summons first. None is ever one of the action's own.
+ * how it's cast, such as one whose spell first transforms, or first summons to a module before
+ * 0.54.0. None is ever one of the action's own.
  */
 export function otherActivities(
   action: SheetAction,
@@ -164,7 +165,10 @@ function spellActivities(
   })
 }
 
-/** The kinds of activity the app rolls or uses; others, such as a summoning, are Foundry's. */
+/**
+ * The kinds of activity the app rolls or uses; others, such as a transformation, or a summoning to
+ * a module before 0.54.0, are Foundry's.
+ */
 const FROM_APP = new Set(['attack', 'save', 'damage', 'heal', 'utility'])
 
 /**
@@ -278,8 +282,8 @@ export function usesName(
 }
 
 /**
- * Is an action with more than one activity first one the app can't use, such as Flaming Sphere's
- * summoning, with the rest beneath it?
+ * Is an action with more than one activity first one the app can't use, such as a transformation,
+ * or a summoning to a module before 0.54.0, with the rest beneath it?
  */
 export function firstInFoundry(action: SheetAction): boolean {
   const [first] = action.activities ?? []

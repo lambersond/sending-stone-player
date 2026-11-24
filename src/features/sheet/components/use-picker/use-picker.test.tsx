@@ -16,16 +16,19 @@ import {
   targetsFor as useTargetsOf,
 } from './utils'
 import { belongingsOf } from '@/features/sheet/utils/enchantments'
+import { TableApiContext } from '@/hooks/use-table-api'
 import {
   castingSheet,
   enchantingSheet,
   sheetAction,
   sheetSpell,
+  summoningSheet,
   WAND_LEVELS,
 } from '@/mocks/sending-stone'
 import { castIndex } from '@/utils/casts'
 import { activityActions, itemAction, spellAction } from '@/utils/sheet-actions'
 import type { Picking } from './types'
+import type { TableSeat } from '@/types/character'
 import type {
   SheetAction,
   SheetSpellSection,
@@ -1672,5 +1675,203 @@ describe('components/character-sheet/use-picker for enchant activities, from mod
     expect(
       screen.queryByText('Choose what to enchant.'),
     ).not.toBeInTheDocument()
+  })
+})
+
+/** dnd5e's label of a creature by Challenge Rating. */
+const cr = (value: string) => `Challenge Rating of ${value} or lower`
+
+describe('components/character-sheet/use-picker for summon activities, from module 0.54.0', () => {
+  const sheet = summoningSheet()
+  const familiar = spellAction(sheet.spells[0].spells[0])!
+  const beast = spellAction(sheet.spells[1].spells[0])!
+  const animals = spellAction(sheet.spells[2].spells[0])!
+
+  const renderSummon = (action: SheetAction, seat?: TableSeat) => {
+    const onPick = jest.fn()
+    const picker = (
+      <UsePicker
+        picking={using(action)}
+        combat={fight}
+        spellbook={sheet.spells}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />
+    )
+    render(
+      seat ? <TableApiContext value={seat}>{picker}</TableApiContext> : picker,
+    )
+    return { onPick }
+  }
+
+  it('offers its creatures and types where it offers a choice, says who places it, and casts what was chosen', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderSummon(familiar)
+    expect(chips('Creature')).toEqual([
+      ['Bat', 'true', false],
+      ['Cat', 'false', false],
+      ['Owl', 'false', false],
+    ])
+    expect(chips('Type')).toEqual([
+      ['Celestial', 'true', false],
+      ['Fey', 'false', false],
+      ['Fiend', 'false', false],
+    ])
+    expect(
+      screen.queryByRole('group', { name: 'Size' }),
+    ).not.toBeInTheDocument()
+    // It's cast at no one: no one to pick.
+    expect(screen.queryByText(/^Choose who/)).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Your Gamemaster places it in Foundry from the card.'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Owl' }))
+    await user.click(screen.getByRole('radio', { name: 'Fey' }))
+    await user.click(screen.getByRole('button', { name: 'Cast' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      slot: 'spell1',
+      summon: { profile: 'owlProfile000000', type: 'fey' },
+    })
+  })
+
+  it('labels its creatures as dnd5e does at the level chosen, again as it changes', async () => {
+    const user = userEvent.setup()
+    renderSummon(animals)
+    expect(chips('Creature').map(([text]) => text)).toEqual([
+      `1 × ${cr('2')}`,
+      `2 × ${cr('1')}`,
+      `4 × ${cr('½')}`,
+      `8 × ${cr('¼')}`,
+    ])
+    // Told a screen reader without the "×".
+    expect(
+      screen.getByRole('radio', { name: `${cr('1')}, 2 of them` }),
+    ).toBeInTheDocument()
+    await user.click(
+      screen.getByRole('radio', { name: '5th Level, 1 slot left' }),
+    )
+    expect(chips('Creature').map(([text]) => text)).toEqual([
+      `2 × ${cr('2')}`,
+      `4 × ${cr('1')}`,
+      `8 × ${cr('½')}`,
+      `16 × ${cr('¼')}`,
+    ])
+    expect(
+      screen.getByRole('radio', { name: `${cr('1')}, 4 of them` }),
+    ).toBeInTheDocument()
+  })
+
+  it('offers Air from the 3rd level only, and no level at which it summons nothing', async () => {
+    const user = userEvent.setup()
+    renderSummon(beast)
+    expect(chips('Creature').map(([text]) => text)).toEqual(['Land', 'Sea'])
+    await user.click(
+      screen.getByRole('radio', { name: '3rd Level, 3 slots left' }),
+    )
+    expect(chips('Creature').map(([text]) => text)).toEqual([
+      'Land',
+      'Sea',
+      'Air',
+    ])
+    cleanup()
+    const highOnly: SheetAction = {
+      ...beast,
+      activity: {
+        ...beast.activity!,
+        summon: {
+          ...beast.activity!.summon!,
+          profiles: beast.activity!.summon!.profiles.map(profile => ({
+            ...profile,
+            min: 3,
+          })),
+        },
+      },
+    }
+    renderSummon(highOnly)
+    expect(chips('Cast at')).toEqual([
+      ['2nd · 3 left', 'true', true],
+      ['3rd · 3 left', 'false', false],
+      ['4th · 3 left', 'false', false],
+      ['5th · 1 left', 'false', false],
+    ])
+    expect(
+      screen.getByText('It can’t summon anything at this level.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cast' })).toBeDisabled()
+  })
+
+  it('offers the sizes it gives a choice of, the first chosen, and casts the size chosen with the type', async () => {
+    const user = userEvent.setup()
+    const sized: SheetAction = {
+      ...familiar,
+      activity: {
+        ...familiar.activity!,
+        summon: {
+          ...familiar.activity!.summon!,
+          sizes: [
+            { key: 'med', label: 'Medium' },
+            { key: 'lg', label: 'Large' },
+          ],
+        },
+      },
+    }
+    const { onPick } = renderSummon(sized)
+    expect(chips('Size')).toEqual([
+      ['Medium', 'true', false],
+      ['Large', 'false', false],
+    ])
+    await user.click(screen.getByRole('radio', { name: 'Owl' }))
+    await user.click(screen.getByRole('radio', { name: 'Fey' }))
+    await user.click(screen.getByRole('radio', { name: 'Large' }))
+    expect(chips('Size')).toEqual([
+      ['Medium', 'false', false],
+      ['Large', 'true', false],
+    ])
+    expect(chips('Type').map(([name, chosen]) => [name, chosen])).toEqual([
+      ['Celestial', 'false'],
+      ['Fey', 'true'],
+      ['Fiend', 'false'],
+    ])
+    await user.click(screen.getByRole('button', { name: 'Cast' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      slot: 'spell1',
+      summon: { profile: 'owlProfile000000', type: 'fey', size: 'lg' },
+    })
+  })
+
+  it('falls back to the first creature offered where the level chosen drops the one chosen', async () => {
+    const user = userEvent.setup()
+    const { onPick } = renderSummon(beast)
+    await user.click(
+      screen.getByRole('radio', { name: '3rd Level, 3 slots left' }),
+    )
+    await user.click(screen.getByRole('radio', { name: 'Air' }))
+    expect(chips('Creature').map(([name, chosen]) => [name, chosen])).toEqual([
+      ['Land', 'false'],
+      ['Sea', 'false'],
+      ['Air', 'true'],
+    ])
+    await user.click(
+      screen.getByRole('radio', { name: '2nd Level, 3 slots left' }),
+    )
+    expect(chips('Creature').map(([name, chosen]) => [name, chosen])).toEqual([
+      ['Land', 'true'],
+      ['Sea', 'false'],
+    ])
+    await user.click(screen.getByRole('button', { name: 'Cast' }))
+    expect(onPick).toHaveBeenCalledWith({
+      targets: [],
+      slot: 'spell2',
+      summon: { profile: 'landProfile00000' },
+    })
+  })
+
+  it('tells the Gamemaster they place it', () => {
+    renderSummon(familiar, { role: 'gm', api: '/api/c', key: 'gm' })
+    expect(
+      screen.getByText('You place it in Foundry from the card.'),
+    ).toBeInTheDocument()
   })
 })

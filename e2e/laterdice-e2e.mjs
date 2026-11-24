@@ -329,9 +329,10 @@ part('1. the hello')
   const answered = JSON.parse(hello().body ?? '{}').features?.diceAsks
   if (ASKS) {
     // Changed on purpose (module 0.52.0, item 65): anyAbility follows them, last.
-    check(rolls.diceAsks === true && rolls.diceAsksReason === null && same(keys.slice(keys.indexOf('keptRerolls')), ['keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility'])
+    // Changed on purpose (module 0.54.0, item 59): summons follows, last.
+    check(rolls.diceAsks === true && rolls.diceAsksReason === null && same(keys.slice(keys.indexOf('keptRerolls')), ['keptRerolls', 'diceAsks', 'diceAsksReason', 'anyAbility', 'summons'])
       && rolls.kinds.at(-1) === 'dice' && hello().data.features.companions.kinds.at(-1) === 'dice' && same(hello().data.diceAsks, []),
-      `the hello says diceAsks true, diceAsksReason null, after keptRerolls, then anyAbility; "dice" last of the rolls' and companions' kinds; and no asks open (${JSON.stringify(keys.slice(-4))}, ${rolls.kinds.at(-1)})`)
+      `the hello says diceAsks true, diceAsksReason null, after keptRerolls, then anyAbility, then summons; "dice" last of the rolls' and companions' kinds; and no asks open (${JSON.stringify(keys.slice(-5))}, ${rolls.kinds.at(-1)})`)
     await until(() => rollFeatures().includes('diceAsks') && rollKinds().includes('dice'), 'the app to keep diceAsks', 15_000).catch(() => {})
     check(answered === 1 && rollFeatures().includes('diceAsks') && rollKinds().includes('dice'),
       `the app answers diceAsks: 1, and keeps diceAsks and the "dice" kind (${rollFeatures().join(',')})`)

@@ -343,9 +343,11 @@ export const PREPARE_OPS = ['prepare', 'unprepare'] as const
 /**
  * The format of Wild Shape this app takes, as it tells the module (`wildShape`): from module
  * 0.40.0, Wild Shape from the app and a shaped character's sheet, which the module sends and
- * fetches for only then.
+ * fetches for only then; and from module 0.54.0 known forms from anywhere their players could use
+ * in Foundry, sent as usable (`pool`) with their statistics, and why any other isn't (`why`), which
+ * the module sends only then.
  */
-export const WILD_SHAPE = 1
+export const WILD_SHAPE = 2
 
 /**
  * The format of hit points set from the app this app takes, as it tells the module (`hitPoints`):
@@ -408,6 +410,19 @@ export const ANY_ABILITY = 1
  */
 export const GM_ROLL_MESSAGES = 1
 
+/**
+ * The format of summon activities this app reads, as it tells the module (`summons`): from module
+ * 0.54.0, a summon activity's creatures, labelled at each level, types and sizes, which the module
+ * sends only then.
+ */
+export const SUMMONS = 1
+
+/**
+ * A creature type or size's key, as dnd5e names one, such as "fey" or "lg": one a summon activity
+ * offers, from module 0.54.0.
+ */
+export const SUMMON_KEY = /^[A-Za-z][\w-]{0,31}$/
+
 /** A dice ask's id, as the module names it (module 0.44.0): a key of its own. */
 export const DICE_ASK_ID = /^[A-Za-z0-9]{1,64}$/
 
@@ -461,6 +476,19 @@ export const MOST_HIT_POINTS = 9999
 export const WILD_SHAPE_OPS = ['transform', 'revert', 'learn', 'forms'] as const
 
 /**
+ * Why a known form from anywhere else is used only in Foundry, as the module says from 0.54.0, in
+ * the order it checks them.
+ */
+export const KNOWN_FORM_WHYS = [
+  'source',
+  'gone',
+  'owner',
+  'permission',
+  'transformation',
+  'create',
+] as const
+
+/**
  * A known form as the sheet names it, from module 0.40.0: the id of its profile on the druid's Wild
  * Shape, as dnd5e makes one.
  */
@@ -507,9 +535,11 @@ export const NOTES = 3
  * 0.36.0, the hello's `companions`, `companions.listed` and `companion.updated`; from module
  * 0.41.0, 2: the saves the game asks of companions, which the module asks only then; and from
  * module 0.51.0, 3: companions on every scene, each saying whether it's `away`, which the module
- * lists only then, and the hello's `companionsEverywhere`.
+ * lists only then, and the hello's `companionsEverywhere`; and from module 0.54.0, 4: the
+ * Gamemaster's constant companions, `kind` `"constant"` with `placed`, which the module lists only
+ * then, and the hello's `companionsConstant`.
  */
-export const COMPANIONS = 3
+export const COMPANIONS = 4
 
 /**
  * The format of damage on its own's choices this app takes, as it tells the module

@@ -117,6 +117,25 @@ describe('CreatureHeader', () => {
     expect(screen.getByText('Summoned by Thorin')).toBeInTheDocument()
   })
 
+  // Module 0.54.0 (item 98): a constant companion, its portrait dashed while it has no token.
+  it('says a constant one is kept beside its character, its portrait dashed while it has no token', () => {
+    const steel: CreatureFacts = {
+      name: 'Steel Defender',
+      relation: { kind: 'constant', of: 'Thorin' },
+    }
+    const placed = renderHeader(wolfSheet(), steel)
+    expect(screen.getByText('Thorin’s constant companion')).toBeInTheDocument()
+    expect(document.querySelector('img')).toHaveClass('border', 'border-border')
+    expect(document.querySelector('img')).not.toHaveClass('border-dashed')
+    placed.unmount()
+    renderHeader(wolfSheet(), { ...steel, unplaced: true })
+    expect(document.querySelector('img')).toHaveClass(
+      'border-dashed',
+      'border-primary-text',
+    )
+    expect(document.querySelector('img')).not.toHaveClass('border-border')
+  })
+
   it.each([
     [0.125, 'CR 1/8'],
     [0.25, 'CR 1/4'],
@@ -237,6 +256,19 @@ describe('CreatureHeader', () => {
       renderHeader()
       expect(await screen.findByText('B')).toHaveClass('size-16')
       expect(document.querySelector('img')).toBeNull()
+    })
+
+    it('rings its initials in dashes for a constant one with no token (module 0.54.0)', async () => {
+      brokenBeforeMount()
+      renderHeader(wolfSheet(), {
+        name: 'Steel Defender',
+        relation: { kind: 'constant', of: 'Thorin' },
+        unplaced: true,
+      })
+      expect(await screen.findByText('SD')).toHaveClass(
+        'size-16',
+        'border-dashed',
+      )
     })
   })
 })

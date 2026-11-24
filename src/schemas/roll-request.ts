@@ -35,6 +35,7 @@ import {
   ROLL_KINDS,
   SPELL_SLOT,
   SPELL_SLOT_OPS,
+  SUMMON_KEY,
 } from '@/constants/sending-stone'
 import { TEXT_HASH } from '@/schemas/sending-stone'
 import { leftOut } from '@/schemas/utils'
@@ -727,6 +728,14 @@ export const rollRequestSchema: z.ZodType<RollRequestInput> = z
         effect: z.string().regex(FOUNDRY_ID),
       })
       .optional(),
+    // From module 0.54.0: the creature a summon activity's use summons, and its type and size.
+    summon: z
+      .strictObject({
+        profile: z.string().regex(FOUNDRY_ID),
+        type: z.string().regex(SUMMON_KEY).optional(),
+        size: z.string().regex(SUMMON_KEY).optional(),
+      })
+      .optional(),
     concentration: z
       .strictObject({ effect: z.string().regex(FOUNDRY_ID) })
       .optional(),
@@ -787,6 +796,7 @@ export const rollRequestSchema: z.ZodType<RollRequestInput> = z
     linkRules(request, issue)
     keyRules(request, issue)
     enchantRules(request, issue)
+    summonRules(request, issue)
     ownFieldRules(request, issue)
     // Then the dice, by what the kind throws.
     DICE_RULES[infoOf(request.kind).dice](request, issue)
@@ -1036,6 +1046,13 @@ function enchantRules(request: RollRequestInput, issue: Issue) {
       'enchantment',
       'An enchantment ended, and only that, names the enchantment',
     )
+  }
+}
+
+/** A summon activity's use, from module 0.54.0, says which creature it summons, and only it. */
+function summonRules(request: RollRequestInput, issue: Issue) {
+  if (request.kind !== 'use' && request.summon !== undefined) {
+    issue('summon', 'Only a use summons')
   }
 }
 

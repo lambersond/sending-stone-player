@@ -22,7 +22,8 @@ import type { ReactNode } from 'react'
  * lair's initiative. Its hit dice are read only, never spent here, and it has no Heroic
  * Inspiration; from module 0.44.0 its hit points are set from their tile, where the game takes
  * them. Each line its facts don't give is left out, so a wild-shaped form can add one of its own
- * later.
+ * later. From module 0.54.0, a constant companion with no token on any scene has its portrait
+ * ringed in dashes.
  * @param name - Its name as its tab says it, such as "Bat 2".
  * @param combatId - The combat it waits to roll initiative in.
  * @param follows - The character it acts right after in initiative, while that one's in it.
@@ -58,7 +59,7 @@ export function CreatureHeader({
       className={SHEET_CARD}
     >
       <div className='flex items-center gap-4'>
-        <Portrait name={name} src={sheet.portrait} />
+        <Portrait name={name} src={sheet.portrait} dashed={facts.unplaced} />
         <div className='flex min-w-0 flex-col gap-0.5'>
           <h2
             id={`${idPrefix}creature-name`}

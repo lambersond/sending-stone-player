@@ -304,6 +304,78 @@ describe('CreatureSwitcher', () => {
     expect(avatar.querySelector('.lucide-map-pin-off')).not.toBeNull()
   })
 
+  // Module 0.54.0 (item 98): a constant companion pinned, ringed in dashes with no token.
+  it('pins a constant one, and with no token on a scene rings it in dashes, as a tab and as an avatar', () => {
+    const steel: SwitcherCreature = {
+      key: 'steel',
+      name: 'Steel Defender',
+      kind: 'constant',
+      news: '',
+    }
+    const unplaced = { ...steel, unplaced: true as const }
+    const away = { ...steel, key: 'owl', name: 'Owl', away: true as const }
+    const { unmount } = renderSwitcher([thorin, brakka, unplaced, away])
+    const [, wolf, defender, owl] = tabs()
+    expect(defender).toHaveAttribute('data-kind', 'constant')
+    expect(defender.querySelector('.lucide-pin')).not.toBeNull()
+    expect(defender.querySelector('.lucide-paw-print')).toBeNull()
+    expect(defender).toHaveAttribute('data-unplaced', 'true')
+    expect(defender.querySelector('.lucide-circle-dashed')).not.toBeNull()
+    expect(defender).toHaveAccessibleDescription(
+      'Thorin’s constant companion, not on a scene',
+    )
+    expect(within(defender).getByText('SD').parentElement).toHaveClass(
+      'border-dashed',
+    )
+    // On another scene: its pin, then the struck pin, and no ring.
+    expect(owl).not.toHaveAttribute('data-unplaced')
+    const icons = [...owl.querySelectorAll('svg')].map(svg =>
+      svg.getAttribute('class'),
+    )
+    expect(icons.findIndex(c => c?.includes('lucide-pin '))).toBeLessThan(
+      icons.findIndex(c => c?.includes('lucide-map-pin-off')),
+    )
+    expect(owl.querySelector('.lucide-circle-dashed')).toBeNull()
+    expect(within(owl).getByText('O').parentElement).not.toHaveClass(
+      'border-dashed',
+    )
+    expect(wolf).not.toHaveAttribute('data-unplaced')
+    unmount()
+    boxWidth = 370
+    renderSwitcher([thorin, brakka, unplaced, away], { chosen: 'brakka' })
+    expect(tablist()).toHaveAttribute('data-mode', 'avatars')
+    const avatar = tabs()[2]
+    expect(avatar).toHaveClass('min-w-11')
+    expect(avatar).toHaveAttribute('data-unplaced', 'true')
+    // As an avatar, its ring is its only mark.
+    expect(avatar.querySelector('.lucide-circle-dashed')).toBeNull()
+    expect(within(avatar).getByText('SD').parentElement).toHaveClass(
+      'border-dashed',
+      'border-primary-text',
+    )
+  })
+
+  it('rings a constant one’s portrait in dashes with no token, in place of its border', () => {
+    renderSwitcher([
+      thorin,
+      {
+        key: 'steel',
+        name: 'Steel Defender',
+        kind: 'constant',
+        portrait: 'https://game/steel.webp',
+        unplaced: true,
+        news: '',
+      },
+      { ...brakka, portrait: 'https://game/brakka.webp' },
+    ])
+    const dashed = tabs()[1].querySelector('img')
+    expect(dashed).toHaveClass('border-dashed', 'border-primary-text')
+    expect(dashed).not.toHaveClass('border-border')
+    const plain = tabs()[2].querySelector('img')
+    expect(plain).toHaveClass('border', 'border-border')
+    expect(plain).not.toHaveClass('border-dashed')
+  })
+
   it('says "your game" for a gone one at the Gamemaster’s seat', () => {
     renderSwitcher([thorin, { ...brakka, gone: true }], { role: 'gm' })
     expect(tabs()[1]).toHaveAccessibleDescription(
