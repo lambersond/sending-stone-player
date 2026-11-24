@@ -128,8 +128,10 @@ environment, or locally from `.env` (copied from `default.env`):
 - **`DB_DATABASE_URL_POOLED`:** every query the app makes, through the database's connection
   pooler. The running app reads only this one.
 - **`DB_POSTGRES_URL`:** a direct connection, for the Prisma CLI's `prisma migrate deploy` and
-  `prisma db push`, which the deploy's build runs (`npm run vercel-build`). The CLI won't start
-  without both strings, so the build needs both.
+  `prisma db push`, which the deploy's build runs (`npm run vercel-build`). Those two won't start
+  without both strings (`prisma generate` needs neither), so the build needs both. A Preview build
+  runs them too, on the database its own `DB_POSTGRES_URL` names: give Preview a database of its
+  own, never production's.
 
 Locally both are the one database of `local/docker-compose.yaml`; the e2e sets both to each lane's
 own (`e2e/env.sh`). A `.env` made before v0.55 names them `DB_URL` and `DIRECT_DATABASE_URL`:
@@ -142,7 +144,8 @@ rename them `DB_DATABASE_URL_POOLED` and `DB_POSTGRES_URL`.
 - **If the app's log shows `prepared statement "s…" already exists` or `does not exist`**, with any
   number after the s, its pooler keeps no prepared statements across transactions, as PgBouncer
   doesn't before 1.21 or with `max_prepared_statements` at 0: add `pgbouncer=true` to
-  `DB_DATABASE_URL_POOLED`.
+  `DB_DATABASE_URL_POOLED`'s query string (`&pgbouncer=true` where it has a `?` already, as after
+  `?sslmode=require`) and deploy again, since a deployment keeps the variables it was built with.
 - **After a deploy to a database that holds the old one's data:** the build's log has
   `prisma migrate deploy` find no pending migrations and `prisma db push` find the database already
   in sync; then sign in on the production address and open a character.
