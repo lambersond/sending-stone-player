@@ -5,7 +5,7 @@
   "homepage": "https://github.com/lambersond/sending-stone-player",
   "scripts": {
     "build": "next build",
-    "db:setup": "prisma generate --no-engine && prisma migrate deploy && prisma db push",
+    "db:setup": "prisma generate && prisma migrate deploy && prisma db push",
     "db:seed": "ts-node prisma/seed.ts",
     "dev": "TZ=UTC next dev --turbopack",
     "e2e": "sh e2e/lanes/checks-lanes.sh",
@@ -22,8 +22,8 @@
     "test:watch": "jest --watch",
     "test": "jest",
     "vercel-build": "npm run vercel-build:blank",
-    "vercel-build:seed": "prisma generate --no-engine && prisma migrate deploy && prisma db push && npm run db:seed && next build",
-    "vercel-build:blank": "prisma generate --no-engine && prisma migrate deploy && prisma db push && next build"
+    "vercel-build:seed": "prisma generate && prisma migrate deploy && prisma db push && npm run db:seed && next build",
+    "vercel-build:blank": "prisma generate && prisma migrate deploy && prisma db push && next build"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.20",
@@ -32,7 +32,6 @@
     "@lambersond/3d-dice-engine": "^0.4.0",
     "@lambersond/3d-dice-react": "^0.4.0",
     "@prisma/client": "6.19.3",
-    "@prisma/extension-accelerate": "^3.0.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "better-auth": "^1.7.7",

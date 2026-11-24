@@ -10,8 +10,8 @@ full when work on it starts. Open questions stay with their version until then. 
 gain items from feedback or bugs. Done work moves to [CHANGELOG.md](CHANGELOG.md), under its
 version.
 
-Released: module v0.53.0 and its app, with v0.52.0, v0.51.0, v0.50.0, v0.49.0, v0.48.0, v0.47.0,
-v0.46.0, v0.45.0 and v0.44.0 before it.
+Released: module v0.54.0 and its app, with v0.53.0, v0.52.0, v0.51.0, v0.50.0, v0.49.0, v0.48.0,
+v0.47.0, v0.46.0, v0.45.0 and v0.44.0 before it.
 
 ## v0.46 (released, to check at the table)
 
@@ -232,12 +232,13 @@ Midi-QOL v14.0.x:
   Home Screen, which has no Full screen, the room closes as the page is ready, so Live and Help step
   right once, and stay there.
 
-## v0.54 (release candidate)
+## v0.54 (released, to check at the table)
 
-Built, not yet tagged: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc entry.
+Released on 2026-11-24: what it holds is in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0 entry. v0.54 is
+the release candidate for v1.0 after v0.53: it runs at the table for a while before v1.0 is tagged.
 
-**To check at the table before module v0.54.0 is tagged** (built and tested against stand-ins only),
-with dnd5e 5.3.3 (and 6.0.5 where a check says so) and Midi-QOL v14.0.x:
+**To check at the table** (built and tested against stand-ins only), with dnd5e 5.3.3 (and 6.0.5
+where a check says so) and Midi-QOL v14.0.x:
 
 - **Constant companions:** in Foundry, drag a Steel Defender from the Actors sidebar onto Thorin's
   box on the campaign's Companions tab and save: it shows in the app last among Thorin's tabs, with
@@ -275,7 +276,7 @@ with dnd5e 5.3.3 (and 6.0.5 where a check says so) and Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 6 and 8 are done; 7 is to come.
+tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 is to come.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -289,10 +290,12 @@ tweaks needed may change it as it goes. Batches 1 to 6 and 8 are done; 7 is to c
 5. Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
    ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
 6. Items 59, 60 and 98, summon activities, known forms from anywhere and constant companions: done,
-   in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
+   in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0.
 7. Item 63, offline mode.
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
+9. Off Prisma Accelerate, retired on 2026-12-01, onto the database's pooler, before 7: done, in
+   [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Found while untangling the module's imports**
 
@@ -355,21 +358,23 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
     the turn, they could start at the first frame drawn after it. Found while building item 42. In
     no batch yet.
-80. **e2e checks of the same kinds as items 41, 42 and 70, not yet seen to fail:** (a) a menu's
+80. **e2e checks of the same kinds as items 41, 42 and 70, one of them seen to fail:** (a) a menu's
     or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
     `removals-e2e.mjs:354` (part 2, Shift+F10), `favoriting-e2e.mjs:598` and `:615` ("Add to
     favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:401` and, to be
     checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
-    look, which has been enough so far; `focusInside` (`e2e/world-030.mjs`) is the wait. (b) A step
-    that must land inside the page's own 600 ms: endturn part 20, "a tap on End turn … (within
-    600 ms)". (c) Full screen read before the page has hydrated, where it is drawn only once it has
-    (its room is kept, empty, until then, item 82, so the header no longer moves): to be checked,
-    `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page `goto()`
-    loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait. The party
-    suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a wait for
-    "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none left:
-    `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster leaving.
-    Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no batch yet.
+    look, which has been enough but once: removals' failed so in v0.55's full e2e pass, focus still
+    on the Potion's name, and passed when run again alone. `focusInside` (`e2e/world-030.mjs`) is
+    the wait. (b) A step that must land inside the page's own 600 ms: endturn part 20, "a tap on End
+    turn … (within 600 ms)". (c) Full screen read before the page has hydrated, where it is drawn
+    only once it has (its room is kept, empty, until then, item 82, so the header no longer moves):
+    to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page
+    `goto()` loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait.
+    The party suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a
+    wait for "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none
+    left: `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster
+    leaving. Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no
+    batch yet.
 81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
     Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
     screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
@@ -419,7 +424,7 @@ sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 Item 58, non-allies' health, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 Items 59 and 60, summon activities used from the app and known forms from anywhere, are done, in
-[CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
+[CHANGELOG.md](CHANGELOG.md)'s v0.54.0.
 
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
@@ -497,7 +502,7 @@ hash, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Asked for on 2026-11-20**
 
-Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0-rc.
+Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0.
 
 **Found while building Batch 8**
 

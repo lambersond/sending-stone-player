@@ -61,8 +61,8 @@ need_secret() {
 # The environment `npm run build` and `next start` get, on their command line, so that it wins over any
 # .env and a checkout without one builds and serves: run it in the subshell that starts them.
 app_env() {
-  export DB_URL="$1" DIRECT_DATABASE_URL="$1" BETTER_AUTH_URL="$2" BETTER_AUTH_SECRET="$E2E_AUTH_SECRET" \
-    AUTH_GOOGLE_ENABLED=false AUTH_DISCORD_ENABLED=false
+  export DB_DATABASE_URL_POOLED="$1" DB_POSTGRES_URL="$1" BETTER_AUTH_URL="$2" \
+    BETTER_AUTH_SECRET="$E2E_AUTH_SECRET" AUTH_GOOGLE_ENABLED=false AUTH_DISCORD_ENABLED=false
 }
 # Whether .next is missing or older than the sources.
 build_needed() {

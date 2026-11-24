@@ -19,7 +19,20 @@ one. ROADMAP.md began with v0.34, so the versions before it have none, and an it
 version's list names that version, such as v0.44 item 4. v1.x's list is renumbered as it changes,
 so an item from it is named with its number when it was built, which may since be another's.
 
-## v0.54.0-rc
+## v0.55.0-rc
+
+### Maintenance
+
+- **Off Prisma Accelerate, onto the database's pooler.** Prisma Accelerate is retired on
+  2026-12-01, so the app reaches its database without it: its queries go through the database's
+  connection pooler, `DB_DATABASE_URL_POOLED`, and the Prisma CLI's migrations over a direct
+  connection, `DB_POSTGRES_URL`, where it read `DB_URL` and `DIRECT_DATABASE_URL`. The deploy's
+  build makes Prisma Client with its query engine, where `--no-engine` made one only Accelerate
+  could serve, and `@prisma/extension-accelerate` is gone. No query used Accelerate's cache, so
+  nothing changes at the table. README.md's new "The database" says what each string is for.
+  (app)
+
+## v0.54.0 — 2026-11-24
 
 ### Features
 

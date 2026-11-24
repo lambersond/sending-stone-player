@@ -1,10 +1,11 @@
 #!/bin/sh
 # Up the lanes: one build of the app (BUILD=1 always builds, BUILD=0 never does; unset, it builds only
 # when .next is missing or older than the sources), a fresh database per lane, and one `next start` per
-# lane: lane N on localhost:PORT_BASE+N with its own DB_URL, DIRECT_DATABASE_URL and BETTER_AUTH_URL,
-# and the pass's E2E_AUTH_SECRET as BETTER_AUTH_SECRET, on the command line (../env.sh), so no .env is
-# read for them. Needs E2E_DATABASE_URL, E2E_AUTH_SECRET (checks-lanes.sh makes one) and the module
-# checkout; extracts the SKEW runs' older modules (../skew.sh). Run it under flock -o e2e/.out/e2e.lock.
+# lane: lane N on localhost:PORT_BASE+N with its own DB_DATABASE_URL_POOLED, DB_POSTGRES_URL and
+# BETTER_AUTH_URL, and the pass's E2E_AUTH_SECRET as BETTER_AUTH_SECRET, on the command line
+# (../env.sh), so no .env is read for them. Needs E2E_DATABASE_URL, E2E_AUTH_SECRET (checks-lanes.sh
+# makes one) and the module checkout; extracts the SKEW runs' older modules (../skew.sh). Run it
+# under flock -o e2e/.out/e2e.lock.
 # Lane servers left from an earlier pass are stopped first; a lane port held by anything else is refused.
 L=$(cd "$(dirname "$0")" && pwd)
 . "$L/lanes-env.sh"

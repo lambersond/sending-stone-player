@@ -438,14 +438,13 @@ describe('prismaFake', () => {
     ])
   })
 
-  it('is fresh again once reset, the client extended as itself', async () => {
+  it('is fresh again once reset', async () => {
     prismaFake(rows())
     resetPrisma()
 
     expect(
       await prismaMock.campaign.findUnique({ where: { id: 'c1' } }),
     ).toBeUndefined()
-    expect(prismaMock.$extends({} as never)).toBe(prismaMock)
   })
 })
 
