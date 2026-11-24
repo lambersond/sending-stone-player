@@ -9,6 +9,7 @@ import {
   mockCompanionSheet,
   mockCompanionView,
   sheetAction,
+  sheetSpell,
   TEXTS,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
@@ -359,6 +360,106 @@ describe('CompanionPane', () => {
       expect((attack?.body as { targets?: unknown[] }).targets ?? []).toEqual(
         [],
       )
+    })
+
+    // Where its picker opens, for a choice its attack or use asks, it offers no one in the
+    // encounter: an attack goes at no one, as out of a fight, and a use the game makes at its user
+    // goes at Self.
+    it('offers no one in the encounter where its picker opens: an attack at no one, a use at Self', async () => {
+      const user = userEvent.setup()
+      const modes = biteAction({
+        attackModes: [
+          { value: 'oneHanded', label: 'One-Handed' },
+          { value: 'twoHanded', label: 'Two-Handed' },
+        ],
+      })
+      const healing = sheetAction({
+        id: 'healWord',
+        name: 'Healing Word',
+        type: 'spell',
+        level: 1,
+        range: 'Self',
+        activity: {
+          id: 'healWordHeal',
+          type: 'heal',
+          targets: {
+            self: false,
+            area: false,
+            count: null,
+            perLevel: null,
+            affects: 'creature',
+            fromSelf: true,
+          },
+        },
+      })
+      const sheet = toTableSheet(
+        mockCompanionSheet({
+          actions: [
+            { id: 'action', label: 'Actions', actions: [modes, healing] },
+          ],
+          spells: [
+            {
+              id: 'spell1',
+              label: '1st Level',
+              slots: { value: 2, max: 2, level: 1 },
+              spells: [sheetSpell({ id: 'healWord', name: 'Healing Word' })],
+            },
+            {
+              id: 'spell2',
+              label: '2nd Level',
+              slots: { value: 1, max: 1, level: 2 },
+              spells: [],
+            },
+          ],
+        }),
+        GAME,
+      )
+      const asked = routes([
+        unplaced({
+          sheet,
+          rollsToTable: ['attack', 'damage', 'use'],
+          rollFeatures: ['selfTargets'],
+        }),
+      ])
+      render(pane({ companion: STEEL }))
+      await screen.findByRole('note')
+      await user.click(screen.getByRole('tab', { name: 'Actions' }))
+
+      await user.click(screen.getByRole('button', { name: 'Bite attack, +4' }))
+      let picker = await screen.findByRole('dialog', { name: 'Bite attack' })
+      expect(
+        within(picker).getByRole('radio', { name: 'Two-Handed' }),
+      ).toBeInTheDocument()
+      expect(
+        within(picker).queryByRole('button', { name: 'Goblin' }),
+      ).toBeNull()
+      expect(
+        within(picker).queryByRole('button', { name: 'No target' }),
+      ).toBeNull()
+      await user.click(within(picker).getByRole('button', { name: 'Attack' }))
+      const attack = posts(asked).find(
+        ({ body }) => (body as { kind?: string })?.kind === 'attack',
+      )
+      expect((attack?.body as { targets?: unknown[] }).targets ?? []).toEqual(
+        [],
+      )
+
+      await user.click(
+        screen.getByRole('button', { name: 'Cast Healing Word' }),
+      )
+      picker = await screen.findByRole('dialog', { name: 'Healing Word' })
+      expect(within(picker).getByText('At: Self')).toBeInTheDocument()
+      expect(
+        within(picker).queryByRole('button', { name: /Goblin/ }),
+      ).toBeNull()
+      expect(
+        within(picker).queryByRole('checkbox', { name: /Goblin|Self/ }),
+      ).toBeNull()
+      await user.click(within(picker).getByRole('button', { name: 'Cast' }))
+      const use = posts(asked).find(
+        ({ body }) => (body as { kind?: string })?.kind === 'use',
+      )
+      expect(use?.body).toMatchObject({ targets: [], self: true })
     })
 
     it('picks among the encounter as ever once a token of it is on a scene', async () => {

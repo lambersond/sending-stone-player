@@ -8,7 +8,8 @@
 // 390 and 1280: its pin, its dashed ring and circle, "Thorin’s constant companion, not on a scene",
 // the note above its sheet and the header's dashed portrait; a check, an attack and a use made on
 // the NPC marked, the attack at no one with a fight on the arena, its chat card saying "No target",
-// and its hit points set from the tile on it. The Gamemaster places a token of it: by the page's
+// a versatile one's picker, open for its mode, offering no one in the fight, and its hit points set
+// from the tile on it. The Gamemaster places a token of it: by the page's
 // next read the same tab, its ring solid, no note, the token's hit points; moved to the den, its pin
 // then the struck pin and the away note; deleted, by the next read back to no token. The
 // Gamemaster's card and seat, the keyboard, and Help, each checked by what the campaign gives it and
@@ -81,6 +82,11 @@ const steelGear = { items: [
   {
     id: 'rend', name: 'Force-Empowered Rend', type: 'weapon', system: { properties: [], quantity: 1, attackType: 'melee', equipped: true },
     activities: [{ id: 'rendHit', attack: { ability: 'str' }, damage: [{ number: 1, denomination: 8, bonus: '@mod', types: ['force'] }], labels: { modifier: '+4', damage: [hits('1d8 + 2', 'force')] } }],
+  },
+  // A versatile Slam, whose picker opens for its mode, so that what it offers is seen.
+  {
+    id: 'slam', name: 'Slam', type: 'weapon', system: { properties: ['ver'], quantity: 1, attackType: 'melee', equipped: true },
+    activities: [{ id: 'slamHit', attack: { ability: 'str' }, versatile: 10, damage: [{ number: 1, denomination: 8, bonus: '@mod', types: ['bludgeoning'] }], labels: { modifier: '+4', damage: [hits('1d8 + 2', 'bludgeoning')] } }],
   },
   {
     id: 'repair', name: 'Repair', type: 'feat', system: { properties: [], uses: { max: 3, spent: 0, recovery: [] } },
@@ -311,10 +317,25 @@ if (NEW) {
     await shootBoth(alice, 'constant-no-target', said.locator('xpath=ancestor::li[1]'))
   }
   // Its damage, where the game asks for it, rolled so that nothing waits.
-  await wait(2_000)
-  const damage = panelOf(alice, STEEL).getByRole('button', { name: /^Roll damage/ }).first()
-  if (await damage.count()) await damage.click()
-  await settled()
+  const rollDamage = async () => {
+    await wait(2_000)
+    const damage = panelOf(alice, STEEL).getByRole('button', { name: /^Roll damage/ }).first()
+    if (await damage.count()) await damage.click()
+    await settled()
+  }
+  await rollDamage()
+  // Its Slam, whose picker opens for its mode: no one in the fight offered, nor "No target", as out
+  // of a fight; Attack makes it at no one.
+  await panelOf(alice, STEEL).getByRole('button', { name: 'Slam attack, +4', exact: true }).click()
+  const slamPicker = alice.page.getByRole('dialog', { name: 'Slam attack' })
+  await slamPicker.waitFor({ timeout: 10_000 })
+  const offered = await slamPicker.getByRole('button').allTextContents()
+  check(await slamPicker.getByRole('group', { name: 'Mode' }).count() === 1 && !offered.some(text => /Goblin|Thorin|No target/.test(text)),
+    `its Slam's picker offers its modes and no one in the fight (${JSON.stringify(offered)})`)
+  const slammed = await sent(() => slamPicker.getByRole('button', { name: 'Attack', exact: true }).click(), 'the Slam')
+  check(slammed.request.kind === 'attack' && slammed.request.actorId === STEEL && (slammed.request.payload.targets ?? []).length === 0 && slammed.made.status === 'done',
+    `the Slam made at no one (${slammed.made.status}, ${JSON.stringify(slammed.request.payload.targets)})`)
+  await rollDamage()
   const spentBefore = steel.items.get('repair').system.uses.spent
   const repair = panelOf(alice, STEEL).getByRole('button', { name: /^Repair healing/ }).first()
   await repair.waitFor({ timeout: 20_000 })
