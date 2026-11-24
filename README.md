@@ -132,13 +132,17 @@ environment, or locally from `.env` (copied from `default.env`):
   without both strings, so the build needs both.
 
 Locally both are the one database of `local/docker-compose.yaml`; the e2e sets both to each lane's
-own (`e2e/env.sh`).
+own (`e2e/env.sh`). A `.env` made before v0.55 names them `DB_URL` and `DIRECT_DATABASE_URL`:
+rename them `DB_DATABASE_URL_POOLED` and `DB_POSTGRES_URL`.
 
 - **The build makes Prisma Client with its query engine** (`prisma generate`). Never add
-  `--no-engine` back: it makes a client for Accelerate alone, which refuses a `postgresql://` URL.
-- **If the app's log shows `prepared statement "s0" does not exist`**, its pooler keeps no prepared
-  statements across transactions, as PgBouncer doesn't before 1.21 or with
-  `max_prepared_statements` at 0: add `pgbouncer=true` to `DB_DATABASE_URL_POOLED`.
+  `--no-engine` back, nor set `PRISMA_GENERATE_NO_ENGINE`, `PRISMA_GENERATE_ACCELERATE` or
+  `PRISMA_GENERATE_DATAPROXY` where the app builds: each makes a client for Accelerate alone, which
+  refuses a `postgresql://` URL.
+- **If the app's log shows `prepared statement "s…" already exists` or `does not exist`**, with any
+  number after the s, its pooler keeps no prepared statements across transactions, as PgBouncer
+  doesn't before 1.21 or with `max_prepared_statements` at 0: add `pgbouncer=true` to
+  `DB_DATABASE_URL_POOLED`.
 - **After a deploy to a database that holds the old one's data:** the build's log has
   `prisma migrate deploy` find no pending migrations and `prisma db push` find the database already
   in sync; then sign in on the production address and open a character.
