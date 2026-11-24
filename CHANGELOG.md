@@ -74,39 +74,42 @@ so an item from it is named with its number when it was built, which may since b
   the pin, the dashed ring and circle, the note and the header's dashed portrait, a check, an attack
   at no one whose chat card says "No target" (under `MIDI=1`, Midi-QOL's workflow at no one, its own
   card in its place), a versatile attack's picker offering no one in the fight, and a use and hit
-  points on the NPC marked; a token placed, moved to another scene and deleted, the page taking each
-  in by its next read; the Gamemaster's card and seat, the keyboard and Help; and, against module
-  0.53.0 (`e2e/skew.conf`'s new 053), no constant tab. Its plain, `MIDI=1` and `DND5E6=1` runs want
-  24 checks each, and its `SKEW=053` run 7 (item 98). `wildshape` gains part 26: a world actor's
-  Grey Wolf and the Monsters' Wolf on Elowen's Wild Shape, listed by name while Allow Transformation
-  is off or Alice lacks Create New Actors, then offered with their numbers; the Grey Wolf taken by
-  its card and returned from; unshared in Foundry, its card says so and a crafted change into it is
-  refused; and at 360 px each name at least 80 px wide, each badge on one line. Its part 1 reads the
-  app's answer of 2, and part 25 why Thorin and the Moon Hare are Foundry's alone; `world-030.mjs`
-  gives any of core's permissions to roles (`setPermission`). Its plain run wants 107 checks, where
-  it wanted 96; its `DND5E6=1` and `SKEW=039` runs still want 33 and 8 (item 60). A new `summons`
-  suite, in `world-030.mjs`'s world with scenes, checks the hello's `summons` and the app's answer
-  of `summons: 1`; Find Familiar's picker, its creatures and types and who places it, cast as the
-  Owl, Fey, at no one, its slot spent, the tray's line and the card's "Chosen on Sending Stone: Owl
-  (Fey)"; the card's Summon button opening dnd5e's dialog with them chosen, the Owl placed and its
-  tab; Summon Beast's Air from the 3rd, Land chosen in its place at the 2nd, and its concentration;
-  Conjure Animals' labels at the 3rd and 5th, cast at the 5th by Challenge Rating 2, the creatures
-  placed; a spirit cast Large, its card's line and dnd5e's dialog with Large chosen; a feature's two
-  wolves used at once; the Gamemaster's seat; the keyboard and the layout at 390 px, dnd5e's
-  fourteen creatures listed, Conjure Animals' chips whole and the tray's line; and, against module
-  0.53.0, nothing to cast. Its plain, `MIDI=1` and `DND5E6=1` runs want 33 checks each, and its
-  `SKEW=053` run 4 (item 59). `companions` and `companionsaves` take the app's answer of
-  `companions: 4` in, and `companionsaves` and `laterdice` the hello's `summons`, last of its
-  `rolls`; their runs want what they did. `e2e/README.md` counts 63 suites and 148 runs, thirty-two
-  of them in `world-030.mjs`'s world and ten with its scenes. (app, items 59, 60 and 98)
+  points on the NPC marked; a token placed, moved to another scene and deleted, the placing and the
+  deleting on the page by its next read; the Gamemaster's card and seat, the keyboard and Help; and,
+  against module 0.53.0 (`e2e/skew.conf`'s new 053), no constant tab. Its plain, `MIDI=1` and
+  `DND5E6=1` runs want 24 checks each, and its `SKEW=053` run 7 (item 98). `wildshape` gains
+  part 26: a world actor's Grey Wolf and the Monsters' Wolf on Elowen's Wild Shape, listed by name
+  while Allow Transformation is off or Alice lacks Create New Actors, then offered with their
+  numbers; the Grey Wolf taken by its card and returned from; unshared in Foundry, its card says so
+  and a crafted change into it is refused; and at 360 px each name at least 80 px wide, each badge
+  on one line. Its part 1 reads the app's answer of 2, and part 25 why Thorin and the Moon Hare are
+  Foundry's alone; `world-030.mjs` gives any of core's permissions to roles (`setPermission`). Its
+  plain run wants 107 checks, where it wanted 96; its `DND5E6=1` and `SKEW=039` runs still want 33
+  and 8 (item 60). A new `summons` suite, in `world-030.mjs`'s world with scenes, checks the hello's
+  `summons` and the app's answer of `summons: 1`; Find Familiar's picker, its creatures and types
+  and who places it, cast as the Owl, Fey, at no one, its slot spent, the tray's line and the card's
+  "Chosen on Sending Stone: Owl (Fey)"; the card's Summon button opening dnd5e's dialog with them
+  chosen, the Owl placed and its tab; Summon Beast's Air from the 3rd, Land chosen in its place at
+  the 2nd, and its concentration; Conjure Animals' labels at the 3rd and 5th, cast at the 5th by
+  Challenge Rating 2, the tray saying the Gamemaster places the creatures and the card "Chosen on
+  Sending Stone: 2 × Challenge Rating of 2 or lower"; a spirit cast Large, its card's line and
+  dnd5e's dialog with Large chosen; a feature's two wolves used at once; the Gamemaster's seat; the
+  keyboard and the layout at 390 px, dnd5e's fourteen creatures listed, Conjure Animals' chips whole
+  and the tray's line; and, against module 0.53.0, nothing to cast. Its plain, `MIDI=1` and
+  `DND5E6=1` runs want 33 checks each, and its `SKEW=053` run 4 (item 59). `companions` and
+  `companionsaves` take the app's answer of `companions: 4` in, and `companionsaves` and `laterdice`
+  the hello's `summons`, last of its `rolls`; their runs want what they did. `e2e/README.md` counts
+  63 suites and 148 runs, thirty-two of them in `world-030.mjs`'s world and ten with its scenes.
+  (app, items 59, 60 and 98)
 - **Jest tests.** Tests pin the app's answer of `companions: 4`, `wildShape: 2` and, last of its
   features, `summons: 1` to a hello and a heartbeat (`src/app/api/events/route.test.ts`, whose
   eleven checks of the features' order move one place for `summons`, and the routes' golden). For
   constant companions, tests pin the hello's `companionsConstant` kept in place of the companions on
-  every scene and said for Help, never under another system (`src/db/campaign-events.ts` and
-  `src/utils/hello-features.ts`); a companion's `kind` `"constant"` and its `placed` read, anything
-  else left out (`src/schemas/sending-stone.test.ts`); one with no token marked so on the campaign
-  card only where its entry says so (`src/db/table.ts`), unplaced on its row, never once it's gone
+  every scene and said for Help at either seat, never under another system
+  (`src/db/campaign-events.ts`, `src/utils/hello-features.ts` and `src/db/table.ts`); a companion's
+  `kind` `"constant"` and its `placed` read, anything else left out
+  (`src/schemas/sending-stone.test.ts`); one with no token marked so on the campaign card only where
+  its entry says so (`src/db/campaigns.ts`), unplaced on its row, never once it's gone
   (`src/features/table/utils/creatures.ts`), and kept beside its character
   (`src/utils/creature-words.ts`); its pin and dashed ring as a tab and as an avatar, its header's
   dashed portrait, the note above its sheet, its attacks at no one, and its picker offering no one
@@ -187,16 +190,16 @@ so an item from it is named with its number when it was built, which may since b
   window; its `test/README.md`'s rows for the stand-ins say what they now model, and its
   `CLAUDE.md`'s layers of sheets and commands name the summonings. (app and module)
 - **ROADMAP kept current.** ROADMAP.md gains a v0.54 section, the release candidate, listing three
-  checks to make at the table before module v0.54.0 is tagged: constant companions, a summoning's
-  choice chosen beforehand in dnd5e's dialog, and known forms from anywhere at each of Foundry's
-  gates. Under "Before v1.0", batch 6 reads as done, its three items taken out, with a line saying
-  so where each run of them stood; the plan's opening says batches 1 to 6 and 8 are done. Building
-  batch 6 found nothing for a new item. The known limits say what a summon activity cast from the
-  app leaves to the Gamemaster, a summoning by Challenge Rating, Midi-QOL's Auto Remove Summoned
-  Creature and a companion's own summons; what a constant companion has, is offered and is asked
-  with no token, with tokens on several scenes, and with an NPC and dnd5e's copy of it both marked,
-  and that it needs module 0.54.0 under D&D Fifth Edition; and which known forms from anywhere are
-  used from the app, Beasts being learned from the campaign's compendiums alone. (app)
+  checks to make at the table before module v0.54.0 is tagged: constant companions, known forms from
+  anywhere at each of Foundry's gates, and a summoning's choice chosen beforehand in dnd5e's dialog.
+  Under "Before v1.0", batch 6 reads as done, its three items taken out, with a line saying so where
+  each run of them stood; the plan's opening says batches 1 to 6 and 8 are done. Building batch 6
+  found nothing for a new item. The known limits say what a summon activity cast from the app leaves
+  to the Gamemaster, a summoning by Challenge Rating, Midi-QOL's Auto Remove Summoned Creature and a
+  companion's own summons; what a constant companion has, is offered and is asked with no token,
+  with tokens on several scenes, and with an NPC and dnd5e's copy of it both marked, and that it
+  needs module 0.54.0 under D&D Fifth Edition; and which known forms from anywhere are used from the
+  app, Beasts being learned from the campaign's compendiums alone. (app)
 
 ## v0.53.0 — 2026-11-21
 

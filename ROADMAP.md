@@ -242,7 +242,16 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
 - **Constant companions:** in Foundry, drag a Steel Defender from the Actors sidebar onto Thorin's
   box on the campaign's Companions tab and save: it shows in the app last among Thorin's tabs, with
   its pin and dashed ring; summon it with Thorin's feature and the same tab's ring goes solid within
-  a second; dismiss it and it's dashed again.
+  a few seconds, by the page's next read; dismiss it and it's dashed again.
+- **Known forms from anywhere, at each of Foundry's gates:** with Wild Shape from the app on, put on
+  a 2024 druid's Wild Shape in Foundry a Beast from one of the world's actors and one from an Actor
+  compendium the campaign's Beasts don't come from. With every gate open, the app offers each with
+  its numbers, and the druid changes into one and back: the druid owned by her player, not only
+  assigned; the form shared with them, Observer on the world actor or on the compendium in Foundry's
+  compendium settings; dnd5e's Allow Transformation on; and Create New Actors for their role. Close
+  each gate in turn and the form's card says which: "Not your character in Foundry", "Not shared in
+  Foundry", "Transformation is off in Foundry" or "Needs Create New Actors in Foundry", and the
+  player, in their own Foundry, can't make that change either; open it again and it's offered.
 - **A summoning's choice, chosen beforehand in dnd5e's dialog** (what stand-ins prove least: the
   module sets the player's choice on dnd5e's dialog in Foundry's `preRenderSummonUsageDialog` hook,
   which counts on Foundry 14 drawing the dialog's parts after that hook, as the stand-in draws
@@ -258,18 +267,9 @@ with dnd5e 5.3.3 and Midi-QOL v14.0.x:
   or Large, cast Large, opens with Large chosen. A card cast in Foundry, or the same activity used
   by hand there after a click on such a card, opens with dnd5e's own defaults. With Midi-QOL, the
   card's "Chosen on Sending Stone: Owl (Fey)" line sits on Midi's card, perhaps at its end, and its
-  Summon button chooses the same. If the first draw shows dnd5e's defaults while the card says the
-  choice, Foundry draws the dialog's parts before that hook, and the fix is to draw it again from
-  its render hook.
-- **Known forms from anywhere, at each of Foundry's gates:** with Wild Shape from the app on, put on
-  a 2024 druid's Wild Shape in Foundry a Beast from one of the world's actors and one from an Actor
-  compendium the campaign's Beasts don't come from. With every gate open, the app offers each with
-  its numbers, and the druid changes into one and back: the druid owned by her player, not only
-  assigned; the form shared with them, Observer on the world actor or on the compendium in Foundry's
-  compendium settings; dnd5e's Allow Transformation on; and Create New Actors for their role. Close
-  each gate in turn and the form's card says which: "Not your character in Foundry", "Not shared in
-  Foundry", "Transformation is off in Foundry" or "Needs Create New Actors in Foundry", and the
-  player, in their own Foundry, can't make that change either; open it again and it's offered.
+  Summon button chooses the same. If that dialog's `config.summons` holds the choice while its form
+  shows dnd5e's defaults, Foundry draws the dialog's parts before that hook, and the fix is to draw
+  it again from its render hook.
 
 ## Before v1.0
 
