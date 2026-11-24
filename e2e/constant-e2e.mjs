@@ -4,19 +4,19 @@
 // NPC no player owns, which the Gamemaster marks as Thorin's constant companion on Manage
 // Campaigns, and dnd5e's copy of it for a summon. The hello carries companionsConstant and the app
 // answers companions: 4; before the mark a token of the copy Thorin summoned is his summoned tab,
-// after it the old tab shows gone and the constant tab comes last. With no token on any scene, at
-// 390 and 1280: its pin, its dashed ring and circle, "Thorin’s constant companion, not on a scene",
-// the note above its sheet and the header's dashed portrait; a check, an attack and a use made on
-// the NPC marked, the attack at no one with a fight on the arena, its chat card saying "No target",
-// a versatile one's picker, open for its mode, offering no one in the fight, and its hit points set
-// from the tile on it. The Gamemaster places a token of it: by the page's
-// next read the same tab, its ring solid, no note, the token's hit points; moved to the den, its pin
-// then the struck pin and the away note; deleted, by the next read back to no token. The
-// Gamemaster's card and seat, the keyboard, and Help, each checked by what the campaign gives it and
-// where it's drawn, the words being the unit tests'. MIDI=1: the attack through Midi-QOL's stand-in,
-// its workflow at no one, whose own card stands for it in chat in place of the roll card. DND5E6=1:
-// dnd5e 6.0.5's dice. SKEW=053 with MODULE=module-0.53.0: no constant tab, the card's row naming
-// 0.54.0, Help without the part.
+// after it the old tab shows gone and the constant tab comes last. With no token on any scene: its
+// pin, its dashed ring and circle, "Thorin’s constant companion, not on a scene", the note above
+// its sheet and the header's dashed portrait, and at 390 and 1280 its ring dashed and round with
+// nothing wider than the page; a check, an attack and a use made on the NPC marked, the attack at
+// no one with a fight on the arena, its chat card saying "No target", a versatile one's picker,
+// open for its mode, offering no one in the fight, and its hit points set from the tile on it. The
+// Gamemaster places a token of it: by the page's next read the same tab, its ring solid, no note,
+// the token's hit points; moved to the den, its pin then the struck pin and the away note; deleted,
+// by the next read back to no token. The Gamemaster's card and seat, the keyboard, and Help, each
+// checked by what the campaign gives it and where it's drawn, the words being the unit tests'.
+// MIDI=1: the attack through Midi-QOL's stand-in, its workflow at no one, whose own card stands for
+// it in chat in place of the roll card. DND5E6=1: dnd5e 6.0.5's dice. SKEW=053 with
+// MODULE=module-0.53.0: no constant tab, the card's row naming 0.54.0, Help without the part.
 // Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {

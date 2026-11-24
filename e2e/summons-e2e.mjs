@@ -361,7 +361,8 @@ if (NEW) {
     && fifth[1][0] === `${cr(1)}, 4 of them`,
     `Conjure Animals as dnd5e labels it: "${third[1]}" at the 3rd, "${fifth[1][2]}" at the 5th, told "${fifth[1][0]}"`)
   if (PLAIN) await shootBoth(alice, 'summons-conjure-picker', animals)
-  // Cast at the 5th as its Challenge Rating 2, two beasts there: the creatures placed.
+  // Cast at the 5th as its Challenge Rating 2, two beasts there: the tray says the Gamemaster
+  // places the creatures, and the card names the band.
   await animals.getByRole('radio', { name: `${cr(2)}, 2 of them`, exact: true }).click()
   const conjured = await sent(() => animals.getByRole('button', { name: 'Cast', exact: true }).click(), 'Conjure Animals')
   const conjuredTray = await trayShows(alice, 'places the creatures in Foundry')
