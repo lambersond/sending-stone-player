@@ -276,7 +276,7 @@ where a check says so) and Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 is to come.
+tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 moved to v1.x.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -291,7 +291,8 @@ tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 is t
    ability, and eight abilities laid out: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
 6. Items 59, 60 and 98, summon activities, known forms from anywhere and constant companions: done,
    in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0.
-7. Item 63, offline mode.
+7. Item 63, offline mode: moved back to v1.x on 2026-11-25, on the owner's word, to come after v1.0
+   (v1.x's item 3).
 8. Items 72, 83, 84, 92, 93 and 97, the module's fixes; 75, 82 and 96, the app's looks; and 73, 74
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 9. Off Prisma Accelerate, retired on 2026-12-01, onto the database's pooler, before 7: done, in
@@ -381,8 +382,8 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     sizes); an iPhone's white first screen before the stone, which only a startup image for each
     screen size covers; and, if an iPhone doesn't finish installing a worker whose page leaves at
     once, waiting up to a second for it on an opening that has none. An opening connected but unable
-    to reach Sending Stone still ends on the phone's own error page, which is item 63's. Left by
-    item 56. In no batch yet.
+    to reach Sending Stone still ends on the phone's own error page, which is offline mode's (v1.x's
+    item 3). Left by item 56. In no batch yet.
 
 Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
 or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
@@ -429,14 +430,7 @@ Items 59 and 60, summon activities used from the app and known forms from anywhe
 Items 61 and 62, quieter polling and fewer sign-in reads, are done, in
 [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
-63. **Offline mode:** the app keeps working on a device without a connection, such as a phone that
-    loses signal at the table: a player's characters, their last-seen sheets, notes and journal kept
-    on the device and readable offline, with what's out of date marked; notes written offline sent
-    once the device is back online; and rolls, moves and anything else the game must answer refused
-    plainly until then. Item 56's launch worker (`/launch-worker.js`) keeps to `/launch` and its one
-    page; offline mode's worker is its own, for which `/sw.js` is left free. A fairly large update:
-    what's kept on a device and for whom (cleared on sign-out, so a shared device keeps nothing),
-    how long it's kept, and how a note changed both offline and in Foundry meanwhile is settled.
+Item 63, offline mode, moved back to v1.x on 2026-11-25, as its item 3.
 
 Items 64, 65 and 66, any ability or skill the game has, named as the game names it, checks on any
 ability, and eight abilities laid out, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.52.0.
@@ -572,6 +566,15 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    (2026-11-14), to flesh out later: an inactive character gets no updates in the app and can't
    do anything from it, and its name shows in none of the app's lists (such as the characters
    offered for item 68's hand-out); it's read-only, though its owner can still open its sheet.
+3. **Offline mode** (item 63 before v1.0, moved back on 2026-11-25): the app keeps working on a
+   device without a connection, such as a phone that loses signal at the table: a player's
+   characters, their last-seen sheets, notes and journal kept on the device and readable offline,
+   with what's out of date marked; notes written offline sent once the device is back online; and
+   rolls, moves and anything else the game must answer refused plainly until then. Item 56's launch
+   worker (`/launch-worker.js`) keeps to `/launch` and its one page; offline mode's worker is its
+   own, for which `/sw.js` is left free. A fairly large update: what's kept on a device and for whom
+   (cleared on sign-out, so a shared device keeps nothing), how long it's kept, and how a note
+   changed both offline and in Foundry meanwhile is settled.
 
 ## v2.0
 
