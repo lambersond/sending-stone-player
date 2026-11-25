@@ -554,6 +554,188 @@ Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0
      that width is the top of the second list; their place predates batch 8, and item 74 is what now
      puts focus there. Found reviewing item 74. In no batch yet.
 
+**Asked for on 2026-11-25**
+
+105. **The quick wins, fewer database calls without a new service:** the owner's figure is 400k to
+     1M Prisma Postgres operations for a 4-hour session of six. Today's code, measured live against
+     the stand-in Foundry with the real module and projected to 4 hours, makes 207k Prisma calls
+     light and 337k to 367k heavy (five players' tables and the Gamemaster's seat page open all
+     session, a party sheet for an hour; light is 20 rolls a player and one group request an hour,
+     heavy 120 and 10). Of those, about 177k at either profile are asking for news while nothing
+     happens: 77k is the module's wait for commands, held open by the app while it checks the
+     database every second, and 99k the pages' polls that find nothing new. Real play, with about
+     one more change a roll (attack and damage cards, uses spent), combat, more follow reads, and at
+     heavy extra phones, long waits and presence marks from several running copies of the app, is
+     estimated at about 245k light and 415k to 580k heavy. The owner's figures fit code from before
+     v0.48, whose real play projects to about 370k light and 540k to 740k heavy. Before this is
+     planned, the owner baselines a real session at the table on Friday 2026-11-27: the Prisma
+     console's count for it against its projection. That can also settle whether Prisma bills SQL
+     statements (about 1.29 a Prisma call, measured) or Prisma calls, but only if the app deployed
+     that day is on the database's pooler (v0.55.0-rc; through Accelerate a Prisma call is one
+     operation) and counts its own calls, which it doesn't today; without that count, Friday may
+     only narrow it. The changes take light from 207k to 68k, and heavy from 337k (367k at most) to
+     165k (187k at most), projected; in real play about 100k light and 233k heavy, the heavy figure
+     before extra phones and long waits. Each change below gives its saving on top of those before
+     it (light / heavy, projected), then its cost to players:
+     - The session cookie cache at 15 minutes, not 60 s (`AUTH_CACHE_MAX_AGE=900`, an environment
+       variable read in `src/auth-session.ts`): 2.8k / 2.8k; a session ended elsewhere still reads
+       pages for up to 15 minutes, loosening v0.50's sign-in checks (owner's call).
+     - The module's wait checking the database in one SQL statement (`claimAll` and
+       `holdForCommands`, `src/app/api/bridge/commands/route.ts`): 60.7k / 62.2k; none to players,
+       but the statement must skip commands this game can't take, or while one waits (up to 30 s)
+       every check costs what it does today.
+     - That check every 2 s, not every second (`COMMANDS_CHECK_EVERY`, now 1000 ms, in
+       `src/constants/sending-stone.ts`): 7.2k / 7.2k; a roll reaches Foundry half a second later
+       on average, a second at worst.
+     - The module's secret check remembered 60 s by each running copy of the app
+       (`findEventCampaign`, `src/db/campaigns.ts`): 2.3k / 8.5k; a changed secret still works for
+       up to 60 s.
+     - The module's heartbeat every 5 minutes, not 30 s, while the game is fetching, gated on the
+       app's `features` (`HEARTBEAT_AFTER`, the module's `scripts/heartbeat.mjs`): 0.5k / 0.5k; an
+       app deployed mid-session is noticed within 5 minutes, not 30 s.
+     - Table status and the Gamemaster's recent rolls in one SQL statement (`getCampaignStatus`,
+       `src/db/table.ts`): 24.0k / 24.0k; none.
+     - The seat remembered 60 s by each running copy (`getPlayerSeat` and `getGmSeat`,
+       `src/db/seats.ts`): 27.8k / 31.7k; a removed player still sees the table for up to 60 s
+       (owner's call), and another device's typed-dice switch and chat-read mark show up to 60 s
+       late.
+     - The page's open mark and the players' present mark written less often (`TABLE_SEEN_EVERY`
+       from 5 s to 30 s, `OPEN_WITHIN` from 15 s to 75 s and `PLAYERS_SEEN_EVERY` from 30 s to 60 s,
+       in `src/constants/sending-stone.ts`), and the table marked closed as the page closes
+       (`pagehide`): 9.4k / 9.4k; Midi-QOL's saves and the dice asked of a player typing theirs
+       wait up to their full 60 s (`MIDI_PROMPT_WAIT`, the module's `scripts/midi-prompts.mjs`;
+       `DICE_ASK_WAIT`, `scripts/later-dice.mjs`), not about 15, for a page closed without that
+       mark.
+     - The chat-read mark (`markChatReadUpTo`, `src/app/characters/actions.ts`) on the cookie cache
+       and written at most every 15 s a page: 3.6k / 22.6k; another device's unread count lags up
+       to 15 s, and the mark leaves v0.50's rule that every Server Action checks the session
+       against the database (`requireCheckedUser`, `src/lib/session.ts`; owner's call).
+     - The 24-hour prune of a seat's rows every 10 minutes, not on every send (`holdCommand`,
+       `src/db/commands.ts`): 0.4k / 2.6k; none.
+     - A followed roll, checked every second (`follow`, `src/utils/lifecycle.ts`), backing off to
+       every 2 s after 5 s and every 5 s after 30 s: nothing at either profile but about 7k in heavy
+       real play; a roll that waits long shows its result up to 5 s late.
+     - The party poll reading the group's access once (`access`, `src/db/party.ts`, now read by
+       `getPartyStatus` and `getGroupView`): 0.1k / 0.5k; none.
+     - The companion and notes panes each read in one statement with the seat remembered, and the
+       recipe card checking for a change before it reads its view (`getCompanionStatus`,
+       `src/db/companions.ts`; `notesResponse`, `src/lib/routes/notes-routes.ts`;
+       `cookbookViewResponse`, `src/lib/routes/cookbook-routes.ts`): from about 82 calls a minute
+       open (measured), 62 and 16 (read from the code), to a projected 22, 22 and 4, outside the
+       profiles; none.
+     - Card edits that change nothing the app shows: making a use or an attack, and then rolling its
+       damage, each set a flag on its card (`storeUse` and `runDamageCommand`, the module's
+       `scripts/command-uses.mjs`), sent as `chat.message.updated` (`onUpdateMessage`,
+       `scripts/chat.mjs`) though the message sent reads neither flag, and each bumps the
+       campaign's version (`applyCampaignEvent`, `src/db/campaign-events.ts`), so every open page
+       reads its table again: about 45 calls an edit in all today. The module could leave them out,
+       or the app skip the bump for a message equal to the one it holds (`changeMessage`, the same
+       file) with no module release. Not measured: the rolls measured were saves, which edit no
+       card. Read from the code, not tried.
+
+     Raw SQL beside Prisma for the two single statements is the owner's call too. About one to two
+     weeks, in the app alone but for the heartbeat and a module-side cure for card edits, each with
+     its `PROTOCOL.md` entry, in a later module release. Item 106 comes after it. In no batch yet.
+
+106. **Ably, changes pushed to the pages and the module instead of polled:** the app publishes each
+     change to Ably after its database write, rendered for each seat on a channel only that seat's
+     token may open, and the pages and the module are told instead of asking. Ably's presence (its
+     list of who is connected) replaces the "seen" writes and the heartbeats' writes, though
+     heartbeats are still sent for the app's features. An older module or app goes on polling.
+     Projected, light / heavy: stage A, Ably for changes and presence with the writes as today, 10k
+     to 14k / 46k to 61k; stage B, with leaner writes, 5k to 7k / 22k to 29k; stage C, with each
+     roll as one read and one write and its result and chat line in one batch, 4k to 5k / 13k to
+     19k. Each range runs from a session of saves alone, the profile the stand-in drove, to the
+     real-play estimate. These count Prisma calls: if Prisma bills statements (item 105's baseline),
+     stage A is about 1.3 times as much, and stage C built the plain Prisma way about 28k to 31k at
+     heavy. Under 25k a session at heavy in real play needs stage C, though stage B with item 105's
+     card-edit change comes near it; under 12k at heavy is not robust with any transport, as the
+     writes alone for 2,400 rolls come to about 10k. The design keeps these safeguards:
+     - the database claim stays, as the module claims each pushed command by its id before making
+       it, so two Gamemaster tabs never make one twice and a reload doesn't lose one still waiting;
+     - publishes are retried, and each page checks its version every 2 minutes and on waking;
+     - states that change with time (live or offline, a roll lost or expired) are worked out on the
+       page;
+     - a write a minute marks the module live, so the app's own checks never wait on Ably;
+     - a fallback polls every 15 to 30 s, not every 3, and raises an alert;
+     - who is who comes only from the client id the server puts on each token;
+     - tokens are revocable, and revoked on leave, removal or a seat change;
+     - the chat-read mark is written when the page hides or at most every 5 minutes, from a Route
+       Handler on the cookie session, so another device's unread count lags up to 5 minutes.
+
+     About six to ten weeks for stage A across both repositories, and a few weeks more for each of
+     stages B and C (a rougher estimate): an Ably fake in both test harnesses first, then the pages
+     in the app alone, then the module, with Ably's browser library vendored into it as a second
+     script, which changes two rules in the module's `CLAUDE.md` (one entry, and nothing but
+     `module.mjs` runs as a script loads), and additions to `PROTOCOL.md`. Ably Free is for trying
+     it out; Pro is $29 a month billed yearly ($35 monthly), and a heavy session is an estimated 65k
+     messages (81k with combat views pushed) of Free's 6M a month. Prisma Postgres Free is 200k
+     operations a month, Starter $10 with 1M then $8 a million, and Pro $49 with 10M: today each
+     weekly group needs Starter, and after stage C several groups fit Free. It comes after item 105,
+     whose changes also make its polling fallback cheap; the roll and result writes as single
+     statements come after it, and keep stage C near its figures if statements are billed. The
+     owner's calls: the vendor and plan (not a hard-capped free plan for both the database and
+     Ably); the module's rules; the chat-read sign-in change, like item 105's; and whether it comes
+     before or after v1.0. Weighed and not taken: Vercel's Runtime Cache as a shared cache the pages
+     read instead of the database, where two changes at once can overwrite each other, entries are
+     dropped, and on Vercel's free Hobby plan it pauses at its limit, landing near Ably's figures
+     without the push; and Cloudflare Durable Objects (one live copy of each campaign's table, held
+     by Cloudflare), which would go lower (0.3k to 2k) but is the largest rewrite. In no batch yet.
+
+107. **Guest access to another player's character:** the owner asks that a player who can't come at
+     all can have another player run their character's sheet easily, without moving back and forth
+     and without the Gamemaster taking it from its own player. The app can't today: a character is
+     one player's (`@@unique([campaignId, actorId])` on `Character`, `prisma/schema.prisma`), and
+     every sheet route finds a player's seat through their own `Character` (`getPlayerSeat`,
+     `src/db/seats.ts`). A player takes one from the invite link (`joinCampaign`,
+     `src/db/characters.ts`), where one another player has taken shows "Taken" and can't be chosen
+     (`CharacterChooser`,
+     `src/features/characters/components/character-chooser/character-chooser.tsx`), and the second
+     of two choosing at once is told "Another player has just chosen that character"
+     (`src/app/characters/actions.ts`). A player may already play several of a campaign's characters
+     no one else has taken, each on its own page. The ways round it now are the Gamemaster removing
+     the player (`removePlayer`, `src/db/campaigns.ts`) or the player removing their own
+     (`deleteCharacter`, `src/db/characters.ts`); either deletes their `Character` with its rolls,
+     its recipe-book link and its chat-read mark. The Gamemaster's seat reaches any character
+     without taking it, but only the campaign's owner opens it (`getGmSeat`, `src/db/seats.ts`), its
+     rolls are marked the Gamemaster's (`by: "gm"`), and it is refused a player's own kinds
+     (`createCommand`, `src/db/commands.ts`), so a guest needs a player's seat. What a seat is shown
+     privately is kept by the character, not the player: whispers (`readers`, `src/db/table.ts`),
+     the Gamemaster's rolls shown to its player (`gmRollsOf`, the same file) and its journal
+     (`@@unique([campaignId, kind, actorId])` on `JournalBook`), so a second seat on it would see
+     them all unless that changes. A player's rolls carry no sender (`toCommand`,
+     `src/utils/requests/commands.ts`), so Foundry would make a guest's as the character's own
+     player. In Foundry the module takes a character's players from its ownership, else its assigned
+     player (`characterPlayers`, the module's `scripts/characters.mjs`), which decides which seats a
+     whisper reaches (`chatAudience`, `scripts/chat-data.mjs`) and gates such as a Wild Shape form's
+     "Not your character in Foundry" (`foundryOnlyWhy`, `scripts/wild-shape.mjs`). So giving the
+     guest Owner, Foundry's usual way to share a sheet, would also put every whisper to the guest on
+     the absent player's page (`charactersSeenBy`, `scripts/characters.mjs`), list the guest's own
+     companions as the absent character's (`companionsOf`, `scripts/creatures.mjs`) and give it the
+     guest's party access (`accessFor`, `scripts/groups.mjs`). Its cards carry its assigned
+     player's name, else its one owner's, else the Gamemaster's (`authorFor`,
+     `scripts/command-rolls.mjs`), and who may type its dice looks to its assigned player first
+     (`primaryPlayers`, `scripts/typed-dice.mjs`). Read from the code, not tried. The likely
+     reading, for the owner to confirm: the guest plays the absent player's character beside their
+     own from one page, on a tab as a companion is, and the absent player keeps their seat
+     untouched. To settle before planning:
+     - who grants it (the Gamemaster in the app, the module's settings window, or the absent
+       player);
+     - for how long (one session, until taken back, or to an end date);
+     - what the guest may see that is the absent player's alone (whispers, the Gamemaster's rolls
+       shown to that player, private notes or journal);
+     - whether the guest has their own chat-read mark, typed-dice switch and mark that their page is
+       open on that character, or shares the absent player's;
+     - whose name Foundry's cards carry (the character's own player, the guest, or both);
+     - whether Foundry's ownership checks should know the guest, as Wild Shape's would then need
+       the guest's Create New Actors too, or go on treating every roll as the character's own
+       player's;
+     - whether a guest may hold several characters;
+     - whether the absent player is told.
+
+     Likely two to four weeks (an estimate), in the app, and in the module and `PROTOCOL.md` only if
+     Foundry is to know the guest. In no batch yet.
+
 ## v1.0
 
 The major release of the app and the module, once the work planned before it is done and the
