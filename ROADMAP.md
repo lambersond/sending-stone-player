@@ -302,8 +302,9 @@ under way.
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 9. Off Prisma Accelerate, retired on 2026-12-01, onto the database's pooler, before 7: done, in
    [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
-10. Items 79, 80, 86, 90 and 95, End turn's timer and e2e checks under load; and 81, 103 and 104,
-    the launch page and favorites: begun on 2026-11-27, on the owner's word.
+10. Items 79, 80, 86, 90 and 95, End turn's timer and e2e checks under load; and 103 and 104,
+    favorites: begun on 2026-11-27, on the owner's word. Item 81, the launch page, closed the same
+    day: the owner saw the stone on both phones and nothing needs to change.
 
 **Found while untangling the module's imports**
 
@@ -383,14 +384,9 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     left: `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster
     leaving. Nor has item 71's, a photograph read for its colors, which is toasts' alone. In
     batch 10.
-81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
-    Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
-    screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
-    sizes); an iPhone's white first screen before the stone, which only a startup image for each
-    screen size covers; and, if an iPhone doesn't finish installing a worker whose page leaves at
-    once, waiting up to a second for it on an opening that has none. An opening connected but unable
-    to reach Sending Stone still ends on the phone's own error page, which is offline mode's (v1.x's
-    item 3). Left by item 56. In batch 10.
+
+Item 81, what the launch page leaves to the phones, closed on 2026-11-27: the owner saw the stone on
+an Android phone and an iPhone, and both looked fine, so nothing changes.
 
 Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
 or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
