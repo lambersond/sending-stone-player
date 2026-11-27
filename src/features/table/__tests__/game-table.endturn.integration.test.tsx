@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { useTableView } from '@/features/table/hooks/use-table-view'
+import { END_TURN_ARMS_AFTER } from '@/features/table/utils/end-turn'
 import {
   mockCompanionView,
   mockTurnCombat,
@@ -9,7 +10,7 @@ import {
   withCombats,
 } from '@/mocks/sending-stone'
 import { toTableSheet } from '@/utils/table-view'
-import { advance } from '@/utils/test-utils'
+import { advance, TWO_FRAMES } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { RollKind } from '@/types/roll'
 import type {
@@ -245,10 +246,13 @@ const endTurns = () =>
 
 const THORINS = { combatId: 'cmbt1', round: 1, combatantId: 'c-thorin' }
 
+/** Until End Turn is offered for a turn shown now: its two frames, then its moment. */
+const untilOffered = () => advance(TWO_FRAMES + END_TURN_ARMS_AFTER)
+
 /** Thorin's turn ended by the button, on Combat, once it's offered. */
 const endByButton = async () => {
   fireEvent.click(combatTab())
-  await advance(600)
+  await untilOffered()
   fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
 }
 /** Undo pressed with focus on it, as a keyboard or a screen reader presses it. */
@@ -282,7 +286,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('ends the turn from the Character tab by the bar’s Combat tab held: the fill, the toast at half a second, End Turn at a second, the page still on Character', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     const tab = combatTab()
     const fill = fillOf(tab)
     expect(fill).toHaveStyle({ transform: 'scaleX(0)' })
@@ -364,7 +368,7 @@ describe('components/game-table/game-table, End Turn', () => {
     )
     renderTable()
     fireEvent.click(screen.getByRole('tab', { name: 'Chat' }))
-    await advance(600)
+    await untilOffered()
     const tab = screen.getByRole('tab', { name: 'Combat , your turn' })
     expect(tab).toHaveClass('min-h-9')
     expect(screen.getByRole('tab', { name: 'Chat' })).toHaveClass('min-h-9')
@@ -387,7 +391,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('describes the tab while a turn may be ended by it, its name as ever', async () => {
     const { poll } = renderTable()
     expect(combatTab()).not.toHaveAttribute('aria-describedby')
-    await advance(600)
+    await untilOffered()
     const tab = screen.getByRole('button', { name: 'Combat , your turn' })
     expect(tab).toHaveAccessibleName('Combat , your turn')
     expect(tab).toHaveAccessibleDescription('Press and hold to end your turn')
@@ -397,7 +401,7 @@ describe('components/game-table/game-table, End Turn', () => {
     expect(words).not.toHaveClass('sr-only')
 
     poll({ combat: turnOf('c-brakka') })
-    await advance(600)
+    await untilOffered()
     expect(combatTab()).toHaveAccessibleDescription(
       'Press and hold to end Brakka’s turn',
     )
@@ -409,7 +413,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('draws the fill from the left by its transform alone, with no scale utility of its own', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     const fill = fillOf(combatTab()) as HTMLElement
     expect(fill).toHaveAttribute('aria-hidden', 'true')
     expect(fill).toHaveClass(
@@ -426,7 +430,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('ends nothing and shows nothing when let go at 700 ms, its toast gone', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     const tab = combatTab()
     pointer(tab, 'pointerdown')
     await advance(600)
@@ -443,7 +447,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('shows Combat for a tap', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     await press(combatTab(), 150)
     onTab('Combat')
     expect(endTurns()).toEqual([])
@@ -451,7 +455,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('stays where it was when held 2 s and let go, the turn ended at 1 s', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     await press(combatTab(), 2000)
     expect(endTurns()).toHaveLength(1)
     onTab('Character')
@@ -459,7 +463,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('opens no tab for a moment once a hold has ended the turn', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     await press(combatTab(), 1000)
     await advance(300)
     fireEvent.click(barTab('Chat'), { detail: 1 })
@@ -472,7 +476,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('still lets the panel’s “its tab” choose a companion’s tab in that moment', async () => {
     const { poll } = renderTable(view({ companions: [BRAKKA] }))
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     await press(combatTab(), 1000)
     poll({ companions: [BRAKKA], combat: turnOf('c-brakka') })
     await advance(100)
@@ -490,7 +494,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('stops the hold where the turn moves on under it, ending none', async () => {
     const { poll } = renderTable()
-    await advance(600)
+    await untilOffered()
     const tab = combatTab()
     pointer(tab, 'pointerdown')
     await advance(600)
@@ -507,7 +511,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('ends no turn where the turn moves on under the hold, even one the seat may end by then', async () => {
     const { poll } = renderTable()
-    await advance(600)
+    await untilOffered()
     const tab = combatTab()
     pointer(tab, 'pointerdown')
     await advance(300)
@@ -548,7 +552,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('offers no hold on a turn that isn’t the seat’s: no fill, no toast, no description', async () => {
     renderTable(view({ combat: turnOf('c-goblin') }))
-    await advance(600)
+    await untilOffered()
     const tab = combatTab()
     expect(fillOf(tab)).toBeNull()
     expect(tab).not.toHaveAttribute('aria-describedby')
@@ -576,7 +580,7 @@ describe('components/game-table/game-table, End Turn', () => {
         },
       }),
     )
-    await advance(600)
+    await untilOffered()
     expect(combatTab()).toHaveAccessibleName('Combat')
     expect(turnHeading()?.closest('section')).toHaveClass('border-border')
     expect(screen.queryByRole('button', { name: 'End turn' })).toBeNull()
@@ -585,7 +589,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('ends the turn from the button with no toast until the game has and the page shows it, then offers Undo, focus on the heading', async () => {
     const { poll } = renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     const button = screen.getByRole('button', { name: 'End turn' })
     expect(
       screen.getByText('Or press and hold the Combat tab, from any tab.'),
@@ -613,7 +617,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('takes the turn back by Undo, saying so until the page shows it again', async () => {
     const { poll } = renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     answers['req-1'] = { status: 'done' }
     await advance(1000)
@@ -639,7 +643,7 @@ describe('components/game-table/game-table, End Turn', () => {
     poll({ combat: turnOf('c-thorin') })
     expect(toast()).toBeNull()
     expect(turnHeading()).toHaveTextContent('Your turn')
-    await advance(600)
+    await untilOffered()
     expect(
       screen.getByRole('button', { name: 'End turn' }),
     ).not.toHaveAttribute('aria-disabled')
@@ -648,7 +652,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('lets Undo’s toast go with the panel as the page shows the turn back before Undo’s way says it’s made', async () => {
     const { poll } = renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     answers['req-1'] = { status: 'done' }
     await advance(1000)
@@ -672,7 +676,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('says why a hold’s End Turn wasn’t made, in the toast and the panel', async () => {
     renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     answers['req-1'] = { status: 'failed', reason: 'moved' }
     await press(combatTab(), 1000)
     await advance(1000)
@@ -697,7 +701,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('says in the panel why the button’s End Turn was turned away by the app itself, too many at once', async () => {
     renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     refuse = { status: 429, reason: 'busy' }
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     await advance(0)
@@ -714,7 +718,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('keeps End turn, doing nothing, and focus on it, once the app says the turn had moved on', async () => {
     renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     refuse = { status: 422, reason: 'moved' }
     const button = screen.getByRole('button', { name: 'End turn' })
     act(() => button.focus())
@@ -735,7 +739,7 @@ describe('components/game-table/game-table, End Turn', () => {
       key: 's1',
     })
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     expect(turnHeading()).toHaveTextContent('Your turn')
     expect(screen.queryByRole('button', { name: /End turn/ })).toBeNull()
     expect(
@@ -753,7 +757,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('leaves the page’s one status its live state while the toast shows', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     pointer(combatTab(), 'pointerdown')
     await advance(600)
     expect(toast()).not.toBeNull()
@@ -763,7 +767,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('leaves a quick tap after a cancelled hold to the tab, with no click between them', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     const tab = combatTab()
     pointer(tab, 'pointerdown')
     await advance(400)
@@ -799,7 +803,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('hands focus to the column’s Combat tab as Undo goes from under it, the column moved to Chat meanwhile, on a wide screen', async () => {
     wideScreen()
     const { poll } = renderTable()
-    await advance(600)
+    await untilOffered()
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     fireEvent.click(columnTab('Chat'))
     answers['req-1'] = { status: 'done' }
@@ -825,7 +829,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('says in the toast why the button’s End Turn wasn’t made where the column has moved to Chat meanwhile, on a wide screen', async () => {
     wideScreen()
     renderTable()
-    await advance(600)
+    await untilOffered()
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     fireEvent.click(columnTab('Chat'))
     answers['req-1'] = { status: 'expired' }
@@ -839,7 +843,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('hands focus to the bar’s Combat tab as the encounter ends with focus on End turn', async () => {
     const { poll } = renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     const button = screen.getByRole('button', { name: 'End turn' })
     act(() => button.focus())
     poll({ combat: undefined })
@@ -853,7 +857,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('hands focus to the column’s Combat tab as the encounter ends with focus on End turn, on a wide screen', async () => {
     wideScreen()
     const { poll } = renderTable()
-    await advance(600)
+    await untilOffered()
     act(() => screen.getByRole('button', { name: 'End turn' }).focus())
     poll({ combat: undefined })
     await advance(0)
@@ -862,13 +866,13 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('keeps the last End Turn’s Undo through a hold of the next turn let go early', async () => {
     const { poll } = renderTable()
-    await advance(600)
+    await untilOffered()
     await press(combatTab(), 1000)
     answers['req-1'] = { status: 'done' }
     await advance(1000)
     poll({ combat: turnOf('c-brakka') })
     expect(toasted()).toEqual(['Your turn has ended.', 'Brakka is acting.'])
-    await advance(600)
+    await untilOffered()
     // Brakka's turn is the seat's too: held past the half second, then let go.
     const tab = combatTab()
     pointer(tab, 'pointerdown')
@@ -888,7 +892,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('opens no column for a moment once a hold of the column’s Combat tab has ended the turn, on a wide screen', async () => {
     wideScreen()
     renderTable()
-    await advance(600)
+    await untilOffered()
     const tab = columnTab(/^Combat/)
     onColumn(/^Combat/)
     await press(tab, 1000, { pointerType: 'mouse' })
@@ -905,7 +909,7 @@ describe('components/game-table/game-table, End Turn', () => {
     wideScreen()
     renderTable()
     fireEvent.click(columnTab('Chat'))
-    await advance(600)
+    await untilOffered()
     const tab = columnTab(/^Combat/)
     await press(tab, 1000, { pointerType: 'mouse' })
     expect(endTurns()).toHaveLength(1)
@@ -921,7 +925,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('keeps the panel’s line through a visit to the column’s Chat tab, on a wide screen', async () => {
     wideScreen()
     renderTable()
-    await advance(600)
+    await untilOffered()
     refuse = { status: 429, reason: 'busy' }
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     await advance(0)
@@ -936,7 +940,7 @@ describe('components/game-table/game-table, End Turn', () => {
 
   it('keeps the panel’s line for Combat opened after a hold on the Character tab, its toast gone', async () => {
     renderTable()
-    await advance(600)
+    await untilOffered()
     answers['req-1'] = { status: 'failed', reason: 'moved' }
     await press(combatTab(), 1000)
     await advance(1000)
@@ -957,7 +961,7 @@ describe('components/game-table/game-table, End Turn', () => {
   it('keeps the panel’s line, the app’s own refusal with no toast, through a visit to the bar’s Character tab', async () => {
     renderTable()
     fireEvent.click(combatTab())
-    await advance(600)
+    await untilOffered()
     refuse = { status: 429, reason: 'busy' }
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     await advance(0)

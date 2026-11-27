@@ -2,12 +2,13 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { GameTable } from '../components/game-table/game-table'
 import { TOASTS_KEY } from '@/features/rolling/utils/roll-toasts'
 import { useTableView } from '@/features/table/hooks/use-table-view'
+import { END_TURN_ARMS_AFTER } from '@/features/table/utils/end-turn'
 import {
   mockCompanionView,
   mockTurnCombat,
   withCombats,
 } from '@/mocks/sending-stone'
-import { advance } from '@/utils/test-utils'
+import { advance, TWO_FRAMES } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type { RollKind } from '@/types/roll'
 import type { TableCompanion, TableView, Connection } from '@/types/table'
@@ -310,7 +311,7 @@ describe('components/game-table/game-table, two encounters at once (item 36)', (
 
   it('marks the Combat tab for Brakka’s turn in the den while the arena is shown, and the hold ends hers there, Undo taking it back there', async () => {
     const { poll } = renderTable(both())
-    await advance(600)
+    await advance(TWO_FRAMES + END_TURN_ARMS_AFTER)
     expect(combatTab()).toHaveAccessibleName(/, your turn/)
     expect(combatTab()).toHaveAccessibleDescription(
       'Press and hold to end Brakka’s turn',
@@ -347,7 +348,7 @@ describe('components/game-table/game-table, two encounters at once (item 36)', (
     )
     fireEvent.click(combatTab())
     fireEvent.click(encounterTab(/^Brakka/))
-    await advance(600)
+    await advance(TWO_FRAMES + END_TURN_ARMS_AFTER)
 
     pointer(combatTab(), 'pointerdown')
     await advance(500)
@@ -363,7 +364,7 @@ describe('components/game-table/game-table, two encounters at once (item 36)', (
     renderTable(
       both({ combat: arena('c-thorin'), combats: [arena('c-thorin'), den()] }),
     )
-    await advance(600)
+    await advance(TWO_FRAMES + END_TURN_ARMS_AFTER)
 
     pointer(combatTab(), 'pointerdown')
     await advance(500)
@@ -380,7 +381,7 @@ describe('components/game-table/game-table, two encounters at once (item 36)', (
     renderTable(both())
     fireEvent.click(combatTab())
     fireEvent.click(encounterTab(/^Brakka/))
-    await advance(600)
+    await advance(TWO_FRAMES + END_TURN_ARMS_AFTER)
     fireEvent.click(screen.getByRole('button', { name: 'End turn' }))
     fireEvent.click(encounterTab(/^Thorin/))
     await advance(1000)

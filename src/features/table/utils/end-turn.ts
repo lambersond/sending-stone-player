@@ -31,9 +31,10 @@ export const END_TURN_TOAST_AT = 500
 export const END_TURN_DRIFT = 10
 
 /**
- * How long a turn has been shown before the page offers to end it, in milliseconds: so that a tap
- * aimed at the last heading, as a poll changes it, or a double tap across a turn's end, ends
- * nothing.
+ * How long a turn has been on the screen before the page offers to end it, in milliseconds, counted
+ * from no sooner than the frame after the one that draws it: so that a tap aimed at the last
+ * heading, as a poll changes it, or a double tap across a turn's end, ends nothing, on however slow
+ * a device (ROADMAP item 79).
  */
 export const END_TURN_ARMS_AFTER = 600
 
