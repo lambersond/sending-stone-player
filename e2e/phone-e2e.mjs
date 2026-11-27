@@ -29,6 +29,8 @@ async function until(test, what, ms = 30_000) {
     await wait(100)
   }
 }
+/** Until the page has hydrated, Full screen being drawn only then (item 82), or 20 s on, for what reads it to say what it found. */
+const hydrated = page => page.getByRole('button', { name: 'Full screen', exact: true }).waitFor({ timeout: 20_000 }).catch(() => {})
 const shoot = async (page, name) => {
   if (!SHOTS) return
   await page.waitForTimeout(350)
@@ -264,6 +266,7 @@ async function open({ width, height, mobile = false, touch = false }) {
   const sheet = page.getByRole('region', { name: 'Character' })
   const tabs = sheet.getByRole('tablist', { name: 'Character sheet' })
   await tabs.waitFor({ timeout: 20_000 })
+  await hydrated(page)
   return {
     view, page, sheet, tabs,
     nav: page.getByRole('navigation', { name: 'Table' }),
@@ -455,6 +458,7 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
   await page.keyboard.press('Escape')
   await page.reload()
   await tabs.waitFor()
+  await hydrated(page)
   check(await isDark(page), `${at}, and it stays dark after a reload`)
   await cog.click()
   await settings.getByRole('radio', { name: 'Dark', checked: true }).waitFor()
@@ -483,6 +487,7 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
     check(await panel.getByRole('table', { name: 'Actions', exact: true }).getByRole('button', { name: 'Longsword attack, +6' }).isVisible(), `${at}, Table lays the Actions tab out in a table`)
     await page.reload()
     await tabs.waitFor()
+    await hydrated(page)
     await tabs.getByRole('tab', { name: 'Actions' }).click()
     await panel.getByRole('table', { name: 'Actions', exact: true }).waitFor({ timeout: 5_000 })
     await cog.click()

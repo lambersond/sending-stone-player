@@ -233,7 +233,8 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
   words a skeleton shows are hidden from `getByRole`, but `getByText` finds them. gm, gmerr and
   late-setup read pages straight after the navigation, and wait. What a page draws only once it has
   hydrated comes later still, as the header's Full screen does: wait for it too before reading the
-  header, as help's `ready` and fullscreen do.
+  header or tapping, as help's `ready`, fullscreen, and phone's `open()` and reloads do
+  (v0.55.0-rc).
 - **Moments the suites had wrong under load** (v0.49.0), and what settles each:
   - A menu or popover takes focus a frame after it shows: floating-ui focuses it from the next
     animation frame. `focusInside(locator)` (`world-030.mjs`) waits until focus is in it, or 5 s
