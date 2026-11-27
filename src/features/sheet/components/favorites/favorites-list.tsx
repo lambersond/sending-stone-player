@@ -27,8 +27,8 @@ const SPLIT_FROM = 720
  * Character tab; and each opens to its description. Inside them, nothing is marked a favorite, as
  * every one is. Where they're wide enough, they're in two lists side by side. From module 0.47.0,
  * where the game takes it, they're put in order: Reorder, beneath them, and Move up and Move down
- * in each one's menu, an order on its way shown at once. A favorite moved from one list to the
- * other keeps focus there, as within one.
+ * in each one's menu, never in a row listed inside one's description, an order on its way shown at
+ * once. A favorite moved from one list to the other keeps focus there, as within one.
  */
 export function FavoritesList({
   characterId,
@@ -72,7 +72,7 @@ export function FavoritesList({
           onCancel={list.close}
         />
       ) : (
-        <FavoriteMovesContext value={list.movesOf}>
+        <>
           <div
             ref={setCard}
             className={clsx(
@@ -84,15 +84,20 @@ export function FavoritesList({
               // A container, so that each row fits the list it's in.
               <ul key={index} className='@container min-w-0'>
                 {each.map(entry => (
-                  <FavoriteRow
+                  // Its own favorite's moves, never one's listed inside it (ROADMAP item 103).
+                  <FavoriteMovesContext
                     key={entry.key}
-                    entry={entry}
-                    rows={rows}
-                    abilities={sheet.abilities}
-                    spending={spending}
-                    open={rowsOpen.openAt(entry.key)}
-                    onOpenChange={open => rowsOpen.setOpenAt(entry.key, open)}
-                  />
+                    value={list.rowMovesOf(entry.key)}
+                  >
+                    <FavoriteRow
+                      entry={entry}
+                      rows={rows}
+                      abilities={sheet.abilities}
+                      spending={spending}
+                      open={rowsOpen.openAt(entry.key)}
+                      onOpenChange={open => rowsOpen.setOpenAt(entry.key, open)}
+                    />
+                  </FavoriteMovesContext>
                 ))}
               </ul>
             ))}
@@ -111,7 +116,7 @@ export function FavoritesList({
               </button>
             </div>
           )}
-        </FavoriteMovesContext>
+        </>
       )}
       {dialogs}
     </FavoriteMarks>

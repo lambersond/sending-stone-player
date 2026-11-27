@@ -41,7 +41,8 @@ function focusRowIfLost(row: Element | undefined): void {
  * @param reorder - Reorder's button, beneath the list.
  * @param card - The card the rows are in, each favorite one row of its lists, in order.
  * @returns the entries in order, those that move, whether reordering is offered and open, `open`,
- *   `close` and `save` for Reorder, and `movesOf`, by a row's key and name, for its menu.
+ *   `close` and `save` for Reorder, and `rowMovesOf`, by a row's key, where its own menu may move
+ *   it.
  */
 export function useFavoriteList(
   entries: FavoriteEntry[],
@@ -92,6 +93,18 @@ export function useFavoriteList(
     },
     [offered, keys, save],
   )
+  /**
+   * Where a favorite's row may move, for its own menu: its own favorite alone, never one listed
+   * inside it once it's open, as one of an item's other activities or what a container holds,
+   * which keeps its place there (ROADMAP item 103).
+   * @param row - The row's key among the favorites.
+   */
+  const rowMovesOf = useCallback(
+    (row: string) =>
+      (key: string, name: string): FavoriteMoves | undefined =>
+        key === row ? movesOf(key, name) : undefined,
+    [movesOf],
+  )
 
   return {
     arranged,
@@ -104,6 +117,6 @@ export function useFavoriteList(
       save(order, REORDERED)
       setOpen(false)
     },
-    movesOf,
+    rowMovesOf,
   }
 }

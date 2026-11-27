@@ -36,7 +36,9 @@
 // the window; and a favorite moved from the keyboard to the other list keeps focus, an item's from
 // its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a list
 // does; and one open to its description stays open as Favorites is hidden and shown and as it's
-// moved by the mouse, the sheet scrolling to it where its new place is out of sight.
+// moved by the mouse, the sheet scrolling to it where its new place is out of sight. And (item
+// 103): at 1366, the Staff of Embers made a favorite in Foundry and opened among them, Cast Fireball
+// beneath it, a favorite too, offering Remove from favorites alone there, its own row still moving.
 // Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
@@ -1282,6 +1284,29 @@ async function putInOrder() {
   const scrolledTo = await sightOf()
   check(outOfSight.name && !outOfSight.second && made.status === 'done' && same(after.lists, splitPage()) && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 1 }) && scrolledTo.name && scrolledTo.scrolled < outOfSight.scrolled,
     `moved down by a right-click while the top of his favorites is out of sight, the Longsword is first of the second list, focus on its name, and the sheet has scrolled to it (${JSON.stringify({ made: made.status, outOfSight, scrolledTo, ...after })})`)
+
+  // Item 103: a favorite listed inside another keeps its place there. The Staff of Embers, made a
+  // favorite in Foundry as item 48's Wand of Frost is, opened among them lists Cast Fireball, a
+  // favorite too, beneath it: its menu there has Remove from favorites alone, and its own row among
+  // them still moves it. Part 14 runs last, so the Staff stays a favorite.
+  await toastsGone(wide)
+  await thorin.system.addFavorite({ type: 'item', id: '.Item.staff' })
+  await until(async () => (await namesIn(top)).includes('Staff of Embers'), 'the Staff of Embers among his favorites', 15_000)
+  const staff = panelTarget(wide, 'Staff of Embers')
+  await staff.scrollIntoViewIfNeeded()
+  await staff.click()
+  const beneath = top.getByRole('list', { name: 'Staff of Embers: its other activities' }).locator('span[tabindex="0"]').filter({ hasText: /^Cast Fireball/ }).first()
+  await beneath.waitFor({ timeout: 5_000 })
+  const insideMenu = await menuOf(wide, beneath, 'Cast Fireball')
+  const inside = await itemsOf(insideMenu)
+  await closeMenu(wide, insideMenu)
+  await staff.click()
+  await beneath.waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+  const ownMenu = await menuOf(wide, panelTarget(wide, 'Cast Fireball'), 'Cast Fireball')
+  const own = await itemsOf(ownMenu)
+  await closeMenu(wide, ownMenu)
+  check(same(inside, ['Remove from favorites']) && own[0] === 'Remove from favorites' && (own.includes('Move up') || own.includes('Move down')),
+    `a favorite listed inside another, Cast Fireball beneath the Staff of Embers opened among his favorites, has Remove from favorites alone in its menu there; its own row among them still moves it (${JSON.stringify({ inside, own })})`)
   await wide.view.close()
   await big.view.close()
 }
