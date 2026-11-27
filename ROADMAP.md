@@ -280,7 +280,8 @@ where a check says so) and Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 moved to v1.x.
+tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 moved to v1.x; 10 is
+under way.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -301,6 +302,8 @@ tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 move
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 9. Off Prisma Accelerate, retired on 2026-12-01, onto the database's pooler, before 7: done, in
    [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
+10. Items 79, 80, 86, 90 and 95, End turn's timer and e2e checks under load; and 81, 103 and 104,
+    the launch page and favorites: begun on 2026-11-27, on the owner's word.
 
 **Found while untangling the module's imports**
 
@@ -362,7 +365,7 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     alone). The 600 ms are the owner's (a tap aimed at the last heading, or a double tap across a
     turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
     the turn, they could start at the first frame drawn after it. Found while building item 42. In
-    no batch yet.
+    batch 10.
 80. **e2e checks of the same kinds as items 41, 42 and 70, one of them seen to fail:** (a) a menu's
     or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
     `removals-e2e.mjs:354` (part 2, Shift+F10), `favoriting-e2e.mjs:598` and `:615` ("Add to
@@ -378,8 +381,8 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     The party suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a
     wait for "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none
     left: `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster
-    leaving. Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no
-    batch yet.
+    leaving. Nor has item 71's, a photograph read for its colors, which is toasts' alone. In
+    batch 10.
 81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
     Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
     screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
@@ -387,7 +390,7 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     screen size covers; and, if an iPhone doesn't finish installing a worker whose page leaves at
     once, waiting up to a second for it on an opening that has none. An opening connected but unable
     to reach Sending Stone still ends on the phone's own error page, which is offline mode's (v1.x's
-    item 3). Left by item 56. In no batch yet.
+    item 3). Left by item 56. In batch 10.
 
 Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
 or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
@@ -404,7 +407,7 @@ sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     item 80's kinds: the nearest, (b), is a step of the test's that must land inside the page's own
     600 ms, where this is a bound the suite sets on the page, timed from the test's side. The check
     could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow
-    for the round trips. Found landing items 70 and 71. In no batch yet.
+    for the round trips. Found landing items 70 and 71. In batch 10.
 
 **Found while building Batch 4**
 
@@ -443,7 +446,7 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
     from the stand-in's side, so it counts the page's own work after a read (reading the answer,
     drawing it) as well as the wait. Of a kind with item 86. The check could time the wait from the
     page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
-    last checks. In no batch yet.
+    last checks. In batch 10.
 
 **Asked for on 2026-11-18**
 
@@ -478,7 +481,7 @@ message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     at 400 s in part 15, at 132 of its 146 checks with none failed, and passed when rerun alone on
     its lane at once (146 of 146 in 323 s). Of a kind with items 90 and 94. The runs could be given
     `TIMEOUT=600`, as `typed`'s and `notesoffline`'s are, or the suite split in two. Found in batch
-    3's last checks. In no batch yet.
+    3's last checks. In batch 10.
 
 **Found while building Batch 5**
 
@@ -529,8 +532,8 @@ Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0
      (`src/features/sheet/components/favorites/favorites-list.tsx`) gives `FavoriteMovesContext`
      around every row it draws, the rows inside a favorite's description among them, and
      `useFavoriteChoice` (`src/features/sheet/components/favoriting/use-favorite-choice.ts`) reads
-     it for any row under it. Read from the code, not tried. Found planning items 74 and 75. In no
-     batch yet.
+     it for any row under it. Read from the code, not tried. Found planning items 74 and 75. In
+     batch 10.
 104. **A move's toast over the favorite that just took focus:** where the favorites lie in two lists
      (1366 px, Actions), Move down on the first list's last favorite puts it first in the second, at
      the top of their card, with focus on it, and the move's toast ("Longsword" over "Order saved")
@@ -539,7 +542,7 @@ Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0
      into sight: it comes to the top, under the toast. The toasts are centered at the top of the
      window (`RollToasts`, `src/features/rolling/components/roll-toasts/roll-toasts.tsx`), which at
      that width is the top of the second list; their place predates batch 8, and item 74 is what now
-     puts focus there. Found reviewing item 74. In no batch yet.
+     puts focus there. Found reviewing item 74. In batch 10.
 
 **Asked for on 2026-11-25**
 
