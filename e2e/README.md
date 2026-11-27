@@ -249,10 +249,11 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
     machine can't move the count against its bounds. Part 20 holds the page's frames
     (`__e2e.holdFrames()`, `releaseFrames()`) while it taps End turn the moment a turn shows: the
     tap lands before the count can begin, however long Playwright's round trips take.
-  - A bound the suite sets on the page is timed by the page's clock (v0.55.0-rc, item 86): toasts
-    T6 from the page hearing the tap to the toast gone, by `watchToasts`. Timed from the suite's
-    side, it counted Playwright's round trips and the page's other work, and failed under load
-    with the app right.
+  - A bound the suite sets on the page is timed by the page's clock (v0.55.0-rc, items 86 and 90):
+    toasts T6 from the page hearing the tap to the toast gone, by `watchToasts`; alone part 15 from
+    the answer of the read on its way to the next read's start, by `watchReads`, a fetch wrapper in
+    the page. Timed from the suite's side, each counted Playwright's round trips and the page's
+    other work, and failed under load with the app right.
   - `stopFetching({ age })` first lets a fetch under way reach the app, which notes a fetch as
     it takes it in, given up on or not: one given up on before that would be noted after the
     ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the

@@ -1012,35 +1012,41 @@ async function spendBreath() {
 /** The row of Fire Breath as a list or a table shows it. */
 const breathOf = view => rowOf(view, 'Fire Breath').or(panelOf(view).locator('tr').filter({ hasText: 'Fire Breath' })).first()
 /**
- * A page's reads of the table, each as it starts and ends, and what its follows heard of each roll
- * and when: for item 39's check that the page reads the table again as the game answers a roll.
+ * From now, a page's reads of the table by its own clock, each as it starts, as its answer's
+ * headers come and once its body has been read; and the answers its follows read of each roll,
+ * once read: for item 39's check that the page reads the table again as the game answers a
+ * roll, timed as the page times it (item 90).
  */
-function watchReads(who) {
-  const reads = []
-  const answers = []
-  const ended = request => {
-    const read = reads.find(each => each.request === request)
-    if (read) read.end ??= Date.now()
+const watchReads = who => who.page.evaluate(api => {
+  const log = globalThis.__reads = { reads: [], answers: [] }
+  const original = globalThis.fetch
+  globalThis.fetch = function (input, init) {
+    const now = () => performance.now()
+    let read
+    let roll
+    try {
+      const { pathname } = new URL(typeof input === 'string' ? input : (input.href ?? input.url), location.href)
+      const get = String(init?.method ?? 'GET').toUpperCase() === 'GET'
+      if (get && pathname === `${api}/table`) log.reads.push(read = { start: now(), answered: null, done: null })
+      else if (get && pathname.startsWith(`${api}/rolls/`)) roll = pathname.split('/').at(-1)
+    } catch {}
+    const made = original.apply(this, arguments)
+    if (read) made.then(response => {
+      read.answered = now()
+      response.clone().text().then(() => { read.done = now() }, () => { read.done = now() })
+    }, () => { read.answered = read.done = now() })
+    if (roll) made.then(response => response.clone().json())
+      .then(json => { log.answers.push({ id: roll, status: json?.status ?? null, at: now() }) }).catch(() => {})
+    return made
   }
-  who.page.on('request', request => {
-    if (request.method() === 'GET' && new URL(request.url()).pathname === `${API}/table`) reads.push({ request, start: Date.now() })
-  })
-  who.page.on('requestfinished', ended)
-  who.page.on('requestfailed', ended)
-  who.page.on('response', async response => {
-    const at = Date.now()
-    const { pathname } = new URL(response.url())
-    if (response.request().method() !== 'GET' || !pathname.startsWith(`${API}/rolls/`)) return
-    const { status } = await response.json().catch(() => ({}))
-    answers.push({ id: pathname.split('/').at(-1), status, at })
-  })
-  return { reads, answers }
-}
+}, API)
+/** What `watchReads` has seen on a page so far. */
+const readsOf = who => who.page.evaluate(() => JSON.parse(JSON.stringify(globalThis.__reads)))
 for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]) {
   const view = await browse({ width, height, path: '/characters/sheet-thorin', toasts: false })
   watchRefusals(view)
-  const watched = watchReads(view)
   await view.page.getByRole('tablist', { name: 'Character sheet' }).waitFor({ timeout: 20_000 })
+  await watchReads(view)
   await view.tab('Actions')
   await spendBreath()
   const row = rowOf(view, 'Fire Breath')
@@ -1094,25 +1100,26 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
       const gone = await rowChip.waitFor({ state: 'detached', timeout: 2_000 }).then(() => Date.now() - said, () => null)
       check(gone !== null, `at ${width} the chip gone within 2 s of the tray's "recharged" (${gone === null ? 'still there' : `${gone} ms`})`)
     }
-    // And the reads themselves, which the stand-in's timing can't hide: the sheet comes with the
-    // answer here, so the chip alone can't tell a read at once from a poll that came soon. The read
-    // on its way as the answer came, or else the first after it, within 1 s; then the next within
-    // 850 ms of its end: the page's 500 ms wait, with room for a loaded machine, and short of the
-    // 1 s it waited before (986 ms and more measured with it), where a 3 s poll's comes 3 s after.
+    // And the reads themselves, by the page's own clock (`watchReads`), which the stand-in's timing
+    // can't hide: the sheet comes with the answer here, so the chip alone can't tell a read at once
+    // from a poll that came soon. The read on its way as the answer came, its body not yet read, or
+    // else the first after it, within 1 s; then the next within 950 ms of its answer's headers: the
+    // page's 500 ms wait, with room for its own work, and short of the 1 s it waited before, where
+    // a 3 s poll's comes 3 s after.
     {
-      const { reads, answers } = watched
       let answered, first, next
-      await until(() => {
+      await until(async () => {
+        const { reads, answers } = await readsOf(view)
         answered = answers.find(each => each.id === breathed.id && each.status === 'done')?.at
         if (answered === undefined) return false
-        first = reads.find(each => each.start <= answered && (each.end ?? Infinity) >= answered) ?? reads.find(each => each.start >= answered)
+        first = reads.find(each => each.start <= answered && (each.done ?? Infinity) >= answered) ?? reads.find(each => each.start >= answered)
         next = first && reads[reads.indexOf(first) + 1]
-        return next !== undefined && first.end !== undefined
+        return next !== undefined && first.answered !== null
       }, `the reads of the table after Fire Breath's recharge at ${width}`, 6_000).catch(() => {})
-      const firstWords = first ? (first.start <= answered ? 'on its way' : `${first.start - answered} ms after it`) : 'none after it'
-      const gap = next && first.end !== undefined ? next.start - first.end : null
-      check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && gap !== null && gap <= 850,
-        `at ${width} the page read the table as the game answered the recharge (${answered === undefined ? 'no answer heard' : firstWords}), and again ${gap === null ? 'not within 6 s' : `${gap} ms after that read`}`)
+      const firstWords = first ? (first.start <= answered ? 'on its way' : `${Math.round(first.start - answered)} ms after it`) : 'none after it'
+      const gap = next && first.answered !== null ? Math.round(next.start - first.answered) : null
+      check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && gap !== null && gap < 950,
+        `at ${width} the page read the table as the game answered the recharge (${answered === undefined ? 'no answer heard' : firstWords}), and again ${gap === null ? 'not within 6 s' : `${gap} ms after that read's answer, by the page's clock`}`)
     }
     await shootBoth(view, 'alone-recharge-done', trayOf(view))
     // The chip gone first, as part 12 waits for it: the tray hears of the recharge as it's made, the
