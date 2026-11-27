@@ -41,9 +41,9 @@
 // show, its move's toast said in the log and not drawn, its name and focus ring in sight, and still
 // not drawn once the order is saved; and, the Staff of Embers made a favorite in Foundry and opened
 // among them, Cast Fireball beneath it, a favorite too, offering Remove from favorites alone there,
-// its own row still moving. Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
-// app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
-// Sending Stone": the loss, not a bug.
+// its own row still moving. Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's
+// result, it answers it 400 on the app's behalf, so the module's log warns that the app couldn't
+// read it and dropped it, "a bug in Sending Stone": the loss, not a bug.
 import {
   BASE, BOB, DND5E6, SKEW036, W, activeScene, actors, browse, call, character, check, companion, embedded, escapeRe,
   favoring, finish, focusInside, foundryWorld, group, launch, newCampaign, note, part, place, posted, postsOf, relay, same, sceneWorld,
@@ -1241,9 +1241,9 @@ async function putInOrder() {
   /**
    * Right after a move of `name` from its own menu: until its toast is in the log, found by its
    * label alone, whatever its words say then, and focus is on its row, polled every 100 ms for up
-   * to 8 s; then what `moveLook` sees, and an in-page watch, from then, of that toast's words, which
-   * notes how it's drawn the first time they say the order is saved (`savedLook`). `found` false
-   * where they never were, so that the check says so.
+   * to 8 s; then what `moveLook` sees, and an in-page watch, from then, of that toast's words,
+   * which notes how it's drawn the first time they say the order is saved (`savedLook`). `found`
+   * false where they never were, so that the check says so.
    */
   async function saidOfMove(who, name) {
     let look = null
@@ -1268,7 +1268,10 @@ async function putInOrder() {
     }
     return { found, ...look }
   }
-  /** What the toast `saidOfMove` watches looked like once it said the order was saved: polled for up to 8 s. */
+  /**
+   * What the toast `saidOfMove` watches looked like once it said the order was saved: polled for up
+   * to 8 s.
+   */
   async function savedLook(who) {
     let saved = null
     await until(async () => (saved = await who.page.evaluate(() => globalThis.__orderSaved ?? null)) !== null, 'the move\'s toast to say the order is saved', 8_000).catch(() => {})
