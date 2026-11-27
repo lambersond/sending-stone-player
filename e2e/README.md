@@ -238,13 +238,13 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
   - A menu or popover takes focus a frame after it shows: floating-ui focuses it from the next
     animation frame. `focusInside(locator)` (`world-030.mjs`) waits until focus is in it, or 5 s
     on, for the check after it to say where focus is.
-  - A time counted in the page starts where the page's own does. endturn's records are written
-    by a MutationObserver, which can run after the effect that starts End turn's 600 ms: "no
-    sooner" is counted from the read of the table that brought the turn, the first whose answer
-    says the turn is the character's, and that read has to arrive before the record. From the
-    record the time is held to 300 ms either side of the 600. So a countdown short by less than
-    the page takes from that read to its draw passes, but never End turn offered sooner than
-    300 ms after the record.
+  - End turn's 600 ms are counted by the page from no sooner than the frame after the one that
+    draws the turn (v0.55.0-rc, item 79). endturn's INSTRUMENT stamps each heading it records with
+    the time of the second frame it asks for as it writes it, the frame the page's count starts in
+    or an earlier one, and part 3 holds End turn to 599 to 900 ms from it, so late frames on a busy
+    machine can't move the count against its bounds. Part 20 holds the page's frames
+    (`__e2e.holdFrames()`, `releaseFrames()`) while it taps End turn the moment a turn shows: the
+    tap lands before the count can begin, however long Playwright's round trips take.
   - `stopFetching({ age })` first lets a fetch under way reach the app, which notes a fetch as
     it takes it in, given up on or not: one given up on before that would be noted after the
     ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the
