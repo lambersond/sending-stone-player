@@ -385,7 +385,8 @@ for (const { width, height, mobile = false, touch = false, onePane = true } of [
   check(await cog.getAttribute('aria-haspopup') === 'dialog' && await cog.getAttribute('aria-expanded') === 'false', `${at}, the cog says it opens a dialog, closed`)
   await cog.click()
   await settings.waitFor()
-  await page.waitForTimeout(300)
+  // Floating-ui focuses the settings a frame after they show.
+  await until(async () => (await popover(settings)).focusIn, 'focus in the settings', 5_000).catch(() => {})
   let p = await popover(settings)
   m = await measure(page)
   // From sm, the Theme choices are icon buttons a finger wide (v0.44).

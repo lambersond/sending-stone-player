@@ -34,7 +34,7 @@
 // then done. Synthetic characters only. Run with --import ./fvtt/unref-timers.mjs --import
 // ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
-  BASE, BOB, DND5E6, SHOTS_033, SKEW031, W, actors, browse, call, changeMembers, character, check, coinsInFoundry, embedded, finish, foundryWorld,
+  BASE, BOB, DND5E6, SHOTS_033, SKEW031, W, actors, browse, call, changeMembers, character, check, coinsInFoundry, embedded, finish, focusInside, foundryWorld,
   group, holdWrite, launch, newCampaign, note, npc, part, posted, postsOf, same, sameJson, settled, shoot, shootBoth, sideways, sql, startModule,
   theme, until, wait, writes,
 } from './world-030.mjs'
@@ -397,6 +397,7 @@ await desk.tab('Inventory')
   await desk.page.keyboard.press('Shift+F10')
   const menu = desk.page.getByRole('menu', { name: 'Rope' })
   await menu.waitFor()
+  await focusInside(menu)
   const look = await menu.evaluate((m, summaryBox) => ({
     below: m.getBoundingClientRect().top >= summaryBox - 2, focused: document.activeElement?.textContent?.trim(),
     at: { row: Math.round(summaryBox), top: Math.round(m.getBoundingClientRect().top), bottom: Math.round(m.getBoundingClientRect().bottom), screen: innerHeight },

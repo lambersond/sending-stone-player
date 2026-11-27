@@ -26,7 +26,7 @@
 // queued by hand never handed over. Synthetic characters only.
 // Run with --import ./fvtt/unref-timers.mjs --import ./fvtt/dnd5e-register.mjs. Screenshots to SHOTS.
 import {
-  BOB, DND5E6, SKEW039, W, browse, call, check, companion, cookieFor, escapeRe, finish, foundryWorld, launch, newCampaign,
+  BOB, DND5E6, SKEW039, W, browse, call, check, companion, cookieFor, escapeRe, finish, focusInside, foundryWorld, launch, newCampaign,
   note, npc, part, postsOf, same, sameJson, sceneWorld, setPermission, settings, settled, shootBoth, sideways, sql,
   startFetching, startModule, stopFetching, summoned, until, wait,
 } from './world-030.mjs'
@@ -858,6 +858,7 @@ let sofConc = null
   const opener = ribbon(desk).getByRole('button', { name: 'Return to Elowen' })
   await opener.click()
   await popover(desk).waitFor({ timeout: 10_000 })
+  await focusInside(popover(desk))
   const words = await popover(desk).locator('p').allTextContents()
   const focus = await focusOf(desk)
   check(same(words, ['Return to Elowen?', 'Wild Shape ends. It takes a Bonus Action.', 'Elowen keeps 5 temporary hit points.']) && focus.text === 'Stay a Black Bear',

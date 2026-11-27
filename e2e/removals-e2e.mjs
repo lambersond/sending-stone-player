@@ -350,6 +350,7 @@ await desk.tab('Inventory')
   await desk.page.keyboard.press('Shift+F10')
   const menu = desk.page.getByRole('menu', { name: 'Potion of Healing' })
   await menu.waitFor()
+  await focusInside(menu)
   const bottom = (await potion.boundingBox()).y + (await potion.boundingBox()).height
   const look = await menu.evaluate((m, under) => ({ below: m.getBoundingClientRect().top >= under - 2, focused: document.activeElement?.textContent?.trim() }), bottom)
   // Changed on purpose (round 0.37.0 §12.3): the first item, "Add to favorites", takes focus.

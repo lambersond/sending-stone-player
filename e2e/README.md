@@ -237,7 +237,10 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
 - **Moments the suites had wrong under load** (v0.49.0), and what settles each:
   - A menu or popover takes focus a frame after it shows: floating-ui focuses it from the next
     animation frame. `focusInside(locator)` (`world-030.mjs`) waits until focus is in it, or 5 s
-    on, for the check after it to say where focus is.
+    on, for the check after it to say where focus is. Every first focus the suites read waits so
+    (v0.55.0-rc): removals part 2, favoriting's by Shift+F10 and by the context-menu key,
+    givetake's Rope, wildshape's Return to Elowen, and phone's settings, which waits with an
+    `until` of its own.
   - End turn's 600 ms are counted by the page from no sooner than the frame after the one that
     draws the turn (v0.55.0-rc, item 79). endturn's INSTRUMENT stamps each heading it records with
     the time of the second frame it asks for as it writes it, the frame the page's count starts in

@@ -594,6 +594,7 @@ if (!DND5E6) {
   await desk.page.keyboard.press('Shift+F10')
   let menu = desk.page.getByRole('menu', { name: 'Cast Fireball', exact: true })
   await menu.waitFor()
+  await focusInside(menu)
   let bottom = (await cast.boundingBox()).y + (await cast.boundingBox()).height
   let look = await lookOf(menu)
   let below = await menu.evaluate((m, under) => m.getBoundingClientRect().top >= under - 2, bottom)
@@ -611,6 +612,7 @@ if (!DND5E6) {
   await desk.page.keyboard.press('ContextMenu')
   menu = desk.page.getByRole('menu', { name: 'Bless', exact: true })
   await menu.waitFor()
+  await focusInside(menu)
   bottom = (await bless.boundingBox()).y + (await bless.boundingBox()).height
   look = await lookOf(menu)
   below = await menu.evaluate((m, under) => m.getBoundingClientRect().top >= under - 2, bottom)
