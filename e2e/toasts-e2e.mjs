@@ -731,13 +731,26 @@ for (const { width, height } of [{ width: 390, height: 844 }, { width: 768, heig
   const dex = toasts.filter({ hasText: 'Dexterity check' })
   await dex.waitFor({ timeout: 25_000 })
   await until(async () => /^At the table: \d+$/.test((await readToast(dex)).table ?? ''), 'the Dexterity check to be made', 30_000)
+  const dexId = await dex.getAttribute('data-roll-toast')
   const dexBox = await dex.boundingBox()
-  const tappedAt = Date.now()
+  await watchToasts(page)
+  // When the page hears the tap, by its own clock, as its handler runs, and on which toast.
+  await page.evaluate(() => {
+    globalThis.__tapHeard = null
+    document.addEventListener('click', event => {
+      globalThis.__tapHeard = { at: performance.now(), toast: event.target?.closest?.('[data-roll-toast]')?.dataset.rollToast ?? null }
+    }, { capture: true, once: true })
+  })
   await page.touchscreen.tap(dexBox.x + dexBox.width / 2, dexBox.y + dexBox.height / 2)
-  await dex.waitFor({ state: 'detached', timeout: 1_000 })
-  const clearedIn = Date.now() - tappedAt
-  check(clearedIn <= 300 && await throughout(async () => await dex.count() === 0, 5_000),
-    `${at}, tapped once the game has made it, the Dexterity check's toast goes at once (${clearedIn} ms), and doesn't come back`)
+  await dex.waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+  samples = await stopWatching(page)
+  const heard = await page.evaluate(() => globalThis.__tapHeard)
+  const cleared = heard && samples.find(s => s.at >= heard.at && !s.ids.includes(dexId))
+  const clearedIn = cleared ? Math.round(cleared.at - heard.at) : null
+  const offDex = heard?.toast === dexId ? '' : ` (the tap landed on ${heard?.toast ?? 'no toast'})`
+  const dexStayed = clearedIn === null ? ` (still there: ${changes(samples)})` : ''
+  check(heard?.toast === dexId && clearedIn !== null && clearedIn <= 300 && await throughout(async () => await dex.count() === 0, 5_000),
+    `${at}, tapped once the game has made it, the Dexterity check's toast goes at once (${clearedIn} ms after the page heard the tap, by its clock), and doesn't come back${offDex}${dexStayed}`)
 
   // ---- T7: three at most, the newest on top ----
   await paced()
