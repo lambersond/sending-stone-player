@@ -267,7 +267,16 @@ export type AgainWords = { made: string; after: string }
  * A roll's toast: its roll's id, when it popped up, and when it goes: never, while its roll waits
  * for the player (`needsPlayer`).
  */
-export type RollToast = { id: string; poppedAt: number; until: number }
+export type RollToast = {
+  id: string
+  poppedAt: number
+  until: number
+  /**
+   * Said by the log it's in, and not drawn: a favorite's own move while its order is on its way or
+   * made (ROADMAP item 104).
+   */
+  unseen?: true
+}
 
 /** The toasts showing, and what's known of every roll met, to pop each up only as it should. */
 export type ToastBook = {
@@ -281,6 +290,11 @@ export type ToastBook = {
   told: ReadonlyMap<string, string>
   /** Whether the page has met its rolls yet: those it opens with are met as it opens. */
   opened: boolean
+  /**
+   * Of a favorite's own moves, those whose toast has been drawn, as their order wasn't made: drawn
+   * from then on, as when it's made late after all (ROADMAP item 104).
+   */
+  drawn: ReadonlySet<string>
 }
 
 /** The toasts as `popToasts` writes them, and the toasts popped up now (`draftOf`). */

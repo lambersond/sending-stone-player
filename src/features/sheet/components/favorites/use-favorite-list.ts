@@ -83,7 +83,7 @@ export function useFavoriteList(
       if (!steps) return undefined
       const move = (order: string[]) => () => {
         moved.current = { key, order: order.join('\n') }
-        save(order, name)
+        save(order, name, true)
       }
       const { up, down } = steps
       return {

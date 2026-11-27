@@ -36,10 +36,12 @@
 // the window; and a favorite moved from the keyboard to the other list keeps focus, an item's from
 // its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a list
 // does; and one open to its description stays open as Favorites is hidden and shown and as it's
-// moved by the mouse, the sheet scrolling to it where its new place is out of sight. And (item
-// 103): at 1366, the Staff of Embers made a favorite in Foundry and opened among them, Cast Fireball
-// beneath it, a favorite too, offering Remove from favorites alone there, its own row still moving.
-// Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
+// moved by the mouse, the sheet scrolling to it where its new place is out of sight. And (items 103
+// and 104): at 1366 a favorite moved by Move down to the top of the second list, where the toasts
+// show, its move's toast said in the log and not drawn, its name and focus ring in sight, and still
+// not drawn once the order is saved; and, the Staff of Embers made a favorite in Foundry and opened
+// among them, Cast Fireball beneath it, a favorite too, offering Remove from favorites alone there,
+// its own row still moving. Screenshots to SHOTS. Where `relay.lose` loses a sheet or a roll's result, it answers it 400 on the
 // app's behalf, so the module's log warns that the app couldn't read it and dropped it, "a bug in
 // Sending Stone": the loss, not a bug.
 import {
@@ -788,6 +790,20 @@ const ADDED = ['Longsword', 'Fire Bolt', 'Second Wind', 'Fighter 5', 'Bless', 'C
 }
 // 13. The panel, at every width, in both themes, once the toasts have gone.
 const toastsGone = who => until(async () => (await toastLog(who).locator('[data-roll-toast]').count()) === 0, 'the toasts to go', 15_000).catch(() => {})
+/**
+ * Where a drawn toast whose words start with `label` lies, once its slide in has ended, polled for
+ * up to 8 s: its box; null where none is drawn by then (item 104).
+ */
+async function toastBox(who, label) {
+  const toast = toastLog(who).locator('[data-roll-toast]').filter({ hasText: new RegExp(`^${escapeRe(label)}`) }).first()
+  if (!(await toast.waitFor({ timeout: 8_000 }).then(() => true, () => false))) return null
+  const box = await toast.evaluate(async el => {
+    await Promise.all(el.getAnimations().map(animation => animation.finished.catch(() => {})))
+    const { left, top, right, bottom, width, height } = el.getBoundingClientRect()
+    return { left, top, right, bottom, width, height }
+  })
+  return box.width > 1 && box.height > 1 ? box : null
+}
 await toastsGone(desk)
 await shootBoth(desk, 'favoriting-panel', panelOf(desk))
 await phone.tab('Actions')
@@ -987,7 +1003,8 @@ async function putInOrder() {
     && smallPosts.length === 1 && smallPosts[0]?.kind === 'favorite' && rolled.listed === 0 && !rolled.tumbled,
   `Move up puts Stealth above his slots at once, made as an order with skill:ste there, and Foundry's actor keeps it; nothing rolled: the phone's one POST a favorite's, no dice tumbling and no "Stealth check" among its rolls (${JSON.stringify({ shown: now.shown.slice(0, slotsAt + 3), made: made?.status, reason: made?.result?.reason, posts: smallPosts.map(post => post?.kind), rolled })})`)
   // Held by its name's own element: at 390 the row's middle can lie on its dots, which are their own.
-  // Once the toast of Stealth's move has gone, which lies over the top of the list in the picture.
+  // Once the toast of Stealth's move has gone: said and not drawn since item 104, it still waits,
+  // so that the next hold starts as it always has.
   await toastsGone(small)
   const slotsName = panelRow(small, '1st Level').getByText('1st Level', { exact: true })
   await slotsName.evaluate(el => el.scrollIntoView({ block: 'center' }))
@@ -1135,6 +1152,9 @@ async function putInOrder() {
   const sentTop = orders().length
   await top.getByRole('button', { name: 'Save order' }).focus()
   await wide.page.keyboard.press('Enter')
+  // Item 104: where a toast is drawn on this page, by Reorder's, which is drawn as before and alone
+  // in the log, so lies where a favorite's own move's would.
+  const drawnBox = await toastBox(wide, 'Favorites')
   const twoLists = [['Ki', ...placed].slice(0, half), ['Ki', ...placed].slice(half)]
   await until(async () => same(await listsOf(), twoLists), 'two lists in the new order', 5_000).catch(() => {})
   lists = await listsOf()
@@ -1164,9 +1184,10 @@ async function putInOrder() {
   })
   /**
    * A move from the keyboard: focus on what opens the row's menu, Shift+F10, the down key to the
-   * move and Enter; until the order it sends is made, and Foundry keeps it. The order made.
+   * move and Enter; `watch`, where given, right then, before the order is made; until the order it
+   * sends is made, and Foundry keeps it. The order made, and what `watch` saw.
    */
-  async function keyMove(control, title, move) {
+  async function keyMove(control, title, move, watch) {
     await toastsGone(wide)
     await control.focus()
     await wide.page.keyboard.press('Shift+F10')
@@ -1178,9 +1199,80 @@ async function putInOrder() {
     await paced()
     const sent = orders().length
     await wide.page.keyboard.press('Enter')
+    const seen = await watch?.()
     const done = await ordered(sent + 1, `${move} made`)
     await until(async () => same(await foundryKeys(wide), done.payload.favorite.order.map(keyOf)), `Foundry's favorites after ${move}`, 15_000).catch(() => {})
-    return { done, kept: same(await foundryKeys(wide), done.payload.favorite.order.map(keyOf)) }
+    return { done, kept: same(await foundryKeys(wide), done.payload.favorite.order.map(keyOf)), seen }
+  }
+  /**
+   * Item 104, at one moment: the toasts in the log, each by its roll's id, words and box; the one
+   * whose words start with `name`; how many are drawn, wider or taller than 1 px; the row that has
+   * focus, its name and its control's box; and for that control and the row's name, at four points
+   * each (2 px inside the top edge at the left + 8, the middle and the right − 8, and the centre),
+   * whether the page there is the row's. A drawn toast takes the pointer, so a point under one is
+   * the toast's; one said and not drawn takes none.
+   */
+  const moveLook = (who, name) => who.page.evaluate(name => {
+    const boxOf = el => {
+      const { left, top, right, bottom, width, height } = el.getBoundingClientRect()
+      return { left, top, right, bottom, width, height }
+    }
+    const log = document.querySelector('[role="log"][aria-label="Roll results"]')
+    const toasts = [...(log?.querySelectorAll('[data-roll-toast]') ?? [])].map(toast => ({ id: toast.dataset.rollToast, text: toast.textContent, ...boxOf(toast) }))
+    const active = document.activeElement
+    const row = active?.closest('li') ?? null
+    const label = row?.querySelector('.font-medium') ?? null
+    const points = el => {
+      if (!el || !row) return []
+      const { left, top, right, bottom } = el.getBoundingClientRect()
+      const middle = (left + right) / 2
+      return [[left + 8, top + 2], [middle, top + 2], [right - 8, top + 2], [middle, (top + bottom) / 2]]
+        .map(([x, y]) => row.contains(document.elementFromPoint(x, y)))
+    }
+    return {
+      toasts,
+      toast: toasts.find(toast => toast.text.startsWith(name)) ?? null,
+      drawn: toasts.filter(toast => toast.width > 1 || toast.height > 1).length,
+      focus: { name: label?.textContent ?? null, ...(active && row ? boxOf(active) : {}) },
+      control: points(active),
+      label: points(label),
+    }
+  }, name)
+  /**
+   * Right after a move of `name` from its own menu: until its toast is in the log, found by its
+   * label alone, whatever its words say then, and focus is on its row, polled every 100 ms for up
+   * to 8 s; then what `moveLook` sees, and an in-page watch, from then, of that toast's words, which
+   * notes how it's drawn the first time they say the order is saved (`savedLook`). `found` false
+   * where they never were, so that the check says so.
+   */
+  async function saidOfMove(who, name) {
+    let look = null
+    const found = await until(async () => {
+      look = await moveLook(who, name)
+      return look.toast !== null && look.focus.name === name
+    }, `${name}'s move said, and focus on it`, 8_000).then(() => true, () => false)
+    if (look?.toast) {
+      await who.page.evaluate(id => {
+        const log = document.querySelector('[role="log"][aria-label="Roll results"]')
+        const note = () => {
+          const toast = log.querySelector(`[data-roll-toast="${CSS.escape(id)}"]`)
+          if (globalThis.__orderSaved || !toast || !/order saved/i.test(toast.textContent)) return
+          const drawn = [...log.querySelectorAll('[data-roll-toast]')].filter(each => each.getBoundingClientRect().width > 1 || each.getBoundingClientRect().height > 1).length
+          const { width, height } = toast.getBoundingClientRect()
+          globalThis.__orderSaved = { id, text: toast.textContent, width, height, drawn }
+        }
+        globalThis.__orderSaved = null
+        new MutationObserver(note).observe(log, { childList: true, subtree: true, characterData: true })
+        note()
+      }, look.toast.id)
+    }
+    return { found, ...look }
+  }
+  /** What the toast `saidOfMove` watches looked like once it said the order was saved: polled for up to 8 s. */
+  async function savedLook(who) {
+    let saved = null
+    await until(async () => (saved = await who.page.evaluate(() => globalThis.__orderSaved ?? null)) !== null, 'the move\'s toast to say the order is saved', 8_000).catch(() => {})
+    return saved
   }
   const onPage = [...placed]
   /** The two lists `onPage` makes, Ki first. */
@@ -1197,11 +1289,23 @@ async function putInOrder() {
     await until(async () => (await focusAt()).name === name, `focus on ${name}`, 5_000).catch(() => {})
     return { lists: await listsOf(), focus: await focusAt() }
   }
-  let byKey = await keyMove(panelTarget(wide, 'Longsword'), 'Longsword', 'Move down')
+  let byKey = await keyMove(panelTarget(wide, 'Longsword'), 'Longsword', 'Move down', () => saidOfMove(wide, 'Longsword'))
   step('Longsword', 1)
   let after = await afterMove('Longsword')
   check(byKey.done.status === 'done' && byKey.kept && same(after.lists, splitPage()) && after.lists[1][0] === 'Longsword' && same(after.focus, { tag: 'BUTTON', name: 'Longsword', list: 1 }),
     `Move down on the Longsword, last of the first list, puts it first in the second, focus on its name there (${JSON.stringify({ made: byKey.done.status, kept: byKey.kept, ...after })})`)
+  // Item 104: its move's toast said and not drawn, at the very place a drawn one lies over it. The
+  // focused control under Reorder's toast's box, or the check fails rather than pass with nothing
+  // there to cover.
+  {
+    const { found, toast, drawn, focus, control, label } = byKey.seen
+    const under = drawnBox !== null && focus.top < drawnBox.bottom && focus.left < drawnBox.right && focus.right > drawnBox.left
+    check(found && toast.width <= 1 && toast.height <= 1 && drawn === 0 && [...control, ...label].length === 8 && [...control, ...label].every(Boolean) && under,
+      `Move down on the Longsword, at the top of the second list where the toasts show: its move's toast said in the log and not drawn, its name and focus ring in sight at every point (${JSON.stringify({ found, toast, drawn, control, label, focus, drawnBox, margin: drawnBox && Math.round(drawnBox.bottom - focus.top) })})`)
+    const saved = await savedLook(wide)
+    check(saved !== null && saved.id === toast?.id && saved.width <= 1 && saved.height <= 1 && saved.drawn === 0,
+      `once the order is made, the same toast says "Order saved", still said and not drawn (${JSON.stringify(saved)})`)
+  }
   await toastsGone(wide)
   await shoot(wide, 'favorites-moved-focus', top)
   byKey = await keyMove(top.getByRole('button', { name: /^Stealth check/ }), /^Stealth check/, 'Move down')

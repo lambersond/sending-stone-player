@@ -21,12 +21,13 @@ export type FavoriteMoves = { up?: () => void; down?: () => void }
 /**
  * The favorites put in order from here, from module 0.47.0: whether they may be now; the order
  * they're shown in, the one on its way while it is; and `save`, which sends the order of those
- * the page moves, by key, named for what's moved.
+ * the page moves, by key, named for what's moved, and whether it's one moved a place from its own
+ * menu (`step`).
  */
 export type FavoriteOrder = {
   on: boolean
   arrange: (entries: FavoriteEntry[]) => FavoriteEntry[]
-  save: (keys: string[], label: string) => void
+  save: (keys: string[], label: string, step?: boolean) => void
 }
 
 /** The last order sent from here: its line's local id, and the order, every favorite's key. */

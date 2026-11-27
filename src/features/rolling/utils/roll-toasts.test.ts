@@ -11,7 +11,12 @@ import {
   toastTop,
 } from './roll-toasts'
 import type { ToastBook } from '../types'
-import type { LocalCheck, LocalUse, TableRollState } from '@/types/roll'
+import type {
+  LocalCheck,
+  LocalRoll,
+  LocalUse,
+  TableRollState,
+} from '@/types/roll'
 
 /** A check, thrown at `at`. */
 const check = (id: string, at = 0): LocalCheck => ({
@@ -37,6 +42,34 @@ const done = (): TableRollState => ({
   visible: true,
   total: 14,
 })
+
+/** An attack's damage the game would roll, as it says it once the attack is made. */
+const preview = {
+  critical: false,
+  plannable: true,
+  rolls: [
+    {
+      formula: '1d8 + 4',
+      type: 'slashing',
+      dice: [{ faces: 8, number: 1 }],
+    },
+  ],
+}
+
+/** An attack the game made, a hit, its damage still to roll. */
+const hit = (fields: Partial<TableRollState> = {}): TableRollState => ({
+  status: 'done',
+  visible: true,
+  total: 19,
+  requestId: 'req-a',
+  attack: { critical: false, fumble: false, outcome: 'hit' },
+  damage: preview,
+  ...fields,
+})
+
+/** The ways to the game of attacks that hit, by their ids, all waiting for their damage. */
+const waiting = (...ids: string[]) =>
+  ways(...ids.map((id): [string, TableRollState] => [id, hit()]))
 
 /** The ids of the toasts showing, top first. */
 const ids = (book: ToastBook) => book.shown.map(({ id }) => id)
@@ -358,31 +391,7 @@ describe('utils/roll-toasts', () => {
   })
 
   describe('a toast that waits for the player', () => {
-    const preview = {
-      critical: false,
-      plannable: true,
-      rolls: [
-        {
-          formula: '1d8 + 4',
-          type: 'slashing',
-          dice: [{ faces: 8, number: 1 }],
-        },
-      ],
-    }
-    /** An attack the game made, a hit, its damage still to roll. */
-    const hit = (fields: Partial<TableRollState> = {}): TableRollState => ({
-      status: 'done',
-      visible: true,
-      total: 19,
-      requestId: 'req-a',
-      attack: { critical: false, fumble: false, outcome: 'hit' },
-      damage: preview,
-      ...fields,
-    })
     const FOREVER = Number.POSITIVE_INFINITY
-    /** The ways to the game of attacks that hit, by their ids, all waiting for their damage. */
-    const waiting = (...ids: string[]) =>
-      ways(...ids.map((id): [string, TableRollState] => [id, hit()]))
 
     it('U14 never goes while its damage waits, from popping or once made at the table', () => {
       const a = check('a')
@@ -765,6 +774,171 @@ describe('utils/roll-toasts', () => {
         expect(ids(book)).toEqual(['d', 'c', 'a'])
       })
     })
+  })
+
+  describe("a favorite's own move, said and not drawn (ROADMAP item 104)", () => {
+    /** A favorite moved a place by its own menu's Move up or Move down, from module 0.47.0. */
+    const step = (id: string, at = 0): LocalUse => ({
+      kind: 'use',
+      id,
+      label: 'Longsword',
+      spell: false,
+      favorite: 'order',
+      step: true,
+      at,
+    })
+    /** The favorites put in order by Reorder's Save order, many at once. */
+    const reordered: LocalUse = {
+      kind: 'use',
+      id: 'r',
+      label: 'Favorites',
+      spell: false,
+      favorite: 'order',
+      at: 0,
+    }
+    const added: LocalUse = {
+      kind: 'use',
+      id: 'f',
+      label: 'Hempen Rope',
+      spell: false,
+      favorite: 'add',
+      at: 0,
+    }
+    /** Rolls met one after another, oldest first, 100 ms apart, with these ways. */
+    const metInTurn = (
+      rolls: LocalRoll[],
+      states: ReadonlyMap<string, TableRollState> = NONE,
+    ) => {
+      let book = NO_TOASTS
+      for (const at of rolls.keys()) {
+        book = popToasts(
+          book,
+          rolls.slice(0, at + 1).toReversed(),
+          states,
+          at * 100,
+          true,
+        )
+      }
+      return book
+    }
+
+    it.each<[string, LocalRoll, TableRollState | undefined, boolean]>([
+      ['a check', check('c'), done(), false],
+      ['a favorite added', added, { status: 'sending' }, false],
+      ["Reorder's order", reordered, { status: 'rolling' }, false],
+      ['a step not yet sent', step('s'), undefined, true],
+      ['a step on its way', step('s'), { status: 'sending' }, true],
+      ['a step being made', step('s'), { status: 'rolling' }, true],
+      ['a step made', step('s'), done(), true],
+      [
+        "a step not made, Foundry's favorites changed meanwhile",
+        step('s'),
+        { status: 'failed', reason: 'changed' },
+        false,
+      ],
+      [
+        'a step the game took too long to make',
+        step('s'),
+        { status: 'failed', reason: 'timeout' },
+        false,
+      ],
+      [
+        'a step the app refused',
+        step('s'),
+        { status: 'refused', reason: 'network' },
+        false,
+      ],
+      ['a step expired', step('s'), { status: 'expired' }, false],
+      ['a step lost', step('s'), { status: 'lost' }, false],
+    ])(
+      'draws the toast of %s, but for a step whose order is on its way or made',
+      (_what, roll, state, unseen) => {
+        const book = popToasts(
+          NO_TOASTS,
+          [roll],
+          state ? ways([roll.id, state]) : NONE,
+          0,
+          true,
+        )
+        // Left out where it's drawn, never false, as every toast was before.
+        expect(book.shown).toStrictEqual([
+          {
+            id: roll.id,
+            poppedAt: 0,
+            until: TOAST_FOR,
+            ...(unseen && { unseen: true }),
+          },
+        ])
+      },
+    )
+
+    it("draws a step's toast in place from when its order isn't made, and on once it's made late after all", () => {
+      const s = step('s')
+      const making = popToasts(
+        NO_TOASTS,
+        [s],
+        ways(['s', { status: 'rolling' }]),
+        0,
+        true,
+      )
+      expect(making.shown).toStrictEqual([
+        { id: 's', poppedAt: 0, until: TOAST_FOR, unseen: true },
+      ])
+
+      // Not made in time: the same toast, where it is, drawn now, saying why.
+      const late = popToasts(
+        making,
+        [s],
+        ways(['s', { status: 'failed', reason: 'timeout' }]),
+        1000,
+        true,
+      )
+      expect(late.shown).toStrictEqual([
+        { id: 's', poppedAt: 0, until: 1000 + TOAST_FOR },
+      ])
+
+      // Gone, then made after all, as a late "done" follows a timeout: popped again, drawn.
+      const gone = dueToasts(late, 1000 + TOAST_FOR)
+      expect(gone.shown).toEqual([])
+      const made = popToasts(gone, [s], ways(['s', done()]), 5500, true)
+      expect(made.shown).toStrictEqual([
+        { id: 's', poppedAt: 5500, until: 5500 + TOAST_FOR },
+      ])
+    })
+
+    it.each<
+      [string, LocalRoll[], ReadonlyMap<string, TableRollState>, string[]]
+    >([
+      [
+        'two checks and two steps showing, a third check popping up: all five, as the steps take no place',
+        [check('a'), check('b', 1), step('s', 2), step('t', 3), check('c', 4)],
+        NONE,
+        ['c', 't', 's', 'b', 'a'],
+      ],
+      [
+        'three attacks waiting for their damage and a check showing, a step popping up: all five, as a step drops none',
+        [
+          check('w1'),
+          check('w2', 1),
+          check('w3', 2),
+          check('k', 3),
+          step('s', 4),
+        ],
+        waiting('w1', 'w2', 'w3'),
+        ['s', 'k', 'w3', 'w2', 'w1'],
+      ],
+      [
+        'a step and three checks showing, a fourth check popping up: the oldest check goes, never the step',
+        [step('s'), check('a', 1), check('b', 2), check('c', 3), check('d', 4)],
+        NONE,
+        ['d', 'c', 'b', 's'],
+      ],
+    ])(
+      'counts only drawn toasts toward the three, and drops only a drawn one as a drawn one pops up: %s',
+      (_what, rolls, states, shown) => {
+        expect(ids(metInTurn(rolls, states))).toEqual(shown)
+      },
+    )
   })
 
   describe('where the toasts start', () => {

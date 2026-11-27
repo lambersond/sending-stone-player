@@ -1,4 +1,4 @@
-import { SETTLED } from '@/constants/lifecycle'
+import { NOT_MADE, SETTLED } from '@/constants/lifecycle'
 import { needsPlayer } from '@/features/rolling/utils/damage-due'
 import type { RollToast, ToastBook, ToastDraft } from '@/features/rolling/types'
 import type { LocalRoll, TableRollState } from '@/types/roll'
@@ -63,6 +63,7 @@ export const NO_TOASTS: ToastBook = {
   quiet: new Set(),
   told: new Map(),
   opened: false,
+  drawn: new Set(),
 }
 
 /**
@@ -74,6 +75,27 @@ export function settledMark(state?: TableRollState): string | undefined {
   return `${state.status}:${state.reason ?? ''}`
 }
 
+/** Whether a roll is a favorite moved a place from its own menu, from module 0.47.0. */
+function isStep(roll: LocalRoll): boolean {
+  return roll.kind === 'use' && roll.step === true
+}
+
+/**
+ * Whether a roll's toast is drawn, as every one is but a favorite moved a place from its own menu:
+ * its row shows the move, with focus on it, where a toast could lie over it, as first of the second
+ * of two lists (ROADMAP item 104). That one is said in the log and not drawn while its order is on
+ * its way or made; drawn once it isn't made, as the row goes back.
+ */
+function showsToast(roll: LocalRoll, state?: TableRollState): boolean {
+  return !isStep(roll) || (state !== undefined && NOT_MADE.has(state.status))
+}
+
+/** A favorite's own move whose toast is drawn now, kept so that it stays drawn (item 104). */
+function noteDrawn(draft: ToastDraft, roll: LocalRoll, unseen: boolean) {
+  if (!isStep(roll) || unseen || draft.drawn.has(roll.id)) return
+  draft.drawn = new Set(draft.drawn).add(roll.id)
+}
+
 /**
  * The toasts once the rolls and their ways to the game are as now: each roll new to the book pops
  * up on top, as do any rolls whose way to the game ended, or ended otherwise than their toasts
@@ -83,8 +105,9 @@ export function settledMark(state?: TableRollState): string | undefined {
  * up, the oldest that doesn't wait for the player goes, never one popping up. Rolls met while
  * toasts are off never pop up; and while they're off none show. A roll the Gamemaster made as the
  * character (#156), which the player didn't make here, pops up only once its way to the game ends,
- * as the game makes it, or doesn't; never one whose way had ended before the page opened. The same
- * rolls and ways give the same book.
+ * as the game makes it, or doesn't; never one whose way had ended before the page opened. A
+ * favorite's own move is said in the log and not drawn while its order is on its way or made, and
+ * drawn from when it isn't (item 104). The same rolls and ways give the same book.
  * @param rolls - Newest first, as the page keeps them.
  * @param on - Whether the player has toasts on.
  */
@@ -107,10 +130,11 @@ export function popToasts(
     draft.seen === book.seen &&
     draft.quiet === book.quiet &&
     draft.told === book.told &&
+    draft.drawn === book.drawn &&
     book.opened
   if (same) return book
-  const { seen, quiet, told } = draft
-  return { shown: showing, seen, quiet, told, opened: true }
+  const { seen, quiet, told, drawn } = draft
+  return { shown: showing, seen, quiet, told, opened: true, drawn }
 }
 
 /**
@@ -122,9 +146,18 @@ function draftOf(book: ToastBook): ToastDraft {
   return { ...book, popped: new Set<RollToast>() }
 }
 
-/** A roll's toast popped up on top, now, to go at `until`. */
-function pop(draft: ToastDraft, id: string, now: number, until: number) {
-  const toast = { id, poppedAt: now, until }
+/** A roll's toast popped up on top, now, to go at `until`: said and not drawn, where `unseen`. */
+function pop(
+  draft: ToastDraft,
+  id: string,
+  { now, until, unseen }: { now: number; until: number; unseen: boolean },
+) {
+  const toast: RollToast = {
+    id,
+    poppedAt: now,
+    until,
+    ...(unseen && { unseen: true as const }),
+  }
   draft.popped.add(toast)
   draft.shown = [toast, ...draft.shown]
 }
@@ -143,8 +176,9 @@ function meet(
   const mark = settledMark(state)
   const waits = needsPlayer(roll, state)
   const until = waits ? Number.POSITIVE_INFINITY : now + TOAST_FOR
+  const unseen = !showsToast(roll, state) && !draft.drawn.has(roll.id)
   if (!draft.seen.has(roll.id)) {
-    meetNew(draft, roll, mark, { now, until, on })
+    meetNew(draft, roll, mark, { now, until, on, unseen })
     return
   }
   const at = draft.shown.findIndex(toast => toast.id === roll.id)
@@ -154,8 +188,7 @@ function meet(
     draft.told.get(roll.id) !== mark
   ) {
     draft.told = new Map(draft.told).set(roll.id, mark)
-    if (at === -1) pop(draft, roll.id, now, until)
-    else draft.shown = draft.shown.with(at, { ...draft.shown[at], until })
+    popAgain(draft, roll, at, { now, until, unseen })
     return
   }
   // A toast showing whose roll comes to wait for the player, or stops waiting.
@@ -170,6 +203,30 @@ function meet(
 }
 
 /**
+ * A roll's toast popped up again as its way to the game ends: on top, where it had gone; else kept
+ * where it is (`at`), for its full time again, and drawn from now if it's a favorite's own move
+ * whose order wasn't made (item 104).
+ */
+function popAgain(
+  draft: ToastDraft,
+  roll: LocalRoll,
+  at: number,
+  { now, until, unseen }: { now: number; until: number; unseen: boolean },
+) {
+  if (at === -1) pop(draft, roll.id, { now, until, unseen })
+  else {
+    const { poppedAt } = draft.shown[at]
+    draft.shown = draft.shown.with(at, {
+      id: roll.id,
+      poppedAt,
+      until,
+      ...(unseen && { unseen: true as const }),
+    })
+  }
+  noteDrawn(draft, roll, unseen)
+}
+
+/**
  * A roll new to the book: met, and popped up, but while toasts are off, which leaves it quiet for
  * good; and but one of the Gamemaster's as the character (#156) while it's on its way, or whose way
  * had ended before the page opened, which stays quiet.
@@ -178,7 +235,12 @@ function meetNew(
   draft: ToastDraft,
   roll: LocalRoll,
   mark: string | undefined,
-  { now, until, on }: { now: number; until: number; on: boolean },
+  {
+    now,
+    until,
+    on,
+    unseen,
+  }: { now: number; until: number; on: boolean; unseen: boolean },
 ) {
   const { id } = roll
   draft.seen = new Set(draft.seen).add(id)
@@ -189,16 +251,22 @@ function meetNew(
   }
   // On its way, it's in the banner or the rolls' history only, until the game says.
   if (gm && mark === undefined) return
-  pop(draft, id, now, until)
+  pop(draft, id, { now, until, unseen })
+  noteDrawn(draft, roll, unseen)
   if (mark !== undefined) draft.told = new Map(draft.told).set(id, mark)
 }
+
+/** How many of these toasts are drawn, as those said and not drawn take no place (item 104). */
+const drawnCount = (toasts: readonly RollToast[]) =>
+  toasts.filter(toast => !toast.unseen).length
 
 /**
  * The toasts that show: none while toasts are off; none of a roll the page no longer keeps, among
  * the oldest of many, which takes its toast with it; and over the cap as toasts pop up, the oldest
  * that doesn't wait for the player gone, until none more need to, but never one popped up now,
  * which would then never show, as where all the others wait. More than the cap then show, each
- * going in its own time, until the next pops up.
+ * going in its own time, until the next pops up. One said and not drawn takes no place, and is
+ * never dropped (ROADMAP item 104).
  */
 function capped(
   draft: ToastDraft,
@@ -207,10 +275,14 @@ function capped(
 ): RollToast[] {
   const kept = new Set(rolls.map(({ id }) => id))
   let showing = on ? draft.shown.filter(({ id }) => kept.has(id)) : []
-  while (draft.popped.size > 0 && showing.length > TOAST_CAP) {
+  // Only a drawn toast popping up drops another.
+  const poppedDrawn = [...draft.popped].some(toast => !toast.unseen)
+  while (poppedDrawn && drawnCount(showing) > TOAST_CAP) {
     const oldest = showing.findLastIndex(
       toast =>
-        toast.until !== Number.POSITIVE_INFINITY && !draft.popped.has(toast),
+        !toast.unseen &&
+        toast.until !== Number.POSITIVE_INFINITY &&
+        !draft.popped.has(toast),
     )
     if (oldest === -1) break
     showing = showing.toSpliced(oldest, 1)

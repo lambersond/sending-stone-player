@@ -34,7 +34,10 @@ export const SETTLED = new Set<TableRollState['status']>([
   'refused',
 ])
 
-/** How an End Turn's or an Undo's way ends where the turn stays as it was. */
+/**
+ * How an End Turn's or an Undo's way ends where the turn stays as it was; or any command's that
+ * wasn't made, such as a favorites order.
+ */
 export const NOT_MADE: ReadonlySet<TableRollState['status']> = new Set([
   'refused',
   'failed',

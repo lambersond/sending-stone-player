@@ -951,6 +951,11 @@ export type LocalUse = {
    */
   favorite?: FavoriteOp
   /**
+   * For the favorites put in order, from module 0.47.0: one moved a place by its own menu's Move
+   * up or Move down, rather than many by Reorder.
+   */
+  step?: boolean
+  /**
    * A spell prepared or unprepared, rather than anything used, from module 0.42.1: what it's of is
    * the label.
    */

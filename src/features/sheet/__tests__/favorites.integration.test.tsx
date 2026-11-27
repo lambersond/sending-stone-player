@@ -1783,6 +1783,8 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
         'slots:spell1',
       ],
       'Warhammer',
+      // A step from its own menu (ROADMAP item 104).
+      true,
     )
   })
 
@@ -1884,9 +1886,10 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
       await user.click(within(menu).getByRole('menuitem', { name: move }))
       expect(screen.queryByRole('menu')).toBeNull()
       expect(save).toHaveBeenCalledTimes(1)
-      const [[order, label]] = save.mock.calls
+      const [[order, label, step]] = save.mock.calls
       expect(order.join(' ')).toContain(moved.join(' '))
       expect(label).toBe(name)
+      expect(step).toBe(true)
       expect(onRoll).not.toHaveBeenCalled()
     },
   )
@@ -1910,6 +1913,7 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
         'tool:thief',
       ],
       '1st Level',
+      true,
     )
     // An old-style resource stays first: no menu, no moves.
     expect(

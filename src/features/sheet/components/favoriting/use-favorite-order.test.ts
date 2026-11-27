@@ -81,6 +81,8 @@ describe('useFavoriteOrder, from module 0.47.0', () => {
         { type: 'slots', id: 'spell1' },
       ],
       'Bless',
+      // Not a step from a favorite's own menu, as none was said (ROADMAP item 104).
+      false,
     )
     // The resource stays first; the rest in the order sent, before the game has heard of it.
     expect(shown(result.current.arrange)).toEqual([
