@@ -172,10 +172,12 @@ run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 # Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
 # shown beside the character and acting from the app; damage on its own and recharges; and
 # module 0.35.0 (neither). Module 0.51.0 (item 18): a companion on another scene keeps its tab,
-# marked, with a note on its sheet; and module 0.50.0 (the summons there marked gone).
-run companions 146 SHOTS=$O/shots-036f
-run companions 147 MIDI=1 SHOTS=$O/shots-036f
-run companions 146 DND5E6=1 SHOTS=$O/shots-036f
+# marked, with a note on its sheet; and module 0.50.0 (the summons there marked gone). Each of the
+# three long runs takes 290 to 345 s, and once ran out of the usual 400 under three lanes (item 95):
+# they're given 600.
+run companions 146 TIMEOUT=600 SHOTS=$O/shots-036f
+run companions 147 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-036f
+run companions 146 DND5E6=1 TIMEOUT=600 SHOTS=$O/shots-036f
 run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 run companions 17 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-051
 # v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
