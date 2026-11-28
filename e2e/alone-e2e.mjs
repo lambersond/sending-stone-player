@@ -1012,34 +1012,45 @@ async function spendBreath() {
 /** The row of Fire Breath as a list or a table shows it. */
 const breathOf = view => rowOf(view, 'Fire Breath').or(panelOf(view).locator('tr').filter({ hasText: 'Fire Breath' })).first()
 /**
- * From now, a page's reads of the table by its own clock, each as it starts, as its answer's
- * headers come and once its body has been read; and the answers its follows read of each roll,
- * once read: for item 39's check that the page reads the table again as the game answers a
- * roll, timed as the page times it (item 90).
+ * From now, a page's reads of the table by its own clock, each as it starts, with the timer that
+ * began it (the wait the page set it for, and when it set it) or none, and as its answer's headers
+ * come; and the answers its follows read of each roll, once read: for item 39's check that the
+ * page reads the table again as the game answers a roll, and once more a moment after, judged by
+ * the waits the page sets, not by how long they take on a busy machine (item 90).
  */
 const watchReads = who => who.page.evaluate(api => {
   const log = globalThis.__reads = { reads: [], answers: [] }
+  const now = () => performance.now()
+  // The page's timers: a read begun as one fires is its poll's, after the wait its poll chose.
+  const later = globalThis.setTimeout
+  let firing = null
+  globalThis.setTimeout = function (callback, delay, ...rest) {
+    if (typeof callback !== 'function') return later(callback, delay, ...rest)
+    const timer = { delay: Number(delay) || 0, set: now() }
+    return later(function () {
+      firing = timer
+      try { return callback.apply(this, arguments) } finally { firing = null }
+    }, delay, ...rest)
+  }
   const original = globalThis.fetch
   globalThis.fetch = function (input, init) {
-    const now = () => performance.now()
     let read
     let roll
     try {
       const { pathname } = new URL(typeof input === 'string' ? input : (input.href ?? input.url), location.href)
       const get = String(init?.method ?? 'GET').toUpperCase() === 'GET'
-      if (get && pathname === `${api}/table`) log.reads.push(read = { start: now(), answered: null, done: null })
+      if (get && pathname === `${api}/table`) log.reads.push(read = { start: now(), timer: firing, answered: null })
       else if (get && pathname.startsWith(`${api}/rolls/`)) roll = pathname.split('/').at(-1)
     } catch {}
     const made = original.apply(this, arguments)
-    if (read) made.then(response => {
-      read.answered = now()
-      response.clone().text().then(() => { read.done = now() }, () => { read.done = now() })
-    }, () => { read.answered = read.done = now() })
+    if (read) made.then(() => { read.answered = now() }, () => { read.answered = now() })
     if (roll) made.then(response => response.clone().json())
       .then(json => { log.answers.push({ id: roll, status: json?.status ?? null, at: now() }) }).catch(() => {})
     return made
   }
 }, API)
+/** The page's wait before the read after the one a roll's answer brings: `READ_AGAIN_AFTER`. */
+const READ_AGAIN_AFTER = 500
 /** What `watchReads` has seen on a page so far. */
 const readsOf = who => who.page.evaluate(() => JSON.parse(JSON.stringify(globalThis.__reads)))
 for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]) {
@@ -1100,26 +1111,34 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
       const gone = await rowChip.waitFor({ state: 'detached', timeout: 2_000 }).then(() => Date.now() - said, () => null)
       check(gone !== null, `at ${width} the chip gone within 2 s of the tray's "recharged" (${gone === null ? 'still there' : `${gone} ms`})`)
     }
-    // And the reads themselves, by the page's own clock (`watchReads`), which the stand-in's timing
+    // And the reads themselves, as the page made them (`watchReads`), which the stand-in's timing
     // can't hide: the sheet comes with the answer here, so the chip alone can't tell a read at once
-    // from a poll that came soon. The read on its way as the answer came, its body not yet read, or
-    // else the first after it, within 1 s; then the next within 950 ms of its answer's headers: the
-    // page's 500 ms wait, with room for its own work, and short of the 1 s it waited before, where
-    // a 3 s poll's comes 3 s after.
+    // from a poll that came soon. The read on its way as the answer came (the page counts one on
+    // its way until it sets the timer for its next, so it's the one whose next was set after the
+    // answer), or else the first after it, within 1 s; then the next, begun by the timer the page
+    // set once that read was answered, for 500 ms: not the 1 s it waited before, nor a poll's 3 s.
+    // The wait the page set, not how long it took: on a busy machine that counts the body's read,
+    // the page's own work and a timer that fires late, and once came to 1137 ms with the app right.
     {
       let answered, first, next
       await until(async () => {
         const { reads, answers } = await readsOf(view)
         answered = answers.find(each => each.id === breathed.id && each.status === 'done')?.at
         if (answered === undefined) return false
-        first = reads.find(each => each.start <= answered && (each.done ?? Infinity) >= answered) ?? reads.find(each => each.start >= answered)
-        next = first && reads[reads.indexOf(first) + 1]
+        const after = reads.findIndex(each => each.start > answered)
+        if (after < 0) return false
+        const onItsWay = after > 0 && reads[after].timer !== null && reads[after].timer.set >= answered
+        first = reads[onItsWay ? after - 1 : after]
+        next = reads[reads.indexOf(first) + 1]
         return next !== undefined && first.answered !== null
       }, `the reads of the table after Fire Breath's recharge at ${width}`, 6_000).catch(() => {})
       const firstWords = first ? (first.start <= answered ? 'on its way' : `${Math.round(first.start - answered)} ms after it`) : 'none after it'
-      const gap = next && first.answered !== null ? Math.round(next.start - first.answered) : null
-      check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && gap !== null && gap < 950,
-        `at ${width} the page read the table as the game answered the recharge (${answered === undefined ? 'no answer heard' : firstWords}), and again ${gap === null ? 'not within 6 s' : `${gap} ms after that read's answer, by the page's clock`}`)
+      const timer = next?.timer ?? null
+      const paced = timer !== null && first.answered !== null && timer.set >= first.answered && timer.delay === READ_AGAIN_AFTER
+      const nextWords = next === undefined ? 'not within 6 s'
+        : `after a wait of ${timer === null ? 'none of its own' : `${timer.delay} ms, set ${timer.set >= first.answered ? 'once' : 'before'} that read was answered`} (the read again's ${READ_AGAIN_AFTER}), ${Math.round(next.start - first.answered)} ms on by the page's clock`
+      check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && paced,
+        `at ${width} the page read the table as the game answered the recharge (${answered === undefined ? 'no answer heard' : firstWords}), and again ${nextWords}`)
     }
     await shootBoth(view, 'alone-recharge-done', trayOf(view))
     // The chip gone first, as part 12 waits for it: the tray hears of the recharge as it's made, the

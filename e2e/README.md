@@ -249,11 +249,17 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
     machine can't move the count against its bounds. Part 20 holds the page's frames
     (`__e2e.holdFrames()`, `releaseFrames()`) while it taps End turn the moment a turn shows: the
     tap lands before the count can begin, however long Playwright's round trips take.
-  - A bound the suite sets on the page is timed by the page's clock (v0.55.0-rc, items 86 and 90):
-    toasts T6 from the page hearing the tap to the toast gone, by `watchToasts`; alone part 15 from
-    the answer of the read on its way to the next read's start, by `watchReads`, a fetch wrapper in
-    the page. Timed from the suite's side, each counted Playwright's round trips and the page's
-    other work, and failed under load with the app right.
+  - A moment the suite holds the page to is read in the page (v0.55.0-rc, items 86 and 90). Timed
+    from the suite's side, each counted Playwright's round trips, and failed under load with the app
+    right. toasts T6 times by the page's clock, with `watchToasts`, from the page hearing the tap to
+    the toast gone: the tap's handler, React's commit and the observer, all in the tap's own task,
+    which nothing else the page does can come between. alone part 15 doesn't time the page's wait
+    before its next read of the table: `watchReads`, a wrapper of the page's `fetch` and
+    `setTimeout`, notes the timer that began each read and the wait it was set for, and the check is
+    that the read after the one the recharge's answer found was begun by a wait of 500 ms
+    (`READ_AGAIN_AFTER`), set once that read was answered, not the 1 s it once waited nor a poll's
+    3 s. How long that wait took also counts the body's read, the page's own work and a late timer
+    on a busy machine, and came to 1137 ms once with the app right.
   - `stopFetching({ age })` first lets a fetch under way reach the app, which notes a fetch as
     it takes it in, given up on or not: one given up on before that would be noted after the
     ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the
