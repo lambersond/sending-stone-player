@@ -233,8 +233,8 @@ export type Sent = NonNullable<EndTurnState['sent']>
 /**
  * The turn the page shows, as `useEndTurn` has it: which, by its key; how many turns have been
  * shown before it, so that what's heard of an End Turn sent for one of those is never taken for it,
- * even where it's the same turn shown again; whether it has been shown long enough to be offered;
- * and the way of the End Turn sent for it, if one was.
+ * even where it's the same turn shown again; whether it has been on the screen long enough to be
+ * offered; and the way of the End Turn sent for it, if one was.
  */
 export type Shown = {
   key?: string

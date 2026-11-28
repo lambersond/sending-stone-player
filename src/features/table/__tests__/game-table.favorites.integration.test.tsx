@@ -81,6 +81,30 @@ const ropeRow = () => {
     item.firstElementChild) as HTMLElement
 }
 
+/** The Potion of Healing made a favorite, after the Rope. */
+const POTION: SheetFavorite = {
+  type: 'item',
+  id: 'potionThorin',
+  itemType: 'consumable',
+  name: 'Potion of Healing',
+  img: null,
+}
+
+/** A favorite's row among the favorites at the top of the tab, as its menu opens from it. */
+const favoriteRow = (name: string) => {
+  const item = within(screen.getByRole('region', { name: 'Favorites' }))
+    .getByText(name)
+    .closest('li') as HTMLElement
+  return (item.querySelector(':scope > details > summary') ??
+    item.firstElementChild) as HTMLElement
+}
+
+/** The toast of a line among the rolls, by its label, in the toasts' log. */
+const toastOf = (label: string) =>
+  within(screen.getByRole('log', { name: 'Roll results' }))
+    .getByText(label)
+    .closest('[data-roll-toast]') as HTMLElement
+
 /** The game's answer to a favorite: taken, then as given. */
 const answering = (answer: object) =>
   jest.mocked(fetch).mockImplementation(async (url, init) => {
@@ -158,5 +182,38 @@ describe('components/game-table, favorites from the app, from module 0.37.0', ()
     await renderTable(tableView(fields))
     expect(fireEvent.contextMenu(ropeRow(), { button: 2 })).toBe(true)
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('components/game-table, favorites put in order, their toasts, from module 0.47.0 (ROADMAP item 104)', () => {
+  beforeEach(() => {
+    globalThis.localStorage.clear()
+    globalThis.localStorage.setItem(TOASTS_KEY, 'on')
+    // Nothing answers: each order stays on its way.
+    globalThis.fetch = jest.fn(() => new Promise<Response>(() => {}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it("says a favorite's own move in the toasts' log without drawing it, and draws Reorder's Save order", async () => {
+    const user = await renderTable(
+      tableView({ favoriteOrders: true }, [ROPE, POTION]),
+    )
+    fireEvent.contextMenu(favoriteRow('Rope'), { button: 2 })
+    await user.click(
+      within(screen.getByRole('menu', { name: 'Rope' })).getByRole('menuitem', {
+        name: 'Move down',
+      }),
+    )
+    expect(toastOf('Rope')).toHaveClass('sr-only')
+
+    await user.click(screen.getByRole('button', { name: 'Reorder favorites' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Move Potion of Healing down' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Save order' }))
+    expect(toastOf('Favorites')).not.toHaveClass('sr-only')
   })
 })

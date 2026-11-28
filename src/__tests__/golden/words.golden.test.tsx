@@ -37,7 +37,11 @@ import { CharacterPane } from '@/features/sheet/components/character-pane/charac
 import { slotName, slotWords } from '@/features/sheet/utils/slot-words'
 import { ChatLog } from '@/features/table/components/chat-log/chat-log'
 import { GameTable } from '@/features/table/components/game-table/game-table'
-import { turnRefusedLine, TURN_REFUSALS } from '@/features/table/utils/end-turn'
+import {
+  END_TURN_ARMS_AFTER,
+  turnRefusedLine,
+  TURN_REFUSALS,
+} from '@/features/table/utils/end-turn'
 import { TableApiContext } from '@/hooks/use-table-api'
 import { emptyBook, noteEntry } from '@/mocks/notes-server'
 import {
@@ -63,6 +67,7 @@ import {
   atFixedTime,
   normalizeTimes,
   responding,
+  TWO_FRAMES,
 } from '@/utils/test-utils'
 import type { Character, TableSeat } from '@/types/character'
 import type {
@@ -937,7 +942,7 @@ describe('golden C4: words', () => {
       const steps: [string, unknown][] = []
       await user().click(screen.getByRole('button', { name: /^Combat/ }))
       // End Turn is offered once the turn has been on the page a moment.
-      await advance(600)
+      await advance(TWO_FRAMES + END_TURN_ARMS_AFTER)
       steps.push(['offered', turnWords()])
       await user().click(screen.getByRole('button', { name: 'End turn' }))
       steps.push(['sent', turnWords()])

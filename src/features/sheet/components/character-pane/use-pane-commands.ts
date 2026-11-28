@@ -76,11 +76,16 @@ export function usePaneCommands({
     [command, logFavorite, sendFavorite],
   )
   // The favorites put in order, from module 0.47.0: a line among the rolls says how it went,
-  // named for what moved, as a favorite's.
+  // named for what moved, as a favorite's, and a step from a favorite's own menu said so.
   const orderOf = useCallback(
-    (order: FavoriteTarget[], was: FavoriteTarget[], label: string) =>
+    (
+      order: FavoriteTarget[],
+      was: FavoriteTarget[],
+      label: string,
+      step: boolean,
+    ) =>
       command(
-        () => logFavorite(label, 'order'),
+        () => logFavorite(label, 'order', step),
         logged => sendFavorite(logged, { op: 'order', order, was }),
       ),
     [command, logFavorite, sendFavorite],

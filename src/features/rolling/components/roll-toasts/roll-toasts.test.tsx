@@ -1366,6 +1366,48 @@ describe('components/character-sheet/roll-toasts, favorites added and removed, f
   })
 })
 
+describe("components/character-sheet/roll-toasts, a favorite's own move, from module 0.47.0 (ROADMAP item 104)", () => {
+  it("says a favorite's own move in the log and draws no toast, then draws that same toast as its order isn't made", () => {
+    const sword: LocalUse = {
+      kind: 'use',
+      id: 'o',
+      label: 'Longsword',
+      spell: false,
+      favorite: 'order',
+      step: true,
+      at: 2,
+    }
+    const { rerender } = render(
+      <RollToasts
+        rolls={[sword]}
+        states={ways(['o', { status: 'rolling', favorite: 'order' }])}
+        on
+      />,
+    )
+    const said = toast('o')
+    expect(log()).toContainElement(said)
+    expect(said).toHaveTextContent(
+      'LongswordSaving the order in your Gamemaster’s game…',
+    )
+    expect(said).toHaveClass('sr-only')
+
+    rerender(
+      <RollToasts
+        rolls={[sword]}
+        states={ways([
+          'o',
+          { status: 'failed', reason: 'changed', favorite: 'order' },
+        ])}
+        on
+      />,
+    )
+    // The same toast, drawn where it is.
+    expect(toast('o')).toBe(said)
+    expect(said).not.toHaveClass('sr-only')
+    expect(said).toHaveTextContent(/^LongswordOrder not saved/)
+  })
+})
+
 describe('components/character-sheet/roll-toasts, spells prepared and unprepared, from module 0.42.1 (round 0.42.1 §P.1.3)', () => {
   it('toasts a spell prepared as a use, titled by the spell, saying how it went', () => {
     const witch: LocalUse = {

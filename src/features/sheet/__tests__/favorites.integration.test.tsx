@@ -81,6 +81,38 @@ const item = (id: string, itemType: string, name = id): SheetFavorite => ({
   img: null,
 })
 
+/** A javelin's attack, as each of its activities makes it. */
+const JAVELIN_ATTACK = {
+  type: 'attack',
+  activation: 'Action',
+  target: null,
+  toHit: 7,
+  save: null,
+  damage: [{ formula: '1d6 + 4', type: 'Piercing', healing: false }],
+  uses: null,
+}
+
+/** The sheet, a Javelin carried that attacks or is thrown: its Throw is its other activity. */
+const withJavelin = (sheet: CharacterSheet) => {
+  sheet.inventory.sections[0].items.push(
+    sheetItem({
+      id: 'javelin',
+      name: 'Javelin',
+      type: 'weapon',
+      range: 'reach 5 ft',
+      toHit: 7,
+      attackId: 'stab',
+      damage: JAVELIN_ATTACK.damage,
+      text: TEXTS.rope,
+      activities: [
+        { ...JAVELIN_ATTACK, id: 'stab', name: 'Attack', range: 'reach 5 ft' },
+        { ...JAVELIN_ATTACK, id: 'throw', name: 'Throw', range: '30/120 ft' },
+      ],
+    }),
+  )
+  return sheet
+}
+
 /** None left of 1 use, back after a short rest. */
 const NONE_LEFT: SheetUses = { value: 0, max: 1, recovery: 'Short Rest' }
 
@@ -573,31 +605,8 @@ describe('components/character-sheet/favorites', () => {
 
   it("opens what there is to read of an item's other activities from beside each, as its tab does", async () => {
     const user = userEvent.setup()
-    const attack = {
-      type: 'attack',
-      activation: 'Action',
-      target: null,
-      toHit: 7,
-      save: null,
-      damage: [{ formula: '1d6 + 4', type: 'Piercing', healing: false }],
-      uses: null,
-    }
-    const sheet = withFavorites([item('javelin', 'weapon', 'Javelin')])
-    sheet.inventory.sections[0].items.push(
-      sheetItem({
-        id: 'javelin',
-        name: 'Javelin',
-        type: 'weapon',
-        range: 'reach 5 ft',
-        toHit: 7,
-        attackId: 'stab',
-        damage: attack.damage,
-        text: TEXTS.rope,
-        activities: [
-          { ...attack, id: 'stab', name: 'Attack', range: 'reach 5 ft' },
-          { ...attack, id: 'throw', name: 'Throw', range: '30/120 ft' },
-        ],
-      }),
+    const sheet = withJavelin(
+      withFavorites([item('javelin', 'weapon', 'Javelin')]),
     )
     render(
       <FavoritesStrip
@@ -1051,6 +1060,14 @@ const itemsOf = (menu: HTMLElement) =>
   within(menu)
     .getAllByRole('menuitem')
     .map(item => item.textContent)
+
+/** What a menu offers, opened by a right-click on this, named for `name`; closed again after. */
+const offeredOn = async (control: HTMLElement, name: string) => {
+  fireEvent.contextMenu(control, { button: 2 })
+  const items = itemsOf(screen.getByRole('menu', { name }))
+  await userEvent.keyboard('{Escape}')
+  return items
+}
 
 /** A plain row's part that would open a menu, by its name. */
 const rowOf = (name: string) => {
@@ -1766,8 +1783,72 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
         'slots:spell1',
       ],
       'Warhammer',
+      // A step from its own menu (ROADMAP item 104).
+      true,
     )
   })
+
+  it.each([
+    [
+      "one of an item's other activities",
+      'Javelin',
+      'Javelin: its other activities',
+      'Throw',
+    ],
+    ['what a container holds', 'Backpack', 'In the Backpack', 'Hempen Rope'],
+  ])(
+    'offers Move up and Move down on a favorite listed inside another, %s, only on its own row (ROADMAP item 103)',
+    async (_what, opened, list, name) => {
+      const save = jest.fn()
+      const sheet = withJavelin(
+        withFavorites([
+          item('javelin', 'weapon', 'Javelin'),
+          {
+            ...JAVELIN_ATTACK,
+            type: 'activity',
+            id: 'throw',
+            itemId: 'javelin',
+            itemType: 'weapon',
+            itemName: 'Javelin',
+            name: 'Throw',
+            img: null,
+            range: '30/120 ft',
+          },
+          item('backpack', 'container', 'Backpack'),
+          item('rope', 'loot', 'Hempen Rope'),
+          warhammer,
+        ]),
+      )
+      const offering = offeringFavorites([
+        'item:javelin',
+        'activity:javelin.throw',
+        'item:backpack',
+        'item:rope',
+        'item:warhammer',
+      ])
+      render(
+        <Favoriting
+          value={offering.value}
+          ordering={{ on: true, arrange: entries => entries, save }}
+        >
+          <FavoritesStrip {...propsFor(sheet)} />
+        </Favoriting>,
+      )
+      await userEvent.setup().click(openerOf(opened))
+      const inside = within(screen.getByRole('list', { name: list }))
+        .getByText(name)
+        .closest('summary, [tabindex="0"]') as HTMLElement
+
+      // Where it's listed inside the other, it keeps its place; among them, it moves.
+      expect(await offeredOn(inside, name)).toEqual(['Remove from favorites'])
+      expect(await offeredOn(openerOf(name), name)).toEqual([
+        'Remove from favorites',
+        'Move up',
+        'Move down',
+      ])
+      expect(save).not.toHaveBeenCalled()
+    },
+  )
 
   // ROADMAP item 47: a skill, a tool and spell slots, which have no favorites entry of their own.
   it.each([
@@ -1805,9 +1886,10 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
       await user.click(within(menu).getByRole('menuitem', { name: move }))
       expect(screen.queryByRole('menu')).toBeNull()
       expect(save).toHaveBeenCalledTimes(1)
-      const [[order, label]] = save.mock.calls
+      const [[order, label, step]] = save.mock.calls
       expect(order.join(' ')).toContain(moved.join(' '))
       expect(label).toBe(name)
+      expect(step).toBe(true)
       expect(onRoll).not.toHaveBeenCalled()
     },
   )
@@ -1831,6 +1913,7 @@ describe('components/character-sheet/favorites, put in order, from module 0.47.0
         'tool:thief',
       ],
       '1st Level',
+      true,
     )
     // An old-style resource stays first: no menu, no moves.
     expect(

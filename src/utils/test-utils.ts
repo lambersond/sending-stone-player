@@ -33,6 +33,13 @@ export const advance = (ms: number) =>
     await jest.advanceTimersByTimeAsync(ms)
   })
 
+/**
+ * Two of the page's frames, in milliseconds, under Jest's fake timers, which draw one every 16:
+ * within this of any moment two have been drawn, as a wait for what the page does once it has
+ * drawn (End turn's count, ROADMAP item 79).
+ */
+export const TWO_FRAMES = 32
+
 /** What was posted, and where: each POST's URL and its body, parsed. */
 export const posts = () =>
   jest

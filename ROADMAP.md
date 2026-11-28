@@ -280,7 +280,7 @@ where a check says so) and Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 moved to v1.x.
+tweaks needed may change it as it goes. Batches 1 to 6 and 8 to 10 are done; 7 moved to v1.x.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -301,6 +301,10 @@ tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 move
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 9. Off Prisma Accelerate, retired on 2026-12-01, onto the database's pooler, before 7: done, in
    [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
+10. Items 79, 80, 86, 90 and 95, End turn's timer and e2e checks under load; and 103 and 104, a
+    favorite's Move up and Move down: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc. Item 81,
+    the launch page, closed on 2026-11-27: the owner saw the stone on both phones and nothing needs
+    to change.
 
 **Found while untangling the module's imports**
 
@@ -353,76 +357,23 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     Incapacitated, and the druid comes back awake until the Gamemaster puts it on the druid. As
     before 0.49.0, and as item 29 was built: whether they should come back with the druid as
     conditions do is the owner's to say. In no batch yet.
-79. **End turn's 600 ms counted from when the page takes in the turn, not from when it's drawn:**
-    `useEndTurn` (`src/features/table/hooks/use-end-turn.ts`) starts them in the effect of the
-    render that first shows the turn. Where that render also takes a toast away, as when a turn is
-    taken back with Undo, React runs the effect before the browser draws; on a slow or busy device
-    the turn is then on screen a frame or more short of 600 ms before End turn can be tapped (at
-    least 22 ms short in v0.45's full e2e pass, under three lanes' load; a millisecond or two
-    alone). The 600 ms are the owner's (a tap aimed at the last heading, or a double tap across a
-    turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
-    the turn, they could start at the first frame drawn after it. Found while building item 42. In
-    no batch yet.
-80. **e2e checks of the same kinds as items 41, 42 and 70, one of them seen to fail:** (a) a menu's
-    or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
-    `removals-e2e.mjs:354` (part 2, Shift+F10), `favoriting-e2e.mjs:598` and `:615` ("Add to
-    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:401` and, to be
-    checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
-    look, which has been enough but once: removals' failed so in v0.55's full e2e pass, focus still
-    on the Potion's name, and passed when run again alone. `focusInside` (`e2e/world-030.mjs`) is
-    the wait. (b) A step that must land inside the page's own 600 ms: endturn part 20, "a tap on End
-    turn … (within 600 ms)". (c) Full screen read before the page has hydrated, where it is drawn
-    only once it has (its room is kept, empty, until then, item 82, so the header no longer moves):
-    to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page
-    `goto()` loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait.
-    The party suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a
-    wait for "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none
-    left: `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster
-    leaving. Nor has item 71's, a photograph read for its colors, which is toasts' alone. In no
-    batch yet.
-81. **What the launch page leaves to the phones:** to settle once the stone has been seen on an
-    Android phone and an iPhone (v0.49's checks): the stone's size against Android's own launch
-    screen (144 px now; larger also means the 512 px image, a page of about 356 KB, and two pinned
-    sizes); an iPhone's white first screen before the stone, which only a startup image for each
-    screen size covers; and, if an iPhone doesn't finish installing a worker whose page leaves at
-    once, waiting up to a second for it on an opening that has none. An opening connected but unable
-    to reach Sending Stone still ends on the phone's own error page, which is offline mode's (v1.x's
-    item 3). Left by item 56. In no batch yet.
+
+Items 79 and 80, End turn's 600 ms counted from when the turn is drawn, and e2e's focus, 600 ms and
+hydration reads made sure under load, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
+
+Item 81, what the launch page leaves to the phones, closed on 2026-11-27: the owner saw the stone on
+an Android phone and an iPhone, and both looked fine, so nothing changes.
 
 Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's check, coins moved
 or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
 sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
-86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
-    the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
-    300 ms of the tap, timed from before `page.touchscreen.tap` to the toast detached, so the 300 ms
-    count Playwright's own round trips and the page's main thread, not only the app's. It took
-    891 ms once, 13 of 149, in the e2e run made landing items 70 and 71, the suite alone on its lane
-    while another area's Jest and checks ran on the machine; it passed alone later on the same head
-    (149 of 149), as it did in the races70 lane's runs and in the batch's full e2e pass. Of a kind
-    with items 41, 42 and 70, which each failed under load with the app right, but not one of
-    item 80's kinds: the nearest, (b), is a step of the test's that must land inside the page's own
-    600 ms, where this is a bound the suite sets on the page, timed from the test's side. The check
-    could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow
-    for the round trips. Found landing items 70 and 71. In no batch yet.
+Item 86, e2e's toasts tap check under load, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Found while building Batch 4**
 
-87. **default.env's session lifetime:** its note says a session lasts 7 days unless `AUTH_MAX_AGE`
-    says otherwise, with 604800 as its example; `src/auth.ts` has made it 30 days since 81a8278
-    (now `src/auth-session.ts`). The note could say 30 days, with 2592000. Found planning item 62.
-    In no batch yet.
-88. **A session in daily use is likely to end 30 days after its cookie was last set:** Better Auth
-    pushes a session's end back once a day, on whichever read of it comes first. After a day away
-    that is usually a page opened afresh, a Server Component, which can't set a cookie (Next allows
-    that only in a Server Action or Route Handler; Better Auth's `nextCookies` skips the push-back
-    only for a client navigation's RSC request, and swallows the error). So the new end is written
-    to the database, the browser keeps the old cookie and its Max-Age, and the table's polls,
-    finding the session fresh, never set it again. Read from Better Auth 1.7.7's
-    `api/routes/session.mjs:198-214` and `integrations/next-js.mjs:67-69, 91-95`, not tried. It was
-    so before item 62; since it, a Server Action no longer pushes the end back either (its read
-    passes `disableRefresh`), and the table's polls still do. Found planning item 62. In no batch
-    yet.
+Items 87 and 88, default.env's session lifetime and a session in daily use likely to end 30 days
+after its cookie was last set, moved to v1.x on 2026-11-27, as its items 4 and 5.
 
 **Moved from v1.x on 2026-11-13**
 
@@ -446,17 +397,8 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 **Found in Batch 4's last checks**
 
-90. **e2e's next read of the table after a recharge, under load:** part 15 of `e2e/alone-e2e.mjs`
-    (line 1114), at 1280, "the page read the table as the game answered the recharge …, and again
-    … ms after that read", wants the page's next read to begin within 850 ms of the end of the read
-    on its way as the game answered. The page waits 500 ms (`READ_AGAIN_AFTER`, since v0.46.0), and
-    waited 1 s before, measured at 986 ms and more. It took 875 ms once, under `MIDI=1`, in batch
-    4's full e2e pass, three lanes up on four cores, and passed when rerun alone on its lane at once
-    (131 of 131). The other seven in the logs still on disk took 533 to 734 ms. The gap is timed
-    from the stand-in's side, so it counts the page's own work after a read (reading the answer,
-    drawing it) as well as the wait. Of a kind with item 86. The check could time the wait from the
-    page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
-    last checks. In no batch yet.
+Item 90, e2e's next read of the table after a recharge under load, is done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Asked for on 2026-11-18**
 
@@ -483,15 +425,8 @@ message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Found in Batch 3's last checks**
 
-95. **The companions e2e near its time limit, under load:** `e2e/companions-e2e.mjs`'s three long
-    runs (plain, `MIDI=1` and `DND5E6=1`) are given `e2e/regress.sh`'s usual 400 s. Passing on a
-    lane beside two others, they took 333 to 345 s in batch 3, against 293 to 303 s in batch 4's
-    full e2e pass: item 18's parts for companions on another scene added 8 checks and about 40 s to
-    each. In batch 3's full e2e pass, three lanes up on four cores, the `DND5E6=1` run was stopped
-    at 400 s in part 15, at 132 of its 146 checks with none failed, and passed when rerun alone on
-    its lane at once (146 of 146 in 323 s). Of a kind with items 90 and 94. The runs could be given
-    `TIMEOUT=600`, as `typed`'s and `notesoffline`'s are, or the suite split in two. Found in batch
-    3's last checks. In no batch yet.
+Item 95, the companions e2e's time limit under load, is done, in [CHANGELOG.md](CHANGELOG.md)'s
+v0.55.0-rc.
 
 **Found while building Batch 5**
 
@@ -535,107 +470,13 @@ Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0
      world's Unicorn form reads "becomes an Unicorn", and one named for Honor "a Honor". The app's
      rule (`articleOf`, `src/utils/articles.ts`) could be the module's too. Module only, small.
      Found building item 96. In no batch yet.
-103. **Move up and Move down on a favorite inside another:** a favorite open to its description
-     lists rows of its own, such as an item's other activities or what a container holds. One of
-     those that is a favorite too offers Move up and Move down in its menu there, and moves that
-     favorite among the favorites: `FavoritesList`
-     (`src/features/sheet/components/favorites/favorites-list.tsx`) gives `FavoriteMovesContext`
-     around every row it draws, the rows inside a favorite's description among them, and
-     `useFavoriteChoice` (`src/features/sheet/components/favoriting/use-favorite-choice.ts`) reads
-     it for any row under it. Read from the code, not tried. Found planning items 74 and 75. In no
-     batch yet.
-104. **A move's toast over the favorite that just took focus:** where the favorites lie in two lists
-     (1366 px, Actions), Move down on the first list's last favorite puts it first in the second, at
-     the top of their card, with focus on it, and the move's toast ("Longsword" over "Order saved")
-     shows over that very place: the favorite's name is hidden under it, its focus ring showing only
-     at its edges, for as long as the toast shows. The same where the sheet scrolls a moved favorite
-     into sight: it comes to the top, under the toast. The toasts are centered at the top of the
-     window (`RollToasts`, `src/features/rolling/components/roll-toasts/roll-toasts.tsx`), which at
-     that width is the top of the second list; their place predates batch 8, and item 74 is what now
-     puts focus there. Found reviewing item 74. In no batch yet.
+
+Items 103 and 104, Move up and Move down only on a favorite's own row, and a favorite's move shown
+in the list rather than in a toast, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Asked for on 2026-11-25**
 
-105. **The quick wins, fewer database calls without a new service:** the owner's figure is 400k to
-     1M Prisma Postgres operations for a 4-hour session of six. Today's code, measured live against
-     the stand-in Foundry with the real module and projected to 4 hours, makes 207k Prisma calls
-     light and 337k to 367k heavy (five players' tables and the Gamemaster's seat page open all
-     session, a party sheet for an hour; light is 20 rolls a player and one group request an hour,
-     heavy 120 and 10). Of those, about 177k at either profile are asking for news while nothing
-     happens: 77k is the module's wait for commands, held open by the app while it checks the
-     database every second, and 99k the pages' polls that find nothing new. Real play, with about
-     one more change a roll (attack and damage cards, uses spent), combat, more follow reads, and at
-     heavy extra phones, long waits and presence marks from several running copies of the app, is
-     estimated at about 245k light and 415k to 580k heavy. The owner's figures fit code from before
-     v0.48, whose real play projects to about 370k light and 540k to 740k heavy. Before this is
-     planned, the owner baselines a real session at the table on Friday 2026-11-27: the Prisma
-     console's count for it against its projection. That can also settle whether Prisma bills SQL
-     statements (about 1.29 a Prisma call, measured) or Prisma calls, but only if the app deployed
-     that day is on the database's pooler (v0.55.0-rc; through Accelerate a Prisma call is one
-     operation) and counts its own calls, which it doesn't today; without that count, Friday may
-     only narrow it. The changes take light from 207k to 68k, and heavy from 337k (367k at most) to
-     165k (187k at most), projected; in real play about 100k light and 233k heavy, the heavy figure
-     before extra phones and long waits. Each change below gives its saving on top of those before
-     it (light / heavy, projected), then its cost to players:
-     - The session cookie cache at 15 minutes, not 60 s (`AUTH_CACHE_MAX_AGE=900`, an environment
-       variable read in `src/auth-session.ts`): 2.8k / 2.8k; a session ended elsewhere still reads
-       pages for up to 15 minutes, loosening v0.50's sign-in checks (owner's call).
-     - The module's wait checking the database in one SQL statement (`claimAll` and
-       `holdForCommands`, `src/app/api/bridge/commands/route.ts`): 60.7k / 62.2k; none to players,
-       but the statement must skip commands this game can't take, or while one waits (up to 30 s)
-       every check costs what it does today.
-     - That check every 2 s, not every second (`COMMANDS_CHECK_EVERY`, now 1000 ms, in
-       `src/constants/sending-stone.ts`): 7.2k / 7.2k; a roll reaches Foundry half a second later
-       on average, a second at worst.
-     - The module's secret check remembered 60 s by each running copy of the app
-       (`findEventCampaign`, `src/db/campaigns.ts`): 2.3k / 8.5k; a changed secret still works for
-       up to 60 s.
-     - The module's heartbeat every 5 minutes, not 30 s, while the game is fetching, gated on the
-       app's `features` (`HEARTBEAT_AFTER`, the module's `scripts/heartbeat.mjs`): 0.5k / 0.5k; an
-       app deployed mid-session is noticed within 5 minutes, not 30 s.
-     - Table status and the Gamemaster's recent rolls in one SQL statement (`getCampaignStatus`,
-       `src/db/table.ts`): 24.0k / 24.0k; none.
-     - The seat remembered 60 s by each running copy (`getPlayerSeat` and `getGmSeat`,
-       `src/db/seats.ts`): 27.8k / 31.7k; a removed player still sees the table for up to 60 s
-       (owner's call), and another device's typed-dice switch and chat-read mark show up to 60 s
-       late.
-     - The page's open mark and the players' present mark written less often (`TABLE_SEEN_EVERY`
-       from 5 s to 30 s, `OPEN_WITHIN` from 15 s to 75 s and `PLAYERS_SEEN_EVERY` from 30 s to 60 s,
-       in `src/constants/sending-stone.ts`), and the table marked closed as the page closes
-       (`pagehide`): 9.4k / 9.4k; Midi-QOL's saves and the dice asked of a player typing theirs
-       wait up to their full 60 s (`MIDI_PROMPT_WAIT`, the module's `scripts/midi-prompts.mjs`;
-       `DICE_ASK_WAIT`, `scripts/later-dice.mjs`), not about 15, for a page closed without that
-       mark.
-     - The chat-read mark (`markChatReadUpTo`, `src/app/characters/actions.ts`) on the cookie cache
-       and written at most every 15 s a page: 3.6k / 22.6k; another device's unread count lags up
-       to 15 s, and the mark leaves v0.50's rule that every Server Action checks the session
-       against the database (`requireCheckedUser`, `src/lib/session.ts`; owner's call).
-     - The 24-hour prune of a seat's rows every 10 minutes, not on every send (`holdCommand`,
-       `src/db/commands.ts`): 0.4k / 2.6k; none.
-     - A followed roll, checked every second (`follow`, `src/utils/lifecycle.ts`), backing off to
-       every 2 s after 5 s and every 5 s after 30 s: nothing at either profile but about 7k in heavy
-       real play; a roll that waits long shows its result up to 5 s late.
-     - The party poll reading the group's access once (`access`, `src/db/party.ts`, now read by
-       `getPartyStatus` and `getGroupView`): 0.1k / 0.5k; none.
-     - The companion and notes panes each read in one statement with the seat remembered, and the
-       recipe card checking for a change before it reads its view (`getCompanionStatus`,
-       `src/db/companions.ts`; `notesResponse`, `src/lib/routes/notes-routes.ts`;
-       `cookbookViewResponse`, `src/lib/routes/cookbook-routes.ts`): from about 82 calls a minute
-       open (measured), 62 and 16 (read from the code), to a projected 22, 22 and 4, outside the
-       profiles; none.
-     - Card edits that change nothing the app shows: making a use or an attack, and then rolling its
-       damage, each set a flag on its card (`storeUse` and `runDamageCommand`, the module's
-       `scripts/command-uses.mjs`), sent as `chat.message.updated` (`onUpdateMessage`,
-       `scripts/chat.mjs`) though the message sent reads neither flag, and each bumps the
-       campaign's version (`applyCampaignEvent`, `src/db/campaign-events.ts`), so every open page
-       reads its table again: about 45 calls an edit in all today. The module could leave them out,
-       or the app skip the bump for a message equal to the one it holds (`changeMessage`, the same
-       file) with no module release. Not measured: the rolls measured were saves, which edit no
-       card. Read from the code, not tried.
-
-     Raw SQL beside Prisma for the two single statements is the owner's call too. About one to two
-     weeks, in the app alone but for the heartbeat and a module-side cure for card edits, each with
-     its `PROTOCOL.md` entry, in a later module release. Item 106 comes after it. In no batch yet.
+Item 105, the quick wins, moved to v1.x on 2026-11-27, as its item 6.
 
 106. **Ably, changes pushed to the pages and the module instead of polled:** the app publishes each
      change to Ably after its database write, rendered for each seat on a channel only that seat's
@@ -646,11 +487,12 @@ Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0
      to 14k / 46k to 61k; stage B, with leaner writes, 5k to 7k / 22k to 29k; stage C, with each
      roll as one read and one write and its result and chat line in one batch, 4k to 5k / 13k to
      19k. Each range runs from a session of saves alone, the profile the stand-in drove, to the
-     real-play estimate. These count Prisma calls: if Prisma bills statements (item 105's baseline),
-     stage A is about 1.3 times as much, and stage C built the plain Prisma way about 28k to 31k at
-     heavy. Under 25k a session at heavy in real play needs stage C, though stage B with item 105's
-     card-edit change comes near it; under 12k at heavy is not robust with any transport, as the
-     writes alone for 2,400 rolls come to about 10k. The design keeps these safeguards:
+     real-play estimate. These count Prisma calls: if Prisma bills statements (the baseline of
+     item 105, v1.x's item 6), stage A is about 1.3 times as much, and stage C built the plain
+     Prisma way about 28k to 31k at heavy. Under 25k a session at heavy in real play needs stage C,
+     though stage B with item 105's card-edit change comes near it; under 12k at heavy is not robust
+     with any transport, as the writes alone for 2,400 rolls come to about 10k. The design keeps
+     these safeguards:
      - the database claim stays, as the module claims each pushed command by its id before making
        it, so two Gamemaster tabs never make one twice and a reload doesn't lose one still waiting;
      - publishes are retried, and each page checks its version every 2 minutes and on waking;
@@ -736,6 +578,38 @@ Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0
      Likely two to four weeks (an estimate), in the app, and in the module and `PROTOCOL.md` only if
      Foundry is to know the guest. In no batch yet.
 
+**Found while building Batch 10**
+
+108. **e2e's first focus in alone part 17's picker, under load:** part 17 of `e2e/alone-e2e.mjs`,
+     its deferred "as it opens, focus on the chip picked in its first row", can find focus on the
+     Spend switch. `openPicker` takes the picker as ready once a look at it shows two levels, but
+     the focus it reads was given as the picker opened, on the page's sheet from before Thorin's
+     2nd-level slot reached it: one level, so no row of levels, where the switch takes focus. Seen
+     under load in the plain, `MIDI=1` and `DND5E6=1` runs; `e2e/README.md` lists it among the known
+     load races. Batch 10 saw it twice: in `timing-load-1`'s `MIDI=1` run and in the review's
+     `timing-rv1-load` plain run. It passed in the area's four other load runs, `timing-load-2` and
+     `timing-load-3` among them. The check could close and reopen the picker once the sheet with
+     both levels is in, before its first look, so that the focus it reads is the one the picker gave
+     with the rows there. Found in batch 10's load runs. In no batch yet.
+109. **A toast over the control that has focus:** the toasts lie centered on the window from just
+     below the sheet's tabs, over whatever is there, for four seconds, or until its damage is rolled
+     for an attack that waits for it. A control with focus there is under them while they show: at
+     about 1296 to 1435 px, a roll made from the keyboard on the first favorite of the second list,
+     or Prepare, Remove from favorites or Send to… chosen there; on a phone, a row just under the
+     tabs. Its edges show as a rule, but one shorter than a toast, such as a damage chip, can be
+     hidden whole. Item 104 left a favorite's own move's toast unseen; every other toast stays where
+     it is. Read from the code and item 104's pictures, not measured. Found planning item 104. In no
+     batch yet.
+110. **Focus lost when a favorite's move isn't made:** where the favorites lie in two lists (1366
+     px), Move down from the keyboard on the first list's last favorite puts it first in the second,
+     focus on it (item 74). If its order isn't made (Sending Stone not reached, refused, or too
+     slow), the favorite goes back to the first list and focus goes nowhere: no row has it and no
+     ring shows, while its toast says why. `useFavoriteList`
+     (`src/features/sheet/components/favorites/use-favorite-list.ts`) gives focus to the move alone,
+     never to the row put back. The known limits list one such case, its move refused because
+     Foundry's sheet changed meanwhile. Seen in Chromium with Sending Stone not reached. Found
+     fixing item 104's review. In no batch yet.
+
 ## v1.0
 
 The major release of the app and the module, once the work planned before it is done and the
@@ -761,6 +635,98 @@ campaigns, their secrets and every flag under it, and installs follow its manife
    own, for which `/sw.js` is left free. A fairly large update: what's kept on a device and for whom
    (cleared on sign-out, so a shared device keeps nothing), how long it's kept, and how a note
    changed both offline and in Foundry meanwhile is settled.
+4. **default.env's session lifetime** (item 87 before v1.0, moved on 2026-11-27, on the owner's
+   word): its note says a session lasts 7 days unless `AUTH_MAX_AGE` says otherwise, with 604800 as
+   its example; `src/auth.ts` has made it 30 days since 81a8278 (now `src/auth-session.ts`). The
+   note could say 30 days, with 2592000. Found planning item 62.
+5. **A session in daily use is likely to end 30 days after its cookie was last set** (item 88 before
+   v1.0, moved on 2026-11-27, on the owner's word): Better Auth pushes a session's end back once a
+   day, on whichever read of it comes first. After a day away that is usually a page opened afresh,
+   a Server Component, which can't set a cookie (Next allows that only in a Server Action or Route
+   Handler; Better Auth's `nextCookies` skips the push-back only for a client navigation's RSC
+   request, and swallows the error). So the new end is written to the database, the browser keeps
+   the old cookie and its Max-Age, and the table's polls, finding the session fresh, never set it
+   again. Read from Better Auth 1.7.7's `api/routes/session.mjs:198-214` and
+   `integrations/next-js.mjs:67-69, 91-95`, not tried. It was so before item 62; since it, a Server
+   Action no longer pushes the end back either (its read passes `disableRefresh`), and the table's
+   polls still do. Found planning item 62.
+6. **The quick wins, fewer database calls without a new service** (item 105 before v1.0, moved on
+   2026-11-27, on the owner's word): the owner's figure is 400k to 1M Prisma Postgres operations for
+   a 4-hour session of six. Today's code, measured live against the stand-in Foundry with the real
+   module and projected to 4 hours, makes 207k Prisma calls light and 337k to 367k heavy (five
+   players' tables and the Gamemaster's seat page open all session, a party sheet for an hour; light
+   is 20 rolls a player and one group request an hour, heavy 120 and 10). Of those, about 177k at
+   either profile are asking for news while nothing happens: 77k is the module's wait for commands,
+   held open by the app while it checks the database every second, and 99k the pages' polls that
+   find nothing new. Real play, with about one more change a roll (attack and damage cards, uses
+   spent), combat, more follow reads, and at heavy extra phones, long waits and presence marks from
+   several running copies of the app, is estimated at about 245k light and 415k to 580k heavy. The
+   owner's figures fit code from before v0.48, whose real play projects to about 370k light and 540k
+   to 740k heavy. Before this is planned, the owner baselines a real session at the table on Friday
+   2026-11-27: the Prisma console's count for it against its projection. That can also settle
+   whether Prisma bills SQL statements (about 1.29 a Prisma call, measured) or Prisma calls, as the
+   app has been on the database's pooler since v0.55.0-rc's work went live (through Accelerate a
+   Prisma call was one operation), but only if the app counts its own calls, which it doesn't today;
+   without that count, Friday may only narrow it. The changes take light from 207k to 68k, and heavy
+   from 337k (367k at most) to 165k (187k at most), projected; in real play about 100k light and
+   233k heavy, the heavy figure before extra phones and long waits. Each change below gives its
+   saving on top of those before it (light / heavy, projected), then its cost to players:
+   - The session cookie cache at 15 minutes, not 60 s (`AUTH_CACHE_MAX_AGE=900`, an environment
+     variable read in `src/auth-session.ts`): 2.8k / 2.8k; a session ended elsewhere still reads
+     pages for up to 15 minutes, loosening v0.50's sign-in checks (owner's call).
+   - The module's wait checking the database in one SQL statement (`claimAll` and `holdForCommands`,
+     `src/app/api/bridge/commands/route.ts`): 60.7k / 62.2k; none to players, but the statement must
+     skip commands this game can't take, or while one waits (up to 30 s) every check costs what it
+     does today.
+   - That check every 2 s, not every second (`COMMANDS_CHECK_EVERY`, now 1000 ms, in
+     `src/constants/sending-stone.ts`): 7.2k / 7.2k; a roll reaches Foundry half a second later on
+     average, a second at worst.
+   - The module's secret check remembered 60 s by each running copy of the app (`findEventCampaign`,
+     `src/db/campaigns.ts`): 2.3k / 8.5k; a changed secret still works for up to 60 s.
+   - The module's heartbeat every 5 minutes, not 30 s, while the game is fetching, gated on the
+     app's `features` (`HEARTBEAT_AFTER`, the module's `scripts/heartbeat.mjs`): 0.5k / 0.5k; an app
+     deployed mid-session is noticed within 5 minutes, not 30 s.
+   - Table status and the Gamemaster's recent rolls in one SQL statement (`getCampaignStatus`,
+     `src/db/table.ts`): 24.0k / 24.0k; none.
+   - The seat remembered 60 s by each running copy (`getPlayerSeat` and `getGmSeat`,
+     `src/db/seats.ts`): 27.8k / 31.7k; a removed player still sees the table for up to 60 s
+     (owner's call), and another device's typed-dice switch and chat-read mark show up to 60 s late.
+   - The page's open mark and the players' present mark written less often (`TABLE_SEEN_EVERY` from
+     5 s to 30 s, `OPEN_WITHIN` from 15 s to 75 s and `PLAYERS_SEEN_EVERY` from 30 s to 60 s, in
+     `src/constants/sending-stone.ts`), and the table marked closed as the page closes
+     (`pagehide`): 9.4k / 9.4k; Midi-QOL's saves and the dice asked of a player typing theirs wait
+     up to their full 60 s (`MIDI_PROMPT_WAIT`, the module's `scripts/midi-prompts.mjs`;
+     `DICE_ASK_WAIT`, `scripts/later-dice.mjs`), not about 15, for a page closed without that mark.
+   - The chat-read mark (`markChatReadUpTo`, `src/app/characters/actions.ts`) on the cookie cache
+     and written at most every 15 s a page: 3.6k / 22.6k; another device's unread count lags up to
+     15 s, and the mark leaves v0.50's rule that every Server Action checks the session against the
+     database (`requireCheckedUser`, `src/lib/session.ts`; owner's call).
+   - The 24-hour prune of a seat's rows every 10 minutes, not on every send (`holdCommand`,
+     `src/db/commands.ts`): 0.4k / 2.6k; none.
+   - A followed roll, checked every second (`follow`, `src/utils/lifecycle.ts`), backing off to
+     every 2 s after 5 s and every 5 s after 30 s: nothing at either profile but about 7k in heavy
+     real play; a roll that waits long shows its result up to 5 s late.
+   - The party poll reading the group's access once (`access`, `src/db/party.ts`, now read by
+     `getPartyStatus` and `getGroupView`): 0.1k / 0.5k; none.
+   - The companion and notes panes each read in one statement with the seat remembered, and the
+     recipe card checking for a change before it reads its view (`getCompanionStatus`,
+     `src/db/companions.ts`; `notesResponse`, `src/lib/routes/notes-routes.ts`;
+     `cookbookViewResponse`, `src/lib/routes/cookbook-routes.ts`): from about 82 calls a minute open
+     (measured), 62 and 16 (read from the code), to a projected 22, 22 and 4, outside the profiles;
+     none.
+   - Card edits that change nothing the app shows: making a use or an attack, and then rolling its
+     damage, each set a flag on its card (`storeUse` and `runDamageCommand`, the module's
+     `scripts/command-uses.mjs`), sent as `chat.message.updated` (`onUpdateMessage`,
+     `scripts/chat.mjs`) though the message sent reads neither flag, and each bumps the campaign's
+     version (`applyCampaignEvent`, `src/db/campaign-events.ts`), so every open page reads its table
+     again: about 45 calls an edit in all today. The module could leave them out, or the app skip
+     the bump for a message equal to the one it holds (`changeMessage`, the same file) with no
+     module release. Not measured: the rolls measured were saves, which edit no card. Read from the
+     code, not tried.
+
+   Raw SQL beside Prisma for the two single statements is the owner's call too. About one to two
+   weeks, in the app alone but for the heartbeat and a module-side cure for card edits, each with
+   its `PROTOCOL.md` entry, in a later module release. Item 106 comes after it.
 
 ## v2.0
 

@@ -24,7 +24,7 @@ import type { SheetFavorite } from '@/types/sending-stone'
  * the sheet lists but its old-style resources, from the order shown, as the game checks it; the
  * page reads the sheet again as the game answers it.
  * @param send - Sends an order and the one it was made from, and logs it among the rolls, named
- *   for what moved, returning its local id.
+ *   for what moved, and whether it's a step from a favorite's own menu, returning its local id.
  */
 export function useFavoriteOrder({
   on,
@@ -39,6 +39,7 @@ export function useFavoriteOrder({
     order: FavoriteTarget[],
     was: FavoriteTarget[],
     label: string,
+    step: boolean,
   ) => string
 }>): FavoriteOrder {
   const targets = useMemo(() => orderTargets(favorites), [favorites])
@@ -71,13 +72,14 @@ export function useFavoriteOrder({
     [shown],
   )
   const save = useCallback(
-    (moved: string[], label: string) => {
+    (moved: string[], label: string, step = false) => {
       const keys = placeShown(shown, moved)
       if (keys.join('\n') === shown.join('\n')) return
       const id = send(
         targetsOf(keys, targets),
         targetsOf(shown, targets),
         label,
+        step,
       )
       sent(ORDER_KEY, { id, keys })
     },

@@ -15,8 +15,8 @@ export const FavoritingContext = createContext<Favorites>(NO_FAVORITING)
 export const FavoriteOrderContext = createContext<FavoriteOrder>(NO_ORDERING)
 
 /**
- * Where a row among the favorites may move, by its key and name (module 0.47.0); nowhere outside
- * them.
+ * Where a row among the favorites may move, by its key and name (module 0.47.0): its own favorite
+ * alone, never one listed inside it (ROADMAP item 103); nowhere outside them.
  */
 export const FavoriteMovesContext = createContext<
   (key: string, name: string) => FavoriteMoves | undefined
@@ -25,7 +25,7 @@ export const FavoriteMovesContext = createContext<
 /**
  * A row's favorites entry, where it has one: Add or Remove, as the character's favorites say; none
  * for a row that names nothing, or outside a pane that offers them. Among the favorites, from
- * module 0.47.0, where it may move up or down.
+ * module 0.47.0, where its own favorite may move up or down.
  * @param name - What the row is called, which the tray's line is named after.
  */
 export function useFavoriteChoice(

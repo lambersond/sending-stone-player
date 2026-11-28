@@ -48,15 +48,36 @@ function holds(way: TableRollState | undefined): boolean {
 }
 
 /**
+ * Calls `then` once what the page shows now has been on the screen for `ms`: counted from the
+ * second frame from now, no sooner than the frame after the one that draws it, as an effect can
+ * run before the browser draws (ROADMAP item 79). A page in the background draws no frames, so
+ * the count waits until it's shown.
+ * @returns Stops it, at whichever stage it is.
+ */
+function onceShownFor(ms: number, then: () => void): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let frame = requestAnimationFrame(() => {
+    frame = requestAnimationFrame(() => {
+      timer = setTimeout(then, ms)
+    })
+  })
+  return () => {
+    cancelAnimationFrame(frame)
+    clearTimeout(timer)
+  }
+}
+
+/**
  * End Turn, for a character's page (module 0.36.0): the turn it may end, the seat's character's or
  * one of its companions', while the game takes it and Send to the table is on, on this device;
  * whether it's offered now; the way of the one sent for it; the last one sent, with its way
  * followed to its end whichever turn is shown, for the toast to say how it went; and `end`, which
- * sends it. A turn is offered once it has been shown for a moment (`END_TURN_ARMS_AFTER`), and not
- * while one sent for it is on its way, nor once it's ended or refused as over. What's kept is kept
- * for the turn shown only: a turn ended once and shown again, as by the Gamemaster's Previous
- * Turn, is offered again, whether or not the page saw another turn between, and the game tells
- * whether it still may be ended.
+ * sends it. A turn is offered once it has been on the screen for a moment (`END_TURN_ARMS_AFTER`,
+ * counted from no sooner than the frame after the one that draws it), and not while one sent for it
+ * is on its way, nor once it's ended or refused as over. What's kept is kept for the turn shown
+ * only: a turn ended once and shown again, as by the Gamemaster's Previous Turn, is offered again,
+ * whether or not the page saw another turn between, and the game tells whether it still may be
+ * ended.
  * @param api - The seat's API base, which its rolls go through.
  * @param gm - Whether the seat is the Gamemaster's, whose Send to the table is a switch of its own.
  * @param combat - The combat as the page's view shows it: a new object only with a newer view, as
@@ -96,12 +117,11 @@ export function useEndTurn({
   const { serial, armed } = now
   useEffect(() => {
     if (key === undefined || armed) return
-    const timer = setTimeout(() => {
+    return onceShownFor(END_TURN_ARMS_AFTER, () => {
       setShown(held =>
         held.serial === serial ? { ...held, armed: true } : held,
       )
-    }, END_TURN_ARMS_AFTER)
-    return () => clearTimeout(timer)
+    })
   }, [key, serial, armed])
 
   // A turn said to be over, still shown two polls on with no newer view: so it's the turn now, as

@@ -95,14 +95,39 @@ const GAME_WORDS = 'your Gamemaster’s game'
 /**
  * What a page of Alice's records of itself, on the page and in its own time: the device's buzzes,
  * its posts of rolls with the app's answers, the turn's toast cards as they show, change and go, the
- * presses with the drawn fill of the tab pressed each frame, context menus, clicks, the turn
- * panel's heading and End turn as they change, and its reads of the table as each is answered,
- * with whose turn the answer says it is. Its own fetch stays for the suite's own requests.
+ * presses with the drawn fill of the tab pressed each frame, context menus, clicks, and the turn
+ * panel's heading and End turn as they change, each heading with the time of the second frame
+ * after it, which End turn's count starts in or after; and its frames, which a step can hold
+ * (`holdFrames`, `releaseFrames`). Its own fetch stays for the suite's own requests.
  */
 const INSTRUMENT = () => {
   const now = () => performance.now()
-  const e2e = { buzz: [], posts: [], cards: [], presses: [], menus: [], clicks: [], headings: [], buttons: [], reads: [] }
+  const e2e = { buzz: [], posts: [], cards: [], presses: [], menus: [], clicks: [], headings: [], buttons: [] }
   window.__e2e = e2e
+  // The page's frames, which a step can hold: while held, a callback asked for waits, unrun, until
+  // they're let go, so End turn's count, begun two frames after the turn is drawn, can't start.
+  const frame = window.requestAnimationFrame.bind(window)
+  const unframe = window.cancelAnimationFrame.bind(window)
+  let held = null
+  let heldIds = 0
+  const moved = new Map()
+  window.requestAnimationFrame = callback => {
+    if (!held) return frame(callback)
+    const id = -++heldIds
+    held.push({ id, callback })
+    return id
+  }
+  window.cancelAnimationFrame = id => {
+    if (id >= 0) return unframe(id)
+    if (held) held = held.filter(each => each.id !== id)
+    if (moved.has(id)) unframe(moved.get(id))
+  }
+  e2e.holdFrames = () => { held ??= [] }
+  e2e.releaseFrames = () => {
+    const waiting = held ?? []
+    held = null
+    for (const { id, callback } of waiting) moved.set(id, frame(callback))
+  }
   const original = window.fetch
   window.__e2eFetch = original.bind(window)
   try {
@@ -110,10 +135,8 @@ const INSTRUMENT = () => {
   } catch {}
   window.fetch = function (input, init) {
     let record
-    let read = false
     try {
       const url = new URL(typeof input === 'string' ? input : (input.href ?? input.url), location.href)
-      read = String(init?.method ?? 'GET').toUpperCase() === 'GET' && /\/table$/.test(url.pathname)
       if (String(init?.method ?? 'GET').toUpperCase() === 'POST' && /\/rolls$/.test(url.pathname)) {
         const body = JSON.parse(init.body)
         record = { t: now(), path: url.pathname, kind: body.kind, body, status: null, reason: null, id: null }
@@ -121,16 +144,6 @@ const INSTRUMENT = () => {
       }
     } catch {}
     const made = original.apply(this, arguments)
-    // A read of the table, stamped as its answer arrives, before the page has it; and, once a copy
-    // of the answer is read, whose turn it says it is, by the combatant's id: none where the answer
-    // brought nothing new, or no turn.
-    if (read) {
-      made.then(response => {
-        const stamp = { t: now(), turn: null }
-        e2e.reads.push(stamp)
-        if (response.status === 200) response.clone().json().then(json => { stamp.turn = json?.combat?.currentId ?? null }).catch(() => {})
-      }).catch(() => {})
-    }
     if (record) {
       made.then(response => {
         record.status = response.status
@@ -162,7 +175,15 @@ const INSTRUMENT = () => {
     }
     for (const record of e2e.cards) if (record.gone === null && !live.has(record)) record.gone = t
     const h = document.getElementById('turn-heading')?.textContent ?? null
-    if (h !== heading) { heading = h; e2e.headings.push({ t, text: h }) }
+    if (h !== heading) {
+      heading = h
+      // The time of the second frame from here. End turn's count, begun two frames after the effect
+      // of the render that shows the turn, which runs in this record's task or a later one, starts
+      // in that frame or a later one.
+      const record = { t, text: h, drawn: null }
+      e2e.headings.push(record)
+      requestAnimationFrame(() => requestAnimationFrame(at => { record.drawn = at }))
+    }
     const b = document.querySelector('#turn-heading ~ button')
     const look = b ? `${b.textContent}|${b.getAttribute('aria-disabled') ?? ''}` : null
     if (look !== button) { button = look; e2e.buttons.push({ t, look }) }
@@ -298,14 +319,13 @@ const nowIn = who => who.page.evaluate(() => performance.now())
 /** Where each record stands now, to read what comes after. */
 const mark = async who => {
   const log = await logOf(who)
-  return { t: await nowIn(who), cards: log.cards.length, posts: log.posts.length, presses: log.presses.length, buzz: log.buzz.length, menus: log.menus.length, clicks: log.clicks.length, headings: log.headings.length, buttons: log.buttons.length, reads: log.reads.length }
+  return { t: await nowIn(who), cards: log.cards.length, posts: log.posts.length, presses: log.presses.length, buzz: log.buzz.length, menus: log.menus.length, clicks: log.clicks.length, headings: log.headings.length, buttons: log.buttons.length }
 }
 const since = async (who, m) => {
   const log = await logOf(who)
   return {
     log, cards: log.cards.slice(m.cards), posts: log.posts.slice(m.posts), presses: log.presses.slice(m.presses), buzz: log.buzz.slice(m.buzz),
     menus: log.menus.slice(m.menus), clicks: log.clicks.slice(m.clicks), headings: log.headings.slice(m.headings), buttons: log.buttons.slice(m.buttons),
-    reads: log.reads.slice(m.reads),
   }
 }
 /** A card after a mark, of a kind, once shown. */
@@ -550,21 +570,17 @@ part('3. undo')
   const back = after.headings.find(h => h.text === 'Your turn')
   const offered = after.buttons.find(b => b.t >= back.t && b.look === 'End turn|')
   const taken = after.cards.find(c => c.kind === 'taking')
-  // End turn's 600 ms are counted by the page from the render that first shows the turn, and can
-  // start before the heading's record is written here: the turn's toast goes in the same render,
-  // a layout effect of it sets state, and React then starts the countdown before the browser hands
-  // the observer its record; what the page does until then came off the time measured (578 ms
-  // once, under load). So "no sooner" is counted from the read of the table that brought the turn:
-  // the first since Undo whose answer says the turn is Thorin's, which is never after that render,
-  // and which has to have arrived before the record, or the turn came some other way and no read
-  // is counted from. From the record the time is held to 300 ms either side of the 600: later is
-  // a late timer, as before; sooner, a countdown begun that long before the turn was drawn, which
-  // the read alone would let through.
-  const read = after.reads.find(r => r.turn === 'cbThorin')
-  const sinceRead = offered && read && read.t <= back.t ? offered.t - read.t : NaN
+  // End turn's 600 ms are counted by the page from no sooner than the frame after the one that
+  // draws the turn (item 79). The heading's record carries the time of the second frame the
+  // INSTRUMENT asked for as it wrote it: the frame the page's count starts in, or an earlier one,
+  // whether React ran its effect before the browser drew the turn (here the turn's toast goes in
+  // the same render, and a layout effect of it sets state) or after. Both bounds are counted from
+  // it, so a busy machine's late frames, which hold the page's count back as much, can't make it
+  // look late: no sooner than 599 ms, and no later than 900, a late timer.
+  const sinceDrawn = offered && back.drawn !== null ? offered.t - back.drawn : NaN
   const sinceShown = offered ? offered.t - back.t : NaN
-  check(sinceRead >= 599 && sinceShown >= 300 && sinceShown <= 900 && taken.gone !== null && taken.gone <= back.t + 200,
-    `the panel "Your turn" again, the toast gone; End turn offered ${offered ? Math.round(sinceShown) : '?'} ms after the panel shows the turn, ${Number.isNaN(sinceRead) ? '?' : Math.round(sinceRead)} ms after the page read it (600 ms)`)
+  check(sinceDrawn >= 599 && sinceDrawn <= 900 && taken.gone !== null && taken.gone <= back.t + 200,
+    `the panel "Your turn" again, the toast gone; End turn offered ${Number.isNaN(sinceDrawn) ? '?' : Math.round(sinceDrawn)} ms after the turn was drawn (600 ms, from the frame after), ${Number.isNaN(sinceShown) ? '?' : Math.round(sinceShown)} ms after the panel showed it`)
 }
 
 // =================================================================================================
@@ -1152,21 +1168,27 @@ part('20. the turn moves under a hold')
   await gmTurnTo('cbThorin')
   const answer = await poll.fetch()
   // The finger is on End turn as the page changes: tapped the moment the panel shows Thorin's turn.
+  // The page's frames are held meanwhile, so End turn's count, begun two frames after the turn is
+  // drawn, can't have started however long the tap takes to land.
   const end = await button(alice).boundingBox()
   const m = await mark(alice)
+  await alice.page.evaluate(() => window.__e2e.holdFrames())
   await poll.fulfill({ response: answer })
   await alice.gate.release()
-  await alice.page.waitForFunction(() => document.getElementById('turn-heading')?.textContent === 'Your turn', null, { polling: 'raf', timeout: 10_000 })
+  await alice.page.waitForFunction(() => document.getElementById('turn-heading')?.textContent === 'Your turn', null, { polling: 50, timeout: 10_000 })
   const cdp = await alice.view.newCDPSession(alice.page)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: end.x + end.width / 2, y: end.y + end.height / 2 }] })
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   await cdp.detach()
-  await wait(1200)
+  await until(async () => (await since(alice, m)).clicks.some(c => /^End turn/.test(c.label ?? '')), 'the tap on End turn heard', 5_000).catch(() => {})
+  await alice.page.evaluate(() => window.__e2e.releaseFrames())
+  await armed(alice)
   const after = await since(alice, m)
   const shown = after.headings.find(h => h.text === 'Your turn')
   const tap = after.clicks.find(c => /^End turn/.test(c.label ?? ''))
-  check(!!tap && tap.t - shown.t < 600 && after.posts.length === 0 && current() === 'cbThorin',
-    `a tap on End turn ${tap ? Math.round(tap.t - shown.t) : '?'} ms after Thorin's turn shows (within 600 ms) → no POST`)
+  const offered = shown && after.buttons.find(b => b.t >= shown.t && b.look === 'End turn|')
+  check(!!tap && !!offered && offered.t > tap.t && after.posts.length === 0 && current() === 'cbThorin',
+    `a tap on End turn ${tap && shown ? Math.round(tap.t - shown.t) : '?'} ms after Thorin's turn shows, ${tap && offered ? Math.round(offered.t - tap.t) : '?'} ms before End turn is offered, the page's frames held → no POST`)
 }
 
 // =================================================================================================

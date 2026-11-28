@@ -172,10 +172,12 @@ run tidy 6 SKEW=042 MODULE=$O/module-0.42.0 SHOTS=$O/shots-044
 # Module 0.36.0: companions (the creatures a character summons, and the NPCs its player owns),
 # shown beside the character and acting from the app; damage on its own and recharges; and
 # module 0.35.0 (neither). Module 0.51.0 (item 18): a companion on another scene keeps its tab,
-# marked, with a note on its sheet; and module 0.50.0 (the summons there marked gone).
-run companions 146 SHOTS=$O/shots-036f
-run companions 147 MIDI=1 SHOTS=$O/shots-036f
-run companions 146 DND5E6=1 SHOTS=$O/shots-036f
+# marked, with a note on its sheet; and module 0.50.0 (the summons there marked gone). Each of the
+# three long runs takes 290 to 345 s, and once ran out of the usual 400 under three lanes (item 95):
+# they're given 600.
+run companions 146 TIMEOUT=600 SHOTS=$O/shots-036f
+run companions 147 MIDI=1 TIMEOUT=600 SHOTS=$O/shots-036f
+run companions 146 DND5E6=1 TIMEOUT=600 SHOTS=$O/shots-036f
 run companions 9 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 run companions 17 SKEW=050 MODULE=$O/module-0.50.0 SHOTS=$O/shots-051
 # v0.46 (item 39): at 768 and 1280, part 15's Recharge chip gone within 2 s of the tray's
@@ -208,9 +210,14 @@ run endturn 5 SKEW=035 MODULE=$O/module-0.35.0 SHOTS=$O/shots-036f
 # follow the window; and a favorite moved from the keyboard to the other list keeps focus, an item's
 # from its own menu, a skill's from its roll's and spell slots' from theirs, as one moved within a
 # list does; and one open to its description stays open as Favorites is hidden and shown and as
-# it's moved by the mouse, the sheet scrolling to it where its new place is out of sight.
-run favoriting 120 SHOTS=$O/shots-037
-run favoriting 86 DND5E6=1 SHOTS=$O/shots-037
+# it's moved by the mouse, the sheet scrolling to it where its new place is out of sight. And (items
+# 103 and 104): at 1366 a favorite moved by Move down to the top of the second list, where the
+# toasts show, its move's toast said in the log and not drawn, its name and focus ring in sight, and
+# still not drawn once the order is saved; and, the Staff of Embers made a favorite in Foundry and
+# opened among them, Cast Fireball beneath it, a favorite too, offering Remove from favorites alone
+# there, its own row still moving.
+run favoriting 123 SHOTS=$O/shots-037
+run favoriting 89 DND5E6=1 SHOTS=$O/shots-037
 run favoriting 9 SKEW=036 MODULE=$O/module-0.36.0 SHOTS=$O/shots-037
 run favoriting 6 SKEW=046 MODULE=$O/module-0.46.0 SHOTS=$O/shots-037
 # Module 0.38.0: dishes from the Magical Recipe Book, posted by the cookbook's server with a link

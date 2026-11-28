@@ -218,11 +218,12 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
     game answering each check before the fourth lands; under load its answer came after. It runs alone
     already (`solo`), and failed so twice in a row there, straight after a pass's lanes, then passed
     when rerun with `ONLY=toasts`.
-  - **alone DND5E6=1, and once its dnd5e 5 run**, part 17's deferred "as it opens, focus on the chip
-    picked in its first row": focus was on the Spend switch. The picker opened on the page's sheet
-    from before Thorin's 2nd-level slot reached it, with one level and so no row of levels, where
-    the switch takes focus; and the poll bringing the slot landed before the suite's first look at
-    the picker, so `openPicker` took it as ready. Under load more time passes between the two.
+  - **alone, its DND5E6=1, plain and MIDI=1 runs**, part 17's deferred "as it opens, focus on the
+    chip picked in its first row": focus was on the Spend switch. The picker opened on the page's
+    sheet from before Thorin's 2nd-level slot reached it, with one level and so no row of levels,
+    where the switch takes focus; and the poll bringing the slot landed before the suite's first
+    look at the picker, so `openPicker` took it as ready. Under load more time passes between the
+    two (ROADMAP item 108).
 - **Five pages show a skeleton before their content** (v0.48.0): your characters, your campaigns, a
   character's sheet, the Gamemaster's seat at one and an invite link. Each sends what it knows at
   once (your characters' headings and invite form, a sheet's name in its skeleton's header), a
@@ -233,18 +234,34 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
   words a skeleton shows are hidden from `getByRole`, but `getByText` finds them. gm, gmerr and
   late-setup read pages straight after the navigation, and wait. What a page draws only once it has
   hydrated comes later still, as the header's Full screen does: wait for it too before reading the
-  header, as help's `ready` and fullscreen do.
+  header or tapping, as help's `ready`, fullscreen, and phone's `open()` and reloads do
+  (v0.55.0-rc).
 - **Moments the suites had wrong under load** (v0.49.0), and what settles each:
   - A menu or popover takes focus a frame after it shows: floating-ui focuses it from the next
     animation frame. `focusInside(locator)` (`world-030.mjs`) waits until focus is in it, or 5 s
-    on, for the check after it to say where focus is.
-  - A time counted in the page starts where the page's own does. endturn's records are written
-    by a MutationObserver, which can run after the effect that starts End turn's 600 ms: "no
-    sooner" is counted from the read of the table that brought the turn, the first whose answer
-    says the turn is the character's, and that read has to arrive before the record. From the
-    record the time is held to 300 ms either side of the 600. So a countdown short by less than
-    the page takes from that read to its draw passes, but never End turn offered sooner than
-    300 ms after the record.
+    on, for the check after it to say where focus is. Every first focus the suites read waits so
+    (v0.55.0-rc): removals part 2, favoriting's by Shift+F10 and by the context-menu key,
+    givetake's Rope, wildshape's Return to Elowen, and phone's settings, which waits with an
+    `until` of its own.
+  - End turn's 600 ms are counted by the page from no sooner than the frame after the one that
+    draws the turn (v0.55.0-rc, item 79). endturn's INSTRUMENT stamps each heading it records with
+    the time of the second frame it asks for as it writes it, the frame the page's count starts in
+    or an earlier one, and part 3 holds End turn to 599 to 900 ms from it, so late frames on a busy
+    machine can't move the count against its bounds. Part 20 holds the page's frames
+    (`__e2e.holdFrames()`, `releaseFrames()`) while it taps End turn the moment a turn shows: the
+    tap lands before the count can begin, however long Playwright's round trips take.
+  - A moment the suite holds the page to is read in the page (v0.55.0-rc, items 86 and 90). Timed
+    from the suite's side, each counted Playwright's round trips, and failed under load with the app
+    right. toasts T6 times by the page's clock, with `watchToasts`, from the page hearing the tap to
+    the toast gone: the tap's handler, React's commit and the observer, all in the tap's own task,
+    which nothing else the page does can come between. alone part 15 doesn't time the page's wait
+    before its next read of the table: `watchReads`, a wrapper of the page's `fetch` and
+    `setTimeout`, notes the timer that began each read and the wait it was set for, and the check is
+    that the read after the one the recharge's answer found was begun by a wait of 500 ms
+    (`READ_AGAIN_AFTER`), set once that read was answered and within 1 s of it (`SET_WITHIN`: the
+    body's read and the page's own work, not a late timer), not the 1 s it once waited nor a poll's
+    3 s. How long that wait took also counts the body's read, the page's own work and a late timer
+    on a busy machine, and came to 1137 ms once with the app right.
   - `stopFetching({ age })` first lets a fetch under way reach the app, which notes a fetch as
     it takes it in, given up on or not: one given up on before that would be noted after the
     ageing, and the game counted live for 45 s more. `agePolls()` alone doesn't wait: where the

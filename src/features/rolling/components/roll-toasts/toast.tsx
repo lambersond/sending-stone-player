@@ -47,6 +47,7 @@ export function Toast({
   onDismiss,
   rollDamage,
   modifies,
+  unseen,
 }: Readonly<{
   roll: LocalRoll
   state?: TableRollState
@@ -56,6 +57,8 @@ export function Toast({
   onDismiss: () => void
   rollDamage?: RollDue
   modifies?: boolean
+  /** Said by the log it's in, and not drawn, as a favorite's own move (ROADMAP item 104). */
+  unseen?: boolean
 }>) {
   const [root, setRoot] = useState<HTMLDivElement | null>(null)
   return (
@@ -66,11 +69,15 @@ export function Toast({
       data-waits={waits || undefined}
       data-leaving={leaving || undefined}
       onClick={waits ? undefined : onDismiss}
-      className={clsx(
-        'pointer-events-auto flex items-start gap-3 rounded-xl border border-l-4 bg-card bg-linear-to-r py-2.5 pl-3 text-text-primary shadow-2xl motion-safe:animate-toast-in motion-safe:transition-opacity motion-safe:duration-200 motion-safe:data-leaving:opacity-0',
-        waits ? 'pr-1.5' : 'cursor-pointer pr-3',
-        ACCENTS[brief.accent],
-      )}
+      className={
+        unseen
+          ? 'sr-only'
+          : clsx(
+              'pointer-events-auto flex items-start gap-3 rounded-xl border border-l-4 bg-card bg-linear-to-r py-2.5 pl-3 text-text-primary shadow-2xl motion-safe:animate-toast-in motion-safe:transition-opacity motion-safe:duration-200 motion-safe:data-leaving:opacity-0',
+              waits ? 'pr-1.5' : 'cursor-pointer pr-3',
+              ACCENTS[brief.accent],
+            )
+      }
     >
       <Badge brief={brief} />
       <div className='min-w-0 flex-1'>

@@ -30,6 +30,20 @@ const ending = (end: () => void) =>
     end()
     await Promise.resolve()
   })
+/**
+ * The page's next two frames drawn: End turn's count starts in the second. In a plain `act`, as the
+ * frames change no state, so that no microtask of an async one is left counted among the timers.
+ */
+const drawn = () =>
+  act(() => {
+    jest.advanceTimersToNextFrame()
+    jest.advanceTimersToNextFrame()
+  })
+/** Until a turn shown now is offered: its two frames, then its moment. */
+const untilOffered = async () => {
+  await drawn()
+  await advance(END_TURN_ARMS_AFTER)
+}
 
 type Props = {
   combat?: TableCombat | undefined
@@ -90,10 +104,12 @@ describe('hooks/use-end-turn', () => {
     jest.restoreAllMocks()
   })
 
-  it('offers a turn once it has been shown for a moment, not before', async () => {
+  it("offers a turn once it has been on the screen for a moment, counted from the frame after it's drawn, not before", async () => {
     const { result } = render()
 
     expect(result.current.turn).toEqual(thorins)
+    expect(result.current.offered).toBe(false)
+    await drawn()
     expect(result.current.offered).toBe(false)
     await advance(END_TURN_ARMS_AFTER - 1)
     expect(result.current.offered).toBe(false)
@@ -109,7 +125,7 @@ describe('hooks/use-end-turn', () => {
   it('sends exactly the turn given, and nothing else, and follows it until it has ended', async () => {
     answering({ status: 'rolling' }, { status: 'done', visible: true })
     const { result } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
 
     await ending(() => result.current.end(thorins))
     expect(posted()).toEqual([
@@ -147,7 +163,7 @@ describe('hooks/use-end-turn', () => {
     const { result } = render({
       combat: mockTurnCombat({ currentId: 'c-brakka' }),
     })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
 
     expect(result.current.turn).toEqual(brakkas)
     await ending(() => result.current.end(brakkas))
@@ -169,7 +185,7 @@ describe('hooks/use-end-turn', () => {
   it('sends one for a turn, however often it’s asked: at once, on its way, or once it has ended', async () => {
     answering({ status: 'rolling' }, { status: 'done', visible: true })
     const { result } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
 
     // A tap and a hold together.
     await ending(() => {
@@ -188,11 +204,11 @@ describe('hooks/use-end-turn', () => {
 
   it('sends nothing for a turn no longer shown, though another is offered', async () => {
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
 
     // The poll moved on to Brakka's, which is offered in its turn.
     rerender({ combat: mockTurnCombat({ currentId: 'c-brakka' }) })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.offered).toBe(true)
     await ending(() => result.current.end(thorins))
     expect(fetch).not.toHaveBeenCalled()
@@ -201,7 +217,7 @@ describe('hooks/use-end-turn', () => {
   it('offers a new turn a moment after the poll shows it, and forgets the last one’s way', async () => {
     answering({ status: 'done', visible: true })
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(CHECK_EVERY)
     expect(result.current.way).toMatchObject({ status: 'done' })
@@ -210,25 +226,58 @@ describe('hooks/use-end-turn', () => {
     expect(result.current.turn).toEqual(brakkas)
     expect(result.current.way).toBeUndefined()
     expect(result.current.offered).toBe(false)
+    await drawn()
     await advance(END_TURN_ARMS_AFTER - 1)
     expect(result.current.offered).toBe(false)
     await advance(1)
     expect(result.current.offered).toBe(true)
   })
 
+  it.each([
+    [
+      'a frame into it',
+      async () => {
+        await act(() => {
+          jest.advanceTimersToNextFrame()
+        })
+      },
+    ],
+    [
+      'its timer already counting',
+      async () => {
+        await drawn()
+        await advance(100)
+      },
+    ],
+  ])(
+    'counts a turn shown anew from its own frames, with nothing left of the last one’s count, %s',
+    async (_, counting) => {
+      const { result, rerender } = render()
+      await counting()
+
+      rerender({ combat: mockTurnCombat({ currentId: 'c-brakka' }) })
+      await drawn()
+      expect(jest.getTimerCount()).toBe(1)
+      await advance(END_TURN_ARMS_AFTER - 1)
+      expect(result.current.offered).toBe(false)
+      await advance(1)
+      expect(result.current.offered).toBe(true)
+    },
+  )
+
   it('offers a turn ended before once it’s shown again, as after a rewind', async () => {
     answering({ status: 'done', visible: true })
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(CHECK_EVERY)
 
     rerender({ combat: mockTurnCombat({ currentId: 'c-brakka' }) })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     // The Gamemaster's Previous Turn, back to Thorin in the same round.
     rerender({ combat: mockTurnCombat() })
     expect(result.current.way).toBeUndefined()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.offered).toBe(true)
     await ending(() => result.current.end(thorins))
     expect(posted()).toHaveLength(2)
@@ -238,14 +287,14 @@ describe('hooks/use-end-turn', () => {
     answering({ status: 'done', visible: true })
     const thorinsTurn = mockTurnCombat()
     const { result, rerender } = render({ combat: thorinsTurn })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(CHECK_EVERY)
     expect(result.current.way).toMatchObject({ status: 'done' })
 
     // Drawn again with the view it had: still ended.
     rerender({ combat: thorinsTurn })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.offered).toBe(false)
 
     // The game went on to Brakka's, and the Gamemaster's Previous Turn came back to Thorin's,
@@ -253,7 +302,7 @@ describe('hooks/use-end-turn', () => {
     rerender({ combat: mockTurnCombat() })
     expect(result.current.way).toBeUndefined()
     expect(result.current.offered).toBe(false)
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.offered).toBe(true)
     await ending(() => result.current.end(thorins))
     expect(posted()).toHaveLength(2)
@@ -262,14 +311,14 @@ describe('hooks/use-end-turn', () => {
   it('offers a turn the app refused as moved on again once a newer view still shows it', async () => {
     jest.mocked(fetch).mockResolvedValue(respond(422, { reason: 'moved' }))
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(0)
     expect(result.current.offered).toBe(false)
 
     // Gone on and come back between two polls.
     rerender({ combat: mockTurnCombat() })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.offered).toBe(true)
     await ending(() => result.current.end(thorins))
     expect(posted()).toHaveLength(2)
@@ -278,7 +327,7 @@ describe('hooks/use-end-turn', () => {
   it('offers a turn again two polls after the game said it ended, where the view shown already had it back', async () => {
     answering({ status: 'rolling' }, { status: 'done', visible: true })
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(CHECK_EVERY)
     // Ended, and brought back by the Gamemaster, before a poll that shows Thorin's turn again;
@@ -293,7 +342,7 @@ describe('hooks/use-end-turn', () => {
     await advance(1)
     expect(result.current.way).toBeUndefined()
     expect(result.current.offered).toBe(false)
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.offered).toBe(true)
     await ending(() => result.current.end(thorins))
     expect(posted()).toHaveLength(2)
@@ -307,7 +356,7 @@ describe('hooks/use-end-turn', () => {
     async late => {
       answering({ status: 'rolling' }, late)
       const { result, rerender } = render()
-      await advance(END_TURN_ARMS_AFTER)
+      await untilOffered()
       await ending(() => result.current.end(thorins))
       expect(result.current.sent).toEqual({
         turn: thorins,
@@ -342,11 +391,11 @@ describe('hooks/use-end-turn', () => {
       'req-2': [{ status: 'rolling' }],
     })
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(CHECK_EVERY)
     rerender({ combat: mockTurnCombat({ currentId: 'c-brakka' }) })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(brakkas))
 
     // Thorin's is answered; Brakka's is the last sent, still on its way.
@@ -369,11 +418,11 @@ describe('hooks/use-end-turn', () => {
       'req-2': [{ status: 'rolling' }],
     })
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(CHECK_EVERY)
     rerender({ combat: mockTurnCombat({ currentId: 'c-brakka' }) })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
 
     // A tap and a hold on Brakka's turn, with Thorin's refused between them.
     await act(async () => {
@@ -395,7 +444,7 @@ describe('hooks/use-end-turn', () => {
             : respond(reason === 'busy' ? 429 : 409, { reason }),
         )
       const { result } = render()
-      await advance(END_TURN_ARMS_AFTER)
+      await untilOffered()
 
       await ending(() => result.current.end(thorins))
       await advance(0)
@@ -409,7 +458,7 @@ describe('hooks/use-end-turn', () => {
   it('offers a turn again once a newer view still shows it, where the app took its End Turn with nothing to follow it by', async () => {
     jest.mocked(fetch).mockResolvedValue(respond(202, {}))
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
 
     await ending(() => result.current.end(thorins))
     await advance(0)
@@ -418,7 +467,7 @@ describe('hooks/use-end-turn', () => {
     expect(result.current.offered).toBe(false)
 
     rerender({ combat: mockTurnCombat() })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.offered).toBe(true)
     expect(posted()).toHaveLength(1)
   })
@@ -428,7 +477,7 @@ describe('hooks/use-end-turn', () => {
     async reason => {
       jest.mocked(fetch).mockResolvedValue(respond(422, { reason }))
       const { result } = render()
-      await advance(END_TURN_ARMS_AFTER)
+      await untilOffered()
 
       await ending(() => result.current.end(thorins))
       await advance(0)
@@ -442,7 +491,7 @@ describe('hooks/use-end-turn', () => {
   it('offers that turn no more once the game refuses it as moved on, but again once it answers nothing', async () => {
     answering({ status: 'failed', reason: 'moved' })
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     await advance(CHECK_EVERY)
     expect(result.current.way).toMatchObject({
@@ -454,7 +503,7 @@ describe('hooks/use-end-turn', () => {
     // Another turn, whose End Turn the game never answers.
     answering({ status: 'lost' })
     rerender({ combat: mockTurnCombat({ round: 2 }) })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end({ ...thorins, round: 2 }))
     await advance(CHECK_EVERY)
     expect(result.current.way).toMatchObject({ status: 'lost' })
@@ -464,7 +513,7 @@ describe('hooks/use-end-turn', () => {
   it('offers no turn with Send to the table off on this device, the Gamemaster’s switch apart', async () => {
     globalThis.localStorage.setItem(SEND_KEY, 'off')
     const { result, rerender } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.turn).toBeUndefined()
     expect(result.current.offered).toBe(false)
     await ending(() => result.current.end(thorins))
@@ -480,13 +529,13 @@ describe('hooks/use-end-turn', () => {
 
   it("offers no turn where the game doesn't take it, nor anyone else's", async () => {
     const { result, rerender } = render({ kinds: ['skill'] })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.turn).toBeUndefined()
     expect(result.current.offered).toBe(false)
     await ending(() => result.current.end(thorins))
 
     rerender({ combat: mockTurnCombat({ currentId: 'c-goblin' }) })
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     expect(result.current.turn).toBeUndefined()
     expect(result.current.offered).toBe(false)
     rerender({ combat: undefined })
@@ -497,7 +546,7 @@ describe('hooks/use-end-turn', () => {
   it('stops following once the page goes', async () => {
     answering({ status: 'rolling' })
     const { result, unmount } = render()
-    await advance(END_TURN_ARMS_AFTER)
+    await untilOffered()
     await ending(() => result.current.end(thorins))
     const signal = jest.mocked(fetch).mock.calls[0][1]?.signal
 
@@ -508,10 +557,10 @@ describe('hooks/use-end-turn', () => {
   })
 
   it('arms no timer once the page goes', async () => {
-    const timeouts = jest.spyOn(globalThis, 'clearTimeout')
+    const frames = jest.spyOn(globalThis, 'cancelAnimationFrame')
     const { unmount } = render()
     unmount()
-    expect(timeouts).toHaveBeenCalled()
+    expect(frames).toHaveBeenCalled()
     expect(jest.getTimerCount()).toBe(0)
   })
 })

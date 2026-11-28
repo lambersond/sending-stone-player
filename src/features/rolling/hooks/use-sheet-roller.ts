@@ -607,10 +607,10 @@ export function useSheetRoller(
   )
 
   // Keeps a favorite added or removed, from module 0.37.0, first among the rolls, as a use is; or
-  // from module 0.47.0 the favorites put in order.
+  // from module 0.47.0 the favorites put in order, a step from a favorite's own menu said so.
   const logFavorite = useCallback(
-    (label: string, op: FavoriteOp): LocalUse =>
-      keep('use', { label, spell: false, favorite: op }),
+    (label: string, op: FavoriteOp, step = false): LocalUse =>
+      keep('use', { label, spell: false, favorite: op, ...(step && { step }) }),
     [keep],
   )
 

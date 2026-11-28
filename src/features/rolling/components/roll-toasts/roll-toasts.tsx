@@ -27,7 +27,9 @@ import type { LocalRoll, TableRollState } from '@/types/roll'
  * buttons are the only way to answer them; or below the table's header where the row isn't shown;
  * else at the top of the screen. Those that don't fit in the room below that scroll, so that none
  * runs off the screen, as on a phone turned sideways. None while the player has the banner, nor
- * before the page has hydrated, as the setting is only known in the browser.
+ * before the page has hydrated, as the setting is only known in the browser. A favorite moved from
+ * its own menu is said and not drawn, as its row shows the move, unless its order isn't made; it
+ * takes none of the three places (ROADMAP item 104).
  */
 export function RollToasts({
   rolls,
@@ -86,7 +88,7 @@ export function RollToasts({
         className='flex w-full flex-col gap-2 sm:max-w-md'
       >
         {/* Popping up again mounts it anew, so that it's announced again. */}
-        {toasts.map(({ id, poppedAt, leaving, roll }) => {
+        {toasts.map(({ id, poppedAt, leaving, unseen, roll }) => {
           const state = states.get(id)
           return (
             <Toast
@@ -99,6 +101,7 @@ export function RollToasts({
               onDismiss={() => dismiss(id)}
               rollDamage={rollDamage}
               modifies={modifies}
+              unseen={unseen}
             />
           )
         })}
