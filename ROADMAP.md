@@ -357,33 +357,9 @@ opened, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
     Incapacitated, and the druid comes back awake until the Gamemaster puts it on the druid. As
     before 0.49.0, and as item 29 was built: whether they should come back with the druid as
     conditions do is the owner's to say. In no batch yet.
-79. **End turn's 600 ms counted from when the page takes in the turn, not from when it's drawn:**
-    `useEndTurn` (`src/features/table/hooks/use-end-turn.ts`) starts them in the effect of the
-    render that first shows the turn. Where that render also takes a toast away, as when a turn is
-    taken back with Undo, React runs the effect before the browser draws; on a slow or busy device
-    the turn is then on screen a frame or more short of 600 ms before End turn can be tapped (at
-    least 22 ms short in v0.45's full e2e pass, under three lanes' load; a millisecond or two
-    alone). The 600 ms are the owner's (a tap aimed at the last heading, or a double tap across a
-    turn's end, ends nothing), so nothing was changed: if they are meant from when the player sees
-    the turn, they could start at the first frame drawn after it. Found while building item 42. In
-    batch 10.
-80. **e2e checks of the same kinds as items 41, 42 and 70, one of them seen to fail:** (a) a menu's
-    or popover's focus read the moment it shows, where floating-ui gives it focus a frame later:
-    `removals-e2e.mjs:354` (part 2, Shift+F10), `favoriting-e2e.mjs:598` and `:615` ("Add to
-    favorites" focused, by Shift+F10 and by the context-menu key), `givetake-e2e.mjs:401` and, to be
-    checked, `phone-e2e.mjs:322`. Each has a round trip or two between the menu showing and the
-    look, which has been enough but once: removals' failed so in v0.55's full e2e pass, focus still
-    on the Potion's name, and passed when run again alone. `focusInside` (`e2e/world-030.mjs`) is
-    the wait. (b) A step that must land inside the page's own 600 ms: endturn part 20, "a tap on End
-    turn … (within 600 ms)". (c) Full screen read before the page has hydrated, where it is drawn
-    only once it has (its room is kept, empty, until then, item 82, so the header no longer moves):
-    to be checked, `phone-e2e.mjs:363`, which reads Full screen's size after several looks at a page
-    `goto()` loaded, which has been enough so far; help's `ready` (`e2e/help-e2e.mjs`) is the wait.
-    The party suite reads its header (`party-e2e.mjs:213`, `:505`) after a link within the app or a
-    wait for "Reconnecting", which only a page that has hydrated shows. Item 57's kind has none
-    left: `stopFetching({ age })` waits, and so do notesoffline's four closings by the Gamemaster
-    leaving. Nor has item 71's, a photograph read for its colors, which is toasts' alone. In
-    batch 10.
+
+Items 79 and 80, End turn's 600 ms counted from when the turn is drawn, and e2e's focus, 600 ms and
+hydration reads made sure under load, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 Item 81, what the launch page leaves to the phones, closed on 2026-11-27: the owner saw the stone on
 an Android phone and an iPhone, and both looked fine, so nothing changes.
@@ -392,18 +368,7 @@ Items 82 to 85, the header's Help moving as a sheet hydrates, a spell prepared's
 or distributed keeping their fractions, and keyboard focus after a move is sent from a character's
 sheet, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
-86. **e2e's toasts tap check under load:** T6 in `e2e/toasts-e2e.mjs:739`, at 390×844, "tapped once
-    the game has made it, the Dexterity check's toast goes at once", wants the toast gone within
-    300 ms of the tap, timed from before `page.touchscreen.tap` to the toast detached, so the 300 ms
-    count Playwright's own round trips and the page's main thread, not only the app's. It took
-    891 ms once, 13 of 149, in the e2e run made landing items 70 and 71, the suite alone on its lane
-    while another area's Jest and checks ran on the machine; it passed alone later on the same head
-    (149 of 149), as it did in the races70 lane's runs and in the batch's full e2e pass. Of a kind
-    with items 41, 42 and 70, which each failed under load with the app right, but not one of
-    item 80's kinds: the nearest, (b), is a step of the test's that must land inside the page's own
-    600 ms, where this is a bound the suite sets on the page, timed from the test's side. The check
-    could time the toast's going from the page's own record, as T5 does with `watchToasts`, or allow
-    for the round trips. Found landing items 70 and 71. In batch 10.
+Item 86, e2e's toasts tap check under load, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Found while building Batch 4**
 
@@ -432,17 +397,8 @@ coins, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.50.0.
 
 **Found in Batch 4's last checks**
 
-90. **e2e's next read of the table after a recharge, under load:** part 15 of `e2e/alone-e2e.mjs`
-    (line 1114), at 1280, "the page read the table as the game answered the recharge …, and again
-    … ms after that read", wants the page's next read to begin within 850 ms of the end of the read
-    on its way as the game answered. The page waits 500 ms (`READ_AGAIN_AFTER`, since v0.46.0), and
-    waited 1 s before, measured at 986 ms and more. It took 875 ms once, under `MIDI=1`, in batch
-    4's full e2e pass, three lanes up on four cores, and passed when rerun alone on its lane at once
-    (131 of 131). The other seven in the logs still on disk took 533 to 734 ms. The gap is timed
-    from the stand-in's side, so it counts the page's own work after a read (reading the answer,
-    drawing it) as well as the wait. Of a kind with item 86. The check could time the wait from the
-    page's own record, or allow more of the 1 s it tells the wait apart from. Found in batch 4's
-    last checks. In batch 10.
+Item 90, e2e's next read of the table after a recharge under load, is done, in
+[CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Asked for on 2026-11-18**
 
@@ -469,15 +425,8 @@ message past the twentieth, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 
 **Found in Batch 3's last checks**
 
-95. **The companions e2e near its time limit, under load:** `e2e/companions-e2e.mjs`'s three long
-    runs (plain, `MIDI=1` and `DND5E6=1`) are given `e2e/regress.sh`'s usual 400 s. Passing on a
-    lane beside two others, they took 333 to 345 s in batch 3, against 293 to 303 s in batch 4's
-    full e2e pass: item 18's parts for companions on another scene added 8 checks and about 40 s to
-    each. In batch 3's full e2e pass, three lanes up on four cores, the `DND5E6=1` run was stopped
-    at 400 s in part 15, at 132 of its 146 checks with none failed, and passed when rerun alone on
-    its lane at once (146 of 146 in 323 s). Of a kind with items 90 and 94. The runs could be given
-    `TIMEOUT=600`, as `typed`'s and `notesoffline`'s are, or the suite split in two. Found in batch
-    3's last checks. In batch 10.
+Item 95, the companions e2e's time limit under load, is done, in [CHANGELOG.md](CHANGELOG.md)'s
+v0.55.0-rc.
 
 **Found while building Batch 5**
 
@@ -643,6 +592,20 @@ Item 105, the quick wins, moved to v1.x on 2026-11-27, as its item 6.
 
      Likely two to four weeks (an estimate), in the app, and in the module and `PROTOCOL.md` only if
      Foundry is to know the guest. In no batch yet.
+
+**Found while building Batch 10**
+
+108. **e2e's first focus in alone part 17's picker, under load:** part 17 of `e2e/alone-e2e.mjs`,
+     its deferred "as it opens, focus on the chip picked in its first row", can find focus on the
+     Spend switch. `openPicker` takes the picker as ready once a look at it shows two levels, but
+     the focus it reads was given as the picker opened, on the page's sheet from before Thorin's
+     2nd-level slot reached it: one level, so no row of levels, where the switch takes focus. Seen
+     under load in the plain, `MIDI=1` and `DND5E6=1` runs; `e2e/README.md` lists it among the known
+     load races. Batch 10 saw it twice: in `timing-load-1`'s `MIDI=1` run and in the review's
+     `timing-rv1-load` plain run. It passed in the area's four other load runs, `timing-load-2` and
+     `timing-load-3` among them. The check could close and reopen the picker once the sheet with
+     both levels is in, before its first look, so that the focus it reads is the one the picker gave
+     with the rows there. Found in batch 10's load runs. In no batch yet.
 
 ## v1.0
 

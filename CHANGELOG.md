@@ -21,6 +21,15 @@ so an item from it is named with its number when it was built, which may since b
 
 ## v0.55.0-rc
 
+### Fixes
+
+- **End turn waits until the turn has been on the screen for 600 ms.** On a slow or busy phone it
+  could be offered a frame or more sooner, as when Undo brought a turn back: the 600 ms now count
+  from no sooner than the frame after the one that draws the turn, so a tap aimed at the last
+  heading, or a double tap across a turn's end, ends nothing on any device. On a quick one End turn
+  comes up to two frames, about 33 ms, later than before; in a background tab, 600 ms after the page
+  is shown again. (app, item 79)
+
 ### Maintenance
 
 - **Off Prisma Accelerate, onto the database's pooler.** Prisma Accelerate is retired on
@@ -31,6 +40,17 @@ so an item from it is named with its number when it was built, which may since b
   could serve, and `@prisma/extension-accelerate` is gone. No query used Accelerate's cache, so
   nothing changes at the table. README.md's new "The database" says what each string is for.
   (app)
+- **End-to-end checks that hold on a busy machine.** Each had failed under load with the app right,
+  or could: a menu's or popover's first focus is read once focus is in it, a frame after it shows
+  (removals, favoriting, givetake, wildshape, phone); phone reads its header and taps once the page
+  has hydrated; endturn counts End turn's 600 ms from the frame the page counts from, and taps End
+  turn the moment a turn shows while it holds the page's frames; toasts times a tapped toast's going
+  by the page's own clock; alone reads the wait the page sets before its next read of the table
+  after a recharge, not how long that wait took; and companions' three long runs are given 600 s, as
+  typed's and notesoffline's are. Each check still fails where it should: a menu that takes no
+  focus; Full screen missing; End turn offered sooner than 600 ms, or a tap made before then ending
+  the turn; a toast that doesn't go at once; a wait of 1 s, or a poll's 3 s, before the next read,
+  or one set late. (app, items 80, 86, 90 and 95)
 
 ## v0.54.0 — 2026-11-24
 
