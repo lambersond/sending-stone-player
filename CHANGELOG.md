@@ -90,11 +90,11 @@ so an item from it is named with its number when it was built, which may since b
   Batch 7, offline mode, moved back to v1.x, as its item 3; items 105 to 107, the quick wins, Ably
   and guest access, were asked for on 2026-11-25; and items 87, 88 and 105, sign-in and database
   cost, moved to v1.x, as its items 4 to 6. Items 108 to 110, under "Found while building Batch 10",
-  are what batch 10 found: `alone`'s part 17 reading its picker's first focus too soon under load
-  (108), a toast over the control that has focus (109), and focus lost when a favorite's move isn't
-  made (110). v0.54's checks at the table name the content they need. ROADMAP.md gains no v0.55
-  section: this version's work is the app's alone, and none of it rests on how Foundry behaves, so
-  there is nothing to check at the table. (app)
+  are what batch 10 found: `alone`'s part 17 reading, under load, the focus its picker gave as it
+  opened on a sheet without Thorin's 2nd-level slot (108), a toast over the control that has focus
+  (109), and focus lost when a favorite's move isn't made (110). v0.54's checks at the table name
+  the content they need. ROADMAP.md gains no v0.55 section: this version's work is the app's alone,
+  and none of it rests on how Foundry behaves, so there is nothing to check at the table. (app)
 
 ## v0.54.0 — 2026-11-24
 
