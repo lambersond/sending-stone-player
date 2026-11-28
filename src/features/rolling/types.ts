@@ -297,7 +297,10 @@ export type ToastBook = {
   drawn: ReadonlySet<string>
 }
 
-/** The toasts as `popToasts` writes them, and the toasts popped up now (`draftOf`). */
+/**
+ * The toasts as `popToasts` writes them, and the toasts popped up now (`draftOf`), with any drawn
+ * now where it showed unseen (item 104).
+ */
 export type ToastDraft = ToastBook & { popped: Set<RollToast> }
 
 /**

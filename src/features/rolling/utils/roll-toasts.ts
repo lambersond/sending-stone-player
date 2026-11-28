@@ -205,7 +205,8 @@ function meet(
 /**
  * A roll's toast popped up again as its way to the game ends: on top, where it had gone; else kept
  * where it is (`at`), for its full time again, and drawn from now if it's a favorite's own move
- * whose order wasn't made (item 104).
+ * whose order wasn't made (item 104), which then takes a place among the three as one popping up
+ * does, so that the cap makes room for it.
  */
 function popAgain(
   draft: ToastDraft,
@@ -215,13 +216,15 @@ function popAgain(
 ) {
   if (at === -1) pop(draft, roll.id, { now, until, unseen })
   else {
-    const { poppedAt } = draft.shown[at]
-    draft.shown = draft.shown.with(at, {
+    const was = draft.shown[at]
+    const toast: RollToast = {
       id: roll.id,
-      poppedAt,
+      poppedAt: was.poppedAt,
       until,
       ...(unseen && { unseen: true as const }),
-    })
+    }
+    if (was.unseen && !unseen) draft.popped.add(toast)
+    draft.shown = draft.shown.with(at, toast)
   }
   noteDrawn(draft, roll, unseen)
 }
@@ -266,7 +269,8 @@ const drawnCount = (toasts: readonly RollToast[]) =>
  * that doesn't wait for the player gone, until none more need to, but never one popped up now,
  * which would then never show, as where all the others wait. More than the cap then show, each
  * going in its own time, until the next pops up. One said and not drawn takes no place, and is
- * never dropped (ROADMAP item 104).
+ * never dropped; one drawn now where it is, as its order wasn't made, counts as one popping up
+ * (ROADMAP item 104).
  */
 function capped(
   draft: ToastDraft,

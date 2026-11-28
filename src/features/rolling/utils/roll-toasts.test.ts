@@ -907,7 +907,13 @@ describe('utils/roll-toasts', () => {
     })
 
     it.each<
-      [string, LocalRoll[], ReadonlyMap<string, TableRollState>, string[]]
+      [
+        string,
+        LocalRoll[],
+        ReadonlyMap<string, TableRollState>,
+        string[],
+        ReadonlyMap<string, TableRollState>?,
+      ]
     >([
       [
         'two checks and two steps showing, a third check popping up: all five, as the steps take no place',
@@ -933,10 +939,38 @@ describe('utils/roll-toasts', () => {
         NONE,
         ['d', 'c', 'b', 's'],
       ],
+      [
+        "a step and three checks showing, the step's order then not made: the step drawn where it is takes a place as one popping up, and the oldest check goes",
+        [step('s'), check('a', 1), check('b', 2), check('c', 3)],
+        ways(['s', { status: 'rolling' }]),
+        ['c', 'b', 's'],
+        ways(['s', { status: 'failed', reason: 'changed' }]),
+      ],
+      [
+        "three attacks waiting and a check showing, one attack's damage then no longer waited for as the check's way ends where it shows: all four, as a toast drawn already takes no new place",
+        [check('w1'), check('w2', 1), check('w3', 2), check('k', 3)],
+        new Map([...waiting('w1', 'w2', 'w3'), ['k', { status: 'rolling' }]]),
+        ['k', 'w3', 'w2', 'w1'],
+        ways(
+          ['w1', hit({ damage: null })],
+          ['w2', hit()],
+          ['w3', hit()],
+          ['k', done()],
+        ),
+      ],
     ])(
       'counts only drawn toasts toward the three, and drops only a drawn one as a drawn one pops up: %s',
-      (_what, rolls, states, shown) => {
-        expect(ids(metInTurn(rolls, states))).toEqual(shown)
+      (_what, rolls, states, shown, then = states) => {
+        // Then, 100 ms after the last is met, the game's answers where a row gives them; else the
+        // same ways again, which change nothing.
+        const book = popToasts(
+          metInTurn(rolls, states),
+          rolls.toReversed(),
+          then,
+          rolls.length * 100,
+          true,
+        )
+        expect(ids(book)).toEqual(shown)
       },
     )
   })
