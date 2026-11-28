@@ -50,27 +50,51 @@ so an item from it is named with its number when it was built, which may since b
   could serve, and `@prisma/extension-accelerate` is gone. No query used Accelerate's cache, so
   nothing changes at the table. README.md's new "The database" says what each string is for.
   (app)
-- **End-to-end checks that hold on a busy machine.** Each had failed under load with the app right,
-  or could: a menu's or popover's first focus is read once focus is in it, a frame after it shows
-  (removals, favoriting, givetake, wildshape, phone); phone reads its header and taps once the page
-  has hydrated; endturn counts End turn's 600 ms from the frame the page counts from, and taps End
-  turn the moment a turn shows while it holds the page's frames; toasts times a tapped toast's going
-  by the page's own clock; alone reads the wait the page sets before its next read of the table
-  after a recharge, not how long that wait took; and companions' three long runs are given 600 s, as
-  typed's and notesoffline's are. Each check still fails where it should: a menu that takes no
-  focus; Full screen missing; End turn offered sooner than 600 ms, or a tap made before then ending
-  the turn; a toast that doesn't go at once; a wait of 1 s, or a poll's 3 s, before the next read,
-  or one set late. (app, items 80, 86, 90 and 95)
-- **Tests for favorites' moves.** Jest pins a favorite listed inside another's open row, an item's
-  other activity or what a container holds, offering Remove from favorites alone there, its own row
-  still moving it (item 103). It pins a favorite's own move said in the toasts' log and not drawn
-  while its order is on its way or made, drawn once it isn't and from then on; taking none of the
-  three places while it's said, and one once it's drawn, as a toast popping up does; and Reorder's
-  toast drawn as before, through the table's page (item 104). The e2e's `favoriting`, in part 14,
-  checks at 1366 the Longsword moved from the keyboard to the top of the second list, its name and
-  focus ring in sight while its move's toast is said and not drawn, and still not drawn once the
-  order is saved; and Cast Fireball beneath the Staff of Embers with no move there. So its plain run
-  wants 123 checks and its dnd5e 6 run 89, where they wanted 120 and 86. (app, items 103 and 104)
+- **End-to-end checks.** `endturn` counts End turn's 600 ms from the frame the page now counts from,
+  in its part 3, and in part 20 taps End turn the moment a turn shows while it holds the page's
+  frames (items 79 and 80). Other checks that had failed under load with the app right, or could,
+  hold on a busy machine: a menu's or popover's first focus is read once focus is in it, a frame
+  after it shows (`removals`, `favoriting`, `givetake`, `wildshape`, `phone`), and `phone` reads its
+  header and taps once the page has hydrated (item 80); `toasts` times a tapped toast's going by the
+  page's own clock (item 86); `alone` reads the wait the page sets before its next read of the table
+  after a recharge, not how long that wait took (item 90); and `companions`' three long runs are
+  given 600 s, as `typed`'s and `notesoffline`'s are (item 95). Each check still fails where it
+  should: End turn offered sooner than 600 ms, or a tap made before then ending the turn; a menu
+  that takes no focus; Full screen missing; a toast that doesn't go at once; a wait of 1 s, or a
+  poll's 3 s, before the next read, or one set late. `favoriting`'s part 14, at 1366, checks the
+  Longsword moved from the keyboard to the top of the second list, its name and focus ring in sight
+  while its move's toast is said and not drawn, and still not drawn once the order is saved
+  (item 104); and Cast Fireball beneath the Staff of Embers, with no move there and its own row
+  still moving it (item 103). So its plain run wants 123 checks and its dnd5e 6 run 89, where they
+  wanted 120 and 86; every other run wants what it did. `e2e/README.md` says what settles each
+  moment the suites had wrong under load, and that `alone`'s known focus race in part 17 is met in
+  its plain and `MIDI=1` runs too (ROADMAP item 108); it still counts 63 suites and 148 runs. (app,
+  items 79, 80, 86, 90, 95, 103 and 104)
+- **Jest tests.** Tests pin End turn offered 600 ms from the frame after the one that draws the
+  turn, and not 1 ms sooner; and a turn shown anew counted from its own frames, a frame into the
+  last one's count or with its timer already running, with nothing left of that count
+  (`src/features/table/hooks/use-end-turn.test.tsx`). The table's page and the words golden wait
+  those two frames, `TWO_FRAMES` (`src/utils/test-utils.ts`), before End turn's 600 ms (item 79).
+  Others pin a favorite listed inside another's open row, an item's other activity or what a
+  container holds, offering Remove from favorites alone there, its own row still moving it
+  (`favorites.integration.test.tsx`, item 103); a favorite's own move said in the toasts' log and
+  not drawn while its order is on its way or made, drawn once it isn't and from then on, taking none
+  of the three places while it's said and one once it's drawn, as a toast popping up does
+  (`src/features/rolling/utils/roll-toasts.ts` and `roll-toasts.test.tsx`); and Reorder's toast
+  drawn as before, through the table's page (`game-table.favorites.integration.test.tsx`, item 104).
+  (app, items 79, 103 and 104)
+- **ROADMAP kept current.** Under "Before v1.0", batches 9 and 10 read as done, and the plan's
+  opening says batches 1 to 6 and 8 to 10 are done: batch 10's seven items are taken out, with a
+  line saying so where each run of them stood, and item 81, what the launch page leaves to the
+  phones, is closed, as the owner saw the stone look fine on an Android phone and an iPhone.
+  Batch 7, offline mode, moved back to v1.x, as its item 3; items 105 to 107, the quick wins, Ably
+  and guest access, were asked for on 2026-11-25; and items 87, 88 and 105, sign-in and database
+  cost, moved to v1.x, as its items 4 to 6. Items 108 to 110, under "Found while building Batch 10",
+  are what batch 10 found: `alone`'s part 17 reading its picker's first focus too soon under load
+  (108), a toast over the control that has focus (109), and focus lost when a favorite's move isn't
+  made (110). v0.54's checks at the table name the content they need. ROADMAP.md gains no v0.55
+  section: this version's work is the app's alone, and none of it rests on how Foundry behaves, so
+  there is nothing to check at the table. (app)
 
 ## v0.54.0 — 2026-11-24
 

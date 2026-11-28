@@ -280,8 +280,7 @@ where a check says so) and Midi-QOL v14.0.x:
 
 All the work planned before v1.0, by number, kept under where each item came from. The owner's
 plan of 2026-11-13 takes it in batches, in this order; feedback from the table, bugs found and
-tweaks needed may change it as it goes. Batches 1 to 6, 8 and 9 are done; 7 moved to v1.x; 10 is
-under way.
+tweaks needed may change it as it goes. Batches 1 to 6 and 8 to 10 are done; 7 moved to v1.x.
 
 1. Item 24, the module's import cycle: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.48.0.
 2. Items 23, 29, 47, 41, 42, 57, 56, 70, 71, 67 and 68, Midi-QOL's reaction checks, effects carried
@@ -302,9 +301,10 @@ under way.
    and 85, keyboard and focus: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.53.0.
 9. Off Prisma Accelerate, retired on 2026-12-01, onto the database's pooler, before 7: done, in
    [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
-10. Items 79, 80, 86, 90 and 95, End turn's timer and e2e checks under load; and 103 and 104,
-    favorites: begun on 2026-11-27, on the owner's word. Item 81, the launch page, closed the same
-    day: the owner saw the stone on both phones and nothing needs to change.
+10. Items 79, 80, 86, 90 and 95, End turn's timer and e2e checks under load; and 103 and 104, a
+    favorite's Move up and Move down: done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc. Item 81,
+    the launch page, closed on 2026-11-27: the owner saw the stone on both phones and nothing needs
+    to change.
 
 **Found while untangling the module's imports**
 
@@ -606,8 +606,9 @@ Item 105, the quick wins, moved to v1.x on 2026-11-27, as its item 6.
      slow), the favorite goes back to the first list and focus goes nowhere: no row has it and no
      ring shows, while its toast says why. `useFavoriteList`
      (`src/features/sheet/components/favorites/use-favorite-list.ts`) gives focus to the move alone,
-     never to the row put back. Seen in Chromium with Sending Stone not reached. Found fixing item
-     104's review. In no batch yet.
+     never to the row put back. The known limits list one such case, its move refused because
+     Foundry's sheet changed meanwhile. Seen in Chromium with Sending Stone not reached. Found
+     fixing item 104's review. In no batch yet.
 
 ## v1.0
 
