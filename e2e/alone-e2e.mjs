@@ -1051,6 +1051,12 @@ const watchReads = who => who.page.evaluate(api => {
 }, API)
 /** The page's wait before the read after the one a roll's answer brings: `READ_AGAIN_AFTER`. */
 const READ_AGAIN_AFTER = 500
+/**
+ * How soon after a read is answered the page sets its wait before the next, at most: it comes after
+ * the body's read and the page's own work, which a busy machine slows but not to a second, and
+ * before any timer's lateness. A wait set late holds the next read back, however short (item 90).
+ */
+const SET_WITHIN = 1_000
 /** What `watchReads` has seen on a page so far. */
 const readsOf = who => who.page.evaluate(() => JSON.parse(JSON.stringify(globalThis.__reads)))
 for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]) {
@@ -1119,6 +1125,8 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
     // set once that read was answered, for 500 ms: not the 1 s it waited before, nor a poll's 3 s.
     // The wait the page set, not how long it took: on a busy machine that counts the body's read,
     // the page's own work and a timer that fires late, and once came to 1137 ms with the app right.
+    // When it was set is held too, within 1 s of that answer (`SET_WITHIN`): a wait set late holds
+    // the next read back as surely, and a timer firing late doesn't count in it.
     {
       let answered, first, next
       await until(async () => {
@@ -1134,9 +1142,9 @@ for (const [width, height] of [[360, 780], [390, 844], [768, 1024], [1280, 800]]
       }, `the reads of the table after Fire Breath's recharge at ${width}`, 6_000).catch(() => {})
       const firstWords = first ? (first.start <= answered ? 'on its way' : `${Math.round(first.start - answered)} ms after it`) : 'none after it'
       const timer = next?.timer ?? null
-      const paced = timer !== null && first.answered !== null && timer.set >= first.answered && timer.delay === READ_AGAIN_AFTER
+      const paced = timer !== null && first.answered !== null && timer.set >= first.answered && timer.set - first.answered <= SET_WITHIN && timer.delay === READ_AGAIN_AFTER
       const nextWords = next === undefined ? 'not within 6 s'
-        : `after a wait of ${timer === null ? 'none of its own' : `${timer.delay} ms, set ${timer.set >= first.answered ? 'once' : 'before'} that read was answered`} (the read again's ${READ_AGAIN_AFTER}), ${Math.round(next.start - first.answered)} ms on by the page's clock`
+        : `after a wait of ${timer === null ? 'none of its own' : `${timer.delay} ms, set ${timer.set >= first.answered ? `${Math.round(timer.set - first.answered)} ms after` : 'before'} that read was answered`} (the read again's ${READ_AGAIN_AFTER}, set within ${SET_WITHIN} ms), ${Math.round(next.start - first.answered)} ms on by the page's clock`
       check(answered !== undefined && first !== undefined && first.start - answered <= 1_000 && paced,
         `at ${width} the page read the table as the game answered the recharge (${answered === undefined ? 'no answer heard' : firstWords}), and again ${nextWords}`)
     }

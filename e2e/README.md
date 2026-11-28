@@ -257,7 +257,8 @@ whose checks are its own timings from the start: since v0.50 the quiet fetches' 
     before its next read of the table: `watchReads`, a wrapper of the page's `fetch` and
     `setTimeout`, notes the timer that began each read and the wait it was set for, and the check is
     that the read after the one the recharge's answer found was begun by a wait of 500 ms
-    (`READ_AGAIN_AFTER`), set once that read was answered, not the 1 s it once waited nor a poll's
+    (`READ_AGAIN_AFTER`), set once that read was answered and within 1 s of it (`SET_WITHIN`: the
+    body's read and the page's own work, not a late timer), not the 1 s it once waited nor a poll's
     3 s. How long that wait took also counts the body's read, the page's own work and a late timer
     on a busy machine, and came to 1137 ms once with the app right.
   - `stopFetching({ age })` first lets a fetch under way reach the app, which notes a fetch as
