@@ -74,10 +74,10 @@ function onceShownFor(ms: number, then: () => void): () => void {
  * followed to its end whichever turn is shown, for the toast to say how it went; and `end`, which
  * sends it. A turn is offered once it has been on the screen for a moment (`END_TURN_ARMS_AFTER`,
  * counted from no sooner than the frame after the one that draws it), and not while one sent for it
- * is on its way, nor once it's ended or refused as over. What's kept is kept
- * for the turn shown only: a turn ended once and shown again, as by the Gamemaster's Previous
- * Turn, is offered again, whether or not the page saw another turn between, and the game tells
- * whether it still may be ended.
+ * is on its way, nor once it's ended or refused as over. What's kept is kept for the turn shown
+ * only: a turn ended once and shown again, as by the Gamemaster's Previous Turn, is offered again,
+ * whether or not the page saw another turn between, and the game tells whether it still may be
+ * ended.
  * @param api - The seat's API base, which its rolls go through.
  * @param gm - Whether the seat is the Gamemaster's, whose Send to the table is a switch of its own.
  * @param combat - The combat as the page's view shows it: a new object only with a newer view, as
