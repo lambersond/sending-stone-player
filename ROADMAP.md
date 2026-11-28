@@ -470,24 +470,9 @@ Item 98, constant companions, is done, in [CHANGELOG.md](CHANGELOG.md)'s v0.54.0
      world's Unicorn form reads "becomes an Unicorn", and one named for Honor "a Honor". The app's
      rule (`articleOf`, `src/utils/articles.ts`) could be the module's too. Module only, small.
      Found building item 96. In no batch yet.
-103. **Move up and Move down on a favorite inside another:** a favorite open to its description
-     lists rows of its own, such as an item's other activities or what a container holds. One of
-     those that is a favorite too offers Move up and Move down in its menu there, and moves that
-     favorite among the favorites: `FavoritesList`
-     (`src/features/sheet/components/favorites/favorites-list.tsx`) gives `FavoriteMovesContext`
-     around every row it draws, the rows inside a favorite's description among them, and
-     `useFavoriteChoice` (`src/features/sheet/components/favoriting/use-favorite-choice.ts`) reads
-     it for any row under it. Read from the code, not tried. Found planning items 74 and 75. In
-     batch 10.
-104. **A move's toast over the favorite that just took focus:** where the favorites lie in two lists
-     (1366 px, Actions), Move down on the first list's last favorite puts it first in the second, at
-     the top of their card, with focus on it, and the move's toast ("Longsword" over "Order saved")
-     shows over that very place: the favorite's name is hidden under it, its focus ring showing only
-     at its edges, for as long as the toast shows. The same where the sheet scrolls a moved favorite
-     into sight: it comes to the top, under the toast. The toasts are centered at the top of the
-     window (`RollToasts`, `src/features/rolling/components/roll-toasts/roll-toasts.tsx`), which at
-     that width is the top of the second list; their place predates batch 8, and item 74 is what now
-     puts focus there. Found reviewing item 74. In batch 10.
+
+Items 103 and 104, Move up and Move down only on a favorite's own row, and a favorite's move shown
+in the list rather than in a toast, are done, in [CHANGELOG.md](CHANGELOG.md)'s v0.55.0-rc.
 
 **Asked for on 2026-11-25**
 
@@ -606,6 +591,23 @@ Item 105, the quick wins, moved to v1.x on 2026-11-27, as its item 6.
      `timing-load-3` among them. The check could close and reopen the picker once the sheet with
      both levels is in, before its first look, so that the focus it reads is the one the picker gave
      with the rows there. Found in batch 10's load runs. In no batch yet.
+109. **A toast over the control that has focus:** the toasts lie centered on the window from just
+     below the sheet's tabs, over whatever is there, for four seconds, or until its damage is rolled
+     for an attack that waits for it. A control with focus there is under them while they show: at
+     about 1296 to 1435 px, a roll made from the keyboard on the first favorite of the second list,
+     or Prepare, Remove from favorites or Send to… chosen there; on a phone, a row just under the
+     tabs. Its edges show as a rule, but one shorter than a toast, such as a damage chip, can be
+     hidden whole. Item 104 left a favorite's own move's toast unseen; every other toast stays where
+     it is. Read from the code and item 104's pictures, not measured. Found planning item 104. In no
+     batch yet.
+110. **Focus lost when a favorite's move isn't made:** where the favorites lie in two lists (1366
+     px), Move down from the keyboard on the first list's last favorite puts it first in the second,
+     focus on it (item 74). If its order isn't made (Sending Stone not reached, refused, or too
+     slow), the favorite goes back to the first list and focus goes nowhere: no row has it and no
+     ring shows, while its toast says why. `useFavoriteList`
+     (`src/features/sheet/components/favorites/use-favorite-list.ts`) gives focus to the move alone,
+     never to the row put back. Seen in Chromium with Sending Stone not reached. Found fixing item
+     104's review. In no batch yet.
 
 ## v1.0
 

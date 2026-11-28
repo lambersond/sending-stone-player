@@ -29,6 +29,16 @@ so an item from it is named with its number when it was built, which may since b
   heading, or a double tap across a turn's end, ends nothing on any device. On a quick one End turn
   comes up to two frames, about 33 ms, later than before; in a background tab, 600 ms after the page
   is shown again. (app, item 79)
+- **Move up and Move down only on a favorite's own row.** A favorite open to its description can
+  list rows of its own, such as an item's other activities or what a container holds. Where one of
+  those is a favorite too, its menu there no longer offers Move up and Move down, which moved it
+  among your favorites from inside another. Its own row among them still does. Remove from favorites
+  stays on both. (app, item 103)
+- **A favorite's move shows in the list, not in a toast.** Move up and Move down from a favorite's
+  menu no longer show a toast, which on a laptop could cover the very favorite they moved. From the
+  keyboard, focus stays on it; with a mouse or a tap, the list's new order shows the move. A screen
+  reader still hears it, it's still among your rolls, and if the order isn't saved its toast shows,
+  saying why. Reorder's Save order and every other toast are as they were. (app, item 104)
 
 ### Maintenance
 
@@ -51,6 +61,16 @@ so an item from it is named with its number when it was built, which may since b
   focus; Full screen missing; End turn offered sooner than 600 ms, or a tap made before then ending
   the turn; a toast that doesn't go at once; a wait of 1 s, or a poll's 3 s, before the next read,
   or one set late. (app, items 80, 86, 90 and 95)
+- **Tests for favorites' moves.** Jest pins a favorite listed inside another's open row, an item's
+  other activity or what a container holds, offering Remove from favorites alone there, its own row
+  still moving it (item 103). It pins a favorite's own move said in the toasts' log and not drawn
+  while its order is on its way or made, drawn once it isn't and from then on; taking none of the
+  three places while it's said, and one once it's drawn, as a toast popping up does; and Reorder's
+  toast drawn as before, through the table's page (item 104). The e2e's `favoriting`, in part 14,
+  checks at 1366 the Longsword moved from the keyboard to the top of the second list, its name and
+  focus ring in sight while its move's toast is said and not drawn, and still not drawn once the
+  order is saved; and Cast Fireball beneath the Staff of Embers with no move there. So its plain run
+  wants 123 checks and its dnd5e 6 run 89, where they wanted 120 and 86. (app, items 103 and 104)
 
 ## v0.54.0 — 2026-11-24
 
